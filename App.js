@@ -50,6 +50,7 @@ import Meteor from '@meteorrn/core';
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 import {MyTabs} from './components/navigator/MyTabs';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import VideoPlayer from './components/video/VideoPlayer';
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -137,19 +138,19 @@ const App = () => {
             component={MyTabs}
             options={({navigation, route}) => ({
               title: (
-                <Text>
-                  <MaterialIcons
+                <Text style={{letterSpacing:5}}>
+                  <FontAwesome
                     // onPress={() => logOut(navigation)}
-                    name="keyboard-arrow-right"
+                    name="hand-o-right"
                     color={'white'}
                     size={20}
                     // borderRadius={20}
                     solid
                   />
                   VidKar
-                  <MaterialIcons
+                  <FontAwesome
                     // onPress={() => logOut(navigation)}
-                    name="keyboard-arrow-left"
+                    name="hand-o-left"
                     color={'white'}
                     size={20}
                     // borderRadius={20}
