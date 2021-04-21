@@ -1,0 +1,103 @@
+import Meteor, {Accounts, Mongo, withTracker} from '@meteorrn/core';
+import React, {useEffect} from 'react';
+import {View, ScrollView, Text, Dimensions, StyleSheet} from 'react-native';
+import Header from 'react-native-custom-header';
+import Video, {TextTrackType} from 'react-native-video';
+// Meteor.connect('ws://10.0.2.2:3000/websocket');
+// const Todos = new Mongo.Collection('pelisRegister');
+
+import Orientation from 'react-native-orientation';
+var {width: screenWidth} = Dimensions.get('window');
+var {height: screenHeight} = Dimensions.get('window');
+class Player extends React.Component {
+  componentDidMount() {
+    Orientation.lockToLandscape();
+    screenWidth = Dimensions.get('window').width;
+    screenHeight = Dimensions.get('window').height;
+  }
+
+  componentWillUnmount() {
+    Orientation.unlockAllOrientations();
+  }
+
+  constructor(props) {
+    super(props);
+    this.state={
+      control:true
+    }
+  }
+  render() {
+    const {item} = this.props;
+    
+    const hideShowControl = () => {
+      this.setState(
+        {control: !this.state.control}
+      )
+    }
+    // console.log(item);
+    return (
+      <View style={styles.ViewVideo}>
+        <Video
+        onTouchStart={hideShowControl}
+        playInBackground
+          controls={true}
+          fullscreen={true}
+          fullscreenOrientation="all"
+          // source={require('./2_5330455701720403144.mp4')}
+          source={{uri: item.urlPeli}} // Can be a URL or a local file.
+          ref={ref => {
+            this.player = ref;
+          }} // Store reference
+          onBuffer={this.onBuffer} // Callback when remote video is buffering
+          onError={this.videoError} // Callback when video cannot be loaded
+          style={styles.backgroundVideo}
+          bufferConfig={{
+            minBufferMs: 15000,
+            maxBufferMs: 50000,
+            bufferForPlaybackMs: 2500,
+            bufferForPlaybackAfterRebufferMs: 5000,
+          }}
+          resizeMode="cover"
+          maxBitRate={500000} // 1 megabits
+          paused={this.state.control}
+          pictureInPicture
+          poster={item.urlBackground}
+          textTracks={[
+            {
+              title: 'ESPAÑOL CC',
+              language: 'en',
+              type: TextTrackType.VTT, // "text/vtt"
+              uri: 'https://srv5119-206152.vps.etecsa.cu/' + item.subtitulo, // ...or implement something along the lines of require(file)
+            },
+          ]}
+          selectedTextTrack={{type: 'title', value: 'ESPAÑOL CC'}}
+          
+        />
+      </View>
+    );
+  }
+}
+
+export default Player;
+
+var styles = StyleSheet.create({
+  ViewVideo: {
+    width: screenWidth,
+    height: screenHeight,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    right: 0,
+  },
+  backgroundVideo: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    right: 0,
+    // height: 140,
+    // width: '100%'
+    borderRadius: 10,
+  },
+});
