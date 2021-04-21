@@ -30,6 +30,7 @@ import {
   Platform,
   Button,
   RefreshControl,
+  SectionList,
 } from 'react-native';
 
 import {
@@ -46,8 +47,8 @@ import Orientation from 'react-native-orientation';
 // const Tab = createMaterialBottomTabNavigator();
 
 const {width: screenWidth} = Dimensions.get('window');
-const MyCol = new Meteor.Collection('pelisRegister');
-Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
+const MyCol = new Meteor.Collection('users');
+// Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
 
 class MyApp extends React.Component {
   componentDidMount() {
@@ -65,12 +66,12 @@ class MyApp extends React.Component {
     this.state = {
       count: 0,
       isDarkMode: useColorScheme,
-      // data: props.myTodoTasks,
+      data: props.myTodoTasks,
       // loading: props.loading,
       carouselRef: null,
       refreshing: false,
     };
-
+    console.log(this.props.myTodoTasks);
     // const isDarkMode = useColorScheme() === 'dark';
     // const [data, setData] = ;
     // const [isLoading, setLoading] = useState(true);
@@ -84,6 +85,7 @@ class MyApp extends React.Component {
     // };
     const backgroundStyle = {
       backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
+      minHeight: ScreenHeight,
     };
 
     const onRefresh = () => {
@@ -91,15 +93,23 @@ class MyApp extends React.Component {
         // refreshing: false,
         data: MyCol.find({}).fetch(),
       });
+      console.log(this.props.myTodoTasks);
 
       // this.state.navigation.navigate('Home')
       // this.setState({
       //   data:
       // })
     };
+    const Item = item => (
+      <View style={styles.item2}>
+        <Text style={styles.title}>Nombre: {item.profile.firstName}</Text>
+        <Text style={styles.title}>Apellidos: {item.profile.lastName}</Text>
+        <Text style={styles.title}>Nombre de Usuario: {item.username}</Text>
+      </View>
+    );
     return (
-      <View>
-        <ScrollView
+      <View style={{flex: 1}}>
+        {/* <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={backgroundStyle}
           refreshControl={
@@ -107,46 +117,37 @@ class MyApp extends React.Component {
               refreshing={this.state.refreshing}
               onRefresh={onRefresh}
             />
-          }>
-          {loading ? (
-            <View
-              style={{
-                flex: 1,
-                flexDirection: 'column',
-                height: ScreenHeight,
-                backgroundColor: '#2a323d',
-                justifyContent: 'center',
-              }}>
-              <ActivityIndicator size="large" color="#3f51b5" />
-            </View>
-          ) : (
-            <View style={styles.container}>
-              <View style={{width: '100%', alignItems: 'center'}}>
-                <Title
-                  style={{
-                    color: 'white',
-                    paddingTop: 50,
-                    // paddingLeft: 25,
-                    fontSize: 30,
-                  }}>
-                  Todos los Usuarios
-                </Title>
-              </View>
-            </View>
-          )}
+          }> */}
+        {loading ? (
+          <View
+            style={{
+              flex: 1,
+              flexDirection: 'column',
+              height: ScreenHeight,
+              backgroundColor: '#2a323d',
+              justifyContent: 'center',
+            }}>
+            <ActivityIndicator size="large" color="#3f51b5" />
+          </View>
+        ) : (
+          <FlatList
+            data={this.state.data}
+            renderItem={({item}) => Item(item)}
+            keyExtractor={(item, index) => item._id}
+          />
+        )}
 
-          {/* <Text>
+        {/* <Text>
            {this.state.isLoading ? '' : JSON.stringify(this.state.data)}
          </Text> */}
-        </ScrollView>
+        {/* </ScrollView> */}
       </View>
     );
   }
 }
 const UserHome = withTracker(navigation => {
   const handle = Meteor.subscribe('user');
-  const myTodoTasks = MyCol.find({}).fetch();
-
+  const myTodoTasks = Meteor.users.find({}).fetch();
   return {
     navigation,
     myTodoTasks,
@@ -156,6 +157,23 @@ const UserHome = withTracker(navigation => {
 
 var ScreenHeight = Dimensions.get('window').height;
 const styles = StyleSheet.create({
+  container2: {
+    flex: 1,
+    paddingTop: StatusBar.currentHeight,
+    marginHorizontal: 16,
+  },
+  item2: {
+    backgroundColor: '#f9c2ff',
+    padding: 20,
+    marginVertical: 8,
+  },
+  header: {
+    fontSize: 32,
+    backgroundColor: '#fff',
+  },
+  title: {
+    fontSize: 24,
+  },
   container: {
     flex: 1,
     flexDirection: 'column',
