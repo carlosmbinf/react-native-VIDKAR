@@ -4,6 +4,7 @@ import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Loguin from '../loguin/Loguin';
 import PelisHome from '../pelis/PelisHome';
+import UsersHome from '../users/UsersHome';
 
 const Tab = createBottomTabNavigator();
 
@@ -50,7 +51,7 @@ export function MyTabs(prop) {
           const {navigation, route} = prop;
           // const {item} = route.params;
           return (
-            <PelisHome navigationGeneral={navigation} />
+            <UsersHome navigationGeneral={navigation} />
             // <TasksProvider user={user} projectPartition={projectPartition}>
             //   <TasksView navigation={navigation} route={route} />
             // </TasksProvider>
