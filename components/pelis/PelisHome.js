@@ -40,6 +40,7 @@ import {
 } from 'react-native/Libraries/NewAppScreen';
 import PelisCard from './PelisCard';
 import Loguin from '../loguin/Loguin';
+import Orientation from 'react-native-orientation';
 
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
@@ -49,6 +50,13 @@ const MyCol = new Meteor.Collection('pelisRegister');
 Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
 
 class MyApp extends React.Component {
+  componentDidMount() {
+    Orientation.lockToPortrait();
+  }
+
+  componentWillUnmount() {
+    Orientation.unlockAllOrientations();
+  }
   constructor(props) {
     // const handle = Meteor.subscribe('pelis');
     // const myTodoTasks = MyCol.find({}).fetch();
@@ -144,7 +152,7 @@ class MyApp extends React.Component {
               <Carousel
                 layout={'default'}
                 ref={this.state.carouselRef}
-                sliderWidth={Dimensions.get('window').width}
+                sliderWidth={screenWidth}
                 sliderHeight={400}
                 itemWidth={screenWidth - 100}
                 data={myTodoTasks}

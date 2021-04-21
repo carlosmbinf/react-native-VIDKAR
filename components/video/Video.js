@@ -5,6 +5,7 @@ import Header from 'react-native-custom-header';
 import Video, {TextTrackType} from 'react-native-video';
 // Meteor.connect('ws://10.0.2.2:3000/websocket');
 // const Todos = new Mongo.Collection('pelisRegister');
+import Modal from 'react-native-modal';
 
 import Orientation from 'react-native-orientation';
 var {width: screenWidth} = Dimensions.get('window');
@@ -22,29 +23,45 @@ class Player extends React.Component {
 
   constructor(props) {
     super(props);
-    this.state={
-      control:true
-    }
+    this.state = {
+      paused: false,
+      isModalVisible: false,
+    };
   }
   render() {
     const {item} = this.props;
-    
-    const hideShowControl = () => {
-      this.setState(
-        {control: !this.state.control}
-      )
-    }
+
+    const hideShowpaused = () => {
+      this.setState({paused: true, isModalVisible: true});
+    };
     // console.log(item);
     return (
       <View style={styles.ViewVideo}>
+        <Modal
+          // animationType='fade'
+          style={{width: '100%', margin: 0}}
+          isVisible={this.state.isModalVisible}
+          onSwipeComplete={() => this.state.is(false)}
+          // swipeDirection="down"
+          coverScreen={true}
+          transparent={true}
+          customBackdrop={
+            <View
+              onTouchEnd={() => {
+                this.setState({paused: false, isModalVisible: false});
+              }}
+              style={{backgroundColor: 'black', flex: 1, width: '100%'}}>
+              <Text>Hola</Text>
+            </View>
+          }></Modal>
         <Video
-        onTouchStart={hideShowControl}
-        playInBackground
+          // onTouchStart={hideShowpaused}
+          playInBackground
           controls={true}
           fullscreen={true}
           fullscreenOrientation="all"
-          // source={require('./2_5330455701720403144.mp4')}
-          source={{uri: item.urlPeli}} // Can be a URL or a local file.
+          source={require('./2_5330455701720403144.mp4')}
+          // source={{uri: item.urlPeli}} // Can be a URL or a local file.
           ref={ref => {
             this.player = ref;
           }} // Store reference
@@ -59,7 +76,7 @@ class Player extends React.Component {
           }}
           resizeMode="cover"
           maxBitRate={500000} // 1 megabits
-          paused={this.state.control}
+          paused={this.state.paused}
           pictureInPicture
           poster={item.urlBackground}
           textTracks={[
@@ -71,7 +88,6 @@ class Player extends React.Component {
             },
           ]}
           selectedTextTrack={{type: 'title', value: 'ESPAÑOL CC'}}
-          
         />
       </View>
     );
@@ -82,8 +98,8 @@ export default Player;
 
 var styles = StyleSheet.create({
   ViewVideo: {
-    width: screenWidth,
-    height: screenHeight,
+    width: '100%',
+    height: '100%',
     position: 'absolute',
     top: 0,
     left: 0,
@@ -98,6 +114,7 @@ var styles = StyleSheet.create({
     right: 0,
     // height: 140,
     // width: '100%'
-    borderRadius: 10,
+    // borderRadius: 10,
+    backgroundColor: 'black',
   },
 });

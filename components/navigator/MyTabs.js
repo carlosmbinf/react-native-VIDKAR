@@ -17,9 +17,33 @@ export function MyTabs(prop) {
         name="Pelicula"
         // component={PelisHome}
         options={{
-          tabBarLabel: 'Home',
+          tabBarLabel: 'Películas',
           tabBarIcon: ({color}) => (
-            <MaterialCommunityIcons name="home" color={color} size={26} />
+            <MaterialCommunityIcons name="movie" color={color} size={26} />
+          ),
+        }}>
+        {props => {
+          const {navigation, route} = prop;
+          // const {item} = route.params;
+          return (
+            <PelisHome navigationGeneral={navigation} />
+            // <TasksProvider user={user} projectPartition={projectPartition}>
+            //   <TasksView navigation={navigation} route={route} />
+            // </TasksProvider>
+          );
+        }}
+      </Tab.Screen>
+      <Tab.Screen
+        name="Users"
+        // component={PelisHome}
+        options={{
+          tabBarLabel: 'Users',
+          tabBarIcon: ({color}) => (
+            <MaterialCommunityIcons
+              name="account-cog"
+              color={color}
+              size={26}
+            />
           ),
         }}>
         {props => {

@@ -20,16 +20,16 @@ import {
   ReloadInstructions,
 } from 'react-native/Libraries/NewAppScreen';
 import Player from '../video/Video';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const LeftContent = props => <Avatar.Icon {...props} icon="folder" />;
-
 
 const PelisCard = item => {
   const [url, setUrl] = useState('');
   const [isFull, setIsFull] = useState(true);
   const [isModalVisible, setModalVisible] = useState(false);
   const [isDarkMode, setIsDarkMode] = useColorScheme();
-  
+
   const itemlocal = item.item;
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
@@ -52,10 +52,9 @@ const PelisCard = item => {
             style={{backgroundColor: 'black', flex: 1}}
           />
         }>
-        
         <View
           style={{
-            height: 400,
+            height: 290,
             marginTop: 'auto',
             backgroundColor: '#3f4b5b',
             borderRadius: 30,
@@ -76,13 +75,26 @@ const PelisCard = item => {
               padding: 10,
               alignItems: 'center',
               backgroundColor: '#3f51b5',
+              flexDirection: 'row',
             }}>
-            <Text style={{color: 'white'}}>{itemlocal.nombrePeli}</Text>
+            <View style={{width: '90%', alignItems: 'center'}}>
+              <Text style={{color: 'white'}}>{itemlocal.nombrePeli}</Text>
+            </View>
+            <View style={{width: '10%'}}>
+              <MaterialCommunityIcons
+                onPress={() => {
+                  setModalVisible(false);
+                }}
+                name="close"
+                color={'white'}
+                size={26}
+              />
+            </View>
           </View>
           <View
             style={{
               flexDirection: 'row',
-              height: 110,
+              height: 150,
               width: '100%',
               borderStyle: 'solid',
               borderWidth: 1,
@@ -90,7 +102,7 @@ const PelisCard = item => {
               padding: 10,
               marginBottom: 10,
             }}>
-            <View style={{width: '30%', height: 90}}>
+            <View style={{width: '30%', height: '100%'}}>
               <Card.Cover
                 style={{height: '100%', borderRadius: 10}}
                 source={{

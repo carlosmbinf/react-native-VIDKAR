@@ -136,7 +136,27 @@ const App = () => {
             name="Peliculas"
             component={MyTabs}
             options={({navigation, route}) => ({
-              title: <Text>{route.name}</Text>,
+              title: (
+                <Text>
+                  <MaterialIcons
+                    // onPress={() => logOut(navigation)}
+                    name="keyboard-arrow-right"
+                    color={'white'}
+                    size={20}
+                    // borderRadius={20}
+                    solid
+                  />
+                  VidKar
+                  <MaterialIcons
+                    // onPress={() => logOut(navigation)}
+                    name="keyboard-arrow-left"
+                    color={'white'}
+                    size={20}
+                    // borderRadius={20}
+                    solid
+                  />
+                </Text>
+              ),
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
