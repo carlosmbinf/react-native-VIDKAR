@@ -71,7 +71,7 @@ class MyApp extends React.Component {
       carouselRef: null,
       refreshing: false,
     };
-    console.log(this.props.myTodoTasks);
+    // console.log(this.props.myTodoTasks);
     // const isDarkMode = useColorScheme() === 'dark';
     // const [data, setData] = ;
     // const [isLoading, setLoading] = useState(true);
@@ -93,7 +93,7 @@ class MyApp extends React.Component {
         // refreshing: false,
         data: MyCol.find({}).fetch(),
       });
-      console.log(this.props.myTodoTasks);
+      // console.log(this.props.myTodoTasks);
 
       // this.state.navigation.navigate('Home')
       // this.setState({
