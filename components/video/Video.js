@@ -60,8 +60,8 @@ class Player extends React.Component {
           controls={true}
           fullscreen={true}
           fullscreenOrientation="all"
-          source={require('./2_5330455701720403144.mp4')}
-          // source={{uri: item.urlPeli}} // Can be a URL or a local file.
+          // source={require('./2_5330455701720403144.mp4')}
+          source={{uri: item.urlPeli}} // Can be a URL or a local file.
           ref={ref => {
             this.player = ref;
           }} // Store reference

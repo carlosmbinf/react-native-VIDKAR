@@ -31,6 +31,8 @@ import {
   Button,
   RefreshControl,
   SectionList,
+  TouchableHighlight,
+  Alert,
 } from 'react-native';
 
 import {
@@ -91,7 +93,7 @@ class MyApp extends React.Component {
     const onRefresh = () => {
       this.setState({
         // refreshing: false,
-        data: MyCol.find({}).fetch(),
+        data: myTodoTasks,
       });
       // console.log(this.props.myTodoTasks);
 
@@ -101,11 +103,17 @@ class MyApp extends React.Component {
       // })
     };
     const Item = item => (
-      <View style={styles.item2}>
-        <Text style={styles.title}>Nombre: {item.profile.firstName}</Text>
-        <Text style={styles.title}>Apellidos: {item.profile.lastName}</Text>
-        <Text style={styles.title}>Nombre de Usuario: {item.username}</Text>
-      </View>
+      <TouchableHighlight
+        onPress={() => {
+          // Alert.alert('Holaaa', item.username);
+          navigation.navigationGeneral.navigate('User',{item});
+        }}>
+        <View style={styles.item2}>
+          <Text style={styles.title}>Nombre: {item.profile.firstName}</Text>
+          <Text style={styles.title}>Apellidos: {item.profile.lastName}</Text>
+          <Text style={styles.title}>Nombre de Usuario: {item.username}</Text>
+        </View>
+      </TouchableHighlight>
     );
     return (
       <View style={{flex: 1}}>
@@ -131,7 +139,7 @@ class MyApp extends React.Component {
           </View>
         ) : (
           <FlatList
-            data={this.state.data}
+            data={Meteor.users.find({}).fetch()}
             renderItem={({item}) => Item(item)}
             keyExtractor={(item, index) => item._id}
           />

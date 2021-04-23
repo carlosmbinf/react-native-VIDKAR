@@ -8,7 +8,7 @@
 
 import React, {useEffect, useState} from 'react';
 // import type {Node} from 'react';
-import {Provider as PaperProvider} from 'react-native-paper';
+import {Appbar, Menu, Provider as PaperProvider} from 'react-native-paper';
 
 // import 'react-native-gesture-handler';
 // import { NavigationContainer } from '@react-navigation/native';
@@ -52,6 +52,7 @@ import {MyTabs} from './components/navigator/MyTabs';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import VideoPlayer from './components/video/VideoPlayer';
+import UserDetails from './components/users/UserDetails';
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
 //   return (
@@ -84,6 +85,7 @@ const App = () => {
   const isDarkMode = useColorScheme() === 'dark';
   const [data, setData] = useState([]);
   const [isLoading, setLoading] = useState(true);
+  const [visibleMenu, setVisibleMenu] = useState(false);
 
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
@@ -169,24 +171,19 @@ const App = () => {
               // },
               headerShown: true,
               headerRight: () => (
-                <View style={{padding: 10, paddingRight: 20}}>
-                  <MaterialIcons
-                    onPress={() => logOut(navigation)}
-                    name="logout"
-                    color={'red'}
-                    size={26}
-                    borderRadius={20}
-                    solid
-                  />
-
-                  {/* <Button
-                    onPress={() => logOut(navigation)}
-                    title="Close"
-                    // color="#fff"
-                  >
-                    Cerrar Session{' '}
-                  </Button> */}
-                </View>
+                <Menu
+          visible={visibleMenu}
+          onDismiss={()=>{setVisibleMenu(false)}}
+          anchor={
+            <Appbar.Action icon="menu" color="white" onPress={()=>{setVisibleMenu(true)}} />
+          }
+          style={{top:70,width:160,paddingRight:30}}>
+          <View style={{padding:0}}>
+          <Menu.Item icon="menu" onPress={() => {alert('Option 1 was pressed')}} title="Option 1" />
+          <Menu.Item icon="menu" onPress={() => {alert('Option 2 was pressed')}} title="Option 2" disabled />
+          </View>
+          
+        </Menu>
               ),
               // headerRight
               // headerTransparent:false
@@ -202,6 +199,34 @@ const App = () => {
               const {item} = route.params;
               return (
                 <VideoPlayer item={item} />
+                // <TasksProvider user={user} projectPartition={projectPartition}>
+                //   <TasksView navigation={navigation} route={route} />
+                // </TasksProvider>
+              );
+            }}
+          </Stack.Screen>
+          <Stack.Screen
+            name="User"
+            options={({navigation, route}) => ({
+              title: <Text>{route.params.item.profile.firstName + ' ' + route.params.item.profile.lastName}</Text>,
+              headerStyle: {
+                backgroundColor: '#3f51b5',
+                height: 90,
+              },
+              headerTitleAlign: 'center',
+              headerTintColor: '#fff',
+              // headerTitleStyle: {
+              //   fontWeight: 'bold',
+              // },
+              headerShown: true,
+              // headerRight
+              // headerTransparent:false
+            })}>
+            {props => {
+              const {navigation, route} = props;
+              const {item} = route.params;
+              return (
+                <UserDetails item={item} />
                 // <TasksProvider user={user} projectPartition={projectPartition}>
                 //   <TasksView navigation={navigation} route={route} />
                 // </TasksProvider>
