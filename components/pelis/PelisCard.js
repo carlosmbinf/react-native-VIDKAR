@@ -146,6 +146,7 @@ const PelisCard = item => {
                 //   'https://srv5119-206152.vps.etecsa.cu/pelis/' + itemlocal._id,
                 // );
                 // item.navigation.navigation.navigate('Video');
+                // console.log(item)
                 item.navigation.navigationGeneral.navigate('Video', item);
                 setModalVisible(false);
               }}
@@ -164,6 +165,7 @@ const PelisCard = item => {
 
       <View style={{width: '100%', padding: 10}}>
         <Card
+          elevation={10}
           style={{borderRadius: 20}}
           onPress={
             () => setModalVisible(true)

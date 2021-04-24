@@ -1,8 +1,6 @@
 import React, {Component} from 'react';
 import {
   Alert,
-  Button,
-  TextInput,
   View,
   StyleSheet,
   ScrollView,
@@ -12,7 +10,7 @@ import {
 } from 'react-native';
 import Meteor, {Accounts, Mongo, withTracker} from '@meteorrn/core';
 import { Colors } from 'react-native/Libraries/NewAppScreen';
-
+import { Button, TextInput } from 'react-native-paper';
 const {width: screenWidth} = Dimensions.get('window');
 const {height: screenHeight} = Dimensions.get('window');
 
@@ -55,50 +53,41 @@ class MyAppLoguin extends Component {
         contentInsetAdjustmentBehavior="automatic" style={{padding:30}}>
               <View style={styles.container}>
                 <TextInput
+                mode='outlined'
                   value={this.state.username}
                   onChangeText={username => this.setState({username})}
-                  placeholder={'Username'}
+                  label={'Username'}
                   placeholderTextColor={
                     !this.state.isDarkMode ? Colors.darker : Colors.lighter
                   }
                   style={{
-                    color: !this.state.isDarkMode
-                      ? Colors.darker
-                      : Colors.lighter,
                     width: 200,
                     height: 44,
-                    padding: 10,
-                    borderWidth: 1,
-                    borderColor: 'white',
                     marginBottom: 10,
                   }}
                 />
                 <TextInput
+                mode='outlined'
                   value={this.state.password}
                   onChangeText={password => this.setState({password})}
-                  placeholder={'Password'}
+                  label={'Password'}
                   placeholderTextColor={
                     !this.state.isDarkMode ? Colors.darker : Colors.lighter
                   }
                   secureTextEntry={true}
                   style={{
-                    color: !this.state.isDarkMode
-                      ? Colors.darker
-                      : Colors.lighter,
                     width: 200,
                     height: 44,
-                    padding: 10,
-                    borderWidth: 1,
-                    borderColor: 'white',
                     marginBottom: 10,
                   }}
                 />
 
                 <Button
-                  title={'Login'}
-                  style={styles.input}
+                mode='contained'
                   onPress={this.onLogin.bind(this)}
-                />
+                >
+                  Iniciar Sessión
+                </Button>
               </View>
           </ScrollView>
         </View>
@@ -115,17 +104,8 @@ const Loguin = withTracker(navigation => {
 export default Loguin;
 const styles = StyleSheet.create({
   container: {
-      
     alignItems: 'center',
     justifyContent: 'center',
     // backgroundColor: '#ecf0f1',
-  },
-  input: {
-    width: 200,
-    height: 44,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: 'white',
-    marginBottom: 10,
   },
 });

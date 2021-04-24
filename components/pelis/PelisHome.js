@@ -64,7 +64,8 @@ class MyApp extends React.Component {
     super(props);
     this.state = {
       count: 0,
-      isDarkMode: useColorScheme,
+      isDarkMode: useColorScheme ==='dark',
+      backgroundColor:'#2a323d',
       // data: props.myTodoTasks,
       // loading: props.loading,
       carouselRef: null,
@@ -78,12 +79,37 @@ class MyApp extends React.Component {
   }
   render() {
     const {loading, navigation, myTodoTasks} = this.props;
-
+    var ScreenHeight = Dimensions.get('window').height;
+    const styles = StyleSheet.create({
+      container: {
+        flex: 1,
+        flexDirection: 'column',
+        height: ScreenHeight,
+        backgroundColor: this.state.backgroundColor,
+      },
+      viewFullHeight: {
+        minHeight: ScreenHeight,
+      },
+      item: {
+        width: screenWidth - 60,
+        height: screenWidth - 60,
+      },
+      imageContainer: {
+        flex: 1,
+        marginBottom: Platform.select({ios: 0, android: 1}), // Prevent a random Android rendering issue
+        backgroundColor: 'white',
+        borderRadius: 8,
+      },
+      image: {
+        ...StyleSheet.absoluteFillObject,
+        resizeMode: 'cover',
+      },
+    });
     // let isDarkMode = {
     //   return (useColorScheme() === 'dark');
     // };
     const backgroundStyle = {
-      backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
+      backgroundColor: '#2a323d',
     };
     const renderItem = ({item, index}, parallaxProps) => {
       // console.log(item);
@@ -113,6 +139,8 @@ class MyApp extends React.Component {
       //   data:
       // })
     };
+
+
     return (
       <View>
         <ScrollView
@@ -140,7 +168,6 @@ class MyApp extends React.Component {
               <View style={{width: '100%', alignItems: 'center'}}>
                 <Title
                   style={{
-                    color: 'white',
                     paddingTop: 50,
                     // paddingLeft: 25,
                     fontSize: 30,
@@ -183,31 +210,6 @@ const PelisHome = withTracker(navigation => {
   };
 })(MyApp);
 
-var ScreenHeight = Dimensions.get('window').height;
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    flexDirection: 'column',
-    height: ScreenHeight,
-    backgroundColor: '#2a323d',
-  },
-  viewFullHeight: {
-    minHeight: ScreenHeight,
-  },
-  item: {
-    width: screenWidth - 60,
-    height: screenWidth - 60,
-  },
-  imageContainer: {
-    flex: 1,
-    marginBottom: Platform.select({ios: 0, android: 1}), // Prevent a random Android rendering issue
-    backgroundColor: 'white',
-    borderRadius: 8,
-  },
-  image: {
-    ...StyleSheet.absoluteFillObject,
-    resizeMode: 'cover',
-  },
-});
+
 
 export default PelisHome;

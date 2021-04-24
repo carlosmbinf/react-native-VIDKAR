@@ -140,7 +140,7 @@ const App = () => {
             component={MyTabs}
             options={({navigation, route}) => ({
               title: (
-                <Text style={{letterSpacing:5}}>
+                <Text style={{letterSpacing: 5}}>
                   <FontAwesome
                     // onPress={() => logOut(navigation)}
                     name="hand-o-right"
@@ -172,18 +172,46 @@ const App = () => {
               headerShown: true,
               headerRight: () => (
                 <Menu
-          visible={visibleMenu}
-          onDismiss={()=>{setVisibleMenu(false)}}
-          anchor={
-            <Appbar.Action icon="menu" color="white" onPress={()=>{setVisibleMenu(true)}} />
-          }
-          style={{top:70,width:160,paddingRight:30}}>
-          <View style={{padding:0}}>
-          <Menu.Item icon="menu" onPress={() => {alert('Option 1 was pressed')}} title="Option 1" />
-          <Menu.Item icon="menu" onPress={() => {alert('Option 2 was pressed')}} title="Option 2" disabled />
-          </View>
-          
-        </Menu>
+                  visible={visibleMenu}
+                  onDismiss={() => {
+                    setVisibleMenu(false);
+                  }}
+                  anchor={
+                    <Appbar.Action
+                      icon="menu"
+                      color="white"
+                      onPress={() => {
+                        setVisibleMenu(true);
+                      }}
+                    />
+                  }
+                  style={{top: 70, width: 210, paddingRight: 30}}>
+                  <View style={{padding: 0}}>
+                    <Menu.Item
+                      icon="menu"
+                      onPress={() => {
+                        // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
+                        // console.log(item)
+                        setVisibleMenu(false)
+                        navigation.navigate('User', {
+                          item: Meteor.users
+                            .find({_id: Meteor.userId()})
+                            .fetch()[0],
+                        });
+                      }}
+                      title="Mi usuario"
+                    />
+                    <Menu.Item
+                      icon="logout"
+                      onPress={() => {
+                        Meteor.logout();
+                        navigation.navigate('Loguin');
+                        setVisibleMenu(false)
+                      }}
+                      title="Cerrar Sessión"
+                    />
+                  </View>
+                </Menu>
               ),
               // headerRight
               // headerTransparent:false
@@ -208,7 +236,13 @@ const App = () => {
           <Stack.Screen
             name="User"
             options={({navigation, route}) => ({
-              title: <Text>{route.params.item.profile.firstName + ' ' + route.params.item.profile.lastName}</Text>,
+              title: (
+                <Text>
+                  {route.params.item.profile.firstName +
+                    ' ' +
+                    route.params.item.profile.lastName}
+                </Text>
+              ),
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,

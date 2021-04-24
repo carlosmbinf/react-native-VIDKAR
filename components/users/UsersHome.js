@@ -8,7 +8,7 @@
 
 import React, {useRef, useEffect, useState} from 'react';
 // import type {Node} from 'react';
-import {Provider as PaperProvider, Title} from 'react-native-paper';
+import {Avatar, List, Provider as PaperProvider, Title} from 'react-native-paper';
 import Carousel, {ParallaxImage} from 'react-native-snap-carousel';
 // import * as axios from 'axios';
 import Meteor, {Mongo, withTracker} from '@meteorrn/core';
@@ -67,7 +67,7 @@ class MyApp extends React.Component {
     super(props);
     this.state = {
       count: 0,
-      isDarkMode: useColorScheme,
+      isDarkMode: useColorScheme=='dark',
       data: props.myTodoTasks,
       // loading: props.loading,
       carouselRef: null,
@@ -103,17 +103,37 @@ class MyApp extends React.Component {
       // })
     };
     const Item = item => (
-      <TouchableHighlight
+      <List.Item
         onPress={() => {
           // Alert.alert('Holaaa', item.username);
-          navigation.navigationGeneral.navigate('User',{item});
-        }}>
-        <View style={styles.item2}>
-          <Text style={styles.title}>Nombre: {item.profile.firstName}</Text>
-          <Text style={styles.title}>Apellidos: {item.profile.lastName}</Text>
-          <Text style={styles.title}>Nombre de Usuario: {item.username}</Text>
-        </View>
-      </TouchableHighlight>
+          navigation.navigationGeneral.navigate('User', {item});
+        }}
+        title={item.profile.firstName + ' ' + item.profile.lastName}
+        titleStyle={{fontSize: 20}}
+        description={item.profile.role}
+        left={props =>
+          item.services.facebook ? (
+            <Avatar.Image
+              {...props}
+              size={50}
+              source={{uri: item.services.facebook.picture.data.url}}
+            />
+          ) : (
+            <Avatar.Text size={50} label={item.profile.firstName.toString().slice(0,1) + item.profile.lastName.toString().slice(0,1)} />
+          )
+        }
+      />
+      //     <TouchableHighlight
+      //       onPress={() => {
+      //         // Alert.alert('Holaaa', item.username);
+      //         navigation.navigationGeneral.navigate('User',{item});
+      //       }}>
+      //       <View style={styles.item2}>
+      //         <Text style={styles.title}>Nombre: {item.profile.firstName}</Text>
+      //         <Text style={styles.title}>Apellidos: {item.profile.lastName}</Text>
+      //         <Text style={styles.title}>Nombre de Usuario: {item.username}</Text>
+      //       </View>
+      //     </TouchableHighlight>
     );
     return (
       <View style={{flex: 1}}>
@@ -139,6 +159,7 @@ class MyApp extends React.Component {
           </View>
         ) : (
           <FlatList
+            style={{backgroundColor: '#2a323d'}}
             data={Meteor.users.find({}).fetch()}
             renderItem={({item}) => Item(item)}
             keyExtractor={(item, index) => item._id}

@@ -56,11 +56,12 @@ class Player extends React.Component {
           }></Modal>
         <Video
           // onTouchStart={hideShowpaused}
-          playInBackground
+          // playInBackground
           controls={true}
           fullscreen={true}
           fullscreenOrientation="all"
           // source={require('./2_5330455701720403144.mp4')}
+          // source={{uri: 'http://192.168.43.230/Aquaman.2018.HDRip.AC3.X264-CMRG.mkv'}} // Can be a URL or a local file.
           source={{uri: item.urlPeli}} // Can be a URL or a local file.
           ref={ref => {
             this.player = ref;
@@ -69,25 +70,26 @@ class Player extends React.Component {
           onError={this.videoError} // Callback when video cannot be loaded
           style={styles.backgroundVideo}
           bufferConfig={{
-            minBufferMs: 15000,
-            maxBufferMs: 50000,
+            minBufferMs: 1000,
+            maxBufferMs: 5000,
             bufferForPlaybackMs: 2500,
             bufferForPlaybackAfterRebufferMs: 5000,
           }}
-          resizeMode="cover"
+          resizeMode="contain"
           maxBitRate={500000} // 1 megabits
           paused={this.state.paused}
           pictureInPicture
           poster={item.urlBackground}
           textTracks={[
             {
-              title: 'ESPAÑOL CC',
+              title: "English CC",
               language: 'en',
               type: TextTrackType.VTT, // "text/vtt"
               uri: 'https://srv5119-206152.vps.etecsa.cu/' + item.subtitulo, // ...or implement something along the lines of require(file)
+              // uri: 'http://192.168.43.230/Aquaman.2018.HDRip.AC3.X264-CMRG.srt', // ...or implement something along the lines of require(file)
             },
           ]}
-          selectedTextTrack={{type: 'title', value: 'ESPAÑOL CC'}}
+          selectedTextTrack={{type: 'title', value: "English CC"}}
         />
       </View>
     );
@@ -107,11 +109,13 @@ var styles = StyleSheet.create({
     right: 0,
   },
   backgroundVideo: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    right: 0,
+    width:'100%',
+    height:'100%',
+    // position: 'absolute',
+    // top: 0,
+    // left: 0,
+    // bottom: 0,
+    // right: 0,
     // height: 140,
     // width: '100%'
     // borderRadius: 10,

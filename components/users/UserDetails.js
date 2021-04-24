@@ -1,6 +1,12 @@
 import Meteor, {Accounts, Mongo, withTracker} from '@meteorrn/core';
 import React, {useEffect} from 'react';
-import {View, ScrollView, Text, Dimensions, StyleSheet} from 'react-native';
+import {
+  View,
+  ScrollView,
+  Dimensions,
+  StyleSheet,
+  useColorScheme,
+} from 'react-native';
 import Header from 'react-native-custom-header';
 import Video, {TextTrackType} from 'react-native-video';
 // Meteor.connect('ws://10.0.2.2:3000/websocket');
@@ -8,8 +14,15 @@ import Video, {TextTrackType} from 'react-native-video';
 import Modal from 'react-native-modal';
 
 import Orientation from 'react-native-orientation';
-import { Card } from 'react-native-paper';
-import { Colors } from 'react-native/Libraries/NewAppScreen';
+import {Card, Title, Text, Button, TextInput, Switch} from 'react-native-paper';
+import {Colors} from 'react-native/Libraries/NewAppScreen';
+import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import Entypo from 'react-native-vector-icons/Entypo';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+
+const axios = require('axios').default;
+
 var {width: screenWidth} = Dimensions.get('window');
 var {height: screenHeight} = Dimensions.get('window');
 class Player extends React.Component {
@@ -28,63 +41,172 @@ class Player extends React.Component {
     this.state = {
       paused: false,
       isModalVisible: false,
+      // colorText:  Colors.darker,
+      backgroundColor: '#2a323d',
+      edit: false,
     };
   }
+
   render() {
     const {item} = this.props;
 
-    console.log(item);
     return (
-      
-       <View style={styles.root}>
-           <Card style={{marginBottom:30}}>
-             <Card.Content >
+      <View style={styles.root}>
+        <Card elevation={10} style={{marginBottom: 30, borderRadius: 20}}>
+          <Card.Content>
+            <View style={styles.element}>
+              <Title style={styles.title}>{'Datos Personales'}</Title>
+              <Text style={styles.data}>
+                {'Nombre: ' + item.profile.firstName}
+              </Text>
+              <Text style={styles.data}>
+                {'Apellidos: ' + item.profile.lastName}
+              </Text>
+              <Text style={styles.data}>{'Edad: ' + item.edad}</Text>
+            </View>
+          </Card.Content>
+        </Card>
+        <Card elevation={10} style={{borderRadius: 20}}>
+          {this.state.edit ? (
+            <Card.Content>
               <View style={styles.element}>
-              <Text style={styles.title}>
-                  {'Datos Personales'}
+                <Title style={styles.title}>{'Datos de Usuario'}</Title>
+                <Text style={styles.data}>
+                  <MaterialCommunityIcons
+                    name="shield-account"
+                    // color={styles.data}
+                    size={26}
+                  />{' '}
+                  {item.profile.role}
+                </Text>
+
+                <TextInput
+                  mode="outlined"
+                  value={this.state.username}
+                  onChangeText={username => this.setState({username})}
+                  label={'UserName'}
+                  placeholderTextColor={
+                    !this.state.isDarkMode ? Colors.darker : Colors.lighter
+                  }
+                  style={{
+                    width: 200,
+                    height: 44,
+                    marginBottom: 10,
+                  }}
+                />
+                <Text style={styles.data}>
+                  <MaterialCommunityIcons
+                    name="email"
+                    // color={styles.data}
+                    size={26}
+                  />{' '}
+                  {item.emails[0].address}
                 </Text>
                 <Text style={styles.data}>
-                  {'Nombre: '+item.profile.firstName}
-                </Text>
-                <Text style={styles.data}>
-                  {'Apellidos: '+item.profile.lastName}
-                </Text>
-                <Text style={styles.data}>
-                  {'Edad: '+item.edad}
+                  <MaterialIcons
+                    name="vpn-lock"
+                    // color={styles.data}
+                    size={26}
+                  />{' '}
+                  <Switch
+                    value={!item.baneado}
+                    onValueChange={() =>
+                      Meteor.users.update(item._id, {
+                        $set: {
+                          baneado: !item.baneado,
+                        },
+                      })
+                    }
+                  />
                 </Text>
               </View>
-             </Card.Content>
-           </Card>
-           <Card>
-             <Card.Content>
+            </Card.Content>
+          ) : (
+            <Card.Content>
               <View style={styles.element}>
-              <Text style={styles.title}>
-                  {'Datos de Usuario'}
+                <Title style={styles.title}>{'Datos de Usuario'}</Title>
+                <Text style={styles.data}>
+                  <MaterialCommunityIcons
+                    name="shield-account"
+                    // color={styles.data}
+                    size={26}
+                  />{' '}
+                  {item.profile.role}
                 </Text>
                 <Text style={styles.data}>
-                  {'Rol: '+item.profile.role}
+                  <MaterialCommunityIcons
+                    name="account"
+                    // color={styles.data}
+                    size={26}
+                  />{' '}
+                  {item.username}
                 </Text>
                 <Text style={styles.data}>
-                  {'Usuario: '+item.username}
+                  <MaterialCommunityIcons
+                    name="email"
+                    // color={styles.data}
+                    size={26}
+                  />{' '}
+                  {item.emails[0].address}
                 </Text>
                 <Text style={styles.data}>
-                  {'Email: '+item.emails[0].address}
-                </Text>
-                <Text style={styles.data}>
-                  {item.baneado?"Proxy: Desabilitado":'Proxy: Habilitado'}
+                  <MaterialIcons
+                    name="vpn-lock"
+                    // color={styles.data}
+                    size={26}
+                  />{' '}
+                  {item.baneado ? 'Desabilitado' : 'Habilitado'}
                 </Text>
               </View>
-             </Card.Content>
-           </Card>
-       </View>
-        
+            </Card.Content>
+          )}
+          {!this.state.edit ? (
+            <Card.Actions style={{justifyContent: 'space-around'}}>
+              <Button
+                onPress={() => {
+                  this.setState({edit: true});
+                }}>
+                <MaterialIcons
+                  name="edit"
+                  // color={styles.data}
+                  size={40}
+                />
+              </Button>
+            </Card.Actions>
+          ) : (
+            <Card.Actions style={{justifyContent: 'space-around'}}>
+              <Button
+                onPress={() => {
+                  this.setState({edit: false});
+                }}>
+                <MaterialIcons
+                  name="cancel"
+                  // color={styles.data}
+                  size={40}
+                />
+              </Button>
+              <Button
+                onPress={() => {
+                  Meteor.users.update(item._id, {
+                    $set: {username: this.state.username},
+                  });
+                }}>
+                <MaterialIcons
+                  name="save"
+                  // color={styles.data}
+                  size={40}
+                />
+              </Button>
+            </Card.Actions>
+          )}
+        </Card>
+      </View>
     );
   }
 }
-
 export default Player;
 
-var styles = StyleSheet.create({
+const styles = StyleSheet.create({
   ViewVideo: {
     width: '100%',
     height: '100%',
@@ -95,22 +217,20 @@ var styles = StyleSheet.create({
     right: 0,
   },
   root: {
-    padding:30,
+    padding: 30,
     height: '100%',
     width: '100%',
     // borderRadius: 10,
-    backgroundColor: Colors.darker
+    backgroundColor: '#2a323d',
   },
-  element:{
-    // backgroundColor:Colors.darker,
-    // color:'red',
-    fontSize:26
+  element: {
+    fontSize: 26,
   },
-  title:{
-    fontSize:26,
-    textAlign:'center'
+  title: {
+    fontSize: 26,
+    textAlign: 'center',
   },
-  data:{
-    fontSize:20
-  }
+  data: {
+    fontSize: 20,
+  },
 });
