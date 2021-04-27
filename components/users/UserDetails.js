@@ -56,13 +56,30 @@ class Player extends React.Component {
           <Card.Content>
             <View style={styles.element}>
               <Title style={styles.title}>{'Datos Personales'}</Title>
-              <Text style={styles.data}>
-                {'Nombre: ' + item.profile.firstName}
-              </Text>
-              <Text style={styles.data}>
-                {'Apellidos: ' + item.profile.lastName}
-              </Text>
-              <Text style={styles.data}>{'Edad: ' + item.edad}</Text>
+
+              {this.state.edit ? (
+                <View>
+                  <Text style={styles.data}>
+                    Nombre: {item.profile.firstName}
+                  </Text>
+                  <Text style={styles.data}>
+                    Apellidos:{' '}
+                    {item.profile.lastName ? item.profile.lastName : 'N/A'}
+                  </Text>
+                </View>
+              ) : (
+                <View>
+                  <Text style={styles.data}>
+                    Nombre: {item.profile.firstName}
+                  </Text>
+                  <Text style={styles.data}>
+                    Apellidos:{' '}
+                    {item.profile.lastName ? item.profile.lastName : 'N/A'}
+                  </Text>
+                </View>
+              )}
+
+              <Text style={styles.data}>Edad: {item.edad?item.edad:'N/A'}</Text>
             </View>
           </Card.Content>
         </Card>
@@ -81,6 +98,7 @@ class Player extends React.Component {
                 </Text>
 
                 <TextInput
+                  require
                   mode="outlined"
                   value={this.state.username}
                   onChangeText={username => this.setState({username})}
@@ -108,16 +126,22 @@ class Player extends React.Component {
                     // color={styles.data}
                     size={26}
                   />{' '}
-                  <Switch
-                    value={!item.baneado}
-                    onValueChange={() =>
-                      Meteor.users.update(item._id, {
-                        $set: {
-                          baneado: !item.baneado,
-                        },
-                      })
-                    }
-                  />
+                  {Meteor.user().profile.role == 'admin' ? (
+                    <Switch
+                      value={!item.baneado}
+                      onValueChange={() =>
+                        Meteor.users.update(item._id, {
+                          $set: {
+                            baneado: !item.baneado,
+                          },
+                        })
+                      }
+                    />
+                  ) : item.baneado ? (
+                    'Desabilitado'
+                  ) : (
+                    'Habilitado'
+                  )}
                 </Text>
               </View>
             </Card.Content>
@@ -227,10 +251,12 @@ const styles = StyleSheet.create({
     fontSize: 26,
   },
   title: {
-    fontSize: 26,
+    fontSize: 30,
     textAlign: 'center',
+    paddingBottom:5
   },
   data: {
-    fontSize: 20,
+    padding:3,
+    fontSize: 25,
   },
 });

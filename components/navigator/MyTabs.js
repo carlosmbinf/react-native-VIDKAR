@@ -4,41 +4,77 @@ import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Loguin from '../loguin/Loguin';
 import PelisHome from '../pelis/PelisHome';
+import DownloadVideosHome from '../downloadVideos/DownloadVideosHome';
 import Prueba from '../pruebas/Prueba';
 import UsersHome from '../users/UsersHome';
-import { BottomNavigation } from 'react-native-paper';
+import {BottomNavigation} from 'react-native-paper';
+import Meteor from '@meteorrn/core';
 
 const Tab = createBottomTabNavigator();
 
 export function MyTabs(prop) {
   const [index, setIndex] = useState(0);
-  const [routes] = useState([
-    {key: 'pelis', title: 'Pelis', icon: 'movie'
-    // , badge: true
-  },
-    {key: 'users', title: 'Users', icon: 'account-cog'
-    // , badge: true
-  },
-  ]);
-  const renderScene = ({ route }) => {
+  const [routes] =
+    Meteor.user().profile.role == 'admin'
+      ? useState([
+          {
+            key: 'pelis',
+            title: 'Pelis',
+            icon: 'movie',
+            // , badge: true
+          },
+          {
+            key: 'users',
+            title: 'Usuarios',
+            icon: 'account-cog',
+            // , badge: true
+          },
+          {
+            key: 'downloads',
+            title: 'Videos',
+            icon: 'download',
+            // , badge: true
+          },
+        ])
+      : useState([
+          {
+            key: 'pelis',
+            title: 'Pelis',
+            icon: 'movie',
+            // , badge: true
+          },
+          {
+            key: 'downloads',
+            title: 'Videos',
+            icon: 'download',
+            // , badge: true
+          },
+        ]);
+  console.log();
+
+  const renderScene = ({route}) => {
     switch (route.key) {
       case 'pelis':
         return <PelisHome navigationGeneral={prop.navigation} />;
       case 'users':
         return <UsersHome navigationGeneral={prop.navigation} />;
+      case 'downloads':
+        return <DownloadVideosHome navigationGeneral={prop.navigation} />;
     }
-  }
+  };
   return (
     <BottomNavigation
-      navigationState={{ index, routes }}
-      onIndexChange={setIndex}
+      navigationState={{index, routes}}
+      onIndexChange={index => {
+        setIndex(index);
+      }}
       renderScene={renderScene}
-      activeColor='red'
+      activeColor="red"
       // barStyle={
       //   [{backgroundColor:'blue'},{backgroundColor:'white'}][index]
       // }
       shifting={true}
-      />
+    />
     // <Tab.Navigator
     //   initialRouteName="Feed"
     //   // activeColor="#3f51b5"
