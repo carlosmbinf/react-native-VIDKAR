@@ -47,7 +47,7 @@ import Orientation from 'react-native-orientation';
 
 const {width: screenWidth} = Dimensions.get('window');
 const MyCol = new Meteor.Collection('descargasRegister');
-Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
+// Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
 
 class MyApp extends React.Component {
   componentDidMount() {

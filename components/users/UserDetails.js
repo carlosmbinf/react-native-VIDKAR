@@ -25,6 +25,10 @@ const axios = require('axios').default;
 
 var {width: screenWidth} = Dimensions.get('window');
 var {height: screenHeight} = Dimensions.get('window');
+
+
+
+
 class Player extends React.Component {
   componentDidMount() {
     Orientation.lockToPortrait();
@@ -49,54 +53,59 @@ class Player extends React.Component {
 
   render() {
     const {item} = this.props;
-
+    const {navigation} = this.props;
+    // console.log(item)
+    // const {item} = this.props;
     return (
       <View style={styles.root}>
-        <Card elevation={10} style={{marginBottom: 30, borderRadius: 20}}>
+        <Card elevation={12} style={styles.cards}>
           <Card.Content>
             <View style={styles.element}>
               <Title style={styles.title}>{'Datos Personales'}</Title>
+              <View>
+                <Text style={styles.data}>
+                  Nombre: {item.profile.firstName}
+                </Text>
+                <Text style={styles.data}>
+                  Apellidos:{' '}
+                  {item.profile.lastName ? item.profile.lastName : 'N/A'}
+                </Text>
+              </View>
 
-              {this.state.edit ? (
-                <View>
-                  <Text style={styles.data}>
-                    Nombre: {item.profile.firstName}
-                  </Text>
-                  <Text style={styles.data}>
-                    Apellidos:{' '}
-                    {item.profile.lastName ? item.profile.lastName : 'N/A'}
-                  </Text>
-                </View>
-              ) : (
-                <View>
-                  <Text style={styles.data}>
-                    Nombre: {item.profile.firstName}
-                  </Text>
-                  <Text style={styles.data}>
-                    Apellidos:{' '}
-                    {item.profile.lastName ? item.profile.lastName : 'N/A'}
-                  </Text>
-                </View>
-              )}
-
-              <Text style={styles.data}>Edad: {item.edad?item.edad:'N/A'}</Text>
+              <Text style={styles.data}>
+                Edad: {item.edad ? item.edad : 'N/A'}
+              </Text>
             </View>
           </Card.Content>
         </Card>
-        <Card elevation={10} style={{borderRadius: 20}}>
+        <Card elevation={12} style={styles.cards}>
           {this.state.edit ? (
             <Card.Content>
               <View style={styles.element}>
                 <Title style={styles.title}>{'Datos de Usuario'}</Title>
+
                 <Text style={styles.data}>
                   <MaterialCommunityIcons
                     name="shield-account"
                     // color={styles.data}
                     size={26}
                   />{' '}
-                  {item.profile.role}
+                  {Meteor.user().profile.role == 'admin' ? (
+                    <Switch
+                      value={item.profile.role == 'admin'}
+                      onValueChange={() =>
+                        Meteor.users.update(item._id, {
+                          $set: {
+                            'profile.role':
+                              item.profile.role == 'admin' ? 'user' : 'admin',
+                          },
+                        })
+                      }
+                    />
+                  ) : (
+                    item.profile.role
+                  )}
                 </Text>
-
                 <TextInput
                   require
                   mode="outlined"
@@ -129,13 +138,13 @@ class Player extends React.Component {
                   {Meteor.user().profile.role == 'admin' ? (
                     <Switch
                       value={!item.baneado}
-                      onValueChange={() =>
+                      onValueChange={() => {
                         Meteor.users.update(item._id, {
                           $set: {
                             baneado: !item.baneado,
                           },
-                        })
-                      }
+                        });
+                      }}
                     />
                   ) : item.baneado ? (
                     'Desabilitado'
@@ -224,6 +233,19 @@ class Player extends React.Component {
             </Card.Actions>
           )}
         </Card>
+        <Button
+          mode="contained"
+          onPress={() => {
+            // console.log(navigation);
+            navigation.navigate('Mensajes', {item})
+          }}>
+          Enviar Mensaje
+        </Button>
+        {/* <Card elevation={12} style={styles.cards}>
+          <Card.Content>
+            <Text>HOLA</Text>
+          </Card.Content>
+        </Card> */}
       </View>
     );
   }
@@ -253,10 +275,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 30,
     textAlign: 'center',
-    paddingBottom:5
+    paddingBottom: 5,
   },
   data: {
-    padding:3,
+    padding: 3,
     fontSize: 25,
   },
+  cards:{
+    marginBottom:20,
+    borderRadius:20,
+  }
 });

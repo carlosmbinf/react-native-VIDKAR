@@ -50,7 +50,7 @@ export function MyTabs(prop) {
             // , badge: true
           },
         ]);
-  console.log();
+  // console.log();
 
   const renderScene = ({route}) => {
     switch (route.key) {

@@ -8,7 +8,7 @@
 
 import React, {useEffect, useState} from 'react';
 // import type {Node} from 'react';
-import {Appbar, Menu, Provider as PaperProvider} from 'react-native-paper';
+import {Appbar, Badge, IconButton, Menu, Provider as PaperProvider} from 'react-native-paper';
 
 // import 'react-native-gesture-handler';
 // import { NavigationContainer } from '@react-navigation/native';
@@ -46,13 +46,17 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 // import Meteor, {Mongo, withTracker} from '@meteorrn/core';
 import Prueba from './components/pruebas/Prueba';
 import Loguin from './components/loguin/Loguin';
-import Meteor from '@meteorrn/core';
+import Meteor, { withTracker  } from '@meteorrn/core';
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 import {MyTabs} from './components/navigator/MyTabs';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import VideoPlayer from './components/video/VideoPlayer';
 import UserDetails from './components/users/UserDetails';
+import MyApp from './components/mensajes/MensajesHome';
+
+
+
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
 //   return (
@@ -78,14 +82,18 @@ import UserDetails from './components/users/UserDetails';
 //     </View>
 //   );
 // };
+const MyCol = new Meteor.Collection('mensajes');
 
 const Stack = createStackNavigator();
+
+
 // const Tab = createMaterialBottomTabNavigator();
 const App = () => {
   const isDarkMode = useColorScheme() === 'dark';
   const [data, setData] = useState([]);
   const [isLoading, setLoading] = useState(true);
   const [visibleMenu, setVisibleMenu] = useState(false);
+  const [messageCount, setMessageCount] = useState(0);
 
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
@@ -101,6 +109,10 @@ const App = () => {
   useEffect(() => {
     // Meteor.connect('ws://10.0.2.2:8080', AsyncStorage);
     // alert(Meteor.status().status);
+    ;
+    let handle = Meteor.subscribe('mensajes', {});
+handle.ready()&&setMessageCount(MyCol.find({'to':Meteor.userId()}).count())
+  
   }, []);
 
   return (
@@ -171,47 +183,68 @@ const App = () => {
               // },
               headerShown: true,
               headerRight: () => (
-                <Menu
-                  visible={visibleMenu}
-                  onDismiss={() => {
-                    setVisibleMenu(false);
-                  }}
-                  anchor={
-                    <Appbar.Action
-                      icon="menu"
-                      color="white"
-                      onPress={() => {
-                        setVisibleMenu(true);
-                      }}
-                    />
-                  }
-                  style={{top: 70, width: 210, paddingRight: 30}}>
-                  <View style={{padding: 0}}>
-                    <Menu.Item
-                      icon="menu"
-                      onPress={() => {
-                        // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
-                        // console.log(item)
-                        setVisibleMenu(false)
-                        navigation.navigate('User', {
-                          item: Meteor.users
-                            .find({_id: Meteor.userId()})
-                            .fetch()[0],
-                        });
-                      }}
-                      title="Mi usuario"
-                    />
-                    <Menu.Item
-                      icon="logout"
-                      onPress={() => {
-                        Meteor.logout();
-                        navigation.navigate('Loguin');
-                        setVisibleMenu(false)
-                      }}
-                      title="Cerrar Sessión"
+                <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
+                  <View>
+                    {/* <Badge
+                      style={{
+                        position: 'absolute',
+                        right: 7,
+                        top: 7,
+                        zIndex: 1,
+                      }}>
+                      {messageCount}
+                    </Badge> */}
+                    <IconButton
+                      icon="email"
+                      color="black"
+                      size={30}
+                      //  disabled
+                      // onPress={() => navigation.navigate('Mensajes',Meteor.user)}
                     />
                   </View>
-                </Menu>
+
+                  <Menu
+                    visible={visibleMenu}
+                    onDismiss={() => {
+                      setVisibleMenu(false);
+                    }}
+                    anchor={
+                      <Appbar.Action
+                        icon="menu"
+                        color="white"
+                        onPress={() => {
+                          setVisibleMenu(true);
+                        }}
+                      />
+                    }
+                    style={{top: 70, width: 210, paddingRight: 30}}>
+                    <View style={{padding: 0}}>
+                      <Menu.Item
+                        icon="menu"
+                        onPress={() => {
+                          // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
+                          // console.log(item)
+                          setVisibleMenu(false);
+                          navigation.navigate('User', {
+                            item: Meteor.users
+                              .find({_id: Meteor.userId()})
+                              .fetch()[0],
+                          });
+                        }}
+                        title="Mi usuario"
+                      />
+                      <Menu.Item
+                        icon="logout"
+                        onPress={() => {
+                          Meteor.logout();
+                          navigation.navigate('Loguin');
+                          setVisibleMenu(false);
+                        }}
+                        title="Cerrar Sessión"
+                      />
+                    </View>
+                  </Menu>
+                </View>
               ),
               // headerRight
               // headerTransparent:false
@@ -259,8 +292,44 @@ const App = () => {
             {props => {
               const {navigation, route} = props;
               const {item} = route.params;
+              // const {navigation} = route.params;
               return (
-                <UserDetails item={item} />
+                <UserDetails item={item} navigation={navigation} />
+                // <TasksProvider user={user} projectPartition={projectPartition}>
+                //   <TasksView navigation={navigation} route={route} />
+                // </TasksProvider>
+              );
+            }}
+          </Stack.Screen>
+          <Stack.Screen
+            name="Mensajes"
+            options={({navigation, route}) => ({
+              title: (
+                <Text>
+                  {route.params.item.profile.firstName +
+                    ' ' +
+                    route.params.item.profile.lastName}
+                </Text>
+              ),
+              headerStyle: {
+                backgroundColor: '#3f51b5',
+                height: 90,
+              },
+              headerTitleAlign: 'center',
+              headerTintColor: '#fff',
+              // headerTitleStyle: {
+              //   fontWeight: 'bold',
+              // },
+              headerShown: true,
+              // headerRight
+              // headerTransparent:false
+            })}>
+            {props => {
+              const {navigation, route} = props;
+              const {item} = route.params;
+              // console.log(item)
+              return (
+                <MyApp user={item} />
                 // <TasksProvider user={user} projectPartition={projectPartition}>
                 //   <TasksView navigation={navigation} route={route} />
                 // </TasksProvider>
@@ -289,6 +358,17 @@ const App = () => {
     </PaperProvider>
   );
 };
+// const MensajesHome = withTracker(user => {
+//   //  console.log(user.user)
+//    const handle = Meteor.subscribe('mensajes', user.user._id);
+//    const myTodoTasks = MyCol.find({'to':user.user._id}).fetch();
+//    return {
+//     user:user.user,
+//      myTodoTasks,
+//      loading: !handle.ready(),
+//    };
+//  })(MyApp);
+ 
 var ScreenHeight = Dimensions.get('window').height;
 const styles = StyleSheet.create({
   container: {

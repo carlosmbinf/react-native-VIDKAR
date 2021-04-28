@@ -8,18 +8,19 @@
 
 import React, {useRef, useEffect, useState} from 'react';
 // import type {Node} from 'react';
-import {Avatar, List, Provider as PaperProvider, Title} from 'react-native-paper';
+import {Avatar, List, Provider as PaperProvider, Text, Switch, Title} from 'react-native-paper';
 import Carousel, {ParallaxImage} from 'react-native-snap-carousel';
 // import * as axios from 'axios';
 import Meteor, {Mongo, withTracker} from '@meteorrn/core';
 // import Header from 'react-native-custom-header';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import {
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
-  Text,
   useColorScheme,
   View,
   ImageBackground,
@@ -105,12 +106,12 @@ class MyApp extends React.Component {
     const Item = item => (
       <List.Item
         onPress={() => {
-          // Alert.alert('Holaaa', item.username);
+          // Alert.alert('Holaaa', item);
           navigation.navigationGeneral.navigate('User', {item});
         }}
         title={item.profile.firstName + ' ' + item.profile.lastName}
         titleStyle={{fontSize: 20}}
-        description={item.profile.role}
+        description={Meteor.user().profile.role == 'admin'?(item.profile.role + ' - ' + (!item.baneado?'Proxy habilitado':'Proxy desabilitado')):item.profile.role}
         left={props =>
           item.services.facebook ? (
             <Avatar.Image
@@ -119,9 +120,66 @@ class MyApp extends React.Component {
               source={{uri: item.services.facebook.picture.data.url}}
             />
           ) : (
-            <Avatar.Text size={50} label={item.profile.firstName.toString().slice(0,1) + item.profile.lastName.toString().slice(0,1)} />
+            <Avatar.Text
+              {...props}
+              size={50}
+              label={
+                item.profile.firstName.toString().slice(0, 1) +
+                item.profile.lastName.toString().slice(0, 1)
+              }
+            />
           )
         }
+        right={props => (
+          <View>
+            <Text style={styles.data}>
+                  <MaterialCommunityIcons
+                    name="account"
+                    // color={styles.data}
+                    size={35}
+                  /><Text style={{fontSize:20}}>Roles:</Text>{' '}{' '}
+                  {Meteor.user().profile.role == 'admin' ? (
+                    <Switch
+                    value={item.profile.role == 'admin'}
+                    onValueChange={() =>
+                      Meteor.users.update(item._id, {
+                        $set: {
+                          'profile.role':
+                            item.profile.role == 'admin' ? 'user' : 'admin',
+                        },
+                      })
+                    }
+                  />
+                  
+                  ) : (
+                    item.profile.role
+                  )}
+                </Text>
+            <Text style={styles.data}>
+              <MaterialIcons
+                name="vpn-lock"
+                // color={styles.data}
+                size={35}
+              /><Text style={{fontSize:20}}>Proxy:</Text>{' '}{' '}
+              {Meteor.user().profile.role == 'admin' ? (
+                <Switch
+                  value={!item.baneado}
+                  onValueChange={() =>
+                    Meteor.users.update(item._id, {
+                      $set: {
+                        baneado: !item.baneado,
+                      },
+                    })
+                  }
+                />
+              ) : item.baneado ? (
+                'Desabilitado'
+              ) : (
+                'Habilitado'
+              )}
+            </Text>
+          </View>
+        )}
       />
       //     <TouchableHighlight
       //       onPress={() => {
@@ -226,6 +284,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     resizeMode: 'cover',
   },
+  data:{
+    
+  }
 });
 
 export default UserHome;
