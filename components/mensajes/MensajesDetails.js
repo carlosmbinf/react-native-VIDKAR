@@ -14,20 +14,27 @@ import Video, {TextTrackType} from 'react-native-video';
 import Modal from 'react-native-modal';
 
 import Orientation from 'react-native-orientation';
-import {Card, Title, Text, Button, TextInput, Switch, List, Avatar} from 'react-native-paper';
+import {
+  Card,
+  Title,
+  Text,
+  Button,
+  TextInput,
+  Switch,
+  List,
+  Avatar,
+} from 'react-native-paper';
 import {Colors} from 'react-native/Libraries/NewAppScreen';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import Entypo from 'react-native-vector-icons/Entypo';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const axios = require('axios').default;
 
 var {width: screenWidth} = Dimensions.get('window');
 var {height: screenHeight} = Dimensions.get('window');
-
-
-
 
 class Mensaje extends React.Component {
   componentDidMount() {
@@ -55,7 +62,8 @@ class Mensaje extends React.Component {
     const {item} = this.props;
     // const {item} = this.props;
     // console.log(item.item)
-    const user = Meteor.users.find({_id: item.item.from}).fetch()[0]
+    const user = Meteor.users.find({_id: item.item.from}).fetch()[0];
+    const date = new Date(item.item.createdAt);
     // console.log(user)
     return (
       <List.Item
@@ -66,7 +74,7 @@ class Mensaje extends React.Component {
         title={user.profile.firstName + ' ' + user.profile.lastName}
         // titleStyle={{fontSize: 20}}
         description={item.item.mensaje}
-        left={()=>
+        left={() =>
           user.services.facebook ? (
             <Avatar.Image
               // {...props}
@@ -84,6 +92,30 @@ class Mensaje extends React.Component {
             />
           )
         }
+        right={() => (
+          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <Text style={{paddingRight: 10}}>
+              {date.getHours() +
+                ':' +
+                date.getMinutes() +
+                ':' +
+                date.getSeconds() +
+                '  ' +
+                date.getDay() +
+                '/' +
+                date.getMonth() +
+                '/' +
+                date.getFullYear()}
+            </Text>
+            {item.item.leido && (
+              <Ionicons
+                color="white"
+                size={30}
+                name="md-checkmark-done-circle"
+              />
+            )}
+          </View>
+        )}
       />
     );
   }
@@ -119,8 +151,8 @@ const styles = StyleSheet.create({
     padding: 3,
     fontSize: 25,
   },
-  cards:{
-    marginBottom:20,
-    borderRadius:20,
-  }
+  cards: {
+    marginBottom: 20,
+    borderRadius: 20,
+  },
 });

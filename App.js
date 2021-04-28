@@ -212,9 +212,7 @@ const App = () => {
                           // console.log(item)
                           setVisibleMenu(false);
                           navigation.navigate('User', {
-                            item: Meteor.users
-                              .find({_id: Meteor.userId()})
-                              .fetch()[0],
+                            item: Meteor.users.findOne({_id: Meteor.userId()}),
                           });
                         }}
                         title="Mi usuario"

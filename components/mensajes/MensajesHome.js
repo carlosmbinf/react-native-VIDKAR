@@ -159,7 +159,7 @@ class MyApp extends React.Component {
                 color="red"
                 size={40}
                 disabled
-                onPress={() => sendMensaje(this.state.text)}
+                onPress={event => sendMensaje(this.state.text)}
               />
             )}
           </View>
