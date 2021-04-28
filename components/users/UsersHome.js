@@ -8,7 +8,14 @@
 
 import React, {useRef, useEffect, useState} from 'react';
 // import type {Node} from 'react';
-import {Avatar, List, Provider as PaperProvider, Text, Switch, Title} from 'react-native-paper';
+import {
+  Avatar,
+  List,
+  Provider as PaperProvider,
+  Text,
+  Switch,
+  Title,
+} from 'react-native-paper';
 import Carousel, {ParallaxImage} from 'react-native-snap-carousel';
 // import * as axios from 'axios';
 import Meteor, {Mongo, withTracker} from '@meteorrn/core';
@@ -68,7 +75,7 @@ class MyApp extends React.Component {
     super(props);
     this.state = {
       count: 0,
-      isDarkMode: useColorScheme=='dark',
+      isDarkMode: useColorScheme == 'dark',
       data: props.myTodoTasks,
       // loading: props.loading,
       carouselRef: null,
@@ -103,43 +110,51 @@ class MyApp extends React.Component {
       //   data:
       // })
     };
-    const Item = item => (
-      <List.Item
-        onPress={() => {
-          // Alert.alert('Holaaa', item);
-          navigation.navigationGeneral.navigate('User', {item});
-        }}
-        title={item.profile.firstName + ' ' + item.profile.lastName}
-        titleStyle={{fontSize: 20}}
-        description={Meteor.user().profile.role == 'admin'?(item.profile.role + ' - ' + (!item.baneado?'Proxy habilitado':'Proxy desabilitado')):item.profile.role}
-        left={props =>
-          item.services.facebook ? (
-            <Avatar.Image
-              {...props}
-              size={50}
-              source={{uri: item.services.facebook.picture.data.url}}
-            />
-          ) : (
-            <Avatar.Text
-              {...props}
-              size={50}
-              label={
-                item.profile.firstName.toString().slice(0, 1) +
-                item.profile.lastName.toString().slice(0, 1)
-              }
-            />
-          )
-        }
-        right={props => (
-          <View>
-            <Text style={styles.data}>
-                  <MaterialCommunityIcons
-                    name="account"
-                    // color={styles.data}
-                    size={35}
-                  /><Text style={{fontSize:20}}>Roles:</Text>{' '}{' '}
-                  {Meteor.user().profile.role == 'admin' ? (
-                    <Switch
+    const Item = item =>
+      Meteor.user() && (
+        <List.Item
+          onPress={() => {
+            // Alert.alert('Holaaa', item);
+            navigation.navigationGeneral.navigate('User', {item});
+          }}
+          title={item.profile.firstName + ' ' + item.profile.lastName}
+          titleStyle={{fontSize: 20}}
+          description={
+            Meteor.user().profile.role == 'admin'
+              ? item.profile.role +
+                ' - ' +
+                (!item.baneado ? 'Proxy habilitado' : 'Proxy desabilitado')
+              : item.profile.role
+          }
+          left={props =>
+            item.services.facebook ? (
+              <Avatar.Image
+                {...props}
+                size={50}
+                source={{uri: item.services.facebook.picture.data.url}}
+              />
+            ) : (
+              <Avatar.Text
+                {...props}
+                size={50}
+                label={
+                  item.profile.firstName.toString().slice(0, 1) +
+                  item.profile.lastName.toString().slice(0, 1)
+                }
+              />
+            )
+          }
+          right={props => (
+            <View>
+              <Text style={styles.data}>
+                <MaterialCommunityIcons
+                  name="account"
+                  // color={styles.data}
+                  size={35}
+                />
+                <Text style={{fontSize: 20}}>Roles:</Text>{' '}
+                {Meteor.user().profile.role == 'admin' ? (
+                  <Switch
                     value={item.profile.role == 'admin'}
                     onValueChange={() =>
                       Meteor.users.update(item._id, {
@@ -150,49 +165,50 @@ class MyApp extends React.Component {
                       })
                     }
                   />
-                  
-                  ) : (
-                    item.profile.role
-                  )}
-                </Text>
-            <Text style={styles.data}>
-              <MaterialIcons
-                name="vpn-lock"
-                // color={styles.data}
-                size={35}
-              /><Text style={{fontSize:20}}>Proxy:</Text>{' '}{' '}
-              {Meteor.user().profile.role == 'admin' ? (
-                <Switch
-                  value={!item.baneado}
-                  onValueChange={() =>
-                    Meteor.users.update(item._id, {
-                      $set: {
-                        baneado: !item.baneado,
-                      },
-                    })
-                  }
+                ) : (
+                  item.profile.role
+                )}
+              </Text>
+              <Text style={styles.data}>
+                <MaterialIcons
+                  name="vpn-lock"
+                  // color={styles.data}
+                  size={35}
                 />
-              ) : item.baneado ? (
-                'Desabilitado'
-              ) : (
-                'Habilitado'
-              )}
-            </Text>
-          </View>
-        )}
-      />
-      //     <TouchableHighlight
-      //       onPress={() => {
-      //         // Alert.alert('Holaaa', item.username);
-      //         navigation.navigationGeneral.navigate('User',{item});
-      //       }}>
-      //       <View style={styles.item2}>
-      //         <Text style={styles.title}>Nombre: {item.profile.firstName}</Text>
-      //         <Text style={styles.title}>Apellidos: {item.profile.lastName}</Text>
-      //         <Text style={styles.title}>Nombre de Usuario: {item.username}</Text>
-      //       </View>
-      //     </TouchableHighlight>
-    );
+                <Text style={{fontSize: 20}}>Proxy:</Text>{' '}
+                {Meteor.user().profile.role == 'admin' ? (
+                  <Switch
+                    value={!item.baneado}
+                    onValueChange={() =>
+                      Meteor.users.update(item._id, {
+                        $set: {
+                          baneado: !item.baneado,
+                        },
+                      })
+                    }
+                  />
+                ) : item.baneado ? (
+                  'Desabilitado'
+                ) : (
+                  'Habilitado'
+                )}
+              </Text>
+            </View>
+          )}
+        />
+      );
+
+    //     <TouchableHighlight
+    //       onPress={() => {
+    //         // Alert.alert('Holaaa', item.username);
+    //         navigation.navigationGeneral.navigate('User',{item});
+    //       }}>
+    //       <View style={styles.item2}>
+    //         <Text style={styles.title}>Nombre: {item.profile.firstName}</Text>
+    //         <Text style={styles.title}>Apellidos: {item.profile.lastName}</Text>
+    //         <Text style={styles.title}>Nombre de Usuario: {item.username}</Text>
+    //       </View>
+    //     </TouchableHighlight>
     return (
       <View style={{flex: 1}}>
         {/* <ScrollView
@@ -284,9 +300,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     resizeMode: 'cover',
   },
-  data:{
-    
-  }
+  data: {},
 });
 
 export default UserHome;

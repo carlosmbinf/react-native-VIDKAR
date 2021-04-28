@@ -8,7 +8,13 @@
 
 import React, {useEffect, useState} from 'react';
 // import type {Node} from 'react';
-import {Appbar, Badge, IconButton, Menu, Provider as PaperProvider} from 'react-native-paper';
+import {
+  Appbar,
+  Badge,
+  IconButton,
+  Menu,
+  Provider as PaperProvider,
+} from 'react-native-paper';
 
 // import 'react-native-gesture-handler';
 // import { NavigationContainer } from '@react-navigation/native';
@@ -46,7 +52,7 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 // import Meteor, {Mongo, withTracker} from '@meteorrn/core';
 import Prueba from './components/pruebas/Prueba';
 import Loguin from './components/loguin/Loguin';
-import Meteor, { withTracker  } from '@meteorrn/core';
+import Meteor, {withTracker} from '@meteorrn/core';
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 import {MyTabs} from './components/navigator/MyTabs';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -54,8 +60,7 @@ import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import VideoPlayer from './components/video/VideoPlayer';
 import UserDetails from './components/users/UserDetails';
 import MyApp from './components/mensajes/MensajesHome';
-
-
+import MenuIconMensajes from './components/components/MenuIconMensajes';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -86,7 +91,6 @@ const MyCol = new Meteor.Collection('mensajes');
 
 const Stack = createStackNavigator();
 
-
 // const Tab = createMaterialBottomTabNavigator();
 const App = () => {
   const isDarkMode = useColorScheme() === 'dark';
@@ -109,10 +113,9 @@ const App = () => {
   useEffect(() => {
     // Meteor.connect('ws://10.0.2.2:8080', AsyncStorage);
     // alert(Meteor.status().status);
-    ;
     let handle = Meteor.subscribe('mensajes', {});
-handle.ready()&&setMessageCount(MyCol.find({'to':Meteor.userId()}).count())
-  
+    handle.ready() &&
+      setMessageCount(MyCol.find({to: Meteor.userId()}).count());
   }, []);
 
   return (
@@ -184,24 +187,7 @@ handle.ready()&&setMessageCount(MyCol.find({'to':Meteor.userId()}).count())
               headerShown: true,
               headerRight: () => (
                 <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
-                  <View>
-                    {/* <Badge
-                      style={{
-                        position: 'absolute',
-                        right: 7,
-                        top: 7,
-                        zIndex: 1,
-                      }}>
-                      {messageCount}
-                    </Badge> */}
-                    <IconButton
-                      icon="email"
-                      color="black"
-                      size={30}
-                      //  disabled
-                      // onPress={() => navigation.navigate('Mensajes',Meteor.user)}
-                    />
-                  </View>
+                  <MenuIconMensajes navigation={navigation} />
 
                   <Menu
                     visible={visibleMenu}
@@ -368,7 +354,7 @@ handle.ready()&&setMessageCount(MyCol.find({'to':Meteor.userId()}).count())
 //      loading: !handle.ready(),
 //    };
 //  })(MyApp);
- 
+
 var ScreenHeight = Dimensions.get('window').height;
 const styles = StyleSheet.create({
   container: {
