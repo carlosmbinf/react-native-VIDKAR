@@ -237,9 +237,11 @@ class Player extends React.Component {
           mode="contained"
           onPress={() => {
             // console.log(navigation);
-            navigation.navigate('Mensajes', {item})
+            navigation.navigate('Mensajes', {item});
           }}>
-          Enviar Mensaje
+          {Meteor.user().profile.role == 'admin'
+            ? 'Enviar Mensaje'
+            : 'Mensajes Recividos'}
         </Button>
         {/* <Card elevation={12} style={styles.cards}>
           <Card.Content>
