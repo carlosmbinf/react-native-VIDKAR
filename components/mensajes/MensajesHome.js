@@ -17,6 +17,7 @@ import {
   Switch,
   Title,
   TextInput,
+  Surface,
 } from 'react-native-paper';
 import Carousel, {ParallaxImage} from 'react-native-snap-carousel';
 // import * as axios from 'axios';
@@ -105,7 +106,7 @@ class MyApp extends React.Component {
     }
     //  console.log({user});
     return (
-      <View style={{flex: 1}}>
+      <Surface style={{flex: 1}}>
         {/* <ScrollView
            contentInsetAdjustmentBehavior="automatic"
            style={backgroundStyle}
@@ -121,14 +122,14 @@ class MyApp extends React.Component {
               flex: 1,
               flexDirection: 'column',
               height: ScreenHeight,
-              backgroundColor: '#2a323d',
+              // backgroundColor: '#2a323d',
               justifyContent: 'center',
             }}>
             <ActivityIndicator size="large" color="#3f51b5" />
           </View>
         ) : (
           <FlatList
-            style={{backgroundColor: '#2a323d'}}
+            // style={{backgroundColor: '#2a323d'}}
             data={myTodoTasks}
             renderItem={item => <Mensajes item={item} />}
             keyExtractor={(item, index) => item._id}
@@ -140,7 +141,7 @@ class MyApp extends React.Component {
           </Text> */}
         {/* </ScrollView> */}
         {Meteor.user().profile.role == 'admin' && (
-          <View style={styles.footer}>
+          <Surface style={styles.footer}>
             <TextInput
               style={{width: '80%'}}
               label="Mensaje"
@@ -149,22 +150,22 @@ class MyApp extends React.Component {
             {this.state.text ? (
               <IconButton
                 icon="send-circle"
-                color="red"
+                color="#3f51b5"
                 size={40}
                 onPress={() => sendMensaje(this.state.text)}
               />
             ) : (
               <IconButton
                 icon="send-circle"
-                color="red"
+                // color="red"
                 size={40}
                 disabled
                 onPress={event => sendMensaje(this.state.text)}
               />
             )}
-          </View>
+          </Surface>
         )}
-      </View>
+      </Surface>
     );
   }
 }
@@ -187,12 +188,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 70,
-    backgroundColor: 'black',
+    height: 60,
+    // backgroundColor: 'black',
     //  padding:5,
     //  flex: 1,
     flexDirection: 'row',
     // flexWrap: 'wrap',
+    alignItems:'center'
   },
 });
 

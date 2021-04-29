@@ -85,7 +85,7 @@ class MyApp extends React.Component {
         flex: 1,
         flexDirection: 'column',
         height: ScreenHeight,
-        backgroundColor: this.state.backgroundColor,
+        // backgroundColor: this.state.backgroundColor,
       },
       viewFullHeight: {
         minHeight: ScreenHeight,
@@ -109,7 +109,7 @@ class MyApp extends React.Component {
     //   return (useColorScheme() === 'dark');
     // };
     const backgroundStyle = {
-      backgroundColor: '#2a323d',
+      // backgroundColor: '#2a323d',
     };
     const renderItem = ({item, index}, parallaxProps) => {
       // console.log(item);
@@ -158,7 +158,7 @@ class MyApp extends React.Component {
                 flex: 1,
                 flexDirection: 'column',
                 height: ScreenHeight,
-                backgroundColor: '#2a323d',
+                // backgroundColor: '#2a323d',
                 justifyContent: 'center',
               }}>
               <ActivityIndicator size="large" color="#3f51b5" />

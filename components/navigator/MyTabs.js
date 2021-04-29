@@ -15,7 +15,7 @@ const Tab = createBottomTabNavigator();
 export function MyTabs(prop) {
   const [index, setIndex] = useState(0);
   const [routes] =
-    Meteor.user().profile.role == 'admin'
+  Meteor.user()&&Meteor.user().profile.role == 'admin'
       ? useState([
           {
             key: 'pelis',
@@ -69,10 +69,8 @@ export function MyTabs(prop) {
         setIndex(index);
       }}
       renderScene={renderScene}
-      activeColor="red"
-      // barStyle={
-      //   [{backgroundColor:'blue'},{backgroundColor:'white'}][index]
-      // }
+      activeColor="violet"
+      barStyle={{backgroundColor: '#3f51b5'}}
       shifting={true}
     />
     // <Tab.Navigator

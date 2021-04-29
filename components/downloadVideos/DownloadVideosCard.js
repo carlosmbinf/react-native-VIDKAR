@@ -184,7 +184,7 @@ const DownloadVideosCard = props => {
           {/* <Card.Title title="Card Title" subtitle="Card Subtitle" left={LeftContent} /> */}
           <Card.Content>
             <Title style={{color: 'red'}}>{itemlocal.nombreFile}</Title>
-            <Paragraph>{itemlocal.tamano&&itemlocal.tamano+'MB'}</Paragraph>
+            <Paragraph>{itemlocal.tamanoFile&&Number.parseInt(itemlocal.tamanoFile/1024/1024)+'MB'}</Paragraph>
             <Card.Cover
               source={{
                 uri: itemlocal.thumbnail,

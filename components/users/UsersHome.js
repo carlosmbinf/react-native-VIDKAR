@@ -15,6 +15,7 @@ import {
   Text,
   Switch,
   Title,
+  Surface,
 } from 'react-native-paper';
 import Carousel, {ParallaxImage} from 'react-native-snap-carousel';
 // import * as axios from 'axios';
@@ -210,7 +211,7 @@ class MyApp extends React.Component {
     //       </View>
     //     </TouchableHighlight>
     return (
-      <View style={{flex: 1}}>
+      <Surface style={{flex: 1}}>
         {/* <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={backgroundStyle}
@@ -226,14 +227,14 @@ class MyApp extends React.Component {
               flex: 1,
               flexDirection: 'column',
               height: ScreenHeight,
-              backgroundColor: '#2a323d',
+              // backgroundColor: '#2a323d',
               justifyContent: 'center',
             }}>
             <ActivityIndicator size="large" color="#3f51b5" />
           </View>
         ) : (
           <FlatList
-            style={{backgroundColor: '#2a323d'}}
+            // style={{backgroundColor: '#2a323d'}}
             data={Meteor.users.find({}).fetch()}
             renderItem={({item}) => Item(item)}
             keyExtractor={(item, index) => item._id}
@@ -244,7 +245,7 @@ class MyApp extends React.Component {
            {this.state.isLoading ? '' : JSON.stringify(this.state.data)}
          </Text> */}
         {/* </ScrollView> */}
-      </View>
+      </Surface>
     );
   }
 }

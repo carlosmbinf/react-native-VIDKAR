@@ -8,7 +8,7 @@
 
 import React, {useRef, useEffect, useState} from 'react';
 // import type {Node} from 'react';
-import {Provider as PaperProvider, Title} from 'react-native-paper';
+import {Provider as PaperProvider, Title, Surface} from 'react-native-paper';
 import Carousel, {ParallaxImage} from 'react-native-snap-carousel';
 // import * as axios from 'axios';
 import Meteor, {Mongo, withTracker} from '@meteorrn/core';
@@ -47,7 +47,7 @@ import Orientation from 'react-native-orientation';
 
 const {width: screenWidth} = Dimensions.get('window');
 const MyCol = new Meteor.Collection('pelisRegister');
-Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
+// Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
 
 class MyApp extends React.Component {
   componentDidMount() {
@@ -64,8 +64,8 @@ class MyApp extends React.Component {
     super(props);
     this.state = {
       count: 0,
-      isDarkMode: useColorScheme ==='dark',
-      backgroundColor:'#2a323d',
+      isDarkMode: useColorScheme === 'dark',
+      backgroundColor: '#2a323d',
       // data: props.myTodoTasks,
       // loading: props.loading,
       carouselRef: null,
@@ -85,7 +85,7 @@ class MyApp extends React.Component {
         flex: 1,
         flexDirection: 'column',
         height: ScreenHeight,
-        backgroundColor: this.state.backgroundColor,
+        // backgroundColor: this.state.backgroundColor,
       },
       viewFullHeight: {
         minHeight: ScreenHeight,
@@ -109,7 +109,7 @@ class MyApp extends React.Component {
     //   return (useColorScheme() === 'dark');
     // };
     const backgroundStyle = {
-      backgroundColor: '#2a323d',
+      // backgroundColor: '#2a323d',
     };
     const renderItem = ({item, index}, parallaxProps) => {
       // console.log(item);
@@ -140,7 +140,6 @@ class MyApp extends React.Component {
       // })
     };
 
-
     return (
       <View>
         <ScrollView
@@ -158,13 +157,13 @@ class MyApp extends React.Component {
                 flex: 1,
                 flexDirection: 'column',
                 height: ScreenHeight,
-                backgroundColor: '#2a323d',
+                // backgroundColor: '#2a323d',
                 justifyContent: 'center',
               }}>
               <ActivityIndicator size="large" color="#3f51b5" />
             </View>
           ) : (
-            <View style={styles.container}>
+            <Surface style={styles.container}>
               <View style={{width: '100%', alignItems: 'center'}}>
                 <Title
                   style={{
@@ -188,7 +187,7 @@ class MyApp extends React.Component {
                 // getItem
                 // layoutCardOffset={10}
               />
-            </View>
+            </Surface>
           )}
 
           {/* <Text>
@@ -209,7 +208,5 @@ const PelisHome = withTracker(navigation => {
     loading: !handle.ready(),
   };
 })(MyApp);
-
-
 
 export default PelisHome;

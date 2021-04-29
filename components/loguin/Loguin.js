@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import Meteor, {Accounts, Mongo, withTracker} from '@meteorrn/core';
 import {Colors} from 'react-native/Libraries/NewAppScreen';
-import {Button, Text, TextInput} from 'react-native-paper';
+import {Button, Surface, Text, TextInput} from 'react-native-paper';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import FontAwesome5Icon from 'react-native-vector-icons/FontAwesome5';
 
@@ -42,20 +42,23 @@ class MyAppLoguin extends Component {
     const {navigation} = this.props;
 
     const backgroundStyle = {
-      backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
+      // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
       height: screenHeight,
       // backgroundColor:'red'
     };
 
     Meteor.user() && navigation.navigation.navigate('Peliculas');
     return (
-      <View style={backgroundStyle}>
+      <Surface style={backgroundStyle}>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={{padding: 30}}>
           <View style={styles.container}>
-            <FontAwesome5Icon name="house-user" size={80} color="white" />
-            <Text style={{fontSize:40}}>🅥🅘🅓🅚🅐🅡</Text>
+            <Text>
+              <FontAwesome5Icon name="house-user" size={100} />
+            </Text>
+
+            <Text style={{fontSize: 40}}>🅥🅘🅓🅚🅐🅡</Text>
           </View>
 
           <View style={styles.container}>
@@ -94,7 +97,7 @@ class MyAppLoguin extends Component {
             </Button>
           </View>
         </ScrollView>
-      </View>
+      </Surface>
     );
   }
 }

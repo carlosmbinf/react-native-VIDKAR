@@ -57,6 +57,8 @@ import {
 // import PelisCard from './PelisCard';
 // import Loguin from '../loguin/Loguin';
 import Orientation from 'react-native-orientation';
+import ReactNativeForegroundService from '@supersami/rn-foreground-service';
+import Task from '../tasks/Task';
 
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
@@ -82,7 +84,9 @@ class MyApp extends React.Component {
       count: 0,
       text: '',
       menuVisible: false,
+      countMensajes: props.myTodoTasks.count(),
     };
+
     // console.log(this.props.myTodoTasks);
     // const isDarkMode = useColorScheme() === 'dark';
     // const [data, setData] = ;
@@ -93,6 +97,47 @@ class MyApp extends React.Component {
     const {user, loading, navigation, myTodoTasks} = this.props;
     const countMensajes = myTodoTasks.count();
     const arrayMensajes = myTodoTasks.fetch();
+
+    !loading &&
+      ReactNativeForegroundService.add_task(
+        () => {
+          console.log(JSON.stringify(arrayMensajes));
+        },
+        {
+          delay: 10000,
+          onLoop: false,
+          taskId: 'taskid',
+          onError: e => console.log(`Error logging:`, e),
+          onSuccess: () =>
+            ReactNativeForegroundService.update({
+              id: 144,
+              title: 'Vidkar',
+              message:
+                Meteor.userId() && countMensajes > 0
+                  ? 'Tiene ' + countMensajes + ' Mensajes Nuevos'
+                  : 'you are online!',
+              visibility: false,
+              largeicon: 'home',
+              vibration: true,
+              button: true,
+              buttonText: 'Abrir Vidkar',
+              // icon: 'account',
+            }),
+        },
+      );
+
+    ReactNativeForegroundService.start({
+      id: 144,
+      title: 'Foreground Service',
+      message: 'you are online!',
+      visibility: false,
+      largeicon: 'home',
+      vibration: true,
+      button: true,
+      buttonText: 'Abrir Vidkar',
+      // icon: 'account',
+    });
+
     const Item = item => {
       <Menu.Item onPress={() => {}} title="Item 2" />;
       //   <List.Item

@@ -6,6 +6,7 @@ import {
   Dimensions,
   StyleSheet,
   useColorScheme,
+  Alert,
 } from 'react-native';
 import Header from 'react-native-custom-header';
 import Video, {TextTrackType} from 'react-native-video';
@@ -67,10 +68,32 @@ class Mensaje extends React.Component {
     // console.log(user)
     return (
       <List.Item
-        // onPress={() => {
-        //   // Alert.alert('Holaaa', item.username);
-        //   navigation.navigationGeneral.navigate('User', {item});
-        // }}
+        onPress={() => {
+          Alert.alert(
+            Meteor.users.findOne({_id: item.item.from}) &&
+              'De: ' +
+                Meteor.users.findOne({_id: item.item.from}).profile
+                  .firstName +
+                ' ' +
+                Meteor.users.findOne({_id: item.item.from}).profile
+                  .lastName,
+            item.item.mensaje,
+            // [
+            //   {
+            //     text: 'Leido',
+            //     onPress: () => {
+            //       this.setState({menuVisible: false});
+            //       MyCol.update(item.item._id, {
+            //         $set: {leido: true},
+            //       });
+            //     },
+            //     style: 'cancel',
+            //   },
+            //   // {text: 'OK', onPress: () => console.log('OK Pressed')},
+            // ],
+          );
+          // navigation.navigationGeneral.navigate('User', {item});
+        }}
         title={user.profile.firstName + ' ' + user.profile.lastName}
         // titleStyle={{fontSize: 20}}
         description={item.item.mensaje}
@@ -109,7 +132,7 @@ class Mensaje extends React.Component {
             </Text>
             {item.item.leido && (
               <Ionicons
-                color="white"
+                // color="white"
                 size={30}
                 name="md-checkmark-done-circle"
               />
