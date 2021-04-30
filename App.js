@@ -113,9 +113,9 @@ const App = () => {
   useEffect(() => {
     // Meteor.connect('ws://10.0.2.2:8080', AsyncStorage);
     // alert(Meteor.status().status);
-    let handle = Meteor.subscribe('mensajes', {});
-    handle.ready() &&
-      setMessageCount(MyCol.find({to: Meteor.userId()}).count());
+    // let handle = Meteor.subscribe('mensajes', {});
+    // handle.ready() &&
+    //   setMessageCount(MyCol.find({to: Meteor.userId()}).count());
   }, []);
 
   return (

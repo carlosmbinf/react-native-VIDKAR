@@ -85,6 +85,7 @@ class MyApp extends React.Component {
       text: '',
       menuVisible: false,
       countMensajes: props.myTodoTasks.count(),
+      contador: 0,
     };
 
     // console.log(this.props.myTodoTasks);
@@ -101,42 +102,35 @@ class MyApp extends React.Component {
     !loading &&
       ReactNativeForegroundService.add_task(
         () => {
-          console.log(JSON.stringify(arrayMensajes));
+          if (this.state.contador != countMensajes) {
+            this.state.contador = countMensajes;
+            ReactNativeForegroundService.update({
+              id: 144,
+              title: 'VidKar',
+              message:
+                Meteor.userId() && countMensajes > 0
+                  ? 'Tiene ' + countMensajes + ' Mensajes Nuevos'
+                  : 'you are online!',
+              visibility: 'private',
+              // largeicon: 'home',
+              vibration: true,
+              button: true,
+              buttonText: 'Abrir Vidkar',
+              importance: 'none',
+              number: '10000',
+              // icon: 'home',
+            });
+          }
         },
         {
           delay: 10000,
           onLoop: false,
           taskId: 'taskid',
           onError: e => console.log(`Error logging:`, e),
-          onSuccess: () =>
-            ReactNativeForegroundService.update({
-              id: 144,
-              title: 'Vidkar',
-              message:
-                Meteor.userId() && countMensajes > 0
-                  ? 'Tiene ' + countMensajes + ' Mensajes Nuevos'
-                  : 'you are online!',
-              visibility: false,
-              largeicon: 'home',
-              vibration: true,
-              button: true,
-              buttonText: 'Abrir Vidkar',
-              // icon: 'account',
-            }),
+          // onSuccess: () =>
+          //   ,
         },
       );
-
-    ReactNativeForegroundService.start({
-      id: 144,
-      title: 'Foreground Service',
-      message: 'you are online!',
-      visibility: false,
-      largeicon: 'home',
-      vibration: true,
-      button: true,
-      buttonText: 'Abrir Vidkar',
-      // icon: 'account',
-    });
 
     const Item = item => {
       <Menu.Item onPress={() => {}} title="Item 2" />;
@@ -301,13 +295,13 @@ class MyApp extends React.Component {
 }
 const MenuIconMensajes = withTracker(navigation => {
   //  console.log(user.user)
-  const handle1 = Meteor.subscribe('user');
+  // const handle1 = Meteor.subscribe('user');
   const handle2 = Meteor.subscribe('mensajes', Meteor.userId());
   const myTodoTasks = MyCol.find({to: Meteor.userId(), leido: false});
   return {
     navigation,
     myTodoTasks,
-    loading: !handle1.ready() && !handle2.ready,
+    loading: !handle2.ready,
   };
 })(MyApp);
 
