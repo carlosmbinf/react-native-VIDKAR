@@ -143,10 +143,14 @@ class MyApp extends React.Component {
         {Meteor.user().profile.role == 'admin' && (
           <Surface style={styles.footer}>
             <TextInput
-              style={{width: '80%'}}
+            mode='outlined'
+              style={{width: '80%',height:40,}}
               label="Mensaje"
               value={this.state.text}
-              onChangeText={text => this.setState({text: text})}></TextInput>
+              onChangeText={text => this.setState({text: text})}
+              autoFocus={true}
+              blurOnSubmit={true}
+            />
             {this.state.text ? (
               <IconButton
                 icon="send-circle"
@@ -186,10 +190,16 @@ const styles = StyleSheet.create({
   footer: {
     //  position:'absolute',
     bottom: 0,
-    left: 0,
-    right: 0,
-    height: 60,
-    // backgroundColor: 'black',
+    // left: 0,
+    // right: 0,
+    // width:'90%',
+    height: 55,
+    padding:10,
+    paddingTop:0,
+    paddingBottom:0,
+    // margin:10,
+    borderRadius:20,
+    // backgroundColor: 'red',
     //  padding:5,
     //  flex: 1,
     flexDirection: 'row',

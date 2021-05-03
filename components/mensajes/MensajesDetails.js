@@ -63,7 +63,7 @@ class Mensaje extends React.Component {
     const {item} = this.props;
     // const {item} = this.props;
     // console.log(item.item)
-    const user = Meteor.users.find({_id: item.item.from}).fetch()[0];
+    const user = Meteor.users.findOne({_id: item.item.from});
     const date = new Date(item.item.createdAt);
     // console.log(user)
     return (
@@ -72,11 +72,9 @@ class Mensaje extends React.Component {
           Alert.alert(
             Meteor.users.findOne({_id: item.item.from}) &&
               'De: ' +
-                Meteor.users.findOne({_id: item.item.from}).profile
-                  .firstName +
+                Meteor.users.findOne({_id: item.item.from}).profile.firstName +
                 ' ' +
-                Meteor.users.findOne({_id: item.item.from}).profile
-                  .lastName,
+                Meteor.users.findOne({_id: item.item.from}).profile.lastName,
             item.item.mensaje,
             // [
             //   {
@@ -117,7 +115,7 @@ class Mensaje extends React.Component {
         }
         right={() => (
           <View style={{flexDirection: 'row', alignItems: 'center'}}>
-            <Text style={{paddingRight: 10}}>
+            <Text style={{paddingRight: 5}}>
               {date.getHours() +
                 ':' +
                 date.getMinutes() +
@@ -130,13 +128,15 @@ class Mensaje extends React.Component {
                 '/' +
                 date.getFullYear()}
             </Text>
-            {item.item.leido && (
-              <Ionicons
-                // color="white"
-                size={30}
-                name="md-checkmark-done-circle"
-              />
-            )}
+            <Text>
+              {item.item.leido && (
+                <Ionicons
+                  // color="white"
+                  size={30}
+                  name="md-checkmark-done-circle"
+                />
+              )}
+            </Text>
           </View>
         )}
       />

@@ -23,7 +23,7 @@ class MyAppLoguin extends Component {
     this.state = {
       username: '',
       password: '',
-      isDarkMode: useColorScheme,
+      // isDarkMode: useColorScheme,
     };
   }
 
@@ -40,14 +40,13 @@ class MyAppLoguin extends Component {
 
   render() {
     const {navigation} = this.props;
-
+    Meteor.userId() && this.props.navigation.navigation.navigate('Peliculas');
     const backgroundStyle = {
       // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
       height: screenHeight,
       // backgroundColor:'red'
     };
 
-    Meteor.user() && navigation.navigation.navigate('Peliculas');
     return (
       <Surface style={backgroundStyle}>
         <ScrollView
@@ -65,11 +64,11 @@ class MyAppLoguin extends Component {
             <TextInput
               mode="outlined"
               value={this.state.username}
-              onChangeText={username => this.setState({username})}
+              onChangeText={username => this.setState({username: username})}
               label={'Username'}
-              placeholderTextColor={
-                !this.state.isDarkMode ? Colors.darker : Colors.lighter
-              }
+              // placeholderTextColor={
+              //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
+              // }
               style={{
                 width: 200,
                 height: 44,
@@ -79,11 +78,11 @@ class MyAppLoguin extends Component {
             <TextInput
               mode="outlined"
               value={this.state.password}
-              onChangeText={password => this.setState({password})}
+              onChangeText={password => this.setState({password: password})}
               label={'Password'}
-              placeholderTextColor={
-                !this.state.isDarkMode ? Colors.darker : Colors.lighter
-              }
+              // placeholderTextColor={
+              //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
+              // }
               secureTextEntry={true}
               style={{
                 width: 200,
