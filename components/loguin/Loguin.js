@@ -15,12 +15,14 @@ import FontAwesome5Icon from 'react-native-vector-icons/FontAwesome5';
 
 const {width: screenWidth} = Dimensions.get('window');
 const {height: screenHeight} = Dimensions.get('window');
+import {Mensajes} from '../collections/collections'
 
-class MyAppLoguin extends Component {
+class Loguin extends Component {
   constructor(props) {
     super(props);
 
     this.state = {
+      ipserver: '',
       username: '',
       password: '',
       // isDarkMode: useColorScheme,
@@ -30,17 +32,31 @@ class MyAppLoguin extends Component {
   onLogin() {
     const {username, password} = this.state;
     const {navigation} = this.props;
+    try {
+      Meteor.connect('ws://'+this.state.ipserver+':3000/websocket');
+    } catch (error) {
+      Alert.alert(
+        'Error de Conexión',
+        'No se pudo conectar al servidor: ' + this.state.ipserver
+      );
+    }
+ // Note the /websocket after your URL
 
+    // let version = 1
+    // Meteor.subscribe('mensajes');
+    // console.log(Mensajes.find({type:'version'}).fetch());
+    // Mensajes.findOne({type:'version'}).version > version ? Alert.alert("Nueva Actualización", "Existe una nueva Actualizacion de la APK. Actualícela porfavor!!!\n\nMejoras:\n " +  Mensajes.findOne({type:'version'}).cambios):
     // navigation.navigate('Peliculas')
     Meteor.loginWithPassword(username, password, function (error) {
       error && Alert.alert('Credenciales incorrectas');
-      !error && navigation.navigation.navigate('Peliculas');
+      !error && navigation.navigate('Peliculas');
     });
   }
 
   render() {
+    
     const {navigation} = this.props;
-    Meteor.userId() && this.props.navigation.navigation.navigate('Peliculas');
+    Meteor.userId() && navigation.navigate('Peliculas');
     const backgroundStyle = {
       // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
       height: screenHeight,
@@ -48,10 +64,12 @@ class MyAppLoguin extends Component {
     };
 
     return (
-      <Surface style={backgroundStyle}>
+      
         <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          style={{padding: 30}}>
+        contentInsetAdjustmentBehavior="automatic"
+          >
+        <Surface style={backgroundStyle}>
+          
           <View style={styles.container}>
             <Text>
               <FontAwesome5Icon name="house-user" size={100} />
@@ -61,6 +79,20 @@ class MyAppLoguin extends Component {
           </View>
 
           <View style={styles.container}>
+          <TextInput
+              mode="outlined"
+              value={this.state.ipserver}
+              onChangeText={ipserver => this.setState({ipserver: ipserver})}
+              label={'IP del Servidor'}
+              // placeholderTextColor={
+              //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
+              // }
+              style={{
+                width: 200,
+                height: 44,
+                marginBottom: 10,
+              }}
+            />
             <TextInput
               mode="outlined"
               value={this.state.username}
@@ -95,16 +127,17 @@ class MyAppLoguin extends Component {
               Iniciar Sessión
             </Button>
           </View>
-        </ScrollView>
       </Surface>
+
+        </ScrollView>
     );
   }
 }
-const Loguin = withTracker(navigation => {
-  return {
-    navigation,
-  };
-})(MyAppLoguin);
+// const Loguin = withTracker(navigation => {
+//   return {
+//     navigation,
+//   };
+// })(MyAppLoguin);
 
 export default Loguin;
 const styles = StyleSheet.create({

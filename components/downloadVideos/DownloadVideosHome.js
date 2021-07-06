@@ -45,13 +45,13 @@ import Orientation from 'react-native-orientation';
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
 
-const {width: screenWidth} = Dimensions.get('window');
+// const {width: screenWidth} = Dimensions.get('window');
 const MyCol = new Meteor.Collection('descargasRegister');
 // Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
 
 class MyApp extends React.Component {
   componentDidMount() {
-    Orientation.lockToPortrait();
+    // Orientation.lockToPortrait();
   }
 
   componentWillUnmount() {
@@ -62,6 +62,12 @@ class MyApp extends React.Component {
     // const myTodoTasks = MyCol.find({}).fetch();
     // console.log(props.myTodoTasks);
     super(props);
+
+    const isPortrait = () => {
+      const dim = Dimensions.get('screen');
+      return dim.height >= dim.width;
+    };
+
     this.state = {
       count: 0,
       isDarkMode: useColorScheme ==='dark',
@@ -70,8 +76,17 @@ class MyApp extends React.Component {
       // loading: props.loading,
       carouselRef: null,
       refreshing: false,
+      orientation: isPortrait() ? 'portrait' : 'landscape',
+      ScreenHeight : Dimensions.get('window').height,
+      ScreenWidth : Dimensions.get('window').width
     };
-
+    Dimensions.addEventListener('change', () => {
+      this.setState({
+        orientation: isPortrait() ? 'portrait' : 'landscape',
+        ScreenHeight : Dimensions.get('window').height,
+        ScreenWidth : Dimensions.get('window').width
+      });
+    });
     // const isDarkMode = useColorScheme() === 'dark';
     // const [data, setData] = ;
     // const [isLoading, setLoading] = useState(true);
@@ -79,20 +94,20 @@ class MyApp extends React.Component {
   }
   render() {
     const {loading, navigation, myTodoTasks} = this.props;
-    var ScreenHeight = Dimensions.get('window').height;
+    // var this.state.ScreenHeight = Dimensions.get('window').height;
     const styles = StyleSheet.create({
       container: {
         flex: 1,
         flexDirection: 'column',
-        height: ScreenHeight,
+        height: this.state.orientation == 'portrait' ? (this.state.ScreenHeight-140):400,
         // backgroundColor: this.state.backgroundColor,
       },
       viewFullHeight: {
-        minHeight: ScreenHeight,
+        minHeight: this.state.ScreenHeight,
       },
       item: {
-        width: screenWidth - 60,
-        height: screenWidth - 60,
+        width: this.state.ScreenWidth - 60,
+        height: this.state.ScreenWidth - 60,
       },
       imageContainer: {
         flex: 1,
@@ -157,7 +172,7 @@ class MyApp extends React.Component {
               style={{
                 flex: 1,
                 flexDirection: 'column',
-                height: ScreenHeight,
+                height: this.state.ScreenHeight,
                 // backgroundColor: '#2a323d',
                 justifyContent: 'center',
               }}>
@@ -179,9 +194,9 @@ class MyApp extends React.Component {
               <Carousel
                 layout={'default'}
                 ref={this.state.carouselRef}
-                sliderWidth={screenWidth}
+                sliderWidth={this.state.ScreenWidth }
                 sliderHeight={400}
-                itemWidth={screenWidth - 100}
+                itemWidth={this.state.orientation == 'portrait' ? (this.state.ScreenWidth - 100):250}
                 data={myTodoTasks}
                 renderItem={renderItem}
                 hasParallaxImages={true}

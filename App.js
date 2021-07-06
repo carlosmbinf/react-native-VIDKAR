@@ -87,7 +87,6 @@ import MenuIconMensajes from './components/components/MenuIconMensajes';
 //     </View>
 //   );
 // };
-const MyCol = new Meteor.Collection('mensajes');
 
 const Stack = createStackNavigator();
 
@@ -110,7 +109,7 @@ const App = () => {
         : navigation.navigate('Loguin');
     });
   }
-  useEffect(() => {
+  useEffect(() => {    
     // Meteor.connect('ws://10.0.2.2:8080', AsyncStorage);
     // alert(Meteor.status().status);
     // let handle = Meteor.subscribe('mensajes', {});
@@ -135,7 +134,7 @@ const App = () => {
             name="Loguin"
             component={Loguin}
             options={({navigation, route}) => ({
-              title: <Text>{route.name}</Text>,
+              title: <Text>Inicio</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,

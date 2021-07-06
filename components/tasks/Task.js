@@ -1,4 +1,5 @@
 import Meteor, {withTracker} from '@meteorrn/core';
+import {Mensajes} from '../collections/collections'
 
 const TaskMensajes = (myTodoTasks, loading) => {
   //   !loading &&
@@ -8,7 +9,7 @@ const TaskMensajes = (myTodoTasks, loading) => {
 };
 
 const Task = async () => {
-  const myTodoTasks = await Meteor.Collection('mensajes').find({});
+  const myTodoTasks = await Mensajes.find({});
   console.log(JSON.stringify(myTodoTasks));
 };
 

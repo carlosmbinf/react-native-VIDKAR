@@ -43,6 +43,7 @@ import {
   SectionList,
   TouchableHighlight,
   Alert,
+  TextInput,
 } from 'react-native';
 
 import {
@@ -55,30 +56,35 @@ import {
 // import Loguin from '../loguin/Loguin';
 import Orientation from 'react-native-orientation';
 
+import {Online} from '../collections/collections'
+
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
 
 const {width: screenWidth} = Dimensions.get('window');
-const MyCol = new Meteor.Collection('online');
 // Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
 
 class MyApp extends React.Component {
   componentDidMount() {
-    Orientation.lockToPortrait();
+    
+    Orientation.unlockAllOrientations();
   }
 
   componentWillUnmount() {
-    Orientation.unlockAllOrientations();
+    // Orientation.unlockAllOrientations();
+    Orientation.lockToPortrait();
   }
   constructor(props) {
     // const handle = Meteor.subscribe('pelis');
-    // const myTodoTasks = MyCol.find({}).fetch();
+    // const myTodoTasks = Online.find({}).fetch();
     // console.log(props.myTodoTasks);
     super(props);
     this.state = {
       count: 0,
       isDarkMode: useColorScheme == 'dark',
-      data: props.myTodoTasks,
+      data: this.props.myTodoTasks
+        .find({}, {sort: {megasGastadosinBytes: -1}})
+        .fetch(),
       // loading: props.loading,
       carouselRef: null,
       refreshing: false,
@@ -86,11 +92,11 @@ class MyApp extends React.Component {
     // console.log(this.props.myTodoTasks);
     // const isDarkMode = useColorScheme() === 'dark';
     // const [data, setData] = ;
-    // const [isLoading, setLoading] = useState(true);
+    // const [textSearch, setTextSearch] = useState("");
     // const carouselRef = useRef(null);
   }
   render() {
-    const {loading, navigation, myTodoTasks} = this.props;
+    const {loading, navigation,myTodoTasks} = this.props;
 
     // let isDarkMode = {
     //   return (useColorScheme() === 'dark');
@@ -100,135 +106,247 @@ class MyApp extends React.Component {
       minHeight: ScreenHeight,
     };
 
-    const onRefresh = () => {
-      this.setState({
-        // refreshing: false,
-        data: myTodoTasks,
-      });
-      // console.log(this.props.myTodoTasks);
+    // const onRefresh = () => {
+    //   this.setState({
+    //     // refreshing: false,
+    //     data: myTodoTasks,
+    //   });
+    // console.log(this.props.myTodoTasks);
 
-      // this.state.navigation.navigate('Home')
-      // this.setState({
-      //   data:
-      // })
-    };
+    // this.state.navigation.navigate('Home')
+    // this.setState({
+    //   data:
+    // })
+    // };
+    function searchUser(user) {
+      return user.profile.firstName == textSearch;
+      // this.state.textSearch || user.profile.lastName == this.state.textSearch || user.username == this.state.textSearch;
+    }
+    const renderHeader = () => (
+      <View
+        style={{
+          flexDirection: 'row',
+          backgroundColor: '',
+          padding: 10,
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '100%',
+        }}>
+        <TextInput
+          value={this.state.firstName}
+          autoCapitalize="none"
+          autoCorrect={false}
+          onChangeText={textSearch => {
+            this.setState({
+              userName: '',
+              firstName: textSearch,
+              data: myTodoTasks
+                .find(
+                  textSearch
+                    ? {
+                        'profile.firstName': {
+                          $regex: this.state.firstName,
+                          $options: 'g',
+                        },
+                      }
+                    : {},
+                  textSearch
+                    ? {sort: {'profile.firstName': 1, 'profile.lastName': 1}}
+                    : {sort: {megasGastadosinBytes: -1}},
+                )
+                .fetch(),
+            });
+          }}
+          status="info"
+          placeholder="Buscar por Nombre"
+          style={{
+            borderRadius: 30,
+            borderColor: 'black',
+            borderWidth: 1,
+            backgroundColor: '',
+            // width:'100%',
+            padding: 10,
+            marginRight: 10,
+            height: 35,
+          }}
+          textStyle={{color: '#000'}}
+        />
+
+        <TextInput
+          value={this.state.userName}
+          autoCapitalize="none"
+          autoCorrect={false}
+          onChangeText={textSearch => {
+            this.setState({
+              userName: textSearch,
+              firstName: '',
+              data: myTodoTasks
+                .find(
+                  textSearch
+                    ? {
+                        username: {
+                          $regex: this.state.userName,
+                          $options: 'g',
+                        },
+                      }
+                    : {},
+                  textSearch
+                    ? {sort: {'profile.firstName': 1, 'profile.lastName': 1}}
+                    : {sort: {megasGastadosinBytes: -1}},
+                )
+                .fetch(),
+            });
+          }}
+          status="info"
+          placeholder="Buscar por usuario"
+          style={{
+            borderRadius: 30,
+            borderColor: 'black',
+            borderWidth: 1,
+            backgroundColor: '',
+            // width:'100%',
+            padding: 10,
+            height: 35,
+          }}
+          textStyle={{color: '#000'}}
+        />
+      </View>
+    );
     const Item = item => {
-      let connected =
-      MyCol.find({userId: item._id}).count() > 0 ? true : false;
-     return (
-       Meteor.user() && (
-         <List.Item
-           onPress={() => {
-             // Alert.alert('Holaaa', item);
-             navigation.navigationGeneral.navigate('User', {item});
-           }}
-           title={item.profile.firstName + ' ' + item.profile.lastName}
-           titleStyle={{fontSize: 20}}
-           description={
-            item.megasGastadosinBytes?
-             item.profile.role + ' - ' + Number.parseFloat(item.megasGastadosinBytes / 1000000).toFixed(2) + ' MB'
-             :
-             item.profile.role
-           }
-           left={props =>
-             item.services.facebook ? (
-               <View>
-                 <Badge
-                 size={15}
-
-                   style={{
-                     position: 'absolute',
-                     bottom: 10,
-                     right: 15,
-                     zIndex: 1,
-                     backgroundColor: '#10ff00',
-                   }}
-                   visible={connected}
-                 />
-                 <Avatar.Image
-                   {...props}
-                   size={55}
-                   source={{uri: item.services.facebook.picture.data.url}}
-                 />
-               </View>
-             ) : (
-               <View>
-                 <Badge
-                 size={15}
-                   style={{
-                     position: 'absolute',
-                     bottom: 5,
-                     right: 15,
-                     zIndex: 1,
-                     backgroundColor: '#10ff00',
-                   }}
-                   visible={connected}
-                 />
-                 <Avatar.Text
-                   {...props}
-                   size={50}
-                   label={
-                     item.profile.firstName.toString().slice(0, 1) +
-                     item.profile.lastName.toString().slice(0, 1)
-                   }
-                 />
-               </View>
-             )
-           }
-           right={props => (
-             <View>
-               <Text style={styles.data}>
-                 <MaterialCommunityIcons
-                   name="account"
-                   // color={styles.data}
-                   size={35}
-                 />
-                 <Text style={{fontSize: 20}}>Roles:</Text>{' '}
-                 {Meteor.user().profile.role == 'admin' ? (
-                   <Switch
-                     value={item.profile.role == 'admin'}
-                     onValueChange={() =>
-                       Meteor.users.update(item._id, {
-                         $set: {
-                           'profile.role':
-                             item.profile.role == 'admin' ? 'user' : 'admin',
-                         },
-                       })
-                     }
-                   />
-                 ) : (
-                   item.profile.role
-                 )}
-               </Text>
-               <Text style={styles.data}>
-                 <MaterialIcons
-                   name="vpn-lock"
-                   // color={styles.data}
-                   size={35}
-                 />
-                 <Text style={{fontSize: 20}}>Proxy:</Text>{' '}
-                 {Meteor.user().profile.role == 'admin' ? (
-                   <Switch
-                     value={!item.baneado}
-                     onValueChange={() =>
-                       Meteor.users.update(item._id, {
-                         $set: {
-                           baneado: !item.baneado,
-                         },
-                       })
-                     }
-                   />
-                 ) : item.baneado ? (
-                   'Desabilitado'
-                 ) : (
-                   'Habilitado'
-                 )}
-               </Text>
-             </View>
-           )}
-         />
-       )
-     );
+      let connected = Online.find({userId: item._id}).count() > 0 ? true : false;
+      return (
+        Meteor.user() && (
+          <List.Item
+            key={item._id}
+            onPress={() => {
+              // Alert.alert('Holaaa', item);
+              navigation.navigationGeneral.navigate('User', {item});
+            }}
+            title={item.profile.firstName + ' ' + item.profile.lastName}
+            //  titleStyle={{fontSize: 20}}
+            description={
+              Meteor.users.findOne(item._id).megasGastadosinBytes
+                ? '(' +
+                  item.username +
+                  ')'+
+                  ' - Conexiones: ' +
+                  Online.find({userId: item._id}).count() +
+                  '\n' +
+                  'Consumo: ' +
+                  Number.parseFloat(
+                    Meteor.users.findOne(item._id).megasGastadosinBytes / 1000000,
+                  ).toFixed(2) +
+                  ' MB'
+                : '(' +
+                  item.username +
+                  ')' +
+                  '\n' +
+                  'Conexiones: ' +
+                  Online.find({userId: item._id}).count()
+              //  + "\nConexiones: "+(connected?connected:0)
+            }
+            left={props =>
+              item.services && item.services.facebook ? (
+                <View style={{justifyContent: 'center'}}>
+                  <Badge
+                    size={20}
+                    style={{
+                      position: 'absolute',
+                      bottom: 5,
+                      right: 15,
+                      zIndex: 1,
+                      backgroundColor: '#10ff00',
+                      borderColor: 'white',
+                      borderWidth: 3,
+                    }}
+                    visible={connected}
+                  />
+                  <Avatar.Image
+                    {...props}
+                    size={50}
+                    source={{uri: item.services.facebook.picture.data.url}}
+                  />
+                </View>
+              ) : (
+                <View style={{justifyContent: 'center'}}>
+                  <Badge
+                    size={20}
+                    style={{
+                      position: 'absolute',
+                      bottom: 5,
+                      right: 15,
+                      zIndex: 1,
+                      backgroundColor: '#10ff00',
+                      borderColor: 'white',
+                      borderWidth: 3,
+                    }}
+                    visible={connected}
+                  />
+                  <Avatar.Text
+                    {...props}
+                    size={50}
+                    label={
+                      item.profile.firstName.toString().slice(0, 1) +
+                      item.profile.lastName.toString().slice(0, 1)
+                    }
+                  />
+                </View>
+              )
+            }
+            // right={props => (
+            //   <View>
+            //     {/* <Text style={(styles.data, {justifyContent: 'center'})}>
+            //       <MaterialCommunityIcons
+            //         name="account"
+            //         // color={styles.data}
+            //         //  size={25}
+            //       />
+            //       <Text style={{justifyContent: 'center'}}>Roles:</Text>{' '}
+            //       {Meteor.user().profile.role == 'admin' ? (
+            //         <Switch
+            //           value={item.profile.role == 'admin'}
+            //           onValueChange={() =>
+            //             Meteor.users.update(item, {
+            //               $set: {
+            //                 'profile.role':
+            //                   item.profile.role == 'admin' ? 'user' : 'admin',
+            //               },
+            //             })
+            //           }
+            //         />
+            //       ) : (
+            //         item.profile.role
+            //       )}
+            //     </Text> */}
+            //     <Text style={styles.data, {justifyContent: 'center'}}>
+            //       <MaterialIcons
+            //         name="vpn-lock"
+            //         // color={styles.data}
+            //         //  size={}
+            //       />
+            //       <Text>Proxy:</Text>{' '}
+            //       {Meteor.user().profile.role == 'admin' ? (
+            //         <Switch
+            //           value={!item.baneado}
+            //           onValueChange={() =>
+            //             Meteor.users.update(item, {
+            //               $set: {
+            //                 baneado: !item.baneado,
+            //               },
+            //             })
+            //           }
+            //         />
+            //       ) : item.baneado ? (
+            //         'Desabilitado'
+            //       ) : (
+            //         'Habilitado'
+            //       )}
+            //     </Text>
+            //   </View>
+            // )}
+          />
+        )
+      );
     };
     //     <TouchableHighlight
     //       onPress={() => {
@@ -242,7 +360,8 @@ class MyApp extends React.Component {
     //       </View>
     //     </TouchableHighlight>
     return (
-      <Surface style={{flex: 1}}>
+      <>
+      {/* // <Surface style={{flex: 1}}> */}
         {/* <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={backgroundStyle}
@@ -266,9 +385,13 @@ class MyApp extends React.Component {
         ) : (
           <FlatList
             // style={{backgroundColor: '#2a323d'}}
-            data={Meteor.users.find({}).fetch()}
+            refreshing={this.state.refreshing}
+            onRefresh={()=>{this.setState({data:myTodoTasks.find({}, {sort: {megasGastadosinBytes: -1}})
+            .fetch()})}}
+            data={this.state.data}
             renderItem={({item}) => Item(item)}
-            keyExtractor={(item, index) => item._id}
+            keyExtractor={(item, index) => item}
+            ListHeaderComponent={renderHeader()}
           />
         )}
 
@@ -276,19 +399,22 @@ class MyApp extends React.Component {
            {this.state.isLoading ? '' : JSON.stringify(this.state.data)}
          </Text> */}
         {/* </ScrollView> */}
-      </Surface>
+      {/* // </Surface> */}
+      </>
     );
   }
 }
 const UserHome = withTracker(navigation => {
-  Meteor.subscribe("conexiones");
   const handle = Meteor.subscribe('user');
- 
-  const myTodoTasks = Meteor.users.find({}).fetch();
+  const handle2 = Meteor.subscribe('conexiones');
+
+  const myTodoTasks = Meteor.users
+    // .find({}, {sort: {'profile.role':1,megasGastadosinBytes: -1}})
+    // .fetch();
   return {
     navigation,
     myTodoTasks,
-    loading: !handle.ready(),
+    loading: !handle.ready() && !handle2.ready(),
   };
 })(MyApp);
 

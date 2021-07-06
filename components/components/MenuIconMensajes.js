@@ -59,12 +59,12 @@ import {
 import Orientation from 'react-native-orientation';
 import ReactNativeForegroundService from '@supersami/rn-foreground-service';
 import Task from '../tasks/Task';
+import {Mensajes} from '../collections/collections';
 
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
 
 const {width: screenWidth} = Dimensions.get('window');
-const MyCol = new Meteor.Collection('mensajes');
 // Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
 
 class MyApp extends React.Component {
@@ -77,7 +77,7 @@ class MyApp extends React.Component {
   //   }
   constructor(props) {
     // const handle = Meteor.subscribe('pelis');
-    // const myTodoTasks = MyCol.find({}).fetch();
+    // const myTodoTasks = Mensajes.find({}).fetch();
     // console.log(props.myTodoTasks);
     super(props);
     this.state = {
@@ -99,38 +99,38 @@ class MyApp extends React.Component {
     const countMensajes = myTodoTasks.count();
     const arrayMensajes = myTodoTasks.fetch();
 
-    !loading &&
-      ReactNativeForegroundService.add_task(
-        () => {
-          if (this.state.contador != countMensajes) {
-            this.state.contador = countMensajes;
-            ReactNativeForegroundService.update({
-              id: 144,
-              title: 'VidKar',
-              message:
-                Meteor.userId() && countMensajes > 0
-                  ? 'Tiene ' + countMensajes + ' Mensajes Nuevos'
-                  : 'you are online!',
-              visibility: 'private',
-              // largeicon: 'home',
-              vibration: true,
-              button: true,
-              buttonText: 'Abrir Vidkar',
-              importance: 'none',
-              number: '10000',
-              // icon: 'home',
-            });
-          }
-        },
-        {
-          delay: 10000,
-          onLoop: false,
-          taskId: 'taskid',
-          onError: e => console.log(`Error logging:`, e),
-          // onSuccess: () =>
-          //   ,
-        },
-      );
+    // !loading &&
+    //   ReactNativeForegroundService.add_task(
+    //     () => {
+    //       if (this.state.contador != countMensajes) {
+    //         this.state.contador = countMensajes;
+    //         ReactNativeForegroundService.update({
+    //           id: 144,
+    //           title: 'VidKar',
+    //           message:
+    //             Meteor.userId() && countMensajes > 0
+    //               ? 'Tiene ' + countMensajes + ' Mensajes Nuevos'
+    //               : 'you are online!',
+    //           visibility: 'private',
+    //           // largeicon: 'home',
+    //           vibration: true,
+    //           button: true,
+    //           buttonText: 'Abrir Vidkar',
+    //           importance: 'none',
+    //           number: '10000',
+    //           // icon: 'home',
+    //         });
+    //       }
+    //     },
+    //     {
+    //       delay: 10000,
+    //       onLoop: false,
+    //       taskId: 'taskid',
+    //       onError: e => console.log(`Error logging:`, e),
+    //       // onSuccess: () =>
+    //       //   ,
+    //     },
+    //   );
 
     const Item = item => {
       <Menu.Item onPress={() => {}} title="Item 2" />;
@@ -190,13 +190,15 @@ class MyApp extends React.Component {
           /> */}
           {!loading && countMensajes > 0 && (
             <View>
+              <ScrollView contentInsetAdjustmentBehavior="automatic">
+                
               <Button
                 icon="eye-check-outline"
                 onPress={() => {
                   // alert(Meteor.user()._id
                   this.setState({menuVisible: false});
                   myTodoTasks.fetch().forEach(element => {
-                    MyCol.update(
+                    Mensajes.update(
                       element._id,
                       {
                         $set: {leido: true},
@@ -204,7 +206,7 @@ class MyApp extends React.Component {
                       {multi: true},
                     );
                   });
-                  // MyCol.update(
+                  // Mensajes.update(
                   //   {},
                   //   {
                   //     $set: {leido: true},
@@ -233,7 +235,7 @@ class MyApp extends React.Component {
                             text: 'Leido',
                             onPress: () => {
                               this.setState({menuVisible: false});
-                              MyCol.update(item._id, {
+                              Mensajes.update(item._id, {
                                 $set: {leido: true},
                               });
                             },
@@ -281,6 +283,8 @@ class MyApp extends React.Component {
                   {index != arrayMensajes.length - 1 && <Divider />}
                 </View>
               ))}
+              
+              </ScrollView>
             </View>
           )}
 
@@ -295,9 +299,9 @@ class MyApp extends React.Component {
 }
 const MenuIconMensajes = withTracker(navigation => {
   //  console.log(user.user)
-  // const handle1 = Meteor.subscribe('user');
+  const handle1 = Meteor.subscribe('user');
   const handle2 = Meteor.subscribe('mensajes', Meteor.userId());
-  const myTodoTasks = MyCol.find({to: Meteor.userId(), leido: false});
+  const myTodoTasks = Mensajes.find({to: Meteor.userId(), leido: false});
   return {
     navigation,
     myTodoTasks,

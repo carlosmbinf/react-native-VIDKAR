@@ -54,12 +54,12 @@ import {
 // import PelisCard from './PelisCard';
 // import Loguin from '../loguin/Loguin';
 import Orientation from 'react-native-orientation';
+import {Mensajes as MensajesCollection} from '../collections/collections';
 
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
 
 const {width: screenWidth} = Dimensions.get('window');
-const MyCol = new Meteor.Collection('mensajes');
 // Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
 
 class MyApp extends React.Component {
@@ -72,7 +72,7 @@ class MyApp extends React.Component {
   }
   constructor(props) {
     // const handle = Meteor.subscribe('pelis');
-    // const myTodoTasks = MyCol.find({}).fetch();
+    // const myTodoTasks = MensajesCollection.find({}).fetch();
     // console.log(props.myTodoTasks);
     super(props);
     this.state = {
@@ -102,7 +102,7 @@ class MyApp extends React.Component {
     };
     function sendMensaje(text) {
       //  alert(text)
-      MyCol.insert({from: Meteor.userId(), to: user._id, mensaje: text});
+      MensajesCollection.insert({from: Meteor.userId(), to: user._id, mensaje: text});
     }
     //  console.log({user});
     return (
@@ -176,7 +176,7 @@ class MyApp extends React.Component {
 const MensajesHome = withTracker(user => {
   //  console.log(user.user)
   const handle = Meteor.subscribe('mensajes', user.user._id);
-  const myTodoTasks = MyCol.find({to: user.user._id}).fetch();
+  const myTodoTasks = MensajesCollection.find({to: user.user._id}).fetch();
   return {
     user: user.user,
     myTodoTasks,

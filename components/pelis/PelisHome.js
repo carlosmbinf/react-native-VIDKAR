@@ -42,26 +42,34 @@ import PelisCard from './PelisCard';
 import Loguin from '../loguin/Loguin';
 import Orientation from 'react-native-orientation';
 
+import {PelisRegister} from '../collections/collections'
+
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
 
-const {width: screenWidth} = Dimensions.get('window');
-const MyCol = new Meteor.Collection('pelisRegister');
+// var {width: ScreenWidth} = Dimensions.get('window');
 // Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
 
 class MyApp extends React.Component {
   componentDidMount() {
-    Orientation.lockToPortrait();
+    // Orientation.lockToPortrait();
   }
 
   componentWillUnmount() {
-    Orientation.unlockAllOrientations();
+    // Orientation.unlockAllOrientations();
   }
+
   constructor(props) {
     // const handle = Meteor.subscribe('pelis');
-    // const myTodoTasks = MyCol.find({}).fetch();
+    // const myTodoTasks = PelisRegister.find({}).fetch();
     // console.log(props.myTodoTasks);
     super(props);
+
+    const isPortrait = () => {
+      const dim = Dimensions.get('window');
+      return dim.height >= dim.width;
+    };
+
     this.state = {
       count: 0,
       isDarkMode: useColorScheme === 'dark',
@@ -70,8 +78,17 @@ class MyApp extends React.Component {
       // loading: props.loading,
       carouselRef: null,
       refreshing: false,
+      orientation: isPortrait() ? 'portrait' : 'landscape',
+      ScreenHeight : Dimensions.get('window').height,
+      ScreenWidth : Dimensions.get('window').width
     };
-
+    Dimensions.addEventListener('change', () => {
+      this.setState({
+        orientation: isPortrait() ? 'portrait' : 'landscape',
+        ScreenHeight : Dimensions.get('window').height,
+        ScreenWidth : Dimensions.get('window').width
+      });
+    });
     // const isDarkMode = useColorScheme() === 'dark';
     // const [data, setData] = ;
     // const [isLoading, setLoading] = useState(true);
@@ -79,20 +96,19 @@ class MyApp extends React.Component {
   }
   render() {
     const {loading, navigation, myTodoTasks} = this.props;
-    var ScreenHeight = Dimensions.get('window').height;
     const styles = StyleSheet.create({
       container: {
         flex: 1,
         flexDirection: 'column',
-        height: ScreenHeight,
+        height: this.state.orientation == 'portrait' ? (this.state.ScreenHeight-140):400,
         // backgroundColor: this.state.backgroundColor,
       },
       viewFullHeight: {
-        minHeight: ScreenHeight,
+        minHeight: this.state.ScreenHeight,
       },
       item: {
-        width: screenWidth - 60,
-        height: screenWidth - 60,
+        width: this.state.ScreenWidth - 60,
+        height: this.state.ScreenWidth - 60,
       },
       imageContainer: {
         flex: 1,
@@ -131,7 +147,7 @@ class MyApp extends React.Component {
     const onRefresh = () => {
       this.setState({
         // refreshing: false,
-        data: MyCol.find({}).fetch(),
+        data: PelisRegister.find({}).fetch(),
       });
 
       // this.state.navigation.navigate('Home')
@@ -156,7 +172,7 @@ class MyApp extends React.Component {
               style={{
                 flex: 1,
                 flexDirection: 'column',
-                height: ScreenHeight,
+                height: this.state.ScreenHeight,
                 // backgroundColor: '#2a323d',
                 justifyContent: 'center',
               }}>
@@ -178,9 +194,9 @@ class MyApp extends React.Component {
               <Carousel
                 layout={'default'}
                 ref={this.state.carouselRef}
-                sliderWidth={screenWidth}
+                sliderWidth={this.state.ScreenWidth}
                 sliderHeight={400}
-                itemWidth={screenWidth - 100}
+                itemWidth={this.state.orientation == 'portrait' ? (this.state.ScreenWidth - 100):250}
                 data={myTodoTasks}
                 renderItem={renderItem}
                 hasParallaxImages={true}
@@ -200,7 +216,7 @@ class MyApp extends React.Component {
 }
 const PelisHome = withTracker(navigation => {
   const handle = Meteor.subscribe('pelis');
-  const myTodoTasks = MyCol.find({}).fetch();
+  const myTodoTasks = PelisRegister.find({}).fetch();
 
   return {
     navigation,
