@@ -220,7 +220,8 @@ class MyApp extends React.Component {
             key={item._id}
             onPress={() => {
               // Alert.alert('Holaaa', item);
-              navigation.navigationGeneral.navigate('User', {item});
+              // console.log(navigation);
+              navigation.navigation.navigate('User', {item});
             }}
             title={item.profile.firstName + ' ' + item.profile.lastName}
             //  titleStyle={{fontSize: 20}}

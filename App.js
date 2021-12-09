@@ -61,6 +61,7 @@ import VideoPlayer from './components/video/VideoPlayer';
 import UserDetails from './components/users/UserDetails';
 import MyApp from './components/mensajes/MensajesHome';
 import MenuIconMensajes from './components/components/MenuIconMensajes';
+import UserHome from './components/users/UsersHome';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -151,7 +152,7 @@ const App = () => {
           />
           <Stack.Screen
             name="Peliculas"
-            component={MyTabs}
+            component={UserHome}
             options={({navigation, route}) => ({
               title: (
                 <Text style={{letterSpacing: 5}}>
@@ -183,6 +184,7 @@ const App = () => {
               // headerTitleStyle: {
               //   fontWeight: 'bold',
               // },
+              headerLeft:null,
               headerShown: true,
               headerRight: () => (
                 <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
@@ -254,9 +256,9 @@ const App = () => {
             options={({navigation, route}) => ({
               title: (
                 <Text>
-                  {route.params.item.profile.firstName +
+                  {route.params.item?(route.params.item.profile.firstName +
                     ' ' +
-                    route.params.item.profile.lastName}
+                    route.params.item.profile.lastName):""}
                 </Text>
               ),
               headerStyle: {
@@ -268,7 +270,53 @@ const App = () => {
               // headerTitleStyle: {
               //   fontWeight: 'bold',
               // },
+              // headerLeft: Meteor.user().profile.role != "admin" && null,
               headerShown: true,
+              headerRight: () => (
+                <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
+                  <MenuIconMensajes navigation={navigation} />
+
+                  <Menu
+                    visible={visibleMenu}
+                    onDismiss={() => {
+                      setVisibleMenu(false);
+                    }}
+                    anchor={
+                      <Appbar.Action
+                        icon="menu"
+                        color="white"
+                        onPress={() => {
+                          setVisibleMenu(true);
+                        }}
+                      />
+                    }
+                    style={{top: 70, width: 210, paddingRight: 30}}>
+                    <View style={{padding: 0}}>
+                      {/* <Menu.Item
+                        icon="menu"
+                        onPress={() => {
+                          // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
+                          // console.log(item)
+                          setVisibleMenu(false);
+                          navigation.navigate('User', {
+                            item: Meteor.users.findOne({_id: Meteor.userId()}),
+                          });
+                        }}
+                        title="Mi usuario"
+                      /> */}
+                      <Menu.Item
+                        icon="logout"
+                        onPress={() => {
+                          Meteor.logout();
+                          navigation.navigate('Loguin');
+                          setVisibleMenu(false);
+                        }}
+                        title="Cerrar Sessión"
+                      />
+                    </View>
+                  </Menu>
+                </View>
+              )
               // headerRight
               // headerTransparent:false
             })}>

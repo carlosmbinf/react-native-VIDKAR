@@ -29,11 +29,12 @@ class Loguin extends Component {
     };
   }
 
+
   onLogin() {
     const {username, password} = this.state;
     const {navigation} = this.props;
     try {
-      Meteor.connect('ws://'+this.state.ipserver+':3000/websocket');
+      Meteor.connect('ws://'+this.state.ipserver+':6000/websocket');
     } catch (error) {
       Alert.alert(
         'Error de Conexión',
@@ -49,7 +50,8 @@ class Loguin extends Component {
     // navigation.navigate('Peliculas')
     Meteor.loginWithPassword(username, password, function (error) {
       error && Alert.alert('Credenciales incorrectas');
-      !error && navigation.navigate('Peliculas');
+      // !error && navigation.navigate('Peliculas');
+      !error && (Meteor.users.findOne({ username: username }).profile.role == "admin" ? navigation.navigate('Peliculas') : navigation.navigate('User', { item: Meteor.users.findOne({ username: username }) }));
     });
   }
 

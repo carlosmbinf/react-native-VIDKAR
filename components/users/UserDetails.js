@@ -13,10 +13,10 @@ import Video, {TextTrackType} from 'react-native-video';
 // const Todos = new Mongo.Collection('pelisRegister');
 import Modal from 'react-native-modal';
 import CalendarPicker from 'react-native-calendar-picker';
-import NumericInput from 'react-native-numeric-input'
-
+// import NumericInput from 'react-native-numeric-input'
+import { Dropdown } from 'react-native-element-dropdown';
 import Orientation from 'react-native-orientation';
-import {Card, Title, Text, Button, TextInput, Switch, Surface} from 'react-native-paper';
+import {Card, Title, Text, Button, TextInput, Switch, Surface, IconButton } from 'react-native-paper';
 import {Colors} from 'react-native/Libraries/NewAppScreen';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import Entypo from 'react-native-vector-icons/Entypo';
@@ -24,6 +24,10 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { RefreshControl } from 'react-native';
 import { ActivityIndicator } from 'react-native';
+import { Alert } from 'react-native';
+
+
+import { PreciosCollection, Logs, VentasCollection } from '../collections/collections'
 
 const axios = require('axios').default;
 
@@ -43,6 +47,8 @@ class MyAppUserDetails extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
+      value:null,
+      isFocus:false,
       paused: false,
       isModalVisible: false,
       // colorText:  Colors.darker,
@@ -54,13 +60,23 @@ class MyAppUserDetails extends React.Component {
   }
 
   render() {
-    const {navigation,ready} = this.props;
+    const {navigation,ready, precioslist, precios} = this.props;
     const moment = require('moment');
+    const data = precioslist;
     var item = Meteor.users.find(this.props.item).fetch()[0]
     // console.log(item)
     // const {item} = this.props;
     const onRefresh = () => {
       item = Meteor.users.find(this.props.item).fetch()[0]
+    }
+    const renderLabel = () => {
+      if (this.state.value || this.state.isFocus) {
+        return (
+          <Text style={[styles.label, this.state.isFocus && { color: 'blue' }]}>
+            Dropdown label
+          </Text>
+        );
+      }
     }
     
     return (
@@ -239,7 +255,10 @@ class MyAppUserDetails extends React.Component {
                 </Text>
                 
               </View> */}
-                  <View style={{flexDirection: 'row'}}>
+              {Meteor.user().username == "carlosmbinf" &&
+                    <>
+                    <View style={{flexDirection: 'row'}}>
+                    
                     <Text
                       style={
                         (styles.data,
@@ -277,6 +296,9 @@ class MyAppUserDetails extends React.Component {
                       }}
                     />
                   </View>
+                    </>
+                    }
+                  
                   {item.isIlimitado ? (
                     <>
                       <Surface
@@ -320,29 +342,81 @@ class MyAppUserDetails extends React.Component {
                     </>
                   ) : (
                     <View style={{paddingTop: 20}}>
-                      <NumericInput
-                        value={item.megas ? Number(item.megas) : 0}
-                        onChange={megas =>
-                          Meteor.users.update(item._id, {
-                            $set: {
-                              megas: megas,
-                            },
-                          })
-                        }
-                        onLimitReached={(isMax, msg) => console.log(isMax, msg)}
-                        totalWidth={240}
-                        totalHeight={40}
-                        iconSize={25}
-                        step={1024}
-                        valueType="real"
-                        rounded
-                        textColor="black"
-                        iconStyle={{color: 'white'}}
-                        rightButtonBackgroundColor="#7300e6"
-                        leftButtonBackgroundColor="#7300e6"
-                      />
+                     {renderLabel()}
+                          <Dropdown
+                            style={[styles.dropdown, this.state.isFocus && { borderColor: 'blue' }]}
+                            placeholderStyle={styles.placeholderStyle}
+                            selectedTextStyle={styles.selectedTextStyle}
+                            inputSearchStyle={styles.inputSearchStyle}
+                            iconStyle={styles.iconStyle}
+                            data={data}
+                            search
+                            maxHeight={300}
+                            labelField="label"
+                            valueField="value"
+                            placeholder={!this.state.isFocus ? 'Select item' : '...'}
+                            searchPlaceholder="Search..."
+                            value={this.state.value}
+                            onFocus={() => this.setState({ isFocus: true })}
+                            onBlur={() => this.setState({ isFocus: false})}
+                            onChange={item => {
+                              this.setState({ value: item.value, isFocus: false })
+                            }}
+                            // renderLeftIcon={() => (
+                            //   <AntDesign
+                            //     style={styles.icon}
+                            //     color={isFocus ? 'blue' : 'black'}
+                            //     name="Safety"
+                            //     size={20}
+                            //   />
+                            // )}
+                          />
+                          <View style={{ paddingTop: 10, paddingBottom: 10 }}>
+                            <Button
+                              icon="send"
+                              disabled={this.state.value ? false : true}
+                              mode="contained"
+                              onPress={() => {
+                                try {
+
+                                  Meteor.users.update(item._id, { $set: { megas: this.state.value } })
+                                  Logs.insert({
+                                    type: 'Megas',
+                                    userAfectado: item._id,
+                                    userAdmin: Meteor.userId(),
+                                    message:
+                                      `Ha sido Cambiado el consumo de Datos a: ${this.state.value}MB`,
+                                    createdAt: new Date(),
+                                  })
+                                } catch (error) {
+                                  console.error(error)
+                                }
+                              }}
+                            >
+                              {`Comprar ${this.state.value / 1024}GB`}
+                            </Button>
+                          </View>
                     </View>
                   )}
+                    {item.isIlimitado ? <></> :
+                      <Surface
+                        style={{
+                          width: '100%',
+                          elevation: 12,
+                          borderRadius: 20,
+                          marginTop: 10,
+                        }}>
+                        <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                          Limite de Megas:
+                  </Text>
+                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                          {item.profile.role != "admin" ? (item.megas
+                            ? (item.megas / 1024).toFixed(2) + ' GB'
+                            : '0 GB') : "Ilimitado"}
+                        </Text>
+                      </Surface>
+                    }
+
                   <Surface
                         style={{
                           width: '100%',
@@ -371,16 +445,93 @@ class MyAppUserDetails extends React.Component {
                         </Text>
                         <Text style={{paddingBottom: 10, textAlign: 'center'}}>
                         {Meteor.user().profile.role == 'admin' ? (
-                      <Switch
-                        value={!item.baneado}
-                        onValueChange={() => {
-                          Meteor.users.update(item._id, {
-                            $set: {
-                              baneado: !item.baneado,
-                            },
-                          });
-                        }}
-                      />
+                      // <Switch
+                      //   value={!item.baneado}
+                      //   onValueChange={() => {
+                      //     Meteor.users.update(item._id, {
+                      //       $set: {
+                      //         baneado: !item.baneado,
+                      //       },
+                      //     });
+                      //   }}
+                      // />
+                      <Button
+                              // disabled={this.state.value ? false : true}
+                              mode="contained"
+                              onPress={() => {
+                                try {
+
+                                  
+
+                                  item.baneado ||
+                                    (Meteor.users.update(item._id, {
+                                      $set: {
+                                        baneado: item.baneado ? false : true,
+                                        bloqueadoDesbloqueadoPor: Meteor.userId()
+                                      },
+                                    }),
+                                      Logs.insert({
+                                        type: !item.baneado ? "Bloqueado" : "Desbloqueado",
+                                        userAfectado: item._id,
+                                        userAdmin: Meteor.userId(),
+                                        message:
+                                          "Ha sido " +
+                                          (!item.baneado ? "Bloqueado" : "Desbloqueado") +
+                                          " por un Admin",
+                                        createdAt: new Date(),
+                                      })),
+
+                                    item.baneado && (
+                                      this.state.value || item.profile.role == "admin" ? (
+                                        Meteor.users.update(item._id, {
+                                          $set: {
+                                            baneado: item.baneado ? false : true,
+                                            bloqueadoDesbloqueadoPor: Meteor.userId()
+                                          },
+                                        }),
+                                        Logs.insert({
+                                          type: !item.baneado ? "Bloqueado" : "Desbloqueado",
+                                          userAfectado: item._id,
+                                          userAdmin: Meteor.userId(),
+                                          message:
+                                            "Ha sido " +
+                                            (!item.baneado ? "Bloqueado" : "Desbloqueado") +
+                                            " por un Admin",
+                                          createdAt: new Date(),
+                                        }),
+                                        precios.forEach(precio => {
+                                          item.isIlimitado ? precio.fecha && (VentasCollection.insert({
+                                            adminId: Meteor.userId(),
+                                            userId: item._id,
+                                            precio: precio.precio,
+                                            comentario: precio.comentario
+                                          }),
+                                            Alert.alert(precio.comentario)
+                                          ) :
+                                            (precio.megas && (precio.megas == item.megas) && (
+                                              console.log("precio.megas " + precio.megas),
+                                              VentasCollection.insert({
+                                                adminId: Meteor.userId(),
+                                                userId: item._id,
+                                                precio: precio.precio,
+                                                comentario: precio.comentario
+                                              }),
+                                              Alert.alert(precio.comentario)
+                                            ))
+                                        })
+                                      ) : Alert.alert("Debe especificar el paquete a comprar")
+                                    )
+                                  
+
+
+
+                                } catch (error) {
+                                  console.error(error)
+                                }
+                              }}
+                            >
+                              {item.baneado?"Habilitar":"Desabilitar"}
+                            </Button>
                     ) : item.baneado ? (
                       'Desabilitado'
                     ) : (
@@ -471,7 +622,7 @@ class MyAppUserDetails extends React.Component {
               </Card.Content>
             </Card>
           )}
-          <Button
+          {/* <Button
             mode="contained"
             onPress={() => {
               // console.log(navigation);
@@ -481,7 +632,7 @@ class MyAppUserDetails extends React.Component {
             Meteor.user()._id != item._id
               ? 'Enviar Mensaje'
               : 'Mensajes Recividos'}
-          </Button>
+          </Button> */}
           {/* <Card elevation={12} style={styles.cards}>
           <Card.Content>
             <Text>HOLA</Text>
@@ -495,6 +646,13 @@ class MyAppUserDetails extends React.Component {
 }
 
 const Player = withTracker(props => {
+    Meteor.subscribe("precios").ready()
+    let precioslist = []
+    PreciosCollection.find({ fecha: false }).fetch().map((a)=>{
+      precioslist.push({value: a.megas, label: a.megas+'MB • $'+ a.precio})
+    })
+
+    let precios = PreciosCollection.find().fetch()
 
   const {item,navigation} = props;
     // const {navigation} = props;
@@ -502,7 +660,9 @@ const Player = withTracker(props => {
   return {
     item:item._id,
     navigation:navigation,
-    ready:ready
+    ready:ready,
+    precioslist,
+    precios
   };
 })(MyAppUserDetails);
 
@@ -540,5 +700,43 @@ const styles = StyleSheet.create({
   cards:{
     marginBottom:20,
     borderRadius:20,
-  }
+  },
+  dropdown: {
+    height: 50,
+    borderColor: 'gray',
+    borderWidth: 0.5,
+    borderRadius: 22,
+    paddingHorizontal: 8,
+  },
+  icon: {
+    marginRight: 5,
+  },
+  label: {
+    position: 'absolute',
+    backgroundColor: 'white',
+    left: 22,
+    top: 8,
+    zIndex: 999,
+    paddingHorizontal: 8,
+    fontSize: 12,
+  },
+  placeholderStyle: {
+    fontSize: 14,
+  },
+  selectedTextStyle: {
+    fontSize: 14,
+  },
+  iconStyle: {
+    width: 20,
+    height: 20,
+  },
+  inputSearchStyle: {
+    height: 40,
+    fontSize: 14,
+    borderRadius: 22
+  },
+  container: {
+    backgroundColor: 'white',
+    padding: 16,
+  },
 });
