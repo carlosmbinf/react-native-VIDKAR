@@ -82,9 +82,7 @@ class MyApp extends React.Component {
     this.state = {
       count: 0,
       isDarkMode: useColorScheme == 'dark',
-      data: this.props.myTodoTasks
-        .find({}, {sort: {megasGastadosinBytes: -1}})
-        .fetch(),
+      data: this.props.myTodoTasks,
       // loading: props.loading,
       carouselRef: null,
       refreshing: false,
@@ -141,20 +139,21 @@ class MyApp extends React.Component {
               userName: '',
               firstName: textSearch,
               data: myTodoTasks
-                .find(
-                  textSearch
-                    ? {
-                        'profile.firstName': {
-                          $regex: this.state.firstName,
-                          $options: 'g',
-                        },
-                      }
-                    : {},
-                  textSearch
-                    ? {sort: {'profile.firstName': 1, 'profile.lastName': 1}}
-                    : {sort: {megasGastadosinBytes: -1}},
-                )
-                .fetch(),
+                // .find(
+                //   textSearch
+                //     ? {
+                //         'profile.firstName': {
+                //           $regex: this.state.firstName,
+                //           $options: 'g',
+                //         },
+                //       }
+                //     : {},
+                //   textSearch
+                //     ? {sort: {'profile.firstName': 1, 'profile.lastName': 1}}
+                //     : {sort: {megasGastadosinBytes: -1}},
+                // )
+                // .fetch()
+                ,
             });
           }}
           status="info"
@@ -181,20 +180,21 @@ class MyApp extends React.Component {
               userName: textSearch,
               firstName: '',
               data: myTodoTasks
-                .find(
-                  textSearch
-                    ? {
-                        username: {
-                          $regex: this.state.userName,
-                          $options: 'g',
-                        },
-                      }
-                    : {},
-                  textSearch
-                    ? {sort: {'profile.firstName': 1, 'profile.lastName': 1}}
-                    : {sort: {megasGastadosinBytes: -1}},
-                )
-                .fetch(),
+                // .find(
+                //   textSearch
+                //     ? {
+                //         username: {
+                //           $regex: this.state.userName,
+                //           $options: 'g',
+                //         },
+                //       }
+                //     : {},
+                //   textSearch
+                //     ? {sort: {'profile.firstName': 1, 'profile.lastName': 1}}
+                //     : {sort: {megasGastadosinBytes: -1}},
+                // )
+                // .fetch()
+                ,
             });
           }}
           status="info"
@@ -213,6 +213,7 @@ class MyApp extends React.Component {
       </View>
     );
     const Item = item => {
+      Meteor.subscribe('conexiones',item._id);
       let connected = Online.find({userId: item._id}).count() > 0 ? true : false;
       return (
         Meteor.user() && (
@@ -223,15 +224,13 @@ class MyApp extends React.Component {
               // console.log(navigation);
               navigation.navigation.navigate('User', {item});
             }}
-            title={item.profile.firstName + ' ' + item.profile.lastName}
+            title={item&&(item.profile.firstName + ' ' + item.profile.lastName)}
             //  titleStyle={{fontSize: 20}}
             description={
               Meteor.users.findOne(item._id).megasGastadosinBytes
                 ? '(' +
                   item.username +
                   ')'+
-                  ' - Conexiones: ' +
-                  Online.find({userId: item._id}).count() +
                   '\n' +
                   'Consumo: ' +
                   Number.parseFloat(
@@ -240,10 +239,8 @@ class MyApp extends React.Component {
                   ' MB'
                 : '(' +
                   item.username +
-                  ')' +
-                  '\n' +
-                  'Conexiones: ' +
-                  Online.find({userId: item._id}).count()
+                  ')' 
+
               //  + "\nConexiones: "+(connected?connected:0)
             }
             left={props =>
@@ -372,7 +369,7 @@ class MyApp extends React.Component {
               onRefresh={onRefresh}
             />
           }> */}
-        {loading ? (
+        {false ? (
           <View
             style={{
               flex: 1,
@@ -387,12 +384,17 @@ class MyApp extends React.Component {
           <FlatList
             // style={{backgroundColor: '#2a323d'}}
             refreshing={this.state.refreshing}
-            onRefresh={()=>{this.setState({data:myTodoTasks.find({}, {sort: {megasGastadosinBytes: -1}})
-            .fetch()})}}
-            data={this.state.data}
+              // onRefresh={() => {
+              //   // Meteor.subscribe('user');
+              //   this.setState({
+              //     data: 
+              //     Meteor.users.find({ $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, {sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }}).fetch()
+              //   })
+              // }}
+              data={myTodoTasks}
             renderItem={({item}) => Item(item)}
             keyExtractor={(item, index) => item}
-            ListHeaderComponent={renderHeader()}
+            // ListHeaderComponent={renderHeader()}
           />
         )}
 
@@ -407,15 +409,14 @@ class MyApp extends React.Component {
 }
 const UserHome = withTracker(navigation => {
   const handle = Meteor.subscribe('user');
-  const handle2 = Meteor.subscribe('conexiones');
-
-  const myTodoTasks = Meteor.users
-    // .find({}, {sort: {'profile.role':1,megasGastadosinBytes: -1}})
-    // .fetch();
+  
+  let myTodoTasks = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 } }).fetch();
+  const users = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 } }).count();
+  console.log("Cantidad de usuarios " + users);
   return {
     navigation,
     myTodoTasks,
-    loading: !handle.ready() && !handle2.ready(),
+    loading: !handle.ready(),
   };
 })(MyApp);
 

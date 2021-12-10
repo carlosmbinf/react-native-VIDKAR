@@ -63,11 +63,11 @@ class MyAppUserDetails extends React.Component {
     const {navigation,ready, precioslist, precios} = this.props;
     const moment = require('moment');
     const data = precioslist;
-    var item = Meteor.users.find(this.props.item).fetch()[0]
+    var item = Meteor.users.findOne(this.props.item)
     // console.log(item)
     // const {item} = this.props;
     const onRefresh = () => {
-      item = Meteor.users.find(this.props.item).fetch()[0]
+      item = Meteor.users.findOne(this.props.item)
     }
     const renderLabel = () => {
       if (this.state.value || this.state.isFocus) {
