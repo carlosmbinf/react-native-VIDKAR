@@ -300,8 +300,9 @@ class MyApp extends React.Component {
 const MenuIconMensajes = withTracker(navigation => {
   //  console.log(user.user)
   const handle1 = Meteor.subscribe('user');
-  const handle2 = Meteor.subscribe('mensajes', Meteor.userId());
+  const handle2 = Meteor.subscribe('mensajes', {to:Meteor.userId()});
   const myTodoTasks = Mensajes.find({to: Meteor.userId(), leido: false});
+
   return {
     navigation,
     myTodoTasks,

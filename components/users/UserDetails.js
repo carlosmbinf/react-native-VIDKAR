@@ -73,7 +73,7 @@ class MyAppUserDetails extends React.Component {
       if (this.state.value || this.state.isFocus) {
         return (
           <Text style={[styles.label, this.state.isFocus && { color: 'blue' }]}>
-            Dropdown label
+            Megas • Precio 
           </Text>
         );
       }
@@ -354,7 +354,7 @@ class MyAppUserDetails extends React.Component {
                             maxHeight={300}
                             labelField="label"
                             valueField="value"
-                            placeholder={!this.state.isFocus ? 'Select item' : '...'}
+                            placeholder={!this.state.isFocus ? 'Seleccione un paquete' : '...'}
                             searchPlaceholder="Search..."
                             value={this.state.value}
                             onFocus={() => this.setState({ isFocus: true })}
@@ -393,7 +393,7 @@ class MyAppUserDetails extends React.Component {
                                 }
                               }}
                             >
-                              {`Comprar ${this.state.value / 1024}GB`}
+                              {`Establecer a ${this.state.value / 1024}GB`}
                             </Button>
                           </View>
                     </View>
@@ -407,7 +407,7 @@ class MyAppUserDetails extends React.Component {
                           marginTop: 10,
                         }}>
                         <Text style={{ paddingTop: 10, textAlign: 'center' }}>
-                          Limite de Megas:
+                          Limite de Megas por el Proxy:
                   </Text>
                         <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
                           {item.profile.role != "admin" ? (item.megas
@@ -458,6 +458,7 @@ class MyAppUserDetails extends React.Component {
                       <Button
                               // disabled={this.state.value ? false : true}
                               mode="contained"
+                              color={!item.baneado&&"red"}
                               onPress={() => {
                                 try {
 
@@ -539,6 +540,76 @@ class MyAppUserDetails extends React.Component {
                     )}
                         </Text>
                       </Surface>
+                      <Surface
+                        style={{
+                          width: '100%',
+                          elevation: 12,
+                          borderRadius: 20,
+                          marginTop: 10,
+                        }}>
+                        <Text style={{paddingTop: 10, textAlign: 'center'}}>
+                          Estado de la VPN:
+                        </Text>
+                        <Text style={{paddingBottom: 10, textAlign: 'center'}}>
+                        {Meteor.user().profile.role == 'admin' ? (
+                      // <Switch
+                      //   value={!item.baneado}
+                      //   onValueChange={() => {
+                      //     Meteor.users.update(item._id, {
+                      //       $set: {
+                      //         baneado: !item.baneado,
+                      //       },
+                      //     });
+                      //   }}
+                      // />
+                      <Button
+                              // disabled={this.state.value ? false : true}
+                              mode="contained"
+                              color={item.vpn&&"red"}
+                              onPress={() => {
+                                try {
+
+                                  let nextIp = Meteor.users.findOne({}, { sort: { vpnip: -1 } }) ? Meteor.users.findOne({}, { sort: { vpnip: -1 } }).vpnip : 1
+                                  !item.vpnip &&
+                                    Meteor.users.update(item._id, {
+                                      $set: {
+                                        vpnip: nextIp +1
+                                      },
+                                    })
+                                  Meteor.users.update(item._id, {
+                                    $set: {
+                                      vpn: item.vpn?false:true
+                                    },
+                                  });
+                                  Logs.insert({
+                                    type: 'VPN',
+                                    userAfectado: item._id,
+                                    userAdmin: Meteor.userId(),
+                                    message:
+                                      `Se ${!item.vpn?"Activo":"Desactivó"} la VPN para ${item.profile.firstName} ${item.profile.lastName}`
+                                  });
+                                  !item.vpn&&VentasCollection.insert({
+                                    adminId: Meteor.userId(),
+                                    userId: item._id,
+                                    precio: 250,
+                                    comentario: `Se ${!item.vpn?"Activo":"Desactivó"} el servicio VPN`
+                                  })
+                                  !item.vpn&&Alert.alert("Se Compró el Servicio VPN con costo: 250CUP")
+
+                                } catch (error) {
+                                  console.error(error)
+                                }
+                              }}
+                            >
+                              {!item.vpn?"Habilitar":"Desabilitar"}
+                            </Button>
+                    ) : item.baneado ? (
+                      'Desabilitado'
+                    ) : (
+                      'Habilitado'
+                    )}
+                        </Text>
+                      </Surface>
                 </View>
               </Card.Content>
             </Card>
@@ -578,11 +649,11 @@ class MyAppUserDetails extends React.Component {
                           marginTop: 10,
                         }}>
                         <Text style={{paddingTop: 10, textAlign: 'center'}}>
-                          Limite de Megas:
+                          Limite de Megas por el Proxy:
                         </Text>
                         <Text style={{paddingBottom: 10, textAlign: 'center'}}>
                           {item.megas
-                            ? item.megas
+                            ? item.megas+ " MB => " + (item.megas/1024).toFixed(2) + " GB"
                             : 'No se ha especificado aun el Límite de megas'}
                         </Text>
                       </Surface>
@@ -600,7 +671,7 @@ class MyAppUserDetails extends React.Component {
                         </Text>
                         <Text style={{paddingBottom: 10, textAlign: 'center'}}>
                           {item.megasGastadosinBytes
-                            ? (item.megasGastadosinBytes/1000000).toFixed(2) + ' MB'
+                            ? (item.megasGastadosinBytes/1024000).toFixed(2) + ' MB => ' + (item.megasGastadosinBytes/1024000000).toFixed(2) + " GB"
                             : '0 MB'}
                         </Text>
                       </Surface>
@@ -616,6 +687,20 @@ class MyAppUserDetails extends React.Component {
                         </Text>
                         <Text style={{paddingBottom: 10, textAlign: 'center'}}>
                         {item.baneado ? 'Desabilitado' : 'Habilitado'}
+                        </Text>
+                      </Surface>
+                      <Surface
+                        style={{
+                          width: '100%',
+                          elevation: 12,
+                          borderRadius: 20,
+                          marginTop: 10,
+                        }}>
+                        <Text style={{paddingTop: 10, textAlign: 'center'}}>
+                          Estado de la VPN:
+                        </Text>
+                        <Text style={{paddingBottom: 10, textAlign: 'center'}}>
+                        {!item.vpn ? 'Desabilitado' : 'Habilitado'}
                         </Text>
                       </Surface>
                 </View>

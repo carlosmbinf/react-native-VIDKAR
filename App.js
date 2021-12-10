@@ -97,6 +97,7 @@ const App = () => {
   const [data, setData] = useState([]);
   const [isLoading, setLoading] = useState(true);
   const [visibleMenu, setVisibleMenu] = useState(false);
+  const [visibleMenuUsers, setVisibleMenuUsers] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
 
   const backgroundStyle = {
@@ -270,23 +271,24 @@ const App = () => {
               // headerTitleStyle: {
               //   fontWeight: 'bold',
               // },
-              // headerLeft: Meteor.user().profile.role != "admin" && null,
+              // headerLeft: !(Meteor.user().profile.role == "admin") && null,
               headerShown: true,
+              // headerLeftContainerStyle: { display: flex },
               headerRight: () => (
                 <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
                   <MenuIconMensajes navigation={navigation} />
 
                   <Menu
-                    visible={visibleMenu}
+                    visible={visibleMenuUsers}
                     onDismiss={() => {
-                      setVisibleMenu(false);
+                      setVisibleMenuUsers(false);
                     }}
                     anchor={
                       <Appbar.Action
                         icon="menu"
                         color="white"
                         onPress={() => {
-                          setVisibleMenu(true);
+                          setVisibleMenuUsers(true);
                         }}
                       />
                     }
@@ -312,6 +314,7 @@ const App = () => {
                           setVisibleMenu(false);
                         }}
                         title="Cerrar Sessión"
+                        style={{padding: 0}}
                       />
                     </View>
                   </Menu>
