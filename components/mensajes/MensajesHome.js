@@ -19,12 +19,9 @@ import {
   TextInput,
   Surface,
 } from 'react-native-paper';
-import Carousel, {ParallaxImage} from 'react-native-snap-carousel';
 // import * as axios from 'axios';
 import Meteor, {Mongo, withTracker} from '@meteorrn/core';
 // import Header from 'react-native-custom-header';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Mensajes from './MensajesDetails';
 import {
   SafeAreaView,

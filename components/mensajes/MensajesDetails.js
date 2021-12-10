@@ -8,13 +8,9 @@ import {
   useColorScheme,
   Alert,
 } from 'react-native';
-import Header from 'react-native-custom-header';
-import Video, {TextTrackType} from 'react-native-video';
 // Meteor.connect('ws://10.0.2.2:3000/websocket');
 // const Todos = new Mongo.Collection('pelisRegister');
-import Modal from 'react-native-modal';
 
-import Orientation from 'react-native-orientation';
 import {
   Card,
   Title,
@@ -25,11 +21,6 @@ import {
   List,
   Avatar,
 } from 'react-native-paper';
-import {Colors} from 'react-native/Libraries/NewAppScreen';
-import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
-import Entypo from 'react-native-vector-icons/Entypo';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const axios = require('axios').default;

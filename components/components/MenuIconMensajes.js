@@ -23,49 +23,16 @@ import {
   Button,
   Modal,
 } from 'react-native-paper';
-import Carousel, {ParallaxImage} from 'react-native-snap-carousel';
 // import * as axios from 'axios';
 import Meteor, {Mongo, withTracker} from '@meteorrn/core';
-// import Header from 'react-native-custom-header';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
-  SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
-  useColorScheme,
   View,
-  ImageBackground,
-  ActivityIndicator,
-  FlatList,
-  VirtualizedList,
   Dimensions,
-  Platform,
-  RefreshControl,
-  SectionList,
-  TouchableHighlight,
   Alert,
 } from 'react-native';
-
-import {
-  Colors,
-  DebugInstructions,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-// import PelisCard from './PelisCard';
-// import Loguin from '../loguin/Loguin';
-import Orientation from 'react-native-orientation';
-import ReactNativeForegroundService from '@supersami/rn-foreground-service';
-import Task from '../tasks/Task';
 import {Mensajes} from '../collections/collections';
-
-// import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
-// const Tab = createMaterialBottomTabNavigator();
-
-const {width: screenWidth} = Dimensions.get('window');
-// Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
 
 class MyApp extends React.Component {
   //   componentDidMount() {
