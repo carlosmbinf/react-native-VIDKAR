@@ -10,29 +10,16 @@ import React, {useEffect, useState} from 'react';
 // import type {Node} from 'react';
 import {
   Appbar,
-  Badge,
-  IconButton,
   Menu,
   Provider as PaperProvider,
 } from 'react-native-paper';
 
-// import 'react-native-gesture-handler';
-// import { NavigationContainer } from '@react-navigation/native';
-// import { createStackNavigator } from '@react-navigation/stack';
-
 import {
-  Button,
-  SafeAreaView,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   useColorScheme,
   View,
-  ImageBackground,
-  ActivityIndicator,
-  FlatList,
-  VirtualizedList,
   Dimensions,
   Alert,
 } from 'react-native';
@@ -43,21 +30,14 @@ import {
   LearnMoreLinks,
   ReloadInstructions,
 } from 'react-native/Libraries/NewAppScreen';
-import PelisHome from './components/pelis/PelisHome';
-import Header from 'react-native-custom-header';
 import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
-import AwesomeIcon from 'react-native-vector-icons/FontAwesome';
-import Icon from 'react-native-vector-icons/FontAwesome';
 // import Meteor, {Mongo, withTracker} from '@meteorrn/core';
-import Prueba from './components/pruebas/Prueba';
 import Loguin from './components/loguin/Loguin';
 import Meteor, {withTracker} from '@meteorrn/core';
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
-import {MyTabs} from './components/navigator/MyTabs';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
-import VideoPlayer from './components/video/VideoPlayer';
 import UserDetails from './components/users/UserDetails';
 import MyApp from './components/mensajes/MensajesHome';
 import MenuIconMensajes from './components/components/MenuIconMensajes';
@@ -236,22 +216,6 @@ const App = () => {
               // headerTransparent:false
             })}
           />
-          <Stack.Screen
-            name="Video"
-            options={({navigation, route}) => ({
-              headerShown: false,
-            })}>
-            {props => {
-              const {navigation, route} = props;
-              const {item} = route.params;
-              return (
-                <VideoPlayer item={item} />
-                // <TasksProvider user={user} projectPartition={projectPartition}>
-                //   <TasksView navigation={navigation} route={route} />
-                // </TasksProvider>
-              );
-            }}
-          </Stack.Screen>
           <Stack.Screen
             name="User"
             options={({navigation, route}) => ({
