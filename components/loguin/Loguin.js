@@ -91,7 +91,7 @@ class Loguin extends Component {
               // }
               style={{
                 width: 200,
-                height: 44,
+                // height: 44,
                 marginBottom: 10,
               }}
             />
@@ -105,7 +105,7 @@ class Loguin extends Component {
               // }
               style={{
                 width: 200,
-                height: 44,
+                // height: 44,
                 marginBottom: 10,
               }}
             />
@@ -120,7 +120,7 @@ class Loguin extends Component {
               secureTextEntry={true}
               style={{
                 width: 200,
-                height: 44,
+                // height: 44,
                 marginBottom: 10,
               }}
             />

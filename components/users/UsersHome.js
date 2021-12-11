@@ -83,6 +83,8 @@ class MyApp extends React.Component {
       // loading: props.loading,
       carouselRef: null,
       refreshing: false,
+      userName: "",
+      firstName: ""
     };
     // console.log(this.props.myTodoTasks);
     // const isDarkMode = useColorScheme() === 'dark';
@@ -117,6 +119,13 @@ class MyApp extends React.Component {
       return user.profile.firstName == textSearch;
       // this.state.textSearch || user.profile.lastName == this.state.textSearch || user.username == this.state.textSearch;
     }
+
+    function filterUsers(user) {
+      // console.log(this.state.userName);
+      return user.username == this.state.userName
+      // return user?(user.username.include(this.state.userName) ):true ;
+    }
+
     const renderHeader = () => (
       <View
         style={{
@@ -135,7 +144,7 @@ class MyApp extends React.Component {
             this.setState({
               userName: '',
               firstName: textSearch,
-              data: myTodoTasks
+              // data: myTodoTasks
                 // .find(
                 //   textSearch
                 //     ? {
@@ -150,7 +159,6 @@ class MyApp extends React.Component {
                 //     : {sort: {megasGastadosinBytes: -1}},
                 // )
                 // .fetch()
-                ,
             });
           }}
           status="info"
@@ -176,7 +184,7 @@ class MyApp extends React.Component {
             this.setState({
               userName: textSearch,
               firstName: '',
-              data: myTodoTasks
+              // data: myTodoTasks
                 // .find(
                 //   textSearch
                 //     ? {
@@ -191,7 +199,6 @@ class MyApp extends React.Component {
                 //     : {sort: {megasGastadosinBytes: -1}},
                 // )
                 // .fetch()
-                ,
             });
           }}
           status="info"
@@ -388,10 +395,10 @@ class MyApp extends React.Component {
               //     Meteor.users.find({ $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, {sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }}).fetch()
               //   })
               // }}
-              data={myTodoTasks}
+              data={JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user ? ((user.username).toString().includes(this.state.userName)) : true)}
             renderItem={({item}) => Item(item)}
             keyExtractor={(item, index) => item}
-            // ListHeaderComponent={renderHeader()}
+            ListHeaderComponent={renderHeader()}
           />
         )}
 
@@ -407,9 +414,9 @@ class MyApp extends React.Component {
 const UserHome = withTracker(navigation => {
   const handle = Meteor.subscribe('user');
   
-  let myTodoTasks = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 } }).fetch();
-  const users = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 } }).count();
-  console.log("Cantidad de usuarios " + users);
+  let myTodoTasks = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, field:{ _id:1,username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1} }).fetch();
+  const users = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, field:{ _id:1,username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1} }).fetch()[0];
+  console.log(users);
   return {
     navigation,
     myTodoTasks,
