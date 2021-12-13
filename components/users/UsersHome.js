@@ -395,7 +395,7 @@ class MyApp extends React.Component {
               //     Meteor.users.find({ $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, {sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }}).fetch()
               //   })
               // }}
-              data={JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user ? ((user.username).toString().includes(this.state.userName)) : true)}
+              data={JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user &&(user.username?((user.username).toString().includes(this.state.userName)):false))}
             renderItem={({item}) => Item(item)}
             keyExtractor={(item, index) => item}
             ListHeaderComponent={renderHeader()}
