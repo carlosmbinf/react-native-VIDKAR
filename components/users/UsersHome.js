@@ -144,7 +144,7 @@ class MyApp extends React.Component {
           onPress: () => this.setState({ activeBanner: false})
         }]}
         style={{alignItems: 'center',
-        justifyContent: 'center',margin:0,maxHeight:120}}
+        justifyContent: 'center',margin:0}}
       >
         <View
         style={{
@@ -239,47 +239,47 @@ class MyApp extends React.Component {
     );
     const Item = item => {
       Meteor.subscribe('conexiones',item._id);
-      let connected = Online.find({userId: item._id}).count() > 0 ? true : false;
+      let connected = Online.find({ userId: item._id }).count() > 0 ? true : false;
       return (
         Meteor.user() && (
-          <Surface style={{elevation: 12,margin:10,borderRadius:20}}>
-            <List.Item 
-            key={item._id}
-            onPress={() => {
-              // Alert.alert('Holaaa', item);
-              // console.log(navigation);
-              navigation.navigation.navigate('User', {item});
-            }}
-            title={item&&(item.profile.firstName + ' ' + item.profile.lastName)}
-            //  titleStyle={{fontSize: 20}}
-            description={
-              item.megasGastadosinBytes
-                ? `(${item.username})\nConsumo: ${Number.parseFloat(item.megasGastadosinBytes / 1000000).toFixed(2)} MB`
-                : `(${item.username})`
-              //  + "\nConexiones: "+(connected?connected:0)
-            }
-            left={props =>
-              item.services && item.services.facebook ? (
-                <View style={{justifyContent: 'center'}}>
-                  <Badge
-                    size={20}
-                    style={{
-                      position: 'absolute',
-                      bottom: 5,
-                      right: 15,
-                      zIndex: 1,
-                      backgroundColor: '#10ff00',
-                      borderColor: 'white',
-                      borderWidth: 3,
-                    }}
-                    visible={connected}
-                  />
-                  <Avatar.Image
-                    {...props}
-                    size={50}
-                    source={{uri: item.services.facebook.picture.data.url}}
-                  />
-                </View>
+          <Surface style={{ elevation: 12, margin: 10, borderRadius: 20 }}>
+            <List.Item
+              key={item._id}
+              onPress={() => {
+                // Alert.alert('Holaaa', item);
+                // console.log(navigation);
+                navigation.navigation.navigate('User', { item });
+              }}
+              title={item && (item.profile.firstName + ' ' + item.profile.lastName)}
+              //  titleStyle={{fontSize: 20}}
+              description={
+                item.megasGastadosinBytes
+                  ? `(${item.username})${connected ? ` ● (${Online.find({ userId: item._id }).count()})` : ""}\nConsumo: ${Number.parseFloat(item.megasGastadosinBytes / 1000000).toFixed(2)} MB`
+                  : `(${item.username})`
+                //  + "\nConexiones: "+(connected?connected:0)
+              }
+              left={props =>
+                item.services && item.services.facebook ? (
+                  <View style={{ justifyContent: 'center' }}>
+                    <Badge
+                      size={20}
+                      style={{
+                        position: 'absolute',
+                        bottom: 7,
+                        right: 17,
+                        zIndex: 1,
+                        backgroundColor: '#10ff00',
+                        borderColor: 'white',
+                        borderWidth: 3,
+                      }}
+                      visible={connected}
+                    />
+                    <Avatar.Image
+                      {...props}
+                      size={50}
+                      source={{ uri: item.services.facebook.picture.data.url }}
+                    />
+                  </View>
               ) : (
                 <View style={{justifyContent: 'center'}}>
                   <Badge
@@ -419,11 +419,11 @@ class MyApp extends React.Component {
                   <List.Accordion
                     title="Administradores"
                   >
-                    {/* {admins()} */}
+                    {admins()}
                   </List.Accordion>
                   <List.Accordion
                     title="Usuarios">
-                    {/* {users()} */}
+                    {users()}
                   </List.Accordion>
                 </Surface>
               </ScrollView>
