@@ -395,12 +395,17 @@ class MyApp extends React.Component {
           </Surface>
 
         ) : (
-            <Surface style={backgroundStyle}>
-              {renderHeader()}
-              < ScrollView >
-                {JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user && (user.username ? ((user.username).toString().includes(this.state.userName)) : false)).map(element => Item(element))}
-              </ScrollView>
+            <>
+            <Surface>
+            {renderHeader()}
             </Surface>
+              
+              < ScrollView >
+              <Surface style={backgroundStyle}>
+                {JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user && (user.username ? ((user.username).toString().includes(this.state.userName)) : false)).map(element => Item(element))}
+                </Surface>
+                </ScrollView>
+            </>
           )}
 
         {/* <Text>
