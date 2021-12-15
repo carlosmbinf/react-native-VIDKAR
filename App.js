@@ -12,6 +12,7 @@ import {
   Appbar,
   Menu,
   Provider as PaperProvider,
+  Surface
 } from 'react-native-paper';
 
 import {

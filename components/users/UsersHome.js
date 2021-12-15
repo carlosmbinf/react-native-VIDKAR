@@ -59,6 +59,8 @@ import {Online} from '../collections/collections'
 // const Tab = createMaterialBottomTabNavigator();
 
 const {width: screenWidth} = Dimensions.get('window');
+const {height: screenHeight} = Dimensions.get('window');
+
 // Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
 
 class MyApp extends React.Component {
@@ -99,7 +101,7 @@ class MyApp extends React.Component {
     //   return (useColorScheme() === 'dark');
     // };
     const backgroundStyle = {
-      backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
+      // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
       minHeight: ScreenHeight,
     };
 
@@ -125,6 +127,11 @@ class MyApp extends React.Component {
       return user.username == this.state.userName
       // return user?(user.username.include(this.state.userName) ):true ;
     }
+    // const backgroundStyle = {
+    //   // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
+    //   height: screenHeight,
+    //   // backgroundColor:'red'
+    // };
 
     const renderHeader = () => (
       <View
@@ -373,34 +380,28 @@ class MyApp extends React.Component {
               onRefresh={onRefresh}
             />
           }> */}
-        {false ? (
-          <View
-            style={{
-              flex: 1,
-              flexDirection: 'column',
-              height: ScreenHeight,
-              // backgroundColor: '#2a323d',
-              justifyContent: 'center',
-            }}>
-            <ActivityIndicator size="large" color="#3f51b5" />
-          </View>
+        {loading ? (
+          <Surface style={backgroundStyle}>
+            <View
+              style={{
+                flex: 1,
+                flexDirection: 'column',
+                height: ScreenHeight,
+                // backgroundColor: '#2a323d',
+                justifyContent: 'center',
+              }}>
+              <ActivityIndicator size="large" color="#3f51b5" />
+            </View>
+          </Surface>
+
         ) : (
-          <FlatList
-            // style={{backgroundColor: '#2a323d'}}
-            refreshing={this.state.refreshing}
-              // onRefresh={() => {
-              //   // Meteor.subscribe('user');
-              //   this.setState({
-              //     data: 
-              //     Meteor.users.find({ $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, {sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }}).fetch()
-              //   })
-              // }}
-              data={JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user &&(user.username?((user.username).toString().includes(this.state.userName)):false))}
-            renderItem={({item}) => Item(item)}
-            keyExtractor={(item, index) => item}
-            ListHeaderComponent={renderHeader()}
-          />
-        )}
+            <Surface style={backgroundStyle}>
+              {renderHeader()}
+              < ScrollView >
+                {JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user && (user.username ? ((user.username).toString().includes(this.state.userName)) : false)).map(element => Item(element))}
+              </ScrollView>
+            </Surface>
+          )}
 
         {/* <Text>
            {this.state.isLoading ? '' : JSON.stringify(this.state.data)}
@@ -415,8 +416,8 @@ const UserHome = withTracker(navigation => {
   const handle = Meteor.subscribe('user');
   
   let myTodoTasks = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, field:{ _id:1,username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1} }).fetch();
-  const users = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, field:{ _id:1,username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1} }).fetch()[0];
-  console.log(users);
+  // const users = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, field:{ _id:1,username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1} }).fetch()[0];
+  // console.log(users);
   return {
     navigation,
     myTodoTasks,
