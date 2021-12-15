@@ -43,7 +43,6 @@ import UserDetails from './components/users/UserDetails';
 import MyApp from './components/mensajes/MensajesHome';
 import MenuIconMensajes from './components/components/MenuIconMensajes';
 import UserHome from './components/users/UsersHome';
-
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
 //   return (
@@ -80,6 +79,7 @@ const App = () => {
   const [visibleMenu, setVisibleMenu] = useState(false);
   const [visibleMenuUsers, setVisibleMenuUsers] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
+  const [activeDrawer, setActiveDrawer] = React.useState('');
 
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,

@@ -17,6 +17,8 @@ import {
   Title,
   Surface,
   Badge,
+  Appbar,
+  Banner,
 } from 'react-native-paper';
 // import * as axios from 'axios';
 import Meteor, {Mongo, withTracker} from '@meteorrn/core';
@@ -86,7 +88,8 @@ class MyApp extends React.Component {
       carouselRef: null,
       refreshing: false,
       userName: "",
-      firstName: ""
+      firstName: "",
+      activeBanner: false
     };
     // console.log(this.props.myTodoTasks);
     // const isDarkMode = useColorScheme() === 'dark';
@@ -102,7 +105,7 @@ class MyApp extends React.Component {
     // };
     const backgroundStyle = {
       // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
-      minHeight: ScreenHeight,
+      minHeight: (ScreenHeight - 80),
     };
 
     // const onRefresh = () => {
@@ -133,17 +136,26 @@ class MyApp extends React.Component {
     //   // backgroundColor:'red'
     // };
 
-    const renderHeader = () => (
-      <View
+    const renderFilter = () => (
+      <Banner
+        visible={this.state.activeBanner}
+        actions={[{
+          label: "Ocultar Filtro",
+          onPress: () => this.setState({ activeBanner: false})
+        }]}
+        style={{alignItems: 'center',
+        justifyContent: 'center',margin:0,maxHeight:120}}
+      >
+        <View
         style={{
-          flexDirection: 'row',
+          flexDirection: 'column',
           backgroundColor: '',
-          padding: 10,
+          // padding: 10,
           alignItems: 'center',
           justifyContent: 'center',
-          width: '100%',
+          width: screenWidth-40,
         }}>
-        <TextInput
+        {/* <TextInput
           value={this.state.firstName}
           autoCapitalize="none"
           autoCorrect={false}
@@ -181,7 +193,7 @@ class MyApp extends React.Component {
             height: 35,
           }}
           textStyle={{color: '#000'}}
-        />
+        /> */}
 
         <TextInput
           value={this.state.userName}
@@ -215,20 +227,23 @@ class MyApp extends React.Component {
             borderColor: 'black',
             borderWidth: 1,
             backgroundColor: '',
-            // width:'100%',
+            width:'100%',
             padding: 10,
-            height: 35,
+            height: 45,
           }}
           textStyle={{color: '#000'}}
         />
       </View>
+      </Banner>
+      
     );
     const Item = item => {
       Meteor.subscribe('conexiones',item._id);
       let connected = Online.find({userId: item._id}).count() > 0 ? true : false;
       return (
         Meteor.user() && (
-          <List.Item
+          <Surface style={{elevation: 12,margin:10,borderRadius:20}}>
+            <List.Item 
             key={item._id}
             onPress={() => {
               // Alert.alert('Holaaa', item);
@@ -238,20 +253,9 @@ class MyApp extends React.Component {
             title={item&&(item.profile.firstName + ' ' + item.profile.lastName)}
             //  titleStyle={{fontSize: 20}}
             description={
-              Meteor.users.findOne(item._id).megasGastadosinBytes
-                ? '(' +
-                  item.username +
-                  ')'+
-                  '\n' +
-                  'Consumo: ' +
-                  Number.parseFloat(
-                    Meteor.users.findOne(item._id).megasGastadosinBytes / 1000000,
-                  ).toFixed(2) +
-                  ' MB'
-                : '(' +
-                  item.username +
-                  ')' 
-
+              item.megasGastadosinBytes
+                ? `(${item.username})\nConsumo: ${Number.parseFloat(item.megasGastadosinBytes / 1000000).toFixed(2)} MB`
+                : `(${item.username})`
               //  + "\nConexiones: "+(connected?connected:0)
             }
             left={props =>
@@ -354,6 +358,7 @@ class MyApp extends React.Component {
             //   </View>
             // )}
           />
+          </Surface>
         )
       );
     };
@@ -368,6 +373,9 @@ class MyApp extends React.Component {
     //         <Text style={styles.title}>Nombre de Usuario: {item.username}</Text>
     //       </View>
     //     </TouchableHighlight>
+
+    const admins = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user && user.profile.role == "admin" && (user.username ? ((user.username).toString().includes(this.state.userName)) : false)).map(element => Item(element))
+    const users = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user && user.profile.role == "user" && (user.username ? ((user.username).toString().includes(this.state.userName)) : false)).map(element => Item(element))
     return (
       <>
       {/* // <Surface style={{flex: 1}}> */}
@@ -380,6 +388,12 @@ class MyApp extends React.Component {
               onRefresh={onRefresh}
             />
           }> */}
+        <Appbar style={{
+          backgroundColor: '#3f51b5'
+        }} >
+         {/* <Appbar.Action icon="cloud-search"/> */}
+          <Appbar.Action icon="cloud-search" onPress={() => this.setState({ activeBanner: true })} />
+       </Appbar>
         {loading ? (
           <Surface style={backgroundStyle}>
             <View
@@ -396,15 +410,23 @@ class MyApp extends React.Component {
 
         ) : (
             <>
-            <Surface>
-            {renderHeader()}
-            </Surface>
-              
+              <Surface>
+                {renderFilter()}
+              </Surface>
+
               < ScrollView >
-              <Surface style={backgroundStyle}>
-                {JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user && (user.username ? ((user.username).toString().includes(this.state.userName)) : false)).map(element => Item(element))}
+                <Surface style={backgroundStyle}>
+                  <List.Accordion
+                    title="Administradores"
+                  >
+                    {/* {admins()} */}
+                  </List.Accordion>
+                  <List.Accordion
+                    title="Usuarios">
+                    {/* {users()} */}
+                  </List.Accordion>
                 </Surface>
-                </ScrollView>
+              </ScrollView>
             </>
           )}
 
@@ -420,7 +442,7 @@ class MyApp extends React.Component {
 const UserHome = withTracker(navigation => {
   const handle = Meteor.subscribe('user');
   
-  let myTodoTasks = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, field:{ _id:1,username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1} }).fetch();
+  let myTodoTasks = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, field:{ _id:1,username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }).fetch();
   // const users = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, field:{ _id:1,username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1} }).fetch()[0];
   // console.log(users);
   return {
