@@ -20,6 +20,11 @@ import {Mensajes} from '../collections/collections'
 class Loguin extends Component {
   constructor(props) {
     super(props);
+    const {navigation} = this.props;
+    
+    // Meteor.user() && navigation.navigate('Peliculas');
+
+    Meteor.user()&& (Meteor.users.findOne({ username: Meteor.user().username }).profile.role == "admin" ? navigation.navigate('Peliculas') : navigation.navigate('User', { item: Meteor.users.findOne({ username: Meteor.user().username }) }))
 
     this.state = {
       ipserver: '',
@@ -56,9 +61,8 @@ class Loguin extends Component {
   }
 
   render() {
-    
-    const {navigation} = this.props;
-    Meteor.userId() && navigation.navigate('Peliculas');
+    // Meteor.userId()&&Meteor.subscribe("usersId",Meteor.userId())
+   
     const backgroundStyle = {
       // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
       height: screenHeight,
@@ -89,6 +93,7 @@ class Loguin extends Component {
               // placeholderTextColor={
               //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
               // }
+              dense={true}
               style={{
                 width: 200,
                 // height: 44,
@@ -103,6 +108,7 @@ class Loguin extends Component {
               // placeholderTextColor={
               //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
               // }
+              dense={true}
               style={{
                 width: 200,
                 // height: 44,
@@ -118,6 +124,7 @@ class Loguin extends Component {
               //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
               // }
               secureTextEntry={true}
+              dense={true}
               style={{
                 width: 200,
                 // height: 44,

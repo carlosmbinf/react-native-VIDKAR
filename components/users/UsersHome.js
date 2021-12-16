@@ -99,7 +99,6 @@ class MyApp extends React.Component {
   }
   render() {
     const {loading, navigation,myTodoTasks} = this.props;
-
     // let isDarkMode = {
     //   return (useColorScheme() === 'dark');
     // };
@@ -237,9 +236,11 @@ class MyApp extends React.Component {
       </Banner>
       
     );
+
     const Item = item => {
       Meteor.subscribe('conexiones',item._id);
       let connected = Online.find({ userId: item._id }).count() > 0 ? true : false;
+      
       return (
         Meteor.user() && (
           <Surface style={{ elevation: 12, margin: 10, borderRadius: 20 }}>
@@ -254,7 +255,7 @@ class MyApp extends React.Component {
               //  titleStyle={{fontSize: 20}}
               description={
                 item.megasGastadosinBytes
-                  ? `(${item.username})${connected ? ` ● (${Online.find({ userId: item._id }).count()})` : ""}\nConsumo: ${Number.parseFloat(item.megasGastadosinBytes / 1000000).toFixed(2)} MB`
+                  ? `(${item.username})${connected ? ` ● (${Online.find({ userId: item._id }).count()})` : ""}\n${Number.parseFloat(item.megasGastadosinBytes / 1000000).toFixed(2)} MB => ${Number.parseFloat(item.megas).toFixed(0)} MB`
                   : `(${item.username})`
                 //  + "\nConexiones: "+(connected?connected:0)
               }
@@ -392,6 +393,7 @@ class MyApp extends React.Component {
           backgroundColor: '#3f51b5'
         }} >
          {/* <Appbar.Action icon="cloud-search"/> */}
+          <Appbar.Action icon="account" onPress={() => navigation.navigation.navigate('CreateUsers')} />
           <Appbar.Action icon="cloud-search" onPress={() => this.setState({ activeBanner: true })} />
        </Appbar>
         {loading ? (

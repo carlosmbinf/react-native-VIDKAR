@@ -92,16 +92,17 @@ class MyAppUserDetails extends React.Component {
             <ActivityIndicator size="large" color="#3f51b5" />
           </View> :
             <View style={styles.root}>
-              <Card elevation={12} style={styles.cards}>
-                <Card.Content>
-                  <View style={styles.element}>
-                    {item.services&&item.services.facebook&&<Card.Actions style={{ justifyContent: 'space-around' }}>
+            {item.services&&item.services.facebook&&<Card.Actions style={{ justifyContent: 'space-around', paddingBottom:30}}>
                       <Avatar.Image
                         size={50}
                         source={{ uri: item.services.facebook.picture.data.url }}
                       />
                     </Card.Actions>
 }
+              <Card elevation={12} style={styles.cards}>
+                <Card.Content>
+                  <View style={styles.element}>
+                    
                     <Title style={styles.title}>{'Datos Personales'}</Title>
                     <View>
                       <Text style={styles.data}>
