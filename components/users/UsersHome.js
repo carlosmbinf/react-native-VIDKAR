@@ -238,18 +238,17 @@ class MyApp extends React.Component {
     );
 
     const Item = item => {
-      Meteor.subscribe('conexiones',item._id);
+      Meteor.subscribe('conexiones', { userId: item._id }, { fields: { userId: 1 } });
       let connected = Online.find({ userId: item._id }).count() > 0 ? true : false;
       
       return (
-        Meteor.user() && (
           <Surface style={{ elevation: 12, margin: 10, borderRadius: 20 }}>
             <List.Item
               key={item._id}
               onPress={() => {
                 // Alert.alert('Holaaa', item);
                 // console.log(navigation);
-                navigation.navigation.navigate('User', { item });
+                navigation.navigation.navigate('User', { item:item._id });
               }}
               title={item && (item.profile.firstName + ' ' + item.profile.lastName)}
               //  titleStyle={{fontSize: 20}}
@@ -360,7 +359,6 @@ class MyApp extends React.Component {
             // )}
           />
           </Surface>
-        )
       );
     };
     //     <TouchableHighlight
@@ -393,8 +391,8 @@ class MyApp extends React.Component {
           backgroundColor: '#3f51b5'
         }} >
          {/* <Appbar.Action icon="cloud-search"/> */}
-          <Appbar.Action icon="account" onPress={() => navigation.navigation.navigate('CreateUsers')} />
-          <Appbar.Action icon="cloud-search" onPress={() => this.setState({ activeBanner: true })} />
+          <Appbar.Action icon="account-plus" onPress={() => navigation.navigation.navigate('CreateUsers')} />
+          <Appbar.Action icon="filter-variant" disabled={this.state.activeBanner} onPress={() => this.setState({ activeBanner: true })} />
        </Appbar>
         {loading ? (
           <Surface style={backgroundStyle}>
@@ -441,12 +439,12 @@ class MyApp extends React.Component {
     );
   }
 }
-const UserHome = withTracker(navigation => {
-  const handle = Meteor.subscribe('user');
+const UserHome = withTracker( navigation => {
+  const handle = Meteor.subscribe('user',Meteor.user().username == "carlosmbinf" ?( {},{ sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }) : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} });
   
-  let myTodoTasks = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, field:{ _id:1,username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }).fetch();
-  // const users = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, field:{ _id:1,username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1} }).fetch()[0];
-  // console.log(users);
+  let myTodoTasks = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }).fetch();
+  
+//  console.log(Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }).fetch());
   return {
     navigation,
     myTodoTasks,

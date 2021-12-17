@@ -18,7 +18,7 @@ ReactNativeForegroundService.add_task(
     // Meteor.userId() && console.log(Meteor.userId());
     let countMensajes = 0;
     !Meteor.status().connected && Meteor.reconnect();
-    Meteor.userId() && Meteor.subscribe('userID',Meteor.userId())
+    Meteor.userId() && Meteor.subscribe('userID', { _id: Meteor.userId() }, { fields: { _id: 1, profile: 1, megasGastadosinBytes: 1, baneado: 1 } })
     Meteor.userId() && Meteor.subscribe('mensajes', Meteor.userId());
     Meteor.userId() &&(countMensajes = Mensajes.find({to: Meteor.userId(), leido: false}).count())
     // (consumo = Meteor.user()&&Meteor.user().megasGastadosinBytes&&Meteor.user().megasGastadosinBytes?Meteor.user().megasGastadosinBytes:0)

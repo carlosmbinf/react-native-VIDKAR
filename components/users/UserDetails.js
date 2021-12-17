@@ -737,6 +737,7 @@ class MyAppUserDetails extends React.Component {
 const Player = withTracker(props => {
   Meteor.subscribe("precios").ready()
   let precioslist = []
+
   PreciosCollection.find({ fecha: false }).fetch().map((a) => {
     precioslist.push({ value: a.megas, label: a.megas + 'MB • $' + a.precio })
   })
@@ -745,9 +746,10 @@ const Player = withTracker(props => {
 
   const { item, navigation } = props;
   // const {navigation} = props;
-  const ready = Meteor.subscribe('userID', item._id).ready()
+  const ready = Meteor.subscribe('userID', item).ready()
+  
   return {
-    item: item._id,
+    item: item,
     navigation: navigation,
     ready: ready,
     precioslist,
