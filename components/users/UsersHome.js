@@ -392,7 +392,7 @@ class MyApp extends React.Component {
         }} >
          {/* <Appbar.Action icon="cloud-search"/> */}
           <Appbar.Action icon="account-plus" onPress={() => navigation.navigation.navigate('CreateUsers')} />
-          <Appbar.Action icon="filter-variant" disabled={this.state.activeBanner} onPress={() => this.setState({ activeBanner: true })} />
+          <Appbar.Action icon="magnify" disabled={this.state.activeBanner} onPress={() => this.setState({ activeBanner: true })} />
        </Appbar>
         {loading ? (
           <Surface style={backgroundStyle}>
