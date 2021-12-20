@@ -56,6 +56,7 @@ class MyAppUserDetails extends React.Component {
     const moment = require('moment');
     const data = precioslist;
     var item = Meteor.users.findOne(this.props.item,{fields:{_id:1,"services.facebook.picture":1,profile:1,username:1,emails:1,isIlimitado:1,fechaSubscripcion:1,megas:1,megasGastadosinBytes:1,baneado:1,bloqueadoDesbloqueadoPor:1,vpn:1,vpnip:1}})
+    // var precioVPN = PreciosCollection.findOne(type:"VPN",{fields:{precio}})
     // console.log(item)
     // const {item} = this.props;
     const onRefresh = () => {
@@ -92,12 +93,12 @@ class MyAppUserDetails extends React.Component {
             <ActivityIndicator size="large" color="#3f51b5" />
           </View> :
             <View style={styles.root}>
-            {item.services&&item.services.facebook&&<Card.Actions style={{ justifyContent: 'space-around', paddingBottom:30}}>
+            {item.services?item.services.facebook&&<Card.Actions style={{ justifyContent: 'space-around', paddingBottom:30}}>
                       <Avatar.Image
                         size={50}
                         source={{ uri: item.services.facebook.picture.data.url }}
                       />
-                    </Card.Actions>
+                    </Card.Actions>:""
 }
               <Card elevation={12} style={styles.cards}>
                 <Card.Content>
@@ -132,7 +133,7 @@ class MyAppUserDetails extends React.Component {
                           // color={styles.data}
                           size={26}
                         />{' '}
-                        {Meteor.user().profile.role == 'admin' ? (
+                        {Meteor.user().username == 'carlosmbinf' ? (
                           <Switch
                             value={item.profile && item.profile.role == 'admin'}
                             onValueChange={() =>
@@ -606,10 +607,10 @@ class MyAppUserDetails extends React.Component {
                             >
                               {!item.vpn ? "Habilitar" : "Desabilitar"}
                             </Button>
-                          ) : item.baneado ? (
-                            'Desabilitado'
+                          ) : item.vpn ? (
+                            'Habilitado'
                           ) : (
-                                'Habilitado'
+                                'Desabilitado'
                               )}
                         </Text>
                       </Surface>
