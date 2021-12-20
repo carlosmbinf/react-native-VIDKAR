@@ -55,7 +55,7 @@ class MyAppUserDetails extends React.Component {
     const { navigation, ready, precioslist, precios } = this.props;
     const moment = require('moment');
     const data = precioslist;
-    var item = Meteor.users.findOne(this.props.item)
+    var item = Meteor.users.findOne(this.props.item,{fields:{_id:1,"services.facebook.picture":1,profile:1,username:1,emails:1,isIlimitado:1,fechaSubscripcion:1,megas:1,megasGastadosinBytes:1,baneado:1,bloqueadoDesbloqueadoPor:1,vpn:1,vpnip:1}})
     // console.log(item)
     // const {item} = this.props;
     const onRefresh = () => {
@@ -746,7 +746,7 @@ const Player = withTracker(props => {
 
   const { item, navigation } = props;
   // const {navigation} = props;
-  const ready = Meteor.subscribe('userID', item).ready()
+  const ready = Meteor.subscribe('userID', item, { fields: { _id: 1, "services.facebook.picture": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1 } }).ready()
   
   return {
     item: item,

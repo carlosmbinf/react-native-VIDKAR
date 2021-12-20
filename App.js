@@ -289,12 +289,14 @@ const App = () => {
           />
           <Stack.Screen
             name="User"
-            options={({navigation, route}) => ({
+            options={({ navigation, route }) => {
+              var item = Meteor.users.findOne(route.params.item, { fields: { _id: 1, "profile.firstName": 1, "profile.lastName": 2 } })
+              return ({
               title: (
                 <Text>
-                  {route.params.item?(route.params.item.profile.firstName +
+                  {item?(item.profile.firstName +
                     ' ' +
-                    route.params.item.profile.lastName):""}
+                    item.profile.lastName):""}
                 </Text>
               ),
               headerStyle: {
@@ -357,7 +359,7 @@ const App = () => {
               )
               // headerRight
               // headerTransparent:false
-            })}>
+            })}}>
             {props => {
               const {navigation, route} = props;
               const {item} = route.params;
