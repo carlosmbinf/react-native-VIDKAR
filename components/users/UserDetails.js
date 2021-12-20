@@ -511,7 +511,7 @@ class MyAppUserDetails extends React.Component {
                                             precio: precio.precio,
                                             comentario: precio.comentario
                                           }),
-                                            Alert.alert(precio.comentario)
+                                            Alert.alert("Info!!!", precio.comentario)
                                           ) :
                                             (precio.megas && (precio.megas == item.megas) && (
                                               console.log("precio.megas " + precio.megas),
@@ -521,10 +521,10 @@ class MyAppUserDetails extends React.Component {
                                                 precio: precio.precio,
                                                 comentario: precio.comentario
                                               }),
-                                              Alert.alert(precio.comentario)
+                                              Alert.alert("Info!!!", precio.comentario)
                                             ))
                                         })
-                                      ) : Alert.alert("Debe especificar el paquete a comprar")
+                                      ) : Alert.alert("Error!!!", "Debe especificar el paquete a comprar")
                                     )
 
 
@@ -574,6 +574,8 @@ class MyAppUserDetails extends React.Component {
                                 try {
 
                                   let nextIp = Meteor.users.findOne({}, { sort: { vpnip: -1 } }) ? Meteor.users.findOne({}, { sort: { vpnip: -1 } }).vpnip : 1
+                                  let precioVPN = PreciosCollection.findOne({ type: "vpn" }) ? PreciosCollection.findOne({ type: "vpn" }).precio : 350
+
                                   !item.vpnip &&
                                     Meteor.users.update(item._id, {
                                       $set: {
@@ -590,15 +592,15 @@ class MyAppUserDetails extends React.Component {
                                     userAfectado: item._id,
                                     userAdmin: Meteor.userId(),
                                     message:
-                                      `Se ${!item.vpn ? "Activo" : "Desactivó"} la VPN para ${item.profile.firstName} ${item.profile.lastName}`
+                                      `Se ${!item.vpn ? "Activo" : "Desactivó"} la VPN`
                                   });
                                   !item.vpn && VentasCollection.insert({
                                     adminId: Meteor.userId(),
                                     userId: item._id,
-                                    precio: 250,
+                                    precio: precioVPN,
                                     comentario: `Se ${!item.vpn ? "Activo" : "Desactivó"} el servicio VPN`
                                   })
-                                  !item.vpn && Alert.alert("Se Compró el Servicio VPN con costo: 250CUP")
+                                  !item.vpn && Alert.alert("Info!!!",`Se Compró el Servicio VPN con costo: ${precioVPN}CUP`,[{text:"Ok"}],{})
 
                                 } catch (error) {
                                   console.error(error)
@@ -739,7 +741,7 @@ const Player = withTracker(props => {
   Meteor.subscribe("precios").ready()
   let precioslist = []
 
-  PreciosCollection.find({ fecha: false }).fetch().map((a) => {
+  PreciosCollection.find({ type: "megas" }).fetch().map((a) => {
     precioslist.push({ value: a.megas, label: a.megas + 'MB • $' + a.precio })
   })
 
