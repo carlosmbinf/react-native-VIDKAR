@@ -24,7 +24,7 @@ class Loguin extends Component {
     
     // Meteor.user() && navigation.navigate('Peliculas');
 
-    Meteor.user()&& (Meteor.users.findOne({ username: Meteor.user().username }).profile.role == "admin" ? navigation.navigate('Peliculas') : navigation.navigate('User', { item: Meteor.users.findOne({ username: Meteor.user().username }) }))
+    Meteor.user()&& (Meteor.users.findOne({ username: Meteor.user().username }).profile.role == "admin" ? navigation.navigate('Users') : navigation.navigate('User', { item: Meteor.users.findOne({ username: Meteor.user().username }) }))
 
     this.state = {
       ipserver: '',
@@ -56,7 +56,7 @@ class Loguin extends Component {
     Meteor.loginWithPassword(username, password, function (error) {
       error && Alert.alert('Credenciales incorrectas');
       // !error && navigation.navigate('Peliculas');
-      !error && (Meteor.users.findOne({ username: username }).profile.role == "admin" ? navigation.navigate('Peliculas') : navigation.navigate('User', { item: Meteor.users.findOne({ username: username }) }));
+      !error && (Meteor.users.findOne({ username: username }).profile.role == "admin" ? navigation.navigate('Users') : navigation.navigate('User', { item: Meteor.users.findOne({ username: username }) }));
     });
   }
 

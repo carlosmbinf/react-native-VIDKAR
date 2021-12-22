@@ -59,6 +59,7 @@ import {
 import Orientation from 'react-native-orientation';
 
 import { Online } from '../collections/collections'
+import DrawerOptionsAlls from '../drawer/DrawerOptionsAlls';
 
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
@@ -383,7 +384,7 @@ class MyApp extends React.Component {
     const users = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user && user.profile.role == "user" && (user.username ? ((user.username).toString().includes(this.state.userName)) : false)).map(element => Item(element))
 
     const drawerStyles = {
-      drawer: { shadowColor: '#000000', shadowOpacity: 0, shadowRadius: 3, backgroundColor:"red"},
+      drawer: { shadowColor: '#000000', shadowOpacity: 0, shadowRadius: 3, backgroundColor:"white"},
       main: {paddingLeft: 0},
     }
 
@@ -420,7 +421,7 @@ class MyApp extends React.Component {
               <Drawer
                 type="overlay"
                 open={this.state.drawer}
-                content={<Surface style={{height:"100%", width:"100%"}}><Text>Hola</Text></Surface>}
+                content={<DrawerOptionsAlls navigation={navigation}/>}
                 tapToClose={true}
                 // captureGestures="closed"
                 // acceptPanOnDrawer={false}
