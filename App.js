@@ -44,6 +44,7 @@ import MyApp from './components/mensajes/MensajesHome';
 import MenuIconMensajes from './components/components/MenuIconMensajes';
 import UserHome from './components/users/UsersHome';
 import CreateUsers from './components/users/CreateUsers';
+
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
 //   return (
@@ -365,6 +366,7 @@ const App = () => {
               const {item} = route.params;
               // const {navigation} = route.params;
               return (
+                
                 <UserDetails item={item} navigation={navigation} />
                 // <TasksProvider user={user} projectPartition={projectPartition}>
                 //   <TasksView navigation={navigation} route={route} />
