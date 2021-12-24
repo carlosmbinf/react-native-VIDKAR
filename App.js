@@ -44,6 +44,7 @@ import MyApp from './components/mensajes/MensajesHome';
 import MenuIconMensajes from './components/components/MenuIconMensajes';
 import UserHome from './components/users/UsersHome';
 import CreateUsers from './components/users/CreateUsers';
+import LogsList from './components/vpn/LogsList';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -135,8 +136,8 @@ const App = () => {
             })}
           />
           <Stack.Screen
-            name="Peliculas"
-            component={UserHome}
+            name="Users"
+            component={LogsList}
             options={({navigation, route}) => ({
               title: (
                 <Text style={{letterSpacing: 5}}>
