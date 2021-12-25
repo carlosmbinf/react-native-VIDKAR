@@ -6,7 +6,7 @@
  * @flow strict-local
  */
 
-import React, {useRef, useEffect, useState} from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 // import type {Node} from 'react';
 import {
   Avatar,
@@ -19,10 +19,13 @@ import {
   Badge,
   Appbar,
   Banner,
+  Divider,
 } from 'react-native-paper';
 // import * as axios from 'axios';
-import Meteor, {Mongo, withTracker} from '@meteorrn/core';
+import Meteor, { Mongo, withTracker } from '@meteorrn/core';
 // import Header from 'react-native-custom-header';
+
+import Drawer from 'react-native-drawer'
 
 import {
   SafeAreaView,
@@ -55,19 +58,20 @@ import {
 // import Loguin from '../loguin/Loguin';
 import Orientation from 'react-native-orientation';
 
-import {Online} from '../collections/collections'
+import { Online } from '../collections/collections'
+import DrawerOptionsAlls from '../drawer/DrawerOptionsAlls';
 
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
 
-const {width: screenWidth} = Dimensions.get('window');
-const {height: screenHeight} = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
+const { height: screenHeight } = Dimensions.get('window');
 
 // Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
 
 class MyApp extends React.Component {
   componentDidMount() {
-    
+
     Orientation.unlockAllOrientations();
   }
 
@@ -89,16 +93,18 @@ class MyApp extends React.Component {
       refreshing: false,
       userName: "",
       firstName: "",
-      activeBanner: false
+      activeBanner: false,
+      drawer: false
     };
     // console.log(this.props.myTodoTasks);
     // const isDarkMode = useColorScheme() === 'dark';
     // const [data, setData] = ;
     // const [textSearch, setTextSearch] = useState("");
     // const carouselRef = useRef(null);
+    !Meteor.userId()&&navigation.navigation.navigate("Loguin")
   }
   render() {
-    const {loading, navigation,myTodoTasks} = this.props;
+    const { loading, navigation, myTodoTasks } = this.props;
     // let isDarkMode = {
     //   return (useColorScheme() === 'dark');
     // };
@@ -140,21 +146,23 @@ class MyApp extends React.Component {
         visible={this.state.activeBanner}
         actions={[{
           label: "Ocultar Filtro",
-          onPress: () => this.setState({ activeBanner: false})
+          onPress: () => this.setState({ activeBanner: false })
         }]}
-        style={{alignItems: 'center',
-        justifyContent: 'center',margin:0}}
+        style={{
+          alignItems: 'center',
+          justifyContent: 'center', margin: 0
+        }}
       >
         <View
-        style={{
-          flexDirection: 'column',
-          backgroundColor: '',
-          // padding: 10,
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: screenWidth-40,
-        }}>
-        {/* <TextInput
+          style={{
+            flexDirection: 'column',
+            backgroundColor: '',
+            // padding: 10,
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: screenWidth - 40,
+          }}>
+          {/* <TextInput
           value={this.state.firstName}
           autoCapitalize="none"
           autoCorrect={false}
@@ -194,15 +202,15 @@ class MyApp extends React.Component {
           textStyle={{color: '#000'}}
         /> */}
 
-        <TextInput
-          value={this.state.userName}
-          autoCapitalize="none"
-          autoCorrect={false}
-          onChangeText={textSearch => {
-            this.setState({
-              userName: textSearch,
-              firstName: '',
-              // data: myTodoTasks
+          <TextInput
+            value={this.state.userName}
+            autoCapitalize="none"
+            autoCorrect={false}
+            onChangeText={textSearch => {
+              this.setState({
+                userName: textSearch,
+                firstName: '',
+                // data: myTodoTasks
                 // .find(
                 //   textSearch
                 //     ? {
@@ -217,71 +225,71 @@ class MyApp extends React.Component {
                 //     : {sort: {megasGastadosinBytes: -1}},
                 // )
                 // .fetch()
-            });
-          }}
-          status="info"
-          placeholder="Buscar por usuario"
-          style={{
-            borderRadius: 30,
-            borderColor: 'black',
-            borderWidth: 1,
-            backgroundColor: '',
-            width:'100%',
-            padding: 10,
-            height: 45,
-          }}
-          textStyle={{color: '#000'}}
-        />
-      </View>
+              });
+            }}
+            status="info"
+            placeholder="Buscar por usuario"
+            style={{
+              borderRadius: 30,
+              borderColor: 'black',
+              borderWidth: 1,
+              // backgroundColor: '',
+              width: '100%',
+              padding: 10,
+              height: 45,
+            }}
+            textStyle={{ color: '#000' }}
+          />
+        </View>
       </Banner>
-      
+
     );
 
     const Item = item => {
       Meteor.subscribe('conexiones', { userId: item._id }, { fields: { userId: 1 } });
       let connected = Online.find({ userId: item._id }).count() > 0 ? true : false;
-      
+
       return (
-          <Surface style={{ elevation: 12, margin: 10, borderRadius: 20 }}>
-            <List.Item
-              key={item._id}
-              onPress={() => {
-                // Alert.alert('Holaaa', item);
-                // console.log(navigation);
-                navigation.navigation.navigate('User', { item:item._id });
-              }}
-              title={item && (item.profile.firstName + ' ' + item.profile.lastName)}
-              //  titleStyle={{fontSize: 20}}
-              description={
-                item.megasGastadosinBytes
-                  ? `(${item.username})${connected ? ` ● (${Online.find({ userId: item._id }).count()})` : ""}\n${Number.parseFloat(item.megasGastadosinBytes / 1000000).toFixed(2)} MB => ${Number.parseFloat(item.megas).toFixed(0)} MB`
-                  : `(${item.username})`
-                //  + "\nConexiones: "+(connected?connected:0)
-              }
-              left={props =>
-                item.services && item.services.facebook ? (
-                  <View style={{ justifyContent: 'center' }}>
-                    <Badge
-                      size={20}
-                      style={{
-                        position: 'absolute',
-                        bottom: 7,
-                        right: 17,
-                        zIndex: 1,
-                        backgroundColor: '#10ff00',
-                        borderColor: 'white',
-                        borderWidth: 3,
-                      }}
-                      visible={connected}
-                    />
-                    <Avatar.Image
-                      {...props}
-                      size={50}
-                      source={{ uri: item.services.facebook.picture.data.url }}
-                    />
-                  </View>
+        <Surface key={"Surface_" + item._id} style={{ elevation: 12, margin: 10, borderRadius: 20 }}>
+          <List.Item
+            key={"Item_" + item._id}
+            onPress={() => {
+              // Alert.alert('Holaaa', item);
+              // console.log(navigation);
+              navigation.navigation.navigate('User', { item: item._id });
+            }}
+            title={item && (item.profile.firstName + ' ' + item.profile.lastName)}
+            //  titleStyle={{fontSize: 20}}
+            description={
+              item.megasGastadosinBytes
+                ? `(${item.username})${connected ? ` ● (${Online.find({ userId: item._id }).count()})` : ""}\n${Number.parseFloat(item.megasGastadosinBytes / 1000000).toFixed(2)} MB => ${Number.parseFloat(item.megas).toFixed(0)} MB`
+                : `(${item.username})`
+              //  + "\nConexiones: "+(connected?connected:0)
+            }
+            left={props =>
+              item.services && item.services.facebook ? (
+                <View style={{ justifyContent: 'center' }}>
+                  <Badge
+                    size={20}
+                    style={{
+                      position: 'absolute',
+                      bottom: 7,
+                      right: 17,
+                      zIndex: 1,
+                      backgroundColor: '#10ff00',
+                      borderColor: 'white',
+                      borderWidth: 3,
+                    }}
+                    visible={connected}
+                  />
+                  <Avatar.Image
+                    {...props}
+                    size={50}
+                    source={{ uri: item.services.facebook.picture.data.url }}
+                  />
+                </View>
               ) : (
-                <View style={{justifyContent: 'center'}}>
+                <View style={{ justifyContent: 'center' }}>
                   <Badge
                     size={20}
                     style={{
@@ -306,59 +314,59 @@ class MyApp extends React.Component {
                 </View>
               )
             }
-            // right={props => (
-            //   <View>
-            //     {/* <Text style={(styles.data, {justifyContent: 'center'})}>
-            //       <MaterialCommunityIcons
-            //         name="account"
-            //         // color={styles.data}
-            //         //  size={25}
-            //       />
-            //       <Text style={{justifyContent: 'center'}}>Roles:</Text>{' '}
-            //       {Meteor.user().profile.role == 'admin' ? (
-            //         <Switch
-            //           value={item.profile.role == 'admin'}
-            //           onValueChange={() =>
-            //             Meteor.users.update(item, {
-            //               $set: {
-            //                 'profile.role':
-            //                   item.profile.role == 'admin' ? 'user' : 'admin',
-            //               },
-            //             })
-            //           }
-            //         />
-            //       ) : (
-            //         item.profile.role
-            //       )}
-            //     </Text> */}
-            //     <Text style={styles.data, {justifyContent: 'center'}}>
-            //       <MaterialIcons
-            //         name="vpn-lock"
-            //         // color={styles.data}
-            //         //  size={}
-            //       />
-            //       <Text>Proxy:</Text>{' '}
-            //       {Meteor.user().profile.role == 'admin' ? (
-            //         <Switch
-            //           value={!item.baneado}
-            //           onValueChange={() =>
-            //             Meteor.users.update(item, {
-            //               $set: {
-            //                 baneado: !item.baneado,
-            //               },
-            //             })
-            //           }
-            //         />
-            //       ) : item.baneado ? (
-            //         'Desabilitado'
-            //       ) : (
-            //         'Habilitado'
-            //       )}
-            //     </Text>
-            //   </View>
-            // )}
+          // right={props => (
+          //   <View>
+          //     {/* <Text style={(styles.data, {justifyContent: 'center'})}>
+          //       <MaterialCommunityIcons
+          //         name="account"
+          //         // color={styles.data}
+          //         //  size={25}
+          //       />
+          //       <Text style={{justifyContent: 'center'}}>Roles:</Text>{' '}
+          //       {Meteor.user().profile.role == 'admin' ? (
+          //         <Switch
+          //           value={item.profile.role == 'admin'}
+          //           onValueChange={() =>
+          //             Meteor.users.update(item, {
+          //               $set: {
+          //                 'profile.role':
+          //                   item.profile.role == 'admin' ? 'user' : 'admin',
+          //               },
+          //             })
+          //           }
+          //         />
+          //       ) : (
+          //         item.profile.role
+          //       )}
+          //     </Text> */}
+          //     <Text style={styles.data, {justifyContent: 'center'}}>
+          //       <MaterialIcons
+          //         name="vpn-lock"
+          //         // color={styles.data}
+          //         //  size={}
+          //       />
+          //       <Text>Proxy:</Text>{' '}
+          //       {Meteor.user().profile.role == 'admin' ? (
+          //         <Switch
+          //           value={!item.baneado}
+          //           onValueChange={() =>
+          //             Meteor.users.update(item, {
+          //               $set: {
+          //                 baneado: !item.baneado,
+          //               },
+          //             })
+          //           }
+          //         />
+          //       ) : item.baneado ? (
+          //         'Desabilitado'
+          //       ) : (
+          //         'Habilitado'
+          //       )}
+          //     </Text>
+          //   </View>
+          // )}
           />
-          </Surface>
+        </Surface>
       );
     };
     //     <TouchableHighlight
@@ -375,9 +383,15 @@ class MyApp extends React.Component {
 
     const admins = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user && user.profile.role == "admin" && (user.username ? ((user.username).toString().includes(this.state.userName)) : false)).map(element => Item(element))
     const users = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user && user.profile.role == "user" && (user.username ? ((user.username).toString().includes(this.state.userName)) : false)).map(element => Item(element))
+
+    const drawerStyles = {
+      drawer: { shadowColor: 'black', shadowOpacity: 0, shadowRadius: 3, backgroundColor:"black"},
+      main: {paddingLeft: 0},
+    }
+
     return (
       <>
-      {/* // <Surface style={{flex: 1}}> */}
+        {/* // <Surface style={{flex: 1}}> */}
         {/* <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={backgroundStyle}
@@ -387,64 +401,86 @@ class MyApp extends React.Component {
               onRefresh={onRefresh}
             />
           }> */}
-        <Appbar style={{
-          backgroundColor: '#3f51b5'
-        }} >
-         {/* <Appbar.Action icon="cloud-search"/> */}
-          <Appbar.Action icon="account-plus" onPress={() => navigation.navigation.navigate('CreateUsers')} />
-          <Appbar.Action icon="magnify" disabled={this.state.activeBanner} onPress={() => this.setState({ activeBanner: true })} />
-       </Appbar>
-        {loading ? (
-          <Surface style={backgroundStyle}>
-            <View
-              style={{
-                flex: 1,
-                flexDirection: 'column',
-                height: ScreenHeight,
-                // backgroundColor: '#2a323d',
-                justifyContent: 'center',
-              }}>
-              <ActivityIndicator size="large" color="#3f51b5" />
-            </View>
-          </Surface>
 
+        {Meteor.user().profile.role == "admin" ? (loading ? (
+          <>
+            <Surface style={backgroundStyle}>
+              <View
+                style={{
+                  flex: 1,
+                  flexDirection: 'column',
+                  height: ScreenHeight,
+                  // backgroundColor: '#2a323d',
+                  justifyContent: 'center',
+                }}>
+                <ActivityIndicator size="large" color="#3f51b5" />
+              </View>
+            </Surface>
+          </>
         ) : (
-            <>
-              <Surface>
-                {renderFilter()}
+          <>
+              <Drawer
+                type="overlay"
+                open={this.state.drawer}
+                content={<DrawerOptionsAlls navigation={navigation}/>}
+                tapToClose={true}
+                // captureGestures="closed"
+                // acceptPanOnDrawer={false}
+                // acceptPan={true}
+                onClose={() => this.setState({ drawer: false })}
+                elevation={12}
+                side="left"
+                openDrawerOffset={0.4} // 20% gap on the right side of drawer
+                panCloseMask={0.5}
+                closedDrawerOffset={0}
+                styles={drawerStyles}
+                tweenHandler={(ratio) => ({
+                  main: { opacity: ((2 - ratio) / 2) }
+                })}
+              >
+                <Appbar style={{
+                  backgroundColor: '#3f51b5'
+                }} >
+                  <View style={{flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
+                    <Appbar.Action icon="menu" color={"white"} onPress={() => this.setState({ drawer: !this.state.drawer })} />
+                    <View style={{ flexDirection: "row" }}>
+                      {/* <Appbar.Action icon="account-plus" color={"white"} onPress={() => navigation.navigation.navigate('CreateUsers')} /> */}
+                      <Appbar.Action icon="magnify" color={"white"} disabled={this.state.activeBanner} onPress={() => this.setState({ activeBanner: true })} />
+                    </View>
+                  </View>
+                </Appbar>
+            <Surface>
+              {renderFilter()}
+            </Surface>
+
+            < ScrollView >
+              <Surface style={backgroundStyle}>
+                <List.Accordion
+                  title="Administradores"
+                >
+                  {admins()}
+                </List.Accordion>
+                <List.Accordion
+                  title="Usuarios">
+                  {users()}
+                </List.Accordion>
               </Surface>
+            </ScrollView>
+              </Drawer>
+            
+          </>
+        )) : <Surface style={backgroundStyle}><Text style={{ textAlign: "center", justifyContent: "center", fontSize: 25, fontWeight: 'bold',paddingTop:10 }}>Sin Acceso</Text></Surface>}
 
-              < ScrollView >
-                <Surface style={backgroundStyle}>
-                  <List.Accordion
-                    title="Administradores"
-                  >
-                    {admins()}
-                  </List.Accordion>
-                  <List.Accordion
-                    title="Usuarios">
-                    {users()}
-                  </List.Accordion>
-                </Surface>
-              </ScrollView>
-            </>
-          )}
-
-        {/* <Text>
-           {this.state.isLoading ? '' : JSON.stringify(this.state.data)}
-         </Text> */}
-        {/* </ScrollView> */}
-      {/* // </Surface> */}
       </>
     );
   }
 }
-const UserHome = withTracker( navigation => {
-  const handle = Meteor.subscribe('user',Meteor.user().username == "carlosmbinf" ?( {},{ sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }) : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} });
-  
-  let myTodoTasks = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }).fetch();
-  
-//  console.log(Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }).fetch());
+const UserHome = withTracker(navigation => {
+  const handle = Meteor.subscribe('user', Meteor.user().username == "carlosmbinf" ? ({}, { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } }) : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } });
+
+  let myTodoTasks = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } }).fetch();
+
+  //  console.log(Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }).fetch());
   return {
     navigation,
     myTodoTasks,
@@ -486,7 +522,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     flex: 1,
-    marginBottom: Platform.select({ios: 0, android: 1}), // Prevent a random Android rendering issue
+    marginBottom: Platform.select({ ios: 0, android: 1 }), // Prevent a random Android rendering issue
     backgroundColor: 'white',
     borderRadius: 8,
   },

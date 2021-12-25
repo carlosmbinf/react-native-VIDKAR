@@ -47,16 +47,17 @@ class MyAppUserDetails extends React.Component {
       backgroundColor: '#2a323d',
       edit: false,
       date: new Date(),
-
+      username:"",
+      email:""
     };
+    !Meteor.userId()&&navigation.navigation.navigate("Loguin")
+
   }
 
   render() {
-    const { navigation, ready, precioslist, precios } = this.props;
+    const { navigation, ready, precioslist, precios,item} = this.props;
     const moment = require('moment');
     const data = precioslist;
-    var item = Meteor.users.findOne(this.props.item,{fields:{_id:1,"services.facebook.picture":1,profile:1,username:1,emails:1,isIlimitado:1,fechaSubscripcion:1,megas:1,megasGastadosinBytes:1,baneado:1,bloqueadoDesbloqueadoPor:1,vpn:1,vpnip:1}})
-    // var precioVPN = PreciosCollection.findOne(type:"VPN",{fields:{precio}})
     // console.log(item)
     // const {item} = this.props;
     const onRefresh = () => {
@@ -71,18 +72,22 @@ class MyAppUserDetails extends React.Component {
         );
       }
     }
-
+    const backgroundStyle = {
+      // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
+      minHeight: (screenHeight - 80),
+    };
     return (
-      <Surface>
+      <Surface
+      style={backgroundStyle}>
         <ScrollView
           // contentInsetAdjustmentBehavior="automatic"
           refreshControl={
             <RefreshControl
               refreshing={false}
-              onRefresh={onRefresh}
+              // onRefresh={onRefresh}
             />
           }>
-          {!ready ? <View
+          {!ready.ready() ? <View
             style={{
               flex: 1,
               flexDirection: 'column',
@@ -92,18 +97,18 @@ class MyAppUserDetails extends React.Component {
             }}>
             <ActivityIndicator size="large" color="#3f51b5" />
           </View> :
-            <View style={styles.root}>
-            {item.services?item.services.facebook&&<Card.Actions style={{ justifyContent: 'space-around', paddingBottom:30}}>
-                      <Avatar.Image
-                        size={50}
-                        source={{ uri: item.services.facebook.picture.data.url }}
-                      />
-                    </Card.Actions>:""
-}
+          item&&<View style={styles.root}>
+              {item.services && item.services.facebook && <Card.Actions style={{ justifyContent: 'space-around', paddingBottom: 30 }}>
+                <Avatar.Image
+                  size={50}
+                  source={{ uri: item.services.facebook.picture.data.url }}
+                />
+              </Card.Actions>
+              }
               <Card elevation={12} style={styles.cards}>
                 <Card.Content>
                   <View style={styles.element}>
-                    
+
                     <Title style={styles.title}>{'Datos Personales'}</Title>
                     <View>
                       <Text style={styles.data}>
@@ -146,8 +151,8 @@ class MyAppUserDetails extends React.Component {
                             }
                           />
                         ) : (
-                            item.profile && item.profile.role
-                          )}
+                          item.profile && item.profile.role
+                        )}
                       </Text>
                       <TextInput
                         require
@@ -155,6 +160,7 @@ class MyAppUserDetails extends React.Component {
                         value={this.state.username}
                         onChangeText={username => this.setState({ username })}
                         label={'UserName'}
+                        textContentType="username"
                         placeholderTextColor={
                           !this.state.isDarkMode ? Colors.darker : Colors.lighter
                         }
@@ -164,47 +170,67 @@ class MyAppUserDetails extends React.Component {
                           marginBottom: 10,
                         }}
                       />
-                      <Text style={styles.data}>
-                        <MaterialCommunityIcons
-                          name="email"
-                          // color={styles.data}
-                          size={26}
-                        />{' '}
-                        {item.emails[0].address}
-                      </Text>
-                    </View>
-                  </Card.Content>
-                ) : (
-                    <Card.Content>
-                      <View style={styles.element}>
-                        <Title style={styles.title}>{'Datos de Usuario'}</Title>
-                        <Text style={styles.data}>
-                          <MaterialCommunityIcons
-                            name="shield-account"
-                            // color={styles.data}
-                            size={20}
-                          />{' '}
-                          {item.profile && item.profile.role}
-                        </Text>
-                        <Text style={styles.data}>
-                          <MaterialCommunityIcons
-                            name="account"
-                            // color={styles.data}
-                            size={20}
-                          />{' '}
-                          {item.username}
-                        </Text>
+                      {Meteor.user().profile.role == "admin" ?
+                        <TextInput
+                          require
+                          mode="outlined"
+                          value={this.state.email}
+                          onChangeText={email => this.setState({ email })}
+                          label={'Email'}
+                          textContentType="emailAddress"
+                          placeholderTextColor={
+                            !this.state.isDarkMode ? Colors.darker : Colors.lighter
+                          }
+                          style={{
+                            width: 200,
+                            height: 44,
+                            marginBottom: 10,
+                          }}
+                        />
+                        :
                         <Text style={styles.data}>
                           <MaterialCommunityIcons
                             name="email"
                             // color={styles.data}
-                            size={20}
+                            size={26}
                           />{' '}
-                          {item.emails && item.emails[0].address}
+                          {item.emails[0].address}
                         </Text>
-                      </View>
-                    </Card.Content>
-                  )}
+                      }
+                      
+                    </View>
+                  </Card.Content>
+                ) : (
+                  <Card.Content>
+                    <View style={styles.element}>
+                      <Title style={styles.title}>{'Datos de Usuario'}</Title>
+                      <Text style={styles.data}>
+                        <MaterialCommunityIcons
+                          name="shield-account"
+                          // color={styles.data}
+                          size={20}
+                        />{' '}
+                        {item.profile && item.profile.role}
+                      </Text>
+                      <Text style={styles.data}>
+                        <MaterialCommunityIcons
+                          name="account"
+                          // color={styles.data}
+                          size={20}
+                        />{' '}
+                        {item.username}
+                      </Text>
+                      <Text style={styles.data}>
+                        <MaterialCommunityIcons
+                          name="email"
+                          // color={styles.data}
+                          size={20}
+                        />{' '}
+                        {item.emails && item.emails[0].address}
+                      </Text>
+                    </View>
+                  </Card.Content>
+                )}
                 {!this.state.edit ? (
                   <Card.Actions style={{ justifyContent: 'space-around' }}>
                     <Button
@@ -219,31 +245,54 @@ class MyAppUserDetails extends React.Component {
                     </Button>
                   </Card.Actions>
                 ) : (
-                    <Card.Actions style={{ justifyContent: 'space-around' }}>
+                  <Card.Actions style={{ justifyContent: 'space-around' }}>
+                    <Button
+                      onPress={() => {
+                        this.setState({ edit: false });
+                      }}>
+                      <MaterialIcons
+                        name="cancel"
+                        // color={styles.data}
+                        size={30}
+                      />
+                    </Button>
                       <Button
                         onPress={() => {
-                          this.setState({ edit: false });
-                        }}>
-                        <MaterialIcons
-                          name="cancel"
-                          // color={styles.data}
-                          size={30}
-                        />
-                      </Button>
-                      <Button
-                        onPress={() => {
-                          Meteor.users.update(item._id, {
-                            $set: { username: this.state.username },
-                          });
+
+                         ( this.state.email != "" && this.state.username != "" )?
+                            (Meteor.users.update(item._id, {
+                              $set: {
+                                emails: [{
+                                  address: this.state.email,
+                                  username: this.state.username
+                                }]
+                              },
+                            }),
+                              Alert.alert("Info!!!", "Se Cambio el Correo y el Usuario correctamente!!!")) :
+
+                            (this.state.email != "" &&
+                            (Meteor.users.update(item._id, {
+                              $set: { emails: [{ address: this.state.email }] },
+                            }), Alert.alert("Info!!!", "Se Cambio el Correo correctamente!!!")),
+
+                            (this.state.username != "" &&
+                            (Meteor.users.update(item._id, {
+                              $set: { username: this.state.username }
+                            }), Alert.alert("Info!!!", "Se Cambio el usuario correctamente!!!"))),
+
+
+                              (this.state.email != "" && this.state.username != "" && (item._id == Meteor.userId()) && (Meteor.logut(),
+                                navigation.navigate('Loguin'),console.log("CERRADO"))))
+
                         }}>
                         <MaterialIcons
                           name="save"
                           // color={styles.data}
                           size={30}
                         />
-                      </Button>
-                    </Card.Actions>
-                  )}
+                    </Button>
+                  </Card.Actions>
+                )}
               </Card>
 
               {Meteor.user().profile.role == 'admin' ? (
@@ -267,7 +316,7 @@ class MyAppUserDetails extends React.Component {
                                   { justifyContent: 'center', paddingRight: 10 })
                               }>
                               Por Tiempo:
-                    </Text>
+                            </Text>
                             <Switch
                               value={item.isIlimitado}
                               onValueChange={() => {
@@ -286,7 +335,7 @@ class MyAppUserDetails extends React.Component {
                                   { justifyContent: 'center', paddingRight: 10 })
                               }>
                               Por Megas:
-                    </Text>
+                            </Text>
                             <Switch
                               value={!item.isIlimitado}
                               onValueChange={() => {
@@ -345,63 +394,63 @@ class MyAppUserDetails extends React.Component {
                           </Surface>
                         </>
                       ) : (
-                          <View style={{ paddingTop: 20 }}>
-                            {renderLabel()}
-                            <Dropdown
-                              style={[styles.dropdown, this.state.isFocus && { borderColor: 'blue' }]}
-                              placeholderStyle={styles.placeholderStyle}
-                              selectedTextStyle={styles.selectedTextStyle}
-                              inputSearchStyle={styles.inputSearchStyle}
-                              iconStyle={styles.iconStyle}
-                              data={data}
-                              search
-                              maxHeight={300}
-                              labelField="label"
-                              valueField="value"
-                              placeholder={!this.state.isFocus ? 'Seleccione un paquete' : '...'}
-                              searchPlaceholder="Search..."
-                              value={this.state.value}
-                              onFocus={() => this.setState({ isFocus: true })}
-                              onBlur={() => this.setState({ isFocus: false })}
-                              onChange={item => {
-                                this.setState({ value: item.value, isFocus: false })
-                              }}
-                            // renderLeftIcon={() => (
-                            //   <AntDesign
-                            //     style={styles.icon}
-                            //     color={isFocus ? 'blue' : 'black'}
-                            //     name="Safety"
-                            //     size={20}
-                            //   />
-                            // )}
-                            />
-                            <View style={{ paddingTop: 10, paddingBottom: 10 }}>
-                              <Button
-                                icon="send"
-                                disabled={this.state.value ? false : true}
-                                mode="contained"
-                                onPress={() => {
-                                  try {
+                        <View style={{ paddingTop: 20 }}>
+                          {renderLabel()}
+                          <Dropdown
+                            style={[styles.dropdown, this.state.isFocus && { borderColor: 'blue' }]}
+                            placeholderStyle={styles.placeholderStyle}
+                            selectedTextStyle={styles.selectedTextStyle}
+                            inputSearchStyle={styles.inputSearchStyle}
+                            iconStyle={styles.iconStyle}
+                            data={data}
+                            search
+                            maxHeight={300}
+                            labelField="label"
+                            valueField="value"
+                            placeholder={!this.state.isFocus ? 'Seleccione un paquete' : '...'}
+                            searchPlaceholder="Search..."
+                            value={this.state.value}
+                            onFocus={() => this.setState({ isFocus: true })}
+                            onBlur={() => this.setState({ isFocus: false })}
+                            onChange={item => {
+                              this.setState({ value: item.value, isFocus: false })
+                            }}
+                          // renderLeftIcon={() => (
+                          //   <AntDesign
+                          //     style={styles.icon}
+                          //     color={isFocus ? 'blue' : 'black'}
+                          //     name="Safety"
+                          //     size={20}
+                          //   />
+                          // )}
+                          />
+                          <View style={{ paddingTop: 10, paddingBottom: 10 }}>
+                            <Button
+                              icon="send"
+                              disabled={this.state.value ? false : true}
+                              mode="contained"
+                              onPress={() => {
+                                try {
 
-                                    Meteor.users.update(item._id, { $set: { megas: this.state.value } })
-                                    Logs.insert({
-                                      type: 'Megas',
-                                      userAfectado: item._id,
-                                      userAdmin: Meteor.userId(),
-                                      message:
-                                        `Ha sido Cambiado el consumo de Datos a: ${this.state.value}MB`,
-                                      createdAt: new Date(),
-                                    })
-                                  } catch (error) {
-                                    console.error(error)
-                                  }
-                                }}
-                              >
-                                {`Establecer a ${this.state.value / 1024}GB`}
-                              </Button>
-                            </View>
+                                  Meteor.users.update(item._id, { $set: { megas: this.state.value } })
+                                  Logs.insert({
+                                    type: 'Megas',
+                                    userAfectado: item._id,
+                                    userAdmin: Meteor.userId(),
+                                    message:
+                                      `Ha sido Cambiado el consumo de Datos a: ${this.state.value}MB`,
+                                    createdAt: new Date(),
+                                  })
+                                } catch (error) {
+                                  console.error(error)
+                                }
+                              }}
+                            >
+                              {`Establecer a ${this.state.value / 1024}GB`}
+                            </Button>
                           </View>
-                        )}
+                        </View>
+                      )}
                       {item.isIlimitado ? <></> :
                         <Surface
                           style={{
@@ -412,7 +461,7 @@ class MyAppUserDetails extends React.Component {
                           }}>
                           <Text style={{ paddingTop: 10, textAlign: 'center' }}>
                             Limite de Megas por el Proxy:
-                  </Text>
+                          </Text>
                           <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
                             {item.profile.role != "admin" ? (item.megas
                               ? (item.megas / 1024).toFixed(2) + ' GB'
@@ -514,7 +563,7 @@ class MyAppUserDetails extends React.Component {
                                             Alert.alert("Info!!!", precio.comentario)
                                           ) :
                                             (precio.megas && (precio.megas == item.megas) && (
-                                              console.log("precio.megas " + precio.megas),
+                                              // console.log("precio.megas " + precio.megas),
                                               VentasCollection.insert({
                                                 adminId: Meteor.userId(),
                                                 userId: item._id,
@@ -540,8 +589,8 @@ class MyAppUserDetails extends React.Component {
                           ) : item.baneado ? (
                             'Desabilitado'
                           ) : (
-                                'Habilitado'
-                              )}
+                            'Habilitado'
+                          )}
                         </Text>
                       </Surface>
                       <Surface
@@ -620,99 +669,99 @@ class MyAppUserDetails extends React.Component {
                   </Card.Content>
                 </Card>
               ) : (
-                  <Card elevation={12} style={styles.cards}>
-                    <Card.Content>
-                      <View style={styles.element}>
-                        <Title style={styles.title}>{'Datos del Proxy'}</Title>
-                        {item.isIlimitado ? (
-                          <>
-                            <Surface
-                              style={{
-                                width: '100%',
-                                elevation: 12,
-                                borderRadius: 20,
-                                marginTop: 10,
-                              }}>
-                              <Text style={{ paddingTop: 10, textAlign: 'center' }}>
-                                Fecha Límite:
+                <Card elevation={12} style={styles.cards}>
+                  <Card.Content>
+                    <View style={styles.element}>
+                      <Title style={styles.title}>{'Datos del Proxy'}</Title>
+                      {item.isIlimitado ? (
+                        <>
+                          <Surface
+                            style={{
+                              width: '100%',
+                              elevation: 12,
+                              borderRadius: 20,
+                              marginTop: 10,
+                            }}>
+                            <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                              Fecha Límite:
+                            </Text>
+                            <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                              {item.fechaSubscripcion
+                                ? moment
+                                  .utc(item.fechaSubscripcion)
+                                  .format('DD-MM-YYYY')
+                                : 'Fecha Límite sin especificar'}
+                            </Text>
+                          </Surface>
+                        </>
+                      ) : (
+                        <>
+                          <Surface
+                            style={{
+                              width: '100%',
+                              elevation: 12,
+                              borderRadius: 20,
+                              marginTop: 10,
+                            }}>
+                            <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                              Limite de Megas por el Proxy:
+                            </Text>
+                            <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                              {item.megas
+                                ? item.megas + " MB => " + (item.megas / 1024).toFixed(2) + " GB"
+                                : 'No se ha especificado aun el Límite de megas'}
+                            </Text>
+                          </Surface>
+                        </>
+                      )}
+                      <Surface
+                        style={{
+                          width: '100%',
+                          elevation: 12,
+                          borderRadius: 20,
+                          marginTop: 10,
+                        }}>
+                        <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                          Consumo:
                         </Text>
-                              <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                                {item.fechaSubscripcion
-                                  ? moment
-                                    .utc(item.fechaSubscripcion)
-                                    .format('DD-MM-YYYY')
-                                  : 'Fecha Límite sin especificar'}
-                              </Text>
-                            </Surface>
-                          </>
-                        ) : (
-                            <>
-                              <Surface
-                                style={{
-                                  width: '100%',
-                                  elevation: 12,
-                                  borderRadius: 20,
-                                  marginTop: 10,
-                                }}>
-                                <Text style={{ paddingTop: 10, textAlign: 'center' }}>
-                                  Limite de Megas por el Proxy:
+                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                          {item.megasGastadosinBytes
+                            ? (item.megasGastadosinBytes / 1024000).toFixed(2) + ' MB => ' + (item.megasGastadosinBytes / 1024000000).toFixed(2) + " GB"
+                            : '0 MB'}
                         </Text>
-                                <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                                  {item.megas
-                                    ? item.megas + " MB => " + (item.megas / 1024).toFixed(2) + " GB"
-                                    : 'No se ha especificado aun el Límite de megas'}
-                                </Text>
-                              </Surface>
-                            </>
-                          )}
-                        <Surface
-                          style={{
-                            width: '100%',
-                            elevation: 12,
-                            borderRadius: 20,
-                            marginTop: 10,
-                          }}>
-                          <Text style={{ paddingTop: 10, textAlign: 'center' }}>
-                            Consumo:
+                      </Surface>
+                      <Surface
+                        style={{
+                          width: '100%',
+                          elevation: 12,
+                          borderRadius: 20,
+                          marginTop: 10,
+                        }}>
+                        <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                          Estado del Proxy:
                         </Text>
-                          <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                            {item.megasGastadosinBytes
-                              ? (item.megasGastadosinBytes / 1024000).toFixed(2) + ' MB => ' + (item.megasGastadosinBytes / 1024000000).toFixed(2) + " GB"
-                              : '0 MB'}
-                          </Text>
-                        </Surface>
-                        <Surface
-                          style={{
-                            width: '100%',
-                            elevation: 12,
-                            borderRadius: 20,
-                            marginTop: 10,
-                          }}>
-                          <Text style={{ paddingTop: 10, textAlign: 'center' }}>
-                            Estado del Proxy:
+                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                          {item.baneado ? 'Desabilitado' : 'Habilitado'}
                         </Text>
-                          <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                            {item.baneado ? 'Desabilitado' : 'Habilitado'}
-                          </Text>
-                        </Surface>
-                        <Surface
-                          style={{
-                            width: '100%',
-                            elevation: 12,
-                            borderRadius: 20,
-                            marginTop: 10,
-                          }}>
-                          <Text style={{ paddingTop: 10, textAlign: 'center' }}>
-                            Estado de la VPN:
+                      </Surface>
+                      <Surface
+                        style={{
+                          width: '100%',
+                          elevation: 12,
+                          borderRadius: 20,
+                          marginTop: 10,
+                        }}>
+                        <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                          Estado de la VPN:
                         </Text>
-                          <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                            {!item.vpn ? 'Desabilitado' : 'Habilitado'}
-                          </Text>
-                        </Surface>
-                      </View>
-                    </Card.Content>
-                  </Card>
-                )}
+                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                          {!item.vpn ? 'Desabilitado' : 'Habilitado'}
+                        </Text>
+                      </Surface>
+                    </View>
+                  </Card.Content>
+                </Card>
+              )}
               {/* <Button
             mode="contained"
             onPress={() => {
@@ -737,30 +786,31 @@ class MyAppUserDetails extends React.Component {
   }
 }
 
-const Player = withTracker(props => {
-  Meteor.subscribe("precios").ready()
+const UserDetails = withTracker( props => {
+   Meteor.subscribe("precios").ready()
   let precioslist = []
 
   PreciosCollection.find({ type: "megas" }).fetch().map((a) => {
     precioslist.push({ value: a.megas, label: a.megas + 'MB • $' + a.precio })
   })
 
-  let precios = PreciosCollection.find().fetch()
+  let precios =  PreciosCollection.find().fetch()
 
   const { item, navigation } = props;
   // const {navigation} = props;
-  const ready = Meteor.subscribe('userID', item, { fields: { _id: 1, "services.facebook.picture": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1 } }).ready()
-  
+  const ready =  Meteor.subscribe('user', item, { fields: { _id: 1, "services.facebook.picture.data.url": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1 } })
+  const user =  Meteor.users.findOne(item, { fields: { _id: 1, "services.facebook.picture.data.url": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1 } })
+// console.log(item);
   return {
-    item: item,
+    item: user,
     navigation: navigation,
-    ready: ready,
+    ready:ready,
     precioslist,
     precios
   };
 })(MyAppUserDetails);
 
-export default Player;
+export default UserDetails;
 
 const styles = StyleSheet.create({
   ViewVideo: {
