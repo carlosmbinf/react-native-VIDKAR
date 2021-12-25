@@ -1,10 +1,11 @@
 import Meteor from '@meteorrn/core';
 import * as React from 'react';
-import { ScrollView } from 'react-native';
-import { Card, Drawer } from 'react-native-paper';
+import { ScrollView, Dimensions } from 'react-native';
+import { Card, Drawer, Surface } from 'react-native-paper';
 
 import img from "./SGN_04_02_2021_1617417653789.png";
-
+const { width: screenWidth } = Dimensions.get('window');
+const { height: screenHeight } = Dimensions.get('window');
 const DrawerOptionsAlls = (opt) => {
   const [active, setActive] = React.useState('');
 
@@ -18,16 +19,19 @@ const DrawerOptionsAlls = (opt) => {
   const opcionesAdministradorGeneral = [
     
     {
-      label: "VPN",
-      url:"VPN",
+      label: "Registro de Logs",
+      url:"Logs",
       icon:"vpn"
     }
   ]
   return (
     <>
+    <Surface>
     <Card.Cover source={img}></Card.Cover>
+    </Surface>
     <ScrollView>
-     
+      <Surface style={{minHeight:screenHeight-180}}>
+      
       <Drawer.Section title="Opciones de Administradores">
         {opcionesAdministradores.map(element => {
           return (
@@ -54,7 +58,11 @@ const DrawerOptionsAlls = (opt) => {
           )}
         </Drawer.Section>
       }
+
+      </Surface>
     </ScrollView>
+     
+      
     </>
   );
 };

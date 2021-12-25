@@ -101,6 +101,7 @@ class MyApp extends React.Component {
     // const [data, setData] = ;
     // const [textSearch, setTextSearch] = useState("");
     // const carouselRef = useRef(null);
+    !Meteor.userId()&&navigation.navigation.navigate("Loguin")
   }
   render() {
     const { loading, navigation, myTodoTasks } = this.props;
@@ -384,7 +385,7 @@ class MyApp extends React.Component {
     const users = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user && user.profile.role == "user" && (user.username ? ((user.username).toString().includes(this.state.userName)) : false)).map(element => Item(element))
 
     const drawerStyles = {
-      drawer: { shadowColor: '#000000', shadowOpacity: 0, shadowRadius: 3, backgroundColor:"white"},
+      drawer: { shadowColor: 'black', shadowOpacity: 0, shadowRadius: 3, backgroundColor:"black"},
       main: {paddingLeft: 0},
     }
 
@@ -443,7 +444,7 @@ class MyApp extends React.Component {
                   <View style={{flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
                     <Appbar.Action icon="menu" color={"white"} onPress={() => this.setState({ drawer: !this.state.drawer })} />
                     <View style={{ flexDirection: "row" }}>
-                      <Appbar.Action icon="account-plus" color={"white"} onPress={() => navigation.navigation.navigate('CreateUsers')} />
+                      {/* <Appbar.Action icon="account-plus" color={"white"} onPress={() => navigation.navigation.navigate('CreateUsers')} /> */}
                       <Appbar.Action icon="magnify" color={"white"} disabled={this.state.activeBanner} onPress={() => this.setState({ activeBanner: true })} />
                     </View>
                   </View>

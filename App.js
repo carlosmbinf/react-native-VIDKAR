@@ -44,7 +44,7 @@ import MyApp from './components/mensajes/MensajesHome';
 import MenuIconMensajes from './components/components/MenuIconMensajes';
 import UserHome from './components/users/UsersHome';
 import CreateUsers from './components/users/CreateUsers';
-import LogsList from './components/vpn/LogsList';
+import LogsList from './components/logs/LogsList';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -137,7 +137,7 @@ const App = () => {
           />
           <Stack.Screen
             name="Users"
-            component={LogsList}
+            component={UserHome}
             options={({navigation, route}) => ({
               title: (
                 <Text style={{letterSpacing: 5}}>
@@ -189,6 +189,75 @@ const App = () => {
                         }}
                       />
                     }
+                    style={{top: 70, paddingRight: 30}}>
+                    <View style={{padding: 0}}>
+                      <Menu.Item
+                        icon="menu"
+                        onPress={() => {
+                          // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
+                          // console.log(item)
+                          setVisibleMenu(false);
+                          navigation.navigate('User', {
+                            item: Meteor.userId(),
+                          });
+                        }}
+                        title="Mi usuario"
+                      />
+                      <Menu.Item
+                        icon="logout"
+                        onPress={() => {
+                          Meteor.logout();
+                          navigation.navigate('Loguin');
+                          setVisibleMenu(false);
+                        }}
+                        title="Cerrar Sessión"
+                      />
+                    </View>
+                  </Menu>
+                </View>
+              ),
+              // headerRight
+              // headerTransparent:false
+            })}
+          />
+          <Stack.Screen
+            name="CreateUsers"
+            component={CreateUsers}
+            options={({navigation, route}) => ({
+              title: (
+                <Text style={{letterSpacing: 5}}>
+                  Crear Usuario
+                </Text>
+              ),
+              headerStyle: {
+                backgroundColor: '#3f51b5',
+                height: 90,
+              },
+              headerTitleAlign: 'center',
+              headerTintColor: '#fff',
+              // headerTitleStyle: {
+              //   fontWeight: 'bold',
+              // },
+              // headerLeft:null,
+              headerShown: true,
+              headerRight: () => (
+                <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
+                  <MenuIconMensajes navigation={navigation} />
+
+                  <Menu
+                    visible={visibleMenu}
+                    onDismiss={() => {
+                      setVisibleMenu(false);
+                    }}
+                    anchor={
+                      <Appbar.Action
+                        icon="menu"
+                        color="white"
+                        onPress={() => {
+                          setVisibleMenu(true);
+                        }}
+                      />
+                    }
                     style={{top: 70, width: 210, paddingRight: 30}}>
                     <View style={{padding: 0}}>
                       <Menu.Item
@@ -221,12 +290,12 @@ const App = () => {
             })}
           />
           <Stack.Screen
-            name="CreateUsers"
-            component={CreateUsers}
+            name="Logs"
+            component={LogsList}
             options={({navigation, route}) => ({
               title: (
                 <Text style={{letterSpacing: 5}}>
-                  Crear Usuario
+                 Registro de Logs
                 </Text>
               ),
               headerStyle: {

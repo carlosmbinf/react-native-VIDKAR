@@ -47,15 +47,17 @@ class MyAppUserDetails extends React.Component {
       backgroundColor: '#2a323d',
       edit: false,
       date: new Date(),
-
+      username:"",
+      email:""
     };
+    !Meteor.userId()&&navigation.navigation.navigate("Loguin")
+
   }
 
   render() {
-    const { navigation, ready, precioslist, precios} = this.props;
+    const { navigation, ready, precioslist, precios,item} = this.props;
     const moment = require('moment');
     const data = precioslist;
-  var item =  Meteor.users.findOne(this.props.item, { fields: { _id: 1, "services.facebook.picture.data.url": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1 } })
 
     // console.log(item)
     // const {item} = this.props;
@@ -83,10 +85,10 @@ class MyAppUserDetails extends React.Component {
           refreshControl={
             <RefreshControl
               refreshing={false}
-              onRefresh={onRefresh}
+              // onRefresh={onRefresh}
             />
           }>
-          {!ready ? <View
+          {!ready.ready() ? <View
             style={{
               flex: 1,
               flexDirection: 'column',
@@ -173,7 +175,7 @@ class MyAppUserDetails extends React.Component {
                         <TextInput
                           require
                           mode="outlined"
-                          value={this.state.username}
+                          value={this.state.email}
                           onChangeText={email => this.setState({ email })}
                           label={'Email'}
                           textContentType="emailAddress"
@@ -257,20 +259,38 @@ class MyAppUserDetails extends React.Component {
                     </Button>
                       <Button
                         onPress={() => {
-                          this.state.email != "" &&
-                            Meteor.users.update(item._id, {
+
+                         ( this.state.email != "" && this.state.username != "" )?
+                            (Meteor.users.update(item._id, {
+                              $set: {
+                                emails: [{
+                                  address: this.state.email,
+                                  username: this.state.username
+                                }]
+                              },
+                            }),
+                              Alert.alert("Info!!!", "Se Cambio el Correo y el Usuario correctamente!!!")) :
+
+                            (this.state.email != "" &&
+                            (Meteor.users.update(item._id, {
                               $set: { emails: [{ address: this.state.email }] },
-                            });
-                          this.state.username != "" &&
-                            Meteor.users.update(item._id, {
+                            }), Alert.alert("Info!!!", "Se Cambio el Correo correctamente!!!")),
+
+                            (this.state.username != "" &&
+                            (Meteor.users.update(item._id, {
                               $set: { username: this.state.username }
-                            });
+                            }), Alert.alert("Info!!!", "Se Cambio el usuario correctamente!!!"))),
+
+
+                              (this.state.email != "" && this.state.username != "" && (item._id == Meteor.userId()) && (Meteor.logut(),
+                                navigation.navigate('Loguin'),console.log("CERRADO"))))
+
                         }}>
-                      <MaterialIcons
-                        name="save"
-                        // color={styles.data}
-                        size={30}
-                      />
+                        <MaterialIcons
+                          name="save"
+                          // color={styles.data}
+                          size={30}
+                        />
                     </Button>
                   </Card.Actions>
                 )}
@@ -765,7 +785,7 @@ class MyAppUserDetails extends React.Component {
   }
 }
 
-const Player = withTracker( props => {
+const UserDetails = withTracker( props => {
    Meteor.subscribe("precios").ready()
   let precioslist = []
 
@@ -777,18 +797,19 @@ const Player = withTracker( props => {
 
   const { item, navigation } = props;
   // const {navigation} = props;
-  const ready =  Meteor.subscribe('user', item, { fields: { _id: 1, "services.facebook.picture.data.url": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1 } }).ready()
-
+  const ready =  Meteor.subscribe('user', item, { fields: { _id: 1, "services.facebook.picture.data.url": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1 } })
+  const user =  Meteor.users.findOne(item, { fields: { _id: 1, "services.facebook.picture.data.url": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1 } })
+// console.log(item);
   return {
-    item: item,
+    item: user,
     navigation: navigation,
-    ready: ready,
+    ready:ready,
     precioslist,
     precios
   };
 })(MyAppUserDetails);
 
-export default Player;
+export default UserDetails;
 
 const styles = StyleSheet.create({
   ViewVideo: {
