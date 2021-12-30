@@ -40,7 +40,10 @@ class MyAppUserDetails extends React.Component {
     super(props);
     this.state = {
       value: null,
+      valuevpn: null,
+      valuevpnlabel: null,
       isFocus: false,
+      isFocusvpn: false,
       paused: false,
       isModalVisible: false,
       // colorText:  Colors.darker,
@@ -55,9 +58,8 @@ class MyAppUserDetails extends React.Component {
   }
 
   render() {
-    const { navigation, ready, precioslist, precios,item} = this.props;
+    const { navigation, ready, precioslist, precios,item, preciosVPNlist} = this.props;
     const moment = require('moment');
-    const data = precioslist;
     // console.log(item)
     // const {item} = this.props;
     const onRefresh = () => {
@@ -72,10 +74,58 @@ class MyAppUserDetails extends React.Component {
         );
       }
     }
+    const renderLabelVPN = () => {
+      if (this.state.value || this.state.isFocus) {
+        return (
+          <Text style={[styles.label, this.state.isFocus && { color: 'blue' }]}>
+            VPN • Precio
+          </Text>
+        );
+      }
+    }
     const backgroundStyle = {
       // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
       minHeight: (screenHeight - 80),
     };
+
+    const handleVPNStatus = (event) => {
+      if (item.vpn || item.vpnplus || item.vpn2mb) {
+  
+        let nextIp = Meteor.users.findOne({}, { sort: { vpnip: -1 } }) ? Meteor.users.findOne({}, { sort: { vpnip: -1 } }).vpnip : 1
+        let precioVPN = item.vpnplus ? PreciosCollection.findOne({ type: "vpnplus" }).precio : (item.vpn2mb ? PreciosCollection.findOne({ type: "vpn2mb" }).precio : 350)
+        //  PreciosCollection.findOne(item.vpnplus?{ type: "vpnplus" }:(item.vpn2mb?{ type: "vpn2mb" }))
+        !item.vpnip &&
+          Meteor.users.update(item._id, {
+            $set: {
+              vpnip: nextIp + 1
+            },
+          })
+        Meteor.users.update(item._id, {
+          $set: {
+            vpn: item.vpn ? false : true
+          },
+        });
+        Logs.insert({
+          type: 'VPN',
+          userAfectado: item._id,
+          userAdmin: Meteor.userId(),
+          message:
+            `Se ${!item.vpn ? "Activo" : "Desactivó"} la VPN`
+        });
+        !item.vpn && VentasCollection.insert({
+          adminId: Meteor.userId(),
+          userId: item._id,
+          precio: precioVPN,
+          comentario: item.vpnplus ? PreciosCollection.findOne({ type: "vpnplus" }).comentario : (item.vpn2mb ? PreciosCollection.findOne({ type: "vpn2mb" }).comentario : "")
+        })
+        !item.vpn && alert(`Se Compró el Servicio VPN con un costo: ${precioVPN}CUP`)
+  
+      }
+      else {
+        Alert.alert("INFO!!!","Primeramente debe seleccionar una oferta de VPN!!!")
+      }
+    };
+    
     return (
       <Surface
       style={backgroundStyle}>
@@ -395,6 +445,50 @@ class MyAppUserDetails extends React.Component {
                         </>
                       ) : (
                         <View style={{ paddingTop: 20 }}>
+                         
+                        <Surface
+                          style={{
+                            width: '100%',
+                            elevation: 12,
+                            borderRadius: 20,
+                            marginTop: 10,
+                          }}>
+                          <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                            Limite de Megas por el Proxy:
+                          </Text>
+                          <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                            {item.profile.role != "admin" ? (item.megas
+                              ? (item.megas / 1024).toFixed(2) + ' GB'
+                              : '0 GB') : "Ilimitado"}
+                          </Text>
+                        </Surface>
+                      
+
+                      <Surface
+                        style={{
+                          width: '100%',
+                          elevation: 12,
+                          borderRadius: 20,
+                          marginTop: 10,
+                          marginBottom: 10,
+                        }}>
+                        <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                          Consumo:
+                        </Text>
+                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                          {item.megasGastadosinBytes
+                            ? (item.megasGastadosinBytes / 1000000).toFixed(2) + ' MB'
+                            : '0 MB'}
+                        </Text>
+                      </Surface>
+                      <Surface
+                        style={{
+                          width: '100%',
+                          elevation: 12,
+                          borderRadius: 20,
+                          marginTop: 10,
+                          padding:10
+                        }}>
                           {renderLabel()}
                           <Dropdown
                             style={[styles.dropdown, this.state.isFocus && { borderColor: 'blue' }]}
@@ -402,9 +496,9 @@ class MyAppUserDetails extends React.Component {
                             selectedTextStyle={styles.selectedTextStyle}
                             inputSearchStyle={styles.inputSearchStyle}
                             iconStyle={styles.iconStyle}
-                            data={data}
+                            data={precioslist}
                             search
-                            maxHeight={300}
+                            maxHeight={precioslist.length * 50 + 70}
                             labelField="label"
                             valueField="value"
                             placeholder={!this.state.isFocus ? 'Seleccione un paquete' : '...'}
@@ -449,43 +543,10 @@ class MyAppUserDetails extends React.Component {
                               {`Establecer a ${this.state.value / 1024}GB`}
                             </Button>
                           </View>
+                          </Surface>
                         </View>
                       )}
-                      {item.isIlimitado ? <></> :
-                        <Surface
-                          style={{
-                            width: '100%',
-                            elevation: 12,
-                            borderRadius: 20,
-                            marginTop: 10,
-                          }}>
-                          <Text style={{ paddingTop: 10, textAlign: 'center' }}>
-                            Limite de Megas por el Proxy:
-                          </Text>
-                          <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                            {item.profile.role != "admin" ? (item.megas
-                              ? (item.megas / 1024).toFixed(2) + ' GB'
-                              : '0 GB') : "Ilimitado"}
-                          </Text>
-                        </Surface>
-                      }
-
-                      <Surface
-                        style={{
-                          width: '100%',
-                          elevation: 12,
-                          borderRadius: 20,
-                          marginTop: 10,
-                        }}>
-                        <Text style={{ paddingTop: 10, textAlign: 'center' }}>
-                          Consumo:
-                        </Text>
-                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                          {item.megasGastadosinBytes
-                            ? (item.megasGastadosinBytes / 1000000).toFixed(2) + ' MB'
-                            : '0 MB'}
-                        </Text>
-                      </Surface>
+                      
                       <Surface
                         style={{
                           width: '100%',
@@ -593,78 +654,6 @@ class MyAppUserDetails extends React.Component {
                           )}
                         </Text>
                       </Surface>
-                      <Surface
-                        style={{
-                          width: '100%',
-                          elevation: 12,
-                          borderRadius: 20,
-                          marginTop: 10,
-                        }}>
-                        <Text style={{ paddingTop: 10, textAlign: 'center' }}>
-                          Estado de la VPN:
-                        </Text>
-                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                          {Meteor.user().profile.role == 'admin' ? (
-                            // <Switch
-                            //   value={!item.baneado}
-                            //   onValueChange={() => {
-                            //     Meteor.users.update(item._id, {
-                            //       $set: {
-                            //         baneado: !item.baneado,
-                            //       },
-                            //     });
-                            //   }}
-                            // />
-                            <Button
-                              // disabled={this.state.value ? false : true}
-                              mode="contained"
-                              color={item.vpn && "red"}
-                              onPress={() => {
-                                try {
-
-                                  let nextIp = Meteor.users.findOne({}, { sort: { vpnip: -1 } }) ? Meteor.users.findOne({}, { sort: { vpnip: -1 } }).vpnip : 1
-                                  let precioVPN = PreciosCollection.findOne({ type: "vpn" }) ? PreciosCollection.findOne({ type: "vpn" }).precio : 350
-
-                                  !item.vpnip &&
-                                    Meteor.users.update(item._id, {
-                                      $set: {
-                                        vpnip: nextIp + 1
-                                      },
-                                    })
-                                  Meteor.users.update(item._id, {
-                                    $set: {
-                                      vpn: item.vpn ? false : true
-                                    },
-                                  });
-                                  Logs.insert({
-                                    type: 'VPN',
-                                    userAfectado: item._id,
-                                    userAdmin: Meteor.userId(),
-                                    message:
-                                      `Se ${!item.vpn ? "Activo" : "Desactivó"} la VPN`
-                                  });
-                                  !item.vpn && VentasCollection.insert({
-                                    adminId: Meteor.userId(),
-                                    userId: item._id,
-                                    precio: precioVPN,
-                                    comentario: `Se ${!item.vpn ? "Activo" : "Desactivó"} el servicio VPN`
-                                  })
-                                  !item.vpn && Alert.alert("Info!!!",`Se Compró el Servicio VPN con costo: ${precioVPN}CUP`,[{text:"Ok"}],{})
-
-                                } catch (error) {
-                                  console.error(error)
-                                }
-                              }}
-                            >
-                              {!item.vpn ? "Habilitar" : "Desabilitar"}
-                            </Button>
-                          ) : item.vpn ? (
-                            'Habilitado'
-                          ) : (
-                                'Desabilitado'
-                              )}
-                        </Text>
-                      </Surface>
                     </View>
                   </Card.Content>
                 </Card>
@@ -744,6 +733,19 @@ class MyAppUserDetails extends React.Component {
                           {item.baneado ? 'Desabilitado' : 'Habilitado'}
                         </Text>
                       </Surface>
+                      
+                    </View>
+                  </Card.Content>
+                </Card>
+              )}
+
+              {Meteor.user() && Meteor.user().profile.role == "admin" ?
+            
+            <Card elevation={12} style={styles.cards}>
+            <Card.Content>
+              <View style={styles.element}>
+                <Title style={styles.title}>{'Datos  VPN'}</Title>
+                
                       <Surface
                         style={{
                           width: '100%',
@@ -752,16 +754,160 @@ class MyAppUserDetails extends React.Component {
                           marginTop: 10,
                         }}>
                         <Text style={{ paddingTop: 10, textAlign: 'center' }}>
-                          Estado de la VPN:
+                          Oferta Seleccionada:
                         </Text>
                         <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                          {!item.vpn ? 'Desabilitado' : 'Habilitado'}
+                          {item.vpnplus ? "VPN PLUS" : (item.vpn2mb ? "VPN 2MB" : "Ninguna")}
                         </Text>
                       </Surface>
+                      <Surface
+                        style={{
+                          width: '100%',
+                          elevation: 12,
+                          borderRadius: 20,
+                          marginTop: 10,
+                          padding:10
+                        }}>
+                  <View style={{ paddingTop: 20 }}>
+                    {renderLabelVPN()}
+                    <Dropdown
+                      style={[styles.dropdown, this.state.isFocusvpn && { borderColor: 'blue' }]}
+                      placeholderStyle={styles.placeholderStyle}
+                      selectedTextStyle={styles.selectedTextStyle}
+                      inputSearchStyle={styles.inputSearchStyle}
+                      iconStyle={styles.iconStyle}
+                      data={preciosVPNlist}
+                      search
+                      maxHeight={preciosVPNlist.length * 50 + 70}
+                      labelField="label"
+                      valueField="value"
+                      placeholder={!this.state.isFocusvpn ? 'Seleccione un paquete' : '...'}
+                      searchPlaceholder="Search..."
+                      value={this.state.valuevpn}
+                      onFocus={() => this.setState({ isFocusvpn: true })}
+                      onBlur={() => this.setState({ isFocusvpn: false })}
+                      onChange={item => {
+                        this.setState({ valuevpn: item.value, isFocusvpn: false, valuevpnlabel: item.label })
+                      }}
+                    // renderLeftIcon={() => (
+                    //   <AntDesign
+                    //     style={styles.icon}
+                    //     color={isFocus ? 'blue' : 'black'}
+                    //     name="Safety"
+                    //     size={20}
+                    //   />
+                    // )}
+                    />
+                    <View style={{ paddingTop: 10, paddingBottom: 10 }}>
+                      <Button
+                        icon="send"
+                        disabled={this.state.valuevpn ? false : true}
+                        mode="contained"
+                        onPress={() => {
+                          try {
+
+                            this.state.valuevpn == "vpnplus" ?
+                            Meteor.users.update(item._id, {
+                              $set: { vpnplus: true, vpn2mb: true },
+                            })
+                            : (this.state.valuevpn == "vpn2mb" ?
+                              Meteor.users.update(item._id, {
+                                $set: { vpnplus: false, vpn2mb: true },
+                              }) :
+                              Meteor.users.update(item._id, {
+                                $set: { vpnplus: false, vpn2mb: false },
+                              })
+                            )
+                          Logs.insert({
+                            type: this.state.valuevpn,
+                            userAfectado: item._id,
+                            userAdmin: Meteor.userId(),
+                            message:
+                              `Ha sido Seleccionada la VPN: ${this.state.valuevpnlabel ? this.state.valuevpnlabel : this.state.valuevpn}`,
+                          });
+                          item.vpn && Meteor.users.update(item._id, {
+                            $set: { vpn: false },
+                          })
+                          item.vpn && Logs.insert({
+                            type: 'VPN',
+                            userAfectado: item._id,
+                            userAdmin: Meteor.userId(),
+                            message:
+                              `Se ${!item.vpn ? "Activo" : "Desactivó"} la VPN porque estaba activa y cambio la oferta`
+                          });
+                          // setIP(newValue);
+
+
+                          } catch (error) {
+                            console.error(error)
+                          }
+                        }}
+                      >
+                        {`Establecer ${this.state.valuevpn=="vpnplus"?"VPN PLUS":(this.state.valuevpn=="vpn2mb"?"VPN 2MB":"N/A")}`}
+                      </Button>
                     </View>
-                  </Card.Content>
-                </Card>
-              )}
+                  </View>
+                  </Surface>
+                  <Surface
+                        style={{
+                          width: '100%',
+                          elevation: 12,
+                          borderRadius: 20,
+                          marginTop: 10,
+                        }}>
+                        <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                          Estado:
+                        </Text>
+                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                    {Meteor.user().profile.role == 'admin' ? (
+                      // <Switch
+                      //   value={!item.baneado}
+                      //   onValueChange={() => {
+                      //     Meteor.users.update(item._id, {
+                      //       $set: {
+                      //         baneado: !item.baneado,
+                      //       },
+                      //     });
+                      //   }}
+                      // />
+                      <Button
+                        // disabled={this.state.value ? false : true}
+                        mode="contained"
+                        color={item.vpn && "red"}
+                        onPress={handleVPNStatus}
+                      >
+                        {!item.vpn ? "Habilitar" : "Desabilitar"}
+                      </Button>
+                    ) : item.vpn ? (
+                      'Habilitado'
+                    ) : (
+                          'Desabilitado'
+                        )}
+                  </Text>
+                      </Surface>
+                
+                  
+
+              </View>
+            </Card.Content>
+          </Card>
+        
+            :  
+                <Surface
+                  style={{
+                    width: '100%',
+                    elevation: 12,
+                    borderRadius: 20,
+                    marginTop: 10,
+                  }}>
+                  <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                    Estado de la VPN:
+                  </Text>
+                  <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                    {!item.vpn ? 'Desabilitado' : 'Habilitado'}
+                  </Text>
+                </Surface>
+            }
               {/* <Button
             mode="contained"
             onPress={() => {
@@ -796,17 +942,25 @@ const UserDetails = withTracker( props => {
 
   let precios =  PreciosCollection.find().fetch()
 
+  let preciosVPNlist = []
+
+  PreciosCollection.find({$or:[{ type: "vpnplus"},{ type: "vpn2mb"}] }).fetch().map((a)=>{
+    preciosVPNlist.push({value: a.type, label: a.type+' • $'+ a.precio})
+  })
+
+
   const { item, navigation } = props;
   // const {navigation} = props;
-  const ready =  Meteor.subscribe('user', item, { fields: { _id: 1, "services.facebook.picture.data.url": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1 } })
-  const user =  Meteor.users.findOne(item, { fields: { _id: 1, "services.facebook.picture.data.url": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1 } })
+  const ready = Meteor.subscribe('user', item, { fields: { vpnplus: 1, vpn2mb: 1, _id: 1, "services.facebook.picture.data.url": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1 } })
+  const user = Meteor.users.findOne(item, { fields: { vpnplus: 1, vpn2mb: 1, _id: 1, "services.facebook.picture.data.url": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1 } })
 // console.log(item);
   return {
     item: user,
     navigation: navigation,
     ready:ready,
     precioslist,
-    precios
+    precios,
+    preciosVPNlist
   };
 })(MyAppUserDetails);
 
