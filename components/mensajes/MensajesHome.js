@@ -87,6 +87,11 @@ class MyApp extends React.Component {
     // const [isLoading, setLoading] = useState(true);
     // const carouselRef = useRef(null);
   }
+  sendMensaje = (text) => {
+    //  alert(text)
+    MensajesCollection.insert({from: Meteor.userId(), to: this.props.user._id, mensaje: text});
+    this.setState({text:""})
+  }
   render() {
     const {user, loading, navigation, myTodoTasks} = this.props;
 
@@ -97,10 +102,7 @@ class MyApp extends React.Component {
       backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
       minHeight: ScreenHeight,
     };
-    function sendMensaje(text) {
-      //  alert(text)
-      MensajesCollection.insert({from: Meteor.userId(), to: user._id, mensaje: text});
-    }
+    
     //  console.log({user});
     return (
       <Surface style={{flex: 1}}>
@@ -128,7 +130,7 @@ class MyApp extends React.Component {
           <FlatList
             // style={{backgroundColor: '#2a323d'}}
             data={myTodoTasks}
-            renderItem={item => <Mensajes item={item} />}
+            renderItem={item => <Mensajes item={item.item} />}
             keyExtractor={(item, index) => item._id}
           />
         )}
@@ -153,7 +155,7 @@ class MyApp extends React.Component {
                 icon="send-circle"
                 color="#3f51b5"
                 size={40}
-                onPress={() => sendMensaje(this.state.text)}
+                onPress={() => this.sendMensaje(this.state.text)}
               />
             ) : (
               <IconButton
@@ -161,7 +163,7 @@ class MyApp extends React.Component {
                 // color="red"
                 size={40}
                 disabled
-                onPress={event => sendMensaje(this.state.text)}
+                onPress={event => this.sendMensaje(this.state.text)}
               />
             )}
           </Surface>
@@ -171,12 +173,58 @@ class MyApp extends React.Component {
   }
 }
 const MensajesHome = withTracker(user => {
-  //  console.log(user.user)
-  const handle = Meteor.subscribe('mensajes', user.user._id);
-  const myTodoTasks = MensajesCollection.find({to: user.user._id}).fetch();
+   console.log(user.user)
+  // const handle = Meteor.subscribe('mensajes', user.user._id);
+
+  function sortFunction(a,b){  
+    var dateA = new Date(a.date).getTime();
+    var dateB = new Date(b.date).getTime();
+    return dateA < dateB ? 1 : -1;  
+};
+
+  const myTodoTasks = MensajesCollection.find({ to: user.user._id }).fetch();
+
+  const handle = Meteor.subscribe("mensajes");
+ let id = user.user._id
+  let list = []
+  // let mensajes = MensajesCollection.find({ $or: [{ from: Meteor.userId() }, { from: from }, { to: Meteor.userId() }, { to: from }] }, { sort: { createdAt: -1 } }).fetch()
+  let mensajes = MensajesCollection.find({ $or: [{ $and: [{ from: id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: id }] }] }, { sort: { createdAt: -1 } }).fetch()
+
+
+  mensajes.forEach(element => {
+    // let firstName = user(element.from) && user(element.from).profile && user(element.from).profile.firstName
+    // let lastName = user(element.from) && user(element.from).profile && user(element.from).profile.lastName
+    list.push(
+      {
+        position: element.from == Meteor.userId() ? "right" : "left",
+        type: element.type ? element.type : "text",
+        text: <Text style={{ color: 'black', margin: 0 }}>{element.mensaje}</Text>,
+        date: new Date(element.createdAt),
+        theme: 'black',
+        // data: {
+        //     videoURL: 'https://www.w3schools.com/html/mov_bbb.mp4',
+        //     audioURL: 'https://www.w3schools.com/html/horse.mp3',
+        //     uri: `/favicon.ico`,
+        //     status: {
+        //         click: true,
+        //         loading: 0.5,
+        //         download: element.type === 'video',
+        //     },
+        //     size: "100MB",
+        //     width: 300,
+        //     height: 300,
+        //     latitude: '37.773972',
+        //     longitude: '-122.431297',
+        //     staticURL: 'https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s-circle+FF0000(LONGITUDE,LATITUDE)/LONGITUDE,LATITUDE,ZOOM/270x200@2x?access_token=KEY',
+        // }
+      }
+    )
+  })
+  list.sort(sortFunction);
+
   return {
     user: user.user,
-    myTodoTasks,
+    myTodoTasks:list,
     loading: !handle.ready(),
   };
 })(MyApp);

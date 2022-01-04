@@ -40,7 +40,7 @@ import Meteor, {withTracker} from '@meteorrn/core';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import UserDetails from './components/users/UserDetails';
-import MyApp from './components/mensajes/MensajesHome';
+import MensajesHome from './components/mensajes/MensajesHome';
 import MenuIconMensajes from './components/components/MenuIconMensajes';
 import UserHome from './components/users/UsersHome';
 import CreateUsers from './components/users/CreateUsers';
@@ -445,6 +445,36 @@ const App = () => {
             }}
           </Stack.Screen>
           <Stack.Screen
+            name="AllMensajesUser"
+            options={({navigation, route}) => ({
+              title: (
+                <Text>Mensajes</Text>
+              ),
+              headerStyle: {
+                backgroundColor: '#3f51b5',
+                height: 90,
+              },
+              headerTitleAlign: 'center',
+              headerTintColor: '#fff',
+              // headerTitleStyle: {
+              //   fontWeight: 'bold',
+              // },
+              headerShown: true,
+              // headerRight
+              // headerTransparent:false
+            })}>
+            {props => {
+              const {navigation, route} = props;
+              // console.log(item)
+              return (
+                <MensajesHome user={Meteor.users.findOne("fDDdHpRCQNwM2dLnA")} />
+                // <TasksProvider user={user} projectPartition={projectPartition}>
+                //   <TasksView navigation={navigation} route={route} />
+                // </TasksProvider>
+              );
+            }}
+          </Stack.Screen>
+          <Stack.Screen
             name="Mensajes"
             options={({navigation, route}) => ({
               title: (
@@ -472,7 +502,7 @@ const App = () => {
               const {item} = route.params;
               // console.log(item)
               return (
-                <MyApp user={item} />
+                <MensajesHome user={item} />
                 // <TasksProvider user={user} projectPartition={projectPartition}>
                 //   <TasksView navigation={navigation} route={route} />
                 // </TasksProvider>

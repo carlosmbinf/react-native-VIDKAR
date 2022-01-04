@@ -53,12 +53,12 @@ class Mensaje extends React.Component {
   render() {
     const {item} = this.props;
     // const {item} = this.props;
-    // console.log(item.item)
+    console.log(item.item)
     const user = Meteor.users.findOne({_id: item.item.from});
     const date = new Date(item.item.createdAt);
     // console.log(user)
     return (
-      <List.Item
+      user ? <List.Item
         onPress={() => {
           Alert.alert(
             Meteor.users.findOne({_id: item.item.from}) &&
@@ -83,11 +83,11 @@ class Mensaje extends React.Component {
           );
           // navigation.navigationGeneral.navigate('User', {item});
         }}
-        title={user.profile.firstName + ' ' + user.profile.lastName}
+        title={user.profile&&(user.profile.firstName + ' ' + user.profile.lastName)}
         // titleStyle={{fontSize: 20}}
         description={item.item.mensaje}
         left={() =>
-          user.services.facebook ? (
+          user.services&&user.services.facebook ? (
             <Avatar.Image
               // {...props}
               size={50}
@@ -98,8 +98,8 @@ class Mensaje extends React.Component {
               // {...props}
               size={50}
               label={
-                user.profile.firstName.toString().slice(0, 1) +
-                user.profile.lastName.toString().slice(0, 1)
+                user.profile&&(user.profile.firstName.toString().slice(0, 1) +
+                user.profile.lastName.toString().slice(0, 1))
               }
             />
           )
@@ -130,7 +130,7 @@ class Mensaje extends React.Component {
             </Text>
           </View>
         )}
-      />
+      />:<></>
     );
   }
 }

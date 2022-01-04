@@ -14,6 +14,11 @@ const DrawerOptionsAlls = (opt) => {
       label: "Agregar Usuarios",
       url:"CreateUsers",
       icon:"account-plus"
+    },
+    {
+      label: "Mensajes",
+      url:"AllMensajesUser",
+      icon:"account-plus"
     }
   ]
   const opcionesAdministradorGeneral = [

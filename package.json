@@ -21,6 +21,7 @@
     "axios": "^0.21.1",
     "moment": "^2.29.1",
     "react": "17.0.1",
+    "react-chat-elements": "^10.16.0",
     "react-native": "0.64.0",
     "react-native-calendar-picker": "^7.1.2",
     "react-native-custom-header": "^1.0.0",
