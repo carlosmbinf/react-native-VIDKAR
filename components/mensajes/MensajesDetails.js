@@ -53,85 +53,11 @@ class Mensaje extends React.Component {
   render() {
     const {item} = this.props;
     // const {item} = this.props;
-    console.log(item.item)
-    const user = Meteor.users.findOne({_id: item.item.from});
-    const date = new Date(item.item.createdAt);
+    console.log(item)
+    // const user = Meteor.users.findOne({_id: item.from});
+    // const date = new Date(item.createdAt);
     // console.log(user)
-    return (
-      user ? <List.Item
-        onPress={() => {
-          Alert.alert(
-            Meteor.users.findOne({_id: item.item.from}) &&
-              'De: ' +
-                Meteor.users.findOne({_id: item.item.from}).profile.firstName +
-                ' ' +
-                Meteor.users.findOne({_id: item.item.from}).profile.lastName,
-            item.item.mensaje,
-            // [
-            //   {
-            //     text: 'Leido',
-            //     onPress: () => {
-            //       this.setState({menuVisible: false});
-            //       MyCol.update(item.item._id, {
-            //         $set: {leido: true},
-            //       });
-            //     },
-            //     style: 'cancel',
-            //   },
-            //   // {text: 'OK', onPress: () => console.log('OK Pressed')},
-            // ],
-          );
-          // navigation.navigationGeneral.navigate('User', {item});
-        }}
-        title={user.profile&&(user.profile.firstName + ' ' + user.profile.lastName)}
-        // titleStyle={{fontSize: 20}}
-        description={item.item.mensaje}
-        left={() =>
-          user.services&&user.services.facebook ? (
-            <Avatar.Image
-              // {...props}
-              size={50}
-              source={{uri: user.services.facebook.picture.data.url}}
-            />
-          ) : (
-            <Avatar.Text
-              // {...props}
-              size={50}
-              label={
-                user.profile&&(user.profile.firstName.toString().slice(0, 1) +
-                user.profile.lastName.toString().slice(0, 1))
-              }
-            />
-          )
-        }
-        right={() => (
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
-            <Text style={{paddingRight: 5}}>
-              {date.getHours() +
-                ':' +
-                date.getMinutes() +
-                ':' +
-                date.getSeconds() +
-                '  ' +
-                date.getDay() +
-                '/' +
-                date.getMonth() +
-                '/' +
-                date.getFullYear()}
-            </Text>
-            <Text>
-              {item.item.leido && (
-                <Ionicons
-                  // color="white"
-                  size={30}
-                  name="md-checkmark-done-circle"
-                />
-              )}
-            </Text>
-          </View>
-        )}
-      />:<></>
-    );
+    return <Text>{JSON.stringify(item)}</Text>
   }
 }
 export default Mensaje;

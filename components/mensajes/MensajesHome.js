@@ -52,6 +52,7 @@ import {
 // import Loguin from '../loguin/Loguin';
 import Orientation from 'react-native-orientation';
 import {Mensajes as MensajesCollection} from '../collections/collections';
+import { GiftedChat } from 'react-native-gifted-chat';
 
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
@@ -127,19 +128,39 @@ class MyApp extends React.Component {
             <ActivityIndicator size="large" color="#3f51b5" />
           </View>
         ) : (
-          <FlatList
-            // style={{backgroundColor: '#2a323d'}}
-            data={myTodoTasks}
-            renderItem={item => <Mensajes item={item.item} />}
-            keyExtractor={(item, index) => item._id}
-          />
+            <ScrollView>
+              <Surface 
+              // style={{
+                // flex: 1,
+                // flexDirection: 'column',
+                // height: ScreenHeight,
+                // backgroundColor: '#2a323d',
+                // justifyContent: 'center',
+              // }}
+              >
+                <GiftedChat
+                messages={myTodoTasks}
+                user={{_id:Meteor.userId()}}
+                />
+                <Text>{myTodoTasks.length}</Text>
+                {/* {myTodoTasks.length == 0 ? <Text>SIN MENSAJES</Text> : myTodoTasks.map(item => <Mensajes item={item} />)} */}
+
+              </Surface>
+            </ScrollView>
+
+          // <FlatList
+          //   // style={{backgroundColor: '#2a323d'}}
+          //   data={myTodoTasks}
+          //   renderItem={item => }
+          //   keyExtractor={(item, index) => item._id}
+          // />
         )}
 
         {/* <Text>
             {this.state.isLoading ? '' : JSON.stringify(this.state.data)}
           </Text> */}
         {/* </ScrollView> */}
-        {Meteor.user().profile.role == 'admin' && (
+        {Meteor.user()&&Meteor.user().profile.role == 'admin' && (
           <Surface style={styles.footer}>
             <TextInput
             mode='outlined'
@@ -196,10 +217,20 @@ const MensajesHome = withTracker(user => {
     // let lastName = user(element.from) && user(element.from).profile && user(element.from).profile.lastName
     list.push(
       {
+        _id: element._id,
         position: element.from == Meteor.userId() ? "right" : "left",
         type: element.type ? element.type : "text",
-        text: <Text style={{ color: 'black', margin: 0 }}>{element.mensaje}</Text>,
-        date: new Date(element.createdAt),
+        text: element.mensaje,
+        createdAt: new Date(element.createdAt),
+        user:
+          element.from == Meteor.userId() ? {
+            _id: Meteor.userId(),
+            name: Meteor.userId()
+          } : {
+            _id: element.from,
+            name: element.from
+          }
+        ,
         theme: 'black',
         // data: {
         //     videoURL: 'https://www.w3schools.com/html/mov_bbb.mp4',
