@@ -130,17 +130,17 @@ class MyApp extends React.Component {
         ) : (
             <ScrollView>
               <Surface 
-              // style={{
+              style={{
                 // flex: 1,
                 // flexDirection: 'column',
-                // height: ScreenHeight,
+                height: ScreenHeight,
                 // backgroundColor: '#2a323d',
                 // justifyContent: 'center',
-              // }}
+              }}
               >
                 <GiftedChat
                 messages={myTodoTasks}
-                user={{_id:Meteor.userId()}}
+                user={{_id:Meteor.userId(),name:Meteor.userId()}}
                 />
                 <Text>{myTodoTasks.length}</Text>
                 {/* {myTodoTasks.length == 0 ? <Text>SIN MENSAJES</Text> : myTodoTasks.map(item => <Mensajes item={item} />)} */}
@@ -222,13 +222,9 @@ const MensajesHome = withTracker(user => {
         type: element.type ? element.type : "text",
         text: element.mensaje,
         createdAt: new Date(element.createdAt),
-        user:
-          element.from == Meteor.userId() ? {
-            _id: Meteor.userId(),
-            name: Meteor.userId()
-          } : {
+        user:{
             _id: element.from,
-            name: element.from
+            // name: element.from
           }
         ,
         theme: 'black',
