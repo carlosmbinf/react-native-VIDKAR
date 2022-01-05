@@ -88,9 +88,9 @@ class MyApp extends React.Component {
     // const [isLoading, setLoading] = useState(true);
     // const carouselRef = useRef(null);
   }
-  sendMensaje = (text) => {
-    //  alert(text)
-    MensajesCollection.insert({from: Meteor.userId(), to: this.props.user._id, mensaje: text});
+  sendMensaje = (message) => {
+     alert(JSON.stringify(message[0]))
+    MensajesCollection.insert({from: Meteor.userId(), to: message[0].user._id, mensaje: message[0].text});
     this.setState({text:""})
   }
   render() {
@@ -133,16 +133,21 @@ class MyApp extends React.Component {
               style={{
                 // flex: 1,
                 // flexDirection: 'column',
-                height: ScreenHeight,
+                height: ScreenHeight - 90,
                 // backgroundColor: '#2a323d',
                 // justifyContent: 'center',
               }}
               >
                 <GiftedChat
+                textInputProps={{color:"black"}}
+                // showAvatarForEveryMessage={true}
+                onSend ={message => this.sendMensaje(message)}
+                alwaysShowSend={true}
                 messages={myTodoTasks}
-                user={{_id:Meteor.userId(),name:Meteor.userId()}}
+
+                user={{_id:Meteor.userId(),name:Meteor.user()&&(Meteor.user().profile.firstName + " " + Meteor.user().profile.lastName) }}
                 />
-                <Text>{myTodoTasks.length}</Text>
+                {/* <Text>{myTodoTasks.length}</Text> */}
                 {/* {myTodoTasks.length == 0 ? <Text>SIN MENSAJES</Text> : myTodoTasks.map(item => <Mensajes item={item} />)} */}
 
               </Surface>
@@ -160,7 +165,7 @@ class MyApp extends React.Component {
             {this.state.isLoading ? '' : JSON.stringify(this.state.data)}
           </Text> */}
         {/* </ScrollView> */}
-        {Meteor.user()&&Meteor.user().profile.role == 'admin' && (
+        {/* {Meteor.user()&&Meteor.user().profile.role == 'admin' && (
           <Surface style={styles.footer}>
             <TextInput
             mode='outlined'
@@ -188,46 +193,53 @@ class MyApp extends React.Component {
               />
             )}
           </Surface>
-        )}
+        )} */}
       </Surface>
     );
   }
 }
+
+function sortFunction(a,b){  
+  var dateA = new Date(a.createdAt).getTime();
+  var dateB = new Date(b.createdAt).getTime();
+  return dateA < dateB ? 1 : -1;  
+};
+
 const MensajesHome = withTracker(user => {
    console.log(user.user)
   // const handle = Meteor.subscribe('mensajes', user.user._id);
 
-  function sortFunction(a,b){  
-    var dateA = new Date(a.date).getTime();
-    var dateB = new Date(b.date).getTime();
-    return dateA < dateB ? 1 : -1;  
-};
+  
 
-  const myTodoTasks = MensajesCollection.find({ to: user.user._id }).fetch();
+  // const myTodoTasks = MensajesCollection.find({ to: user.user._id }).fetch();
 
   const handle = Meteor.subscribe("mensajes");
- let id = user.user._id
+ let id = user.user
   let list = []
   // let mensajes = MensajesCollection.find({ $or: [{ from: Meteor.userId() }, { from: from }, { to: Meteor.userId() }, { to: from }] }, { sort: { createdAt: -1 } }).fetch()
   let mensajes = MensajesCollection.find({ $or: [{ $and: [{ from: id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: id }] }] }, { sort: { createdAt: -1 } }).fetch()
 
 
   mensajes.forEach(element => {
+  Meteor.subscribe("user")
+
     // let firstName = user(element.from) && user(element.from).profile && user(element.from).profile.firstName
     // let lastName = user(element.from) && user(element.from).profile && user(element.from).profile.lastName
     list.push(
       {
         _id: element._id,
-        position: element.from == Meteor.userId() ? "right" : "left",
-        type: element.type ? element.type : "text",
+        // position: element.from == Meteor.userId() ? "right" : "left",
+        // type: element.type ? element.type : "text",
         text: element.mensaje,
-        createdAt: new Date(element.createdAt),
+        createdAt: element.createdAt,
         user:{
-            _id: element.from,
-            // name: element.from
+          _id: element.from,
+          name: Meteor.users.findOne(element.from) && Meteor.users.findOne(element.from).profile.firstName + " " + Meteor.users.findOne(element.from).profile.lastName 
           }
         ,
-        theme: 'black',
+        sent:true,
+        received:element.leido
+        // theme: 'black',
         // data: {
         //     videoURL: 'https://www.w3schools.com/html/mov_bbb.mp4',
         //     audioURL: 'https://www.w3schools.com/html/horse.mp3',

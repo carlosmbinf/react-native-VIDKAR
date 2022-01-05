@@ -466,8 +466,10 @@ const App = () => {
             {props => {
               const {navigation, route} = props;
               // console.log(item)
+              const {item} = route.params;
+console.log(item);
               return (
-                <MensajesHome user={Meteor.users.findOne("fDDdHpRCQNwM2dLnA")} />
+                <MensajesHome user={item} />
                 // <TasksProvider user={user} projectPartition={projectPartition}>
                 //   <TasksView navigation={navigation} route={route} />
                 // </TasksProvider>

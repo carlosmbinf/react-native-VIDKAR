@@ -22,7 +22,6 @@ const DrawerOptionsAlls = (opt) => {
     }
   ]
   const opcionesAdministradorGeneral = [
-    
     {
       label: "Registro de Logs",
       url:"Logs",
@@ -44,7 +43,9 @@ const DrawerOptionsAlls = (opt) => {
               icon={element.icon}
               label={element.label}
               active={active === element.url}
-              onPress={() => { setActive(element.url); opt.navigation.navigation.navigate(element.url) }}
+              onPress={() => { 
+                // setActive(element.url); 
+                opt.navigation.navigation.navigate(element.url) }}
             />)
         }
         )}
@@ -57,7 +58,9 @@ const DrawerOptionsAlls = (opt) => {
                 icon={element.icon}
                 label={element.label}
                 active={active === element.url}
-                onPress={() => { setActive(element.url); opt.navigation.navigation.navigate(element.url) }}
+                onPress={() => { 
+                  // setActive(element.url);
+                   opt.navigation.navigation.navigate(element.url) }}
               />)
           }
           )}

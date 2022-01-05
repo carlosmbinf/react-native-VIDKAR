@@ -20,6 +20,7 @@ import {
   Appbar,
   Banner,
   Divider,
+  Button
 } from 'react-native-paper';
 // import * as axios from 'axios';
 import Meteor, { Mongo, withTracker } from '@meteorrn/core';
@@ -40,7 +41,7 @@ import {
   VirtualizedList,
   Dimensions,
   Platform,
-  Button,
+  
   RefreshControl,
   SectionList,
   TouchableHighlight,
@@ -314,57 +315,20 @@ class MyApp extends React.Component {
                 </View>
               )
             }
-          // right={props => (
-          //   <View>
-          //     {/* <Text style={(styles.data, {justifyContent: 'center'})}>
-          //       <MaterialCommunityIcons
-          //         name="account"
-          //         // color={styles.data}
-          //         //  size={25}
-          //       />
-          //       <Text style={{justifyContent: 'center'}}>Roles:</Text>{' '}
-          //       {Meteor.user().profile.role == 'admin' ? (
-          //         <Switch
-          //           value={item.profile.role == 'admin'}
-          //           onValueChange={() =>
-          //             Meteor.users.update(item, {
-          //               $set: {
-          //                 'profile.role':
-          //                   item.profile.role == 'admin' ? 'user' : 'admin',
-          //               },
-          //             })
-          //           }
-          //         />
-          //       ) : (
-          //         item.profile.role
-          //       )}
-          //     </Text> */}
-          //     <Text style={styles.data, {justifyContent: 'center'}}>
-          //       <MaterialIcons
-          //         name="vpn-lock"
-          //         // color={styles.data}
-          //         //  size={}
-          //       />
-          //       <Text>Proxy:</Text>{' '}
-          //       {Meteor.user().profile.role == 'admin' ? (
-          //         <Switch
-          //           value={!item.baneado}
-          //           onValueChange={() =>
-          //             Meteor.users.update(item, {
-          //               $set: {
-          //                 baneado: !item.baneado,
-          //               },
-          //             })
-          //           }
-          //         />
-          //       ) : item.baneado ? (
-          //         'Desabilitado'
-          //       ) : (
-          //         'Habilitado'
-          //       )}
-          //     </Text>
-          //   </View>
-          // )}
+            // right={props => ()}
+            right={props => (
+              <View>
+                <Button
+                  icon="send"
+                  // disabled={this.state.valuevpn ? false : true}
+                  mode="contained"
+                  onPress={() => {
+                    navigation.navigation.navigate('AllMensajesUser', { item: item._id })
+                  }}
+                ></Button>
+
+              </View>
+            )}
           />
         </Surface>
       );
