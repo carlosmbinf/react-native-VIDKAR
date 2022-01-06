@@ -368,7 +368,7 @@ class MyApp extends React.Component {
             />
           }> */}
 
-        {Meteor.user().profile.role == "admin" ? (loading ? (
+        {Meteor.user()&&Meteor.user().profile.role == "admin" ? (loading ? (
           <>
             <Surface style={backgroundStyle}>
               <View
