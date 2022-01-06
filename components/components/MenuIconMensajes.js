@@ -6,7 +6,7 @@
  * @flow strict-local
  */
 
-import React, {useRef, useEffect, useState} from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 // import type {Node} from 'react';
 import {
   Avatar,
@@ -24,7 +24,7 @@ import {
   Modal,
 } from 'react-native-paper';
 // import * as axios from 'axios';
-import Meteor, {Mongo, withTracker} from '@meteorrn/core';
+import Meteor, { Mongo, withTracker } from '@meteorrn/core';
 import {
   ScrollView,
   StyleSheet,
@@ -32,7 +32,7 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
-import {Mensajes} from '../collections/collections';
+import { Mensajes } from '../collections/collections';
 
 class MyApp extends React.Component {
   //   componentDidMount() {
@@ -51,7 +51,7 @@ class MyApp extends React.Component {
       count: 0,
       text: '',
       menuVisible: false,
-      countMensajes: props.myTodoTasks.count(),
+      // countMensajes: props.myTodoTasks.count(),
       contador: 0,
     };
 
@@ -62,8 +62,8 @@ class MyApp extends React.Component {
     // const carouselRef = useRef(null);
   }
   render() {
-    const {user, loading, navigation, myTodoTasks} = this.props;
-    const countMensajes = myTodoTasks.count();
+    const { users, loading, navigation, myTodoTasks } = this.props;
+    const countMensajes = Mensajes.find({ $or: [{ $and: [{ to: Meteor.userId(), leido: false }] }, { $and: [{ from: Meteor.userId(), leido: false }] }] }).count();
     const arrayMensajes = myTodoTasks.fetch();
     // !loading &&
     //   ReactNativeForegroundService.add_task(
@@ -99,7 +99,7 @@ class MyApp extends React.Component {
     //   );
 
     const Item = item => {
-      <Menu.Item onPress={() => {}} title="Item 2" />;
+      <Menu.Item onPress={() => { }} title="Item 2" />;
       //   <List.Item
       //     title={item.to}
       //     titleStyle={{fontSize: 20}}
@@ -119,12 +119,12 @@ class MyApp extends React.Component {
           justifyContent: 'center',
         }}>
         <Menu
-          style={{top: 70, width: 270, height: 400, paddingRight: 30}}
+          style={{ top: 70, width: 270, height: 400, paddingRight: 30 }}
           visible={this.state.menuVisible}
-          onDismiss={() => this.setState({menuVisible: false})}
+          onDismiss={() => this.setState({ menuVisible: false })}
           anchor={
             !loading &&
-            countMensajes > 0 && (
+            users.length > 0 && (
               <View>
                 <Badge
                   style={{
@@ -141,7 +141,7 @@ class MyApp extends React.Component {
                   size={25}
                   //  disabled
                   onPress={() => {
-                    this.setState({menuVisible: true});
+                    this.setState({ menuVisible: true });
                     // navigation.navigate('Mensajes', Meteor.user);
                   }}
                 />
@@ -154,104 +154,119 @@ class MyApp extends React.Component {
             renderItem={({item}) => Item(item)}
             keyExtractor={(item, index) => index}
           /> */}
-          {!loading && countMensajes > 0 && (
+          {!loading && (
             <View>
               <ScrollView contentInsetAdjustmentBehavior="automatic">
-                
-              <Button
-                icon="eye-check-outline"
-                onPress={() => {
-                  // alert(Meteor.user()._id
-                  this.setState({menuVisible: false});
-                  myTodoTasks.fetch().forEach(element => {
-                    Mensajes.update(
-                      element._id,
-                      {
-                        $set: {leido: true},
-                      },
-                      {multi: true},
-                    );
-                  });
-                  // Mensajes.update(
-                  //   {},
-                  //   {
-                  //     $set: {leido: true},
-                  //   },
-                  //   {multi: true},
-                  // );
-                  // );
-                }}>
-                Marcar como leidos
-              </Button>
-              {arrayMensajes.map((item, index) => (
-                <View key={index}>
-                  <List.Item
-                    onPress={() => {
-                  navigation.navigation.navigate('Mensaje', { item: item.from })
 
-                      // Alert.alert(
-                      //   Meteor.users.findOne({_id: item.from}) &&
-                      //     'De: ' +
-                      //       Meteor.users.findOne({_id: item.from}).profile
-                      //         .firstName +
-                      //       ' ' +
-                      //       Meteor.users.findOne({_id: item.from}).profile
-                      //         .lastName,
-                      //   item.mensaje,
-                      //   [
-                      //     {
-                      //       text: 'Leido',
-                      //       onPress: () => {
-                      //         this.setState({menuVisible: false});
-                      //         Mensajes.update(item._id, {
-                      //           $set: {leido: true},
-                      //         });
-                      //       },
-                      //       style: 'cancel',
-                      //     },
-                      //     // {text: 'OK', onPress: () => console.log('OK Pressed')},
-                      //   ],
-                      // );
-                      // navigation.navigationGeneral.navigate('User', {item});
-                    }}
-                    title={
-                      Meteor.users.findOne({_id: item.from}) &&
-                      'De: ' +
-                        Meteor.users.findOne({_id: item.from}).profile
+                {/* <Button
+                  icon="eye-check-outline"
+                  onPress={() => {
+                    // alert(Meteor.user()._id
+                    this.setState({ menuVisible: false });
+                    myTodoTasks.fetch().map(element => {
+                      Mensajes.update(
+                        element._id,
+                        {
+                          $set: { leido: true },
+                        },
+                        { multi: true },
+                      );
+                    });
+                    // Mensajes.update(
+                    //   {},
+                    //   {
+                    //     $set: {leido: true},
+                    //   },
+                    //   {multi: true},
+                    // );
+                    // );
+                  }}>
+                  Marcar como leidos
+                </Button> */}
+                {users.map((item, index) => (
+                  <View key={index}>
+                    <List.Item
+                      onPress={() => {
+                        this.setState({ menuVisible: false })
+                        navigation.navigation.navigate('Mensaje', { item: item })
+
+                        // Alert.alert(
+                        //   Meteor.users.findOne({_id: item.from}) &&
+                        //     'De: ' +
+                        //       Meteor.users.findOne({_id: item.from}).profile
+                        //         .firstName +
+                        //       ' ' +
+                        //       Meteor.users.findOne({_id: item.from}).profile
+                        //         .lastName,
+                        //   item.mensaje,
+                        //   [
+                        //     {
+                        //       text: 'Leido',
+                        //       onPress: () => {
+                        //         this.setState({menuVisible: false});
+                        //         Mensajes.update(item._id, {
+                        //           $set: {leido: true},
+                        //         });
+                        //       },
+                        //       style: 'cancel',
+                        //     },
+                        //     // {text: 'OK', onPress: () => console.log('OK Pressed')},
+                        //   ],
+                        // );
+                        // navigation.navigationGeneral.navigate('User', {item});
+                      }}
+                      title={
+                        Meteor.users.findOne({ _id: item }) &&
+                        Meteor.users.findOne({ _id: item }).profile
                           .firstName +
                         ' ' +
-                        Meteor.users.findOne({_id: item.from}).profile.lastName
-                    }
-                    titleStyle={{fontSize: 15}}
-                    description={item.mensaje}
-                    descriptionStyle={{fontSize: 10}}
-                    left={props =>
-                      Meteor.users.findOne({_id: item.from}) &&
-                      Meteor.users.findOne({_id: item.from}).services &&
-                      Meteor.users.findOne({_id: item.from}).services
-                        .facebook && (
+                        Meteor.users.findOne({ _id: item }).profile.lastName
+                      }
+                      titleStyle={{ fontSize: 15 }}
+                      description={(Mensajes.findOne({ $or: [{ $and: [{ from: item, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item }] }] }, { sort: { createdAt: -1 } }).from == Meteor.userId() ? "TU: " : "") + Mensajes.findOne({ $or: [{ $and: [{ from: item, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item }] }] }, { sort: { createdAt: -1 } }).mensaje}
+                      descriptionStyle={{fontSize: 10}}
+                      left={props =>
+                        // Meteor.users.findOne({ _id: item }) &&
+                        // Meteor.users.findOne({ _id: item }).services &&
+                        // Meteor.users.findOne({ _id: item }).services
+                        //   .facebook && (
                         <Avatar.Image
                           {...props}
                           size={50}
                           source={{
                             uri:
-                              Meteor.users.findOne({_id: item.from}) &&
-                              Meteor.users.findOne({_id: item.from}).services &&
-                              Meteor.users.findOne({_id: item.from}).services
+                              Meteor.users.findOne({ _id: item }) &&
+                              Meteor.users.findOne({ _id: item }).services &&
+                              Meteor.users.findOne({ _id: item }).services
                                 .facebook &&
-                              Meteor.users.findOne({_id: item.from}).services
+                              Meteor.users.findOne({ _id: item }).services
                                 .facebook.picture.data.url,
                           }}
                         />
-                      )
-                    }
-                  />
-                  {/* <Text>{index + 1 != arrayMensajes.length}</Text> */}
+                        // )
+                      }
+                      right={props => {
+                        return Mensajes.find({ $or: [{ $and: [{ from: item, to: Meteor.userId(), leido: false }] }, { $and: [{ from: Meteor.userId(), to: item, leido: false }] }] }, { sort: { createdAt: -1 } }).count() ?
+                          <Badge
+                            {...props}
+                          // style={{
+                          //   position: 'absolute',
+                          //   right: 3,
+                          //   top: 3,
+                          //   zIndex: 1,
+                          // }}
+                          >
+                            <Text>{Mensajes.find({ $or: [{ $and: [{ from: item, to: Meteor.userId(), leido: false }] }, { $and: [{ from: Meteor.userId(), to: item, leido: false }] }] }, { sort: { createdAt: -1 } }).count()}</Text>
+                          </Badge> :
+                          <></>
+                      }}
+                    />
+                    {/* <Text>{index + 1 != arrayMensajes.length}</Text> */}
 
-                  {index != arrayMensajes.length - 1 && <Divider />}
-                </View>
-              ))}
-              
+                    {index != users.length - 1 && <Divider />}
+                  </View>
+                ))}
+
               </ScrollView>
             </View>
           )}
@@ -267,13 +282,19 @@ class MyApp extends React.Component {
 }
 const MenuIconMensajes = withTracker(navigation => {
   //  console.log(user.user)
-  const handle1 = Meteor.subscribe('user');
-  const handle2 = Meteor.subscribe('mensajes', {to:Meteor.userId()});
-  const myTodoTasks = Mensajes.find({to: Meteor.userId(), leido: false});
+  const handle1 = Meteor.subscribe('user', {}, { fields: { _id: 1 } });
+  const handle2 = Meteor.subscribe('mensajes', { to: Meteor.userId() });
+  const myTodoTasks = Mensajes.find({ to: Meteor.userId() }, { sort: { _id: 1 } });
+  let users = []
 
+  myTodoTasks.map((message) => {
+    users.filter(element => element == message.from).length == 0 && users.push(message.from)
+  })
+  // console.log(users);
   return {
     navigation,
     myTodoTasks,
+    users,
     loading: !handle2.ready,
   };
 })(MyApp);

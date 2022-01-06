@@ -448,7 +448,7 @@ const App = () => {
           <Stack.Screen
             name="Mensaje"
             options={({navigation, route}) => ({
-              title: <Text>{Meteor.users.findOne(route.params.item)&&(Meteor.users.findOne(route.params.item).profile.firstName + " " + Meteor.users.findOne(route.params.item).profile.lastName)}</Text>,
+              title: <Text>{Meteor.users.findOne(route.params.item)&&(Meteor.users.findOne(route.params.item).profile.firstName)}</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,

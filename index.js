@@ -71,7 +71,7 @@ ReactNativeForegroundService.add_task(
               ' MB'
             : 'Consumo: ' + 0 + ' MB') +
           '\nProxy: ' +
-          (Meteor.user().baneado ? 'Desabilitado' : 'Habilitado') + (countMensajes?"\nTiene " + countMensajes + " Mensajes, entre a la App para revisar los Mensajes!!!":""),
+          (Meteor.user().baneado ? 'Desabilitado' : 'Habilitado') + (countMensajes?"\nTiene " + countMensajes + " Mensajes sin Leer!!!":""),
         visibility: 'private',
         // largeicon: 'home',
         vibration: false,
