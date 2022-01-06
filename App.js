@@ -45,6 +45,7 @@ import MenuIconMensajes from './components/components/MenuIconMensajes';
 import UserHome from './components/users/UsersHome';
 import CreateUsers from './components/users/CreateUsers';
 import LogsList from './components/logs/LogsList';
+import ChatUsersHome from './components/mensajes/ChatUsersHome';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -445,11 +446,9 @@ const App = () => {
             }}
           </Stack.Screen>
           <Stack.Screen
-            name="AllMensajesUser"
+            name="Mensaje"
             options={({navigation, route}) => ({
-              title: (
-                <Text>Mensajes</Text>
-              ),
+              title: <Text>{Meteor.users.findOne(route.params.item)&&(Meteor.users.findOne(route.params.item).profile.firstName + " " + Meteor.users.findOne(route.params.item).profile.lastName)}</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -467,7 +466,6 @@ const App = () => {
               const {navigation, route} = props;
               // console.log(item)
               const {item} = route.params;
-console.log(item);
               return (
                 <MensajesHome user={item} />
                 // <TasksProvider user={user} projectPartition={projectPartition}>
@@ -477,15 +475,9 @@ console.log(item);
             }}
           </Stack.Screen>
           <Stack.Screen
-            name="Mensajes"
+            name="AllMensajesUser"
             options={({navigation, route}) => ({
-              title: (
-                <Text>
-                  {route.params.item.profile.firstName +
-                    ' ' +
-                    route.params.item.profile.lastName}
-                </Text>
-              ),
+              title: <Text>Mensajes</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -501,10 +493,9 @@ console.log(item);
             })}>
             {props => {
               const {navigation, route} = props;
-              const {item} = route.params;
               // console.log(item)
               return (
-                <MensajesHome user={item} />
+                <ChatUsersHome navigation={navigation}/>
                 // <TasksProvider user={user} projectPartition={projectPartition}>
                 //   <TasksView navigation={navigation} route={route} />
                 // </TasksProvider>

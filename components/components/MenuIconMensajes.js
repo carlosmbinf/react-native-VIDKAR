@@ -65,7 +65,6 @@ class MyApp extends React.Component {
     const {user, loading, navigation, myTodoTasks} = this.props;
     const countMensajes = myTodoTasks.count();
     const arrayMensajes = myTodoTasks.fetch();
-
     // !loading &&
     //   ReactNativeForegroundService.add_task(
     //     () => {
@@ -188,29 +187,31 @@ class MyApp extends React.Component {
                 <View key={index}>
                   <List.Item
                     onPress={() => {
-                      Alert.alert(
-                        Meteor.users.findOne({_id: item.from}) &&
-                          'De: ' +
-                            Meteor.users.findOne({_id: item.from}).profile
-                              .firstName +
-                            ' ' +
-                            Meteor.users.findOne({_id: item.from}).profile
-                              .lastName,
-                        item.mensaje,
-                        [
-                          {
-                            text: 'Leido',
-                            onPress: () => {
-                              this.setState({menuVisible: false});
-                              Mensajes.update(item._id, {
-                                $set: {leido: true},
-                              });
-                            },
-                            style: 'cancel',
-                          },
-                          // {text: 'OK', onPress: () => console.log('OK Pressed')},
-                        ],
-                      );
+                  navigation.navigation.navigate('Mensaje', { item: item.from })
+
+                      // Alert.alert(
+                      //   Meteor.users.findOne({_id: item.from}) &&
+                      //     'De: ' +
+                      //       Meteor.users.findOne({_id: item.from}).profile
+                      //         .firstName +
+                      //       ' ' +
+                      //       Meteor.users.findOne({_id: item.from}).profile
+                      //         .lastName,
+                      //   item.mensaje,
+                      //   [
+                      //     {
+                      //       text: 'Leido',
+                      //       onPress: () => {
+                      //         this.setState({menuVisible: false});
+                      //         Mensajes.update(item._id, {
+                      //           $set: {leido: true},
+                      //         });
+                      //       },
+                      //       style: 'cancel',
+                      //     },
+                      //     // {text: 'OK', onPress: () => console.log('OK Pressed')},
+                      //   ],
+                      // );
                       // navigation.navigationGeneral.navigate('User', {item});
                     }}
                     title={

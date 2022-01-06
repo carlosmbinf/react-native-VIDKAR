@@ -89,8 +89,8 @@ class MyApp extends React.Component {
     // const carouselRef = useRef(null);
   }
   sendMensaje = (message) => {
-     alert(JSON.stringify(message[0]))
-    MensajesCollection.insert({from: Meteor.userId(), to: message[0].user._id, mensaje: message[0].text});
+    //  alert(JSON.stringify(message[0]))
+    MensajesCollection.insert({from: Meteor.userId(), to: this.props.user, mensaje: message[0].text});
     this.setState({text:""})
   }
   render() {
@@ -128,7 +128,6 @@ class MyApp extends React.Component {
             <ActivityIndicator size="large" color="#3f51b5" />
           </View>
         ) : (
-            <ScrollView>
               <Surface 
               style={{
                 // flex: 1,
@@ -139,19 +138,22 @@ class MyApp extends React.Component {
               }}
               >
                 <GiftedChat
+
+                // renderUsernameOnMessage={true}
+                // loadEarlier={true}
+                // isLoadingEarlier={true}
                 textInputProps={{color:"black"}}
                 // showAvatarForEveryMessage={true}
                 onSend ={message => this.sendMensaje(message)}
-                alwaysShowSend={true}
+                // alwaysShowSend={true}
                 messages={myTodoTasks}
-
+                placeholder="Escriba el mensaje aquí!!!"
                 user={{_id:Meteor.userId(),name:Meteor.user()&&(Meteor.user().profile.firstName + " " + Meteor.user().profile.lastName) }}
                 />
                 {/* <Text>{myTodoTasks.length}</Text> */}
                 {/* {myTodoTasks.length == 0 ? <Text>SIN MENSAJES</Text> : myTodoTasks.map(item => <Mensajes item={item} />)} */}
 
               </Surface>
-            </ScrollView>
 
           // <FlatList
           //   // style={{backgroundColor: '#2a323d'}}
@@ -206,7 +208,7 @@ function sortFunction(a,b){
 };
 
 const MensajesHome = withTracker(user => {
-   console.log(user.user)
+  //  console.log(user.user)
   // const handle = Meteor.subscribe('mensajes', user.user._id);
 
   
@@ -214,15 +216,16 @@ const MensajesHome = withTracker(user => {
   // const myTodoTasks = MensajesCollection.find({ to: user.user._id }).fetch();
 
   const handle = Meteor.subscribe("mensajes");
+
  let id = user.user
   let list = []
   // let mensajes = MensajesCollection.find({ $or: [{ from: Meteor.userId() }, { from: from }, { to: Meteor.userId() }, { to: from }] }, { sort: { createdAt: -1 } }).fetch()
   let mensajes = MensajesCollection.find({ $or: [{ $and: [{ from: id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: id }] }] }, { sort: { createdAt: -1 } }).fetch()
 
-
+// console.log(JSON.stringify(mensajes));
   mensajes.forEach(element => {
-  Meteor.subscribe("user")
-
+    Meteor.subscribe("user", element.from,{fields:{"profile.firstName":1,"profile.lastName":1}})
+    element.to == Meteor.userId() && !element.leido && MensajesCollection.update(element._id,{$set:{leido:true}})
     // let firstName = user(element.from) && user(element.from).profile && user(element.from).profile.firstName
     // let lastName = user(element.from) && user(element.from).profile && user(element.from).profile.lastName
     list.push(
@@ -234,7 +237,8 @@ const MensajesHome = withTracker(user => {
         createdAt: element.createdAt,
         user:{
           _id: element.from,
-          name: Meteor.users.findOne(element.from) && Meteor.users.findOne(element.from).profile.firstName + " " + Meteor.users.findOne(element.from).profile.lastName 
+          name: Meteor.users.findOne(element.from) && Meteor.users.findOne(element.from).profile.firstName + " " + Meteor.users.findOne(element.from).profile.lastName,
+          avatar: element.services&&element.services.facebook&&element.services.facebook?element.services.facebook.picture.data.url : ""
           }
         ,
         sent:true,

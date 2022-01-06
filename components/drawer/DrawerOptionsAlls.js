@@ -18,7 +18,7 @@ const DrawerOptionsAlls = (opt) => {
     {
       label: "Mensajes",
       url:"AllMensajesUser",
-      icon:"account-plus"
+      icon:"message"
     }
   ]
   const opcionesAdministradorGeneral = [

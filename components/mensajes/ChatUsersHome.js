@@ -63,6 +63,8 @@ import Orientation from 'react-native-orientation';
 import { Online } from '../collections/collections'
 import DrawerOptionsAlls from '../drawer/DrawerOptionsAlls';
 
+import {Mensajes as MensajesCollection} from '../collections/collections';
+
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
 
@@ -248,7 +250,8 @@ class MyApp extends React.Component {
     );
 
     const Item = item => {
-      Meteor.subscribe('conexiones', { userId: item._id }, { fields: { userId: 1 } });
+      Meteor.subscribe('conexiones', { userId: item._id }, { fields: { userId: 1 },limit:1 });
+      Meteor.subscribe('mensajes', { $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { limit: 1 });
       let connected = Online.find({ userId: item._id }).count() > 0 ? true : false;
 
       return (
@@ -257,15 +260,13 @@ class MyApp extends React.Component {
             key={"Item_" + item._id}
             onPress={() => {
               // Alert.alert('Holaaa', item);
-              // console.log(navigation);
-              navigation.navigation.navigate('User', { item: item._id });
+              // console.log(navigation.navigation);
+              navigation.navigation.navigate('Mensaje', { item: item._id });
             }}
             title={item && (item.profile.firstName + ' ' + item.profile.lastName)}
             //  titleStyle={{fontSize: 20}}
             description={
-              item.megasGastadosinBytes
-                ? `(${item.username})${connected ? ` ● (${Online.find({ userId: item._id }).count()})` : ""}\n${Number.parseFloat(item.megasGastadosinBytes / 1000000).toFixed(2)} MB => ${Number.parseFloat(item.megas).toFixed(0)} MB`
-                : `(${item.username})`
+              MensajesCollection.findOne({ $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 } }) &&( MensajesCollection.findOne({ $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 } }).mensaje? MensajesCollection.findOne({ $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 } }).mensaje:"")
               //  + "\nConexiones: "+(connected?connected:0)
             }
             left={props =>
@@ -317,20 +318,20 @@ class MyApp extends React.Component {
               )
             }
             // right={props => ()}
-            right={props => (
-              <View style={{ justifyContent: 'center' }}>
-                <IconButton
-                  icon="message"
-                  // disabled={this.state.valuevpn ? false : true}
-                  color='violet'
-                  mode="contained"
-                  onPress={() => {
-                    navigation.navigation.navigate('Mensaje', { item: item._id })
-                  }}
-                ></IconButton>
+            // right={props => (
+            //   <View style={{ justifyContent: 'center' }}>
+            //     <IconButton
+            //       icon="message"
+            //       // disabled={this.state.valuevpn ? false : true}
+            //       color='violet'
+            //       mode="contained"
+            //       onPress={() => {
+            //         navigation.navigation.navigate('Mensaje', { item: item._id })
+            //       }}
+            //     ></IconButton>
 
-              </View>
-            )}
+            //   </View>
+            // )}
           />
         </Surface>
       );
@@ -441,7 +442,7 @@ class MyApp extends React.Component {
     );
   }
 }
-const UserHome = withTracker(navigation => {
+const ChatUsersHome = withTracker(navigation => {
   const handle = Meteor.subscribe('user', Meteor.user().username == "carlosmbinf" ? ({}, { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } }) : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } });
 
   let myTodoTasks = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } }).fetch();
@@ -499,4 +500,4 @@ const styles = StyleSheet.create({
   data: {},
 });
 
-export default UserHome;
+export default ChatUsersHome;

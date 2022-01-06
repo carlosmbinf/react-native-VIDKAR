@@ -21,13 +21,14 @@ class Loguin extends Component {
   constructor(props) {
     super(props);
     const {navigation} = this.props;
+    Meteor.connect('ws://vidkar.sytes.net:6000/websocket');
     
     // Meteor.user() && navigation.navigate('Peliculas');
 
     Meteor.user()&& (Meteor.user().profile.role == "admin" ? navigation.navigate('Users') : navigation.navigate('User', { item: Meteor.userId() }))
 
     this.state = {
-      ipserver: '',
+      ipserver: 'vidkar.sytes.net',
       username: '',
       password: '',
       // isDarkMode: useColorScheme,
@@ -39,7 +40,6 @@ class Loguin extends Component {
     const {username, password} = this.state;
     const {navigation} = this.props;
     try {
-      Meteor.connect('ws://'+this.state.ipserver+':6000/websocket');
     } catch (error) {
       Alert.alert(
         'Error de Conexión',
@@ -85,11 +85,11 @@ class Loguin extends Component {
           </View>
 
           <View style={styles.container}>
-          <TextInput
+          {/* <TextInput
               mode="outlined"
               value={this.state.ipserver}
               onChangeText={ipserver => this.setState({ipserver: ipserver})}
-              label={'IP del Servidor'}
+              label={'Dirección del Servidor'}
               // placeholderTextColor={
               //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
               // }
@@ -99,7 +99,7 @@ class Loguin extends Component {
                 // height: 44,
                 marginBottom: 10,
               }}
-            />
+            /> */}
             <TextInput
               mode="outlined"
               value={this.state.username}
