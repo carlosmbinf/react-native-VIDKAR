@@ -6,7 +6,7 @@
  * @flow strict-local
  */
 
-import React, {useRef, useEffect, useState} from 'react';
+import React, { useRef, useEffect, useState, useLayoutEffect } from 'react';
 // import type {Node} from 'react';
 import {
   Avatar,
@@ -18,9 +18,10 @@ import {
   Title,
   TextInput,
   Surface,
+  Button,
 } from 'react-native-paper';
 // import * as axios from 'axios';
-import Meteor, {Mongo, withTracker} from '@meteorrn/core';
+import Meteor, { Mongo, withTracker } from '@meteorrn/core';
 // import Header from 'react-native-custom-header';
 import Mensajes from './MensajesDetails';
 import {
@@ -51,13 +52,13 @@ import {
 // import PelisCard from './PelisCard';
 // import Loguin from '../loguin/Loguin';
 import Orientation from 'react-native-orientation';
-import {Mensajes as MensajesCollection} from '../collections/collections';
+import { Mensajes as MensajesCollection } from '../collections/collections';
 import { GiftedChat } from 'react-native-gifted-chat';
 
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
 
-const {width: screenWidth} = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 // Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
 
 class MyApp extends React.Component {
@@ -74,6 +75,7 @@ class MyApp extends React.Component {
     // console.log(props.myTodoTasks);
     super(props);
     this.state = {
+      screenHeigth: Dimensions.get('window').height - 90,
       count: 0,
       isDarkMode: useColorScheme == 'dark',
       data: props.myTodoTasks,
@@ -82,91 +84,115 @@ class MyApp extends React.Component {
       refreshing: false,
       text: '',
     };
+    
     // console.log(this.props.myTodoTasks);
     // const isDarkMode = useColorScheme() === 'dark';
     // const [data, setData] = ;
     // const [isLoading, setLoading] = useState(true);
     // const carouselRef = useRef(null);
   }
+  useLayoutEffect(){
+    this.setState({
+      screenHeigth: Dimensions.get('window').height - 90,
+    })
+  };
   sendMensaje = (message) => {
     //  alert(JSON.stringify(message[0]))
-    MensajesCollection.insert({from: Meteor.userId(), to: this.props.user, mensaje: message[0].text});
-    this.setState({text:""})
+    MensajesCollection.insert({ from: Meteor.userId(), to: this.props.user, mensaje: message[0].text });
+    this.setState({ text: "" })
   }
   render() {
-    const {user, loading, navigation, myTodoTasks} = this.props;
+    const { user, loading, navigation, myTodoTasks } = this.props;
 
     // let isDarkMode = {
     //   return (useColorScheme() === 'dark');
     // };
     const backgroundStyle = {
       backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
-      minHeight: ScreenHeight,
+      minHeight: this.state.screenHeigth,
     };
-    
+
     //  console.log({user});
     return (
-      <Surface style={{flex: 1}}>
+      <Surface style={{ flex: 1 }}>
         {/* <ScrollView
-           contentInsetAdjustmentBehavior="automatic"
-           style={backgroundStyle}
-           refreshControl={
-             <RefreshControl
-               refreshing={this.state.refreshing}
-               onRefresh={onRefresh}
-             />
-           }> */}
-        {loading ? (
-          <View
-            style={{
-              flex: 1,
-              flexDirection: 'column',
-              height: ScreenHeight,
-              // backgroundColor: '#2a323d',
-              justifyContent: 'center',
-            }}>
-            <ActivityIndicator size="large" color="#3f51b5" />
-          </View>
-        ) : (
-              <Surface 
+          contentInsetAdjustmentBehavior="automatic"
+          // style={backgroundStyle}
+        //  refreshControl={
+        //    <RefreshControl
+        //      refreshing={this.state.refreshing}
+        //      onRefresh={onRefresh}
+        //    />
+        //  }
+        > */}
+          {loading ? (
+            <View
               style={{
-                // flex: 1,
+                flex: 1,
+                flexDirection: 'column',
+                height: this.state.screenHeigth,
+                // backgroundColor: '#2a323d',
+                justifyContent: 'center',
+              }}>
+              <ActivityIndicator size="large" color="#3f51b5" />
+            </View>
+          ) : (
+
+            <View
+              style={{
+                flex: 1,
                 // flexDirection: 'column',
-                height: ScreenHeight - 90,
+                height: this.state.screenHeigth,
                 // backgroundColor: '#2a323d',
                 // justifyContent: 'center',
               }}
-              >
-                <GiftedChat
+            >
+              {/* <ScrollView> */}
+              <GiftedChat
+                // messagesContainerStyle={{
+                //   backgroundColor:"red",
 
+                // }}
+                alignTop={true}
+                infiniteScroll={true}
+                wrapInSafeArea={true}
+                // forceGetKeyboardHeight={true}
+                scrollToBottomComponent={Button}
                 // renderUsernameOnMessage={true}
+                // renderAvatarOnTop={true}
+                isTyping={true}
                 // loadEarlier={true}
                 // isLoadingEarlier={true}
-                textInputProps={{color:"black"}}
+                textInputProps={{ color: "black" }}
                 // showAvatarForEveryMessage={true}
-                onSend ={message => this.sendMensaje(message)}
+                onSend={message => this.sendMensaje(message)}
                 // alwaysShowSend={true}
                 messages={myTodoTasks}
                 placeholder="Escriba el mensaje aquí!!!"
-                user={{_id:Meteor.userId(),name:Meteor.user()&&(Meteor.user().profile.firstName + " " + Meteor.user().profile.lastName) }}
-                />
-                {/* <Text>{myTodoTasks.length}</Text> */}
-                {/* {myTodoTasks.length == 0 ? <Text>SIN MENSAJES</Text> : myTodoTasks.map(item => <Mensajes item={item} />)} */}
+                user={{ _id: Meteor.userId(), name: Meteor.user() && (Meteor.user().profile.firstName + " " + Meteor.user().profile.lastName) }}
+              />
+              {/* </ScrollView> */}
 
-              </Surface>
 
-          // <FlatList
-          //   // style={{backgroundColor: '#2a323d'}}
-          //   data={myTodoTasks}
-          //   renderItem={item => }
-          //   keyExtractor={(item, index) => item._id}
-          // />
-        )}
+              {/* <Text>{myTodoTasks.length}</Text> */}
+              {/* {myTodoTasks.length == 0 ? <Text>SIN MENSAJES</Text> : myTodoTasks.map(item => <Mensajes item={item} />)} */}
+
+            </View>
+
+            // <FlatList
+            //   // style={{backgroundColor: '#2a323d'}}
+            //   data={myTodoTasks}
+            //   renderItem={item => }
+            //   keyExtractor={(item, index) => item._id}
+            // />
+
+          )}
+        {/* </ScrollView> */}
 
         {/* <Text>
             {this.state.isLoading ? '' : JSON.stringify(this.state.data)}
           </Text> */}
-        {/* </ScrollView> */}
+
         {/* {Meteor.user()&&Meteor.user().profile.role == 'admin' && (
           <Surface style={styles.footer}>
             <TextInput
@@ -201,31 +227,31 @@ class MyApp extends React.Component {
   }
 }
 
-function sortFunction(a,b){  
+function sortFunction(a, b) {
   var dateA = new Date(a.createdAt).getTime();
   var dateB = new Date(b.createdAt).getTime();
-  return dateA < dateB ? 1 : -1;  
+  return dateA < dateB ? 1 : -1;
 };
 
 const MensajesHome = withTracker(user => {
   //  console.log(user.user)
   // const handle = Meteor.subscribe('mensajes', user.user._id);
 
-  
+
 
   // const myTodoTasks = MensajesCollection.find({ to: user.user._id }).fetch();
 
   const handle = Meteor.subscribe("mensajes");
 
- let id = user.user
+  let id = user.user
   let list = []
   // let mensajes = MensajesCollection.find({ $or: [{ from: Meteor.userId() }, { from: from }, { to: Meteor.userId() }, { to: from }] }, { sort: { createdAt: -1 } }).fetch()
   let mensajes = MensajesCollection.find({ $or: [{ $and: [{ from: id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: id }] }] }, { sort: { createdAt: -1 } }).fetch()
 
-// console.log(JSON.stringify(mensajes));
+  // console.log(JSON.stringify(mensajes));
   mensajes.forEach(element => {
-    Meteor.subscribe("user", element.from,{fields:{"profile.firstName":1,"profile.lastName":1}})
-    element.to == Meteor.userId() && !element.leido && MensajesCollection.update(element._id,{$set:{leido:true}})
+    Meteor.subscribe("user", element.from, { fields: { "profile.firstName": 1, "profile.lastName": 1 } })
+    element.to == Meteor.userId() && !element.leido && MensajesCollection.update(element._id, { $set: { leido: true } })
     // let firstName = user(element.from) && user(element.from).profile && user(element.from).profile.firstName
     // let lastName = user(element.from) && user(element.from).profile && user(element.from).profile.lastName
     list.push(
@@ -235,14 +261,14 @@ const MensajesHome = withTracker(user => {
         // type: element.type ? element.type : "text",
         text: element.mensaje,
         createdAt: element.createdAt,
-        user:{
+        user: {
           _id: element.from,
           name: Meteor.users.findOne(element.from) && Meteor.users.findOne(element.from).profile.firstName + " " + Meteor.users.findOne(element.from).profile.lastName,
-          avatar: element.services&&element.services.facebook&&element.services.facebook?element.services.facebook.picture.data.url : ""
-          }
+          avatar: element.services && element.services.facebook && element.services.facebook ? element.services.facebook.picture.data.url : ""
+        }
         ,
-        sent:true,
-        received:element.leido
+        sent: true,
+        received: element.leido
         // theme: 'black',
         // data: {
         //     videoURL: 'https://www.w3schools.com/html/mov_bbb.mp4',
@@ -267,7 +293,7 @@ const MensajesHome = withTracker(user => {
 
   return {
     user: user.user,
-    myTodoTasks:list,
+    myTodoTasks: list,
     loading: !handle.ready(),
   };
 })(MyApp);
@@ -282,17 +308,17 @@ const styles = StyleSheet.create({
     // right: 0,
     // width:'90%',
     height: 55,
-    padding:10,
-    paddingTop:0,
-    paddingBottom:0,
+    padding: 10,
+    paddingTop: 0,
+    paddingBottom: 0,
     // margin:10,
-    borderRadius:20,
+    borderRadius: 20,
     // backgroundColor: 'red',
     //  padding:5,
     //  flex: 1,
     flexDirection: 'row',
     // flexWrap: 'wrap',
-    alignItems:'center'
+    alignItems: 'center'
   },
 });
 

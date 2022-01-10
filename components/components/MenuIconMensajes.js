@@ -63,7 +63,7 @@ class MyApp extends React.Component {
   }
   render() {
     const { users, loading, navigation, myTodoTasks } = this.props;
-    const countMensajes = Mensajes.find({ $or: [{ $and: [{ to: Meteor.userId(), leido: false }] }, { $and: [{ from: Meteor.userId(), leido: false }] }] }).count();
+    const countMensajes = Mensajes.find({ $or: [{ $and: [{ to: Meteor.userId(), leido: false }] }] }).count();
     const arrayMensajes = myTodoTasks.fetch();
     // !loading &&
     //   ReactNativeForegroundService.add_task(
@@ -246,7 +246,7 @@ class MyApp extends React.Component {
                         // )
                       }
                       right={props => {
-                        return Mensajes.find({ $or: [{ $and: [{ from: item, to: Meteor.userId(), leido: false }] }, { $and: [{ from: Meteor.userId(), to: item, leido: false }] }] }, { sort: { createdAt: -1 } }).count() ?
+                        return Mensajes.find({ $or: [{ $and: [{ from: item, to: Meteor.userId(), leido: false }] }] }, { sort: { createdAt: -1 } }).count() ?
                           <Badge
                             {...props}
                           // style={{
@@ -256,7 +256,7 @@ class MyApp extends React.Component {
                           //   zIndex: 1,
                           // }}
                           >
-                            <Text>{Mensajes.find({ $or: [{ $and: [{ from: item, to: Meteor.userId(), leido: false }] }, { $and: [{ from: Meteor.userId(), to: item, leido: false }] }] }, { sort: { createdAt: -1 } }).count()}</Text>
+                            <Text>{Mensajes.find({ $or: [{ $and: [{ from: item, to: Meteor.userId(), leido: false }] }] }, { sort: { createdAt: -1 } }).count()}</Text>
                           </Badge> :
                           <></>
                       }}
