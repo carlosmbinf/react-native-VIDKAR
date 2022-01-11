@@ -157,12 +157,14 @@ class MyApp extends React.Component {
                 infiniteScroll={true}
                 wrapInSafeArea={true}
                 // forceGetKeyboardHeight={true}
-                scrollToBottomComponent={Button}
+                // scrollToBottomComponent={Button}
                 // renderUsernameOnMessage={true}
                 // renderAvatarOnTop={true}
                 isTyping={true}
+                // onQuickReply={element => alert(JSON.stringify(element))}
                 // loadEarlier={true}
                 // isLoadingEarlier={true}
+                renderQuickReplySend={<Button>HOLA</Button>}
                 textInputProps={{ color: "black" }}
                 // showAvatarForEveryMessage={true}
                 onSend={message => this.sendMensaje(message)}
@@ -264,7 +266,7 @@ const MensajesHome = withTracker(user => {
         user: {
           _id: element.from,
           name: Meteor.users.findOne(element.from) && Meteor.users.findOne(element.from).profile.firstName + " " + Meteor.users.findOne(element.from).profile.lastName,
-          avatar: element.services && element.services.facebook && element.services.facebook ? element.services.facebook.picture.data.url : ""
+          avatar: element.services && element.services.facebook && element.services.facebook && element.services.facebook.picture.data.url 
         }
         ,
         sent: true,

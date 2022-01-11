@@ -124,9 +124,9 @@ class MyApp extends React.Component {
           onDismiss={() => this.setState({ menuVisible: false })}
           anchor={
             !loading &&
-            users.length > 0 && (
+            users.length > 0 && countMensajes ?(
               <View>
-                <Badge
+                 <Badge
                   style={{
                     position: 'absolute',
                     right: 3,
@@ -138,6 +138,20 @@ class MyApp extends React.Component {
                 <IconButton
                   icon="email"
                   color="black"
+                  size={25}
+                  //  disabled
+                  onPress={() => {
+                    this.setState({ menuVisible: true });
+                    // navigation.navigate('Mensajes', Meteor.user);
+                  }}
+                />
+              </View>
+            ):(
+              <View>
+                
+                <IconButton
+                  icon="email"
+                  color="white"
                   size={25}
                   //  disabled
                   onPress={() => {

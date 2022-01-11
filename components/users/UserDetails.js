@@ -498,7 +498,7 @@ class MyAppUserDetails extends React.Component {
                             iconStyle={styles.iconStyle}
                             data={precioslist}
                             search
-                            maxHeight={precioslist.length * 50 + 70}
+                            maxHeight={(precioslist.length * 50 + 70) > 220 ? 220 : (precioslist.length * 50 + 70)}
                             labelField="label"
                             valueField="value"
                             placeholder={!this.state.isFocus ? 'Seleccione un paquete' : '...'}
@@ -540,7 +540,7 @@ class MyAppUserDetails extends React.Component {
                                 }
                               }}
                             >
-                              {`Establecer a ${this.state.value / 1024}GB`}
+                              {`Establecer a ${(this.state.value / 1024).toFixed(2)}GB`}
                             </Button>
                           </View>
                           </Surface>
@@ -778,7 +778,7 @@ class MyAppUserDetails extends React.Component {
                       iconStyle={styles.iconStyle}
                       data={preciosVPNlist}
                       search
-                      maxHeight={preciosVPNlist.length * 50 + 70}
+                            maxHeight={(preciosVPNlist.length * 50 + 70) > 220 ? 220 : (preciosVPNlist.length * 50 + 70)}
                       labelField="label"
                       valueField="value"
                       placeholder={!this.state.isFocusvpn ? 'Seleccione un paquete' : '...'}
