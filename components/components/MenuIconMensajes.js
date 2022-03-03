@@ -231,10 +231,8 @@ class MyApp extends React.Component {
                       }}
                       title={
                         Meteor.users.findOne({ _id: item }) &&
-                        Meteor.users.findOne({ _id: item }).profile
-                          .firstName +
-                        ' ' +
-                        Meteor.users.findOne({ _id: item }).profile.lastName
+                        Meteor.users.findOne({ _id: item }).profile &&
+                        (`${Meteor.users.findOne({ _id: item }).profile.firstName} ${Meteor.users.findOne({ _id: item }).profile.lastName}`)
                       }
                       titleStyle={{ fontSize: 15 }}
                       description={(Mensajes.findOne({ $or: [{ $and: [{ from: item, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item }] }] }, { sort: { createdAt: -1 } }).from == Meteor.userId() ? "TU: " : "") + Mensajes.findOne({ $or: [{ $and: [{ from: item, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item }] }] }, { sort: { createdAt: -1 } }).mensaje}
