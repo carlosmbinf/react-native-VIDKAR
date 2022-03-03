@@ -51,7 +51,8 @@ class MyAppUserDetails extends React.Component {
       edit: false,
       date: new Date(),
       username:"",
-      email:""
+      email:"",
+      megasVPNlabel: 0
     };
     !Meteor.userId()&&navigation.navigation.navigate("Loguin")
 
@@ -89,10 +90,12 @@ class MyAppUserDetails extends React.Component {
     };
 
     const handleVPNStatus = (event) => {
+
+      console.log(this.state.megasVPNlabel?this.state.megasVPNlabel:"NO TIENE VALOR");
+
       if (item.vpn || item.vpnplus || item.vpn2mb) {
-  
         let nextIp = Meteor.users.findOne({}, { sort: { vpnip: -1 } }) ? Meteor.users.findOne({}, { sort: { vpnip: -1 } }).vpnip : 1
-        let precioVPN = item.vpnplus ? PreciosCollection.findOne({ type: "vpnplus" }).precio : (item.vpn2mb ? PreciosCollection.findOne({ type: "vpn2mb" }).precio : 350)
+        let precioVPN = item.vpnplus ? PreciosCollection.findOne({ type: "vpnplus" , megas: this.state.megasVPNlabel }).precio : (item.vpn2mb ? PreciosCollection.findOne({ type: "vpn2mb" , megas: this.state.megasVPNlabel }).precio : 350)
         //  PreciosCollection.findOne(item.vpnplus?{ type: "vpnplus" }:(item.vpn2mb?{ type: "vpn2mb" }))
         !item.vpnip &&
           Meteor.users.update(item._id, {
@@ -778,7 +781,7 @@ class MyAppUserDetails extends React.Component {
                       iconStyle={styles.iconStyle}
                       data={preciosVPNlist}
                       search
-                            maxHeight={(preciosVPNlist.length * 50 + 70) > 220 ? 220 : (preciosVPNlist.length * 50 + 70)}
+                      maxHeight={(preciosVPNlist.length * 50 + 70) > 220 ? 220 : (preciosVPNlist.length * 50 + 70)}
                       labelField="label"
                       valueField="value"
                       placeholder={!this.state.isFocusvpn ? 'Seleccione un paquete' : '...'}
@@ -787,7 +790,7 @@ class MyAppUserDetails extends React.Component {
                       onFocus={() => this.setState({ isFocusvpn: true })}
                       onBlur={() => this.setState({ isFocusvpn: false })}
                       onChange={item => {
-                        this.setState({ valuevpn: item.value, isFocusvpn: false, valuevpnlabel: item.label , megasVPNlabel: item.megas })
+                        this.setState({ valuevpn: item.value, isFocusvpn: false, valuevpnlabel: item.label , megasVPNlabel: item.megas?item.megas:0 })
                       }}
                     // renderLeftIcon={() => (
                     //   <AntDesign
