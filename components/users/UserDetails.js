@@ -78,7 +78,7 @@ class MyAppUserDetails extends React.Component {
       if (this.state.value || this.state.isFocus) {
         return (
           <Text style={[styles.label, this.state.isFocus && { color: 'blue' }]}>
-            VPN • Precio
+            VPN • Megas • Precio
           </Text>
         );
       }
@@ -787,7 +787,7 @@ class MyAppUserDetails extends React.Component {
                       onFocus={() => this.setState({ isFocusvpn: true })}
                       onBlur={() => this.setState({ isFocusvpn: false })}
                       onChange={item => {
-                        this.setState({ valuevpn: item.value, isFocusvpn: false, valuevpnlabel: item.label })
+                        this.setState({ valuevpn: item.value, isFocusvpn: false, valuevpnlabel: item.label , megasVPNlabel: item.megas })
                       }}
                     // renderLeftIcon={() => (
                     //   <AntDesign
@@ -843,7 +843,7 @@ class MyAppUserDetails extends React.Component {
                           }
                         }}
                       >
-                        {`Establecer ${this.state.valuevpn=="vpnplus"?"VPN PLUS":(this.state.valuevpn=="vpn2mb"?"VPN 2MB":"N/A")}`}
+                              {this.state.megasVPNlabel ? `Establecer ${this.state.megasVPNlabel}MB` : `Seleccione 1 compra!!!`}
                       </Button>
                     </View>
                   </View>
@@ -945,7 +945,7 @@ const UserDetails = withTracker( props => {
   let preciosVPNlist = []
 
   PreciosCollection.find({$or:[{ type: "vpnplus"},{ type: "vpn2mb"}] }).fetch().map((a)=>{
-    preciosVPNlist.push({value: a.type, label: a.type+' • $'+ a.precio})
+    preciosVPNlist.push({ value: a.type, label: `${a.type} • ${a.megas}MB • $ ${(a.precio - (Meteor.user().descuentovpn || 0) >= 0) ? (a.precio - (Meteor.user().descuentovpn || 0)) : 0}`, megas: a.megas })
   })
 
 
