@@ -59,12 +59,22 @@ class MyAppUserDetails extends React.Component {
   }
 
   render() {
-    const { navigation, ready, precioslist, precios,item, preciosVPNlist} = this.props;
+    const { navigation, ready, precioslist, precios,item, preciosVPNlist, loadventas} = this.props;
     const moment = require('moment');
     // console.log(item)
     // const {item} = this.props;
     const onRefresh = () => {
       item = Meteor.users.findOne(this.props.item)
+    }
+    const deuda = () => {
+      let deuda = 0
+      // console.log(item._id);
+      const ventas = VentasCollection.find({ adminId: item._id, cobrado: false }).fetch()
+      ventas.map(element => {
+          deuda = deuda + element.precio
+      })
+      // console.log(ventas);
+      return deuda
     }
     const renderLabel = () => {
       if (this.state.value || this.state.isFocus) {
@@ -150,7 +160,7 @@ class MyAppUserDetails extends React.Component {
             }}>
             <ActivityIndicator size="large" color="#3f51b5" />
           </View> :
-          item&&<View style={styles.root}>
+            item && <View style={styles.root}>
               {item.services && item.services.facebook && <Card.Actions style={{ justifyContent: 'space-around', paddingBottom: 30 }}>
                 <Avatar.Image
                   size={50}
@@ -158,6 +168,23 @@ class MyAppUserDetails extends React.Component {
                 />
               </Card.Actions>
               }
+              {loadventas && deuda() > 0 && <Card elevation={12} style={styles.cards}>
+                <Card.Content>
+                  <View style={styles.element}>
+                    <Title style={styles.title}>{'Ventas'}</Title>
+                    <View>
+                      <Text style={styles.data}>
+                        Deudas: {deuda()}CUP
+                      </Text>
+                     
+                    </View>
+                    {/* 
+                <Text style={styles.data}>
+                  Edad: {item.edad ? item.edad : 'N/A'}
+                </Text> */}
+                  </View>
+                </Card.Content>
+              </Card>}
               <Card elevation={12} style={styles.cards}>
                 <Card.Content>
                   <View style={styles.element}>
@@ -747,7 +774,7 @@ class MyAppUserDetails extends React.Component {
             <Card elevation={12} style={styles.cards}>
             <Card.Content>
               <View style={styles.element}>
-                <Title style={styles.title}>{'Datos  VPN'}</Title>
+                <Title style={styles.title}>{'Datos VPN'}</Title>
                 
                       <Surface
                         style={{
@@ -756,11 +783,14 @@ class MyAppUserDetails extends React.Component {
                           borderRadius: 20,
                           marginTop: 10,
                         }}>
-                        <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                        <Text style={{ paddingTop: 10, paddingBottom: 5, textAlign: 'center' }}>
                           Oferta Seleccionada:
                         </Text>
-                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                        <Text style={{ textAlign: 'center' }}>
                           {item.vpnplus ? "VPN PLUS" : (item.vpn2mb ? "VPN 2MB" : "Ninguna")}
+                        </Text>
+                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                          {item.vpnmegas ? (item.vpnmegas/1024).toFixed(2) : 0}GB
                         </Text>
                       </Surface>
                       <Surface
@@ -828,6 +858,9 @@ class MyAppUserDetails extends React.Component {
                             message:
                               `Ha sido Seleccionada la VPN: ${this.state.valuevpnlabel ? this.state.valuevpnlabel : this.state.valuevpn}`,
                           });
+                          Meteor.users.update(item._id, {
+                            $set: { vpnmegas: this.state.megasVPNlabel },
+                          })
                           item.vpn && Meteor.users.update(item._id, {
                             $set: { vpn: false },
                           })
@@ -953,9 +986,11 @@ const UserDetails = withTracker( props => {
 
 
   const { item, navigation } = props;
+  const loadventas = Meteor.subscribe("ventas", { adminId: item, cobrado: false }).ready()
+  
   // const {navigation} = props;
-  const ready = Meteor.subscribe('user', item, { fields: { vpnplus: 1, vpn2mb: 1, _id: 1, "services.facebook.picture.data.url": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1 } })
-  const user = Meteor.users.findOne(item, { fields: { vpnplus: 1, vpn2mb: 1, _id: 1, "services.facebook.picture.data.url": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1 } })
+  const ready = Meteor.subscribe('user', item, { fields: { vpnplus: 1, vpn2mb: 1, _id: 1, "services.facebook.picture.data.url": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1 } })
+  const user = Meteor.users.findOne(item, { fields: { vpnplus: 1, vpn2mb: 1, _id: 1, "services.facebook.picture.data.url": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1 } })
 // console.log(item);
   return {
     item: user,
@@ -963,7 +998,8 @@ const UserDetails = withTracker( props => {
     ready:ready,
     precioslist,
     precios,
-    preciosVPNlist
+    preciosVPNlist,
+    loadventas: loadventas
   };
 })(MyAppUserDetails);
 

@@ -366,9 +366,7 @@ const App = () => {
               return ({
               title: (
                 <Text>
-                  {item?(item.profile.firstName +
-                    ' ' +
-                    item.profile.lastName):""}
+                    {item && item.profile ? (`${item.profile.firstName} ${item.profile.lastName}`) : ""}
                 </Text>
               ),
               headerStyle: {
