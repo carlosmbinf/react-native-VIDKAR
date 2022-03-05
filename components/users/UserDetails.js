@@ -929,20 +929,58 @@ class MyAppUserDetails extends React.Component {
           </Card>
         
             :  
-                <Surface
-                  style={{
-                    width: '100%',
-                    elevation: 12,
-                    borderRadius: 20,
-                    marginTop: 10,
-                  }}>
-                  <Text style={{ paddingTop: 10, textAlign: 'center' }}>
-                    Estado de la VPN:
-                  </Text>
-                  <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                    {!item.vpn ? 'Desabilitado' : 'Habilitado'}
-                  </Text>
-                </Surface>
+                <Card elevation={12} style={styles.cards}>
+                  <Card.Content>
+                    <View style={styles.element}>
+                      <Title style={styles.title}>{'Datos VPN'}</Title>
+
+                      
+
+                      <Surface
+                        style={{
+                          width: '100%',
+                          elevation: 12,
+                          borderRadius: 20,
+                          marginTop: 10,
+                        }}>
+                        <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                          Limite de megas:
+                        </Text>
+                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                          {item.vpnmegas ? item.vpnmegas : 0}MB => {item.vpnmegas ? (item.vpnmegas / 1024) : 0}GB
+                        </Text>
+                      </Surface>
+                      <Surface
+                        style={{
+                          width: '100%',
+                          elevation: 12,
+                          borderRadius: 20,
+                          marginTop: 10,
+                        }}>
+                        <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                          Consumo:
+                        </Text>
+                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                          {item.vpnMbGastados ? item.vpnMbGastados / 1000000 : 0}MB => {item.vpnMbGastados ? (item.vpnMbGastados / 1000000000) : 0}GB
+                        </Text>
+                      </Surface>
+                      <Surface
+                        style={{
+                          width: '100%',
+                          elevation: 12,
+                          borderRadius: 20,
+                          marginTop: 10,
+                        }}>
+                        <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                          Estado de la VPN:
+                        </Text>
+                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                          {!item.vpn ? 'Desabilitado' : 'Habilitado'}
+                        </Text>
+                      </Surface>
+                    </View>
+                  </Card.Content>
+                </Card>
             }
               {/* <Button
             mode="contained"
@@ -989,8 +1027,8 @@ const UserDetails = withTracker( props => {
   const loadventas = Meteor.subscribe("ventas", { adminId: item, cobrado: false }).ready()
   
   // const {navigation} = props;
-  const ready = Meteor.subscribe('user', item, { fields: { vpnplus: 1, vpn2mb: 1, _id: 1, picture: 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1 } })
-  const user = Meteor.users.findOne(item, { fields: { vpnplus: 1, vpn2mb: 1, _id: 1, picture: 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1 } })
+  const ready = Meteor.subscribe('user', item, { fields: { vpnplus: 1, vpn2mb: 1, _id: 1, picture: 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1, vpnMbGastados:1 } })
+  const user = Meteor.users.findOne(item, { fields: { vpnplus: 1, vpn2mb: 1, _id: 1, picture: 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1, vpnMbGastados:1 } })
 // console.log(item);
   return {
     item: user,

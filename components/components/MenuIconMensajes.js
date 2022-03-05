@@ -248,11 +248,7 @@ class MyApp extends React.Component {
                           source={{
                             uri:
                               Meteor.users.findOne({ _id: item }) &&
-                              Meteor.users.findOne({ _id: item }).services &&
-                              Meteor.users.findOne({ _id: item }).services
-                                .facebook &&
-                              Meteor.users.findOne({ _id: item }).services
-                                .facebook.picture.data.url,
+                              Meteor.users.findOne({ _id: item }).picture && Meteor.users.findOne({ _id: item }).picture
                           }}
                         />
                         // )
@@ -300,6 +296,7 @@ const MenuIconMensajes = withTracker(navigation => {
   let users = []
 
   myTodoTasks.map((message) => {
+    Meteor.subscribe('user', { _id: message.from }, { fields: { _id: 1, profile: 1, picture: 1 } });
     users.filter(element => element == message.from).length == 0 && users.push(message.from)
   })
   // console.log(users);
