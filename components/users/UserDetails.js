@@ -161,10 +161,10 @@ class MyAppUserDetails extends React.Component {
             <ActivityIndicator size="large" color="#3f51b5" />
           </View> :
             item && <View style={styles.root}>
-              {item.services && item.services.facebook && <Card.Actions style={{ justifyContent: 'space-around', paddingBottom: 30 }}>
+              {item.picture && <Card.Actions style={{ justifyContent: 'space-around', paddingBottom: 30 }}>
                 <Avatar.Image
                   size={50}
-                  source={{ uri: item.services.facebook.picture.data.url }}
+                  source={{ uri: item.picture }}
                 />
               </Card.Actions>
               }
@@ -989,8 +989,8 @@ const UserDetails = withTracker( props => {
   const loadventas = Meteor.subscribe("ventas", { adminId: item, cobrado: false }).ready()
   
   // const {navigation} = props;
-  const ready = Meteor.subscribe('user', item, { fields: { vpnplus: 1, vpn2mb: 1, _id: 1, "services.facebook.picture.data.url": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1 } })
-  const user = Meteor.users.findOne(item, { fields: { vpnplus: 1, vpn2mb: 1, _id: 1, "services.facebook.picture.data.url": 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1 } })
+  const ready = Meteor.subscribe('user', item, { fields: { vpnplus: 1, vpn2mb: 1, _id: 1, picture: 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1 } })
+  const user = Meteor.users.findOne(item, { fields: { vpnplus: 1, vpn2mb: 1, _id: 1, picture: 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1 } })
 // console.log(item);
   return {
     item: user,
