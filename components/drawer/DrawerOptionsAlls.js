@@ -19,7 +19,12 @@ const DrawerOptionsAlls = (opt) => {
       label: "Mensajes",
       url:"AllMensajesUser",
       icon:"message"
-    }
+    },
+    // {
+    //   label: "Consumo Proxy",
+    //   url:"ConsumoUsers",
+    //   icon:"chart-donut"
+    // }
   ]
   const opcionesAdministradorGeneral = [
     {

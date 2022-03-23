@@ -46,6 +46,7 @@ import UserHome from './components/users/UsersHome';
 import CreateUsers from './components/users/CreateUsers';
 import LogsList from './components/logs/LogsList';
 import ChatUsersHome from './components/mensajes/ChatUsersHome';
+import ConsumoUserHome from './components/users/ConsumoUsersHome';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -139,6 +140,91 @@ const App = () => {
           <Stack.Screen
             name="Users"
             component={UserHome}
+            options={({navigation, route}) => ({
+              title: (
+                <Text style={{letterSpacing: 5}}>
+                  <FontAwesome
+                    // onPress={() => logOut(navigation)}
+                    name="hand-o-right"
+                    color={'white'}
+                    size={20}
+                    // borderRadius={20}
+                    solid
+                  />
+                  VidKar
+                  <FontAwesome
+                    // onPress={() => logOut(navigation)}
+                    name="hand-o-left"
+                    color={'white'}
+                    size={20}
+                    // borderRadius={20}
+                    solid
+                  />
+                </Text>
+              ),
+              headerStyle: {
+                backgroundColor: '#3f51b5',
+                height: 90,
+              },
+              headerTitleAlign: 'center',
+              headerTintColor: '#fff',
+              // headerTitleStyle: {
+              //   fontWeight: 'bold',
+              // },
+              headerLeft:null,
+              headerShown: true,
+              headerRight: () => (
+                <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
+                  <MenuIconMensajes navigation={navigation} />
+
+                  <Menu
+                    visible={visibleMenu}
+                    onDismiss={() => {
+                      setVisibleMenu(false);
+                    }}
+                    anchor={
+                      <Appbar.Action
+                        icon="menu"
+                        color="white"
+                        onPress={() => {
+                          setVisibleMenu(true);
+                        }}
+                      />
+                    }
+                    style={{top: 70, paddingRight: 30}}>
+                    <View style={{padding: 0}}>
+                      <Menu.Item
+                        icon="menu"
+                        onPress={() => {
+                          // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
+                          // console.log(item)
+                          setVisibleMenu(false);
+                          navigation.navigate('User', {
+                            item: Meteor.userId(),
+                          });
+                        }}
+                        title="Mi usuario"
+                      />
+                      <Menu.Item
+                        icon="logout"
+                        onPress={() => {
+                          Meteor.logout();
+                          navigation.navigate('Loguin');
+                          setVisibleMenu(false);
+                        }}
+                        title="Cerrar Sessión"
+                      />
+                    </View>
+                  </Menu>
+                </View>
+              ),
+              // headerRight
+              // headerTransparent:false
+            })}
+          />
+          <Stack.Screen
+            name="ConsumoUsers"
+            component={ConsumoUserHome}
             options={({navigation, route}) => ({
               title: (
                 <Text style={{letterSpacing: 5}}>

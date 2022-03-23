@@ -21,7 +21,9 @@ import { Alert } from 'react-native';
 
 import { PreciosCollection, Logs, VentasCollection } from '../collections/collections'
 
+
 const axios = require('axios').default;
+var dateFormat = require('dateformat');
 
 const { width: screenWidth } = Dimensions.get('window');
 const { height: screenHeight } = Dimensions.get('window');
@@ -464,11 +466,47 @@ class MyAppUserDetails extends React.Component {
                               mode="date"
                               width={screenWidth - 100}
                               onDateChange={date => {
-                                Meteor.users.update(item._id, {
+
+
+
+
+                                date && Meteor.users.update(item._id, {
                                   $set: {
-                                    fechaSubscripcion: new Date(date),
+                                    fechaSubscripcion: new Date(date)
                                   },
-                                });
+                                }),
+                                  Logs.insert({
+                                    type: "Fecha Limite Proxy",
+                                    userAfectado: item._id,
+                                    userAdmin: Meteor.userId(),
+                                    message:
+                                      "La Fecha Limite del Proxy se cambió para: " +
+                                      dateFormat(date,
+                                        "yyyy-mm-dd",
+                                        true,
+                                        true
+                                      ),
+                                  })
+                                  date && !item.baneado && (Logs.insert({
+                                    type: 'PROXY',
+                                    userAfectado: item._id,
+                                    userAdmin: Meteor.userId(),
+                                    message:
+                                      `Se Desactivó el PROXY porque estaba activa y cambio la fecha Limite`
+                                  }),
+                                    Meteor.users.update(item._id, {
+                                      $set: {
+                                        baneado: !item.baneado
+                                      },
+                                    }))
+
+
+
+                                // Meteor.users.update(item._id, {
+                                //   $set: {
+                                //     fechaSubscripcion: new Date(date),
+                                //   },
+                                // });
                               }}
                             />
                           </Surface>
