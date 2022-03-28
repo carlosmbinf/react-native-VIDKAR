@@ -388,7 +388,7 @@ class MyAppUserDetails extends React.Component {
                 </Text>
                 
               </View> */}
-                      {Meteor.user().username == "carlosmbinf" &&
+                      {Meteor.user().profile &&  Meteor.user().profile.role == "admin" &&
                         <>
                           <View style={{ flexDirection: 'row' }}>
 
@@ -410,7 +410,7 @@ class MyAppUserDetails extends React.Component {
                               }}
                             />
                           </View>
-                          <View style={{ flexDirection: 'row' }}>
+                          {/* <View style={{ flexDirection: 'row' }}>
                             <Text
                               style={
                                 (styles.data,
@@ -428,7 +428,7 @@ class MyAppUserDetails extends React.Component {
                                 });
                               }}
                             />
-                          </View>
+                          </View> */}
                         </>
                       }
 
@@ -813,7 +813,49 @@ class MyAppUserDetails extends React.Component {
             <Card.Content>
               <View style={styles.element}>
                 <Title style={styles.title}>{'Datos VPN'}</Title>
-                
+                {Meteor.user().profile &&  Meteor.user().profile.role == "admin" &&
+                        <>
+                          <View style={{ flexDirection: 'row' }}>
+
+                            <Text
+                              style={
+                                (styles.data,
+                                  { justifyContent: 'center', paddingRight: 10 })
+                              }>
+                              Por Tiempo:
+                            </Text>
+                            <Switch
+                              value={item.vpnisIlimitado}
+                              onValueChange={() => {
+                                Meteor.users.update(item._id, {
+                                  $set: {
+                                    vpnisIlimitado: !item.vpnisIlimitado,
+                                  },
+                                });
+                              }}
+                            />
+                          </View>
+                          {/* <View style={{ flexDirection: 'row' }}>
+                            <Text
+                              style={
+                                (styles.data,
+                                  { justifyContent: 'center', paddingRight: 10 })
+                              }>
+                              Por Megas:
+                            </Text>
+                            <Switch
+                              value={!item.isIlimitado}
+                              onValueChange={() => {
+                                Meteor.users.update(item._id, {
+                                  $set: {
+                                    isIlimitado: !item.isIlimitado,
+                                  },
+                                });
+                              }}
+                            />
+                          </View> */}
+                        </>
+                      }
                       <Surface
                         style={{
                           width: '100%',
@@ -824,12 +866,21 @@ class MyAppUserDetails extends React.Component {
                         <Text style={{ paddingTop: 10, paddingBottom: 5, textAlign: 'center' }}>
                           Oferta Seleccionada:
                         </Text>
-                        <Text style={{ textAlign: 'center' }}>
-                          {item.vpnplus ? "VPN PLUS" : (item.vpn2mb ? "VPN 2MB" : "Ninguna")}
-                        </Text>
-                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                          {item.vpnmegas ? (item.vpnmegas/1024).toFixed(2) : 0}GB
-                        </Text>
+                        {item.vpnisIlimitado ?
+                          <Text style={{ textAlign: 'center' }}>
+                            {dateFormat(item.vpnfechaSubscripcion,
+                              "yyyy-mm-dd",
+                              true,
+                              true
+                            )}
+                          </Text>
+                          : <><Text style={{ textAlign: 'center' }}>
+                            {item.vpnplus ? "VPN PLUS" : (item.vpn2mb ? "VPN 2MB" : "Ninguna")}
+                          </Text>
+                            <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                              {item.vpnmegas ? (item.vpnmegas / 1024).toFixed(2) : 0}GB
+                            </Text>
+                          </>}
                       </Surface>
                       <Surface
                         style={{
@@ -1065,8 +1116,8 @@ const UserDetails = withTracker( props => {
   const loadventas = Meteor.subscribe("ventas", { adminId: item, cobrado: false }).ready()
   
   // const {navigation} = props;
-  const ready = Meteor.subscribe('user', item, { fields: { vpnplus: 1, vpn2mb: 1, _id: 1, picture: 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1, vpnMbGastados:1 } })
-  const user = Meteor.users.findOne(item, { fields: { vpnplus: 1, vpn2mb: 1, _id: 1, picture: 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1, vpnMbGastados:1 } })
+  const ready = Meteor.subscribe('user', item, { fields: { vpnfechaSubscripcion:1, vpnisIlimitado:1, vpnplus: 1, vpn2mb: 1, _id: 1, picture: 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1, vpnMbGastados:1 } })
+  const user = Meteor.users.findOne(item, { fields: { vpnfechaSubscripcion:1, vpnisIlimitado:1, vpnplus: 1, vpn2mb: 1, _id: 1, picture: 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1, vpnMbGastados:1 } })
 // console.log(item);
   return {
     item: user,
