@@ -102,12 +102,30 @@ class MyAppUserDetails extends React.Component {
     };
 
     const handleVPNStatus = (event) => {
-
-      console.log(this.state.megasVPNlabel?this.state.megasVPNlabel:"NO TIENE VALOR");
-
+      let validacion = false;
+  
+      item.vpnisIlimitado && (new Date() < new Date(item.vpnfechaSubscripcion)) && (validacion = true)
+      !item.vpnisIlimitado && ((item.vpnMbGastados ? (item.vpnMbGastados / 1024000) : 0) < (item.vpnmegas ? item.vpnmegas : 0)) && (validacion = true)
+  
+      !validacion && (
+        alert("Revise los Límites del Usuario")
+      )
+      // validacion = ((item.profile.role == "admin") ? true  : false);
+        if (!validacion) return null
+  
+  
       if (item.vpn || item.vpnplus || item.vpn2mb) {
+  
+  
         let nextIp = Meteor.users.findOne({}, { sort: { vpnip: -1 } }) ? Meteor.users.findOne({}, { sort: { vpnip: -1 } }).vpnip : 1
-        let precioVPN = item.vpnplus ? PreciosCollection.findOne({ type: "vpnplus" , megas: this.state.megasVPNlabel }).precio : (item.vpn2mb ? PreciosCollection.findOne({ type: "vpn2mb" , megas: this.state.megasVPNlabel }).precio : 350)
+        let precioVPN = item.vpnisIlimitado
+          ?
+          (PreciosCollection.findOne({ type: "fecha-vpn" }))
+          : (item.vpnplus
+            ? (PreciosCollection.findOne({ type: "vpnplus", megas: item.vpnmegas }))
+            : (item.vpn2mb
+              ? (PreciosCollection.findOne({ type: "vpn2mb", megas: item.vpnmegas }))
+              : 0))
         //  PreciosCollection.findOne(item.vpnplus?{ type: "vpnplus" }:(item.vpn2mb?{ type: "vpn2mb" }))
         !item.vpnip &&
           Meteor.users.update(item._id, {
@@ -130,17 +148,150 @@ class MyAppUserDetails extends React.Component {
         !item.vpn && VentasCollection.insert({
           adminId: Meteor.userId(),
           userId: item._id,
-          precio: precioVPN,
-          comentario: item.vpnplus ? PreciosCollection.findOne({ type: "vpnplus" }).comentario : (item.vpn2mb ? PreciosCollection.findOne({ type: "vpn2mb" }).comentario : "")
+          precio: (precioVPN.precio - Meteor.user().descuentovpn > 0) ? (precioVPN.precio - Meteor.user().descuentovpn) : 0,
+          comentario: precioVPN.comentario
         })
-        !item.vpn && alert(`Se Compró el Servicio VPN con un costo: ${precioVPN}CUP`)
+        // !item.vpn && alert(`Se Compró el Servicio VPN con un costo: ${(precioVPN.precio - Meteor.user().descuentovpn >= 0) ? (precioVPN.precio - Meteor.user().descuentovpn) : 0}CUP`)
+        !item.vpn && (alert(precioVPN.comentario))
+        
+        Meteor.call('sendemail', item, { text: `Se ${!item.vpn ? "Activo" : "Desactivó"} la VPN para el usuario: ${item.username}${item.descuentovpn ? ` Con un descuento de: ${item.descuentovpn}CUP` : ""}` }, `VPN ${Meteor.user().username}`)
+        Meteor.call('sendMensaje', item, { text: `Se ${!item.vpn ? "Activo" : "Desactivó"} la VPN para ${item.username}` }, `VPN ${Meteor.user().username}`)
+  
+       
   
       }
       else {
-        Alert.alert("INFO!!!","Primeramente debe seleccionar una oferta de VPN!!!")
+        alert("INFO!!!\nPrimeramente debe seleccionar una oferta de VPN!!!"),
+        handleClickOpen()
+        // alert("INFO!!!\nPrimeramente debe seleccionar una oferta de VPN!!!")
       }
     };
     
+
+    const addVenta = () => {
+      // console.log(`Precio MEGAS ${precios}`);
+      let validacion = false;
+  
+      item.isIlimitado && (new Date() < new Date(item.fechaSubscripcion)) && (validacion = true)
+      !item.isIlimitado && ((item.megasGastadosinBytes ? (item.megasGastadosinBytes / 1024000) : 0) < (item.megas ? item.megas : 0)) && (validacion = true)
+  
+      !validacion &&  alert("Revise los Límites del Usuario")
+     
+      // validacion = ((item.profile.role == "admin") ? true  : false);
+        if (!validacion) return null
+  
+      // item.profile.role == 'admin' ? (
+      //   (Meteor.users.update(item._id, {
+      //     $set: {
+      //       baneado: item.baneado ? false : true,
+      //       bloqueadoDesbloqueadoPor: Meteor.userId()
+      //     },
+      //   }),
+      //     LogsCollection.insert({
+      //       type: "PROXY",
+      //       userAfectado: item._id,
+      //       userAdmin: Meteor.userId(),
+      //       message:
+      //         "Ha sido " +
+      //         (!item.baneado ? "Desactivado" : "Activado") +
+      //         " por un Admin"
+      //     }),
+      //     Meteor.call('sendemail', item, {
+      //       text: "Ha sido " +
+      //         (!item.baneado ? "Desactivado" : "Activado") +
+      //         ` el proxy del usuario ${item.username}`
+      //     }, (!item.baneado ? "Desactivado " + Meteor.user().username : "Activado " + Meteor.user().username)),
+      //     Meteor.call('sendMensaje', item, {
+      //       text: "Ha sido " +
+      //         (!item.baneado ? "Desactivado" : "Activado") +
+      //         ` el proxy del usuario ${item.username}`
+      //     }, (!item.baneado ? "Desactivado " + Meteor.user().username : "Activado " + Meteor.user().username))
+      //   )
+      // ) : (
+  
+        !item.baneado ?
+          (Meteor.users.update(item._id, {
+            $set: {
+              baneado: true,
+              bloqueadoDesbloqueadoPor: Meteor.userId()
+            },
+          }),
+            Logs.insert({
+              type: !item.baneado ? "Desactivado" : "Activado",
+              userAfectado: item._id,
+              userAdmin: Meteor.userId(),
+              message:
+                "Ha sido " +
+                (!item.baneado ? "Desactivado" : "Activado") +
+                " por un Admin"
+            }),
+            Meteor.call('sendemail', item, {
+              text: "Ha sido " +
+                (!item.baneado ? "Desactivado" : "Activado") +
+                ` el proxy del usuario ${item.username}`
+            }, (!item.baneado ? "Desactivado " + Meteor.user().username : "Activado " + Meteor.user().username)),
+            Meteor.call('sendMensaje', item, {
+              text: "Ha sido " +
+                (!item.baneado ? "Desactivado" : "Activado") +
+                ` el proxy del usuario ${item.username}`
+            }, (!item.baneado ? "Desactivado " + Meteor.user().username : "Activado " + Meteor.user().username)))
+          
+  
+        : (
+          Meteor.users.update(item._id, {
+            $set: {
+              baneado: item.baneado ? false : true,
+              bloqueadoDesbloqueadoPor: Meteor.userId()
+            },
+          }),
+          Logs.insert({
+            type: !item.baneado ? "Desactivado" : "Activado",
+            userAfectado: item._id,
+            userAdmin: Meteor.userId(),
+            message:
+              "Ha sido " +
+              (!item.baneado ? "Desactivado" : "Activado") +
+              " por un Admin"
+          }),
+          Meteor.call('sendemail', item, {
+            text: "Ha sido " +
+              (!item.baneado ? "Desactivado" : "Activado") +
+              ` el proxy del usuario ${item.username}`
+          }, (!item.baneado ? "Desactivado " + Meteor.user().username : "Activado " + Meteor.user().username)),
+          Meteor.call('sendMensaje', item, {
+            text: "Ha sido " +
+              (!item.baneado ? "Desactivado" : "Activado") +
+              ` el proxy del usuario ${item.username}`
+          }, (!item.baneado ? "Desactivado " + Meteor.user().username : "Activado " + Meteor.user().username)),
+          precios.map(precio => {
+  
+            item.isIlimitado && precio.type == "fecha-proxy" && 
+            (VentasCollection.insert({
+              adminId: Meteor.userId(),
+              userId: item._id,
+              precio: (precio.precio - Meteor.user().descuentoproxy > 0) ? (precio.precio - Meteor.user().descuentoproxy) : 0,
+              comentario: precio.comentario
+            }),
+              alert(precio.comentario)
+            )
+  
+              !item.isIlimitado && precio.type == "megas" && (precio.megas == item.megas) && 
+              (VentasCollection.insert({
+                  adminId: Meteor.userId(),
+                  userId: item._id,
+                  precio: (precio.precio - Meteor.user().descuentoproxy > 0) ? (precio.precio - Meteor.user().descuentoproxy) : 0,
+                  comentario: precio.comentario
+                }),
+                alert(precio.comentario)
+              )
+          })
+        )
+      // )
+  
+  
+    }
+
+
     return (
       <Surface
       style={backgroundStyle}>
@@ -434,21 +585,43 @@ class MyAppUserDetails extends React.Component {
 
                       {item.isIlimitado ? (
                         <>
-                          <Surface
-                            style={{
-                              width: '100%',
-                              elevation: 12,
-                              borderRadius: 20,
-                              marginTop: 20,
-                            }}>
-                            <Text style={{ padding: 10, textAlign: 'center' }}>
-                              {item.fechaSubscripcion
+                        <Surface
+                          style={{
+                            width: '100%',
+                            elevation: 12,
+                            borderRadius: 20,
+                            marginTop: 10,
+                          }}>
+                          <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                            Fecha Limite:
+                          </Text>
+                          <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                          {item.fechaSubscripcion
                                 ? moment
                                   .utc(item.fechaSubscripcion)
                                   .format('DD-MM-YYYY')
                                 : 'Fecha Límite sin especificar'}
-                            </Text>
-                          </Surface>
+                          </Text>
+                        </Surface>
+
+                        <Surface
+                        style={{
+                          width: '100%',
+                          elevation: 12,
+                          borderRadius: 20,
+                          marginTop: 10,
+                          marginBottom: 10,
+                        }}>
+                        <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                          Consumo:
+                        </Text>
+                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                          {item.megasGastadosinBytes
+                            ? (item.megasGastadosinBytes / 1000000).toFixed(2) + ' MB'
+                            : '0 MB'}
+                        </Text>
+                      </Surface>
+
                           <Surface
                             style={{
                               width: '100%',
@@ -459,20 +632,19 @@ class MyAppUserDetails extends React.Component {
                               padding: 20
                             }}>
                             <CalendarPicker
-                              format="DD-MM-YYYY"
+                              // format="YYYY-MM-DD"
                               minDate={new Date()}
                               selectedDayColor="#7300e6"
                               selectedDayTextColor="#FFFFFF"
-                              mode="date"
+                              selectedStartDate={item.fechaSubscripcion}
+                              // mode="date"
                               width={screenWidth - 100}
                               onDateChange={date => {
-
-
-
-
+                                console.log(moment
+                                  .utc(date).startOf('day'));
                                 date && Meteor.users.update(item._id, {
                                   $set: {
-                                    fechaSubscripcion: new Date(date)
+                                    fechaSubscripcion: new Date(moment.utc(date).startOf('day').add(4,"hours"))
                                   },
                                 }),
                                   Logs.insert({
@@ -481,11 +653,9 @@ class MyAppUserDetails extends React.Component {
                                     userAdmin: Meteor.userId(),
                                     message:
                                       "La Fecha Limite del Proxy se cambió para: " +
-                                      dateFormat(date,
-                                        "yyyy-mm-dd",
-                                        true,
-                                        true
-                                      ),
+                                      moment
+                                        .utc(new Date(date))
+                                        .format('YYYY-MM-DD'),
                                   })
                                   date && !item.baneado && (Logs.insert({
                                     type: 'PROXY',
@@ -525,9 +695,9 @@ class MyAppUserDetails extends React.Component {
                             Limite de Megas por el Proxy:
                           </Text>
                           <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                            {item.profile.role != "admin" ? (item.megas
-                              ? (item.megas / 1024).toFixed(2) + ' GB'
-                              : '0 GB') : "Ilimitado"}
+                          {item.megas
+                                ? item.megas + " MB => " + (item.megas / 1024).toFixed(2) + " GB"
+                                : 'No se ha especificado aun el Límite de megas'}
                           </Text>
                         </Surface>
                       
@@ -544,8 +714,8 @@ class MyAppUserDetails extends React.Component {
                           Consumo:
                         </Text>
                         <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                          {item.megasGastadosinBytes
-                            ? (item.megasGastadosinBytes / 1000000).toFixed(2) + ' MB'
+                        {item.megasGastadosinBytes
+                            ? (item.megasGastadosinBytes / 1024000).toFixed(2) + ' MB => ' + (item.megasGastadosinBytes / 1024000000).toFixed(2) + " GB"
                             : '0 MB'}
                         </Text>
                       </Surface>
@@ -641,77 +811,7 @@ class MyAppUserDetails extends React.Component {
                               // disabled={this.state.value ? false : true}
                               mode="contained"
                               color={!item.baneado && "red"}
-                              onPress={() => {
-                                try {
-
-
-
-                                  item.baneado ||
-                                    (Meteor.users.update(item._id, {
-                                      $set: {
-                                        baneado: item.baneado ? false : true,
-                                        bloqueadoDesbloqueadoPor: Meteor.userId()
-                                      },
-                                    }),
-                                      Logs.insert({
-                                        type: !item.baneado ? "Bloqueado" : "Desbloqueado",
-                                        userAfectado: item._id,
-                                        userAdmin: Meteor.userId(),
-                                        message:
-                                          "Ha sido " +
-                                          (!item.baneado ? "Bloqueado" : "Desbloqueado") +
-                                          " por un Admin",
-                                        createdAt: new Date(),
-                                      })),
-
-                                    item.baneado && (
-                                      this.state.value || item.profile.role == "admin" ? (
-                                        Meteor.users.update(item._id, {
-                                          $set: {
-                                            baneado: item.baneado ? false : true,
-                                            bloqueadoDesbloqueadoPor: Meteor.userId()
-                                          },
-                                        }),
-                                        Logs.insert({
-                                          type: !item.baneado ? "Bloqueado" : "Desbloqueado",
-                                          userAfectado: item._id,
-                                          userAdmin: Meteor.userId(),
-                                          message:
-                                            "Ha sido " +
-                                            (!item.baneado ? "Bloqueado" : "Desbloqueado") +
-                                            " por un Admin",
-                                          createdAt: new Date(),
-                                        }),
-                                        precios.forEach(precio => {
-                                          item.isIlimitado ? precio.fecha && (VentasCollection.insert({
-                                            adminId: Meteor.userId(),
-                                            userId: item._id,
-                                            precio: precio.precio,
-                                            comentario: precio.comentario
-                                          }),
-                                            Alert.alert("Info!!!", precio.comentario)
-                                          ) :
-                                            (precio.megas && (precio.megas == item.megas) && (
-                                              // console.log("precio.megas " + precio.megas),
-                                              VentasCollection.insert({
-                                                adminId: Meteor.userId(),
-                                                userId: item._id,
-                                                precio: precio.precio,
-                                                comentario: precio.comentario
-                                              }),
-                                              Alert.alert("Info!!!", precio.comentario)
-                                            ))
-                                        })
-                                      ) : Alert.alert("Error!!!", "Debe especificar el paquete a comprar")
-                                    )
-
-
-
-
-                                } catch (error) {
-                                  console.error(error)
-                                }
-                              }}
+                              onPress={addVenta}
                             >
                               {item.baneado ? "Habilitar" : "Desabilitar"}
                             </Button>
@@ -782,7 +882,7 @@ class MyAppUserDetails extends React.Component {
                           Consumo:
                         </Text>
                         <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                          {item.megasGastadosinBytes
+                        {item.megasGastadosinBytes
                             ? (item.megasGastadosinBytes / 1024000).toFixed(2) + ' MB => ' + (item.megasGastadosinBytes / 1024000000).toFixed(2) + " GB"
                             : '0 MB'}
                         </Text>
@@ -863,26 +963,109 @@ class MyAppUserDetails extends React.Component {
                           borderRadius: 20,
                           marginTop: 10,
                         }}>
-                        <Text style={{ paddingTop: 10, paddingBottom: 5, textAlign: 'center' }}>
-                          Oferta Seleccionada:
+                        <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                          OFERTA / LIMITE:
                         </Text>
                         {item.vpnisIlimitado ?
-                          <Text style={{ textAlign: 'center' }}>
-                            {dateFormat(item.vpnfechaSubscripcion,
-                              "yyyy-mm-dd",
-                              true,
-                              true
-                            )}
+                        <>
+                        <Text style={{ textAlign: 'center' }}>
+                            {item.vpnplus ? "VPN PLUS" : (item.vpn2mb ? "VPN 2MB" : "Ninguna")}
                           </Text>
+                          <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                            {item.vpnfechaSubscripcion.getUTCFullYear()}-{item.vpnfechaSubscripcion.getUTCMonth() + 1}-{item.vpnfechaSubscripcion.getUTCDate()}
+                          </Text>
+                        </>
+                          
                           : <><Text style={{ textAlign: 'center' }}>
                             {item.vpnplus ? "VPN PLUS" : (item.vpn2mb ? "VPN 2MB" : "Ninguna")}
                           </Text>
                             <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                              {item.vpnmegas ? (item.vpnmegas / 1024).toFixed(2) : 0}GB
+                            {item.vpnmegas
+                                ? item.vpnmegas + " MB => " + (item.vpnmegas / 1024).toFixed(2) + " GB"
+                                : 'No se ha especificado aun el Límite de megas'}
+                              
                             </Text>
                           </>}
                       </Surface>
+
                       <Surface
+                      style={{
+                        width: '100%',
+                        elevation: 12,
+                        borderRadius: 20,
+                        marginTop: 10,
+                        marginBottom: 10,
+                      }}>
+                      <Text style={{ paddingTop: 10, textAlign: 'center' }}>
+                        Consumo:
+                      </Text>
+                      <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                      {item.vpnMbGastados ? item.vpnMbGastados / 1000000 : 0}MB => {item.vpnMbGastados ? (item.vpnMbGastados / 1000000000) : 0}GB
+                      </Text>
+                    </Surface>
+
+                      {item.vpnisIlimitado?
+                      <>
+                        <Surface
+                          style={{
+                            width: '100%',
+                            elevation: 12,
+                            borderRadius: 20,
+                            marginTop: 20,
+                            backgroundColor: "#607d8b",
+                            padding: 20
+                          }}>
+                          <CalendarPicker
+                            format="YYYY-MM-DD"
+                            minDate={new Date()}
+                            selectedDayColor="#7300e6"
+                            selectedDayTextColor="#FFFFFF"
+                            mode="date"
+                            width={screenWidth - 100}
+                            selectedStartDate={item.vpnfechaSubscripcion}
+                            onDateChange={date => {
+                              date && Meteor.users.update(item._id, {
+                                $set: {
+                                  vpnfechaSubscripcion: new Date(moment.utc(date).startOf('day').add(4, "hours")),
+                                  vpnplus: true,
+                                  vpn2mb: true
+                                },
+                              }),
+                                Logs.insert({
+                                  type: "Fecha Limite VPN",
+                                  userAfectado: item._id,
+                                  userAdmin: Meteor.userId(),
+                                  message:
+                                    "La Fecha Limite de la VPN se cambió para: " +
+                                    moment
+                                      .utc(new Date(date))
+                                      .format('YYYY-MM-DD'),
+                                })
+                                date && item.vpn && (Logs.insert({
+                                  type: 'VPN',
+                                  userAfectado: item._id,
+                                  userAdmin: Meteor.userId(),
+                                  message:
+                                    `Se Desactivó la VPN porque estaba activa y cambio la fecha Limite`
+                                }),
+                                  Meteor.users.update(item._id, {
+                                    $set: {
+                                      vpn: false
+                                    },
+                                  }))
+
+
+
+                              // Meteor.users.update(item._id, {
+                              //   $set: {
+                              //     fechaSubscripcion: new Date(date),
+                              //   },
+                              // });
+                            }}
+                          />
+                        </Surface>
+                      </>
+                      :<Surface
                         style={{
                           width: '100%',
                           elevation: 12,
@@ -972,7 +1155,7 @@ class MyAppUserDetails extends React.Component {
                       </Button>
                     </View>
                   </View>
-                  </Surface>
+                  </Surface>}
                   <Surface
                         style={{
                           width: '100%',
@@ -1033,11 +1216,27 @@ class MyAppUserDetails extends React.Component {
                           marginTop: 10,
                         }}>
                         <Text style={{ paddingTop: 10, textAlign: 'center' }}>
-                          Limite de megas:
+                          OFERTA / LIMITE:
                         </Text>
-                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                          {item.vpnmegas ? item.vpnmegas : 0}MB => {item.vpnmegas ? (item.vpnmegas / 1024) : 0}GB
-                        </Text>
+                        {item.vpnisIlimitado ?
+                        <>
+                        <Text style={{ textAlign: 'center' }}>
+                            {item.vpnplus ? "VPN PLUS" : (item.vpn2mb ? "VPN 2MB" : "Ninguna")}
+                          </Text>
+                          <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                            {item.vpnfechaSubscripcion.getUTCFullYear()}-{item.vpnfechaSubscripcion.getUTCMonth() + 1}-{item.vpnfechaSubscripcion.getUTCDate()}
+                          </Text>
+                        </>
+                          
+                          : <><Text style={{ textAlign: 'center' }}>
+                            {item.vpnplus ? "VPN PLUS" : (item.vpn2mb ? "VPN 2MB" : "Ninguna")}
+                          </Text>
+                            <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                            {item.vpnmegas
+                                ? item.vpnmegas + " MB => " + (item.vpnmegas / 1024).toFixed(2) + " GB"
+                                : 'No se ha especificado aun el Límite de megas'}
+                            </Text>
+                          </>}
                       </Surface>
                       <Surface
                         style={{
@@ -1116,8 +1315,8 @@ const UserDetails = withTracker( props => {
   const loadventas = Meteor.subscribe("ventas", { adminId: item, cobrado: false }).ready()
   
   // const {navigation} = props;
-  const ready = Meteor.subscribe('user', item, { fields: { vpnfechaSubscripcion:1, vpnisIlimitado:1, vpnplus: 1, vpn2mb: 1, _id: 1, picture: 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1, vpnMbGastados:1 } })
-  const user = Meteor.users.findOne(item, { fields: { vpnfechaSubscripcion:1, vpnisIlimitado:1, vpnplus: 1, vpn2mb: 1, _id: 1, picture: 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1, vpnMbGastados:1 } })
+  const ready = Meteor.subscribe('user', item, { fields: { descuentovpn: 1, descuentoproxy: 1, vpnfechaSubscripcion: 1, vpnisIlimitado: 1, vpnplus: 1, vpn2mb: 1, _id: 1, picture: 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1, vpnMbGastados: 1 } })
+  const user = Meteor.users.findOne(item, { fields: { descuentovpn: 1, descuentoproxy: 1, vpnfechaSubscripcion:1, vpnisIlimitado:1, vpnplus: 1, vpn2mb: 1, _id: 1, picture: 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1, vpnMbGastados:1 } })
 // console.log(item);
   return {
     item: user,

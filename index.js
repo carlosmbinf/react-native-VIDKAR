@@ -67,7 +67,7 @@ ReactNativeForegroundService.add_task(
         message:
           (Meteor.user().megasGastadosinBytes
             ? 'Consumo: ' +
-              (Meteor.user().megasGastadosinBytes / 1000000).toFixed(2) +
+              (Meteor.user().megasGastadosinBytes / 1024000).toFixed(2) +
               ' MB'
             : 'Consumo: ' + 0 + ' MB') +
           '\nProxy: ' +
