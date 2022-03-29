@@ -84,7 +84,7 @@ ReactNativeForegroundService.add_task(
       });
   },
   {
-    delay: 1000,
+    delay: 10000,
     onLoop: true,
     taskId: 'meteorReconectAndConsumo',
     onError: e => console.log(`Error logging:`, e),
