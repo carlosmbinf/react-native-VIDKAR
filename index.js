@@ -113,7 +113,7 @@ ReactNativeForegroundService.add_task(
   },
 );
 ReactNativeForegroundService.start({
-  id: 145,
+  id: 144,
   title: 'Servicio de VidKar',
   message: 'Debe iniciar sesión para ver el Consumo!',
   visibility: 'private',
