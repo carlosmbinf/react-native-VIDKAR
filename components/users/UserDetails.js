@@ -1295,10 +1295,10 @@ class MyAppUserDetails extends React.Component {
 }
 
 const UserDetails = withTracker( props => {
-   Meteor.subscribe("precios").ready()
+   Meteor.subscribe("precios",{}, { sort: { type: 1, precio: 1 } }).ready()
   let precioslist = []
 
-  PreciosCollection.find({ type: "megas" }).fetch().map((a) => {
+  PreciosCollection.find({ type: "megas" }, { sort: { type: 1, precio: 1 } }).fetch().map((a) => {
     precioslist.push({ value: a.megas, label: a.megas + 'MB • $' + a.precio })
   })
 
@@ -1306,7 +1306,7 @@ const UserDetails = withTracker( props => {
 
   let preciosVPNlist = []
 
-  PreciosCollection.find({$or:[{ type: "vpnplus"},{ type: "vpn2mb"}] }).fetch().map((a)=>{
+  PreciosCollection.find({$or:[{ type: "vpnplus"},{ type: "vpn2mb"}] }, { sort: { type: 1, precio: 1 } }).fetch().map((a)=>{
     preciosVPNlist.push({ value: a.type, label: `${a.type} • ${a.megas}MB • $ ${(a.precio - (Meteor.user().descuentovpn || 0) >= 0) ? (a.precio - (Meteor.user().descuentovpn || 0)) : 0}`, megas: a.megas })
   })
 

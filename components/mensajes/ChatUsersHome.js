@@ -253,9 +253,9 @@ class MyApp extends React.Component {
       Meteor.subscribe('conexiones', { userId: item._id }, { fields: { userId: 1 },limit:1 });
       Meteor.subscribe('mensajes', { $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { limit: 1 });
       let connected = Online.find({ userId: item._id }).count() > 0 ? true : false;
-
+      let message = MensajesCollection.findOne({ $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 } })
       return (
-        <Surface key={"Surface_" + item._id} style={{ elevation: 12, margin: 10, borderRadius: 20 }}>
+        message?<Surface key={"Surface_" + item._id} style={{ elevation: 12, margin: 10, borderRadius: 20 }}>
           <List.Item
             key={"Item_" + item._id}
             onPress={() => {
@@ -266,11 +266,11 @@ class MyApp extends React.Component {
             title={item && (item.profile.firstName + ' ' + item.profile.lastName)}
             //  titleStyle={{fontSize: 20}}
             description={
-              MensajesCollection.findOne({ $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 } }) &&( MensajesCollection.findOne({ $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 } }).mensaje? MensajesCollection.findOne({ $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 } }).mensaje:"")
+              ( message.mensaje? MensajesCollection.findOne({ $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 } }).mensaje:"")
               //  + "\nConexiones: "+(connected?connected:0)
             }
             left={props =>
-              item.services && item.services.facebook ? (
+              item.picture ? (
                 <View style={{ justifyContent: 'center' }}>
                   <Badge
                     size={20}
@@ -288,7 +288,7 @@ class MyApp extends React.Component {
                   <Avatar.Image
                     {...props}
                     size={50}
-                    source={{ uri: item.services.facebook.picture.data.url }}
+                    source={{ uri: item.picture }}
                   />
                 </View>
               ) : (
@@ -334,6 +334,7 @@ class MyApp extends React.Component {
             // )}
           />
         </Surface>
+        :<></>
       );
     };
     //     <TouchableHighlight
@@ -348,8 +349,8 @@ class MyApp extends React.Component {
     //       </View>
     //     </TouchableHighlight>
 
-    const admins = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user && user.profile.role == "admin" && (user.username ? ((user.username).toString().includes(this.state.userName)) : false)).map(element => Item(element))
-    const users = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user && user.profile.role == "user" && (user.username ? ((user.username).toString().includes(this.state.userName)) : false)).map(element => Item(element))
+    const admins = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user && user.profile && user.profile.role == "admin" && (user.username ? ((user.username).toString().includes(this.state.userName)) : false)).map(element => Item(element))
+    const users = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user && user.profile && user.profile.role == "user" && (user.username ? ((user.username).toString().includes(this.state.userName)) : false)).map(element => Item(element))
 
     const drawerStyles = {
       drawer: { shadowColor: 'black', shadowOpacity: 0, shadowRadius: 3, backgroundColor:"black"},
@@ -386,7 +387,7 @@ class MyApp extends React.Component {
           </>
         ) : (
           <>
-              <Drawer
+              {/* <Drawer
                 type="overlay"
                 open={this.state.drawer}
                 content={<DrawerOptionsAlls navigation={navigation}/>}
@@ -404,12 +405,12 @@ class MyApp extends React.Component {
                 tweenHandler={(ratio) => ({
                   main: { opacity: ((2 - ratio) / 2) }
                 })}
-              >
+              > */}
                 <Appbar style={{
                   backgroundColor: '#3f51b5'
                 }} >
-                  <View style={{flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
-                    <Appbar.Action icon="menu" color={"white"} onPress={() => this.setState({ drawer: !this.state.drawer })} />
+                  <View style={{flexDirection: "row-reverse", justifyContent: "space-between", width: "100%" }}>
+                    {/* <Appbar.Action icon="menu" color={"white"} onPress={() => this.setState({ drawer: !this.state.drawer })} /> */}
                     <View style={{ flexDirection: "row" }}>
                       {/* <Appbar.Action icon="account-plus" color={"white"} onPress={() => navigation.navigation.navigate('CreateUsers')} /> */}
                       <Appbar.Action icon="magnify" color={"white"} disabled={this.state.activeBanner} onPress={() => this.setState({ activeBanner: true })} />
@@ -433,7 +434,7 @@ class MyApp extends React.Component {
                 </List.Accordion>
               </Surface>
             </ScrollView>
-              </Drawer>
+              {/* </Drawer> */}
             
           </>
         )) : <Surface style={backgroundStyle}><Text style={{ textAlign: "center", justifyContent: "center", fontSize: 25, fontWeight: 'bold',paddingTop:10 }}>Sin Acceso</Text></Surface>}
@@ -443,11 +444,11 @@ class MyApp extends React.Component {
   }
 }
 const ChatUsersHome = withTracker(navigation => {
-  const handle = Meteor.subscribe('user', Meteor.user().username == "carlosmbinf" ? ({}, { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } }) : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } });
+  const handle = Meteor.subscribe('user', Meteor.user().username == "carlosmbinf" ? ({}, { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, picture: 1, megas: 1 } }) : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, picture: 1, megas: 1 } });
 
-  let myTodoTasks = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } }).fetch();
+  let myTodoTasks = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, picture: 1, megas: 1 } }).fetch();
 
-  //  console.log(Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }).fetch());
+  //  console.log(Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"picture":1, megas:1} }).fetch());
   return {
     navigation,
     myTodoTasks,

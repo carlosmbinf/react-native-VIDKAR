@@ -248,8 +248,8 @@ class MyApp extends React.Component {
     );
 
     const Item = item => {
-      Meteor.subscribe('conexiones', { userId: item._id }, { fields: { userId: 1 } });
-      let connected = Online.find({ userId: item._id }).count() > 0 ? true : false;
+      // Meteor.subscribe('conexiones', { userId: item._id }, { fields: { userId: 1 } });
+      // let connected = Online.find({ userId: item._id },{ fields: { userId: 1 }, limit: 1 }).count() > 0 ? true : false;
 
       return (
         <Surface key={"Surface_" + item._id} style={{ elevation: 12, margin: 10, borderRadius: 20 }}>
@@ -262,12 +262,7 @@ class MyApp extends React.Component {
             }}
             title={item && (item.profile.firstName + ' ' + item.profile.lastName)}
             //  titleStyle={{fontSize: 20}}
-            description={
-              item.megasGastadosinBytes
-                ? `(${item.username})${connected ? ` ● (${Online.find({ userId: item._id }).count()})` : ""}\n${Number.parseFloat(item.megasGastadosinBytes / 1000000).toFixed(2)} MB => ${Number.parseFloat(item.megas).toFixed(0)} MB`
-                : `(${item.username})`
-              //  + "\nConexiones: "+(connected?connected:0)
-            }
+            description={item.username}
             left={props =>
               item.services && item.services.facebook ? (
                 <View style={{ justifyContent: 'center' }}>
@@ -282,7 +277,10 @@ class MyApp extends React.Component {
                       borderColor: 'white',
                       borderWidth: 3,
                     }}
-                    visible={connected}
+                    visible={
+                      false
+                      // connected
+                    }
                   />
                   <Avatar.Image
                     {...props}
@@ -303,7 +301,10 @@ class MyApp extends React.Component {
                       borderColor: 'white',
                       borderWidth: 3,
                     }}
-                    visible={connected}
+                    visible={
+                      false
+                      // connected
+                    }
                   />
                   <Avatar.Text
                     {...props}
@@ -444,9 +445,9 @@ class MyApp extends React.Component {
   }
 }
 const UserHome = withTracker(navigation => {
-  const handle = Meteor.subscribe('user', (Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), (Meteor.user().username == "carlosmbinf" ? { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } } : { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } }));
+  const handle = Meteor.subscribe('user', (Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), (Meteor.user().username == "carlosmbinf" ? { sort: { 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, "services.facebook": 1, megas: 1 } } : { sort: { 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, "services.facebook": 1, megas: 1 } }));
 
-  let myTodoTasks = Meteor.users.find((Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } }).fetch();
+  let myTodoTasks = Meteor.users.find((Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, "services.facebook": 1, megas: 1 } }).fetch();
 
   // handle.ready() && console.log(Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }).fetch());
   return {

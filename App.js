@@ -256,7 +256,7 @@ const App = () => {
               // headerTitleStyle: {
               //   fontWeight: 'bold',
               // },
-              headerLeft:null,
+              // headerLeft:null,
               headerShown: true,
               headerRight: () => (
                 <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>

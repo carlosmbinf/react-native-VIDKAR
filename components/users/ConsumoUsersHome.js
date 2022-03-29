@@ -386,7 +386,7 @@ class MyApp extends React.Component {
         ) : (
           Meteor.user() && Meteor.user().profile && Meteor.user().profile.role == "admin" ? (
             <>
-              <Drawer
+              {/* <Drawer
                 type="overlay"
                 open={this.state.drawer}
                 content={<DrawerOptionsAlls navigation={navigation} />}
@@ -404,12 +404,12 @@ class MyApp extends React.Component {
                 tweenHandler={(ratio) => ({
                   main: { opacity: ((2 - ratio) / 2) }
                 })}
-              >
+              > */}
                 <Appbar style={{
                   backgroundColor: '#3f51b5'
                 }} >
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
-                    <Appbar.Action icon="menu" color={"white"} onPress={() => this.setState({ drawer: !this.state.drawer })} />
+                  <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", width: "100%" }}>
+                    {/* <Appbar.Action icon="menu" color={"white"} onPress={() => this.setState({ drawer: !this.state.drawer })} /> */}
                     <View style={{ flexDirection: "row" }}>
                       {/* <Appbar.Action icon="account-plus" color={"white"} onPress={() => navigation.navigation.navigate('CreateUsers')} /> */}
                       <Appbar.Action icon="magnify" color={"white"} disabled={this.state.activeBanner} onPress={() => this.setState({ activeBanner: true })} />
@@ -433,7 +433,7 @@ class MyApp extends React.Component {
                     </List.Accordion>
                   </Surface>
                 </ScrollView>
-              </Drawer>
+              {/* </Drawer> */}
 
             </>
           ) : <Surface style={backgroundStyle}><Text style={{ textAlign: "center", justifyContent: "center", fontSize: 25, fontWeight: 'bold', paddingTop: 10 }}>Sin Acceso</Text></Surface>
@@ -444,9 +444,9 @@ class MyApp extends React.Component {
   }
 }
 const ConsumoUserHome = withTracker(navigation => {
-  const handle = Meteor.subscribe('user', (Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), (Meteor.user().username == "carlosmbinf" ? { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } } : { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } }));
+  const handle = Meteor.subscribe('user', (Meteor.user().username == "carlosmbinf" ? { $or: [{ megasGastadosinBytes: { $gt: 0 } }, {baneado: false}] } : { $or: [{ megasGastadosinBytes: { $gt: 0 } }, {baneado: false}], $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } });
 
-  let myTodoTasks = Meteor.users.find((Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } }).fetch();
+  let myTodoTasks = Meteor.users.find((Meteor.user().username == "carlosmbinf" ? { $or: [{ megasGastadosinBytes: { $gt: 0 } }, {baneado: false}] } : { $or: [{ megasGastadosinBytes: { $gt: 0 } }, {baneado: false}], $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, "services.facebook": 1, megas: 1 } }).fetch();
 
   // handle.ready() && console.log(Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }).fetch());
   return {

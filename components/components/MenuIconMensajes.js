@@ -118,6 +118,7 @@ class MyApp extends React.Component {
           flexDirection: 'row',
           justifyContent: 'center',
         }}>
+        {users.length > 0 &&
         <Menu
           style={{ top: 70, width: 270, height: 400, paddingRight: 30 }}
           visible={this.state.menuVisible}
@@ -283,7 +284,7 @@ class MyApp extends React.Component {
           <Menu.Item onPress={() => {}} title="Item 2" />
           <Divider />
           <Menu.Item onPress={() => {}} title="Item 3" /> */}
-        </Menu>
+        </Menu>}
       </View>
     );
   }

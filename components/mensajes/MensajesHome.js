@@ -243,7 +243,7 @@ const MensajesHome = withTracker(user => {
 
   // const myTodoTasks = MensajesCollection.find({ to: user.user._id }).fetch();
 
-  const handle = Meteor.subscribe("mensajes");
+  const handle = Meteor.subscribe("mensajes",{ $or: [{ $and: [{ from: id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: id }] }] }, { sort: { createdAt: -1 } });
 
   let id = user.user
   let list = []
