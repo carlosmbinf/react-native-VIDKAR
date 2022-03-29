@@ -264,7 +264,7 @@ class MyAppUserDetails extends React.Component {
               ` el proxy del usuario ${item.username}`
           }, (!item.baneado ? "Desactivado " + Meteor.user().username : "Activado " + Meteor.user().username)),
           precios.map(precio => {
-  
+            console.log()
             item.isIlimitado && precio.type == "fecha-proxy" && 
             (VentasCollection.insert({
               adminId: Meteor.userId(),
@@ -1313,6 +1313,7 @@ const UserDetails = withTracker( props => {
 
   const { item, navigation } = props;
   const loadventas = Meteor.subscribe("ventas", { adminId: item, cobrado: false }).ready()
+  
   
   // const {navigation} = props;
   const ready = Meteor.subscribe('user', item, { fields: { descuentovpn: 1, descuentoproxy: 1, vpnfechaSubscripcion: 1, vpnisIlimitado: 1, vpnplus: 1, vpn2mb: 1, _id: 1, picture: 1, profile: 1, username: 1, emails: 1, isIlimitado: 1, fechaSubscripcion: 1, megas: 1, megasGastadosinBytes: 1, baneado: 1, bloqueadoDesbloqueadoPor: 1, vpn: 1, vpnip: 1, vpnmegas: 1, vpnMbGastados: 1 } })
