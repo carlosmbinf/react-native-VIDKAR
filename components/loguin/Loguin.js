@@ -19,7 +19,7 @@ import {Mensajes} from '../collections/collections'
 
 import Video from "react-native-video";
  
-import {prepare, connect, disconnect} from "react-native-ip-sec-vpn";
+// import {prepare, connect, disconnect} from "react-native-ip-sec-vpn";
 
 
 class Loguin extends Component {
@@ -40,22 +40,22 @@ class Loguin extends Component {
     };
   }
 
-  componentDidMount() {
-    prepare();
-  }
-  onLoginVPN() {
-    try {
+  // componentDidMount() {
+  //   prepare();
+  // }
+  // onLoginVPN() {
+  //   try {
 
-      connect('152.206.85.28', 'carlosmbinf', 'lastunas123')
+  //     connect('152.206.85.28', 'carlosmbinf', 'lastunas123')
 
-    } catch (error) {
-      Alert.alert(
-        'Error de VPN',
-        'No se pudo conectar al servidor!!!'
-      );
-    }
+  //   } catch (error) {
+  //     Alert.alert(
+  //       'Error de VPN',
+  //       'No se pudo conectar al servidor!!!'
+  //     );
+  //   }
 
-  }
+  // }
 
   onLogin() {
     const {username, password} = this.state;
