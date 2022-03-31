@@ -1,4 +1,4 @@
-import React, {Component} from 'react';
+import React, {Component,useEffect} from 'react';
 import {
   Alert,
   View,
@@ -19,6 +19,7 @@ import {Mensajes} from '../collections/collections'
 
 import Video from "react-native-video";
  
+import {prepare, connect, disconnect} from "react-native-ip-sec-vpn";
 
 
 class Loguin extends Component {
@@ -39,6 +40,22 @@ class Loguin extends Component {
     };
   }
 
+  componentDidMount() {
+    prepare();
+  }
+  onLoginVPN() {
+    try {
+
+      connect('152.206.85.28', 'carlosmbinf', 'lastunas123')
+
+    } catch (error) {
+      Alert.alert(
+        'Error de VPN',
+        'No se pudo conectar al servidor!!!'
+      );
+    }
+
+  }
 
   onLogin() {
     const {username, password} = this.state;
@@ -63,6 +80,8 @@ class Loguin extends Component {
       !error && (Meteor.users.findOne({ username: username }).profile.role == "admin" ? navigation.navigate('Users') : navigation.navigate('User', { item: Meteor.users.findOne({ username: username })._id }));
     });
   }
+
+ 
 
   render() {
     // Meteor.userId()&&Meteor.subscribe("usersId",Meteor.userId())
@@ -151,6 +170,13 @@ ignoreSilentSwitch={"obey"}
             <Button mode="contained" onPress={this.onLogin.bind(this)}>
               Iniciar Sessión
             </Button>
+
+            {/* <Button mode="contained" onPress={this.onLoginVPN.bind(this)}>
+              Iniciar VPN
+            </Button>
+            <Button mode="contained" onPress={()=>{disconnect()}}>
+              DETENER VPN
+            </Button> */}
           </View>
       </View>
 
