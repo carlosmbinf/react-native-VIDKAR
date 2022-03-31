@@ -23,7 +23,6 @@ import { PreciosCollection, Logs, VentasCollection } from '../collections/collec
 
 
 const axios = require('axios').default;
-var dateFormat = require('dateformat');
 
 const { width: screenWidth } = Dimensions.get('window');
 const { height: screenHeight } = Dimensions.get('window');

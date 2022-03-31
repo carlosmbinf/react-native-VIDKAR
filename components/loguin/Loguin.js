@@ -17,6 +17,10 @@ const {width: screenWidth} = Dimensions.get('window');
 const {height: screenHeight} = Dimensions.get('window');
 import {Mensajes} from '../collections/collections'
 
+import Video from "react-native-video";
+ 
+
+
 class Loguin extends Component {
   constructor(props) {
     super(props);
@@ -66,7 +70,9 @@ class Loguin extends Component {
     const backgroundStyle = {
       // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
       height: screenHeight,
-      // backgroundColor:'red'
+      width: screenWidth,
+      position: 'absolute',
+      paddingTop:50
     };
 
     return (
@@ -74,14 +80,24 @@ class Loguin extends Component {
         <ScrollView
         contentInsetAdjustmentBehavior="automatic"
           >
-        <Surface style={backgroundStyle}>
+             <Video
+source={require("../videobackground/background.mp4")}
+      
+          style={{ backgroundColor: 'black', width: screenWidth, height: screenHeight - 65, position: 'relative', left: 0, top: 0, zIndex: 0 }}
+muted={true}
+repeat={true}
+resizeMode={"cover"}
+rate={1.0}
+ignoreSilentSwitch={"obey"}
+/>
+        <View style={backgroundStyle}>
           
           <View style={styles.container}>
-            <Text>
+            <Text style={{fontSize: 40,color:"white"}}>
               <FontAwesome5Icon name="house-user" size={100} />
             </Text>
 
-            <Text style={{fontSize: 40}}>🅥🅘🅓🅚🅐🅡</Text>
+            <Text style={{fontSize: 40,color:"white"}}>🅥🅘🅓🅚🅐🅡</Text>
           </View>
 
           <View style={styles.container}>
@@ -101,7 +117,7 @@ class Loguin extends Component {
               }}
             /> */}
             <TextInput
-              mode="outlined"
+              mode="flat"
               value={this.state.username}
               onChangeText={username => this.setState({username: username})}
               label={'Username'}
@@ -116,7 +132,7 @@ class Loguin extends Component {
               }}
             />
             <TextInput
-              mode="outlined"
+              mode="flat"
               value={this.state.password}
               onChangeText={password => this.setState({password: password})}
               label={'Password'}
@@ -136,7 +152,7 @@ class Loguin extends Component {
               Iniciar Sessión
             </Button>
           </View>
-      </Surface>
+      </View>
 
         </ScrollView>
     );

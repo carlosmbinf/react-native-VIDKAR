@@ -264,7 +264,7 @@ class MyApp extends React.Component {
             //  titleStyle={{fontSize: 20}}
             description={item.username}
             left={props =>
-              item.services && item.services.facebook ? (
+              item && item.picture ? (
                 <View style={{ justifyContent: 'center' }}>
                   <Badge
                     size={20}
@@ -285,7 +285,7 @@ class MyApp extends React.Component {
                   <Avatar.Image
                     {...props}
                     size={50}
-                    source={{ uri: item.services.facebook.picture.data.url }}
+                    source={{ uri: item.picture }}
                   />
                 </View>
               ) : (
@@ -445,9 +445,9 @@ class MyApp extends React.Component {
   }
 }
 const UserHome = withTracker(navigation => {
-  const handle = Meteor.subscribe('user', (Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), (Meteor.user().username == "carlosmbinf" ? { sort: { 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, "services.facebook": 1, megas: 1 } } : { sort: { 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, "services.facebook": 1, megas: 1 } }));
+  const handle = Meteor.subscribe('user', (Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, picture: 1 } });
 
-  let myTodoTasks = Meteor.users.find((Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, "services.facebook": 1, megas: 1 } }).fetch();
+  let myTodoTasks = Meteor.users.find((Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, picture: 1 } }).fetch();
 
   // handle.ready() && console.log(Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }).fetch());
   return {
