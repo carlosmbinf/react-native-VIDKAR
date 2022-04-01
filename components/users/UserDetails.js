@@ -824,7 +824,7 @@ class MyAppUserDetails extends React.Component {
                     </View>
                   </Card.Content>
                 </Card>
-              ) : (
+              ) : ((item.megasGastadosinBytes || item.fechaSubscripcion || item.megas) &&
                 <Card elevation={12} style={styles.cards}>
                   <Card.Content>
                     <View style={styles.element}>
@@ -1203,7 +1203,7 @@ class MyAppUserDetails extends React.Component {
             </Card.Content>
           </Card>
         
-            :  
+            :  ((item.megasGastadosinBytes || item.fechaSubscripcion || item.megas) &&
                 <Card elevation={12} style={styles.cards}>
                   <Card.Content>
                     <View style={styles.element}>
@@ -1227,7 +1227,10 @@ class MyAppUserDetails extends React.Component {
                             {item.vpnplus ? "VPN PLUS" : (item.vpn2mb ? "VPN 2MB" : "Ninguna")}
                           </Text>
                           <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                            {item.vpnfechaSubscripcion.getUTCFullYear()}-{item.vpnfechaSubscripcion.getUTCMonth() + 1}-{item.vpnfechaSubscripcion.getUTCDate()}
+                              {item.vpnfechaSubscripcion ?
+                                `${item.vpnfechaSubscripcion.getUTCFullYear()}-${item.vpnfechaSubscripcion.getUTCMonth() + 1}-${item.vpnfechaSubscripcion.getUTCDate()}`
+                                : "Fecha Limite sin especificar"
+                              }
                           </Text>
                         </>
                           
@@ -1271,7 +1274,7 @@ class MyAppUserDetails extends React.Component {
                       </Surface>
                     </View>
                   </Card.Content>
-                </Card>
+                </Card>)
             }
               {/* <Button
             mode="contained"
