@@ -971,7 +971,11 @@ class MyAppUserDetails extends React.Component {
                             {item.vpnplus ? "VPN PLUS" : (item.vpn2mb ? "VPN 2MB" : "Ninguna")}
                           </Text>
                           <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                            {item.vpnfechaSubscripcion.getUTCFullYear()}-{item.vpnfechaSubscripcion.getUTCMonth() + 1}-{item.vpnfechaSubscripcion.getUTCDate()}
+                              {item.vpnfechaSubscripcion ?
+                                `${item.vpnfechaSubscripcion.getUTCFullYear()}-${item.vpnfechaSubscripcion.getUTCMonth() + 1}-${item.vpnfechaSubscripcion.getUTCDate()}`
+                                : "Fecha Limite sin especificar"
+                              }
+                            
                           </Text>
                         </>
                           
