@@ -24,6 +24,11 @@ const DrawerOptionsAlls = (opt) => {
       label: "Consumo Proxy",
       url:"ConsumoUsers",
       icon:"chart-donut"
+    },
+    {
+      label: "Pelis y Videos",
+      url:"PeliculasVideos",
+      icon:"chart-donut"
     }
   ]
   const opcionesAdministradorGeneral = [

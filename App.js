@@ -47,6 +47,8 @@ import CreateUsers from './components/users/CreateUsers';
 import LogsList from './components/logs/LogsList';
 import ChatUsersHome from './components/mensajes/ChatUsersHome';
 import ConsumoUserHome from './components/users/ConsumoUsersHome';
+import { MyTabs }  from './components/navigator/MyTabs';
+import VideoPlayer from './components/video/VideoPlayer';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -445,6 +447,94 @@ const App = () => {
               // headerTransparent:false
             })}
           />
+
+<Stack.Screen
+            name="PeliculasVideos"
+            component={MyTabs}
+            options={({navigation, route}) => ({
+              title: (
+                <Text style={{letterSpacing: 5}}>
+                 Peliculas y Videos
+                </Text>
+              ),
+              headerStyle: {
+                backgroundColor: '#3f51b5',
+                height: 90,
+              },
+              headerTitleAlign: 'center',
+              headerTintColor: '#fff',
+              // headerTitleStyle: {
+              //   fontWeight: 'bold',
+              // },
+              // headerLeft:null,
+              headerShown: true,
+              headerRight: () => (
+                <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
+                  <MenuIconMensajes navigation={navigation} />
+
+                  <Menu
+                    visible={visibleMenu}
+                    onDismiss={() => {
+                      setVisibleMenu(false);
+                    }}
+                    anchor={
+                      <Appbar.Action
+                        icon="menu"
+                        color="white"
+                        onPress={() => {
+                          setVisibleMenu(true);
+                        }}
+                      />
+                    }
+                    style={{top: 70, width: 210, paddingRight: 30}}>
+                    <View style={{padding: 0}}>
+                      <Menu.Item
+                        icon="menu"
+                        onPress={() => {
+                          // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
+                          // console.log(item)
+                          setVisibleMenu(false);
+                          navigation.navigate('User', {
+                            item: Meteor.users.findOne({_id: Meteor.userId()}),
+                          });
+                        }}
+                        title="Mi usuario"
+                      />
+                      <Menu.Item
+                        icon="logout"
+                        onPress={() => {
+                          Meteor.logout();
+                          navigation.navigate('Loguin');
+                          setVisibleMenu(false);
+                        }}
+                        title="Cerrar Sessión"
+                      />
+                    </View>
+                  </Menu>
+                </View>
+              ),
+              // headerRight
+              // headerTransparent:false
+            })}
+          />
+
+          <Stack.Screen
+            name="Video"
+            options={({ navigation, route }) => ({
+              headerShown: false,
+            })}>
+            {props => {
+              const { navigation, route } = props;
+              const { item } = route.params;
+              return (
+                <VideoPlayer item={item} />
+                // <TasksProvider user={user} projectPartition={projectPartition}>
+                //   <TasksView navigation={navigation} route={route} />
+                // </TasksProvider>
+              );
+            }}
+          </Stack.Screen>
+
           <Stack.Screen
             name="User"
             options={({ navigation, route }) => {
