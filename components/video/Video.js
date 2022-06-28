@@ -10,6 +10,7 @@ import Modal from 'react-native-modal';
 import Subtitles from 'react-native-subtitles'
 import Orientation from 'react-native-orientation';
 import VideoPlayer from 'react-native-video-controls-subtitle';
+
 var {width: screenWidth} = Dimensions.get('window');
 var {height: screenHeight} = Dimensions.get('window');
 class Player extends React.Component {
@@ -26,20 +27,34 @@ class Player extends React.Component {
   constructor(props) {
     super(props);
     var { default: srtParser2 } = require("srt-parser-2")
-    var parser = new srtParser2()
-    var srt = `
-1
-00:00:11,544 --> 00:00:12,682
-Hello
-`
 
     this.state = {
       paused: false,
       isModalVisible: false,
       progress: 0,
-    duration: 0,
-    subtitle : parser.fromSrt(srt)
+      duration: 0
     };
+
+    var parser = new srtParser2()
+
+    var myHeaders = new Headers();
+    myHeaders.append('Content-Type','text/plain; charset=UTF-8');
+    fetch(props.item.subtitulo, myHeaders)
+      .then((response) => {
+        response.text().then(text => this.setState({
+          subtitle: parser.fromSrt(text)
+        }));
+
+      })
+    .catch((error) => {
+      console.error(error);
+    });
+
+
+    
+
+
+    
   }
 
   onProgressPress = (e) => {
@@ -47,6 +62,7 @@ Hello
     const progress = (position / 250) * this.state.duration;
     this.player.seek(progress);
     console.log(progress);
+    
 }
 
 onMainButtonPress = () => {
@@ -86,9 +102,6 @@ handleEnd = () => {
   render() {
     const {item} = this.props;
     
-    console.log(this.state.result);
-
-
     return (
       <View style={styles.ViewVideo}>
         {/* <Modal
@@ -110,10 +123,15 @@ handleEnd = () => {
           }></Modal> */}
           <VideoPlayer
           style={styles.backgroundVideo}
-
+          ref={ref => {
+            this.player = ref;
+          }} // Store reference
           source={{uri: item.urlPeli}} // Can be a URL or a local file.
-          navigator={ this.props.navigator }
-   subtitle={this.state.subtitle}
+          navigator={ this.props.navigation }
+          subtitle={this.state.subtitle}
+          title={item.nombrePeli}
+          subtitleContainerStyle={styles.backgroundVideoSubtitle}
+          subtitleStyle={styles.textVideoSubtitle}
 />
         {/* <Video
           // onTouchStart={hideShowpaused}
@@ -177,6 +195,24 @@ handleEnd = () => {
 export default Player;
 
 var styles = StyleSheet.create({
+  textVideoSubtitle:{
+    opacity: 1,
+    color: 'white',
+    fontSize: 20
+  },
+  backgroundVideoSubtitle:{
+    width: '40%',
+    height: '10%',
+    position: 'absolute',
+    top: "80%",
+    left: "30%",
+    bottom: 0,
+    right: 0,
+    textAlign:'center',
+    justifyContent:'center',
+    backgroundColor:'rgba(0, 0, 0, 0.14)',
+    borderRadius:20
+  },
   ViewVideo: {
     width: '100%',
     // height: '100%',
@@ -185,7 +221,6 @@ var styles = StyleSheet.create({
     left: 0,
     bottom: 0,
     right: 0,
-
   },
   backgroundVideo: {
     width:'100%',

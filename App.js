@@ -527,7 +527,7 @@ const App = () => {
               const { navigation, route } = props;
               const { item } = route.params;
               return (
-                <VideoPlayer item={item} />
+                <VideoPlayer item={item} navigation={navigation} />
                 // <TasksProvider user={user} projectPartition={projectPartition}>
                 //   <TasksView navigation={navigation} route={route} />
                 // </TasksProvider>
