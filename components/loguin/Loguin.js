@@ -19,19 +19,20 @@ import {Mensajes} from '../collections/collections'
 
 import Video from "react-native-video";
 import Orientation from 'react-native-orientation';
+import HeroBot from '../animations/HeroBot';
  
 
 
 class Loguin extends Component {
   
   componentDidMount() {
-
-    Orientation.unlockAllOrientations();
+    Orientation.lockToPortrait();
+    // Orientation.unlockAllOrientations();
   }
 
   componentWillUnmount() {
-    // Orientation.unlockAllOrientations();
-    Orientation.lockToPortrait();
+    Orientation.unlockAllOrientations();
+    // Orientation.lockToPortrait();
   }
   
   constructor(props) {
@@ -41,7 +42,7 @@ class Loguin extends Component {
     
     // Meteor.user() && navigation.navigate('Peliculas');
 
-    Meteor.user()&& (Meteor.user().profile.role == "admin" ? navigation.navigate('Users') : navigation.navigate('User', { item: Meteor.userId() }))
+    Meteor.user()&& (Meteor.user().profile.role == "admin" ? navigation.navigate('Users') : navigation.navigate('PeliculasVideos', { item: Meteor.userId() }))
 
     this.state = {
       ipserver: 'vidkar.ddns.net',
@@ -102,7 +103,7 @@ rate={1.0}
 ignoreSilentSwitch={"obey"}
 />
         <View style={backgroundStyle}>
-          
+          <HeroBot/>
           <View style={styles.container}>
             <Text style={{fontSize: 40,color:"white"}}>
               <FontAwesome5Icon name="house-user" size={100} />

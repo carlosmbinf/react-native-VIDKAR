@@ -10,6 +10,7 @@ import Modal from 'react-native-modal';
 import Subtitles from 'react-native-subtitles'
 import Orientation from 'react-native-orientation';
 import VideoPlayer from 'react-native-video-controls-subtitle';
+import { PelisRegister } from '../collections/collections';
 
 var {width: screenWidth} = Dimensions.get('window');
 var {height: screenHeight} = Dimensions.get('window');
@@ -21,25 +22,49 @@ class Player extends React.Component {
   }
 
   componentWillUnmount() {
-    Orientation.unlockAllOrientations();
+    
+    Orientation.lockToPortrait();
   }
 
   constructor(props) {
     super(props);
+    Meteor.subscribe('pelis', { _id: props.id }, {
+      fields: {
+      nombrePeli: 1,
+      urlPeli: 1,
+      urlBackground: 1,
+      descripcion: 1,
+      tamano: 1,
+      subtitulo: 1,
+      year: 1,
+      urlTrailer: 1,
+      vistas: 1,
+      clasificacion: 1,
+      idimdb: 1,
+      mostrar: 1
+    }}).ready()
     var { default: srtParser2 } = require("srt-parser-2")
+
+    
 
     this.state = {
       paused: false,
       isModalVisible: false,
       progress: 0,
-      duration: 0
+      duration: 0,
+      item: PelisRegister.findOne({ _id: props.id })
     };
+
+    this
 
     var parser = new srtParser2()
 
     var myHeaders = new Headers();
+
+
+    
     myHeaders.append('Content-Type','text/plain; charset=UTF-8');
-    fetch(props.item.subtitulo, myHeaders)
+    fetch(props.subtitulo, myHeaders)
       .then((response) => {
         response.text().then(text => this.setState({
           subtitle: parser.fromSrt(text)
@@ -50,10 +75,8 @@ class Player extends React.Component {
       console.error(error);
     });
 
-
-    
-
-
+   
+    console.log(props)
     
   }
 
@@ -100,8 +123,10 @@ handleEnd = () => {
 }
 
   render() {
-    const {item} = this.props;
+    const {id , navigation} = this.props;
     
+    const peli = PelisRegister.findOne({ _id: id })
+    console.log(peli);
     return (
       <View style={styles.ViewVideo}>
         {/* <Modal
@@ -121,18 +146,18 @@ handleEnd = () => {
               <Text>Hola</Text>
             </View>
           }></Modal> */}
-          <VideoPlayer
+          {peli && peli.urlPeli && <VideoPlayer
           style={styles.backgroundVideo}
           ref={ref => {
             this.player = ref;
           }} // Store reference
-          source={{uri: item.urlPeli}} // Can be a URL or a local file.
-          navigator={ this.props.navigation }
+          source={{uri: this.state.item.urlPeli}} // Can be a URL or a local file.
+          navigator={ navigation }
           subtitle={this.state.subtitle}
-          title={item.nombrePeli}
+          title={peli.nombrePeli}
           subtitleContainerStyle={styles.backgroundVideoSubtitle}
           subtitleStyle={styles.textVideoSubtitle}
-/>
+/>}
         {/* <Video
           // onTouchStart={hideShowpaused}
           
@@ -215,12 +240,13 @@ var styles = StyleSheet.create({
   },
   ViewVideo: {
     width: '100%',
-    // height: '100%',
+    height: '100%',
     position: 'absolute',
     top: 0,
     left: 0,
     bottom: 0,
     right: 0,
+    backgroundColor: 'black'
   },
   backgroundVideo: {
     width:'100%',

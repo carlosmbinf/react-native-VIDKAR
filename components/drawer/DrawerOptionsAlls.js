@@ -9,6 +9,15 @@ const { height: screenHeight } = Dimensions.get('window');
 const DrawerOptionsAlls = (opt) => {
   const [active, setActive] = React.useState('');
 
+
+  const opcionesServicios = [
+    {
+      label: "Pelis y Videos",
+      url:"PeliculasVideos",
+      icon:"movie-filter"
+    }
+  ]
+
   const opcionesAdministradores = [
     {
       label: "Agregar Usuarios",
@@ -23,11 +32,6 @@ const DrawerOptionsAlls = (opt) => {
     {
       label: "Consumo Proxy",
       url:"ConsumoUsers",
-      icon:"chart-donut"
-    },
-    {
-      label: "Pelis y Videos",
-      url:"PeliculasVideos",
       icon:"chart-donut"
     }
   ]
@@ -46,6 +50,21 @@ const DrawerOptionsAlls = (opt) => {
     <ScrollView>
       <Surface style={{minHeight:screenHeight-180}}>
       
+      <Drawer.Section title="Servicios VidKar">
+        {opcionesServicios.map(element => {
+          return (
+            <Drawer.Item
+              icon={element.icon}
+              label={element.label}
+              active={active === element.url}
+              onPress={() => { 
+                // setActive(element.url); 
+                opt.navigation.navigation.navigate(element.url) }}
+            />)
+        }
+        )}
+      </Drawer.Section>
+
       <Drawer.Section title="Opciones de Administradores">
         {opcionesAdministradores.map(element => {
           return (

@@ -58,7 +58,7 @@ const PelisCard = item => {
             marginTop: 'auto',
             backgroundColor: '#3f4b5b',
             borderRadius: 30,
-            marginBottom: 10,
+            marginBottom: 20,
             marginLeft: 10,
             marginRight: 10,
             alignItems: 'center',
@@ -146,8 +146,8 @@ const PelisCard = item => {
                 //   'https://srv5119-206152.vps.etecsa.cu/pelis/' + itemlocal._id,
                 // );
                 // item.navigation.navigation.navigate('Video');
-                // console.log(item)
-                item.navigation.navigationGeneral.navigate('Video', item);
+                console.log(item)
+                item.navigation.navigationGeneral.navigate('Video', { id: item.item._id, subtitulo: item.item.subtitulo });
                 setModalVisible(false);
               }}
               title="Learn More"
@@ -176,7 +176,7 @@ const PelisCard = item => {
           {/* <Card.Title title="Card Title" subtitle="Card Subtitle" left={LeftContent} /> */}
           <Card.Content>
             <Title style={{color: 'red'}}>{itemlocal.nombrePeli}</Title>
-            <Paragraph>{itemlocal.tamano}MB</Paragraph>
+            <Paragraph>{itemlocal.year}</Paragraph>
             <Card.Cover
               source={{
                 uri: itemlocal.urlBackground,

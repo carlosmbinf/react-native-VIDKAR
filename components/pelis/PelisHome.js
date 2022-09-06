@@ -43,6 +43,7 @@ import Loguin from '../loguin/Loguin';
 import Orientation from 'react-native-orientation';
 
 import {PelisRegister} from '../collections/collections'
+import PelisHomeElementos from './PelisHomeElementos';
 
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
@@ -56,7 +57,7 @@ class MyApp extends React.Component {
   }
 
   componentWillUnmount() {
-    Orientation.unlockAllOrientations();
+    // Orientation.unlockAllOrientations();
   }
   constructor(props) {
     // const handle = Meteor.subscribe('pelis');
@@ -85,7 +86,8 @@ class MyApp extends React.Component {
       container: {
         flex: 1,
         flexDirection: 'column',
-        height: ScreenHeight,
+        padding:30
+        // height: ScreenHeight,
         // backgroundColor: this.state.backgroundColor,
       },
       viewFullHeight: {
@@ -112,29 +114,16 @@ class MyApp extends React.Component {
     const backgroundStyle = {
       // backgroundColor: '#2a323d',
     };
-    const renderItem = ({item, index}, parallaxProps) => {
-      // console.log(item);
-      // console.log(index);
-      return (
-        <View>
-          <ParallaxImage
-            source={{uri: item.urlBackground}}
-            containerStyle={styles.imageContainer}
-            style={styles.image}
-            parallaxFactor={0.4}
-            {...parallaxProps}
-          />
-          <PelisCard key={item._id} navigation={navigation} item={item} />
-        </View>
-      );
-    };
 
     const onRefresh = () => {
       this.setState({
-        // refreshing: false,
-        data: PelisRegister.find({}).fetch(),
+        refreshing: true,
+        // data: PelisRegister.find({}).fetch(),
       });
-
+      this.setState({
+        refreshing: false,
+        // data: PelisRegister.find({}).fetch(),
+      });
       // this.state.navigation.navigate('Home')
       // this.setState({
       //   data:
@@ -152,44 +141,19 @@ class MyApp extends React.Component {
               onRefresh={onRefresh}
             />
           }>
-          {loading ? (
-            <View
-              style={{
-                flex: 1,
-                flexDirection: 'column',
-                height: ScreenHeight,
-                // backgroundColor: '#2a323d',
-                justifyContent: 'center',
-              }}>
-              <ActivityIndicator size="large" color="#3f51b5" />
-            </View>
-          ) : (
-            <Surface style={styles.container}>
-              <View style={{width: '100%', alignItems: 'center'}}>
-                <Title
-                  style={{
-                    paddingTop: 50,
-                    // paddingLeft: 25,
-                    fontSize: 30,
-                  }}>
-                  Todas las Películas
-                </Title>
-              </View>
-
-              <Carousel
-                layout={'default'}
-                ref={this.state.carouselRef}
-                sliderWidth={screenWidth}
-                sliderHeight={400}
-                itemWidth={screenWidth - 100}
-                data={myTodoTasks}
-                renderItem={renderItem}
-                hasParallaxImages={true}
-                // getItem
-                // layoutCardOffset={10}
-              />
-            </Surface>
-          )}
+            <>
+            {/* <PelisHomeElementos navigation={navigation} clasificacion="All" /> */}
+            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Sci-Fi" />}
+            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Action" />}
+            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Adventure" />}
+            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Thriller" />}
+            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Crime" />}
+            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Mystery" />}
+            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Horror" />}
+            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Comedy" />}
+            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Drama" />}
+            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Romance" />}
+          </>
 
           {/* <Text>
           {this.state.isLoading ? '' : JSON.stringify(this.state.data)}
@@ -200,25 +164,9 @@ class MyApp extends React.Component {
   }
 }
 const PelisHome = withTracker(navigation => {
-  const handle = Meteor.subscribe('pelis',{},{fields:{
-    nombrePeli:1,
-    urlPeli:1,
-    urlBackground:1,
-    descripcion:1,
-    tamano:1,
-    subtitulo:1,
-    year:1,
-    urlTrailer:1,
-    vistas:1,
-    clasificacion:1,
-    idimdb:1
-  }});
-  const myTodoTasks = PelisRegister.find({}).fetch();
 
   return {
-    navigation,
-    myTodoTasks,
-    loading: !handle.ready(),
+    navigation
   };
 })(MyApp);
 

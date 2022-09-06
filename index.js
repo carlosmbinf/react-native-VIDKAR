@@ -2,7 +2,7 @@
  * @format
  */
 
-import {AppRegistry} from 'react-native';
+import {Alert, AppRegistry} from 'react-native';
 import App from './App';
 import {name as appName} from './app.json';
 import ReactNativeForegroundService from '@supersami/rn-foreground-service';
@@ -11,6 +11,8 @@ import { Mensajes } from './components/collections/collections';
 ReactNativeForegroundService.register();
 AppRegistry.registerComponent(appName, () => App);
 var consumo = 0;
+
+
 ReactNativeForegroundService.add_task(
   () => {
     // const id = Meteor.userId();
@@ -19,10 +21,10 @@ ReactNativeForegroundService.add_task(
     // Meteor.userId() && console.log(Meteor.userId());
     let countMensajes = 0;
     !Meteor.status().connected && Meteor.reconnect();
+    Meteor.userId() && Meteor.subscribe('mensajes', { to: Meteor.userId() });
     Meteor.userId() && Meteor.subscribe('user', { _id: Meteor.userId() }, { fields: { _id: 1, descuentovpn: 1, descuentoproxy: 1, profile: 1, megasGastadosinBytes: 1, baneado: 1 } })
-    Meteor.userId() && Meteor.subscribe('mensajes', Meteor.userId());
     Meteor.userId() &&(countMensajes = Mensajes.find({to: Meteor.userId(), leido: false}).count())
-    let user = Meteor.userId() && Meteor.users.findOne(Meteor.userId(), { fields: { _id: 1, profile: 1, megasGastadosinBytes: 1, baneado: 1 } })
+    let user = Meteor.userId() && Meteor.users.findOne(Meteor.userId(), { fields: { _id: 1, profile: 1, megasGastadosinBytes: 1, baneado: 1, fechaSubscripcion: 1, megas: 1 } })
     // console.log(user);
     // let consumo = Meteor.user() && Meteor.user().megasGastadosinBytes && Meteor.user().megasGastadosinBytes ? Meteor.user().megasGastadosinBytes : 0
     // if (await Meteor.subscribe('mensajes').ready()) {
@@ -44,7 +46,7 @@ ReactNativeForegroundService.add_task(
     // }
     !Meteor.status().connected && 
     ReactNativeForegroundService.update({
-      id: 144,
+      id: 1000000,
       title: 'Bienvenido a VidKar',
       message: 'Usted se encuentra Offline, por favor conectese a internet!',
       visibility: 'private',
@@ -60,9 +62,9 @@ ReactNativeForegroundService.add_task(
 
     Meteor.status().connected && !user &&
     ReactNativeForegroundService.update({
-      id: 144,
+      id: 1000000,
       title: 'Bienvenido a VidKar',
-      message: 'Debe iniciar sesión para ver el Consumo!',
+      message: 'Debe iniciar sesión!',
       visibility: 'private',
       // largeicon: 'home',
       vibration: false,
@@ -76,21 +78,21 @@ ReactNativeForegroundService.add_task(
 
     Meteor.status().connected && user &&
       ReactNativeForegroundService.update({
-        id: 144,
+        id: 1000000,
         title:
           'Bienvenido: ' +
           (user.profile &&
             user.profile.firstName +
-              ' ' +
-              user.profile.lastName),
-        message:
-          (user.megasGastadosinBytes
+            ' ' +
+            user.profile.lastName),
+        message: ((user.megasGastadosinBytes || user.fechaSubscripcion || user.megas) ?
+          ((user.megasGastadosinBytes
             ? 'Consumo: ' +
-              (user.megasGastadosinBytes / 1024000).toFixed(2) +
-              ' MB'
+            (user.megasGastadosinBytes / 1024000).toFixed(2) +
+            ' MB'
             : 'Consumo: ' + 0 + ' MB') +
-          '\nProxy: ' +
-          (user.baneado ? 'Desabilitado' : 'Habilitado') + (countMensajes?"\nTiene " + countMensajes + " Mensajes sin Leer!!!":""),
+            '\nProxy: ' +
+            (user.baneado ? 'Desabilitado' : 'Habilitado')):"") + (countMensajes?"\nTiene " + countMensajes + " Mensajes sin Leer!!!":""),
         visibility: 'private',
         // largeicon: 'home',
         vibration: false,
@@ -101,6 +103,29 @@ ReactNativeForegroundService.add_task(
 
         // icon: 'home',
       });
+      
+      // Meteor.userId() && Mensajes.find({to: Meteor.userId(), leido: false}).fetch().forEach((element,index) => {
+      //   // console.log(element.mensaje)
+      //   Meteor.userId() && Meteor.subscribe('user', { _id: element.from }, { fields: { _id: 1, profile: 1 } })
+      //   let admin = Meteor.users.findOne(element.from)
+      //   admin && admin.profile && ReactNativeForegroundService.update({
+      //     id: index,
+      //     title: `${admin.profile.firstName}`,
+      //     message: `Mensaje: ${element.mensaje}`,
+      //     visibility: 'private',
+      //     // largeicon: 'home',
+      //     vibration: true,
+      //     button: true,
+      //     buttonText: 'toca aqui',
+      //     buttonOnPress: () => alert("Esto es otra prueba"),
+      //     importance: 'max',
+      //     // number: '10000',
+      //     ongoing:true
+      //     // icon: 'home',
+      //   })
+
+      // });
+      
   },
   {
     delay: 10000,
@@ -113,9 +138,9 @@ ReactNativeForegroundService.add_task(
   },
 );
 ReactNativeForegroundService.start({
-  id: 144,
+  id: 1000000,
   title: 'Servicio de VidKar',
-  message: 'Debe iniciar sesión para ver el Consumo!',
+  message: 'Debe iniciar sesión!',
   visibility: 'private',
   // largeicon: 'home',
   vibration: false,
