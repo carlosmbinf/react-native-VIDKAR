@@ -54,6 +54,7 @@ import {
 import Orientation from 'react-native-orientation';
 import { Mensajes as MensajesCollection } from '../collections/collections';
 import { GiftedChat } from 'react-native-gifted-chat';
+import moment from 'moment';
 
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
@@ -114,7 +115,8 @@ class MyApp extends React.Component {
 
     //  console.log({user});
     return (
-      <Surface style={{ flex: 1 }}>
+      <>
+      
         {/* <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           // style={backgroundStyle}
@@ -125,7 +127,7 @@ class MyApp extends React.Component {
         //    />
         //  }
         > */}
-          {loading ? (
+          {loading && myTodoTasks ? (
             <View
               style={{
                 flex: 1,
@@ -156,16 +158,16 @@ class MyApp extends React.Component {
                 alignTop={true}
                 infiniteScroll={true}
                 wrapInSafeArea={true}
-                // forceGetKeyboardHeight={true}
+                forceGetKeyboardHeight={true}
                 // scrollToBottomComponent={Button}
                 // renderUsernameOnMessage={true}
                 // renderAvatarOnTop={true}
-                isTyping={true}
+                // isTyping={true}
                 // onQuickReply={element => alert(JSON.stringify(element))}
                 // loadEarlier={true}
                 // isLoadingEarlier={true}
-                renderQuickReplySend={<Button>HOLA</Button>}
-                textInputProps={{ color: "black" }}
+                // renderQuickReplySend={<Button>HOLA</Button>}
+                // textInputProps={{ color: "black" }}
                 // showAvatarForEveryMessage={true}
                 onSend={message => this.sendMensaje(message)}
                 // alwaysShowSend={true}
@@ -175,10 +177,8 @@ class MyApp extends React.Component {
               />
               {/* </ScrollView> */}
 
-
               {/* <Text>{myTodoTasks.length}</Text> */}
               {/* {myTodoTasks.length == 0 ? <Text>SIN MENSAJES</Text> : myTodoTasks.map(item => <Mensajes item={item} />)} */}
-
             </View>
 
             // <FlatList
@@ -224,7 +224,7 @@ class MyApp extends React.Component {
             )}
           </Surface>
         )} */}
-      </Surface>
+        </>
     );
   }
 }
@@ -235,34 +235,39 @@ function sortFunction(a, b) {
   return dateA < dateB ? 1 : -1;
 };
 
-const MensajesHome = withTracker(user => {
-  //  console.log(user.user)
+const MensajesHome = withTracker((user )=> {
+   console.log(user.user)
   // const handle = Meteor.subscribe('mensajes', user.user._id);
-
+  let id = user.user
 
 
   // const myTodoTasks = MensajesCollection.find({ to: user.user._id }).fetch();
 
-  const handle = Meteor.subscribe("mensajes",{ $or: [{ $and: [{ from: id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: id }] }] }, { sort: { createdAt: -1 } });
+  const handle =  Meteor.subscribe("mensajes",{ $or: [{ $and: [{ from: id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: id }] }] }, { sort: { createdAt: -1 } });
+   Meteor.subscribe("user", id, { fields: { "profile.firstName": 1, "profile.lastName": 1 } })
+  
 
-  let id = user.user
   let list = []
   // let mensajes = MensajesCollection.find({ $or: [{ from: Meteor.userId() }, { from: from }, { to: Meteor.userId() }, { to: from }] }, { sort: { createdAt: -1 } }).fetch()
-  let mensajes = MensajesCollection.find({ $or: [{ $and: [{ from: id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: id }] }] }, { sort: { createdAt: -1 } }).fetch()
-
+  let mensajes =  MensajesCollection.find({ $or: [{ $and: [{ from: id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: id }] }] }, { sort: { createdAt: -1 } }).fetch()
+  
   // console.log(JSON.stringify(mensajes));
-  mensajes.forEach(element => {
-    Meteor.subscribe("user", element.from, { fields: { "profile.firstName": 1, "profile.lastName": 1 } })
+  mensajes.forEach(async (element) => {
+    
     element.to == Meteor.userId() && !element.leido && MensajesCollection.update(element._id, { $set: { leido: true } })
     // let firstName = user(element.from) && user(element.from).profile && user(element.from).profile.firstName
     // let lastName = user(element.from) && user(element.from).profile && user(element.from).profile.lastName
-    list.push(
+
+    console.log("element.createdAt",moment(new Date(element.createdAt)));
+
+
+     list.push(
       {
         _id: element._id,
         // position: element.from == Meteor.userId() ? "right" : "left",
         // type: element.type ? element.type : "text",
         text: element.mensaje,
-        createdAt: element.createdAt,
+        // createdAt: element.createdAt && moment(new Date(element.createdAt)).locale,
         user: {
           _id: element.from,
           name: Meteor.users.findOne(element.from) && Meteor.users.findOne(element.from).profile.firstName + " " + Meteor.users.findOne(element.from).profile.lastName,
@@ -270,28 +275,28 @@ const MensajesHome = withTracker(user => {
         }
         ,
         sent: true,
-        received: element.leido
+        received: element.leido,
         // theme: 'black',
-        // data: {
-        //     videoURL: 'https://www.w3schools.com/html/mov_bbb.mp4',
-        //     audioURL: 'https://www.w3schools.com/html/horse.mp3',
-        //     uri: `/favicon.ico`,
-        //     status: {
-        //         click: true,
-        //         loading: 0.5,
-        //         download: element.type === 'video',
-        //     },
-        //     size: "100MB",
-        //     width: 300,
-        //     height: 300,
-        //     latitude: '37.773972',
-        //     longitude: '-122.431297',
-        //     staticURL: 'https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s-circle+FF0000(LONGITUDE,LATITUDE)/LONGITUDE,LATITUDE,ZOOM/270x200@2x?access_token=KEY',
-        // }
+        data: {
+            videoURL: 'https://www.w3schools.com/html/mov_bbb.mp4',
+            audioURL: 'https://www.w3schools.com/html/horse.mp3',
+            uri: `/favicon.ico`,
+            status: {
+                click: true,
+                loading: 0.5,
+                download: element.type === 'video',
+            },
+            size: "100MB",
+            width: 300,
+            height: 300,
+            latitude: '37.773972',
+            longitude: '-122.431297',
+            staticURL: 'https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s-circle+FF0000(LONGITUDE,LATITUDE)/LONGITUDE,LATITUDE,ZOOM/270x200@2x?access_token=KEY',
+        }
       }
     )
   })
-  list.sort(sortFunction);
+  //await list.sort(sortFunction);
 
   return {
     user: user.user,

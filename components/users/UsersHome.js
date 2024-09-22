@@ -106,7 +106,7 @@ class MyApp extends React.Component {
     !Meteor.userId() && navigation.navigation.navigate("Loguin")
   }
   render() {
-    const { loading, navigation, myTodoTasks } = this.props;
+    const { loading, navigation, myTodoTasks,isConnectedProxyOrWeb } = this.props;
     // let isDarkMode = {
     //   return (useColorScheme() === 'dark');
     // };
@@ -251,18 +251,32 @@ class MyApp extends React.Component {
       // Meteor.subscribe('conexiones', { userId: item._id }, { fields: { userId: 1 } });
       // let connected = Online.find({ userId: item._id },{ fields: { userId: 1 }, limit: 1 }).count() > 0 ? true : false;
 
+      //concatenar username con vpn megas gastados y megas consumidos
+      let descripcion = `${item.username}\n${"VPN: " + item.vpnMbGastados}\n${"PROXY: " + item.megasGastadosinBytes}`
       return (
         <Surface key={"Surface_" + item._id} style={{ elevation: 12, margin: 10, borderRadius: 20 }}>
           <List.Item
+
             key={"Item_" + item._id}
             onPress={() => {
               // Alert.alert('Holaaa', item);
               // console.log(navigation);
               navigation.navigation.navigate('User', { item: item._id });
             }}
+            // onLongPress={() => {
+            //   Alert.alert('Holaaa', descripcion);
+            //   // console.log(navigation);
+            //   // navigation.navigation.navigate('User', { item: item._id });
+            // }}
             title={item && (item.profile.firstName + ' ' + item.profile.lastName)}
             //  titleStyle={{fontSize: 20}}
-            description={item.username}
+            description={<>
+              <View>
+                <Text>USUARIO:   {item.username}</Text>
+                <Text>VPN:            {item.vpnMbGastados ? (item.vpnMbGastados / 1024000000).toFixed(2) : 0} GB  = {item.vpnMbGastados ? (item.vpnMbGastados / 1024000).toFixed(2) : 0} MB</Text>
+                <Text>PROXY:        {item.megasGastadosinBytes ? (item.megasGastadosinBytes / 1024000000).toFixed(2) : 0} GB  = {item.megasGastadosinBytes ? (item.megasGastadosinBytes / 1024000).toFixed(2) : 0} MB</Text>
+              </View>
+            </>}
             left={props =>
               item && item.picture ? (
                 <View style={{ justifyContent: 'center' }}>
@@ -278,7 +292,9 @@ class MyApp extends React.Component {
                       borderWidth: 3,
                     }}
                     visible={
-                      false
+                      (item.vpnplusConnected || item.vpn2mbConnected || (isConnectedProxyOrWeb && isConnectedProxyOrWeb.length > 0 &&
+                        isConnectedProxyOrWeb.filter(online => online.userId && online.userId == item._id).length > 0))
+                        ? true : false
                       // connected
                     }
                   />
@@ -302,7 +318,9 @@ class MyApp extends React.Component {
                       borderWidth: 3,
                     }}
                     visible={
-                      false
+                      (item.vpnplusConnected || item.vpn2mbConnected || (isConnectedProxyOrWeb && isConnectedProxyOrWeb.length > 0 &&
+                        isConnectedProxyOrWeb.filter(online => online.userId && online.userId == item._id).length > 0))
+                        ? true : false
                       // connected
                     }
                   />
@@ -318,24 +336,33 @@ class MyApp extends React.Component {
               )
             }
             // right={props => ()}
-            right={props => (
-              <View style={{ justifyContent: 'center' }}>
-                <IconButton
-                  icon="message"
+            right={props => {
+              return <View style={{ justifyContent: 'center' }}>
+                {item.idtelegram &&
+                  <IconButton
+                  loading={true}
+                  icon={item.notificarByTelegram ? "cellphone-message" : "cellphone-message-off"}
                   // disabled={this.state.valuevpn ? false : true}
-                  color='violet'
+                  color={item.notificarByTelegram ? "black" : "red"}
                   mode="contained"
+                  size={30}
                   onPress={() => {
-                    navigation.navigation.navigate('Mensaje', { item: item._id })
-                  }}
-                ></IconButton>
+                    Meteor.call("changeNotificacionTelegram", item._id, (error, result) => {
+                      error && alert(error.message)
 
+                    })
+
+                  }}
+                  />
+                }
               </View>
-            )}
+            }}
           />
         </Surface>
       );
     };
+
+
     //     <TouchableHighlight
     //       onPress={() => {
     //         // Alert.alert('Holaaa', item.username);
@@ -445,15 +472,18 @@ class MyApp extends React.Component {
   }
 }
 const UserHome = withTracker(navigation => {
-  const handle = Meteor.subscribe('user', (Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, picture: 1 } });
+  const handle = Meteor.subscribe('user', (Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { fields: { username: 1, profile: 1, picture: 1, vpnMbGastados: 1, megasGastadosinBytes: 1, idtelegram: 1,notificarByTelegram:1,vpnplusConnected:1,vpn2mbConnected:1 } });
+  Meteor.subscribe("online",{},{fields:{userId:1}})
+  let myTodoTasks = Meteor.users.find((Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { "vpnMbGastados": -1, "megasGastadosinBytes": -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, picture: 1, vpnMbGastados: 1, megasGastadosinBytes: 1, idtelegram: 1 , notificarByTelegram:1,vpnplusConnected:1,vpn2mbConnected:1} }).fetch();
 
-  let myTodoTasks = Meteor.users.find((Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, picture: 1 } }).fetch();
+  let isConnectedProxyOrWeb = Online.find({},{fields:{userId:1}})
 
   // handle.ready() && console.log(Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }).fetch());
   return {
     navigation,
     myTodoTasks,
     loading: !handle.ready(),
+    isConnectedProxyOrWeb
   };
 })(MyApp);
 

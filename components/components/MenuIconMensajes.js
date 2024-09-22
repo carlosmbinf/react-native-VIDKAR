@@ -202,8 +202,8 @@ class MyApp extends React.Component {
                   <View key={index}>
                     <List.Item
                       onPress={() => {
-                        this.setState({ menuVisible: false })
-                        navigation.navigation.navigate('Mensaje', { item: item })
+                        // this.setState({ menuVisible: false })
+                        // navigation.navigation.navigate('Mensaje', { item: item })
 
                         // Alert.alert(
                         //   Meteor.users.findOne({_id: item.from}) &&

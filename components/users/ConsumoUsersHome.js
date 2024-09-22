@@ -445,9 +445,7 @@ class MyApp extends React.Component {
 }
 const ConsumoUserHome = withTracker(navigation => {
   const handle = Meteor.subscribe('user', (Meteor.user().username == "carlosmbinf" ? { $or: [{ megasGastadosinBytes: { $gt: 0 } }, {baneado: false}] } : { $or: [{ megasGastadosinBytes: { $gt: 0 } }, {baneado: false}], $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, picture: 1, megas: 1 } });
-
   let myTodoTasks = Meteor.users.find((Meteor.user().username == "carlosmbinf" ? { $or: [{ megasGastadosinBytes: { $gt: 0 } }, {baneado: false}] } : { $or: [{ megasGastadosinBytes: { $gt: 0 } }, {baneado: false}], $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, picture: 1, megas: 1 } }).fetch();
-
   // handle.ready() && console.log(Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }).fetch());
   return {
     navigation,

@@ -24,23 +24,29 @@ const DrawerOptionsAlls = (opt) => {
       url:"CreateUsers",
       icon:"account-plus"
     },
-    {
-      label: "Mensajes",
-      url:"AllMensajesUser",
-      icon:"message"
-    },
-    {
-      label: "Consumo Proxy",
-      url:"ConsumoUsers",
-      icon:"chart-donut"
-    }
+    // {
+    //   label: "Mensajes",
+    //   url:"AllMensajesUser",
+    //   icon:"message"
+    // },
+    // {
+    //   label: "Consumo Proxy",
+    //   url:"ConsumoUsers",
+    //   icon:"chart-donut"
+    // }
   ]
   const opcionesAdministradorGeneral = [
     {
       label: "Registro de Logs",
       url:"Logs",
       icon:"vpn"
-    }
+    },
+    {
+      label: "Ventas",
+      url:"Ventas",
+      icon:"vpn"
+    },
+
   ]
   return (
     <>
@@ -50,7 +56,7 @@ const DrawerOptionsAlls = (opt) => {
     <ScrollView>
       <Surface style={{minHeight:screenHeight-180}}>
       
-      <Drawer.Section title="Servicios VidKar">
+      {/* <Drawer.Section title="Servicios VidKar">
         {opcionesServicios.map(element => {
           return (
             <Drawer.Item
@@ -63,7 +69,7 @@ const DrawerOptionsAlls = (opt) => {
             />)
         }
         )}
-      </Drawer.Section>
+      </Drawer.Section> */}
 
       <Drawer.Section title="Opciones de Administradores">
         {opcionesAdministradores.map(element => {

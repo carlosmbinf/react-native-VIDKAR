@@ -112,58 +112,13 @@ class MyAppUserDetails extends React.Component {
       // validacion = ((item.profile.role == "admin") ? true  : false);
         if (!validacion) return null
   
-  
-      if (item.vpn || item.vpnplus || item.vpn2mb) {
-  
-  
-        let nextIp = Meteor.users.findOne({}, { sort: { vpnip: -1 } }) ? Meteor.users.findOne({}, { sort: { vpnip: -1 } }).vpnip : 1
-        let precioVPN = item.vpnisIlimitado
-          ?
-          (PreciosCollection.findOne({ type: "fecha-vpn" }))
-          : (item.vpnplus
-            ? (PreciosCollection.findOne({ type: "vpnplus", megas: item.vpnmegas }))
-            : (item.vpn2mb
-              ? (PreciosCollection.findOne({ type: "vpn2mb", megas: item.vpnmegas }))
-              : 0))
-        //  PreciosCollection.findOne(item.vpnplus?{ type: "vpnplus" }:(item.vpn2mb?{ type: "vpn2mb" }))
-        !item.vpnip &&
-          Meteor.users.update(item._id, {
-            $set: {
-              vpnip: nextIp + 1
-            },
-          })
-        Meteor.users.update(item._id, {
-          $set: {
-            vpn: item.vpn ? false : true
-          },
+        Meteor.call("addVentasVPN", item._id, Meteor.userId(), (error, result) => {
+          if (error) {
+            alert(error.message);
+          } else {
+            result && alert(result);
+          }
         });
-        Logs.insert({
-          type: 'VPN',
-          userAfectado: item._id,
-          userAdmin: Meteor.userId(),
-          message:
-            `Se ${!item.vpn ? "Activo" : "Desactivó"} la VPN`
-        });
-        !item.vpn && VentasCollection.insert({
-          adminId: Meteor.userId(),
-          userId: item._id,
-          precio: (precioVPN.precio - Meteor.user().descuentovpn > 0) ? (precioVPN.precio - Meteor.user().descuentovpn) : 0,
-          comentario: precioVPN.comentario
-        })
-        // !item.vpn && alert(`Se Compró el Servicio VPN con un costo: ${(precioVPN.precio - Meteor.user().descuentovpn >= 0) ? (precioVPN.precio - Meteor.user().descuentovpn) : 0}CUP`)
-        !item.vpn && (alert(precioVPN.comentario))
-        
-        Meteor.call('sendemail', item, { text: `Se ${!item.vpn ? "Activo" : "Desactivó"} la VPN para el usuario: ${item.username}${item.descuentovpn ? ` Con un descuento de: ${item.descuentovpn}CUP` : ""}` }, `VPN ${Meteor.user().username}`)
-        Meteor.call('sendMensaje', item, { text: `Se ${!item.vpn ? "Activo" : "Desactivó"} la VPN para ${item.username}` }, `VPN ${Meteor.user().username}`)
-  
-       
-  
-      }
-      else {
-        alert("INFO!!!\nPrimeramente debe seleccionar una oferta de VPN!!!"),
-        handleClickOpen()
-        // alert("INFO!!!\nPrimeramente debe seleccionar una oferta de VPN!!!")
-      }
     };
     
 
@@ -179,114 +134,18 @@ class MyAppUserDetails extends React.Component {
       // validacion = ((item.profile.role == "admin") ? true  : false);
         if (!validacion) return null
   
-      // item.profile.role == 'admin' ? (
-      //   (Meteor.users.update(item._id, {
-      //     $set: {
-      //       baneado: item.baneado ? false : true,
-      //       bloqueadoDesbloqueadoPor: Meteor.userId()
-      //     },
-      //   }),
-      //     LogsCollection.insert({
-      //       type: "PROXY",
-      //       userAfectado: item._id,
-      //       userAdmin: Meteor.userId(),
-      //       message:
-      //         "Ha sido " +
-      //         (!item.baneado ? "Desactivado" : "Activado") +
-      //         " por un Admin"
-      //     }),
-      //     Meteor.call('sendemail', item, {
-      //       text: "Ha sido " +
-      //         (!item.baneado ? "Desactivado" : "Activado") +
-      //         ` el proxy del usuario ${item.username}`
-      //     }, (!item.baneado ? "Desactivado " + Meteor.user().username : "Activado " + Meteor.user().username)),
-      //     Meteor.call('sendMensaje', item, {
-      //       text: "Ha sido " +
-      //         (!item.baneado ? "Desactivado" : "Activado") +
-      //         ` el proxy del usuario ${item.username}`
-      //     }, (!item.baneado ? "Desactivado " + Meteor.user().username : "Activado " + Meteor.user().username))
-      //   )
-      // ) : (
-  
-        !item.baneado ?
-          (Meteor.users.update(item._id, {
-            $set: {
-              baneado: true,
-              bloqueadoDesbloqueadoPor: Meteor.userId()
-            },
-          }),
-            Logs.insert({
-              type: !item.baneado ? "Desactivado" : "Activado",
-              userAfectado: item._id,
-              userAdmin: Meteor.userId(),
-              message:
-                "Ha sido " +
-                (!item.baneado ? "Desactivado" : "Activado") +
-                " por un Admin"
-            }),
-            Meteor.call('sendemail', item, {
-              text: "Ha sido " +
-                (!item.baneado ? "Desactivado" : "Activado") +
-                ` el proxy del usuario ${item.username}`
-            }, (!item.baneado ? "Desactivado " + Meteor.user().username : "Activado " + Meteor.user().username)),
-            Meteor.call('sendMensaje', item, {
-              text: "Ha sido " +
-                (!item.baneado ? "Desactivado" : "Activado") +
-                ` el proxy del usuario ${item.username}`
-            }, (!item.baneado ? "Desactivado " + Meteor.user().username : "Activado " + Meteor.user().username)))
-          
-  
-        : (
-          Meteor.users.update(item._id, {
-            $set: {
-              baneado: item.baneado ? false : true,
-              bloqueadoDesbloqueadoPor: Meteor.userId()
-            },
-          }),
-          Logs.insert({
-            type: !item.baneado ? "Desactivado" : "Activado",
-            userAfectado: item._id,
-            userAdmin: Meteor.userId(),
-            message:
-              "Ha sido " +
-              (!item.baneado ? "Desactivado" : "Activado") +
-              " por un Admin"
-          }),
-          Meteor.call('sendemail', item, {
-            text: "Ha sido " +
-              (!item.baneado ? "Desactivado" : "Activado") +
-              ` el proxy del usuario ${item.username}`
-          }, (!item.baneado ? "Desactivado " + Meteor.user().username : "Activado " + Meteor.user().username)),
-          Meteor.call('sendMensaje', item, {
-            text: "Ha sido " +
-              (!item.baneado ? "Desactivado" : "Activado") +
-              ` el proxy del usuario ${item.username}`
-          }, (!item.baneado ? "Desactivado " + Meteor.user().username : "Activado " + Meteor.user().username)),
-          precios.map(precio => {
-            console.log()
-            item.isIlimitado && precio.type == "fecha-proxy" && 
-            (VentasCollection.insert({
-              adminId: Meteor.userId(),
-              userId: item._id,
-              precio: (precio.precio - Meteor.user().descuentoproxy > 0) ? (precio.precio - Meteor.user().descuentoproxy) : 0,
-              comentario: precio.comentario
-            }),
-              alert(precio.comentario)
-            )
-  
-              !item.isIlimitado && precio.type == "megas" && (precio.megas == item.megas) && 
-              (VentasCollection.insert({
-                  adminId: Meteor.userId(),
-                  userId: item._id,
-                  precio: (precio.precio - Meteor.user().descuentoproxy > 0) ? (precio.precio - Meteor.user().descuentoproxy) : 0,
-                  comentario: precio.comentario
-                }),
-                alert(precio.comentario)
-              )
-          })
-        )
-      // )
-  
+        Meteor.call(
+          "addVentasProxy",
+          item._id,
+          Meteor.userId(),
+          (error, result) => {
+            if (error) {
+              alert(error.message);
+            } else {
+              result && alert(result);
+            }
+          }
+        );
   
     }
 
@@ -794,7 +653,7 @@ class MyAppUserDetails extends React.Component {
                         <Text style={{ paddingTop: 10, textAlign: 'center' }}>
                           Estado del Proxy:
                         </Text>
-                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                        <View style={{ paddingBottom: 10, textAlign: 'center' }}>
                           {Meteor.user().profile.role == 'admin' ? (
                             // <Switch
                             //   value={!item.baneado}
@@ -815,11 +674,11 @@ class MyAppUserDetails extends React.Component {
                               {item.baneado ? "Habilitar" : "Desabilitar"}
                             </Button>
                           ) : item.baneado ? (
-                            'Desabilitado'
+                            <Text>Desabilitado</Text>
                           ) : (
-                            'Habilitado'
+                            <Text>Habilitado</Text>
                           )}
-                        </Text>
+                        </View>
                       </Surface>
                     </View>
                   </Card.Content>
@@ -1169,7 +1028,7 @@ class MyAppUserDetails extends React.Component {
                         <Text style={{ paddingTop: 10, textAlign: 'center' }}>
                           Estado:
                         </Text>
-                        <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
+                        <View style={{ paddingBottom: 10, textAlign: 'center' }}>
                     {Meteor.user().profile.role == 'admin' ? (
                       // <Switch
                       //   value={!item.baneado}
@@ -1190,11 +1049,11 @@ class MyAppUserDetails extends React.Component {
                         {!item.vpn ? "Habilitar" : "Desabilitar"}
                       </Button>
                     ) : item.vpn ? (
-                      'Habilitado'
+                      <Text>Habilitado</Text>
                     ) : (
-                          'Desabilitado'
+                          <Text>Desabilitado</Text>
                         )}
-                  </Text>
+                  </View>
                       </Surface>
                 
                   
@@ -1255,7 +1114,7 @@ class MyAppUserDetails extends React.Component {
                           Consumo:
                         </Text>
                         <Text style={{ paddingBottom: 10, textAlign: 'center' }}>
-                          {item.vpnMbGastados ? item.vpnMbGastados / 1000000 : 0}MB => {item.vpnMbGastados ? (item.vpnMbGastados / 1000000000) : 0}GB
+                          {item.vpnMbGastados ? item.vpnMbGastados / 1000000 : 0}MB => {item.vpnMbGastados ? (item.vpnMbGastados / 1024000000) : 0}GB
                         </Text>
                       </Surface>
                       <Surface
@@ -1304,18 +1163,61 @@ const UserDetails = withTracker( props => {
    Meteor.subscribe("precios",{}, { sort: { type: 1, precio: 1 } }).ready()
   let precioslist = []
 
-  PreciosCollection.find({ type: "megas" }, { sort: { type: 1, precio: 1 } }).fetch().map((a) => {
-    precioslist.push({ value: a.megas, label: a.megas + 'MB • $' + a.precio })
-  })
+  PreciosCollection.find(
+    { userId: Meteor.userId(), type: "megas" },
+    {
+      fields: {
+        megas: 1,
+        precio: 1,
+      },
+      sort: { precio: 1 },
+    }
+  )
+    .fetch()
+    .map((a) => {
+      precioslist.push({
+        value: a.megas,
+        label:
+          a.megas +
+          "MB • $" +
+          (a.precio - Meteor.user().descuentoproxy >= 0
+            ? a.precio - Meteor.user().descuentoproxy
+            : 0),
+      });
+    });
 
   let precios =  PreciosCollection.find().fetch()
 
   let preciosVPNlist = []
 
-  PreciosCollection.find({$or:[{ type: "vpnplus"},{ type: "vpn2mb"}] }, { sort: { type: 1, precio: 1 } }).fetch().map((a)=>{
-    preciosVPNlist.push({ value: a.type, label: `${a.type} • ${a.megas}MB • $ ${(a.precio - (Meteor.user().descuentovpn || 0) >= 0) ? (a.precio - (Meteor.user().descuentovpn || 0)) : 0}`, megas: a.megas })
-  })
-
+  PreciosCollection.find(
+    {
+      userId: Meteor.userId(),
+      $or: [{ type: "vpnplus" }, { type: "vpn2mb" }],
+    },
+    {
+      fields: {
+        userId: 1,
+        type: 1,
+        megas: 1,
+        precio: 1,
+      },
+      sort: {
+        precio: 1,
+      },
+    }
+  )
+    .fetch()
+    .map((a) => {
+      preciosVPNlist.push({
+        value: `${a.type}/${a.megas}`,
+        label: `${a.type} • ${a.megas}MB • $ ${
+          a.precio - Meteor.user().descuentovpn >= 0
+            ? a.precio - Meteor.user().descuentovpn
+            : 0
+        }`,
+      });
+    });
 
   const { item, navigation } = props;
   const loadventas = Meteor.subscribe("ventas", { adminId: item, cobrado: false }).ready()

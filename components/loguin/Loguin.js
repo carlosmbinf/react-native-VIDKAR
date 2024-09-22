@@ -19,7 +19,7 @@ import {Mensajes} from '../collections/collections'
 
 import Video from "react-native-video";
 import Orientation from 'react-native-orientation';
-import HeroBot from '../animations/HeroBot';
+//import HeroBot from '../animations/HeroBot';
  
 
 
@@ -72,7 +72,7 @@ class Loguin extends Component {
     Meteor.loginWithPassword(username, password, function (error) {
       error && Alert.alert('Credenciales incorrectas');
       // !error && navigation.navigate('Peliculas');
-      !error && (Meteor.users.findOne({ username: username }).profile && Meteor.users.findOne({ username: username }).profile.role == "admin" ? navigation.navigate('Users') : navigation.navigate('PeliculasVideos', { item: Meteor.users.findOne({ username: username })._id }));
+      !error && (Meteor.users.findOne({ username: username }).profile && Meteor.users.findOne({ username: username }).profile.role == "admin" ? navigation.navigate('Users') : navigation.navigate('User', { item: Meteor.users.findOne({ username: username })._id }));
     });
   }
 
@@ -103,7 +103,7 @@ rate={1.0}
 ignoreSilentSwitch={"obey"}
 />
         <View style={backgroundStyle}>
-          <HeroBot/>
+          {/* <HeroBot/>*/}
           <View style={styles.container}>
             <Text style={{fontSize: 40,color:"white"}}>
               <FontAwesome5Icon name="house-user" size={100} />
