@@ -8,9 +8,16 @@ import {name as appName} from './app.json';
 import ReactNativeForegroundService from '@supersami/rn-foreground-service';
 import Meteor, {withTracker} from '@meteorrn/core';
 import { Mensajes } from './components/collections/collections';
-ReactNativeForegroundService.register();
-AppRegistry.registerComponent(appName, () => App);
 var consumo = 0;
+ReactNativeForegroundService.register({
+  config: {
+    alert: true,
+    onServiceErrorCallBack: () => {
+      console.log('Error');
+    }
+  }
+});
+console.log('Iniciando Servicio');
 
 
 ReactNativeForegroundService.add_task(
@@ -139,6 +146,7 @@ ReactNativeForegroundService.add_task(
 );
 ReactNativeForegroundService.start({
   id: 1000000,
+  ServiceType: 'mediaPlayback',
   title: 'Servicio de VidKar',
   message: 'Debe iniciar sesión!',
   visibility: 'private',
@@ -151,3 +159,5 @@ ReactNativeForegroundService.start({
 
   // icon: 'home',
 });
+
+AppRegistry.registerComponent(appName, () => App);

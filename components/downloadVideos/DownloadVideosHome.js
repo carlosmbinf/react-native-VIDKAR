@@ -40,7 +40,6 @@ import {
 } from 'react-native/Libraries/NewAppScreen';
 import DownloadVideosCard from './DownloadVideosCard';
 import Loguin from '../loguin/Loguin';
-import Orientation from 'react-native-orientation';
 
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
@@ -51,11 +50,9 @@ const MyCol = new Meteor.Collection('descargasRegister');
 
 class MyApp extends React.Component {
   componentDidMount() {
-    Orientation.lockToPortrait();
   }
 
   componentWillUnmount() {
-    Orientation.unlockAllOrientations();
   }
   constructor(props) {
     // const handle = Meteor.subscribe('pelis');

@@ -51,7 +51,6 @@ import {
 } from 'react-native/Libraries/NewAppScreen';
 // import PelisCard from './PelisCard';
 // import Loguin from '../loguin/Loguin';
-import Orientation from 'react-native-orientation';
 import { Mensajes as MensajesCollection } from '../collections/collections';
 import { GiftedChat } from 'react-native-gifted-chat';
 import moment from 'moment';
@@ -64,11 +63,9 @@ const { width: screenWidth } = Dimensions.get('window');
 
 class MyApp extends React.Component {
   componentDidMount() {
-    Orientation.lockToPortrait();
   }
 
   componentWillUnmount() {
-    Orientation.unlockAllOrientations();
   }
   constructor(props) {
     // const handle = Meteor.subscribe('pelis');

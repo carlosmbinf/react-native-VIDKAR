@@ -58,7 +58,6 @@ import {
 } from 'react-native/Libraries/NewAppScreen';
 // import PelisCard from './PelisCard';
 // import Loguin from '../loguin/Loguin';
-import Orientation from 'react-native-orientation';
 
 import { Online } from '../collections/collections'
 import DrawerOptionsAlls from '../drawer/DrawerOptionsAlls';
@@ -76,12 +75,9 @@ const { height: screenHeight } = Dimensions.get('window');
 class MyApp extends React.Component {
   componentDidMount() {
 
-    Orientation.unlockAllOrientations();
   }
 
   componentWillUnmount() {
-    // Orientation.unlockAllOrientations();
-    Orientation.lockToPortrait();
   }
   constructor(props) {
     // const handle = Meteor.subscribe('pelis');

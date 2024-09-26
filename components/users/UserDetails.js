@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import CalendarPicker from 'react-native-calendar-picker';
 import { Dropdown } from 'react-native-element-dropdown';
-import Orientation from 'react-native-orientation';
 import { Card, Title, Text, Button, TextInput, Switch, Surface, IconButton, Avatar } from 'react-native-paper';
 import { Colors } from 'react-native/Libraries/NewAppScreen';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -30,11 +29,9 @@ const { height: screenHeight } = Dimensions.get('window');
 
 class MyAppUserDetails extends React.Component {
   componentDidMount() {
-    Orientation.lockToPortrait();
   }
 
   componentWillUnmount() {
-    Orientation.unlockAllOrientations();
   }
 
   constructor(props) {

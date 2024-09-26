@@ -18,7 +18,6 @@ const {height: screenHeight} = Dimensions.get('window');
 import {Mensajes} from '../collections/collections'
 
 import Video from "react-native-video";
-import Orientation from 'react-native-orientation';
 //import HeroBot from '../animations/HeroBot';
  
 
@@ -26,12 +25,10 @@ import Orientation from 'react-native-orientation';
 class Loguin extends Component {
   
   componentDidMount() {
-    Orientation.lockToPortrait();
     // Orientation.unlockAllOrientations();
   }
 
   componentWillUnmount() {
-    Orientation.unlockAllOrientations();
     // Orientation.lockToPortrait();
   }
   
