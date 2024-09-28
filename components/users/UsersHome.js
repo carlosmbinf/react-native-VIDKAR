@@ -200,6 +200,8 @@ class MyApp extends React.Component {
         /> */}
 
           <TextInput
+            autoFocus={true}
+            focusable={true}
             value={this.state.userName}
             autoCapitalize="none"
             autoCorrect={false}
@@ -247,11 +249,15 @@ class MyApp extends React.Component {
       // let connected = Online.find({ userId: item._id },{ fields: { userId: 1 }, limit: 1 }).count() > 0 ? true : false;
 
       //concatenar username con vpn megas gastados y megas consumidos
-      let descripcion = `${item.username}\n${"VPN: " + item.vpnMbGastados}\n${"PROXY: " + item.megasGastadosinBytes}`
+      let descripcion = <View>
+      <Text style={{fontWeight:'bold'}}>{item.username}</Text>
+      <Text>VPN:     {item.vpnMbGastados ? (item.vpnMbGastados / 1024000000).toFixed(2) : 0}GB = {item.vpnMbGastados ? (item.vpnMbGastados / 1024000).toFixed(2) : 0} MB</Text>
+      <Text>PROXY: {item.megasGastadosinBytes ? (item.megasGastadosinBytes / 1024000000).toFixed(2) : 0}GB = {item.megasGastadosinBytes ? (item.megasGastadosinBytes / 1024000).toFixed(2) : 0} MB</Text>
+    </View>
       return (
-        <Surface key={"Surface_" + item._id} style={{ elevation: 12, margin: 10, borderRadius: 20 }}>
+        <Surface key={"Surface_" + item._id} style={{ elevation: 12, margin: 10, borderRadius: 10 }}>
           <List.Item
-
+          borderless={false}
             key={"Item_" + item._id}
             onPress={() => {
               // Alert.alert('Holaaa', item);
@@ -265,13 +271,14 @@ class MyApp extends React.Component {
             // }}
             title={item && (item.profile.firstName + ' ' + item.profile.lastName)}
             //  titleStyle={{fontSize: 20}}
-            description={<>
-              <View>
-                <Text>USUARIO:   {item.username}</Text>
-                <Text>VPN:            {item.vpnMbGastados ? (item.vpnMbGastados / 1024000000).toFixed(2) : 0} GB  = {item.vpnMbGastados ? (item.vpnMbGastados / 1024000).toFixed(2) : 0} MB</Text>
-                <Text>PROXY:        {item.megasGastadosinBytes ? (item.megasGastadosinBytes / 1024000000).toFixed(2) : 0} GB  = {item.megasGastadosinBytes ? (item.megasGastadosinBytes / 1024000).toFixed(2) : 0} MB</Text>
-              </View>
-            </>}
+            onMagicTap={() => {
+              Alert.alert('Holaaa', item.username);
+              // console.log(navigation);
+              // navigation.navigation.navigate('User', { item: item._id });
+            }}
+            description={
+              descripcion
+            }
             left={props =>
               item && item.picture ? (
                 <View style={{ justifyContent: 'center' }}>
@@ -279,10 +286,12 @@ class MyApp extends React.Component {
                     size={20}
                     style={{
                       position: 'absolute',
-                      bottom: 7,
+                      bottom: '20%',
                       right: 17,
                       zIndex: 1,
-                      backgroundColor: '#10ff00',
+                      backgroundColor: (item.vpnplusConnected || item.vpn2mbConnected || (isConnectedProxyOrWeb && isConnectedProxyOrWeb.length > 0 &&
+                        isConnectedProxyOrWeb.filter(online => online.userId && online.userId == item._id).length > 0))
+                        ?((isConnectedProxyOrWeb.filter(online => online.userId && online.userId == item._id && online.hostname != null ).length > 0) ?'#10ffE0': '#102dff'):'#10ff00',
                       borderColor: 'white',
                       borderWidth: 3,
                     }}
@@ -305,8 +314,8 @@ class MyApp extends React.Component {
                     size={20}
                     style={{
                       position: 'absolute',
-                      bottom: 5,
-                      right: 15,
+                      bottom: '20%',
+                      right: 17,
                       zIndex: 1,
                       backgroundColor: '#10ff00',
                       borderColor: 'white',
@@ -468,16 +477,16 @@ class MyApp extends React.Component {
 }
 const UserHome = withTracker(navigation => {
   const handle = Meteor.subscribe('user', (Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { fields: { username: 1, profile: 1, picture: 1, vpnMbGastados: 1, megasGastadosinBytes: 1, idtelegram: 1,notificarByTelegram:1,vpnplusConnected:1,vpn2mbConnected:1 } });
-  Meteor.subscribe("online",{},{fields:{userId:1}})
+  const handleOnline =  Meteor.subscribe("conexiones",{},{fields:{userId:1}})
   let myTodoTasks = Meteor.users.find((Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { "vpnMbGastados": -1, "megasGastadosinBytes": -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, picture: 1, vpnMbGastados: 1, megasGastadosinBytes: 1, idtelegram: 1 , notificarByTelegram:1,vpnplusConnected:1,vpn2mbConnected:1} }).fetch();
 
-  let isConnectedProxyOrWeb = Online.find({},{fields:{userId:1}})
-
+  let isConnectedProxyOrWeb = Online.find({},{fields:{userId:1,hostname:1}}).fetch()
+  
   // handle.ready() && console.log(Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }).fetch());
   return {
     navigation,
     myTodoTasks,
-    loading: !handle.ready(),
+    loading: !handle.ready() && !handleOnline.ready(),
     isConnectedProxyOrWeb
   };
 })(MyApp);

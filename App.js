@@ -176,7 +176,7 @@ const App = () => {
               headerShown: true,
               headerRight: () => (
                 <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
-                  <MenuIconMensajes navigation={navigation} />
+                  {/* <MenuIconMensajes navigation={navigation} /> */}
 
                   <Menu
                     visible={visibleMenu}
@@ -261,7 +261,7 @@ const App = () => {
               headerShown: true,
               headerRight: () => (
                 <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
-                  <MenuIconMensajes navigation={navigation} />
+                  {/* <MenuIconMensajes navigation={navigation} /> */}
 
                   <Menu
                     visible={visibleMenu}
@@ -330,7 +330,7 @@ const App = () => {
               headerShown: true,
               headerRight: () => (
                 <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
-                  <MenuIconMensajes navigation={navigation} />
+                  {/* <MenuIconMensajes navigation={navigation} /> */}
 
                   <Menu
                     visible={visibleMenu}
@@ -399,7 +399,7 @@ const App = () => {
               headerShown: true,
               headerRight: () => (
                 <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
-                  <MenuIconMensajes navigation={navigation} />
+                  {/* <MenuIconMensajes navigation={navigation} /> */}
 
                   <Menu
                     visible={visibleMenu}
@@ -468,7 +468,7 @@ const App = () => {
               headerShown: true,
               headerRight: () => (
                 <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
-                  <MenuIconMensajes navigation={navigation} />
+                  {/* <MenuIconMensajes navigation={navigation} /> */}
 
                   <Menu
                     visible={visibleMenu}
@@ -627,7 +627,7 @@ const App = () => {
               // headerLeftContainerStyle: { display: flex },
               headerRight: () => (
                 <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
-                  <MenuIconMensajes navigation={navigation} />
+                  {/* <MenuIconMensajes navigation={navigation} /> */}
 
                   <Menu
                     visible={visibleMenuUsers}
