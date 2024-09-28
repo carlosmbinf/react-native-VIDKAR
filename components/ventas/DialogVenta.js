@@ -7,7 +7,6 @@ import Meteor, { withTracker } from '@meteorrn/core';
 import { VentasCollection } from '../collections/collections';
 
 const DialogVenta = ({ visible, hideDialog, data }) => {
-    console.log("DATA:", data)
     const [precio, setPrecio] = useState();
     const [comentario, setComentario] = useState();
     const [cobrado, setCobrado] = useState();
@@ -58,11 +57,12 @@ const DialogVenta = ({ visible, hideDialog, data }) => {
     const handleSavePress = () => {
         // Aquí se manejaría la lógica para guardar los datos
         const formData = {
-            precio,
-            comentario,
-            ganancias,
+          precio: Number(precio),
+          comentario,
+          gananciasAdmin: Number(ganancias)
         };
-
+        
+        console.log('Datos guardados:', data._id);
         console.log('Datos guardados:', formData);
         VentasCollection.update(data._id, { $set: formData });
         hideDialog(); // Oculta el diálogo después de guardar
@@ -101,19 +101,17 @@ const DialogVenta = ({ visible, hideDialog, data }) => {
                                     keyboardType="numeric"
                                 />
                                 <TextInput
-                                    multiline={true}
-                                    label="Comentario"
-                                    value={comentario}
-                                    onChangeText={setComentario}
-                                />
-                                <TextInput
                                     label="Ganancias"
                                     value={ganancias}
                                     onChangeText={setGanancias}
                                     keyboardType="numeric"
                                 />
-                            
-
+                                <TextInput
+                                    multiline={true}
+                                    label="Comentario"
+                                    value={comentario}
+                                    onChangeText={setComentario}
+                                />
                     </Dialog.Content>
                     {precio &&
                             comentario &&

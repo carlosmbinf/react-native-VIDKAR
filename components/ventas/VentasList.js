@@ -118,10 +118,11 @@ class MyApp extends React.Component {
 
 
               {myTodoTasks.map((element, index) => {
+                 let userusername = Meteor.users.findOne(element.userId) && Meteor.users.findOne(element.userId).username
+                 let adminusername = Meteor.users.findOne(element.adminId) && Meteor.users.findOne(element.adminId).username
                 return index >= from && index < to &&
                   <DataTable.Row onPress={() => {
-                    let userusername = Meteor.users.findOne(element.userId) && Meteor.users.findOne(element.userId).username
-                    let adminusername = Meteor.users.findOne(element.adminId) && Meteor.users.findOne(element.adminId).username
+                   
                     // Alert.alert(`Datos:`, `Admin: ${adminusername && adminusername}\n\nUsuario: ${userusername && userusername}\n\nFecha: ${moment(new Date(element.createdAt))
                     //   .format('DD/MM/YYYY=>hh:mm:ss A')}\n\nMensaje: ${element.comentario}`)
 
@@ -129,8 +130,8 @@ class MyApp extends React.Component {
                     mostrarDialog();
                   }}>
                     <DataTable.Cell>{element.type}</DataTable.Cell>
-                    <DataTable.Cell >{element.adminId != "SERVER" ? (Meteor.users.findOne(element.adminId) && Meteor.users.findOne(element.adminId).username) : "SERVER"}</DataTable.Cell>
-                    <DataTable.Cell>{Meteor.users.findOne(element.userId) && Meteor.users.findOne(element.userId).username}</DataTable.Cell>
+                    <DataTable.Cell >{element.adminId != "SERVER" ? adminusername : "SERVER"}</DataTable.Cell>
+                    <DataTable.Cell>{userusername}</DataTable.Cell>
                     {/* <DataTable.Cell >{element.message}</DataTable.Cell> */}
                     <DataTable.Cell>{moment(new Date(element.createdAt))
                       .format('DD-MM-YY')}</DataTable.Cell>
