@@ -174,7 +174,7 @@ const AndroidForegroundService = () => {
               (user.profile &&
                 user.profile.firstName + ' ' + user.profile.lastName),
             message: mensajeProxy + mensajeVpn,
-            visibility: 'public',
+            visibility: 'private',
             // largeicon: 'home',
             vibration: false,
             button: true,

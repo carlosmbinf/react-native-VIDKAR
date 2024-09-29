@@ -255,33 +255,33 @@ class MyApp extends React.Component {
       <Text>PROXY: {item.megasGastadosinBytes ? (item.megasGastadosinBytes / 1024000000).toFixed(2) : 0}GB = {item.megasGastadosinBytes ? (item.megasGastadosinBytes / 1024000).toFixed(2) : 0} MB</Text>
     </View>
       return (
-        <Surface key={"Surface_" + item._id} style={{ elevation: 12, margin: 10, borderRadius: 10 }}>
+        <Surface
+          key={'Surface_' + item._id}
+          style={{elevation: 12, margin: 10, borderRadius: 10}}>
           <List.Item
-          borderless={false}
-            key={"Item_" + item._id}
+            borderless={false}
+            key={'Item_' + item._id}
             onPress={() => {
               // Alert.alert('Holaaa', item);
               // console.log(navigation);
-              navigation.navigation.navigate('User', { item: item._id });
+              navigation.navigation.navigate('User', {item: item._id});
             }}
             // onLongPress={() => {
             //   Alert.alert('Holaaa', descripcion);
             //   // console.log(navigation);
             //   // navigation.navigation.navigate('User', { item: item._id });
             // }}
-            title={item && (item.profile.firstName + ' ' + item.profile.lastName)}
+            title={item && item.profile.firstName + ' ' + item.profile.lastName}
             //  titleStyle={{fontSize: 20}}
             onMagicTap={() => {
               Alert.alert('Holaaa', item.username);
               // console.log(navigation);
               // navigation.navigation.navigate('User', { item: item._id });
             }}
-            description={
-              descripcion
-            }
+            description={descripcion}
             left={props =>
               item && item.picture ? (
-                <View style={{ justifyContent: 'center' }}>
+                <View style={{justifyContent: 'center'}}>
                   <Badge
                     size={20}
                     style={{
@@ -289,27 +289,47 @@ class MyApp extends React.Component {
                       bottom: '20%',
                       right: 17,
                       zIndex: 1,
-                      backgroundColor: (item.vpnplusConnected || item.vpn2mbConnected || (isConnectedProxyOrWeb && isConnectedProxyOrWeb.length > 0 &&
-                        isConnectedProxyOrWeb.filter(online => online.userId && online.userId == item._id).length > 0))
-                        ?((isConnectedProxyOrWeb.filter(online => online.userId && online.userId == item._id && online.hostname != null ).length > 0) ?'#10ffE0': '#102dff'):'#10ff00',
+                      backgroundColor:
+                      isConnectedProxyOrWeb &&
+                      isConnectedProxyOrWeb.length > 0 &&
+                      isConnectedProxyOrWeb.filter(
+                        online => online.userId && online.userId == item._id,
+                      ).length > 0
+                        ? isConnectedProxyOrWeb.filter(
+                            online =>
+                              online.userId &&
+                              online.userId == item._id &&
+                              online.hostname != null,
+                          ).length > 0
+                          ? '#10ffE0'
+                          : '#102dff'
+                        : item.vpnplusConnected || item.vpn2mbConnected
+                        ? '#10ff00'
+                        : null,
                       borderColor: 'white',
                       borderWidth: 3,
                     }}
                     visible={
-                      (item.vpnplusConnected || item.vpn2mbConnected || (isConnectedProxyOrWeb && isConnectedProxyOrWeb.length > 0 &&
-                        isConnectedProxyOrWeb.filter(online => online.userId && online.userId == item._id).length > 0))
-                        ? true : false
+                      item.vpnplusConnected ||
+                      item.vpn2mbConnected ||
+                      (isConnectedProxyOrWeb &&
+                        isConnectedProxyOrWeb.length > 0 &&
+                        isConnectedProxyOrWeb.filter(
+                          online => online.userId && online.userId == item._id,
+                        ).length > 0)
+                        ? true
+                        : false
                       // connected
                     }
                   />
                   <Avatar.Image
                     {...props}
                     size={50}
-                    source={{ uri: item.picture }}
+                    source={{uri: item.picture}}
                   />
                 </View>
               ) : (
-                <View style={{ justifyContent: 'center' }}>
+                <View style={{justifyContent: 'center'}}>
                   <Badge
                     size={20}
                     style={{
@@ -317,16 +337,36 @@ class MyApp extends React.Component {
                       bottom: '20%',
                       right: 17,
                       zIndex: 1,
-                      backgroundColor: (item.vpnplusConnected || item.vpn2mbConnected || (isConnectedProxyOrWeb && isConnectedProxyOrWeb.length > 0 &&
-                        isConnectedProxyOrWeb.filter(online => online.userId && online.userId == item._id).length > 0))
-                        ?((isConnectedProxyOrWeb.filter(online => online.userId && online.userId == item._id && online.hostname != null ).length > 0) ?'#10ffE0': '#102dff'):'#10ff00',
+                      backgroundColor:
+                        isConnectedProxyOrWeb &&
+                        isConnectedProxyOrWeb.length > 0 &&
+                        isConnectedProxyOrWeb.filter(
+                          online => online.userId && online.userId == item._id,
+                        ).length > 0
+                          ? isConnectedProxyOrWeb.filter(
+                              online =>
+                                online.userId &&
+                                online.userId == item._id &&
+                                online.hostname != null,
+                            ).length > 0
+                            ? '#10ffE0'
+                            : '#102dff'
+                          : item.vpnplusConnected || item.vpn2mbConnected
+                          ? '#10ff00'
+                          : null,
                       borderColor: 'white',
                       borderWidth: 3,
                     }}
                     visible={
-                      (item.vpnplusConnected || item.vpn2mbConnected || (isConnectedProxyOrWeb && isConnectedProxyOrWeb.length > 0 &&
-                        isConnectedProxyOrWeb.filter(online => online.userId && online.userId == item._id).length > 0))
-                        ? true : false
+                      item.vpnplusConnected ||
+                      item.vpn2mbConnected ||
+                      (isConnectedProxyOrWeb &&
+                        isConnectedProxyOrWeb.length > 0 &&
+                        isConnectedProxyOrWeb.filter(
+                          online => online.userId && online.userId == item._id,
+                        ).length > 0)
+                        ? true
+                        : false
                       // connected
                     }
                   />
@@ -343,25 +383,33 @@ class MyApp extends React.Component {
             }
             // right={props => ()}
             right={props => {
-              return <View style={{ justifyContent: 'center' }}>
-                {item.idtelegram &&
-                  <IconButton
-                  loading={true}
-                  icon={item.notificarByTelegram ? "cellphone-message" : "cellphone-message-off"}
-                  // disabled={this.state.valuevpn ? false : true}
-                  color={item.notificarByTelegram ? "black" : "red"}
-                  mode="contained"
-                  size={30}
-                  onPress={() => {
-                    Meteor.call("changeNotificacionTelegram", item._id, (error, result) => {
-                      error && alert(error.message)
-
-                    })
-
-                  }}
-                  />
-                }
-              </View>
+              return (
+                <View style={{justifyContent: 'center'}}>
+                  {item.idtelegram && (
+                    <IconButton
+                      loading={true}
+                      icon={
+                        item.notificarByTelegram
+                          ? 'cellphone-message'
+                          : 'cellphone-message-off'
+                      }
+                      // disabled={this.state.valuevpn ? false : true}
+                      color={item.notificarByTelegram ? 'black' : 'red'}
+                      mode="contained"
+                      size={30}
+                      onPress={() => {
+                        Meteor.call(
+                          'changeNotificacionTelegram',
+                          item._id,
+                          (error, result) => {
+                            error && alert(error.message);
+                          },
+                        );
+                      }}
+                    />
+                  )}
+                </View>
+              );
             }}
           />
         </Surface>
@@ -479,7 +527,7 @@ class MyApp extends React.Component {
 }
 const UserHome = withTracker(navigation => {
   const handle = Meteor.subscribe('user', (Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { fields: { username: 1, profile: 1, picture: 1, vpnMbGastados: 1, megasGastadosinBytes: 1, idtelegram: 1,notificarByTelegram:1,vpnplusConnected:1,vpn2mbConnected:1 } });
-  const handleOnline =  Meteor.subscribe("conexiones",{},{fields:{userId:1}})
+  const handleOnline =  Meteor.subscribe("conexiones",{},{fields:{userId:1,hostname:1}})
   let myTodoTasks = Meteor.users.find((Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { "vpnMbGastados": -1, "megasGastadosinBytes": -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, picture: 1, vpnMbGastados: 1, megasGastadosinBytes: 1, idtelegram: 1 , notificarByTelegram:1,vpnplusConnected:1,vpn2mbConnected:1} }).fetch();
 
   let isConnectedProxyOrWeb = Online.find({},{fields:{userId:1,hostname:1}}).fetch()
