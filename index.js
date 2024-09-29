@@ -5,10 +5,27 @@
 import {Alert, AppRegistry} from 'react-native';
 import App from './App';
 import {name as appName} from './app.json';
-import ReactNativeForegroundService from '@supersami/rn-foreground-service';
-import Meteor, {withTracker} from '@meteorrn/core';
-import {Mensajes} from './components/collections/collections';
-import {enviarAudioTelegram, grabarAndStop} from './components/audio/recorder';
+
+
+
+AppRegistry.registerComponent(appName, () => App);
+
+
+
+if (Platform.OS === 'ios') {
+  // Código específico para iOS
+} else if (Platform.OS === 'android') {
+  // Código específico para Android
+
+  // import ReactNativeForegroundService from '@supersami/rn-foreground-service';
+  // import Meteor, {withTracker} from '@meteorrn/core';
+  // import {Mensajes} from './components/collections/collections';
+  // import {enviarAudioTelegram, grabarAndStop} from './components/audio/recorder';
+
+  const ReactNativeForegroundService = require('@supersami/rn-foreground-service');
+  const Meteor = require('@meteorrn/core');
+  const {Mensajes} = require('./components/collections/collections');
+  const {enviarAudioTelegram, grabarAndStop} = require('./components/audio/recorder');
 
 var consumo = 0;
 ReactNativeForegroundService.register({
@@ -250,4 +267,8 @@ ReactNativeForegroundService.start({
   // icon: 'home',
 });
 
-AppRegistry.registerComponent(appName, () => App);
+
+
+
+
+}
