@@ -39,7 +39,7 @@ class Loguin extends Component {
     
     // Meteor.user() && navigation.navigate('Peliculas');
 
-    Meteor.user()&& (Meteor.user().profile.role == "admin" ? navigation.navigate('Users') : navigation.navigate('PeliculasVideos', { item: Meteor.userId() }))
+    Meteor.user()&& (Meteor.user().profile.role == "admin" ? navigation.navigate('Users') : navigation.navigate('User', { item: Meteor.userId() }))
 
     this.state = {
       ipserver: 'vidkar.ddns.net',

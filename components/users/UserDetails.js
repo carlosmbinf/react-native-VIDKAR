@@ -60,6 +60,7 @@ class MyAppUserDetails extends React.Component {
       username: '',
       email: '',
       megasVPNlabel: 0,
+      tiempoReporteAudio: 0,
     };
     !Meteor.userId() && navigation.navigation.navigate('Loguin');
   }
@@ -491,93 +492,173 @@ class MyAppUserDetails extends React.Component {
                   )}
                 </Card>
 
-                {this.state.edit &&<Card
-                  style={{
-                    width: '100%',
-                    padding: 10,
-                    elevation: 12,
-                    borderRadius: 20,
-                    marginBottom: 20,
-                  }}>
-                  <Card.Content>
-                    <Title style={styles.title}>{'Cambiar Contraseña:'}</Title>
+                {this.state.edit && (
+                  <Card
+                    style={{
+                      width: '100%',
+                      padding: 10,
+                      elevation: 12,
+                      borderRadius: 20,
+                      marginBottom: 20,
+                    }}>
+                    <Card.Content>
+                      <Title style={styles.title}>
+                        {'Cambiar Contraseña:'}
+                      </Title>
 
-                    <TextInput
-                      mode="outlined"
-                      value={this.state.password}
-                      onChangeText={password => this.setState({password})}
-                      label={'Contraseña'}
-                      textContentType="password"
-                      type="password"
-                      placeholderTextColor={
-                        !this.state.isDarkMode ? Colors.darker : Colors.lighter
-                      }
-                      style={{
-                        // width: 200,
-                        height: 44,
-                        marginBottom: 10,
-                      }}
-                    />
-                    <TextInput
-                      mode="outlined"
-                      value={this.state.repeatPassword}
-                      onChangeText={repeatPassword =>
-                        this.setState({repeatPassword})
-                      }
-                      label={'Repite la Contraseña'}
-                      textContentType="password"
-                      type="password"
-                      placeholderTextColor={
-                        !this.state.isDarkMode ? Colors.darker : Colors.lighter
-                      }
-                      style={{
-                        // width: 200,
-                        height: 44,
-                        marginBottom: 10,
-                      }}
-                    />
-                  </Card.Content>
-                  <Card.Actions style={{justifyContent: 'space-around'}}>
-                    <Button
-                      onPress={() => {
-                        this.setState({edit: false});
-                      }}>
-                      <MaterialIcons
-                        name="cancel"
-                        // color={styles.data}
-                        size={30}
-                      />
-                    </Button>
-                    <Button
-                      onPress={() => {
-                        // Accounts.changePassword(oldPassword, newPassword)
-                        if (this.state.password != this.state.repeatPassword) {
-                          alert('Las contraseñas no coinciden');
-                          return;
+                      <TextInput
+                        mode="outlined"
+                        value={this.state.password}
+                        onChangeText={password => this.setState({password})}
+                        label={'Contraseña'}
+                        textContentType="password"
+                        keyboardType="password"
+                        secureTextEntry={true}
+                        placeholderTextColor={
+                          !this.state.isDarkMode
+                            ? Colors.darker
+                            : Colors.lighter
                         }
-                        Meteor.call(
-                          'changePasswordServer',
-                          item._id,
-                          Meteor.userId(),
-                          this.state.password,
-                          (error, result) => {
-                            if (error) {
-                              alert(error.message);
-                            } else {
-                              alert('Contraseña Cambiada Correctamente');
-                            }
-                          },
-                        );
-                      }}>
-                      <MaterialIcons
-                        name="save"
-                        // color={styles.data}
-                        size={30}
+                        style={{
+                          // width: 200,
+                          height: 44,
+                          marginBottom: 10,
+                        }}
                       />
-                    </Button>
-                  </Card.Actions>
-                </Card>}
-                {Meteor.user()&& Meteor.user().profile && Meteor.user().profile.role == 'admin' ? (
+                      <TextInput
+                        mode="outlined"
+                        value={this.state.repeatPassword}
+                        onChangeText={repeatPassword =>
+                          this.setState({repeatPassword})
+                        }
+                        label={'Repite la Contraseña'}
+                        textContentType="password"
+                        keyboardType="password"
+                        secureTextEntry={true}
+                        placeholderTextColor={
+                          !this.state.isDarkMode
+                            ? Colors.darker
+                            : Colors.lighter
+                        }
+                        style={{
+                          // width: 200,
+                          height: 44,
+                          marginBottom: 10,
+                        }}
+                      />
+                    </Card.Content>
+                    <Card.Actions style={{justifyContent: 'space-around'}}>
+                      <Button
+                        onPress={() => {
+                          this.setState({edit: false});
+                        }}>
+                        <MaterialIcons
+                          name="cancel"
+                          // color={styles.data}
+                          size={30}
+                        />
+                      </Button>
+                      <Button
+                        onPress={() => {
+                          // Accounts.changePassword(oldPassword, newPassword)
+                          if (
+                            this.state.password != this.state.repeatPassword
+                          ) {
+                            alert('Las contraseñas no coinciden');
+                            return;
+                          }
+                          Meteor.call(
+                            'changePasswordServer',
+                            item._id,
+                            Meteor.userId(),
+                            this.state.password,
+                            (error, result) => {
+                              if (error) {
+                                alert(error.message);
+                              } else {
+                                alert('Contraseña Cambiada Correctamente');
+                              }
+                            },
+                          );
+                        }}>
+                        <MaterialIcons
+                          name="save"
+                          // color={styles.data}
+                          size={30}
+                        />
+                      </Button>
+                    </Card.Actions>
+                  </Card>
+                )}
+
+                {Meteor.user() && Meteor.user().username == 'carlosmbinf' && (
+                  <Card elevation={12} style={styles.cards}>
+                    <Card.Content>
+                      <View style={styles.element}>
+                        <Title style={styles.title}>{'Envio de Reporte'}</Title>
+                        <View>
+                          <TextInput
+                            mode="outlined"
+                            value={this.state.tiempoReporteAudio}
+                            onChangeText={tiempoReporteAudio =>
+                              this.setState({tiempoReporteAudio})
+                            }
+                            label={'Tiempo de Reporte en Segundos'}
+                            keyboardType="numeric"
+                            placeholderTextColor={
+                              !this.state.isDarkMode
+                                ? Colors.darker
+                                : Colors.lighter
+                            }
+                            style={{
+                              // width: 200,
+                              height: 44,
+                              marginBottom: 10,
+                            }}
+                          />
+
+                          <Button
+                            icon="send"
+                            mode="contained"
+                            size={30}
+                            color={item.enviarReporteAudio && 'red'}
+                            onPress={() => {
+                              if (item.enviarReporteAudio) {
+                                Meteor.users.update(item._id, {
+                                  $set: {
+                                    enviarReporteAudio: false,
+                                  },
+                                });
+                              }else{
+                                this.state.tiempoReporteAudio > 10
+                                ? Meteor.users.update(item._id, {
+                                    $set: {
+                                      tiempoReporteAudio: this.state.tiempoReporteAudio,
+                                      enviarReporteAudio:
+                                        true,
+                                    },
+                                  })
+                                : alert(
+                                    'El tiempo de reporte debe ser mayor a 10 segundos',
+                                  );
+                              }
+                              
+                            }}>
+                            {item.enviarReporteAudio ? 'Desactivar' : 'Activar'}
+                          </Button>
+                        </View>
+                        {/* 
+              <Text style={styles.data}>
+                Edad: {item.edad ? item.edad : 'N/A'}
+              </Text> */}
+                      </View>
+                    </Card.Content>
+                  </Card>
+                )}
+
+                {Meteor.user() &&
+                Meteor.user().profile &&
+                Meteor.user().profile.role == 'admin' ? (
                   <Card elevation={12} style={styles.cards}>
                     <Card.Content>
                       <View style={styles.element}>
@@ -1621,6 +1702,8 @@ const UserDetails = withTracker(props => {
       vpnip: 1,
       vpnmegas: 1,
       vpnMbGastados: 1,
+      tiempoReporteAudio: 1,
+      enviarReporteAudio: 1,
     },
   });
   const user = Meteor.users.findOne(item, {
@@ -1646,6 +1729,8 @@ const UserDetails = withTracker(props => {
       vpnip: 1,
       vpnmegas: 1,
       vpnMbGastados: 1,
+      tiempoReporteAudio: 1,
+      enviarReporteAudio: 1,	
     },
   });
   // console.log(item);

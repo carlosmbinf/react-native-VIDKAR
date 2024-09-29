@@ -317,7 +317,9 @@ class MyApp extends React.Component {
                       bottom: '20%',
                       right: 17,
                       zIndex: 1,
-                      backgroundColor: '#10ff00',
+                      backgroundColor: (item.vpnplusConnected || item.vpn2mbConnected || (isConnectedProxyOrWeb && isConnectedProxyOrWeb.length > 0 &&
+                        isConnectedProxyOrWeb.filter(online => online.userId && online.userId == item._id).length > 0))
+                        ?((isConnectedProxyOrWeb.filter(online => online.userId && online.userId == item._id && online.hostname != null ).length > 0) ?'#10ffE0': '#102dff'):'#10ff00',
                       borderColor: 'white',
                       borderWidth: 3,
                     }}
