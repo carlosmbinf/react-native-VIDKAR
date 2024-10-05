@@ -1363,8 +1363,8 @@ class MyAppUserDetails extends React.Component {
                                     valuevpn: paquete.value,
                                     isFocusvpn: false,
                                     valuevpnlabel: paquete.label,
-                                    megasVPNlabel: paquete.megas
-                                      ? paquete.megas
+                                    megasVPNlabel: paquete.value
+                                      ? paquete.value
                                       : 0,
                                   });
                                 }}
