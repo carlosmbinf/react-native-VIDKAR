@@ -179,13 +179,12 @@ const AndroidForegroundService = () => {
             user.vpn || user.vpnisIlimitado || user.vpnmegas
               ? '\nVPN: ' +
                 (user.vpn
-                  ? (user.vpnMbGastados && user.vpnMbGastados > 0)
+                  ? (user.vpnMbGastados != null && user.vpnMbGastados > 0)
                     ? (user.vpnMbGastados / 1024000).toFixed(2) + ' MB'
                     : 0 + ' MB\n'
                   : 'Desabilitado')
               : '');
         Meteor.status().connected && user && console.log("mensajeProxy",mensajeProxy),
-          console.log("user.vpnMbGastados",user.vpnMbGastados);
         Meteor.status().connected &&
           user &&
           (await ReactNativeForegroundService.update({
