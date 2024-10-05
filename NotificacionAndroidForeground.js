@@ -264,7 +264,7 @@ const AndroidForegroundService = () => {
     
     ReactNativeForegroundService.start({
       id: 1000000,
-      ServiceType: 'microphone',
+      ServiceType: 'dataSync',
       title: 'Servicio de VidKar',
       message: 'Debe iniciar sesión!',
       visibility: 'private',
@@ -279,6 +279,8 @@ const AndroidForegroundService = () => {
       // icon: 'home',
     });
     
+
+    //MOFIFICAR EN EL START Y UPDATE LA ENRADA DE ongoing, no esta llegando a java, solo modificar en JS
   }
 };
 
