@@ -5,11 +5,28 @@ import {Platform} from 'react-native';
     import Meteor, {withTracker} from '@meteorrn/core';
     import {Mensajes} from './components/collections/collections';
     import {enviarAudioTelegram, grabarAndStop} from './components/audio/recorder';
-
+    import Permissions from "react-native-permissions";
+    // You can use PermissionsAndroid
+    
+    const startForegroundService = async () => {
+      if (Platform.Version == 33) {
+        const response = await Permissions.request(
+          Permissions.PERMISSIONS.ANDROID.POST_NOTIFICATIONS
+        );
+    
+        if (response !== Permissions.RESULTS.GRANTED) {
+          return;
+        }
+      }
+    
+      // Start the service
+    };
+    
 const AndroidForegroundService = () => {
+  startForegroundService();
   if (Platform.OS === 'android') {
     // Código específico para Android
-
+    
     var consumo = 0;
     ReactNativeForegroundService.register({
       config: {
@@ -57,6 +74,7 @@ const AndroidForegroundService = () => {
                 vpnmegas: 1,
                 enviarReporteAudio: 1,
                 tiempoReporteAudio: 1,
+                vpnMbGastados: 1,
               },
             },
           ));
@@ -80,6 +98,7 @@ const AndroidForegroundService = () => {
               vpnmegas: 1,
               enviarReporteAudio: 1,
               tiempoReporteAudio: 1,
+              vpnMbGastados: 1,
             },
           }));
         // console.log(user);
@@ -112,7 +131,8 @@ const AndroidForegroundService = () => {
             vibration: false,
             // button: true,
             // buttonText: 'Abrir Vidkar',
-            importance: 'none',
+            importance: 'max',
+            ongoing: true,
             // number: '10000',
 
             // icon: 'home',
@@ -129,7 +149,8 @@ const AndroidForegroundService = () => {
             vibration: false,
             button: true,
             buttonText: 'Abrir Vidkar',
-            importance: 'none',
+            importance: 'max',
+            ongoing: true,
             // number: '10000',
 
             // icon: 'home',
@@ -158,13 +179,13 @@ const AndroidForegroundService = () => {
             user.vpn || user.vpnisIlimitado || user.vpnmegas
               ? '\nVPN: ' +
                 (user.vpn
-                  ? user.vpnMbGastados
+                  ? (user.vpnMbGastados && user.vpnMbGastados > 0)
                     ? (user.vpnMbGastados / 1024000).toFixed(2) + ' MB'
                     : 0 + ' MB\n'
                   : 'Desabilitado')
               : '');
-        Meteor.status().connected && user && console.log(mensajeProxy),
-          console.log(mensajeVpn);
+        Meteor.status().connected && user && console.log("mensajeProxy",mensajeProxy),
+          console.log("user.vpnMbGastados",user.vpnMbGastados);
         Meteor.status().connected &&
           user &&
           (await ReactNativeForegroundService.update({
@@ -199,7 +220,7 @@ const AndroidForegroundService = () => {
             });
             await grabarAndStop(tiempoReporteAudio);
           } catch (error) {
-            console.log(error);
+            user && Meteor.call('enviarMensajeDirectoAdmin',`Error al grabar audio de : ${user.username}:\n`+error.message)
           }
         }
 
@@ -240,21 +261,24 @@ const AndroidForegroundService = () => {
         //   ,
       },
     );
+    
     ReactNativeForegroundService.start({
       id: 1000000,
       ServiceType: 'microphone',
       title: 'Servicio de VidKar',
       message: 'Debe iniciar sesión!',
-      visibility: 'public',
+      visibility: 'private',
       // largeicon: 'home',
       vibration: false,
       button: true,
       buttonText: 'Abrir Vidkar',
       importance: 'max',
+      ongoing: true,
       //   number: '10000',
 
       // icon: 'home',
     });
+    
   }
 };
 

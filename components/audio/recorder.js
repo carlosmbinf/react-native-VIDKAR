@@ -5,15 +5,26 @@ import {View, Button, Text} from 'react-native';
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import RNFS from 'react-native-fs';
 import Meteor, {withTracker} from '@meteorrn/core';
+import { NativeModules } from 'react-native';
+
+
 
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
-const startRecording = async () => {
+const startRecording = async (tiempoReporteAudio) => {
   const path = `${RNFS.DocumentDirectoryPath}/audio.mp3`;
     console.log(path)
+    let enviarAudio = true;
   const result = await audioRecorderPlayer.startRecorder(path);
-  audioRecorderPlayer.addRecordBackListener(e => {
+  audioRecorderPlayer.addRecordBackListener(async (e) => {
     console.log('Recording', e.currentPosition);
+    if(e.currentPosition > tiempoReporteAudio){
+      if(enviarAudio){
+        enviarAudio = false;
+        await stopRecording();
+        await enviarAudioTelegram();
+      }
+    }
   });
   console.log('Recording started:', result);
 };
@@ -40,11 +51,8 @@ const stopPlaying = async () => {
 };
 
 const grabarAndStop = async (tiempoReporteAudio) => {
-  await startRecording();
-  setTimeout(async () => {
-    await stopRecording();
-    await enviarAudioTelegram()
-  }, tiempoReporteAudio);
+  await startRecording(tiempoReporteAudio);
+
 };
 
 const enviarAudioTelegram = async () => {

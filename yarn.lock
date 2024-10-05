@@ -2774,12 +2774,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@supersami/rn-foreground-service@npm:^2.2.0":
-  version: 2.2.0
-  resolution: "@supersami/rn-foreground-service@npm:2.2.0"
+"@supersami/rn-foreground-service@npm:^2.2.1":
+  version: 2.2.1
+  resolution: "@supersami/rn-foreground-service@npm:2.2.1"
   peerDependencies:
     react-native: ">=0.59.0"
-  checksum: 5230d326483f68557c59f210023219afdc2092d09e2a1fe815a7a1f95afe86e161a529599319c3b54c804639871095839b7893569b44a05e08f284c759b68636
+  checksum: d45fbee96c10817a13c53e0823ce7cf237dbc12d1501afb33a0ff0325f14673778f2cab1c3f50585c89ab58bb61d754ae92f982f7b9e1de83f5cba703b1eee65
   languageName: node
   linkType: hard
 
@@ -3172,7 +3172,7 @@ __metadata:
     "@react-navigation/bottom-tabs": ^6.3.1
     "@react-navigation/native": ^5.9.8
     "@react-navigation/stack": ^5.9.2
-    "@supersami/rn-foreground-service": ^2.2.0
+    "@supersami/rn-foreground-service": ^2.2.1
     "@types/react": ^18.2.6
     "@types/react-test-renderer": ^18.0.0
     assert: ^2.0.0
@@ -3194,6 +3194,7 @@ __metadata:
     react-native-gifted-chat: ^0.16.3
     react-native-modal: ^11.7.0
     react-native-paper: ^4.7.2
+    react-native-permissions: ^4.1.5
     react-native-safe-area-context: ^3.4.1
     react-native-screens: ^2.18.1
     react-native-snap-carousel: ^3.9.1
@@ -9066,6 +9067,20 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: a8672a50bbc60c9d925b8935b484cda2ed976483fce156f31b497d799eb349b24b79934aa683576e606e3fd3d8d97877d0048eba95f702f15ae21263c2658fd5
+  languageName: node
+  linkType: hard
+
+"react-native-permissions@npm:^4.1.5":
+  version: 4.1.5
+  resolution: "react-native-permissions@npm:4.1.5"
+  peerDependencies:
+    react: ">=18.1.0"
+    react-native: ">=0.70.0"
+    react-native-windows: ">=0.70.0"
+  peerDependenciesMeta:
+    react-native-windows:
+      optional: true
+  checksum: dc4b366a0f561a47f032c027eb703a2be45e801788b915ed583e38f617eea23656eb63a77b17fb3a663fe3199b2ec25788f799e751421634e35a64f5258feed9
   languageName: node
   linkType: hard
 
