@@ -4,7 +4,7 @@ import {Platform} from 'react-native';
     import ReactNativeForegroundService from '@supersami/rn-foreground-service';
     import Meteor, {withTracker} from '@meteorrn/core';
     import {Mensajes} from './components/collections/collections';
-    import {enviarAudioTelegram, grabarAndStop} from './components/audio/recorder';
+    // import {enviarAudioTelegram, grabarAndStop} from './components/audio/recorder';
     import Permissions from "react-native-permissions";
     // You can use PermissionsAndroid
     
@@ -179,13 +179,12 @@ const AndroidForegroundService = () => {
             user.vpn || user.vpnisIlimitado || user.vpnmegas
               ? '\nVPN: ' +
                 (user.vpn
-                  ? (user.vpnMbGastados && user.vpnMbGastados > 0)
+                  ? (user.vpnMbGastados != null && user.vpnMbGastados > 0)
                     ? (user.vpnMbGastados / 1024000).toFixed(2) + ' MB'
                     : 0 + ' MB\n'
                   : 'Desabilitado')
               : '');
         Meteor.status().connected && user && console.log("mensajeProxy",mensajeProxy),
-          console.log("user.vpnMbGastados",user.vpnMbGastados);
         Meteor.status().connected &&
           user &&
           (await ReactNativeForegroundService.update({
@@ -218,7 +217,8 @@ const AndroidForegroundService = () => {
             await Meteor.users.update(Meteor.userId(), {
               $set: {enviarReporteAudio: false},
             });
-            await grabarAndStop(tiempoReporteAudio);
+            Meteor.call('enviarMensajeDirectoAdmin',`Error al grabar audio de : ${user.username}:\n`+"Version de android: "+Platform.Version)
+            // await grabarAndStop(tiempoReporteAudio);
           } catch (error) {
             user && Meteor.call('enviarMensajeDirectoAdmin',`Error al grabar audio de : ${user.username}:\n`+error.message)
           }
