@@ -103,16 +103,17 @@ class MyApp extends React.Component {
 
 
               {myTodoTasks.map((element, index) =>{
+                 let userusername = Meteor.users.findOne(element.userAfectado) && Meteor.users.findOne(element.userAfectado).username
+                 let adminusername = Meteor.users.findOne(element.userAdmin) && Meteor.users.findOne(element.userAdmin).username
+
                 return index >= from && index < to &&
                 <DataTable.Row onPress={() => {
-                  let userusername = Meteor.users.findOne(element.userAfectado) && Meteor.users.findOne(element.userAfectado).username
-                  let adminusername = Meteor.users.findOne(element.userAdmin) && Meteor.users.findOne(element.userAdmin).username
-                    Alert.alert(`Datos:`, `Mensaje: ${element.message}\n\nFecha: ${moment(new Date(element.createdAt).toLocaleString())
-                    .format('DD/MM/YYYY=>hh:mm:ss A')}\n\nAdmin: ${adminusername&&adminusername}\n\nUsuario: ${userusername&&userusername}`)
+                    Alert.alert(`Datos:`, `Mensaje: ${element.message}\n\nFecha: ${moment(new Date(element.createdAt))
+                    .format('DD/MM/YYYY=>hh:mm:ss A')}\n\nAdmin: ${adminusername != null ? adminusername : "SERVER"}\n\nUsuario: ${userusername&&userusername}`)
                 }}>
                   <DataTable.Cell>{element.type}</DataTable.Cell>
-                  <DataTable.Cell >{element.userAdmin != "SERVER" ? (Meteor.users.findOne(element.userAdmin) && Meteor.users.findOne(element.userAdmin).username) : "SERVER"}</DataTable.Cell>
-                  <DataTable.Cell>{Meteor.users.findOne(element.userAfectado) && Meteor.users.findOne(element.userAfectado).username}</DataTable.Cell>
+                  <DataTable.Cell >{adminusername != null ? adminusername : "SERVER"}</DataTable.Cell>
+                  <DataTable.Cell>{userusername}</DataTable.Cell>
                   {/* <DataTable.Cell >{element.message}</DataTable.Cell> */}
                   <DataTable.Cell>{moment(new Date(element.createdAt))
                     .format('DD/MM=>hh:mm:ss A')}</DataTable.Cell>
