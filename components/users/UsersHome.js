@@ -479,7 +479,7 @@ class MyApp extends React.Component {
                 onClose={() => this.setState({ drawer: false })}
                 elevation={12}
                 side="left"
-                openDrawerOffset={0.4} // 20% gap on the right side of drawer
+                openDrawerOffset={0.5} // 20% gap on the right side of drawer
                 panCloseMask={0.5}
                 closedDrawerOffset={0}
                 styles={drawerStyles}
