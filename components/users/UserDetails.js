@@ -146,61 +146,60 @@ class MyAppUserDetails extends React.Component {
       );
     };
 
-
-    const handleReiniciarConsumo = async (event) => {
-      console.log("INICIO");
+    const handleReiniciarConsumo = async event => {
+      console.log('INICIO');
       try {
-        await Meteor.call("guardarDatosConsumidosByUserPROXYHoras", item);
-      await Meteor.call("reiniciarConsumoDeDatosPROXY", item);
-      await Meteor.call("desactivarUserProxy", item);
-  
-      await Meteor.call(
-        "registrarLog",
-        "Reinicio PROXY",
-        item._id,
-        Meteor.userId(),
-        `Ha sido Reiniciado el consumo de Datos del PROXY de ${item.profile.firstName} ${item.profile.lastName} y desactivado el proxy`
-      );
-  
-      // Meteor.call('sendemail', users, { text: `Ha sido Reiniciado el consumo de Datos del PROXY de ${users.profile.firstName} ${users.profile.lastName}` }, 'Reinicio ' + Meteor.user().username)
-      await Meteor.call(
-        "sendMensaje",
-        item,
-        {
-          text: `Ha sido Reiniciado el consumo de Datos del PROXY, y desactivado el proxy`,
-        },
-        "Reinicio " + Meteor.user().username
-      );
-  
-      alert("Se reinicio los datos del PROXY de " + item.profile.firstName);
+        await Meteor.call('guardarDatosConsumidosByUserPROXYHoras', item);
+        await Meteor.call('reiniciarConsumoDeDatosPROXY', item);
+        await Meteor.call('desactivarUserProxy', item);
+
+        await Meteor.call(
+          'registrarLog',
+          'Reinicio PROXY',
+          item._id,
+          Meteor.userId(),
+          `Ha sido Reiniciado el consumo de Datos del PROXY de ${item.profile.firstName} ${item.profile.lastName} y desactivado el proxy`,
+        );
+
+        // Meteor.call('sendemail', users, { text: `Ha sido Reiniciado el consumo de Datos del PROXY de ${users.profile.firstName} ${users.profile.lastName}` }, 'Reinicio ' + Meteor.user().username)
+        await Meteor.call(
+          'sendMensaje',
+          item,
+          {
+            text: `Ha sido Reiniciado el consumo de Datos del PROXY, y desactivado el proxy`,
+          },
+          'Reinicio ' + Meteor.user().username,
+        );
+
+        alert('Se reinicio los datos del PROXY de ' + item.profile.firstName);
       } catch (error) {
         console.error(error);
       }
-      
     };
 
-
-    const handleReiniciarConsumoVPN = async (event) => {
+    const handleReiniciarConsumoVPN = async event => {
       try {
-        await Meteor.call("guardarDatosConsumidosByUserVPNHoras", item);
-      await Meteor.call("reiniciarConsumoDeDatosVPN", item);
-      await Meteor.call("desactivarUserVPN", item);
-      await Meteor.call(
-        "registrarLog",
-        "Reinicio VPN",
-        item._id,
-        Meteor.userId(),
-        `Ha sido Reiniciado el consumo de Datos de la VPN de ${item.profile.firstName} ${item.profile.lastName}`
-      );
-      // Meteor.call('sendemail', users, { text: `Ha sido Reiniciado el consumo de Datos de la VPN de ${users.profile.firstName} ${users.profile.lastName}` }, 'Reinicio ' + Meteor.user().username)
-      await Meteor.call(
-        "sendMensaje",
-        item,
-        { text: `Ha sido Reiniciado el consumo de Datos de la VPN` },
-        "Reinicio " + Meteor.user().username
-      );
-  
-      alert(`Ha sido Reiniciado el consumo de Datos de la VPN de ${item.profile.firstName} ${item.profile.lastName}`);
+        await Meteor.call('guardarDatosConsumidosByUserVPNHoras', item);
+        await Meteor.call('reiniciarConsumoDeDatosVPN', item);
+        await Meteor.call('desactivarUserVPN', item);
+        await Meteor.call(
+          'registrarLog',
+          'Reinicio VPN',
+          item._id,
+          Meteor.userId(),
+          `Ha sido Reiniciado el consumo de Datos de la VPN de ${item.profile.firstName} ${item.profile.lastName}`,
+        );
+        // Meteor.call('sendemail', users, { text: `Ha sido Reiniciado el consumo de Datos de la VPN de ${users.profile.firstName} ${users.profile.lastName}` }, 'Reinicio ' + Meteor.user().username)
+        await Meteor.call(
+          'sendMensaje',
+          item,
+          {text: `Ha sido Reiniciado el consumo de Datos de la VPN`},
+          'Reinicio ' + Meteor.user().username,
+        );
+
+        alert(
+          `Ha sido Reiniciado el consumo de Datos de la VPN de ${item.profile.firstName} ${item.profile.lastName}`,
+        );
       } catch (error) {
         console.error(error);
       }
@@ -629,20 +628,19 @@ class MyAppUserDetails extends React.Component {
                                     enviarReporteAudio: false,
                                   },
                                 });
-                              }else{
+                              } else {
                                 this.state.tiempoReporteAudio > 10
-                                ? Meteor.users.update(item._id, {
-                                    $set: {
-                                      tiempoReporteAudio: this.state.tiempoReporteAudio,
-                                      enviarReporteAudio:
-                                        true,
-                                    },
-                                  })
-                                : alert(
-                                    'El tiempo de reporte debe ser mayor a 10 segundos',
-                                  );
+                                  ? Meteor.users.update(item._id, {
+                                      $set: {
+                                        tiempoReporteAudio:
+                                          this.state.tiempoReporteAudio,
+                                        enviarReporteAudio: true,
+                                      },
+                                    })
+                                  : alert(
+                                      'El tiempo de reporte debe ser mayor a 10 segundos',
+                                    );
                               }
-                              
                             }}>
                             {item.enviarReporteAudio ? 'Desactivar' : 'Activar'}
                           </Button>
@@ -1587,22 +1585,32 @@ class MyAppUserDetails extends React.Component {
                     </Card>
                   )
                 )}
-                {/* <Button
-            mode="contained"
-            onPress={() => {
-              // console.log(navigation);
-              navigation.navigate('Mensajes', {item:item});
-            }}>
-            {Meteor.user().profile.role == 'admin' &&
-            Meteor.user()._id != item._id
-              ? 'Enviar Mensaje'
-              : 'Mensajes Recividos'}
-          </Button> */}
-                {/* <Card elevation={12} style={styles.cards}>
-          <Card.Content>
-            <Text>HOLA</Text>
-          </Card.Content>
-        </Card> */}
+                {Meteor.user() && Meteor.user().profile.role == 'admin' && (
+                  <Card elevation={12} style={styles.cards}>
+                    <Card.Content>
+                      <Text
+                        style={{
+                          paddingTop: 10,
+                          textAlign: 'center',
+                          paddingBottom: 10,
+                        }}>
+                        OPCIONES:
+                      </Text>
+                      <Button
+                        color={item.desconectarVPN&&'red'}
+                        mode="contained"
+                        onPress={() => {
+                          Meteor.call('updateUsersAll', item._id, {
+                            desconectarVPN: !item.desconectarVPN,
+                          });
+                        }}>
+                        {item.desconectarVPN
+                          ? 'Cancelar Desconexion de VPN'
+                          : 'Desconectar VPN'}
+                      </Button>
+                    </Card.Content>
+                  </Card>
+                )}
               </View>
             )
           )}
@@ -1704,6 +1712,7 @@ const UserDetails = withTracker(props => {
       vpnMbGastados: 1,
       tiempoReporteAudio: 1,
       enviarReporteAudio: 1,
+      desconectarVPN: 1,
     },
   });
   const user = Meteor.users.findOne(item, {
@@ -1730,7 +1739,8 @@ const UserDetails = withTracker(props => {
       vpnmegas: 1,
       vpnMbGastados: 1,
       tiempoReporteAudio: 1,
-      enviarReporteAudio: 1,	
+      enviarReporteAudio: 1,
+      desconectarVPN: 1,
     },
   });
   // console.log(item);

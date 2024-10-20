@@ -48,6 +48,7 @@ import LogsList from './components/logs/LogsList';
 import VentasList from './components/ventas/VentasList';
 import ChatUsersHome from './components/mensajes/ChatUsersHome';
 import ConsumoUserHome from './components/users/ConsumoUsersHome';
+import ServerList from './components/servers/ServerList';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -134,6 +135,75 @@ const App = () => {
               //   fontWeight: 'bold',
               // },
               headerShown: true,
+              // headerRight
+              // headerTransparent:false
+            })}
+          />
+          <Stack.Screen
+            name="Servidores"
+            component={ServerList}
+            options={({navigation, route}) => ({
+              title: (
+                <Text style={{letterSpacing: 5}}>
+                 Servidores
+                </Text>
+              ),
+              headerStyle: {
+                backgroundColor: '#3f51b5',
+                height: 90,
+              },
+              headerTitleAlign: 'center',
+              headerTintColor: '#fff',
+              // headerTitleStyle: {
+              //   fontWeight: 'bold',
+              // },
+              // headerLeft:null,
+              headerShown: true,
+              headerRight: () => (
+                <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
+                  {/* <MenuIconMensajes navigation={navigation} /> */}
+
+                  <Menu
+                    visible={visibleMenu}
+                    onDismiss={() => {
+                      setVisibleMenu(false);
+                    }}
+                    anchor={
+                      <Appbar.Action
+                        icon="menu"
+                        color="white"
+                        onPress={() => {
+                          setVisibleMenu(true);
+                        }}
+                      />
+                    }
+                    style={{top: 70, width: 210, paddingRight: 30}}>
+                    <View style={{padding: 0}}>
+                      <Menu.Item
+                        icon="menu"
+                        onPress={() => {
+                          // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
+                          // console.log(item)
+                          setVisibleMenu(false);
+                          navigation.navigate('User', {
+                            item: Meteor.users.findOne({_id: Meteor.userId()}),
+                          });
+                        }}
+                        title="Mi usuario"
+                      />
+                      <Menu.Item
+                        icon="logout"
+                        onPress={() => {
+                          Meteor.logout();
+                          navigation.navigate('Loguin');
+                          setVisibleMenu(false);
+                        }}
+                        title="Cerrar Sessión"
+                      />
+                    </View>
+                  </Menu>
+                </View>
+              ),
               // headerRight
               // headerTransparent:false
             })}

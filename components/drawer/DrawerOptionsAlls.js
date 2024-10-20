@@ -20,15 +20,15 @@ const DrawerOptionsAlls = (opt) => {
 
   const opcionesAdministradores = [
     {
-      label: "Agregar Usuarios",
+      label: "Add Usuarios",
       url:"CreateUsers",
       icon:"account-plus"
     },
-    // {
-    //   label: "Mensajes",
-    //   url:"AllMensajesUser",
-    //   icon:"message"
-    // },
+    {
+      label: "Servidores",
+      url:"Servidores",
+      icon:"server"
+    },
     // {
     //   label: "Consumo Proxy",
     //   url:"ConsumoUsers",
