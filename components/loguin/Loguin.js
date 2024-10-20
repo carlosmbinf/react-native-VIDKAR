@@ -18,6 +18,7 @@ const {height: screenHeight} = Dimensions.get('window');
 import {Mensajes} from '../collections/collections';
 
 import Video from 'react-native-video';
+import { SafeAreaView } from 'react-native-safe-area-context';
 //import HeroBot from '../animations/HeroBot';
 
 class Loguin extends Component {
@@ -75,21 +76,19 @@ class Loguin extends Component {
 
     const backgroundStyle = {
       // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
-      height: screenHeight,
-      width: screenWidth,
-      position: 'absolute',
-      paddingTop: "30%",
+      minHeight: "100%",
+      minWidth: "100%",
+      marginTop: "5%",
     };
 
     return (
-      <View style={{flex: 1}}>
-        <ScrollView contentInsetAdjustmentBehavior="automatic" >
+      <View style={{ minHeight: "100%", minWidth:"100%"}}>
         <Video
           source={require('../videobackground/background.mp4')}
           style={{
             backgroundColor: 'black',
-            width: screenWidth,
-            height: screenHeight,
+            width: "100%",
+            height: "100%",
             position: 'relative',
             left: 0,
             top: 0,
@@ -101,18 +100,25 @@ class Loguin extends Component {
           rate={1.0}
           ignoreSilentSwitch={'obey'}
         />
-        <View style={backgroundStyle}>
+
           {/* <HeroBot/>*/}
-          <View style={styles.container}>
-            <Text style={{fontSize: 40, color: 'white'}}>
-              <FontAwesome5Icon name="house-user" size={100} />
-            </Text>
+          <SafeAreaView style={{ 
+      position: 'absolute',
+      // backgroundColor: 'red',
+      minHeight:'100%',
+      minWidth: '100%'}}>
+          <ScrollView >
+          <View style={backgroundStyle}>
+            <View style={styles.container}>
+              <Text style={{fontSize: 30,}}>
+                <FontAwesome5Icon name="house-user" size={100} />
+              </Text>
 
-            <Text style={{fontSize: 40, color: 'white'}}>🅥🅘🅓🅚🅐🅡</Text>
-          </View>
+              <Text style={{fontSize: 30 }}>🅥🅘🅓🅚🅐🅡</Text>
+            </View>
 
-          <View style={styles.container}>
-            {/* <TextInput
+            <View style={styles.container}>
+              {/* <TextInput
               mode="outlined"
               value={this.state.ipserver}
               onChangeText={ipserver => this.setState({ipserver: ipserver})}
@@ -127,46 +133,47 @@ class Loguin extends Component {
                 marginBottom: 10,
               }}
             /> */}
-            <TextInput
-              mode="flat"
-              value={this.state.username}
-              onChangeText={username => this.setState({username: username})}
-              label={'Username'}
-              // placeholderTextColor={
-              //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
-              // }
-              dense={true}
-              style={{
-                width: 200,
-                // height: 44,
-                marginBottom: 10,
-              }}
-            />
-            <TextInput
-              mode="flat"
-              value={this.state.password}
-              onChangeText={password => this.setState({password: password})}
-              label={'Password'}
-              // placeholderTextColor={
-              //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
-              // }
-              secureTextEntry={true}
-              dense={true}
-              style={{
-                width: 200,
-                // height: 44,
-                marginBottom: 10,
-              }}
-            />
+              <TextInput
+                mode="flat"
+                value={this.state.username}
+                onChangeText={username => this.setState({username: username})}
+                label={'Username'}
+                // placeholderTextColor={
+                //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
+                // }
+                dense={true}
+                style={{
+                  width: 200,
+                  // height: 44,
+                  marginBottom: 10,
+                }}
+              />
+              <TextInput
+                mode="flat"
+                value={this.state.password}
+                onChangeText={password => this.setState({password: password})}
+                label={'Password'}
+                // placeholderTextColor={
+                //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
+                // }
+                secureTextEntry={true}
+                dense={true}
+                style={{
+                  width: 200,
+                  // height: 44,
+                  marginBottom: 10,
+                }}
+              />
 
-            <Button mode="contained" onPress={this.onLogin.bind(this)}>
-              Iniciar Sessión
-            </Button>
-          </View>
-        </View>
-      </ScrollView>
-        </View>
-      
+              <Button mode="contained" onPress={this.onLogin.bind(this)}>
+                Iniciar Sessión
+              </Button>
+            </View>
+            </View>
+          </ScrollView>
+          </SafeAreaView>
+         
+      </View>
     );
   }
 }
@@ -182,6 +189,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     margin: 10,
+    zIndex: 1,
     // backgroundColor: '#ecf0f1',
   },
 });

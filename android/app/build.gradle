@@ -82,8 +82,8 @@ android {
         applicationId "com.vidkar"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 16
-        versionName "1.16"
+        versionCode 19
+        versionName "1.19"
     }
     signingConfigs {
         debug {
