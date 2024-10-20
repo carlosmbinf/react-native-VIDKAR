@@ -12,7 +12,7 @@ import {
   Appbar,
   Menu,
   Provider as PaperProvider,
-  Surface
+  Surface,
 } from 'react-native-paper';
 
 import {
@@ -94,12 +94,10 @@ const App = () => {
 
   function logOut(navigation) {
     Meteor.logout(error => {
-      error
-        ? Alert.alert('Error Cerrando Session')
-        : navigation.navigate('Loguin');
+      error && Alert.alert('Error Cerrando Session');
     });
   }
-  useEffect(() => {    
+  useEffect(() => {
     // Meteor.connect('ws://10.0.2.2:8080', AsyncStorage);
     // alert(Meteor.status().status);
     // let handle = Meteor.subscribe('mensajes', {});
@@ -108,7 +106,7 @@ const App = () => {
   }, []);
 
   return (
-    <PaperProvider>
+    <>
       <StatusBar
         translucent={true}
         backgroundColor={'transparent'}
@@ -120,7 +118,7 @@ const App = () => {
 
       <NavigationContainer>
         <Stack.Navigator>
-          <Stack.Screen
+          {/* <Stack.Screen
             name="Loguin"
             component={Loguin}
             options={({navigation, route}) => ({
@@ -138,16 +136,196 @@ const App = () => {
               // headerRight
               // headerTransparent:false
             })}
-          />
+          /> */}
+          {Meteor.user() && Meteor.user().profile.role == 'admin' && (
+            <Stack.Screen
+              name="Users"
+              component={UserHome}
+              options={({navigation, route}) => ({
+                title: (
+                  <Text style={{letterSpacing: 5}}>
+                    <FontAwesome
+                      // onPress={() => logOut(navigation)}
+                      name="hand-o-right"
+                      color={'white'}
+                      size={20}
+                      // borderRadius={20}
+                      solid
+                    />
+                    VidKar
+                    <FontAwesome
+                      // onPress={() => logOut(navigation)}
+                      name="hand-o-left"
+                      color={'white'}
+                      size={20}
+                      // borderRadius={20}
+                      solid
+                    />
+                  </Text>
+                ),
+                headerStyle: {
+                  backgroundColor: '#3f51b5',
+                  height: 90,
+                },
+                headerTitleAlign: 'center',
+                headerTintColor: '#fff',
+                // headerTitleStyle: {
+                //   fontWeight: 'bold',
+                // },
+                headerLeft: null,
+                headerShown: true,
+                headerRight: () => (
+                  <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
+                    {/* <MenuIconMensajes navigation={navigation} /> */}
+
+                    <Menu
+                      visible={visibleMenu}
+                      onDismiss={() => {
+                        setVisibleMenu(false);
+                      }}
+                      anchor={
+                        <Appbar.Action
+                          icon="menu"
+                          color="white"
+                          onPress={() => {
+                            setVisibleMenu(true);
+                          }}
+                        />
+                      }
+                      style={{top: 70, paddingRight: 30}}>
+                      <View style={{padding: 0}}>
+                        <Menu.Item
+                          icon="menu"
+                          onPress={() => {
+                            // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
+                            // console.log(item)
+                            setVisibleMenu(false);
+                            navigation.navigate('User', {
+                              item: Meteor.userId(),
+                            });
+                          }}
+                          title="Mi usuario"
+                        />
+                        <Menu.Item
+                          icon="logout"
+                          onPress={() => {
+                            Meteor.logout();
+                            // navigation.navigate('Loguin');
+                            setVisibleMenu(false);
+                          }}
+                          title="Cerrar Sessión"
+                        />
+                      </View>
+                    </Menu>
+                  </View>
+                ),
+                // headerRight
+                // headerTransparent:false
+              })}
+            />
+          )}
+          <Stack.Screen
+            name="User"
+            options={({navigation, route}) => {
+              const {params} = route;
+              var item = Meteor.users.findOne(
+                params ? params.item : Meteor.userId(),
+                {
+                  fields: {
+                    _id: 1,
+                    'profile.firstName': 1,
+                    'profile.lastName': 2,
+                  },
+                },
+              );
+              return {
+                title: (
+                  <Text>
+                    {item && item.profile
+                      ? `${item.profile.firstName} ${item.profile.lastName}`
+                      : ''}
+                  </Text>
+                ),
+                headerStyle: {
+                  backgroundColor: '#3f51b5',
+                  height: 90,
+                },
+                headerTitleAlign: 'center',
+                headerTintColor: '#fff',
+                // headerTitleStyle: {
+                //   fontWeight: 'bold',
+                // },
+                headerLeft: !(Meteor.user().profile.role == 'admin') && null,
+                headerShown: true,
+                // headerLeftContainerStyle: { display: flex },
+                headerRight: () => (
+                  <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
+                    {/* <MenuIconMensajes navigation={navigation} /> */}
+
+                    <Menu
+                      visible={visibleMenuUsers}
+                      onDismiss={() => {
+                        setVisibleMenuUsers(false);
+                      }}
+                      anchor={
+                        <Appbar.Action
+                          icon="menu"
+                          color="white"
+                          onPress={() => {
+                            setVisibleMenuUsers(true);
+                          }}
+                        />
+                      }
+                      style={{top: 70, width: 210, paddingRight: 30}}>
+                      <View style={{padding: 0}}>
+                        {/* <Menu.Item
+                        icon="menu"
+                        onPress={() => {
+                          // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
+                          // console.log(item)
+                          setVisibleMenu(false);
+                          navigation.navigate('User', {
+                            item: Meteor.users.findOne({_id: Meteor.userId()}),
+                          });
+                        }}
+                        title="Mi usuario"
+                      /> */}
+                        <Menu.Item
+                          icon="logout"
+                          onPress={() => {
+                            Meteor.logout();
+                            // navigation.navigate('Loguin');
+                            setVisibleMenu(false);
+                          }}
+                          title="Cerrar Sessión"
+                          style={{padding: 0}}
+                        />
+                      </View>
+                    </Menu>
+                  </View>
+                ),
+                // headerRight
+                // headerTransparent:false
+              };
+            }}>
+            {props => {
+              const {navigation, route} = props;
+              const {params} = route;
+              const item = params ? params.item : Meteor.userId();
+              // const {navigation} = route.params;
+              return (
+                <UserDetails item={item} navigation={navigation} />
+                // <TasksProvider user={user} projectPartition={projectPartition}>
+                //   <TasksView navigation={navigation} route={route} />
+                // </TasksProvider>
+              );
+            }}
+          </Stack.Screen>
           <Stack.Screen
             name="Servidores"
             component={ServerList}
             options={({navigation, route}) => ({
-              title: (
-                <Text style={{letterSpacing: 5}}>
-                 Servidores
-                </Text>
-              ),
+              title: <Text style={{letterSpacing: 5}}>Servidores</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -195,92 +373,7 @@ const App = () => {
                         icon="logout"
                         onPress={() => {
                           Meteor.logout();
-                          navigation.navigate('Loguin');
-                          setVisibleMenu(false);
-                        }}
-                        title="Cerrar Sessión"
-                      />
-                    </View>
-                  </Menu>
-                </View>
-              ),
-              // headerRight
-              // headerTransparent:false
-            })}
-          />
-          <Stack.Screen
-            name="Users"
-            component={UserHome}
-            options={({navigation, route}) => ({
-              title: (
-                <Text style={{letterSpacing: 5}}>
-                  <FontAwesome
-                    // onPress={() => logOut(navigation)}
-                    name="hand-o-right"
-                    color={'white'}
-                    size={20}
-                    // borderRadius={20}
-                    solid
-                  />
-                  VidKar
-                  <FontAwesome
-                    // onPress={() => logOut(navigation)}
-                    name="hand-o-left"
-                    color={'white'}
-                    size={20}
-                    // borderRadius={20}
-                    solid
-                  />
-                </Text>
-              ),
-              headerStyle: {
-                backgroundColor: '#3f51b5',
-                height: 90,
-              },
-              headerTitleAlign: 'center',
-              headerTintColor: '#fff',
-              // headerTitleStyle: {
-              //   fontWeight: 'bold',
-              // },
-              headerLeft:null,
-              headerShown: true,
-              headerRight: () => (
-                <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
-                  {/* <MenuIconMensajes navigation={navigation} /> */}
-
-                  <Menu
-                    visible={visibleMenu}
-                    onDismiss={() => {
-                      setVisibleMenu(false);
-                    }}
-                    anchor={
-                      <Appbar.Action
-                        icon="menu"
-                        color="white"
-                        onPress={() => {
-                          setVisibleMenu(true);
-                        }}
-                      />
-                    }
-                    style={{top: 70, paddingRight: 30}}>
-                    <View style={{padding: 0}}>
-                      <Menu.Item
-                        icon="menu"
-                        onPress={() => {
-                          // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
-                          // console.log(item)
-                          setVisibleMenu(false);
-                          navigation.navigate('User', {
-                            item: Meteor.userId(),
-                          });
-                        }}
-                        title="Mi usuario"
-                      />
-                      <Menu.Item
-                        icon="logout"
-                        onPress={() => {
-                          Meteor.logout();
-                          navigation.navigate('Loguin');
+                          // navigation.navigate('Loguin');
                           setVisibleMenu(false);
                         }}
                         title="Cerrar Sessión"
@@ -365,7 +458,7 @@ const App = () => {
                         icon="logout"
                         onPress={() => {
                           Meteor.logout();
-                          navigation.navigate('Loguin');
+                          // navigation.navigate('Loguin');
                           setVisibleMenu(false);
                         }}
                         title="Cerrar Sessión"
@@ -382,11 +475,7 @@ const App = () => {
             name="CreateUsers"
             component={CreateUsers}
             options={({navigation, route}) => ({
-              title: (
-                <Text style={{letterSpacing: 5}}>
-                  Crear Usuario
-                </Text>
-              ),
+              title: <Text style={{letterSpacing: 5}}>Crear Usuario</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -434,7 +523,7 @@ const App = () => {
                         icon="logout"
                         onPress={() => {
                           Meteor.logout();
-                          navigation.navigate('Loguin');
+                          // navigation.navigate('Loguin');
                           setVisibleMenu(false);
                         }}
                         title="Cerrar Sessión"
@@ -451,11 +540,7 @@ const App = () => {
             name="Logs"
             component={LogsList}
             options={({navigation, route}) => ({
-              title: (
-                <Text style={{letterSpacing: 5}}>
-                 Registro de Logs
-                </Text>
-              ),
+              title: <Text style={{letterSpacing: 5}}>Registro de Logs</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -503,7 +588,7 @@ const App = () => {
                         icon="logout"
                         onPress={() => {
                           Meteor.logout();
-                          navigation.navigate('Loguin');
+                          // navigation.navigate('Loguin');
                           setVisibleMenu(false);
                         }}
                         title="Cerrar Sessión"
@@ -520,11 +605,7 @@ const App = () => {
             name="Ventas"
             component={VentasList}
             options={({navigation, route}) => ({
-              title: (
-                <Text style={{letterSpacing: 5}}>
-                 Registro de Logs
-                </Text>
-              ),
+              title: <Text style={{letterSpacing: 5}}>Registro de Logs</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -572,7 +653,7 @@ const App = () => {
                         icon="logout"
                         onPress={() => {
                           Meteor.logout();
-                          navigation.navigate('Loguin');
+                          // navigation.navigate('Loguin');
                           setVisibleMenu(false);
                         }}
                         title="Cerrar Sessión"
@@ -586,7 +667,7 @@ const App = () => {
             })}
           />
 
-{/* <Stack.Screen
+          {/* <Stack.Screen
             name="PeliculasVideos"
             component={MyTabs}
             options={({navigation, route}) => ({
@@ -674,93 +755,14 @@ const App = () => {
           </Stack.Screen> */}
 
           <Stack.Screen
-            name="User"
-            options={({ navigation, route }) => {
-              var item = Meteor.users.findOne(route.params.item, { fields: { _id: 1, "profile.firstName": 1, "profile.lastName": 2 } })
-              return ({
-              title: (
-                <Text>
-                    {item && item.profile ? (`${item.profile.firstName} ${item.profile.lastName}`) : ""}
-                </Text>
-              ),
-              headerStyle: {
-                backgroundColor: '#3f51b5',
-                height: 90,
-              },
-              headerTitleAlign: 'center',
-              headerTintColor: '#fff',
-              // headerTitleStyle: {
-              //   fontWeight: 'bold',
-              // },
-              headerLeft: !(Meteor.user().profile.role == "admin") && null,
-              headerShown: true,
-              // headerLeftContainerStyle: { display: flex },
-              headerRight: () => (
-                <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
-                  {/* <MenuIconMensajes navigation={navigation} /> */}
-
-                  <Menu
-                    visible={visibleMenuUsers}
-                    onDismiss={() => {
-                      setVisibleMenuUsers(false);
-                    }}
-                    anchor={
-                      <Appbar.Action
-                        icon="menu"
-                        color="white"
-                        onPress={() => {
-                          setVisibleMenuUsers(true);
-                        }}
-                      />
-                    }
-                    style={{top: 70, width: 210, paddingRight: 30}}>
-                    <View style={{padding: 0}}>
-                      {/* <Menu.Item
-                        icon="menu"
-                        onPress={() => {
-                          // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
-                          // console.log(item)
-                          setVisibleMenu(false);
-                          navigation.navigate('User', {
-                            item: Meteor.users.findOne({_id: Meteor.userId()}),
-                          });
-                        }}
-                        title="Mi usuario"
-                      /> */}
-                      <Menu.Item
-                        icon="logout"
-                        onPress={() => {
-                          Meteor.logout();
-                          navigation.navigate('Loguin');
-                          setVisibleMenu(false);
-                        }}
-                        title="Cerrar Sessión"
-                        style={{padding: 0}}
-                      />
-                    </View>
-                  </Menu>
-                </View>
-              )
-              // headerRight
-              // headerTransparent:false
-            })}}>
-            {props => {
-              const {navigation, route} = props;
-              const {item} = route.params;
-              // const {navigation} = route.params;
-              return (
-                
-                <UserDetails item={item} navigation={navigation} />
-                // <TasksProvider user={user} projectPartition={projectPartition}>
-                //   <TasksView navigation={navigation} route={route} />
-                // </TasksProvider>
-              );
-            }}
-          </Stack.Screen>
-          <Stack.Screen
             name="Mensaje"
             options={({navigation, route}) => ({
-              title: <Text>{Meteor.users.findOne(route.params.item)&&(Meteor.users.findOne(route.params.item).profile.firstName)}</Text>,
+              title: (
+                <Text>
+                  {Meteor.users.findOne(route.params.item) &&
+                    Meteor.users.findOne(route.params.item).profile.firstName}
+                </Text>
+              ),
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -807,7 +809,7 @@ const App = () => {
               const {navigation, route} = props;
               // console.log(item)
               return (
-                <ChatUsersHome navigation={navigation}/>
+                <ChatUsersHome navigation={navigation} />
                 // <TasksProvider user={user} projectPartition={projectPartition}>
                 //   <TasksView navigation={navigation} route={route} />
                 // </TasksProvider>
@@ -833,7 +835,7 @@ const App = () => {
 
       {/* <PelisHome /> */}
       {/* </ScrollView> */}
-    </PaperProvider>
+    </>
   );
 };
 // const MensajesHome = withTracker(user => {
