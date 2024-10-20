@@ -15,15 +15,13 @@ import FontAwesome5Icon from 'react-native-vector-icons/FontAwesome5';
 
 const {width: screenWidth} = Dimensions.get('window');
 const {height: screenHeight} = Dimensions.get('window');
-import {Mensajes} from '../collections/collections'
+import {Mensajes} from '../collections/collections';
 
-import Video from "react-native-video";
+import Video from 'react-native-video';
+import { SafeAreaView } from 'react-native-safe-area-context';
 //import HeroBot from '../animations/HeroBot';
- 
-
 
 class Loguin extends Component {
-  
   componentDidMount() {
     // Orientation.unlockAllOrientations();
   }
@@ -31,15 +29,15 @@ class Loguin extends Component {
   componentWillUnmount() {
     // Orientation.lockToPortrait();
   }
-  
+
   constructor(props) {
     super(props);
     const {navigation} = this.props;
     Meteor.connect('ws://vidkar.ddns.net:6000/websocket');
-    
+
     // Meteor.user() && navigation.navigate('Peliculas');
 
-    Meteor.user()&& (Meteor.user().profile.role == "admin" ? navigation.navigate('Users') : navigation.navigate('User', { item: Meteor.userId() }))
+    // Meteor.user()&& (Meteor.user().profile.role == "admin" ? navigation.navigate('Users') : navigation.navigate('User', { item: Meteor.userId() }))
 
     this.state = {
       ipserver: 'vidkar.ddns.net',
@@ -56,10 +54,10 @@ class Loguin extends Component {
     } catch (error) {
       Alert.alert(
         'Error de Conexión',
-        'No se pudo conectar al servidor: ' + this.state.ipserver
+        'No se pudo conectar al servidor: ' + this.state.ipserver,
       );
     }
- // Note the /websocket after your URL
+    // Note the /websocket after your URL
 
     // let version = 1
     // Meteor.subscribe('mensajes');
@@ -69,48 +67,58 @@ class Loguin extends Component {
     Meteor.loginWithPassword(username, password, function (error) {
       error && Alert.alert('Credenciales incorrectas');
       // !error && navigation.navigate('Peliculas');
-      !error && (Meteor.users.findOne({ username: username }).profile && Meteor.users.findOne({ username: username }).profile.role == "admin" ? navigation.navigate('Users') : navigation.navigate('User', { item: Meteor.users.findOne({ username: username })._id }));
+      // !error && (Meteor.users.findOne({ username: username }).profile && Meteor.users.findOne({ username: username }).profile.role == "admin" ? navigation.navigate('Users') : navigation.navigate('User', { item: Meteor.users.findOne({ username: username })._id }));
     });
   }
 
   render() {
     // Meteor.userId()&&Meteor.subscribe("usersId",Meteor.userId())
-   
+
     const backgroundStyle = {
       // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
-      height: screenHeight,
-      width: screenWidth,
-      position: 'absolute',
-      paddingTop:50
+      minHeight: "100%",
+      minWidth: "100%",
+      marginTop: "5%",
     };
 
     return (
-      
-        <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-          >
-             <Video
-source={require("../videobackground/background.mp4")}
-      
-          style={{ backgroundColor: 'black', width: screenWidth, height: screenHeight - 65, position: 'relative', left: 0, top: 0, zIndex: 0 }}
-muted={true}
-repeat={true}
-resizeMode={"cover"}
-rate={1.0}
-ignoreSilentSwitch={"obey"}
-/>
-        <View style={backgroundStyle}>
+      <View style={{ minHeight: "100%", minWidth:"100%"}}>
+        <Video
+          source={require('../videobackground/background.mp4')}
+          style={{
+            backgroundColor: 'black',
+            width: "100%",
+            height: "100%",
+            position: 'relative',
+            left: 0,
+            top: 0,
+            zIndex: 0,
+          }}
+          muted={true}
+          repeat={true}
+          resizeMode={'cover'}
+          rate={1.0}
+          ignoreSilentSwitch={'obey'}
+        />
+
           {/* <HeroBot/>*/}
-          <View style={styles.container}>
-            <Text style={{fontSize: 40,color:"white"}}>
-              <FontAwesome5Icon name="house-user" size={100} />
-            </Text>
+          <SafeAreaView style={{ 
+      position: 'absolute',
+      // backgroundColor: 'red',
+      minHeight:'100%',
+      minWidth: '100%'}}>
+          <ScrollView >
+          <View style={backgroundStyle}>
+            <View style={styles.container}>
+              <Text style={{fontSize: 30,}}>
+                <FontAwesome5Icon name="house-user" size={100} />
+              </Text>
 
-            <Text style={{fontSize: 40,color:"white"}}>🅥🅘🅓🅚🅐🅡</Text>
-          </View>
+              <Text style={{fontSize: 30 }}>🅥🅘🅓🅚🅐🅡</Text>
+            </View>
 
-          <View style={styles.container}>
-          {/* <TextInput
+            <View style={styles.container}>
+              {/* <TextInput
               mode="outlined"
               value={this.state.ipserver}
               onChangeText={ipserver => this.setState({ipserver: ipserver})}
@@ -125,45 +133,47 @@ ignoreSilentSwitch={"obey"}
                 marginBottom: 10,
               }}
             /> */}
-            <TextInput
-              mode="flat"
-              value={this.state.username}
-              onChangeText={username => this.setState({username: username})}
-              label={'Username'}
-              // placeholderTextColor={
-              //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
-              // }
-              dense={true}
-              style={{
-                width: 200,
-                // height: 44,
-                marginBottom: 10,
-              }}
-            />
-            <TextInput
-              mode="flat"
-              value={this.state.password}
-              onChangeText={password => this.setState({password: password})}
-              label={'Password'}
-              // placeholderTextColor={
-              //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
-              // }
-              secureTextEntry={true}
-              dense={true}
-              style={{
-                width: 200,
-                // height: 44,
-                marginBottom: 10,
-              }}
-            />
+              <TextInput
+                mode="flat"
+                value={this.state.username}
+                onChangeText={username => this.setState({username: username})}
+                label={'Username'}
+                // placeholderTextColor={
+                //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
+                // }
+                dense={true}
+                style={{
+                  width: 200,
+                  // height: 44,
+                  marginBottom: 10,
+                }}
+              />
+              <TextInput
+                mode="flat"
+                value={this.state.password}
+                onChangeText={password => this.setState({password: password})}
+                label={'Password'}
+                // placeholderTextColor={
+                //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
+                // }
+                secureTextEntry={true}
+                dense={true}
+                style={{
+                  width: 200,
+                  // height: 44,
+                  marginBottom: 10,
+                }}
+              />
 
-            <Button mode="contained" onPress={this.onLogin.bind(this)}>
-              Iniciar Sessión
-            </Button>
-          </View>
+              <Button mode="contained" onPress={this.onLogin.bind(this)}>
+                Iniciar Sessión
+              </Button>
+            </View>
+            </View>
+          </ScrollView>
+          </SafeAreaView>
+         
       </View>
-
-        </ScrollView>
     );
   }
 }
@@ -179,6 +189,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     margin: 10,
+    zIndex: 1,
     // backgroundColor: '#ecf0f1',
   },
 });
