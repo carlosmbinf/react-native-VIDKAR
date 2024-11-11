@@ -23,7 +23,6 @@
     "moment": "^2.29.1",
     "react": "18.3.1",
     "react-native": "0.75.3",
-    "react-native-audio-recorder-player": "^3.6.11",
     "react-native-calendar-picker": "^7.1.2",
     "react-native-custom-header": "^1.0.0",
     "react-native-drawer": "^2.5.1",
