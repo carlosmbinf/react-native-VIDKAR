@@ -9,7 +9,7 @@
 import React, {useRef, useEffect, useState} from 'react';
 // import type {Node} from 'react';
 import {Provider as PaperProvider, Title} from 'react-native-paper';
-import Carousel, {ParallaxImage} from 'react-native-snap-carousel';
+// import Carousel, {ParallaxImage} from 'react-native-snap-carousel';
 // import * as axios from 'axios';
 import Meteor, {Mongo, withTracker} from '@meteorrn/core';
 import Header from 'react-native-custom-header';
@@ -113,13 +113,13 @@ class MyApp extends React.Component {
       // console.log(index);
       return (
         <View>
-          <ParallaxImage
+          {/* <ParallaxImage
             source={{uri: item.urlBackground}}
             containerStyle={styles.imageContainer}
             style={styles.image}
             parallaxFactor={0.4}
             {...parallaxProps}
-          />
+          /> */}
           <DownloadVideosCard key={item._id} navigation={navigation} item={item} />
         </View>
       );
@@ -173,7 +173,7 @@ class MyApp extends React.Component {
                 </Title>
               </View>
 
-              <Carousel
+              {/* <Carousel
                 layout={'default'}
                 ref={this.state.carouselRef}
                 sliderWidth={screenWidth}
@@ -184,7 +184,7 @@ class MyApp extends React.Component {
                 hasParallaxImages={true}
                 // getItem
                 // layoutCardOffset={10}
-              />
+              /> */}
             </View>
           )}
 

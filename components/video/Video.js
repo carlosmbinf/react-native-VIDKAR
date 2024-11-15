@@ -8,7 +8,7 @@ import Video, {TextTrackType} from 'react-native-video';
 import useSubtitles from 'react-subtitles'
 import Modal from 'react-native-modal';
 import Subtitles from 'react-native-subtitles'
-import Orientation from 'react-native-orientation';
+// import Orientation from 'react-native-orientation';
 import VideoPlayer from 'react-native-video-controls-subtitle';
 import { PelisRegister } from '../collections/collections';
 
@@ -16,14 +16,14 @@ var {width: screenWidth} = Dimensions.get('window');
 var {height: screenHeight} = Dimensions.get('window');
 class Player extends React.Component {
   componentDidMount() {
-    Orientation.lockToLandscape();
+    // Orientation.lockToLandscape();
     screenWidth = Dimensions.get('window').width;
     screenHeight = Dimensions.get('window').height;
   }
 
   componentWillUnmount() {
     
-    Orientation.lockToPortrait();
+    // Orientation.lockToPortrait();
   }
 
   constructor(props) {
@@ -223,7 +223,7 @@ var styles = StyleSheet.create({
   textVideoSubtitle:{
     opacity: 1,
     color: 'white',
-    fontSize: 20
+    fontSize: 15
   },
   backgroundVideoSubtitle:{
     width: '40%',

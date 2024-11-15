@@ -82,8 +82,15 @@ android {
         applicationId "com.vidkar"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 22
-        versionName "1.22"
+        versionCode 25
+        versionName "1.25"
+                // Otros valores predeterminados de configuración
+        resValue "bool", "useExoplayerIMA", "true"
+        resValue "bool", "useExoplayerSmoothStreaming", "true"
+        resValue "bool", "useExoplayerDash", "true"
+        resValue "bool", "useExoplayerHls", "true"
+        resValue "bool", "useExoplayerRtsp", "true"
+        resValue "bool", "buildFromSource", "true"
     }
     signingConfigs {
         debug {
@@ -125,3 +132,4 @@ dependencies {
 }
 
 apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
+// apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)

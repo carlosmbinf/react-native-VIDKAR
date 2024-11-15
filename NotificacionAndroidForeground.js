@@ -22,8 +22,8 @@ import {Platform} from 'react-native';
       // Start the service
     };
     
-const AndroidForegroundService = () => {
-  startForegroundService();
+const AndroidForegroundService = async () => {
+  await startForegroundService();
   if (Platform.OS === 'android') {
     // Código específico para Android
     

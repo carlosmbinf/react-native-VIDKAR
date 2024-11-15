@@ -49,6 +49,9 @@ import VentasList from './components/ventas/VentasList';
 import ChatUsersHome from './components/mensajes/ChatUsersHome';
 import ConsumoUserHome from './components/users/ConsumoUsersHome';
 import ServerList from './components/servers/ServerList';
+import MyTabs from './components/navigator/MyTabs';
+import Player from './components/video/Video';
+import VideoPlayer from './components/video/VideoPlayer';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -137,6 +140,7 @@ const App = () => {
               // headerTransparent:false
             })}
           /> */}
+          
           {Meteor.user() && Meteor.user().profile.role == 'admin' && (
             <Stack.Screen
               name="Users"
@@ -667,7 +671,7 @@ const App = () => {
             })}
           />
 
-          {/* <Stack.Screen
+<Stack.Screen
             name="PeliculasVideos"
             component={MyTabs}
             options={({navigation, route}) => ({
@@ -689,7 +693,7 @@ const App = () => {
               headerShown: true,
               headerRight: () => (
                 <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
-                  <MenuIconMensajes navigation={navigation} />
+                  {/* <MenuIconMensajes navigation={navigation} /> */}
 
                   <Menu
                     visible={visibleMenu}
@@ -735,9 +739,9 @@ const App = () => {
               // headerRight
               // headerTransparent:false
             })}
-          /> */}
+          />
 
-          {/* <Stack.Screen
+          <Stack.Screen
             name="Video"
             options={({ navigation, route }) => ({
               headerShown: false,
@@ -745,16 +749,19 @@ const App = () => {
             {props => {
               const { navigation, route } = props;
               const { id, subtitulo } = route.params;
+              console.log("params",route.params)
               return (
-                <VideoPlayer id={id} subtitulo={subtitulo} navigation={navigation} />
+                <VideoPlayer id={id} subtitulo={subtitulo} navigation={navigation} route={route} />
+                // <Player id={id} subtitulo={subtitulo} navigation={navigation} urlPeli={urlPeli} />
                 // <TasksProvider user={user} projectPartition={projectPartition}>
                 //   <TasksView navigation={navigation} route={route} />
                 // </TasksProvider>
               );
             }}
-          </Stack.Screen> */}
+          </Stack.Screen>
 
           <Stack.Screen
+          
             name="Mensaje"
             options={({navigation, route}) => ({
               title: (

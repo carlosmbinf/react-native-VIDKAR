@@ -9,7 +9,7 @@
 import React, {useRef, useEffect, useState} from 'react';
 // import type {Node} from 'react';
 import {Provider as PaperProvider, Title, Surface} from 'react-native-paper';
-import Carousel, {ParallaxImage} from 'react-native-snap-carousel';
+// import Carousel, {ParallaxImage} from 'react-native-snap-carousel';
 // import * as axios from 'axios';
 import Meteor, {Mongo, withTracker} from '@meteorrn/core';
 import Header from 'react-native-custom-header';
@@ -43,6 +43,7 @@ import Loguin from '../loguin/Loguin';
 
 import {PelisRegister} from '../collections/collections'
 import PelisHomeElementos from './PelisHomeElementos';
+import MainPelis from './MainPelis';
 
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
@@ -140,16 +141,16 @@ class MyApp extends React.Component {
           }>
             <>
             {/* <PelisHomeElementos navigation={navigation} clasificacion="All" /> */}
-            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Sci-Fi" />}
-            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Action" />}
-            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Adventure" />}
-            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Thriller" />}
-            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Crime" />}
-            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Mystery" />}
-            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Horror" />}
-            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Comedy" />}
-            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Drama" />}
-            {!this.state.refreshing  && <PelisHomeElementos navigation={navigation} clasificacion="Romance" />}
+            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Sci-Fi" />}
+            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Action" />}
+            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Adventure" />}
+            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Thriller" />}
+            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Crime" />}
+            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Mystery" />}
+            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Horror" />}
+            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Comedy" />}
+            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Drama" />}
+            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Romance" />}
           </>
 
           {/* <Text>

@@ -13,6 +13,7 @@ import {Text,Provider as PaperProvider,} from 'react-native-paper';
 import App from './App';
 import Loguin from './components/loguin/Loguin';
 
+console.log('Main.js');
 class MyApp extends React.Component {
   //   componentDidMount() {
   //     Orientation.lockToPortrait();

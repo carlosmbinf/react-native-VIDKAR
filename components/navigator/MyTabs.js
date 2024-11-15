@@ -3,14 +3,14 @@ import React, {useEffect, useState} from 'react';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import PelisHome from '../pelis/PelisHome';
-import DownloadVideosHome from '../downloadVideos/DownloadVideosHome';
+// import DownloadVideosHome from '../downloadVideos/DownloadVideosHome';
 // import Prueba from '../pruebas/Prueba';
-import {BottomNavigation} from 'react-native-paper';
+import {BottomNavigation, Text} from 'react-native-paper';
 import Meteor from '@meteorrn/core';
 
 const Tab = createBottomTabNavigator();
 
-export function MyTabs(prop) {
+export default function MyTabs(prop) {
   const [index, setIndex] = useState(0);
   const [routes] =
   Meteor.user()&&Meteor.user().profile.role == 'admin'
@@ -47,9 +47,17 @@ export function MyTabs(prop) {
   const renderScene = ({route}) => {
     switch (route.key) {
       case 'pelis':
-        return <PelisHome navigationGeneral={prop.navigation} />;
+        return (
+          <>
+          {/* <Text>pelis</Text> */}
+            <PelisHome navigationGeneral={prop.navigation} />
+          </>
+        );
       case 'downloads':
-        return <DownloadVideosHome navigationGeneral={prop.navigation} />;
+        return  <>
+        <Text>downloads</Text>
+        {/* <DownloadVideosHome navigationGeneral={prop.navigation} /> */}
+        </>;
     }
   };
   return (
@@ -61,7 +69,7 @@ export function MyTabs(prop) {
       renderScene={renderScene}
       activeColor="violet"
       barStyle={{backgroundColor: '#3f51b5'}}
-      shifting={true}
+      // shifting={true}
     />
     // <Tab.Navigator
     //   initialRouteName="Feed"
