@@ -128,7 +128,7 @@ const App = () => {
               title: <Text>Inicio</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 70,
+                height: 90,
               },
               headerTitleAlign: 'center',
               headerTintColor: '#fff',
@@ -171,7 +171,7 @@ const App = () => {
                   ),
                   headerStyle: {
                     backgroundColor: '#3f51b5',
-                    height: 70,
+                    height: 90,
                   },
                   headerTitleAlign: 'center',
                   headerTintColor: '#fff',
@@ -244,7 +244,7 @@ const App = () => {
                 ),
                 headerStyle: {
                   backgroundColor: '#3f51b5',
-                  height: 70,
+                  height: 90,
                 },
                 headerTitleAlign: 'center',
                 headerTintColor: '#fff',
@@ -339,7 +339,7 @@ const App = () => {
                 ),
                 headerStyle: {
                   backgroundColor: '#3f51b5',
-                  height: 70,
+                  height: 90,
                 },
                 headerTitleAlign: 'center',
                 headerTintColor: '#fff',
@@ -419,7 +419,7 @@ const App = () => {
               title: <Text style={{letterSpacing: 5}}>Servidores</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 70,
+                height: 90,
               },
               headerTitleAlign: 'center',
               headerTintColor: '#fff',
@@ -504,7 +504,7 @@ const App = () => {
               ),
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 70,
+                height: 90,
               },
               headerTitleAlign: 'center',
               headerTintColor: '#fff',
@@ -569,7 +569,7 @@ const App = () => {
               title: <Text style={{letterSpacing: 5}}>Crear Usuario</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 70,
+                height: 90,
               },
               headerTitleAlign: 'center',
               headerTintColor: '#fff',
@@ -634,7 +634,7 @@ const App = () => {
               title: <Text style={{letterSpacing: 5}}>Registro de Logs</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 70,
+                height: 90,
               },
               headerTitleAlign: 'center',
               headerTintColor: '#fff',
@@ -699,7 +699,7 @@ const App = () => {
               title: <Text style={{letterSpacing: 5}}>Registro de Logs</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 70,
+                height: 90,
               },
               headerTitleAlign: 'center',
               headerTintColor: '#fff',
@@ -792,7 +792,7 @@ const App = () => {
               ),
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 70,
+                height: 90,
               },
               headerTitleAlign: 'center',
               headerTintColor: '#fff',
@@ -821,7 +821,7 @@ const App = () => {
               title: <Text>Mensajes</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 70,
+                height: 90,
               },
               headerTitleAlign: 'center',
               headerTintColor: '#fff',
