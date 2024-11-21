@@ -7,15 +7,23 @@ import {
   View,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import {Button, Text, Image, Surface} from 'react-native-paper';
+import {Button, Text, Image, Surface, IconButton, Drawer} from 'react-native-paper';
+import DrawerOptionsAlls from '../drawer/DrawerOptionsAlls';
 
 const CardPeli = props => {
-  const {nombrePeli, urlBackground, urlPeli, subtitulo, _id} = props.item;
+  const {nombrePeli, urlBackground, urlPeli, subtitulo, _id, year,vistas} = props.item;
+  const [drawer, setDrawer] = React.useState(false);
   const idPeli = _id;
   const {navigation} = props;
   const [mostrar, setMostrar] = React.useState(false);
   const [focused, setFocused] = React.useState(false);
   const scaleValue = React.useRef(new Animated.Value(1)).current;
+
+  const drawerStyles = {
+    drawer: { shadowColor: 'black', shadowOpacity: 0, shadowRadius: 3, backgroundColor: "black" },
+    main: { paddingLeft: 0 },
+  }
+
   // console.log('CardPeli', nombrePeli);
   React.useEffect(() => {
     Animated.spring(scaleValue, {
@@ -26,6 +34,8 @@ const CardPeli = props => {
   }, [focused, scaleValue]);
 
   return (
+    <>
+    
     <TouchableOpacity
       onFocus={e => {
         setFocused(true);
@@ -85,6 +95,10 @@ const CardPeli = props => {
             backgroundColor: 'black',
           }}
           borderRadius={20}>
+            <View style={styles.viewDescipcionPelisTop}>
+            <><Text style={[styles.textFontName,{paddingRight:10,paddingTop:5}]}>{vistas} Vistas</Text></>
+            <Text style={[styles.textFontName,{paddingLeft:10,paddingTop:5}]}>{year}</Text>
+          </View>
           <View style={styles.viewDescipcionPelis}>
             <LinearGradient
               colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,1)']}
@@ -95,6 +109,11 @@ const CardPeli = props => {
         </ImageBackground>
       </Animated.View>
     </TouchableOpacity>
+
+
+    
+    </>
+    
   );
 };
 
@@ -117,6 +136,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderBottomEndRadius: 20,
     borderBottomLeftRadius: 20,
+  },
+  viewDescipcionPelisTop: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    padding:5,
+    justifyContent: 'space-between',
+    height: '50%',
+    top: 0,
+    borderTopEndRadius: 20,
+    borderTopLeftRadius: 20,
   },
   gradient: {
     borderBottomRightRadius: 20,

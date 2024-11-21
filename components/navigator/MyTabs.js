@@ -7,6 +7,7 @@ import PelisHome from '../pelis/PelisHome';
 // import Prueba from '../pruebas/Prueba';
 import {BottomNavigation, Text} from 'react-native-paper';
 import Meteor from '@meteorrn/core';
+import { View } from 'react-native';
 
 const Tab = createBottomTabNavigator();
 
@@ -22,9 +23,9 @@ export default function MyTabs(prop) {
             // , badge: true
           },
           {
-            key: 'downloads',
-            title: 'Videos',
-            icon: 'download',
+            key: 'series',
+            title: 'Series',
+            icon: 'video-vintage',
             // , badge: true
           },
         ])
@@ -53,11 +54,31 @@ export default function MyTabs(prop) {
             <PelisHome navigationGeneral={prop.navigation} />
           </>
         );
-      case 'downloads':
-        return  <>
-        <Text>downloads</Text>
-        {/* <DownloadVideosHome navigationGeneral={prop.navigation} /> */}
-        </>;
+      case 'series':
+        return (
+          <>
+            {/* comming soon */}
+            <View
+              style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                {/* Recuadro estetico mostrando mensaje de COMMING SOON */}
+                <View
+                  style={{
+                    backgroundColor: '#3f51b5',
+                    width: '80%',
+                    height: 100,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    borderRadius: 20,
+                  }}>
+                  <Text style={{color: 'white', fontSize: 20}}>
+                    COMMING SOON
+                  </Text>
+                  </View>
+            </View>
+            {/* <Text>downloads</Text> */}
+            {/* <DownloadVideosHome navigationGeneral={prop.navigation} /> */}
+          </>
+        );
     }
   };
   return (

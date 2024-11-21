@@ -32,13 +32,20 @@ class MyApp extends React.Component {
     // const carouselRef = useRef(null);
   }
   render() {
-    const {user} = this.props;
+    const {user,ready} = this.props;
     //  console.log("DATA:" + JSON.stringify(myTodoTasks));
 
     return (
       <PaperProvider>
-        {user ? (
-          <App />
+        {ready && user ? (
+          <>
+           <StatusBar
+              translucent={true}
+              backgroundColor={'transparent'}
+              barStyle={true ? 'light-content' : 'dark-content'}
+            />
+            <App />
+            </>
         ) : (
           <>
             <StatusBar
@@ -56,9 +63,11 @@ class MyApp extends React.Component {
 const ServerList = withTracker(navigation => {
   //  console.log(user.user)
   user = Meteor.user();
+  const ready = Meteor.userId() && Meteor.subscribe('user', Meteor.userId()).ready();
   //  console.log(myTodoTasks);
   return {
     user,
+    ready
   };
 })(MyApp);
 

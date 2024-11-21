@@ -18,10 +18,10 @@ import {
   RadioButton,
 } from 'react-native-paper';
 import Slider from '@react-native-community/slider';
-
+import Meteor, {Mongo, withTracker} from '@meteorrn/core';
 export const VideoPlayer = ({navigation, route, ocultarControles}) => {
-  const {subtitulo,_id} = route.params;
-  // const subtitulo = "https://vidkar.ddns.net/getsubtitle?idPeli=" + _id;
+  const {subtitulo,id} = route.params;
+  // const subtitulo = "https://vidkar.ddns.net/getsubtitle?idPeli=" + id;
   const urlVideo = route.params.urlPeli || route.params.urlVideo;
   const [isModalAudioVisible, setModalAudioVisible] = useState(false);
   const [isModalSubtitleVisible, setModalSubtitleVisible] = useState(false);
@@ -114,7 +114,14 @@ export const VideoPlayer = ({navigation, route, ocultarControles}) => {
 
   const onLoad = data => {
     setAudioTracks(data.audioTracks);
-
+    console.log('idPeli ', id);
+    Meteor.call('addVistas', id, (error, result) => {
+      if (error) {
+        console.log('error', error);
+      } else {
+        console.log('result', result);
+      }
+    });
 
     console.log(data.textTracks);
     // data.textTracks &&

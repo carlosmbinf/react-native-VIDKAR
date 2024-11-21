@@ -8,7 +8,7 @@
 
 import React, {useRef, useEffect, useState} from 'react';
 // import type {Node} from 'react';
-import {Provider as PaperProvider, Title, Surface} from 'react-native-paper';
+import {Provider as PaperProvider, Title, Surface, Banner, Searchbar, Appbar} from 'react-native-paper';
 // import Carousel, {ParallaxImage} from 'react-native-snap-carousel';
 // import * as axios from 'axios';
 import Meteor, {Mongo, withTracker} from '@meteorrn/core';
@@ -30,6 +30,7 @@ import {
   Platform,
   Button,
   RefreshControl,
+  Image,
 } from 'react-native';
 
 import {
@@ -70,6 +71,8 @@ class MyApp extends React.Component {
       // loading: props.loading,
       carouselRef: null,
       refreshing: false,
+      filtro:"",
+      visibleFilter: false,
     };
 
     // const isDarkMode = useColorScheme() === 'dark';
@@ -79,6 +82,9 @@ class MyApp extends React.Component {
   }
   render() {
     const {loading, navigation, myTodoTasks} = this.props;
+    console.log('this.props', );
+
+    // console.log('navigation', navigation.navigationGeneral.getParent());
     var ScreenHeight = Dimensions.get('window').height;
     const styles = StyleSheet.create({
       container: {
@@ -130,6 +136,72 @@ class MyApp extends React.Component {
 
     return (
       <View>
+        <Appbar
+          style={{
+            backgroundColor: '#3f51b5',
+          }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              width: '100%',
+            }}>
+            {navigation&& navigation.navigationGeneral && navigation.navigationGeneral.getState() && navigation.navigationGeneral.getState().index > 0 && <Appbar.Action icon="arrow-left" color={"white"} onPress={() => navigation.navigationGeneral.goBack()} />}
+            <View style={{flexDirection: 'row'}}>
+              {/* <Appbar.Action
+                icon="account-plus"
+                color={'white'}
+                onPress={() =>
+                  navigation.navigationGeneral.navigate('CreateUsers')
+                }
+              /> */}
+              {/* <Appbar.Action
+                icon="account"
+                color={'white'}
+                onPress={() =>
+                  navigation.navigationGeneral.navigate('User', {
+                    item: Meteor.users.findOne({_id: Meteor.userId()}),
+                  })
+                }
+              /> */}
+              <Appbar.Action
+                icon="magnify"
+                color={'white'}
+                disabled={this.state.activeBanner}
+                onPress={() => this.setState({activeBanner: true})}
+              />
+            </View>
+          </View>
+        </Appbar>
+        <Banner
+          visible={this.state.activeBanner}
+          actions={[
+            {
+              label: 'cerrar',
+              onPress: () => this.setState({activeBanner: false}),
+            },
+          ]}
+          // icon={({size}) => (
+          //   <Image
+          //     source={{
+          //       uri: 'https://avatars3.githubusercontent.com/u/17571969?s=400&v=4',
+          //     }}
+          //     style={{
+          //       width: size,
+          //       height: size,
+          //     }}
+          //   />
+          // )}
+        >
+          <View style={{width: screenWidth - 30}}>
+            <Searchbar
+            style={{borderRadius: 20}}
+              placeholder="Buscar por Nombre o Año"
+              onChangeText={text => this.setState({filtro: text})}
+              value={this.state.filtro}
+            />
+          </View>
+        </Banner>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={backgroundStyle}
@@ -139,18 +211,85 @@ class MyApp extends React.Component {
               onRefresh={onRefresh}
             />
           }>
-            <>
+          <>
+            {!this.state.refreshing && (
+              <MainPelis
+                navigation={navigation}
+                clasificacion="All"
+                search={this.state.filtro}
+              />
+            )}
             {/* <PelisHomeElementos navigation={navigation} clasificacion="All" /> */}
-            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Sci-Fi" />}
-            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Action" />}
-            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Adventure" />}
-            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Thriller" />}
-            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Crime" />}
-            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Mystery" />}
-            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Horror" />}
-            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Comedy" />}
-            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Drama" />}
-            {!this.state.refreshing  && <MainPelis navigation={navigation} clasificacion="Romance" />}
+            {!this.state.refreshing && (
+              <MainPelis
+                navigation={navigation}
+                clasificacion="Sci-Fi"
+                search={this.state.filtro}
+              />
+            )}
+            {!this.state.refreshing && (
+              <MainPelis
+                navigation={navigation}
+                clasificacion="Action"
+                search={this.state.filtro}
+              />
+            )}
+            {!this.state.refreshing && (
+              <MainPelis
+                navigation={navigation}
+                clasificacion="Adventure"
+                search={this.state.filtro}
+              />
+            )}
+            {!this.state.refreshing && (
+              <MainPelis
+                navigation={navigation}
+                clasificacion="Thriller"
+                search={this.state.filtro}
+              />
+            )}
+            {!this.state.refreshing && (
+              <MainPelis
+                navigation={navigation}
+                clasificacion="Crime"
+                search={this.state.filtro}
+              />
+            )}
+            {!this.state.refreshing && (
+              <MainPelis
+                navigation={navigation}
+                clasificacion="Mystery"
+                search={this.state.filtro}
+              />
+            )}
+            {!this.state.refreshing && (
+              <MainPelis
+                navigation={navigation}
+                clasificacion="Horror"
+                search={this.state.filtro}
+              />
+            )}
+            {!this.state.refreshing && (
+              <MainPelis
+                navigation={navigation}
+                clasificacion="Comedy"
+                search={this.state.filtro}
+              />
+            )}
+            {!this.state.refreshing && (
+              <MainPelis
+                navigation={navigation}
+                clasificacion="Drama"
+                search={this.state.filtro}
+              />
+            )}
+            {!this.state.refreshing && (
+              <MainPelis
+                navigation={navigation}
+                clasificacion="Romance"
+                search={this.state.filtro}
+              />
+            )}
           </>
 
           {/* <Text>

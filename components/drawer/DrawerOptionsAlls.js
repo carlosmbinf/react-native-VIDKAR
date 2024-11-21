@@ -12,7 +12,7 @@ const DrawerOptionsAlls = (opt) => {
 
   const opcionesServicios = [
     {
-      label: "Pelis y Videos",
+      label: "Pelis y Series",
       url:"PeliculasVideos",
       icon:"movie-filter"
     }
@@ -50,62 +50,63 @@ const DrawerOptionsAlls = (opt) => {
   ]
   return (
     <>
-    <Surface>
-    <Card.Cover source={img}></Card.Cover>
-    </Surface>
-    <ScrollView>
-      <Surface style={{minHeight:screenHeight-180}}>
-      
-      <Drawer.Section title="Servicios VidKar">
-        {opcionesServicios.map(element => {
-          return (
-            <Drawer.Item
-              icon={element.icon}
-              label={element.label}
-              active={active === element.url}
-              onPress={() => { 
-                // setActive(element.url); 
-                opt.navigation.navigation.navigate(element.url) }}
-            />)
-        }
-        )}
-      </Drawer.Section>
-
-      <Drawer.Section title="Opciones de Administradores">
-        {opcionesAdministradores.map(element => {
-          return (
-            <Drawer.Item
-              icon={element.icon}
-              label={element.label}
-              active={active === element.url}
-              onPress={() => { 
-                // setActive(element.url); 
-                opt.navigation.navigation.navigate(element.url) }}
-            />)
-        }
-        )}
-      </Drawer.Section>
-      {Meteor.user().username == "carlosmbinf" &&
-        <Drawer.Section title="Opciones Privadas">
-          {opcionesAdministradorGeneral.map(element => {
-            return (
-              <Drawer.Item
-                icon={element.icon}
-                label={element.label}
-                active={active === element.url}
-                onPress={() => { 
-                  // setActive(element.url);
-                   opt.navigation.navigation.navigate(element.url) }}
-              />)
-          }
-          )}
-        </Drawer.Section>
-      }
-
+      <Surface>
+        <Card.Cover source={img}></Card.Cover>
       </Surface>
-    </ScrollView>
-     
-      
+      <ScrollView>
+        <Surface style={{minHeight: screenHeight - 180}}>
+          {Meteor.user() && Meteor.user().subscipcionPelis && (
+            <Drawer.Section title="Servicios VidKar">
+              {opcionesServicios.map(element => {
+                return (
+                  <Drawer.Item
+                    icon={element.icon}
+                    label={element.label}
+                    active={active === element.url}
+                    onPress={() => {
+                      // setActive(element.url);
+                      opt.navigation.navigation.navigate(element.url);
+                    }}
+                  />
+                );
+              })}
+            </Drawer.Section>
+          )}
+
+          <Drawer.Section title="Opciones de Administradores">
+            {opcionesAdministradores.map(element => {
+              return (
+                <Drawer.Item
+                  icon={element.icon}
+                  label={element.label}
+                  active={active === element.url}
+                  onPress={() => {
+                    // setActive(element.url);
+                    opt.navigation.navigation.navigate(element.url);
+                  }}
+                />
+              );
+            })}
+          </Drawer.Section>
+          {Meteor.user().username == 'carlosmbinf' && (
+            <Drawer.Section title="Opciones Privadas">
+              {opcionesAdministradorGeneral.map(element => {
+                return (
+                  <Drawer.Item
+                    icon={element.icon}
+                    label={element.label}
+                    active={active === element.url}
+                    onPress={() => {
+                      // setActive(element.url);
+                      opt.navigation.navigation.navigate(element.url);
+                    }}
+                  />
+                );
+              })}
+            </Drawer.Section>
+          )}
+        </Surface>
+      </ScrollView>
     </>
   );
 };

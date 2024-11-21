@@ -526,9 +526,9 @@ class MyApp extends React.Component {
   }
 }
 const UserHome = withTracker(navigation => {
-  const handle = Meteor.subscribe('user', (Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { fields: { username: 1, profile: 1, picture: 1, vpnMbGastados: 1, megasGastadosinBytes: 1, idtelegram: 1,notificarByTelegram:1,vpnplusConnected:1,vpn2mbConnected:1 } });
+  const handle = Meteor.subscribe('user', ((Meteor.user() && Meteor.user().username == "carlosmbinf") ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { fields: { username: 1, profile: 1, picture: 1, vpnMbGastados: 1, megasGastadosinBytes: 1, idtelegram: 1,notificarByTelegram:1,vpnplusConnected:1,vpn2mbConnected:1 } });
   const handleOnline =  Meteor.subscribe("conexiones",{},{fields:{userId:1,hostname:1}})
-  let myTodoTasks = Meteor.users.find((Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { "vpnMbGastados": -1, "megasGastadosinBytes": -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, picture: 1, vpnMbGastados: 1, megasGastadosinBytes: 1, idtelegram: 1 , notificarByTelegram:1,vpnplusConnected:1,vpn2mbConnected:1} }).fetch();
+  let myTodoTasks = Meteor.users.find(((Meteor.user() && Meteor.user().username == "carlosmbinf") ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { "vpnMbGastados": -1, "megasGastadosinBytes": -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, picture: 1, vpnMbGastados: 1, megasGastadosinBytes: 1, idtelegram: 1 , notificarByTelegram:1,vpnplusConnected:1,vpn2mbConnected:1} }).fetch();
 
   let isConnectedProxyOrWeb = Online.find({},{fields:{userId:1,hostname:1}}).fetch()
   

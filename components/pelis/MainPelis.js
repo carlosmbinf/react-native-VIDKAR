@@ -27,7 +27,7 @@ class App extends React.Component {
   }
 
   componentWillUnmount() {
-    console.log('componentWillUnmount');
+    // console.log('componentWillUnmount');
     // Orientation.unlockAllOrientations();
     this.state = {
       data: [],
@@ -36,7 +36,7 @@ class App extends React.Component {
   }
 
   componentDidUpdate(prevProps) {
-    console.log('componentDidUpdate');
+    // console.log('componentDidUpdate');
     // console.log('this.props.pelis', this.props.pelis);
     // console.log('isReady', this.props.ready);
   }
@@ -74,8 +74,8 @@ class App extends React.Component {
               alignItems: 'center',
               maxHeight: 190,
             }}>
-            <View style={{width: '100%'}}>
-              <Text style={{color: '#e5e5e5'}} minimumFontScale={10}>
+            <View style={{width: '100%', padding:10}}>
+              <Text  minimumFontScale={10}>
                 {clasificacion.toUpperCase()}
               </Text>
             </View>
@@ -91,8 +91,8 @@ class App extends React.Component {
               horizontal={true}
               scrollEnabled={true}
               keyExtractor={item => item._id} // Asegúrate de tener una key única
-              initialNumToRender={10}
-              maxToRenderPerBatch={20}
+              initialNumToRender={5}
+              maxToRenderPerBatch={10}
               removeClippedSubviews={true}
             />
           </View>
@@ -102,13 +102,10 @@ class App extends React.Component {
   }
 }
 
-const MainPelis = withTracker(({navigation, clasificacion}) => {
-  // console.log(navigation);
+const MainPelis = withTracker(({navigation, clasificacion, search}) => {
   let ready = Meteor.subscribe(
     'pelis',
-    {
-      clasificacion: clasificacion,
-    },
+    {clasificacion: clasificacion},
     {
       fields: {
         _id: 1,
@@ -117,12 +114,21 @@ const MainPelis = withTracker(({navigation, clasificacion}) => {
         urlPeli: 1,
         clasificacion: 1,
         subtitulo: 1,
+        year:1,
+        vistas:1
+
       },
     },
   ).ready();
   let pelis = ready
     ? PelisRegister.find(
-        {clasificacion: clasificacion},
+      search?{
+        clasificacion: clasificacion,
+        $or: [
+          { nombrePeli: { $regex: search, $options: 'i' } }, // 'i' hace que sea insensible a mayúsculas/minúsculas
+          { year: { $regex: search, $options: 'i' } } // 'i' hace que sea insensible a mayúsculas/minúsculas
+        ]
+      }:{clasificacion: clasificacion},
         {
           fields: {
             _id: 1,
@@ -130,6 +136,8 @@ const MainPelis = withTracker(({navigation, clasificacion}) => {
             urlBackground: 1,
             urlPeli: 1,
             subtitulo: 1,
+            year:1,
+            vistas:1
           },
         },
       ).fetch()
