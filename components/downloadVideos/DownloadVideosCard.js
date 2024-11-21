@@ -19,7 +19,6 @@ import {
   LearnMoreLinks,
   ReloadInstructions,
 } from 'react-native/Libraries/NewAppScreen';
-import Player from '../video/Video';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const LeftContent = props => <Avatar.Icon {...props} icon="folder" />;

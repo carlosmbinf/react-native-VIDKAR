@@ -7,12 +7,12 @@ buildscript {
         ndkVersion = "26.1.10909125"
         kotlinVersion = "1.9.24"
 
-        useExoplayerIMA = true
-        useExoplayerSmoothStreaming = true
-        useExoplayerDash = true
-        useExoplayerHls = true
-        useExoplayerRtsp = true
-        buildFromSource = true
+        useExoplayerIMA = false
+        useExoplayerSmoothStreaming = false
+        useExoplayerDash = false
+        useExoplayerHls = false
+        useExoplayerRtsp = false
+        buildFromSource = false
     }
     repositories {
         google()
