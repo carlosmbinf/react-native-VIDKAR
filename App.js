@@ -50,7 +50,6 @@ import ChatUsersHome from './components/mensajes/ChatUsersHome';
 import ConsumoUserHome from './components/users/ConsumoUsersHome';
 import ServerList from './components/servers/ServerList';
 import MyTabs from './components/navigator/MyTabs';
-import Player from './components/video/Video';
 import VideoPlayer from './components/video/VideoPlayer';
 
 // const Section = ({children, title}): Node => {

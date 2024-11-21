@@ -85,12 +85,12 @@ android {
         versionCode 27
         versionName "1.27"
                 // Otros valores predeterminados de configuración
-        resValue "bool", "useExoplayerIMA", "true"
-        resValue "bool", "useExoplayerSmoothStreaming", "true"
-        resValue "bool", "useExoplayerDash", "true"
-        resValue "bool", "useExoplayerHls", "true"
-        resValue "bool", "useExoplayerRtsp", "true"
-        resValue "bool", "buildFromSource", "true"
+        resValue "bool", "useExoplayerIMA", "false"
+        resValue "bool", "useExoplayerSmoothStreaming", "false"
+        resValue "bool", "useExoplayerDash", "false"
+        resValue "bool", "useExoplayerHls", "false"
+        resValue "bool", "useExoplayerRtsp", "false"
+        resValue "bool", "buildFromSource", "false"
     }
     signingConfigs {
         debug {

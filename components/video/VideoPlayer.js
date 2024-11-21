@@ -176,6 +176,8 @@ export const VideoPlayer = ({navigation, route, ocultarControles}) => {
         <Video
           ref={videoRef}
           // renderToHardwareTextureAndroid={true}
+          disableExoPlayer={true}
+          allowsExternalPlayback={true}
           pictureInPicture={true}
           bufferConfig={{
             minBufferMs: 15000,
@@ -197,10 +199,10 @@ export const VideoPlayer = ({navigation, route, ocultarControles}) => {
             subtitulo
               ? [
                   {
-                    // index: 20,
+                    index: 20,
                     title: 'Spanish VidKar',
                     language: 'es',
-                    type: TextTrackType.SUBRIP,
+                    type: 'application/x-subrip',
                     uri: subtitulo,
                   },
                 ]
