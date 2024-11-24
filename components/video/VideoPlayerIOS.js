@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   BackHandler,
   ScrollView,
+  Platform,
 } from 'react-native';
 import Video, { TextTrackType } from 'react-native-video';
 import {
@@ -19,7 +20,8 @@ import {
 } from 'react-native-paper';
 import Slider from '@react-native-community/slider';
 import Meteor, {Mongo, withTracker} from '@meteorrn/core';
-export const VideoPlayer = ({navigation, route, ocultarControles}) => {
+import { VLCPlayer, VlCPlayerView } from 'react-native-vlc-media-player';
+export const VideoPlayerIOS = ({navigation, route, ocultarControles}) => {
   const {subtitulo,id} = route.params;
   // const subtitulo = "https://vidkar.ddns.net/getsubtitle?idPeli=" + id;
   const urlVideo = route.params.urlPeliHTTPS || route.params.urlVideo;
@@ -28,10 +30,14 @@ export const VideoPlayer = ({navigation, route, ocultarControles}) => {
   const [isControlVisible, setControlVisible] = useState(false);
   const [audioTracks, setAudioTracks] = useState([]);
   const [textTracks, setTextTracks] = useState([]);
-  const [selectedAudioTrack, setSelectedAudioTrack] = useState(0);
-  const [selectedTextTrack, setSelectedTextTrack] = useState(0);
+  const [selectedAudioTrack, setSelectedAudioTrack] = useState(2);
+  const [selectedTextTrack, setSelectedTextTrack] = useState(2);
   const [paused, setPaused] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [position, setPosition] = useState(0);
+  const [currentTimeHora, setCurrentTimeHora] = useState(0);
+  const [currentTimeMin, setCurrentTimeMin] = useState(0);
+  const [currentTimeSeg, setCurrentTimeSeg] = useState(0);
   const [duration, setDuration] = useState(0);
 
   const [focusSubtitle, setFocusSubtitle] = useState(false);
@@ -78,8 +84,13 @@ export const VideoPlayer = ({navigation, route, ocultarControles}) => {
 
   useEffect(() => {
     if (focusSlider) {
-      videoRef.current.seek(currentTime);
+        
+        console.log("videoRef.current", videoRef.current.seek)
+        // console.log("videoRef.current", currentTime/duration)
+        // videoRef.current.seek(Number((Math.floor(currentTime) / duration).toFixed(17)));
+        
     }
+
   }, [currentTime]);
 
   useEffect(() => {
@@ -123,28 +134,31 @@ export const VideoPlayer = ({navigation, route, ocultarControles}) => {
       }
     });
 
-    console.log(data.textTracks);
+    console.log(data);
     // data.textTracks &&
     // //agregar subtitulo a textTracks
-    // data.textTracks.push({
-    //   index: data.textTracks.length,
-    //   title: 'Spanish VidKar',
-    //   language: 'es',
-    //   type: 'application/x-media3-cues',
-    //   uri: subtitulo,
-    // });
+    data.textTracks.push({
+      id: data.textTracks.length,
+      name: 'Spanish VidKar',
+      language: 'es',
+      type: TextTrackType.SUBRIP,
+      uri: subtitulo,
+    });
+    
     setTextTracks(data.textTracks);
     setDuration(data.duration);
   };
 
-  const onProgress = data => {
+  const onProgress =data => {
     if (!focusSlider) {
-      setCurrentTime(data.currentTime);
+    // console.log('data', data);
+     setCurrentTime(data.currentTime);
+    //  await setPosition(data.currentTime/data.duration);
     }
   };
 
   const onSeek = time => {
-    videoRef.current.seek(time);
+    console.log('time', Math.floor(time)/duration);  
     setCurrentTime(time);
   };
 
@@ -173,7 +187,123 @@ export const VideoPlayer = ({navigation, route, ocultarControles}) => {
           height: '100%',
           backgroundColor: 'transparent',
         }}>
-        <Video
+        <VLCPlayer
+            showGG={true}
+            showTitle={true}
+          playInBackground={true}
+          subtitleUri={subtitulo}
+          ref={videoRef}
+          renderToHardwareTextureAndroid={true}
+          // seek={position}
+          volume={100}
+          disableExoPlayer={true}
+          allowsExternalPlayback={true}
+          pictureInPicture={true}
+          bufferConfig={{
+            minBufferMs: 15000,
+            maxBufferMs: 50000,
+            bufferForPlaybackMs: 15000,
+            bufferForPlaybackAfterRebufferMs: 15000,
+          }}
+          audioTrack={selectedAudioTrack ? selectedAudioTrack : undefined}
+          textTrack={selectedTextTrack ? selectedTextTrack : undefined}
+          textTracks={
+            subtitulo
+              ? [
+                  {
+                    id: 20,
+                    title: 'Spanish VidKar VTT',
+                    language: 'es',
+                    type: TextTrackType.VTT,
+                    uri: 'https://www.vidkar.com/getsubtitle?idPeli=' + id,
+                  },
+                  {
+                    id: 21,
+                    title: 'Spanish VidKar SRT',
+                    language: 'es',
+                    type: TextTrackType.SUBRIP,
+                    uri: subtitulo,
+                  },
+                ]
+              : []
+          }
+          showNotificationControls={true}
+          source={{
+            initType: 2,
+            hwDecoderEnabled: 1,
+            hwDecoderForced: 1,
+            uri: urlVideo,
+            initOptions: [
+              '--no-audio',
+              '--rtsp-tcp',
+              '--network-caching=150',
+              '--rtsp-caching=150',
+              '--no-stats',
+              '--tcp-caching=150',
+              '--realrtsp-caching=150',
+            ],
+          }}
+          onError={onError}
+          paused={paused}
+          onLoad={onLoad}
+          onProgress={onProgress}
+          style={styles.backgroundVideo}
+        />
+        {/* <VlCPlayerView
+        showControls={true}
+          key={id}
+          showGG={true}
+            showTitle={true}
+          playInBackground={true}
+          subtitleUri={subtitulo}
+          options={['-sub-fps', '24']}
+          ref={videoRef}
+          renderToHardwareTextureAndroid={true}
+          // seek={position}
+          volume={100}
+          controlButton={false}
+          disableExoPlayer={true}
+          allowsExternalPlayback={true}
+          pictureInPicture={true}
+          bufferConfig={{
+            minBufferMs: 15000,
+            maxBufferMs: 50000,
+            bufferForPlaybackMs: 15000,
+            bufferForPlaybackAfterRebufferMs: 15000,
+          }}
+          isFull={true}
+          audioTrack={selectedAudioTrack ? selectedAudioTrack : undefined}
+          textTrack={selectedTextTrack ? selectedTextTrack : undefined}
+          textTracks={
+            subtitulo
+              ? [
+                  {
+                    id: 20,
+                    title: 'Spanish VidKar VTT',
+                    language: 'es',
+                    type: TextTrackType.VTT,
+                    uri: 'https://www.vidkar.com/getsubtitle?idPeli=' + id,
+                  },
+                  {
+                    id: 21,
+                    title: 'Spanish VidKar SRT',
+                    language: 'es',
+                    type: TextTrackType.SUBRIP,
+                    uri: subtitulo,
+                  },
+                ]
+              : []
+          }
+          showNotificationControls={true}
+          url={urlVideo}
+          onError={onError}
+          paused={paused}
+          onLoad={onLoad}
+          onProgress={onProgress}
+          style={styles.backgroundVideo}
+       /> */}
+
+        {/* <Video
           ref={videoRef}
           // renderToHardwareTextureAndroid={true}
           disableExoPlayer={true}
@@ -223,88 +353,113 @@ export const VideoPlayer = ({navigation, route, ocultarControles}) => {
           onLoad={onLoad}
           onProgress={onProgress}
           style={styles.backgroundVideo}
-        />
+        /> */}
       </TouchableOpacity>
 
       {isControlVisible && !isModalSubtitleVisible && !isModalAudioVisible && (
         <View style={[styles.controls]}>
           <View style={styles.tiempo}>
             <Slider
+            disabled={true}
               upperLimit={duration}
-              isTVSelectable={true}
+              //   isTVSelectable={true}
               style={[styles.slider, {opacity: true ? 1 : 0.6}]}
               minimumValue={0}
               maximumValue={duration}
               value={currentTime}
               onValueChange={onSeek}
-              onSlidingComplete={onSeek}
+              onSlidingStart={() => {
+                console.log('onSlidingStart');
+                setFocusSlider(true);
+              }}
+              onSlidingComplete={value => {
+                console.log('onSlidingComplete');
+                setFocusSlider(false);
+                if(duration > 0){
+                    if (Platform.OS === 'ios') {
+                        videoRef.current.seek(Number((value / duration).toFixed(17)));
+                      } else {
+                        videoRef.current.seek(Number((value / duration).toFixed(17)));
+                      }
+                }
+                
+
+              }}
               thumbTintColor="white"
               minimumTrackTintColor="#FFFFFF"
               maximumTrackTintColor="#000000"
               tapToSeek={true}
+            //   StepMarker={{stepMarked: true, currentValue: currentTime}}
             />
             <Text style={{color: 'white', width: '15%'}}>
-              {Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60)} /{' '}
-              {Math.floor(duration / 60)}:{Math.floor(duration % 60)}
+              {Math.floor(currentTime / 1000 / 60 / 60)}:
+              {String(Math.floor((currentTime / 1000 / 60) % 60)).padStart(
+                2,
+                '0',
+              )}
+              :{String(Math.floor((currentTime / 1000) % 60)).padStart(2, '0')}{' '}
+              / {Math.floor(duration / 1000 / 60 / 60)}:
+              {String(Math.floor((duration / 1000 / 60) % 60)).padStart(2, '0')}
+              :{String(Math.floor((duration / 1000) % 60)).padStart(2, '0')}
             </Text>
           </View>
 
           <View style={styles.buttons}>
-              <TouchableOpacity
-                disabled={isModalSubtitleVisible || isModalAudioVisible}
-                hasTVPreferredFocus={true}
-                onFocus={() => setFocusPlayPause(true)}
-                onBlur={() => setFocusPlayPause(false)}
-                onPress={togglePause}
-                // style={{opacity: focusPlayPause ? 1 : 0.5}}
-                >
-                <Button
-                  buttonColor={focusPlayPause ? 'gray' : 'transparent'}
-                  textColor={focusPlayPause ? 'black' : 'white'}
-                  style={{borderRadius: 5}}
-                  icon={paused ? 'play' : 'pause'}
-                  mode="contained">
-                  {paused ? 'Play' : 'Pause'}
-                </Button>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                disabled={isModalSubtitleVisible || isModalAudioVisible}
-                onFocus={() => setFocusSubtitle(true)}
-                onBlur={() => setFocusSubtitle(false)}
-                onPress={toggleModalSubtitle}
-                // style={{opacity: focusSubtitle ? 1 : 0.5}}
-                >
-                <Button
-                  // buttonColor={focusSubtitle ? 'gray' : 'transparent'}
-                  // textColor={focusSubtitle ? 'black' : 'white'}
-                  style={{borderRadius: 5}}
-                  icon={'subtitles'}
-                  mode="contained">
-                  Subtitles
-                </Button>
-              </TouchableOpacity>
-              <TouchableOpacity
-                disabled={isModalSubtitleVisible || isModalAudioVisible}
+            <TouchableOpacity
+              disabled={isModalSubtitleVisible || isModalAudioVisible}
+              hasTVPreferredFocus={true}
+              onFocus={() => setFocusPlayPause(true)}
+              onBlur={() => setFocusPlayPause(false)}
+              onPress={togglePause}
+              // style={{opacity: focusPlayPause ? 1 : 0.5}}
+            >
+              <Button
+                buttonColor={focusPlayPause ? 'gray' : 'transparent'}
+                textColor={focusPlayPause ? 'black' : 'white'}
+                style={{borderRadius: 5}}
+                icon={paused ? 'play' : 'pause'}
+                mode="contained">
+                {paused ? 'Play' : 'Pause'}
+              </Button>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              disabled={isModalSubtitleVisible || isModalAudioVisible}
+              onFocus={() => setFocusSubtitle(true)}
+              onBlur={() => setFocusSubtitle(false)}
+              onPress={toggleModalSubtitle}
+              // style={{opacity: focusSubtitle ? 1 : 0.5}}
+            >
+              <Button
+                // buttonColor={focusSubtitle ? 'gray' : 'transparent'}
+                // textColor={focusSubtitle ? 'black' : 'white'}
+                style={{borderRadius: 5}}
+                icon={'subtitles'}
+                mode="contained">
+                Subtitles
+              </Button>
+            </TouchableOpacity>
+            <TouchableOpacity
+              disabled={isModalSubtitleVisible || isModalAudioVisible}
+              onFocus={() => setFocusAudio(true)}
+              onBlur={() => setFocusAudio(false)}
+              onPress={toggleModalAudio}
+              // style={[
+              //   styles.controlButtonText,
+              //   {opacity: focusAudio ? 1 : 0.5},
+              // ]}
+            >
+              <Button
                 onFocus={() => setFocusAudio(true)}
                 onBlur={() => setFocusAudio(false)}
-                onPress={toggleModalAudio}
-                // style={[
-                //   styles.controlButtonText,
-                //   {opacity: focusAudio ? 1 : 0.5},
-                // ]}
-                >
-                <Button
-                  onFocus={() => setFocusAudio(true)}
-                  onBlur={() => setFocusAudio(false)}
-                  // buttonColor={focusAudio ? 'gray' : 'transparent'}
-                  // textColor={focusAudio ? 'black' : 'white'}
-                  style={{borderRadius: 5}}
-                  icon={'volume-high'}
-                  mode="contained">
-                  Audio
-                </Button>
-              </TouchableOpacity>
+                // buttonColor={focusAudio ? 'gray' : 'transparent'}
+                // textColor={focusAudio ? 'black' : 'white'}
+                style={{borderRadius: 5}}
+                icon={'volume-high'}
+                mode="contained">
+                Audio
+              </Button>
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -330,10 +485,12 @@ export const VideoPlayer = ({navigation, route, ocultarControles}) => {
                 <RadioButton.Item
                   // color="white"
                   key={index}
-                  label={track.title}
-                  value={index}
-                  status={selectedTextTrack === index ? 'checked' : 'unchecked'}
-                  onPress={() => setSelectedTextTrack(index)}
+                  label={track.name}
+                  value={track.id}
+                  status={
+                    selectedTextTrack === track.id ? 'checked' : 'unchecked'
+                  }
+                  onPress={() => setSelectedTextTrack(track.id)}
                 />
               </TouchableOpacity>
             ))}
@@ -364,10 +521,12 @@ export const VideoPlayer = ({navigation, route, ocultarControles}) => {
               <RadioButton.Item
                 // color="white"
                 key={index}
-                label={track.title}
-                value={index}
-                status={selectedAudioTrack === index ? 'checked' : 'unchecked'}
-                onPress={() => setSelectedAudioTrack(index)}
+                label={track.name}
+                value={track.id}
+                status={
+                  selectedAudioTrack === track.id ? 'checked' : 'unchecked'
+                }
+                onPress={() => setSelectedAudioTrack(track.id)}
               />
             </TouchableOpacity>
           ))}
@@ -439,4 +598,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default VideoPlayer;
+export default VideoPlayerIOS;

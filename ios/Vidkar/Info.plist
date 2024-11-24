@@ -29,7 +29,7 @@
 		<key>NSExceptionDomains</key>
 		<dict>
 			<key>vidkar</key>
-			<string>vidkar.ddns.net</string>
+			<string>www.vidkar.com</string>
 		</dict>
 		<key>NSAllowsArbitraryLoadsInWebContent</key>
 		<true/>

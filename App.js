@@ -51,6 +51,7 @@ import ConsumoUserHome from './components/users/ConsumoUsersHome';
 import ServerList from './components/servers/ServerList';
 import MyTabs from './components/navigator/MyTabs';
 import VideoPlayer from './components/video/VideoPlayer';
+import VideoPlayerIOS from './components/video/VideoPlayerIOS';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -119,7 +120,16 @@ const App = () => {
         style={backgroundStyle}> */}
 
       <NavigationContainer>
-        <Stack.Navigator>
+        <Stack.Navigator
+          initialRouteName={
+            Meteor.user() &&
+            Meteor.user().profile &&
+            Meteor.user().profile.role == 'admin'
+              ? 'Users'
+              : Meteor.user() && Meteor.user().subscipcionPelis
+              ? 'PeliculasVideos'
+              : 'User'
+          }>
           {/* <Stack.Screen
             name="Loguin"
             component={Loguin}
@@ -140,180 +150,168 @@ const App = () => {
             })}
           /> */}
 
-          {Meteor.user() &&
-            Meteor.user().profile &&
-            Meteor.user().profile.role == 'admin' && (
-              <Stack.Screen
-                name="Users"
-                component={UserHome}
-                options={({navigation, route}) => ({
-                  title: (
-                    <Text style={{letterSpacing: 5}}>
-                      <FontAwesome
-                        // onPress={() => logOut(navigation)}
-                        name="hand-o-right"
-                        color={'white'}
-                        size={20}
-                        // borderRadius={20}
-                        solid
-                      />
-                      VidKar
-                      <FontAwesome
-                        // onPress={() => logOut(navigation)}
-                        name="hand-o-left"
-                        color={'white'}
-                        size={20}
-                        // borderRadius={20}
-                        solid
-                      />
-                    </Text>
-                  ),
-                  headerStyle: {
-                    backgroundColor: '#3f51b5',
-                    height: 90,
-                  },
-                  headerTitleAlign: 'center',
-                  headerTintColor: '#fff',
-                  // headerTitleStyle: {
-                  //   fontWeight: 'bold',
-                  // },
-                  headerLeft: null,
-                  headerShown: true,
-                  headerRight: () => (
-                    <View
-                      style={{flexDirection: 'row', alignItems: 'flex-end'}}>
-                      {/* <MenuIconMensajes navigation={navigation} /> */}
+          <Stack.Screen
+            name="Users"
+            component={UserHome}
+            options={({navigation, route}) => ({
+              title: (
+                <Text style={{letterSpacing: 5}}>
+                  <FontAwesome
+                    // onPress={() => logOut(navigation)}
+                    name="hand-o-right"
+                    color={'white'}
+                    size={20}
+                    // borderRadius={20}
+                    solid
+                  />
+                  VidKar
+                  <FontAwesome
+                    // onPress={() => logOut(navigation)}
+                    name="hand-o-left"
+                    color={'white'}
+                    size={20}
+                    // borderRadius={20}
+                    solid
+                  />
+                </Text>
+              ),
+              headerStyle: {
+                backgroundColor: '#3f51b5',
+                height: 90,
+              },
+              headerTitleAlign: 'center',
+              headerTintColor: '#fff',
+              // headerTitleStyle: {
+              //   fontWeight: 'bold',
+              // },
+              headerLeft: null,
+              headerShown: true,
+              headerRight: () => (
+                <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
+                  {/* <MenuIconMensajes navigation={navigation} /> */}
 
-                      <Menu
-                        visible={visibleMenu}
-                        onDismiss={() => {
+                  <Menu
+                    visible={visibleMenu}
+                    onDismiss={() => {
+                      setVisibleMenu(false);
+                    }}
+                    anchor={
+                      <Appbar.Action
+                        icon="menu"
+                        color="white"
+                        onPress={() => {
+                          setVisibleMenu(true);
+                        }}
+                      />
+                    }
+                    style={{top: 70, paddingRight: 30}}>
+                    <View style={{padding: 0}}>
+                      <Menu.Item
+                        icon="menu"
+                        onPress={() => {
+                          // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
+                          // console.log(item)
+                          setVisibleMenu(false);
+                          navigation.navigate('User', {
+                            item: Meteor.userId(),
+                          });
+                        }}
+                        title="Mi usuario"
+                      />
+                      <Menu.Item
+                        icon="logout"
+                        onPress={() => {
+                          Meteor.logout();
+                          // navigation.navigate('Loguin');
                           setVisibleMenu(false);
                         }}
-                        anchor={
-                          <Appbar.Action
-                            icon="menu"
-                            color="white"
-                            onPress={() => {
-                              setVisibleMenu(true);
-                            }}
-                          />
-                        }
-                        style={{top: 70, paddingRight: 30}}>
-                        <View style={{padding: 0}}>
-                          <Menu.Item
-                            icon="menu"
-                            onPress={() => {
-                              // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
-                              // console.log(item)
-                              setVisibleMenu(false);
-                              navigation.navigate('User', {
-                                item: Meteor.userId(),
-                              });
-                            }}
-                            title="Mi usuario"
-                          />
-                          <Menu.Item
-                            icon="logout"
-                            onPress={() => {
-                              Meteor.logout();
-                              // navigation.navigate('Loguin');
-                              setVisibleMenu(false);
-                            }}
-                            title="Cerrar Sessión"
-                          />
-                        </View>
-                      </Menu>
+                        title="Cerrar Sessión"
+                      />
                     </View>
-                  ),
-                  // headerRight
-                  // headerTransparent:false
-                })}
-              />
-            )}
-          {((Meteor.user() &&
-            Meteor.user().profile &&
-            Meteor.user().profile.role == 'admin') ||
-            (Meteor.user() && Meteor.user().subscipcionPelis)) && (
-            <Stack.Screen
-              name="PeliculasVideos"
-              // component={MyTabs}
-              options={({navigation, route}) => ({
-                title: (
-                  <Text style={{letterSpacing: 4}}>Peliculas y Series</Text>
-                ),
-                headerStyle: {
-                  backgroundColor: '#3f51b5',
-                  height: 90,
-                },
-                headerTitleAlign: 'center',
-                headerTintColor: '#fff',
-                // headerTitleStyle: {
-                //   fontWeight: 'bold',
-                // },
-                // headerLeft:null,
-                headerShown: true,
-                headerRight: () => (
-                  <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
-                    {/* <MenuIconMensajes navigation={navigation} /> */}
+                  </Menu>
+                </View>
+              ),
+              // headerRight
+              // headerTransparent:false
+            })}
+          />
+          <Stack.Screen
+            name="PeliculasVideos"
+            // component={MyTabs}
+            options={({navigation, route}) => ({
+              title: <Text style={{letterSpacing: 4}}>Peliculas y Series</Text>,
+              headerStyle: {
+                backgroundColor: '#3f51b5',
+                height: 90,
+              },
+              headerTitleAlign: 'center',
+              headerTintColor: '#fff',
+              // headerTitleStyle: {
+              //   fontWeight: 'bold',
+              // },
+              // headerLeft:null,
+              headerShown: true,
+              headerRight: () => (
+                <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
+                  {/* <MenuIconMensajes navigation={navigation} /> */}
 
-                    <Menu
-                      visible={visibleMenu}
-                      onDismiss={() => {
-                        setVisibleMenu(false);
-                      }}
-                      anchor={
-                        <Appbar.Action
-                          icon="menu"
-                          color="white"
-                          onPress={() => {
-                            setVisibleMenu(true);
-                          }}
-                        />
-                      }
-                      style={{top: 70, width: 210, paddingRight: 30}}>
-                      <View style={{padding: 0}}>
-                        <Menu.Item
-                          icon="menu"
-                          onPress={() => {
-                            // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
-                            // console.log(item)
-                            setVisibleMenu(false);
-                            navigation.navigate('User', {
-                              item: Meteor.users.findOne({
-                                _id: Meteor.userId(),
-                              }),
-                            });
-                          }}
-                          title="Mi usuario"
-                        />
-                        <Menu.Item
-                          icon="logout"
-                          onPress={() => {
-                            Meteor.logout();
-                            // navigation.navigate('Loguin');
-                            setVisibleMenu(false);
-                          }}
-                          title="Cerrar Sessión"
-                        />
-                      </View>
-                    </Menu>
-                  </View>
-                ),
-                // headerRight
-                // headerTransparent:false
-              })}>
-              {props => {
-                const {navigation, route} = props;
-                return (
-                  <MyTabs navigation={navigation} route={route} />
-                  // <Player id={id} subtitulo={subtitulo} navigation={navigation} urlPeli={urlPeli} />
-                  // <TasksProvider user={user} projectPartition={projectPartition}>
-                  //   <TasksView navigation={navigation} route={route} />
-                  // </TasksProvider>
-                );
-              }}
-            </Stack.Screen>
-          )}
+                  <Menu
+                    visible={visibleMenu}
+                    onDismiss={() => {
+                      setVisibleMenu(false);
+                    }}
+                    anchor={
+                      <Appbar.Action
+                        icon="menu"
+                        color="white"
+                        onPress={() => {
+                          setVisibleMenu(true);
+                        }}
+                      />
+                    }
+                    style={{top: 70, width: 210, paddingRight: 30}}>
+                    <View style={{padding: 0}}>
+                      <Menu.Item
+                        icon="menu"
+                        onPress={() => {
+                          // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
+                          // console.log(item)
+                          setVisibleMenu(false);
+                          navigation.navigate('User', {
+                            item: Meteor.users.findOne({
+                              _id: Meteor.userId(),
+                            }),
+                          });
+                        }}
+                        title="Mi usuario"
+                      />
+                      <Menu.Item
+                        icon="logout"
+                        onPress={() => {
+                          Meteor.logout();
+                          // navigation.navigate('Loguin');
+                          setVisibleMenu(false);
+                        }}
+                        title="Cerrar Sessión"
+                      />
+                    </View>
+                  </Menu>
+                </View>
+              ),
+              // headerRight
+              // headerTransparent:false
+            })}>
+            {props => {
+              const {navigation, route} = props;
+              return (
+                <MyTabs navigation={navigation} route={route} />
+                // <Player id={id} subtitulo={subtitulo} navigation={navigation} urlPeliHTTPS={urlPeliHTTPS} />
+                // <TasksProvider user={user} projectPartition={projectPartition}>
+                //   <TasksView navigation={navigation} route={route} />
+                // </TasksProvider>
+              );
+            }}
+          </Stack.Screen>
           <Stack.Screen
             name="User"
             options={({navigation, route}) => {
@@ -345,7 +343,12 @@ const App = () => {
                 // headerTitleStyle: {
                 //   fontWeight: 'bold',
                 // },
-                headerLeft: !(Meteor.user().profile.role == 'admin') && null,
+                headerLeft:
+                  !(
+                    Meteor.user() &&
+                    Meteor.user().profile &&
+                    Meteor.user().profile.role == 'admin'
+                  ) && null,
                 headerShown: true,
                 // headerLeftContainerStyle: { display: flex },
                 headerRight: () => (
@@ -765,6 +768,17 @@ const App = () => {
             {props => {
               const {navigation, route} = props;
               const {id, subtitulo} = route.params;
+
+              if (Platform.OS === 'ios') {
+                return (
+                  <VideoPlayerIOS
+                    id={id}
+                    subtitulo={subtitulo}
+                    navigation={navigation}
+                    route={route}
+                  />
+                );
+              }
               return (
                 <VideoPlayer
                   id={id}
@@ -772,11 +786,12 @@ const App = () => {
                   navigation={navigation}
                   route={route}
                 />
-                // <Player id={id} subtitulo={subtitulo} navigation={navigation} urlPeli={urlPeli} />
-                // <TasksProvider user={user} projectPartition={projectPartition}>
-                //   <TasksView navigation={navigation} route={route} />
-                // </TasksProvider>
               );
+
+              // <Player id={id} subtitulo={subtitulo} navigation={navigation} urlPeliHTTPS={urlPeliHTTPS} />
+              // <TasksProvider user={user} projectPartition={projectPartition}>
+              //   <TasksView navigation={navigation} route={route} />
+              // </TasksProvider>
             }}
           </Stack.Screen>
 

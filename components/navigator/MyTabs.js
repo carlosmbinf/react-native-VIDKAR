@@ -14,7 +14,7 @@ const Tab = createBottomTabNavigator();
 export default function MyTabs(prop) {
   const [index, setIndex] = useState(0);
   const [routes] =
-  Meteor.user()&&Meteor.user().profile.role == 'admin'
+  Meteor.user() && Meteor.user().profile && Meteor.user().profile.role == 'admin'
       ? useState([
           {
             key: 'pelis',
@@ -37,9 +37,9 @@ export default function MyTabs(prop) {
             // , badge: true
           },
           {
-            key: 'downloads',
-            title: 'Videos',
-            icon: 'download',
+            key: 'series',
+            title: 'Series',
+            icon: 'video-vintage',
             // , badge: true
           },
         ]);

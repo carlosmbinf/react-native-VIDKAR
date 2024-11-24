@@ -196,7 +196,8 @@ class MyApp extends React.Component {
           <View style={{width: screenWidth - 30}}>
             <Searchbar
             style={{borderRadius: 20}}
-              placeholder="Buscar por Nombre o Año"
+              placeholder="Nombre, año o extension"
+              autoFocus
               onChangeText={text => this.setState({filtro: text})}
               value={this.state.filtro}
             />

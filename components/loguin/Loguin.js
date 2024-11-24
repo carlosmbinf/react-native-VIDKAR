@@ -33,7 +33,7 @@ class Loguin extends Component {
   constructor(props) {
     super(props);
     const {navigation} = this.props;
-    Meteor.connect('ws://vidkar.ddns.net:6000/websocket');
+    Meteor.connect('ws://www.vidkar.com:6000/websocket');
 
     // Meteor.user() && navigation.navigate('Peliculas');
 

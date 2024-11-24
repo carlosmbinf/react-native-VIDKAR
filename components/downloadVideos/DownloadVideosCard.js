@@ -147,7 +147,7 @@ const DownloadVideosCard = props => {
                 // item.navigation.navigation.navigate('Video');
                 let item = {
                   item: {
-                    urlPeli: 'http://152.206.119.5:3000' + itemlocal.urlReal,
+                    urlPeliHTTPS: 'http://152.206.119.5:3000' + itemlocal.urlReal,
                     urlBackground: itemlocal.thumbnail,
                     subtitulo: '',
                   },

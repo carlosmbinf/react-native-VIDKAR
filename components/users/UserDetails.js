@@ -6,6 +6,7 @@ import {
   Dimensions,
   StyleSheet,
   useColorScheme,
+  Platform,
 } from 'react-native';
 import CalendarPicker from 'react-native-calendar-picker';
 import {Dropdown} from 'react-native-element-dropdown';
@@ -26,6 +27,7 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import {RefreshControl} from 'react-native';
 import {ActivityIndicator} from 'react-native';
 import {Alert} from 'react-native';
+import ReactNativeForegroundService from '@supersami/rn-foreground-service';
 
 import {
   PreciosCollection,
@@ -204,7 +206,35 @@ class MyAppUserDetails extends React.Component {
         console.error(error);
       }
     };
+    const modificarNotificacion = () => {
+      Meteor.users.update(item._id, {
+        $set: {
+          modificarNotificacion: !Meteor.user().modificarNotificacion,
+        },
+      });
+    };
+    const eliminarNotificacion = () => {
+      ReactNativeForegroundService.stopAll();
+    }
 
+    const iniciarNotificacion = () => {
+      ReactNativeForegroundService.start({
+        id: 1000000,
+        ServiceType: 'dataSync',
+        title: 'Servicio de VidKar',
+        message: 'Debe iniciar sesión!',
+        visibility: 'private',
+        // largeicon: 'home',
+        vibration: false,
+        button: true,
+        buttonText: 'Abrir Vidkar',
+        importance: 'max',
+        ongoing: true,
+        //   number: '10000',
+  
+        // icon: 'home',
+      });
+    }
     const addVenta = () => {
       // console.log(`Precio MEGAS ${precios}`);
       let validacion = false;
@@ -589,7 +619,58 @@ class MyAppUserDetails extends React.Component {
                     </Card.Actions>
                   </Card>
                 )}
+                
+                {Platform.OS != 'ios' && Meteor.user() && Meteor.user().profile && Meteor.user().profile.role == 'admin' && <Card elevation={12} style={styles.cards}>
+                  <Card.Content>
+                    <View style={styles.element}>
+                      <Title style={styles.title}>{'Opciones'}</Title>
+                      <View>
+                        <Button color='red' onPress={() => modificarNotificacion()}>
+                          <MaterialCommunityIcons
+                            name="chat-alert"
+                            // color={styles.data}
+                            size={26}
+                          />
+                          {Meteor.user() && Meteor.user().modificarNotificacion ? "Deshabilitar": "Habilitar"} Modificacion de Notificacion
+                        </Button>
+                      </View>
+                      {/* 
+                <Text style={styles.data}>
+                  Edad: {item.edad ? item.edad : 'N/A'}
+                </Text> */}
+                    </View>
+                  </Card.Content>
+                </Card>}
 
+                {Platform.OS != 'ios' && Meteor.user() && Meteor.user().modificarNotificacion && <Card elevation={12} style={styles.cards}>
+                  <Card.Content>
+                    <View style={styles.element}>
+                      <Title style={styles.title}>{'Opciones'}</Title>
+                      <View>
+                        <Button color='red' onPress={() => eliminarNotificacion()}>
+                          <MaterialCommunityIcons
+                            name="chat-alert"
+                            // color={styles.data}
+                            size={26}
+                          />
+                          Eliminar Notificacion
+                        </Button>
+                        <Button onPress={() => iniciarNotificacion()}>
+                          <MaterialCommunityIcons
+                            name="chat-alert"
+                            // color={styles.data}
+                            size={26}
+                          />
+                          Iniciar Notificacion
+                        </Button>
+                      </View>
+                      {/* 
+                <Text style={styles.data}>
+                  Edad: {item.edad ? item.edad : 'N/A'}
+                </Text> */}
+                    </View>
+                  </Card.Content>
+                </Card>}
                 {Meteor.user() && Meteor.user().username == 'carlosmbinf' && (
                   <Card elevation={12} style={styles.cards}>
                     <Card.Content>

@@ -72,7 +72,7 @@ class App extends React.Component {
               flex: 1,
               justifyContent: 'center',
               alignItems: 'center',
-              maxHeight: 190,
+              maxHeight: 230,
             }}>
             <View style={{width: '100%', padding:10}}>
               <Text  minimumFontScale={10}>
@@ -110,12 +110,13 @@ const MainPelis = withTracker(({navigation, clasificacion, search}) => {
       fields: {
         _id: 1,
         nombrePeli: 1,
-        urlBackground: 1,
-        urlPeli: 1,
+        urlBackgroundHTTPS: 1,
+        urlPeliHTTPS: 1,
         clasificacion: 1,
         subtitulo: 1,
         year:1,
-        vistas:1
+        vistas:1,
+        extension:1
 
       },
     },
@@ -126,18 +127,20 @@ const MainPelis = withTracker(({navigation, clasificacion, search}) => {
         clasificacion: clasificacion,
         $or: [
           { nombrePeli: { $regex: search, $options: 'i' } }, // 'i' hace que sea insensible a mayúsculas/minúsculas
-          { year: { $regex: search, $options: 'i' } } // 'i' hace que sea insensible a mayúsculas/minúsculas
+          { year: { $regex: search, $options: 'i' } }, // 'i' hace que sea insensible a mayúsculas/minúsculas
+          { extension: { $regex: search, $options: 'i' } }
         ]
       }:{clasificacion: clasificacion},
         {
           fields: {
             _id: 1,
             nombrePeli: 1,
-            urlBackground: 1,
-            urlPeli: 1,
+            urlBackgroundHTTPS: 1,
+            urlPeliHTTPS: 1,
             subtitulo: 1,
             year:1,
-            vistas:1
+            vistas:1,
+            extension:1
           },
         },
       ).fetch()
