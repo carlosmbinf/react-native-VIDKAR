@@ -769,7 +769,7 @@ const App = () => {
               const {navigation, route} = props;
               const {id, subtitulo} = route.params;
 
-              if (Platform.OS === 'ios') {
+              if (Platform.OS == 'ios') {
                 return (
                   <VideoPlayerIOS
                     id={id}

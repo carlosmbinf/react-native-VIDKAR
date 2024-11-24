@@ -85,12 +85,13 @@ export const VideoPlayerIOS = ({navigation, route, ocultarControles}) => {
   useEffect(() => {
     if (focusSlider) {
         
-        console.log("videoRef.current", videoRef.current.seek)
+        // console.log("videoRef.current", videoRef.current.seek)
         // console.log("videoRef.current", currentTime/duration)
         // videoRef.current.seek(Number((Math.floor(currentTime) / duration).toFixed(17)));
         
     }
 
+    // console.log("videoRef.current", videoRef.current._reactInternals.memoizedProps)
   }, [currentTime]);
 
   useEffect(() => {
@@ -137,14 +138,14 @@ export const VideoPlayerIOS = ({navigation, route, ocultarControles}) => {
     console.log(data);
     // data.textTracks &&
     // //agregar subtitulo a textTracks
-    data.textTracks.push({
-      id: data.textTracks.length,
-      name: 'Spanish VidKar',
-      language: 'es',
-      type: TextTrackType.SUBRIP,
-      uri: subtitulo,
-    });
-    
+    //   data.textTracks && data.textTracks.push({
+    //   id: data.textTracks.length+1,
+    //   name: 'Spanish VidKar',
+    //   language: 'es',
+    //   type: TextTrackType.SUBRIP,
+    //   uri: subtitulo,
+    // });
+    data.textTracks
     setTextTracks(data.textTracks);
     setDuration(data.duration);
   };
@@ -188,15 +189,15 @@ export const VideoPlayerIOS = ({navigation, route, ocultarControles}) => {
           backgroundColor: 'transparent',
         }}>
         <VLCPlayer
-            showGG={true}
+            // showGG={true}
             showTitle={true}
           playInBackground={true}
-          subtitleUri={subtitulo}
+          subtitleUri={"https://www.vidkar.com:3006/Peliculas/Extranjeras/2024/Alien%20Romulus%20(2024)/Alien.Romulus.2024.720p.WEBRip.x264.AAC-%5bYTS.MX%5d.srt"}
           ref={videoRef}
           renderToHardwareTextureAndroid={true}
           // seek={position}
           volume={100}
-          disableExoPlayer={true}
+          disableExoPlayer={false}
           allowsExternalPlayback={true}
           pictureInPicture={true}
           bufferConfig={{
@@ -211,15 +212,15 @@ export const VideoPlayerIOS = ({navigation, route, ocultarControles}) => {
             subtitulo
               ? [
                   {
-                    id: 20,
-                    title: 'Spanish VidKar VTT',
+                    // id: 20,
+                    name: 'Spanish VidKar VTT',
                     language: 'es',
                     type: TextTrackType.VTT,
                     uri: 'https://www.vidkar.com/getsubtitle?idPeli=' + id,
                   },
                   {
-                    id: 21,
-                    title: 'Spanish VidKar SRT',
+                    // id: 21,
+                    name: 'Spanish VidKar SRT',
                     language: 'es',
                     type: TextTrackType.SUBRIP,
                     uri: subtitulo,
@@ -474,14 +475,15 @@ export const VideoPlayerIOS = ({navigation, route, ocultarControles}) => {
         <Dialog.Title>Select Subtitle Track</Dialog.Title>
         <Dialog.Content>
           <ScrollView style={{height: '70%'}}>
-            {textTracks.map((track, index) => (
+            {textTracks && textTracks.map((track, index) => (
               <TouchableOpacity
                 // hasTVPreferredFocus={index === 0 ? true : false}
                 // style={{opacity: focusSubtituloSelect === index ? 1 : 0.7}}
                 key={index}
                 onFocus={() => setFocusSubtituloSelect(index)}
                 onBlur={() => setFocusSubtituloSelect(null)}
-                onPress={() => setSelectedTextTrack(index)}>
+                onPress={() => setSelectedTextTrack(track.id)}
+                >
                 <RadioButton.Item
                   // color="white"
                   key={index}

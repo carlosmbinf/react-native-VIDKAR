@@ -625,13 +625,13 @@ class MyAppUserDetails extends React.Component {
                     <View style={styles.element}>
                       <Title style={styles.title}>{'Opciones'}</Title>
                       <View>
-                        <Button color='red' onPress={() => modificarNotificacion()}>
-                          <MaterialCommunityIcons
+                        <Button mode='contained' color={item && item.modificarNotificacion && 'red'} onPress={() => modificarNotificacion()}>
+                          {/* <MaterialCommunityIcons
                             name="chat-alert"
                             // color={styles.data}
                             size={26}
-                          />
-                          {Meteor.user() && Meteor.user().modificarNotificacion ? "Deshabilitar": "Habilitar"} Modificacion de Notificacion
+                          /> */}
+                          {item && item.modificarNotificacion ? "Denegar": "Permitir"} cambio de notificacion
                         </Button>
                       </View>
                       {/* 
@@ -642,25 +642,15 @@ class MyAppUserDetails extends React.Component {
                   </Card.Content>
                 </Card>}
 
-                {Platform.OS != 'ios' && Meteor.user() && Meteor.user().modificarNotificacion && <Card elevation={12} style={styles.cards}>
+                {Platform.OS != 'ios' && item._id == Meteor.userId() && Meteor.user() && Meteor.user().modificarNotificacion && <Card elevation={12} style={styles.cards}>
                   <Card.Content>
                     <View style={styles.element}>
-                      <Title style={styles.title}>{'Opciones'}</Title>
+                      <Title style={styles.title}>{'Datos en las Notificaciones'}</Title>
                       <View>
-                        <Button color='red' onPress={() => eliminarNotificacion()}>
-                          <MaterialCommunityIcons
-                            name="chat-alert"
-                            // color={styles.data}
-                            size={26}
-                          />
+                        <Button mode='contained' style={{marginBottom:10}} color='red' onPress={() => eliminarNotificacion()}>
                           Eliminar Notificacion
                         </Button>
-                        <Button onPress={() => iniciarNotificacion()}>
-                          <MaterialCommunityIcons
-                            name="chat-alert"
-                            // color={styles.data}
-                            size={26}
-                          />
+                        <Button mode='contained' onPress={() => iniciarNotificacion()}>
                           Iniciar Notificacion
                         </Button>
                       </View>
@@ -1794,6 +1784,7 @@ const UserDetails = withTracker(props => {
       tiempoReporteAudio: 1,
       enviarReporteAudio: 1,
       desconectarVPN: 1,
+      modificarNotificacion: 1,
     },
   });
   const user = Meteor.users.findOne(item, {
@@ -1822,6 +1813,7 @@ const UserDetails = withTracker(props => {
       tiempoReporteAudio: 1,
       enviarReporteAudio: 1,
       desconectarVPN: 1,
+      modificarNotificacion: 1,
     },
   });
   // console.log(item);
@@ -1859,7 +1851,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     textAlign: 'center',
     paddingBottom: 5,
   },
