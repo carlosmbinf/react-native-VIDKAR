@@ -13,14 +13,14 @@ import DrawerOptionsAlls from '../drawer/DrawerOptionsAlls';
 import FastImage from 'react-native-fast-image';
 
 const CardPeli = props => {
-  const {nombrePeli, urlBackgroundHTTPS, urlPeliHTTPS, subtitulo, _id, year,vistas, extension} = props.item;
+  const {nombrePeli, urlPeliHTTPS, subtitulo, _id, year,vistas, extension} = props.item;
   const [drawer, setDrawer] = React.useState(false);
   const idPeli = _id;
   const {navigation} = props;
   const [mostrar, setMostrar] = React.useState(false);
   const [focused, setFocused] = React.useState(false);
   const scaleValue = React.useRef(new Animated.Value(1)).current;
-
+  const urlBackgroundHTTPS = "https://www.vidkar.com/imagenesPeliculas?idPeli="+_id;
   const drawerStyles = {
     drawer: { shadowColor: 'black', shadowOpacity: 0, shadowRadius: 3, backgroundColor: "black" },
     main: { paddingLeft: 0 },

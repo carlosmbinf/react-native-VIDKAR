@@ -110,7 +110,6 @@ const MainPelis = withTracker(({navigation, clasificacion, search}) => {
       fields: {
         _id: 1,
         nombrePeli: 1,
-        urlBackgroundHTTPS: 1,
         urlPeliHTTPS: 1,
         clasificacion: 1,
         subtitulo: 1,
@@ -135,7 +134,6 @@ const MainPelis = withTracker(({navigation, clasificacion, search}) => {
           fields: {
             _id: 1,
             nombrePeli: 1,
-            urlBackgroundHTTPS: 1,
             urlPeliHTTPS: 1,
             subtitulo: 1,
             year:1,
