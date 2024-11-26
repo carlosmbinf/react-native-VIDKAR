@@ -205,7 +205,6 @@ class MyApp extends React.Component {
         </Banner>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
-          style={backgroundStyle}
           refreshControl={
             <RefreshControl
               refreshing={this.state.refreshing}
@@ -213,13 +212,12 @@ class MyApp extends React.Component {
             />
           }>
           <>
-            {!this.state.refreshing && (
               <MainPelis
                 navigation={navigation}
                 clasificacion="All"
                 search={this.state.filtro}
               />
-            )}
+            
             {/* <PelisHomeElementos navigation={navigation} clasificacion="All" /> */}
             {!this.state.refreshing && (
               <MainPelis
@@ -285,11 +283,14 @@ class MyApp extends React.Component {
               />
             )}
             {!this.state.refreshing && (
-              <MainPelis
+              <View style={this.state.activeBanner?{marginBottom: 150}:{marginBottom: 20}}>
+                <MainPelis
                 navigation={navigation}
                 clasificacion="Romance"
                 search={this.state.filtro}
               />
+              </View>
+              
             )}
           </>
 

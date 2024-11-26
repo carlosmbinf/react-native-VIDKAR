@@ -68,7 +68,7 @@ class App extends React.Component {
         {ready && pelis && pelis.length > 0 && (
           <View
             style={{
-              paddingTop: 50,
+              paddingBottom: 50,
               flex: 1,
               justifyContent: 'center',
               alignItems: 'center',
@@ -105,7 +105,7 @@ class App extends React.Component {
 const MainPelis = withTracker(({navigation, clasificacion, search}) => {
   let ready = Meteor.subscribe(
     'pelis',
-    {clasificacion: clasificacion},
+    clasificacion == "All"?{}:{clasificacion: clasificacion},
     {
       fields: {
         _id: 1,
@@ -122,24 +122,41 @@ const MainPelis = withTracker(({navigation, clasificacion, search}) => {
   ).ready();
   let pelis = ready
     ? PelisRegister.find(
-      search?{
-        clasificacion: clasificacion,
-        $or: [
-          { nombrePeli: { $regex: search, $options: 'i' } }, // 'i' hace que sea insensible a mayúsculas/minúsculas
-          { year: { $regex: search, $options: 'i' } }, // 'i' hace que sea insensible a mayúsculas/minúsculas
-          { extension: { $regex: search, $options: 'i' } }
-        ]
-      }:{clasificacion: clasificacion},
+        search
+          ? clasificacion == 'All'
+            ? {
+                $or: [
+                  {nombrePeli: {$regex: search, $options: 'i'}}, // 'i' hace que sea insensible a mayúsculas/minúsculas
+                  {year: {$regex: search, $options: 'i'}}, // 'i' hace que sea insensible a mayúsculas/minúsculas
+                  {extension: {$regex: search, $options: 'i'}},
+                ],
+              }
+            : {
+                clasificacion: clasificacion,
+                $or: [
+                  {nombrePeli: {$regex: search, $options: 'i'}}, // 'i' hace que sea insensible a mayúsculas/minúsculas
+                  {year: {$regex: search, $options: 'i'}}, // 'i' hace que sea insensible a mayúsculas/minúsculas
+                  {extension: {$regex: search, $options: 'i'}},
+                ],
+              }
+          : clasificacion == 'All'
+            ? {}
+            : {clasificacion: clasificacion},
         {
           fields: {
             _id: 1,
             nombrePeli: 1,
             urlPeliHTTPS: 1,
             subtitulo: 1,
-            year:1,
-            vistas:1,
-            extension:1
+            year: 1,
+            vistas: 1,
+            extension: 1,
           },
+          //limites de la busqueda:100
+          
+          //ordenar por nombre
+          sort: {vistas: -1, year: -1, nombrePeli: 1},
+          limit: 100,
         },
       ).fetch()
     : null;
