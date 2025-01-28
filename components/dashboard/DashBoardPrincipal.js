@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import Meteor, {Mongo, withTracker} from '@meteorrn/core';
+import { View, Text, StyleSheet, Dimensions, ScrollView } from 'react-native';
+import Meteor, { Mongo, withTracker } from '@meteorrn/core';
 import {
     LineChart,
     BarChart,
@@ -10,29 +10,29 @@ import {
     StackedBarChart
 } from "react-native-chart-kit";
 
-const DashBoardPrincipal = ({type}) => {
+const DashBoardPrincipal = ({ type }) => {
     const [width, setWidth] = useState([]);
     const [dimensions, setDimensions] = useState([]);
     const [x, setX] = useState([]);
     const [y, setY] = useState([]);
     const [height, setHeight] = useState([]);
-        const result = new Promise((resolve, reject) => {
-            
-      });
+    const result = new Promise((resolve, reject) => {
 
-      useEffect(() => {
+    });
+
+    useEffect(() => {
         Meteor.call('getDatosDashboardByUser', type, null, async (error, result) => {
             if (error) {
                 console.log("error", error);
             } else {
                 console.log("result", result);
-                result && await setY( result.map((item,index) => Number(item.VPN)));
-                 result && await setX( result.filter((item,index) => index%2 == 0).map((item,index) => item.name.replace(/:00/g, "")));
+                result && await setY(result.map((item, index) => Number(item.VPN)));
+                result && await setX(result.filter((item, index) => index % 2 == 0).map((item, index) => item.name.replace(/:00/g, "")));
                 console.log("x", x);
                 console.log("y", y);
             }
-            });
-      }, []);
+        });
+    }, []);
     // console.log("data", data);
     // const data = Array.from({ length: 6 }, (_, index) => ({
     //     // Starting at 1 for Jaunary
@@ -42,27 +42,29 @@ const DashBoardPrincipal = ({type}) => {
     // }))
 
     //actualizar width si cambia la rotacion del dispositivo
-    
+
 
     // useEffect(() => {
     //     console.log("DATA:" + JSON.stringify(data));
     // }, [data]);
     useEffect(() => {
         setWidth(Dimensions.get("window").width);
-            setHeight(Dimensions.get("window").height);
+        setHeight(Dimensions.get("window").height);
         const handleDimensionChange = ({ window }) => {
             setWidth(window.width);
             setHeight(window.height);
         };
-    
+
         // Añade el listener para el evento de cambio de dimensiones
         const subscription = Dimensions.addEventListener('change', handleDimensionChange);
         // Limpia el listener al desmontar el componente
         return () => subscription?.remove();
-      }, []);
+    }, []);
 
     return (
-        x.length > 0 && y.length > 0 && <View style={{padding: "2%"}}>
+        x.length > 0 && y.length > 0 &&
+        <View style={{ padding: "2%" }}>
+
             <Text>Calculo de la Grafica: {type}</Text>
             <LineChart
                 data={{
@@ -76,9 +78,9 @@ const DashBoardPrincipal = ({type}) => {
                     ]
                 }}
                 // verticalLabelRotation={90}
-                width={width-width*0.04} // from react-native
+                width={width - width * 0.04} // from react-native
                 height={220}
-                segments={5}                
+                segments={5}
                 // horizontalLabelRotation={30}
                 // yAxisLabel="$"
                 yAxisSuffix=" GB"

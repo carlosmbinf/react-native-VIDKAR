@@ -32,7 +32,7 @@ const DrawerOptionsAlls = (opt) => {
     {
       label: "Dashboard",
       url:"Dashboard",
-      icon:"server"
+      icon:"view-dashboard"
     },
     
     // {

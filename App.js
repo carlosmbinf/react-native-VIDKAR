@@ -23,6 +23,7 @@ import {
   View,
   Dimensions,
   Alert,
+  ScrollView,
 } from 'react-native';
 
 import {
@@ -246,9 +247,12 @@ const App = () => {
               const item = params ? params.item : Meteor.userId();
               // const {navigation} = route.params;
               return (<>
+              <ScrollView style={{width:"100%", height: "100%"}}>
                 <DashBoardPrincipal type={"HORA"} />
                 <DashBoardPrincipal type={"DIARIO"} />
                 <DashBoardPrincipal type={"MENSUAL"} />
+              </ScrollView>
+                
               </>
 
                 // <TasksProvider user={user} projectPartition={projectPartition}>
