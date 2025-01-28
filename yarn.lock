@@ -2394,9 +2394,11 @@ create-jest@^29.7.0:
     prompts "^2.0.1"
 
 cross-fetch@^3.1.5:
-  version "3.1.8"
+  version "3.2.0"
+  resolved "https://registry.npmjs.org/cross-fetch/-/cross-fetch-3.2.0.tgz"
+  integrity sha512-Q+xVJLoGOeIMXZmbUK4HYk+69cQH6LudR0Vu/pRm2YlU/hDV9CiS0gKUMaWY5f2NeUH9C1nV3bsTlCo0FsTV1Q==
   dependencies:
-    node-fetch "^2.6.12"
+    node-fetch "^2.7.0"
 
 cross-spawn@^7.0.2, cross-spawn@^7.0.3:
   version "7.0.3"
@@ -2975,6 +2977,8 @@ fb-watchman@^2.0.0:
 
 fbjs-css-vars@^1.0.0:
   version "1.0.2"
+  resolved "https://registry.npmjs.org/fbjs-css-vars/-/fbjs-css-vars-1.0.2.tgz"
+  integrity sha512-b2XGFAFdWZWg0phtAWLHCk836A1Xann+I+Dgd3Gk64MHKZO44FfoD1KxyvbSh0qZsIoXQGGlVztIY+oitJPpRQ==
 
 fbjs@^0.8.4, fbjs@^0.8.9:
   version "0.8.18"
@@ -2989,6 +2993,8 @@ fbjs@^0.8.4, fbjs@^0.8.9:
 
 fbjs@^3.0.0:
   version "3.0.5"
+  resolved "https://registry.npmjs.org/fbjs/-/fbjs-3.0.5.tgz"
+  integrity sha512-ztsSx77JBtkuMrEypfhgc3cI0+0h+svqeie7xHbh1k/IKdcydnvadp/mUaGgjAOXQmQSxsqgaRhS3q9fy+1kxg==
   dependencies:
     cross-fetch "^3.1.5"
     fbjs-css-vars "^1.0.0"
@@ -4067,7 +4073,7 @@ lodash.merge@^4.6.2:
 lodash.throttle@^4.1.1:
   version "4.1.1"
 
-lodash@*, lodash@^4.17.21:
+lodash@*, lodash@^4.17.13, lodash@^4.17.21:
   version "4.17.21"
 
 log-symbols@^4.1.0:
@@ -4384,7 +4390,7 @@ node-fetch@^1.0.1:
     encoding "^0.1.11"
     is-stream "^1.0.1"
 
-node-fetch@^2.2.0, node-fetch@^2.6.12:
+node-fetch@^2.2.0, node-fetch@^2.7.0:
   version "2.7.0"
   dependencies:
     whatwg-url "^5.0.0"
@@ -4603,6 +4609,11 @@ path-parse@^1.0.7:
 path-type@^4.0.0:
   version "4.0.0"
 
+paths-js@^0.4.10:
+  version "0.4.11"
+  resolved "https://registry.npmjs.org/paths-js/-/paths-js-0.4.11.tgz"
+  integrity sha512-3mqcLomDBXOo7Fo+UlaenG6f71bk1ZezPQy2JCmYHy2W2k5VKpP+Jbin9H0bjXynelTbglCqdFhSEkeIkKTYUA==
+
 performance-now@^2.1.0:
   version "2.1.0"
 
@@ -4627,6 +4638,11 @@ pkg-dir@^4.2.0:
   version "4.2.0"
   dependencies:
     find-up "^4.0.0"
+
+point-in-polygon@^1.0.1:
+  version "1.1.0"
+  resolved "https://registry.npmjs.org/point-in-polygon/-/point-in-polygon-1.1.0.tgz"
+  integrity sha512-3ojrFwjnnw8Q9242TzgXuTD+eKiutbzyslcq1ydfu82Db2y+Ogbmyrkpv0Hgj31qwT3lbS9+QAAO/pIQM35XRw==
 
 possible-typed-array-names@^1.0.0:
   version "1.0.0"
@@ -4774,6 +4790,15 @@ react-native-calendar-picker@^7.1.2:
     prop-types "^15.6.0"
     recyclerlistview "^3.0.0"
 
+react-native-chart-kit@^6.12.0:
+  version "6.12.0"
+  resolved "https://registry.npmjs.org/react-native-chart-kit/-/react-native-chart-kit-6.12.0.tgz"
+  integrity sha512-nZLGyCFzZ7zmX0KjYeeSV1HKuPhl1wOMlTAqa0JhlyW62qV/1ZPXHgT8o9s8mkFaGxdqbspOeuaa6I9jUQDgnA==
+  dependencies:
+    lodash "^4.17.13"
+    paths-js "^0.4.10"
+    point-in-polygon "^1.0.1"
+
 react-native-communications@^2.2.1:
   version "2.2.1"
 
@@ -4808,6 +4833,8 @@ react-native-fs@^2.20.0:
 
 react-native-gesture-handler@^1.7.0, "react-native-gesture-handler@>= 1.0.0":
   version "1.10.3"
+  resolved "https://registry.npmjs.org/react-native-gesture-handler/-/react-native-gesture-handler-1.10.3.tgz"
+  integrity sha512-cBGMi1IEsIVMgoox4RvMx7V2r6bNKw0uR1Mu1o7NbuHS6BRSVLq0dP34l2ecnPlC+jpWd3le6Yg1nrdCjby2Mw==
   dependencies:
     "@egjs/hammerjs" "^2.0.17"
     fbjs "^3.0.0"
@@ -4891,8 +4918,10 @@ react-native-subtitles@^5.0.0:
     styled-components "^5.3.5"
     vtt-to-json "^0.1.1"
 
-react-native-svg@*:
-  version "15.7.1"
+react-native-svg@*, react-native-svg@^15.11.1, "react-native-svg@> 6.4.1":
+  version "15.11.1"
+  resolved "https://registry.npmjs.org/react-native-svg/-/react-native-svg-15.11.1.tgz"
+  integrity sha512-Qmwx/yJKt+AHUr4zjxx/Q69qwKtRfr1+uIfFMQoq3WFRhqU76aL9db1DyvPiY632DAsVGba1pHf92OZPkpjrdQ==
   dependencies:
     css-select "^5.1.0"
     css-tree "^1.1.3"
@@ -4928,7 +4957,7 @@ react-native-vlc-media-player@^1.0.70:
     react-native-slider "^0.11.0"
     react-native-vector-icons "^9.2.0"
 
-react-native@*, "react-native@^0.0.0-0 || >=0.60 <1.0", "react-native@^0.0.0-0 || >=0.65 <1.0", "react-native@>= 0.30.0", react-native@>=0.42.0, react-native@>=0.57, react-native@>=0.59, react-native@>=0.59.0, react-native@>=0.60.0, react-native@>=0.70.0, react-native@0.75.3:
+react-native@*, "react-native@^0.0.0-0 || >=0.60 <1.0", "react-native@^0.0.0-0 || >=0.65 <1.0", "react-native@>= 0.30.0", "react-native@>= 0.50.0", react-native@>=0.42.0, react-native@>=0.57, react-native@>=0.59, react-native@>=0.59.0, react-native@>=0.60.0, react-native@>=0.70.0, react-native@0.75.3:
   version "0.75.3"
   dependencies:
     "@jest/create-cache-key-function" "^29.6.3"
@@ -4990,7 +5019,7 @@ react-test-renderer@18.3.1:
     react-shallow-renderer "^16.15.0"
     scheduler "^0.23.2"
 
-react@*, react@^16.0.0, "react@^16.0.0 || ^17.0.0 || ^18.0.0", "react@^17 || ^18", react@^18.2.0, react@^18.3.1, "react@>= 15.2.1", "react@>= 16.8.0", react@>=15.0.0, react@>=16.0, react@>=16.3.0, react@>=18.1.0, react@18.3.1:
+react@*, react@^16.0.0, "react@^16.0.0 || ^17.0.0 || ^18.0.0", "react@^17 || ^18", react@^18.2.0, react@^18.3.1, "react@> 16.7.0", "react@>= 15.2.1", "react@>= 16.8.0", react@>=15.0.0, react@>=16.0, react@>=16.3.0, react@>=18.1.0, react@18.3.1:
   version "18.3.1"
   dependencies:
     loose-envify "^1.1.0"
@@ -5666,7 +5695,9 @@ ua-parser-js@^0.7.30:
   version "0.7.39"
 
 ua-parser-js@^1.0.35:
-  version "1.0.39"
+  version "1.0.40"
+  resolved "https://registry.npmjs.org/ua-parser-js/-/ua-parser-js-1.0.40.tgz"
+  integrity sha512-z6PJ8Lml+v3ichVojCiB8toQJBuwR42ySM4ezjXIqXK3M0HczmKQ3LF4rhU55PfD99KEEXQG6yb7iOMyvYuHew==
 
 unbox-primitive@^1.0.2:
   version "1.0.2"

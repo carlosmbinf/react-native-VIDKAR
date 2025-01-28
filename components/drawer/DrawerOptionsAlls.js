@@ -29,6 +29,12 @@ const DrawerOptionsAlls = (opt) => {
       url:"Servidores",
       icon:"server"
     },
+    {
+      label: "Dashboard",
+      url:"Dashboard",
+      icon:"server"
+    },
+    
     // {
     //   label: "Consumo Proxy",
     //   url:"ConsumoUsers",

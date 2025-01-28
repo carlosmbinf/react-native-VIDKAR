@@ -52,6 +52,7 @@ import ServerList from './components/servers/ServerList';
 import MyTabs from './components/navigator/MyTabs';
 import VideoPlayer from './components/video/VideoPlayer';
 import VideoPlayerIOS from './components/video/VideoPlayerIOS';
+import DashBoardPrincipal from './components/dashboard/DashBoardPrincipal';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -129,7 +130,8 @@ const App = () => {
               : Meteor.user() && Meteor.user().subscipcionPelis
               ? 'PeliculasVideos'
               : 'User'
-          }>
+          }
+          >
           {/* <Stack.Screen
             name="Loguin"
             component={Loguin}
@@ -149,7 +151,113 @@ const App = () => {
               // headerTransparent:false
             })}
           /> */}
+          <Stack.Screen
+            name="Dashboard"
+            options={({navigation, route}) => {
+              const {params} = route;
+              var item = Meteor.users.findOne(
+                params ? params.item : Meteor.userId(),
+                {
+                  fields: {
+                    _id: 1,
+                    'profile.firstName': 1,
+                    'profile.lastName': 2,
+                  },
+                },
+              );
+              return {
+                title: (
+                  <Text>
+                    {item && item.profile
+                      ? `${item.profile.firstName} ${item.profile.lastName}`
+                      : ''}
+                  </Text>
+                ),
+                headerStyle: {
+                  backgroundColor: '#3f51b5',
+                  height: 90,
+                },
+                headerTitleAlign: 'center',
+                headerTintColor: '#fff',
+                // headerTitleStyle: {
+                //   fontWeight: 'bold',
+                // },
+                // headerLeft:
+                //   !(
+                //     Meteor.user() &&
+                //     Meteor.user().profile &&
+                //     Meteor.user().profile.role == 'admin'
+                //   ) && null,
+                headerShown: true,
+                // headerLeftContainerStyle: { display: flex },
+                headerRight: () => (
+                  <View style={{flexDirection: 'row', alignItems: 'flex-end'}}>
+                    {/* <MenuIconMensajes navigation={navigation} /> */}
 
+                    <Menu
+                      visible={visibleMenuUsers}
+                      onDismiss={() => {
+                        setVisibleMenuUsers(false);
+                      }}
+                      anchor={
+                        <Appbar.Action
+                          icon="menu"
+                          color="white"
+                          onPress={() => {
+                            setVisibleMenuUsers(true);
+                          }}
+                        />
+                      }
+                      style={{top: 70, width: 210, paddingRight: 30}}>
+                      <View style={{padding: 0}}>
+                        {/* <Menu.Item
+                        icon="menu"
+                        onPress={() => {
+                          // const item = Meteor.users.find({_id:Meteor.userId()}).fetch()
+                          // console.log(item)
+                          setVisibleMenu(false);
+                          navigation.navigate('User', {
+                            item: Meteor.users.findOne({_id: Meteor.userId()}),
+                          });
+                        }}
+                        title="Mi usuario"
+                      /> */}
+                        <Menu.Item
+                          icon="logout"
+                          onPress={() => {
+                            Meteor.logout();
+                            // navigation.navigate('Loguin');
+                            setVisibleMenu(false);
+                          }}
+                          title="Cerrar Sessión"
+                          style={{padding: 0}}
+                        />
+                      </View>
+                    </Menu>
+                  </View>
+                ),
+                // headerRight
+                // headerTransparent:false
+              };
+            }}>
+            {props => {
+              const {navigation, route} = props;
+              const {params} = route;
+              const item = params ? params.item : Meteor.userId();
+              // const {navigation} = route.params;
+              return (<>
+                <DashBoardPrincipal type={"HORA"} />
+                <DashBoardPrincipal type={"DIARIO"} />
+                <DashBoardPrincipal type={"MENSUAL"} />
+              </>
+
+                // <TasksProvider user={user} projectPartition={projectPartition}>
+                //   <TasksView navigation={navigation} route={route} />
+                // </TasksProvider>
+              );
+            }}
+          </Stack.Screen>
+          
           <Stack.Screen
             name="Users"
             component={UserHome}
