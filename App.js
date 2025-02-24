@@ -54,6 +54,7 @@ import MyTabs from './components/navigator/MyTabs';
 import VideoPlayer from './components/video/VideoPlayer';
 import VideoPlayerIOS from './components/video/VideoPlayerIOS';
 import DashBoardPrincipal from './components/dashboard/DashBoardPrincipal';
+import Videollamada from './components/Calls/Videollamadas';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -127,7 +128,7 @@ const App = () => {
             Meteor.user() &&
             Meteor.user().profile &&
             Meteor.user().profile.role == 'admin'
-              ? 'Users'
+              ? 'Videollamada' //'Users'
               : Meteor.user() && Meteor.user().subscipcionPelis
               ? 'PeliculasVideos'
               : 'User'
@@ -907,6 +908,22 @@ const App = () => {
             }}
           </Stack.Screen>
 
+          <Stack.Screen
+            name="Videollamada"
+            options={({navigation, route}) => ({
+              headerShown: false,
+            })}>
+            {props => {
+              const {navigation, route} = props;
+
+              return <Videollamada/>
+
+              // <Player id={id} subtitulo={subtitulo} navigation={navigation} urlPeliHTTPS={urlPeliHTTPS} />
+              // <TasksProvider user={user} projectPartition={projectPartition}>
+              //   <TasksView navigation={navigation} route={route} />
+              // </TasksProvider>
+            }}
+          </Stack.Screen>
           <Stack.Screen
             name="Mensaje"
             options={({navigation, route}) => ({

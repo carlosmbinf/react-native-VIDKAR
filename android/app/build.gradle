@@ -1,7 +1,7 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
-
+apply plugin: 'com.google.android.gms.strict-version-matcher-plugin'
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
@@ -91,6 +91,8 @@ android {
         resValue "bool", "useExoplayerHls", "true"
         resValue "bool", "useExoplayerRtsp", "true"
         resValue "bool", "buildFromSource", "true"
+
+        missingDimensionStrategy 'react-native-camera', 'mlkit'
     }
     signingConfigs {
         debug {
@@ -132,4 +134,5 @@ dependencies {
 }
 
 apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
+// apply plugin: 'com.google.gms.google-services'  // Google Services plugin
 // apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)

@@ -1712,8 +1712,8 @@ const UserDetails = withTracker(props => {
         label:
           a.megas +
           'MB • $' +
-          (a.precio - Meteor.user().descuentoproxy >= 0
-            ? a.precio - Meteor.user().descuentoproxy
+          (a.precio >= 0
+            ? a.precio
             : 0),
       });
     });
@@ -1744,8 +1744,8 @@ const UserDetails = withTracker(props => {
       preciosVPNlist.push({
         value: a.megas,
         label: `${a.type} • ${a.megas}MB • $ ${
-          a.precio - Meteor.user().descuentovpn >= 0
-            ? a.precio - Meteor.user().descuentovpn
+          a.precio >= 0
+            ? a.precio
             : 0
         }`,
       });
