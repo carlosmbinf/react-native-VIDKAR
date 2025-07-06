@@ -61,5 +61,8 @@
   <service android:name="com.supersami.foregroundservice.ForegroundService" android:foregroundServiceType="dataSync"></service> // also define android:foregroundServiceType="" according to your use case
   <service android:name="com.supersami.foregroundservice.ForegroundServiceTask" android:foregroundServiceType="dataSync"></service> // also define android:foregroundServiceType="" according to your use case
 
+  <service android:name="com.vidkar.MyBackgroundService" android:foregroundServiceType="dataSync"></service>
+
+
     </application>
 </manifest>

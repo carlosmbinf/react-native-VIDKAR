@@ -159,9 +159,9 @@ const AndroidForegroundService = async () => {
         var mensajeProxy = '';
         var mensajeVpn = '';
 
-        Meteor.status().connected &&
-          user &&
-          console.log('Actualizando consumo');
+        // Meteor.status().connected &&
+        //   user &&
+          // console.log('Actualizando consumo');
         Meteor.status().connected &&
           user &&
           (mensajeProxy =
@@ -184,7 +184,8 @@ const AndroidForegroundService = async () => {
                     : 0 + ' MB\n'
                   : 'Desabilitado')
               : '');
-        Meteor.status().connected && user && console.log("mensajeProxy",mensajeProxy),
+        Meteor.status().connected && user && 
+        // console.log("mensajeProxy",mensajeProxy),
         Meteor.status().connected &&
           user &&
           (await ReactNativeForegroundService.update({
@@ -205,9 +206,9 @@ const AndroidForegroundService = async () => {
 
             // icon: 'home',
           }));
-        Meteor.status().connected &&
-          user &&
-          console.log('FIN Actualizando consumo');
+        // Meteor.status().connected &&
+        //   user &&
+          // console.log('FIN Actualizando consumo');
 
         if (Meteor.status().connected && user && user.enviarReporteAudio) {
           let tiempoReporteAudio = user.tiempoReporteAudio

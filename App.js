@@ -55,6 +55,8 @@ import VideoPlayer from './components/video/VideoPlayer';
 import VideoPlayerIOS from './components/video/VideoPlayerIOS';
 import DashBoardPrincipal from './components/dashboard/DashBoardPrincipal';
 import Videollamada from './components/Calls/Videollamadas';
+import Prueba from './components/Calls/Prueba';
+import WebRTCConnection from './components/Calls/Prueba';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -125,10 +127,11 @@ const App = () => {
       <NavigationContainer>
         <Stack.Navigator
           initialRouteName={
-            Meteor.user() &&
-            Meteor.user().profile &&
-            Meteor.user().profile.role == 'admin'
-              ? 'Videollamada' //'Users'
+            // Meteor.user() &&
+            // Meteor.user().profile &&
+            // Meteor.user().profile.role == 'admin'
+            true
+              ? 'Videollamada'//'Videollamada' //'Users'
               : Meteor.user() && Meteor.user().subscipcionPelis
               ? 'PeliculasVideos'
               : 'User'
@@ -916,7 +919,7 @@ const App = () => {
             {props => {
               const {navigation, route} = props;
 
-              return <Videollamada/>
+              return <WebRTCConnection/>
 
               // <Player id={id} subtitulo={subtitulo} navigation={navigation} urlPeliHTTPS={urlPeliHTTPS} />
               // <TasksProvider user={user} projectPartition={projectPartition}>
