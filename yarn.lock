@@ -4132,6 +4132,11 @@ lru-cache@^5.1.1:
   dependencies:
     yallist "^3.0.2"
 
+lucide-react-native@>=0.475.0:
+  version "0.525.0"
+  resolved "https://registry.npmjs.org/lucide-react-native/-/lucide-react-native-0.525.0.tgz"
+  integrity sha512-f9iIdoZJCDIXhzAMQCNgaiWdiq42ls5ieXvVXwlNHN1q7c5zC1n1U0yOVu6J0oNSF8zvYqY3pK3UPOX+T2YpIQ==
+
 make-dir@^2.0.0, make-dir@^2.1.0:
   version "2.1.0"
   dependencies:
@@ -4934,6 +4939,13 @@ react-native-parsed-text@0.0.22:
 react-native-permissions@^4.1.5:
   version "4.1.5"
 
+react-native-progress-steps@^2.0.3:
+  version "2.0.3"
+  resolved "https://registry.npmjs.org/react-native-progress-steps/-/react-native-progress-steps-2.0.3.tgz"
+  integrity sha512-N3JT9sQ/irEzS7RrYVNC86jHTgAXrQPDk2kHAHaz1JYv3wTCMLfbyQfDykp5y3cYqpbD3D1Ivc+1XOXhXwwvog==
+  dependencies:
+    lodash "^4.17.21"
+
 react-native-safe-area-context@^3.4.1, "react-native-safe-area-context@>= 0.6.0", "react-native-safe-area-context@>= 3.0.0":
   version "3.4.1"
 
@@ -4963,7 +4975,7 @@ react-native-subtitles@^5.0.0:
     styled-components "^5.3.5"
     vtt-to-json "^0.1.1"
 
-react-native-svg@*, react-native-svg@^15.11.1, "react-native-svg@> 6.4.1":
+react-native-svg@*, "react-native-svg@^12.0.0 || ^13.0.0 || ^14.0.0 || ^15.0.0", react-native-svg@^15.11.1, "react-native-svg@> 6.4.1":
   version "15.11.1"
   resolved "https://registry.npmjs.org/react-native-svg/-/react-native-svg-15.11.1.tgz"
   integrity sha512-Qmwx/yJKt+AHUr4zjxx/Q69qwKtRfr1+uIfFMQoq3WFRhqU76aL9db1DyvPiY632DAsVGba1pHf92OZPkpjrdQ==
@@ -5073,7 +5085,7 @@ react-test-renderer@18.3.1:
     react-shallow-renderer "^16.15.0"
     scheduler "^0.23.2"
 
-react@*, react@^16.0.0, "react@^16.0.0 || ^17.0.0 || ^18.0.0", "react@^17 || ^18", react@^18.2.0, react@^18.3.1, "react@> 16.7.0", "react@>= 15.2.1", "react@>= 16.8.0", react@>=15.0.0, react@>=16.0, react@>=16.3.0, react@>=18.1.0, react@18.3.1:
+react@*, react@^16.0.0, "react@^16.0.0 || ^17.0.0 || ^18.0.0", "react@^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^17 || ^18", react@^18.2.0, react@^18.3.1, "react@> 16.7.0", "react@>= 15.2.1", "react@>= 16.8.0", react@>=15.0.0, react@>=16.0, react@>=16.3.0, react@>=16.8.0, react@>=18.1.0, react@18.3.1:
   version "18.3.1"
   dependencies:
     loose-envify "^1.1.0"

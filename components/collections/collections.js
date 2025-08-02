@@ -10,3 +10,29 @@ export const VentasCollection = new Mongo.Collection('ventas');
 export const ServersCollection = new Mongo.Collection("servers");
 export const CallsCollection = new Mongo.Collection("calls");
 export const SignalsCollection = new Mongo.Collection("signals");
+
+
+
+///////////////////////////////////NUEVOS PARA RECARGAS//////////////
+export const LogsRechargeCollection = new Mongo.Collection("Logs_Recharge");
+export const PreciosRechargeCollection = new Mongo.Collection("precios_Recharge");
+export const VentasRechargeCollection = new Mongo.Collection("ventas_Recharge");
+export const OrdenesCollection = new Mongo.Collection("ordenes_Recharge");
+export const CarritoCollection = new Mongo.Collection("carrito_Recharge");
+export const PreciosDolarCollection = new Mongo.Collection("preciosDolar");
+export const AsignacionRemesaAdminCollection = new Mongo.Collection("asignacionRemesaAdmins_Recharge");
+export const ConfigCollection = new Mongo.Collection("config");
+
+export const TransaccionRecargasCollection = new Mongo.Collection("transaccionRecargas_DTSHOP");
+
+export const ProductosCollection = new Mongo.Collection("productos_Recharge");
+export const ProductosDescriptionsCollection = new Mongo.Collection("productosDescriptions_Recharge");
+export const CountriesCollection = new Mongo.Collection("countries_Recharge");
+export const ProvidersCollection = new Mongo.Collection("providers_Recharge");
+export const RegionsCollection = new Mongo.Collection("regions_Recharge");
+
+/////////////////////DTSHOP////////////////////////////////////
+export const DTShopProductosCollection = new Mongo.Collection("dtshopProductos_Recharge");
+
+////////////////////////////////////////////////////////////////////
+

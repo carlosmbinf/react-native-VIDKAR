@@ -15,7 +15,13 @@ const DrawerOptionsAlls = (opt) => {
       label: "Pelis y Series",
       url:"PeliculasVideos",
       icon:"movie-filter"
-    }
+    },
+    {
+      label: "Productos Cubacel",
+      url:"ProductosCubacelCards",
+      icon:"view-dashboard"
+    },
+    
   ]
 
   const opcionesAdministradores = [

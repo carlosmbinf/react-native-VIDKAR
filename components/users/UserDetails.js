@@ -1188,7 +1188,7 @@ class MyAppUserDetails extends React.Component {
                   )
                 )}
 
-                {Meteor.user() && Meteor.user().profile.role == 'admin' ? (
+                {Meteor.user() && Meteor.user()?.profile?.role == 'admin' ? (
                   <Card elevation={12} style={styles.cards}>
                     <Card.Content>
                       <View style={styles.element}>

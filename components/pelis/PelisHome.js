@@ -142,45 +142,45 @@ class MyApp extends React.Component {
           }}>
           <View
             style={{
-              flexDirection: 'row',
+              flexDirection: 'row-reverse',
               justifyContent: 'space-between',
               width: '100%',
             }}>
-            {navigation&& navigation.navigationGeneral && navigation.navigationGeneral.getState() && navigation.navigationGeneral.getState().index > 0 && <Appbar.Action icon="arrow-left" color={"white"} onPress={() => navigation.navigationGeneral.goBack()} />}
-            <View style={{flexDirection: 'row'}}>
-              {/* <Appbar.Action
-                icon="account-plus"
-                color={'white'}
-                onPress={() =>
-                  navigation.navigationGeneral.navigate('CreateUsers')
-                }
-              /> */}
-              {/* <Appbar.Action
-                icon="account"
-                color={'white'}
-                onPress={() =>
-                  navigation.navigationGeneral.navigate('User', {
-                    item: Meteor.users.findOne({_id: Meteor.userId()}),
-                  })
-                }
-              /> */}
-              <Appbar.Action
-                icon="magnify"
-                color={'white'}
-                disabled={this.state.activeBanner}
-                onPress={() => this.setState({activeBanner: true})}
-              />
-            </View>
-          </View>
-        </Appbar>
-        <Banner
-          visible={this.state.activeBanner}
-          actions={[
-            {
-              label: 'cerrar',
-              onPress: () => this.setState({activeBanner: false}),
-            },
-          ]}
+             {/* {navigation&& navigation.navigationGeneral && navigation.navigationGeneral.getState() && navigation.navigationGeneral.getState().index > 0 && <Appbar.Action icon="arrow-left" color={"white"} onPress={() => navigation.navigationGeneral.goBack()} />} */}
+                  <View style={{flexDirection: 'row'}}>
+                    <Appbar.Action
+                    icon="account-plus"
+                    color={'white'}
+                    onPress={() =>
+                      navigation.navigationGeneral.navigate('CreateUsers')
+                    }
+                    />
+                    <Appbar.Action
+                    icon="account"
+                    color={'white'}
+                    onPress={() =>
+                      navigation.navigationGeneral.navigate('User', {
+                      item: Meteor.users.findOne({_id: Meteor.userId()}),
+                      })
+                    }
+                    />
+                    <Appbar.Action
+                    icon="magnify"
+                    color={'white'}
+                    disabled={this.state.activeBanner}
+                    onPress={() => this.setState({activeBanner: true})}
+                    />
+                  </View>
+                  </View>
+                </Appbar>
+                <Banner
+                  visible={this.state.activeBanner}
+                  actions={[
+                  {
+                    label: 'cerrar',
+                    onPress: () => this.setState({activeBanner: false}),
+                  },
+                  ]}
           // icon={({size}) => (
           //   <Image
           //     source={{

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, ScrollView } from 'react-native';
+import { View,  StyleSheet, Dimensions, ScrollView } from 'react-native';
 import Meteor, { Mongo, withTracker } from '@meteorrn/core';
 import {
     LineChart,
@@ -9,6 +9,7 @@ import {
     ContributionGraph,
     StackedBarChart
 } from "react-native-chart-kit";
+import { Surface, Text } from 'react-native-paper';
 
 const DashBoardPrincipal = ({ type }) => {
     const [width, setWidth] = useState([]);
@@ -63,7 +64,7 @@ const DashBoardPrincipal = ({ type }) => {
 
     return (
         x.length > 0 && y.length > 0 &&
-        <View style={{ padding: "2%" }}>
+        <Surface style={{ padding: "2%" }}>
 
             <Text>Calculo de la Grafica: {type}</Text>
             <LineChart
@@ -108,7 +109,7 @@ const DashBoardPrincipal = ({ type }) => {
                     borderRadius: 16
                 }}
             />
-        </View>
+        </Surface>
     );
 };
 
