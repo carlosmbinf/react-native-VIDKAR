@@ -11,8 +11,8 @@
 <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
 
-<uses-permission android:name="android.permission.CAMERA"/>
-<uses-permission android:name="android.permission.RECORD_AUDIO"/>
+<!-- <uses-permission android:name="android.permission.CAMERA"/> -->
+<!-- <uses-permission android:name="android.permission.RECORD_AUDIO"/> -->
 <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
 <uses-permission android:name="android.permission.BLUETOOTH"/>
 <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
@@ -49,9 +49,9 @@
         <action android:name="android.intent.action.VIEW" />
         <category android:name="android.intent.category.DEFAULT" />
         <category android:name="android.intent.category.BROWSABLE" />
-        <data android:scheme="https" android:host="ht7cpzhf-3000.brs.devtunnels.ms" />
+        <data android:scheme="https" android:host="www.vidkar.com" />
         <!-- Si se quisiera cubrir http también: -->
-        <data android:scheme="http" android:host="ht7cpzhf-3000.brs.devtunnels.ms" />
+        <data android:scheme="http" android:host="www.vidkar.com" />
         <data android:scheme="vidkar" />
     </intent-filter>
       </activity>

@@ -101,7 +101,7 @@ const App = () => {
   };
 
   const linking = {
-    prefixes: ['https://ht7cpzhf-3000.brs.devtunnels.ms', 'vidkar://'],  // URLs válidas para la app
+    prefixes: ['https://www.vidkar.com', 'http://www.vidkar.com', 'vidkar://'],  // URLs válidas para la app
     config: {
       screens: {
         // Recargas: 'recargas',          // Ruta para pantalla Recargas
