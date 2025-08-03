@@ -502,7 +502,7 @@ class MyApp extends React.Component {
                   {renderFilter()}
                 </Surface>
 
-                < ScrollView >
+                <ScrollView >
                   <Surface style={backgroundStyle}>
                     <List.Accordion
                       title="Administradores"

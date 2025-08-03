@@ -1,14 +1,17 @@
 import React from 'react';
 import { ScrollView, View, StyleSheet, ImageBackground } from 'react-native';
-import { Text, Card, IconButton, Divider, Chip } from 'react-native-paper';
+import { Text, Card, IconButton, Divider, Chip,useTheme } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 import { CarritoCollection } from '../collections/collections';
+import { BlurView } from '@react-native-community/blur';
 
-const ListaPedidosRemesa = () => {
+const ListaPedidos = () => {
   const userId = Meteor.userId();
+  const theme = useTheme();
 
+  const isDarkMode = theme.dark;
   const { pedidosRemesa = [] } = useTracker(() => {
-    Meteor.subscribe('carrito');
+    Meteor.subscribe('carrito',{ idUser: userId });
     const pedidos = CarritoCollection.find({ idUser: userId }).fetch();
     return { pedidosRemesa: pedidos };
   });
@@ -25,7 +28,7 @@ const ListaPedidosRemesa = () => {
 
   return (
     <ScrollView style={styles.container}>
-      <Chip style={styles.headerChip}>{`Tienes ${pedidosRemesa.length} compras en el Carrito`}</Chip>
+      <Chip mode='flat' elevated={5}>{`Tienes ${pedidosRemesa.length} compras en el Carrito`}</Chip>
       <Text style={styles.sectionTitle}>Lista de compras:</Text>
 
       {pedidosRemesa.map((pedido) => {
@@ -49,6 +52,10 @@ const ListaPedidosRemesa = () => {
               imageStyle={{ borderRadius: 12 }}
               style={styles.cardBackground}
             >
+            <BlurView
+                        style={StyleSheet.absoluteFill}
+                        blurType= {isDarkMode ?"dark":"light"}
+                    />
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>{type === 'REMESA' ? 'Remesa para:' : 'Recarga para:'} {nombre}</Text>
                 <IconButton icon="close" size={20} onPress={() => eliminarPedido(pedido._id)} />
@@ -81,7 +88,8 @@ const ListaPedidosRemesa = () => {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16
+    padding: 0,
+    // backgroundColor: "red",
   },
   empty: {
     textAlign: 'center',
@@ -95,6 +103,7 @@ const styles = StyleSheet.create({
   headerChip: {
     marginBottom: 10,
     alignSelf: 'center'
+
   },
   card: {
     marginBottom: 16,
@@ -127,4 +136,4 @@ const styles = StyleSheet.create({
   }
 });
 
-export default ListaPedidosRemesa;
+export default ListaPedidos;

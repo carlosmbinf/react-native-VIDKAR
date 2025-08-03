@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ImageBackground, ScrollView } from 'react-native';
-import { Card, Title, Chip, IconButton, Portal, Dialog, Button, TextInput } from 'react-native-paper';
-import { useTheme, Text } from 'react-native-paper';
-import { useWindowDimensions } from 'react-native';
+import { View, StyleSheet, ImageBackground, ScrollView, Alert } from 'react-native';
+import { Card, Title, Chip, IconButton, Portal, Dialog, Button, TextInput, Modal } from 'react-native-paper';
+import { useTheme, Text   } from 'react-native-paper';
+import { useWindowDimensions, Button as BotonReact} from 'react-native';
 import  Meteor  from '@meteorrn/core';
+import { BlurView } from '@react-native-community/blur';
 
 const CubaCelCard = ({ product }) => {
     const {
@@ -15,12 +16,13 @@ const CubaCelCard = ({ product }) => {
         promotions,
         requiredCreditPartyIdentifierFields = []
     } = product;
-
+    
     const [open, setOpen] = useState(false);
     const [nombre, setNombre] = useState('');
     const [extraFields, setExtraFields] = useState({});
     const theme = useTheme();
     const { width, height } = useWindowDimensions();
+    const isDarkMode = theme.dark;
 
     const precioUSD = prices?.retail?.amount || '---';
     const operadorNombre = operator?.name || 'ETECSA';
@@ -50,6 +52,7 @@ const CubaCelCard = ({ product }) => {
         await Meteor.call("insertarCarrito", nuevoCarrito, (error, result) => {
             if (error) {
                 console.error('Error al insertar en el carrito:', error);
+                Alert.alert("Error", "No se pudo agregar el producto al carrito.\nPor favor, Revise bien los datos o inténtalo de nuevo más tarde.");
             } else {
                 console.log('Producto agregado al carrito:', result);
                 setOpen(false);
@@ -64,24 +67,30 @@ const CubaCelCard = ({ product }) => {
     return (
         <>
             <Card style={styles.card} onPress={() => setOpen(true)}>
+            
                 <ImageBackground
                     source={require('./Gemini_Generated_Image_rtg44brtg44brtg4.png')} // reemplaza por tu imagen local
                     resizeMode="cover"
                     imageStyle={{ borderRadius: 20 }}
                     style={styles.imageBackground}
                 >
+                <BlurView
+                        style={StyleSheet.absoluteFill}
+                        
+                        blurType= {isDarkMode ?"dark":"light"}
+                        autoUpdate={false}
+                        
+                        reducedTransparencyFallbackColor="dark"
+                    />
                     <View style={styles.cardContent}>
                         <View style={styles.row}>
                             <IconButton icon="cellphone" iconColor="white" size={16} />
-                            <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">{name}</Text>
+                            <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">{operadorNombre}</Text>
                         </View>
 
                         {beneficios() !== '' && (
-                            <Text style={styles.beneficios}>El cliente recibirá: {beneficios()}</Text>
+                            <Text style={styles.beneficios}>Recibirá: {beneficios()}</Text>
                         )}
-
-                        <Text style={styles.operador}>Operadora: {operadorNombre}</Text>
-
                         <View style={styles.chips}>
                             {hasPromo && <Chip style={styles.promoChip}>Con promoción</Chip>}
                             <Chip icon="currency-usd" style={styles.priceChip}>{`${precioUSD} USD`}</Chip>
@@ -91,7 +100,8 @@ const CubaCelCard = ({ product }) => {
             </Card>
 
             <Portal>
-                <Dialog visible={open} onDismiss={() => setOpen(false)} style={{ maxHeight: '100%'}} >
+                <Dialog visible={open} onDismiss={() => setOpen(false)} style={styles.dialog} >
+                
                     <View style={styles.dialogTitleContainer}>
                         <Text style={styles.dialogTitleText}>{name}</Text>
                         <IconButton icon="close" onPress={() => setOpen(false)} />
@@ -158,10 +168,10 @@ const CubaCelCard = ({ product }) => {
                             })}
                             </ScrollView>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
-                                <Button onPress={() => setOpen(false)} mode="outlined" style={{ flex: 1, marginRight: 8 }}>
+                                <Button onPress={() => setOpen(false)} mode="outlined" style={styles.botonesAccion}>
                                     Cancelar
                                 </Button>
-                                <Button onPress={handleSubmit} mode="contained" style={{ flex: 1 }}>
+                                <Button onPress={handleSubmit} mode="outlined" style={styles.botonesAccion}>
                                     Confirmar
                                 </Button>
                             </View>
@@ -177,22 +187,30 @@ const CubaCelCard = ({ product }) => {
 };
 
 const styles = StyleSheet.create({
+    dialog: { 
+        maxHeight: '100%', 
+        borderRadius: 20, 
+        padding: 2 
+    },
+    botonesAccion: {
+        borderRadius: 15,
+    },
     card: {
         margin: 6,
-        borderRadius: 16,
+        borderRadius: 20,
         overflow: 'hidden',
         backgroundColor: '#0b3d2e',
-        height: 240,
+        height: 150,
         width: 280, // 👈 AÑADIDO para que todos tengan el mismo ancho
     },
     imageBackground: {
       padding: 12,
-      borderRadius: 16
+      borderRadius: 20
     },
     cardContent: {
         justifyContent: 'space-between',
         height: '100%',
-        minHeight: 180,
+        minHeight: 120,
         overflow: 'hidden' // 👈 AÑADIDO para evitar que se desborde el contenido
     },
     row: {
@@ -200,7 +218,7 @@ const styles = StyleSheet.create({
       alignItems: 'center'
     },
     title: {
-        color: 'white',
+        // color: 'white',
         fontSize: 14,
         fontWeight: 'bold',
         flexShrink: 1,
@@ -209,7 +227,7 @@ const styles = StyleSheet.create({
     },
     beneficios: {
     //   color: '#ccc',
-      marginTop: 6,
+      marginTop: 1,
       fontSize: 14
     },
     operador: {
@@ -244,6 +262,7 @@ const styles = StyleSheet.create({
     },
 
     dialogTitleText: {
+        color: "#fff",
         fontSize: 16,
         fontWeight: 'bold',
     },

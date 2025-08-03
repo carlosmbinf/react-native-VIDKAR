@@ -77,14 +77,14 @@ const DrawerOptionsAlls = (opt) => {
                     active={active === element.url}
                     onPress={() => {
                       // setActive(element.url);
-                      opt.navigation.navigation.navigate(element.url);
+                      opt?.navigation?.navigation?.navigate(element.url);
                     }}
                   />
                 );
               })}
             </Drawer.Section>
           )}
-
+          { Meteor.user()?.profile?.role === 'admin' &&
           <Drawer.Section title="Opciones de Administradores">
             {opcionesAdministradores.map(element => {
               return (
@@ -99,8 +99,8 @@ const DrawerOptionsAlls = (opt) => {
                 />
               );
             })}
-          </Drawer.Section>
-          {Meteor.user().username == 'carlosmbinf' && (
+          </Drawer.Section>}
+          {Meteor.user()?.username == 'carlosmbinf' && (
             <Drawer.Section title="Opciones Privadas">
               {opcionesAdministradorGeneral.map(element => {
                 return (
@@ -110,7 +110,7 @@ const DrawerOptionsAlls = (opt) => {
                     active={active === element.url}
                     onPress={() => {
                       // setActive(element.url);
-                      opt.navigation.navigation.navigate(element.url);
+                      opt.navigation?.navigation?.navigate(element.url);
                     }}
                   />
                 );

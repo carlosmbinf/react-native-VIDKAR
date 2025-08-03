@@ -1,32 +1,46 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, StyleSheet } from 'react-native';
+import { ScrollView, View, StyleSheet, FlatList } from 'react-native';
 import Meteor, { useTracker } from '@meteorrn/core';
 import { ActivityIndicator, Surface, Text } from 'react-native-paper';
 import CubaCelCard from './CubaCelCard'; // usa el componente migrado
 import { DTShopProductosCollection } from '../collections/collections';
 
 const Productos = () => {
-  const [productosActuales, setProductosActuales] = useState([]);
-  let handler;
-  const productos = useTracker(() => {
+  // const [productosActuales, setProductosActuales] = useState([]);
+  const flatListRef = React.createRef();
+  const {productos, ready} = useTracker(() => {
     const handler = Meteor.subscribe('productosDtShop');
     if (handler.ready()) {
-      return DTShopProductosCollection.find({}).fetch();
+      return { productos: DTShopProductosCollection.find({}).fetch(), ready:handler.ready() };
     }
-    return null;
+    return {};
   });
 
-  useEffect(() => {
-    if (productos) setProductosActuales(productos);
-  }, [productos]);
+  // useEffect(() => {
+  //   productos && setProductosActuales(productos);
+  // }, [productos]);
 
   return (
     <Surface>
           <ScrollView contentContainerStyle={styles.container}>
-              {productosActuales && productosActuales.length > 0 ? (
-                  productosActuales.map((product, index) => (
-                      <CubaCelCard key={index} product={product} />
-                  ))
+          
+              {ready && productos && productos.length > 0 ? (
+                <FlatList
+              ref={flatListRef}
+              focusable={true}
+              accessible={true}
+              data={productos}
+              renderItem={({item}) => (
+                <CubaCelCard  product={item} />
+              )}
+              style={{minWidth: '100%'}}
+              horizontal={true}
+              scrollEnabled={true}
+              keyExtractor={item => item._id} // Asegúrate de tener una key única
+              initialNumToRender={5}
+              maxToRenderPerBatch={10}
+              removeClippedSubviews={true}
+            />
               ) : (
                   <View style={styles.loaderContainer}>
                       <ActivityIndicator animating={true} size="large" />
@@ -45,7 +59,8 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between'
+    justifyContent: 'space-between',
+    minHeight: '100%',
   },
   loaderContainer: {
     marginTop: 40,

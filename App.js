@@ -56,6 +56,7 @@ import VideoPlayerIOS from './components/video/VideoPlayerIOS';
 import DashBoardPrincipal from './components/dashboard/DashBoardPrincipal';
 import Productos from './components/cubacel/Productos';
 import MenuHeader from './components/Header/MenuHeader';
+import MenuPrincipal from './components/Main/MenuPrincipal';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -133,13 +134,14 @@ const App = () => {
       <NavigationContainer linking={linking} fallback={<Text>Cargando...</Text>}>
         <Stack.Navigator
           initialRouteName={
-            Meteor.user() &&
-              Meteor.user().profile &&
-              Meteor.user().profile.role == 'admin'
-              ? "Users"
-              : Meteor.user() && Meteor.user().subscipcionPelis
-                ? 'PeliculasVideos'
-                : 'User'
+            "Main"
+            // Meteor.user() &&
+            //   Meteor.user().profile &&
+            //   Meteor.user().profile.role == 'admin'
+            //   ? "Users"
+            //   : Meteor.user() && Meteor.user().subscipcionPelis
+            //     ? 'PeliculasVideos'
+            //     : 'User'
           }
           >
           {/* <Stack.Screen
@@ -161,6 +163,51 @@ const App = () => {
               // headerTransparent:false
             })}
           /> */}
+          <Stack.Screen
+            name="Main"
+            component={MenuPrincipal}
+            options={({navigation, route}) => ({
+              title: (
+                <Text style={{letterSpacing: 5}}>
+                  <FontAwesome
+                    // onPress={() => logOut(navigation)}
+                    name="hand-o-right"
+                    color={'white'}
+                    size={20}
+                    // borderRadius={20}
+                    solid
+                  />
+                  VidKar {route?.params?.id}
+                  <FontAwesome
+                    // onPress={() => logOut(navigation)}
+                    name="hand-o-left"
+                    color={'white'}
+                    size={20}
+                    // borderRadius={20}
+                    solid
+                  />
+                </Text>
+              ),
+              headerStyle: {
+                backgroundColor: '#3f51b5',
+                height: 90,
+              },
+              headerTitleAlign: 'center',
+              headerTintColor: '#fff',
+              // headerTitleStyle: {
+              //   fontWeight: 'bold',
+              // },
+              headerLeft: null,
+              headerShown: true,
+              headerRight: () => (
+                <MenuHeader
+                  navigation={navigation}
+                />
+              ),
+              // headerRight
+              // headerTransparent:false
+            })}
+          />
           <Stack.Screen
             name="Dashboard"
             options={({navigation, route}) => {

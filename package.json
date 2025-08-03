@@ -12,6 +12,7 @@
   "dependencies": {
     "@meteorrn/core": "^2.1.0",
     "@react-native-async-storage/async-storage": "^1.15.2",
+    "@react-native-community/blur": "^4.4.1",
     "@react-native-community/masked-view": "^0.1.10",
     "@react-native-community/netinfo": "^6.0.0",
     "@react-native-community/slider": "^4.5.5",
@@ -29,7 +30,7 @@
     "react-native-chart-kit": "^6.12.0",
     "react-native-custom-header": "^1.0.0",
     "react-native-drawer": "^2.5.1",
-    "react-native-element-dropdown": "^1.5.5",
+    "react-native-element-dropdown": "^1.8.13",
     "react-native-fast-image": "^8.6.3",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "^1.7.0",
