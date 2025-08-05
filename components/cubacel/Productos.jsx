@@ -11,7 +11,7 @@ const Productos = () => {
   const {productos, ready} = useTracker(() => {
     const handler = Meteor.subscribe('productosDtShop');
     if (handler.ready()) {
-      return { productos: DTShopProductosCollection.find({}).fetch(), ready:handler.ready() };
+      return { productos: DTShopProductosCollection.find({}, { sort: { id: 1 } }).fetch(), ready:handler.ready() };
     }
     return {};
   });
