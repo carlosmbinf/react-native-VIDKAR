@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, View, StyleSheet, ImageBackground } from 'react-native';
-import { Text, Card, IconButton, Divider, Chip,useTheme } from 'react-native-paper';
+import { Text, Card, IconButton, Divider, Chip, useTheme } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 import { CarritoCollection } from '../collections/collections';
 import { BlurView } from '@react-native-community/blur';
@@ -11,7 +11,7 @@ const ListaPedidos = () => {
 
   const isDarkMode = theme.dark;
   const { pedidosRemesa = [] } = useTracker(() => {
-    Meteor.subscribe('carrito',{ idUser: userId });
+    Meteor.subscribe('carrito', { idUser: userId });
     const pedidos = CarritoCollection.find({ idUser: userId }).fetch();
     return { pedidosRemesa: pedidos };
   });
@@ -49,13 +49,13 @@ const ListaPedidos = () => {
           <Card key={pedido._id} style={styles.card}>
             <ImageBackground
               source={require('../cubacel/Gemini_Generated_Image_rtg44brtg44brtg4.png')}
-              imageStyle={{ borderRadius: 12 }}
+              imageStyle={{ borderRadius: 20 }}
               style={styles.cardBackground}
             >
-            <BlurView
-                        style={StyleSheet.absoluteFill}
-                        blurType= {isDarkMode ?"dark":"light"}
-                    />
+              <BlurView
+                style={StyleSheet.absoluteFill}
+                blurType={isDarkMode ? "dark" : "light"}
+              />
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>{type === 'REMESA' ? 'Remesa para:' : 'Recarga para:'} {nombre}</Text>
                 <IconButton icon="close" size={20} onPress={() => eliminarPedido(pedido._id)} />
@@ -107,12 +107,12 @@ const styles = StyleSheet.create({
   },
   card: {
     marginBottom: 16,
-    borderRadius: 12,
+    borderRadius: 20,
     overflow: 'hidden'
   },
   cardBackground: {
     padding: 12,
-    borderRadius: 12
+    borderRadius: 20
   },
   cardHeader: {
     flexDirection: 'row',

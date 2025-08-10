@@ -21,7 +21,6 @@ const Productos = () => {
   // }, [productos]);
 
   return (
-    <Surface>
           <ScrollView contentContainerStyle={styles.container}>
           
               {ready && productos && productos.length > 0 ? (
@@ -48,19 +47,20 @@ const Productos = () => {
                   </View>
               )}
           </ScrollView>
-    </Surface>
     
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 8,
-    paddingBottom: 40,
+    // padding: 8,
+    paddingTop: 8,
+    paddingBottom: 8,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    minHeight: '100%',
+    // minHeight: '100%',
+    // backgroundColor: "red",
   },
   loaderContainer: {
     marginTop: 40,

@@ -11,6 +11,7 @@ import React, {useEffect, useState} from 'react';
 import {
   Appbar,
   Menu,
+  Text,  
   Provider as PaperProvider,
   Surface,
 } from 'react-native-paper';
@@ -18,7 +19,6 @@ import {
 import {
   StatusBar,
   StyleSheet,
-  Text,
   useColorScheme,
   View,
   Dimensions,
@@ -57,6 +57,7 @@ import DashBoardPrincipal from './components/dashboard/DashBoardPrincipal';
 import Productos from './components/cubacel/Productos';
 import MenuHeader from './components/Header/MenuHeader';
 import MenuPrincipal from './components/Main/MenuPrincipal';
+import TableRecargas from './components/cubacel/TableRecargas';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -348,9 +349,20 @@ const App = () => {
             })}
             >
             {props => {
-              const {navigation, route} = props;
+              const { navigation, route } = props;
               return (
-                <MyTabs navigation={navigation} route={route} />
+                Meteor.user() && Meteor.user().subscipcionPelis ? (
+                  <MyTabs navigation={navigation} route={route} />
+                ) :
+                (
+                  <Surface style={{flex:1, justifyContent:'center', alignItems:'center', height:'100%'}}>
+                  <View style={{flex:1,}}
+                  >
+                    <Text style={{fontSize:20, textAlign:'center', marginTop:20}} >No tiene una Subscripcion Activa</Text>
+                     </View>
+                  </Surface>
+                )
+
                 // <Player id={id} subtitulo={subtitulo} navigation={navigation} urlPeliHTTPS={urlPeliHTTPS} />
                 // <TasksProvider user={user} projectPartition={projectPartition}>
                 //   <TasksView navigation={navigation} route={route} />
@@ -663,7 +675,7 @@ const App = () => {
           </Stack.Screen>
           <Stack.Screen
             name="ProductosCubacelCards"
-            component={Productos}
+            // component={Productos}
             options={({navigation, route}) => ({
               title: <Text style={{letterSpacing: 5}}>Recargas</Text>,
               headerStyle: {
@@ -685,7 +697,27 @@ const App = () => {
               // headerRight
               // headerTransparent:false
             })}
-          />
+          >
+          {props => {
+              const {navigation, route} = props;
+              // console.log(item)
+              return (
+                <>
+                <Surface style={{elevation:0}}>
+                <Productos />
+                </Surface>
+                
+                <TableRecargas/> 
+                
+                </>
+                
+                                
+                // <TasksProvider user={user} projectPartition={projectPartition}>
+                //   <TasksView navigation={navigation} route={route} />
+                // </TasksProvider>
+              );
+            }}
+          </Stack.Screen>
           {/* <Stack.Screen name="Video" component={VideoPlayer} /> */}
           {/* <Stack.Screen name="Task List">
                 {props => {

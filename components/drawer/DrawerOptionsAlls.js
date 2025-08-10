@@ -67,7 +67,6 @@ const DrawerOptionsAlls = (opt) => {
       </Surface>
       <ScrollView>
         <Surface style={{minHeight: screenHeight - 180}}>
-          {Meteor.user() && Meteor.user().subscipcionPelis && (
             <Drawer.Section title="Servicios VidKar">
               {opcionesServicios.map(element => {
                 return (
@@ -83,7 +82,6 @@ const DrawerOptionsAlls = (opt) => {
                 );
               })}
             </Drawer.Section>
-          )}
           { Meteor.user()?.profile?.role === 'admin' &&
           <Drawer.Section title="Opciones de Administradores">
             {opcionesAdministradores.map(element => {

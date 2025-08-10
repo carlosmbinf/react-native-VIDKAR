@@ -98,8 +98,8 @@ const MenuPrincipal = ({ navigation }) => {
                 clasificacion="All"
               />
             }
-
             <Productos />
+            
 
           </ScrollView>
         </Surface>

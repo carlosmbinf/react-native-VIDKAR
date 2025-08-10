@@ -33,7 +33,7 @@ class Loguin extends Component {
   constructor(props) {
     super(props);
     const {navigation} = this.props;
-    Meteor.connect('ws://www.vidkar.com:6000/websocket');
+    Meteor.connect('ws://localhost:3000/websocket'); //www.vidkar.com:6000
 
     // Meteor.user() && navigation.navigate('Peliculas');
 
@@ -134,7 +134,7 @@ class Loguin extends Component {
               }}
             /> */}
               <TextInput
-                mode="flat"
+                mode="outlined"
                 value={this.state.username}
                 onChangeText={username => this.setState({username: username})}
                 label={'Username'}
@@ -149,7 +149,7 @@ class Loguin extends Component {
                 }}
               />
               <TextInput
-                mode="flat"
+                mode="outlined"
                 value={this.state.password}
                 onChangeText={password => this.setState({password: password})}
                 label={'Password'}

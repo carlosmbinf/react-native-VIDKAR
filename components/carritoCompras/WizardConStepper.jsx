@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Meteor, { Accounts, Mongo, withTracker, useTracker } from '@meteorrn/core';
 import { View, ScrollView, StyleSheet, Linking, Alert } from 'react-native';
 import { ProgressSteps, ProgressStep } from 'react-native-progress-steps';
-import { TextInput, Text, Button, Dialog, Portal, Divider, Chip, IconButton, Modal,useTheme  } from 'react-native-paper';
+import { TextInput, Text, Button, Dialog, Portal, Divider, Chip, IconButton, Modal,useTheme, Badge  } from 'react-native-paper';
 import ListaPedidos from './ListaPedidosRemesa';
 import { BlurView } from '@react-native-community/blur';
 import { Dropdown } from 'react-native-element-dropdown';
@@ -169,15 +169,27 @@ const WizardConStepper = ({ product, navigation }) => {
 
     return (
         <>
-            <IconButton
-                icon="cart"
-                color="white"
-                size={24}
-                onPress={() => {
-                    setVisible(true);
-                }}
-            />
-
+        <View style={{ position: 'relative' }}>
+          <IconButton
+            icon="cart"
+            color="white"
+            size={24}
+            onPress={() => setVisible(true)}
+          />
+          {subCarrito && pedidosRemesa!= null &&
+          <Badge
+            style={{
+              position: 'absolute',
+              top: 4,
+              right: 4,
+            }}
+          // size={20}
+          >
+           {pedidosRemesa.length}
+          </Badge>}
+          
+        </View>
+            
             <Portal>
                 <Modal theme={{ colors: { primary: 'green' } }} visible={visible} onDismiss={hideModal} contentContainerStyle={styles.containerStyle}>
 

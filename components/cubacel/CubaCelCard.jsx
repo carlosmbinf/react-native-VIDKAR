@@ -5,6 +5,7 @@ import { useTheme, Text   } from 'react-native-paper';
 import { useWindowDimensions, Button as BotonReact} from 'react-native';
 import  Meteor  from '@meteorrn/core';
 import { BlurView } from '@react-native-community/blur';
+import moment from 'moment';
 
 const CubaCelCard = ({ product }) => {
     const {
@@ -41,7 +42,7 @@ const CubaCelCard = ({ product }) => {
             idUser: Meteor.userId(),
             cobrarUSD: precioUSD,
             nombre,
-            movilARecargar: extraFields['mobile_number'],
+            movilARecargar: "+53" + extraFields['mobile_number'],
             comentario: await beneficios(),
             type: 'RECARGA',
             monedaCuba: 'CUP',
@@ -61,7 +62,9 @@ const CubaCelCard = ({ product }) => {
     };
 
     const handleExtraFieldChange = (field, value) => {
-        setExtraFields(prev => ({ ...prev, [field]: value }));
+        // Quitamos cualquier caracter que no sea número
+        const numericValue = field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? value.replace(/[^0-9]/g, '') : value;
+        setExtraFields(prev => ({ ...prev, [field]: numericValue }));
     };
 
     return (
@@ -89,11 +92,14 @@ const CubaCelCard = ({ product }) => {
                         </View>
 
                         {beneficios() !== '' && (
-                            <Text style={styles.beneficios}>Recibirá: {beneficios()}</Text>
+                            <Text style={styles.beneficios}>{beneficios()}</Text>
                         )}
                         <View style={styles.chips}>
-                            {hasPromo && <Chip style={styles.promoChip}>Con promoción</Chip>}
-                            <Chip icon="currency-usd" style={styles.priceChip}>{`${precioUSD} USD`}</Chip>
+                            {/* {hasPromo && <Chip maxFontSizeMultiplier={0} style={styles.promoChip}><Text style={{fontSize:10}}>Con promoción</Text></Chip>} */}
+                            {hasPromo &&<View style={styles.chipsComponentRed}><Text style={{fontSize:10}}>Con promoción</Text></View>}
+                            <View style={styles.chipsComponentGreen}><Text style={{fontSize:10}}>{`${precioUSD} USD`}</Text></View>
+                            
+                            {/* <Chip icon="currency-usd"  style={styles.priceChip}><Text style={{fontSize:10}}>{`${precioUSD} USD`}</Text></Chip> */}
                         </View>
                     </View>
                 </ImageBackground>
@@ -103,24 +109,31 @@ const CubaCelCard = ({ product }) => {
                 <Dialog visible={open} onDismiss={() => setOpen(false)} style={styles.dialog} >
                 
                     <View style={styles.dialogTitleContainer}>
-                        <Text style={styles.dialogTitleText}>{name}</Text>
+                        <Text style={styles.dialogTitleText}>Recarga</Text>
                         <IconButton icon="close" onPress={() => setOpen(false)} />
                     </View>
                     <Dialog.ScrollArea>
                         <ScrollView contentContainerStyle={{ paddingHorizontal: 0 }}>
                             <View>
-                                
+                            <Text style={{ marginTop: 6, fontWeight:'bold' }}>{name}</Text>
                                 {description ? (
-                                    <Text style={{ marginTop: 6, fontWeight:'bold' }}>A recibir: {description}</Text>
+                                    <Text style={{ paddingLeft:10 , marginTop: 6, fontWeight:'bold' }}>{description}</Text>
                                 ) : null}
 
                                 {hasPromo && promotions?.length > 0 && (
-                                    <View style={{ marginTop: 10 }}>
-                                        <Text style={{ fontWeight: 'bold', color: '#f50057' }}>Promociones:</Text>
+                                    <View >
+                                        
                                         {promotions.map((promo, index) => (
-                                            <Text style={{ fontSize: 12 }} key={index} >
-                                                {promo.terms}
-                                            </Text>
+                                            <View style={{ marginTop: 10 }}>
+                                                <Text style={{ fontWeight: 'bold', color: '#f50057' }}>{`Promoción #${index + 1}`}</Text>
+                                                <Text style={{ fontWeight: 'bold', color: '#ccc' }}>{promo.title}</Text>
+                                                <Text style={{ fontWeight: 'bold', color: '#ccc' }}>Desde el {moment(promo?.startDate).format("dddd DD MMMM")} hasta el {moment(promo?.endDate).format("dddd DD MMMM")}</Text>
+                                                <Text style={{ fontWeight: 'bold', color: '#ccc' }}>Descripción: </Text>
+                                                <Text style={{  paddingLeft:15 }} key={index} >
+                                                    {promo.terms}
+                                                </Text>
+                                            </View>
+                                            
                                         ))}
                                     </View>
                                 )}
@@ -141,7 +154,9 @@ const CubaCelCard = ({ product }) => {
                                 value={nombre}
                                 onChangeText={setNombre}
                                 mode="outlined"
+                                autoComplete='name'
                                 style={styles.input}
+                                dense
                             />
 
 
@@ -162,7 +177,12 @@ const CubaCelCard = ({ product }) => {
                                         value={extraFields[field] || ''}
                                         onChangeText={(value) => handleExtraFieldChange(field, value)}
                                         mode="outlined"
+                                        keyboardType={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? 'number-pad' : 'default'}// 
                                         style={styles.input}
+                                        dense
+                                        maxLength={8} // Limitar a 8 caracteres
+                                        left={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? <TextInput.Affix text="+53" /> : null}
+                                        inputMode={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? 'tel' : 'default'} // Asegura que el teclado sea numérico
                                     />
                                 ));
                             })}
@@ -172,7 +192,7 @@ const CubaCelCard = ({ product }) => {
                                     Cancelar
                                 </Button>
                                 <Button onPress={handleSubmit} mode="outlined" style={styles.botonesAccion}>
-                                    Confirmar
+                                    Confirmar Recarga
                                 </Button>
                             </View>
 
@@ -188,9 +208,9 @@ const CubaCelCard = ({ product }) => {
 
 const styles = StyleSheet.create({
     dialog: { 
-        maxHeight: '100%', 
+        maxHeight: '95%', 
         borderRadius: 20, 
-        padding: 2 
+        padding: 2
     },
     botonesAccion: {
         borderRadius: 15,
@@ -238,12 +258,38 @@ const styles = StyleSheet.create({
     chips: {
       flexDirection: 'row',
       gap: 6,
-      marginTop: 8
+      marginTop: 8,
+      justifyContent: "flex-end",
+      
     },
     promoChip: {
         backgroundColor: '#f50057',
         marginRight: 6,
         fontWeight: 'bold' // 👈 negrita
+    },
+    chipsComponentRed:{
+        backgroundColor:'red',
+        alignContent: "center",
+        justifyContent: "center",
+        
+        paddingBottom: 4,
+        paddingTop: 4,
+        paddingLeft: 8,
+        paddingRight: 8,
+        borderRadius: 25,
+
+    },
+    chipsComponentGreen:{
+        backgroundColor:'#4caf50',
+        alignContent: "center",
+        justifyContent: "center",
+        
+        paddingBottom: 4,
+        paddingTop: 4,
+        paddingLeft: 8,
+        paddingRight: 8,
+        borderRadius: 25,
+
     },
     priceChip: {
       backgroundColor: '#4caf50',
@@ -258,7 +304,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 0,
-        paddingTop: 20,
+        paddingLeft: 20,
     },
 
     dialogTitleText: {

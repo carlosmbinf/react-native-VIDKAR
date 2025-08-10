@@ -8,7 +8,7 @@ import {name as appName} from './app.json';
 // import AndroidForegroundService from './NotificacionAndroidForeground';
 import Main from './Main';
 // import BackgroundTask from './services/SomeTaskName';
-import SomeTaskName from './services/SomeTaskName';
+// import SomeTaskName from './services/SomeTaskName';
 
 
 try {

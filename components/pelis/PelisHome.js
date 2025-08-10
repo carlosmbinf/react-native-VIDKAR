@@ -148,7 +148,7 @@ class MyApp extends React.Component {
             }}>
              {/* {navigation&& navigation.navigationGeneral && navigation.navigationGeneral.getState() && navigation.navigationGeneral.getState().index > 0 && <Appbar.Action icon="arrow-left" color={"white"} onPress={() => navigation.navigationGeneral.goBack()} />} */}
                   <View style={{flexDirection: 'row'}}>
-                    <Appbar.Action
+                    {/* <Appbar.Action
                     icon="account-plus"
                     color={'white'}
                     onPress={() =>
@@ -163,7 +163,7 @@ class MyApp extends React.Component {
                       item: Meteor.users.findOne({_id: Meteor.userId()}),
                       })
                     }
-                    />
+                    /> */}
                     <Appbar.Action
                     icon="magnify"
                     color={'white'}

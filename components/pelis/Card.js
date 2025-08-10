@@ -107,9 +107,9 @@ const CardPeli = props => {
                 colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,1)']}
                 style={styles.gradient}>
                 <Text style={styles.textFontName}>{nombrePeli}</Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'left', width: '100%', paddingLeft: 10, paddingBottom: 5 }}>
-                  {extension && <Chip elevated={true} style={{ width: 45, height: 15, alignContent: 'center', justifyContent: 'center', alignItems: 'center' }} ><Text style={{ fontSize: 10 }}>{extension}</Text></Chip>}
-                </View>
+                {/* <View style={{ flexDirection: 'row', justifyContent: 'left', width: '100%', paddingLeft: 10, paddingBottom: 5 }}>
+                  {extension && <Chip elevated={true} style={{ width: 50, height: 20, alignContent: 'center', justifyContent: 'center', alignItems: 'center' }} ><Text style={{ fontSize: 8 }}>{extension}</Text></Chip>}
+                </View> */}
               </LinearGradient>
             </View>
           </FastImage>
@@ -172,6 +172,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 10,
     flexWrap: 'wrap',
+    padding: 5,
   },
   viewDescipcionPelis: {
     height: '50%',
