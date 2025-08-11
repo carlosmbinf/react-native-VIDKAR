@@ -3,8 +3,8 @@ workflows:
     name: React Native Android Build & Upload to Google Play
     environment:
       groups:
-        - google_credentials
-        - vidkar
+        - google_credentials # aquí debes tener las credenciales de Google Play
+        - vidkar             # aquí debes tener tus variables: KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
       vars:
         NODE_VERSION: 18
       java: 17
@@ -17,25 +17,19 @@ workflows:
       - name: Decode keystore
         script: |
           echo "$KEYSTORE_BASE64" | base64 --decode > android/app/my-release-key.jks
+          export KEYSTORE_FILE=my-release-key.jks
+          echo "KEYSTORE_FILE=$KEYSTORE_FILE" >> $CM_ENV_FILE
 
       - name: Build Android App Bundle (AAB)
         script: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease \
-            -Pandroid.injected.signing.store.file=my-release-key.jks \
-            -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
-            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
-            -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+          ./gradlew bundleRelease
 
       - name: Build APK Release
         script: |
           cd android
-          ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file=my-release-key.jks \
-            -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
-            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
-            -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+          ./gradlew assembleRelease
 
     artifacts:
       - android/app/build/outputs/**/*.aab
