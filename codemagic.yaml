@@ -1,7 +1,10 @@
 workflows:
-  react-native-android:
-    name: React Native Android Build
+  react-native-android-play:
+    name: React Native Android Build & Upload to Google Play
     environment:
+      groups:
+        - google_credentials
+        - vidkar
       vars:
         NODE_VERSION: 18
       java: 17
@@ -9,10 +12,35 @@ workflows:
       - name: Install dependencies
         script: |
           npm install -f
-      - name: Build Android release
+
+      - name: Decode keystore
+        script: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/my-release-key.jks
+
+      - name: Build Android App Bundle (AAB)
         script: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file=my-release-key.jks \
+            -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
+            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+            -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+
+      - name: Build APK Release
+        script: |
+          cd android
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=my-release-key.jks \
+            -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
+            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+            -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+
     artifacts:
+      - android/app/build/outputs/**/*.aab
       - android/app/build/outputs/**/*.apk
+
+    publishing:
+      google_play:
+        credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
