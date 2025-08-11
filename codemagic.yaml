@@ -1,0 +1,18 @@
+workflows:
+  react-native-android:
+    name: React Native Android Build
+    environment:
+      vars:
+        NODE_VERSION: 18
+      java: 17
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm install
+      - name: Build Android release
+        script: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+    artifacts:
+      - android/app/build/outputs/**/*.apk
