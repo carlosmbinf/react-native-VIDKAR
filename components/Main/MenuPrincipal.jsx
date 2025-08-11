@@ -56,10 +56,10 @@ const MenuPrincipal = ({ navigation }) => {
         content={<DrawerOptionsAlls navigation={{ navigation }} />}
         tapToClose={true}
         onClose={() => setDrawer(false)}
-        elevation={12}
+        elevation={2}
         side="left"
-        openDrawerOffset={0.5} // 20% gap on the right side of drawer
-        panCloseMask={0.5}
+        openDrawerOffset={0.2} // 20% gap on the right side of drawer
+        panCloseMask={0.2}
         closedDrawerOffset={0}
         styles={drawerStyles}
         tweenHandler={(ratio) => ({
