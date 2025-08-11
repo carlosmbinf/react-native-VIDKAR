@@ -8,6 +8,12 @@ workflows:
       vars:
         NODE_VERSION: 18
       java: 17
+    cache:
+      # Cache de node_modules para no instalar npm paquetes cada vez
+      - node_modules
+      # Cache del build de gradle para acelerar compilación Android
+      - android/.gradle
+      - android/app/build
     scripts:
       - name: Install dependencies
         script: |
@@ -44,3 +50,11 @@ workflows:
       google_play:
         credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
         track: internal
+    notifications:
+      email:
+        # Aquí pon el correo donde quieres recibir la notificación
+        recipients:
+          - carlosmbinf@gmail.com
+        # Puedes elegir si quieres que te envíe en casos de éxito, fallo o siempre
+        on_build_success: true
+        on_build_failure: true
