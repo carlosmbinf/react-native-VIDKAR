@@ -8,7 +8,7 @@ workflows:
     scripts:
       - name: Install dependencies
         script: |
-          npm install
+          npm install -f
       - name: Build Android release
         script: |
           cd android
