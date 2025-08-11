@@ -26,6 +26,10 @@ const DrawerOptionsAlls = (opt) => {
 
   const opcionesAdministradores = [
     {
+      label: "Lista de Usuarios",
+      url:"Users",
+      icon:"account"
+    },{
       label: "Add Usuarios",
       url:"CreateUsers",
       icon:"account-plus"

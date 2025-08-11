@@ -703,7 +703,7 @@ const App = () => {
               // console.log(item)
               return (
                 <>
-                <Surface style={{elevation:0}}>
+                <Surface>
                 <Productos />
                 </Surface>
                 
