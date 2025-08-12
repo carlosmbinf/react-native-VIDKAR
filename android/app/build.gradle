@@ -102,8 +102,12 @@ android {
         applicationId "com.vidkar"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 308
-        versionName "3.08"
+
+        def baseVersionCode = 308
+        def buildNumber = System.getenv("BUILD_NUMBER")?.toInteger() ?: 0
+
+        versionCode baseVersionCode + buildNumber
+        versionName "3.0.${baseVersionCode + buildNumber}"
                 // Otros valores predeterminados de configuración
         resValue "bool", "useExoplayerIMA", "true"
         resValue "bool", "useExoplayerSmoothStreaming", "true"

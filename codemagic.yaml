@@ -1,6 +1,13 @@
 workflows:
   deploy_internal_tester:
     name: Internal Tester - React Native Android Build & Upload to Google Play
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: master
+          include: true
+          source: true
     environment:
       groups:
         - google_credentials
@@ -19,6 +26,15 @@ workflows:
         - ~/.npm
         
     scripts:
+      - name: Show build number
+        script: |
+          echo "Build number is: $FCI_BUILD_NUMBER"
+
+      - name: Export build number as env var for gradle
+        script: |
+          export BUILD_NUMBER=$FCI_BUILD_NUMBER
+          echo "BUILD_NUMBER=$BUILD_NUMBER"
+
       - name: Install dependencies
         script: |
           npm install -f
@@ -68,6 +84,15 @@ workflows:
         - ~/.npm
         
     scripts:
+      - name: Show build number
+        script: |
+          echo "Build number is: $FCI_BUILD_NUMBER"
+
+      - name: Export build number as env var for gradle
+        script: |
+          export BUILD_NUMBER=$FCI_BUILD_NUMBER
+          echo "BUILD_NUMBER=$BUILD_NUMBER"
+          
       - name: Install dependencies
         script: |
           npm install -f
