@@ -102,8 +102,8 @@ android {
         applicationId "com.vidkar"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 307
-        versionName "3.07"
+        versionCode 308
+        versionName "3.08"
                 // Otros valores predeterminados de configuración
         resValue "bool", "useExoplayerIMA", "true"
         resValue "bool", "useExoplayerSmoothStreaming", "true"
