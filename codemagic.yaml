@@ -17,11 +17,11 @@ workflows:
         - android/.gradle
         - android/app/build
         - ~/.npm
-
+        
     scripts:
       - name: Install dependencies
         script: |
-          npm install --prefer-offline -f
+          npm install -f
 
       - name: Decode keystore
         script: |
