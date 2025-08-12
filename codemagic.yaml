@@ -16,7 +16,8 @@ workflows:
 
       - name: Decode keystore
         script: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/my-release-key.jks
+          mkdir -p /Users/builder/.gradle/daemon/8.8
+          echo "$KEYSTORE_BASE64" | base64 --decode > /Users/builder/.gradle/daemon/8.8/my-release-key.jks
 
       - name: Build Android App Bundle (AAB)
         script: |
