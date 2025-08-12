@@ -1,6 +1,6 @@
 workflows:
-  react-native-android-play:
-    name: React Native Android Build & Upload to Google Play
+  deploy_internal_tester:
+    name: Internal Tester - React Native Android Build & Upload to Google Play
     environment:
       groups:
         - google_credentials
@@ -47,3 +47,52 @@ workflows:
       google_play:
         credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
         track: internal
+
+  deploy_produccion:
+    name: Production - React Native Android Build & Upload to Google Play
+    environment:
+      groups:
+        - google_credentials
+        - vidkar
+      vars:
+        NODE_VERSION: 18
+      java: 17
+
+    cache:
+      cache_paths:
+        - $HOME/.gradle/caches
+        - $HOME/.gradle/wrapper
+        - node_modules
+        - android/.gradle
+        - android/app/build
+        - ~/.npm
+        
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm install -f
+
+      - name: Decode keystore
+        script: |
+          mkdir -p android
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/my-release-key.jks
+
+      - name: Build Android App Bundle (AAB)
+        script: |
+          cd android
+          chmod +x gradlew
+          ./gradlew bundleRelease
+
+      - name: Build APK Release
+        script: |
+          cd android
+          ./gradlew assembleRelease
+
+    artifacts:
+      - android/app/build/outputs/**/*.aab
+      - android/app/build/outputs/**/*.apk
+
+    publishing:
+      google_play:
+        credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
+        track: production
