@@ -26,6 +26,9 @@ workflows:
         - ~/.npm
         
     scripts:
+      - name: List FCI environment variables
+        script: |
+          env | grep FCI
       - name: Show build number
         script: |
           echo "Build number is: $FCI_BUILD_NUMBER"
