@@ -21,6 +21,22 @@ const DrawerOptionsAlls = (opt) => {
       url:"ProductosCubacelCards",
       icon:"view-dashboard"
     },
+    // nuevas opciones
+    {
+      label: "Remesas",
+      url: "Remesas",
+      icon: "bank-transfer"
+    },
+    {
+      label: "Formulario Remesas",
+      url: "RemesasForm",
+      icon: "file-document-edit-outline"
+    },
+    {
+      label: "Ventas (Stepper)",
+      url: "VentasStepper",
+      icon: "chart-timeline-variant"
+    },
     
   ]
 

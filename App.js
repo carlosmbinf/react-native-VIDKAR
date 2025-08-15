@@ -58,6 +58,9 @@ import Productos from './components/cubacel/Productos';
 import MenuHeader from './components/Header/MenuHeader';
 import MenuPrincipal from './components/Main/MenuPrincipal';
 import TableRecargas from './components/cubacel/TableRecargas';
+import TableListRemesa from './components/remesas/TableListRemesa'; // nuevo import
+import FormularioRemesa from './components/remesas/FormularioRemesa'; // corregido: componente real
+import VentasStepper from './components/remesas/VentasStepper';       // corregido: path real
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -107,7 +110,10 @@ const App = () => {
       screens: {
         // Recargas: 'recargas',          // Ruta para pantalla Recargas
         // Users: 'users/:id',   
-        ProductosCubacelCards : 'productos'       // Ruta para pantalla los productos
+        ProductosCubacelCards : 'productos',       // Ruta para pantalla los productos
+        Remesas: 'remesas', // nueva URL para Remesas
+        RemesasForm: 'remesas/form',        // nueva URL
+        VentasStepper: 'ventas/stepper',    // nueva URL
         // Otras pantallas si las hay...
       },
     },
@@ -718,6 +724,51 @@ const App = () => {
               );
             }}
           </Stack.Screen>
+          <Stack.Screen
+            name="Remesas"
+            component={TableListRemesa}
+            options={({navigation, route}) => ({
+              title: <Text style={{letterSpacing: 5}}>Remesas</Text>,
+              headerStyle: { backgroundColor: '#3f51b5', height: 90 },
+              headerTitleAlign: 'center',
+              headerTintColor: '#fff',
+              headerShown: true,
+              headerRight: () => (
+                <MenuHeader navigation={navigation} />
+              ),
+            })}
+          />
+          {/* nuevo: formulario de remesas */}
+          <Stack.Screen
+            name="RemesasForm"
+            component={FormularioRemesa} // usar el componente correcto
+            options={({navigation, route}) => ({
+              title: <Text style={{letterSpacing: 5}}>Formulario Remesas</Text>,
+              headerStyle: { backgroundColor: '#3f51b5', height: 90 },
+              headerTitleAlign: 'center',
+              headerTintColor: '#fff',
+              headerShown: true,
+              headerRight: () => (
+                <MenuHeader navigation={navigation} />
+              ),
+            })}
+          />
+
+          {/* nuevo: ventas stepper */}
+          <Stack.Screen
+            name="VentasStepper"
+            component={VentasStepper}
+            options={({navigation, route}) => ({
+              title: <Text style={{letterSpacing: 5}}>Ventas (Stepper)</Text>,
+              headerStyle: { backgroundColor: '#3f51b5', height: 90 },
+              headerTitleAlign: 'center',
+              headerTintColor: '#fff',
+              headerShown: true,
+              headerRight: () => (
+                <MenuHeader navigation={navigation} />
+              ),
+            })}
+          />
           {/* <Stack.Screen name="Video" component={VideoPlayer} /> */}
           {/* <Stack.Screen name="Task List">
                 {props => {
