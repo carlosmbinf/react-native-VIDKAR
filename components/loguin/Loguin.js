@@ -7,6 +7,8 @@ import {
   useColorScheme,
   Dimensions,
   ImageBackground, // agregado
+  KeyboardAvoidingView, // NUEVO
+  Platform, // NUEVO
 } from 'react-native';
 import Meteor, {Accounts, Mongo, withTracker} from '@meteorrn/core';
 import {Colors} from 'react-native/Libraries/NewAppScreen';
@@ -18,33 +20,30 @@ const {width: screenWidth} = Dimensions.get('window');
 const {height: screenHeight} = Dimensions.get('window');
 import {Mensajes} from '../collections/collections';
 
-// import Video from 'react-native-video'; // comentado: ya no se usa video
 import { SafeAreaView } from 'react-native-safe-area-context';
-//import HeroBot from '../animations/HeroBot';
 
 class Loguin extends Component {
   componentDidMount() {
-    // Orientation.unlockAllOrientations();
+    this.dimSub = Dimensions.addEventListener('change', ({window}) => {
+      const {width, height} = window || {};
+      this.setState({ isLandscape: width > height });
+    });
   }
 
   componentWillUnmount() {
-    // Orientation.lockToPortrait();
+    this.dimSub?.remove?.();
   }
 
   constructor(props) {
     super(props);
     const {navigation} = this.props;
-    Meteor.connect('ws://localhost:3000/websocket'); //www.vidkar.com:6000
-
-    // Meteor.user() && navigation.navigate('Peliculas');
-
-    // Meteor.user()&& (Meteor.user().profile.role == "admin" ? navigation.navigate('Users') : navigation.navigate('User', { item: Meteor.userId() }))
+    Meteor.connect('ws://www.vidkar.com:6000/websocket'); //www.vidkar.com:6000
 
     this.state = {
       ipserver: 'vidkar.ddns.net',
       username: '',
       password: '',
-      // isDarkMode: useColorScheme,
+      isLandscape: screenWidth > screenHeight, // NUEVO
     };
   }
 
@@ -58,25 +57,15 @@ class Loguin extends Component {
         'No se pudo conectar al servidor: ' + this.state.ipserver,
       );
     }
-    // Note the /websocket after your URL
-
-    // let version = 1
-    // Meteor.subscribe('mensajes');
-    // console.log(Mensajes.find({type:'version'}).fetch());
-    // Mensajes.findOne({type:'version'}).version > version ? Alert.alert("Nueva Actualización", "Existe una nueva Actualizacion de la APK. Actualícela porfavor!!!\n\nMejoras:\n " +  Mensajes.findOne({type:'version'}).cambios):
-    // navigation.navigate('Peliculas')
     Meteor.loginWithPassword(username, password, function (error) {
       error && Alert.alert('Credenciales incorrectas');
-      // !error && navigation.navigate('Peliculas');
-      // !error && (Meteor.users.findOne({ username: username }).profile && Meteor.users.findOne({ username: username }).profile.role == "admin" ? navigation.navigate('Users') : navigation.navigate('User', { item: Meteor.users.findOne({ username: username })._id }));
     });
   }
 
   render() {
-    // Meteor.userId()&&Meteor.subscribe("usersId",Meteor.userId())
+    const { isLandscape } = this.state;
 
     const backgroundStyle = {
-      // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
       minHeight: "100%",
       minWidth: "100%",
       marginTop: "5%",
@@ -84,27 +73,6 @@ class Loguin extends Component {
 
     return (
       <View style={{ minHeight: "100%", minWidth:"100%"}}>
-        {/* Fondo de video comentado */}
-        {/*
-        <Video
-          source={require('../files/background.mp4')}
-          style={{
-            backgroundColor: 'black',
-            width: "100%",
-            height: "100%",
-            position: 'relative',
-            left: 0,
-            top: 0,
-            zIndex: 0,
-          }}
-          muted={true}
-          repeat={true}
-          resizeMode={'cover'}
-          rate={1.0}
-          ignoreSilentSwitch={'obey'}
-        />
-        */}
-        {/* Nuevo fondo con imagen (corregido a .png) */}
         <ImageBackground
           source={require('../files/space-bg-shadowcodex.jpg')}
           style={{
@@ -124,83 +92,79 @@ class Loguin extends Component {
         <SafeAreaView style={{
           position: 'absolute',
           minHeight:'100%',
-          minWidth: '100%'
+          minWidth: '100%',
+          left: 0, top: 0, // NUEVO: asegurar posicionamiento
+          right: 0, bottom: 0,
+          flex: 1, // NUEVO: permitir que el contenedor crezca y el scroll funcione
         }}>
-          <ScrollView >
-          <View style={backgroundStyle}>
-            <View style={styles.container}>
-              <Text style={{fontSize: 30,}}>
-                <FontAwesome5Icon name="house-user" size={100} />
-              </Text>
-
-              <Text style={{fontSize: 30 }}>🅥🅘🅓🅚🅐🅡</Text>
-            </View>
-
-            <View style={styles.container}>
-              {/* <TextInput
-              mode="outlined"
-              value={this.state.ipserver}
-              onChangeText={ipserver => this.setState({ipserver: ipserver})}
-              label={'Dirección del Servidor'}
-              // placeholderTextColor={
-              //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
-              // }
-              dense={true}
-              style={{
-                width: 200,
-                // height: 44,
-                marginBottom: 10,
+          <KeyboardAvoidingView
+            style={{ flex: 1 }} // NUEVO
+            behavior={Platform.select({ ios: 'padding', android: 'height', windows: 'height', default: 'height' })} // NUEVO
+            keyboardVerticalOffset={0} // NUEVO
+          >
+            <ScrollView
+              keyboardShouldPersistTaps="handled" // NUEVO
+              keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} // NUEVO
+              contentInsetAdjustmentBehavior="always"
+              automaticallyAdjustKeyboardInsets={true} // RN >=0.75 (iOS principalmente)
+              contentContainerStyle={{
+                flexGrow: 1,
+                justifyContent: isLandscape ? 'center' : 'flex-start',
+                paddingBottom: 24,
               }}
-            /> */}
-              <TextInput
-                mode="outlined"
-                value={this.state.username}
-                onChangeText={username => this.setState({username: username})}
-                label={'Username'}
-                // placeholderTextColor={
-                //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
-                // }
-                dense={true}
-                style={{
-                  width: 200,
-                  // height: 44,
-                  marginBottom: 10,
-                }}
-              />
-              <TextInput
-                mode="outlined"
-                value={this.state.password}
-                onChangeText={password => this.setState({password: password})}
-                label={'Password'}
-                // placeholderTextColor={
-                //   !this.state.isDarkMode ? Colors.darker : Colors.lighter
-                // }
-                secureTextEntry={true}
-                dense={true}
-                style={{
-                  width: 200,
-                  // height: 44,
-                  marginBottom: 10,
-                }}
-              />
+            >
+              <View style={[
+                backgroundStyle,
+                isLandscape ? styles.mainLandscape : styles.mainPortrait
+              ]}>
+                {/* PANE IZQUIERDO: icono + VIDKAR */}
+                <View style={[
+                  styles.container,
+                  isLandscape && styles.brandLandscape
+                ]}>
+                  <Text style={{fontSize: 30,}}>
+                    <FontAwesome5Icon name="house-user" size={100} />
+                  </Text>
+                  <Text style={{fontSize: 30 }}>🅥🅘🅓🅚🅐🅡</Text>
+                </View>
 
-              <Button mode="contained" onPress={this.onLogin.bind(this)}>
-                Iniciar Sessión
-              </Button>
-            </View>
-            </View>
-          </ScrollView>
-          </SafeAreaView>
-         
+                {/* PANE DERECHO: login */}
+                <View style={[
+                  styles.container,
+                  isLandscape && styles.formLandscape
+                ]}>
+                  <TextInput
+                    mode="outlined"
+                    value={this.state.username}
+                    onChangeText={username => this.setState({username: username})}
+                    label={'Username'}
+                    dense={true}
+                    style={{ width: 200, marginBottom: 10 }}
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                  />
+                  <TextInput
+                    mode="outlined"
+                    value={this.state.password}
+                    onChangeText={password => this.setState({password: password})}
+                    label={'Password'}
+                    secureTextEntry={true}
+                    dense={true}
+                    style={{ width: 200, marginBottom: 10 }}
+                    returnKeyType="done"
+                  />
+                  <Button mode="contained" onPress={this.onLogin.bind(this)}>
+                    Iniciar Sessión
+                  </Button>
+                </View>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       </View>
     );
   }
 }
-// const Loguin = withTracker(navigation => {
-//   return {
-//     navigation,
-//   };
-// })(MyAppLoguin);
 
 export default Loguin;
 const styles = StyleSheet.create({
@@ -209,6 +173,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     margin: 10,
     zIndex: 1,
-    // backgroundColor: '#ecf0f1',
+  },
+  // NUEVO: layout principal según orientación
+  mainLandscape: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  mainPortrait: {
+    flexDirection: 'column',
+  },
+  // NUEVO: columnas sin estirar a los bordes
+  brandLandscape: {
+    marginRight: 24,
+  },
+  formLandscape: {
+    marginLeft: 24,
   },
 });
