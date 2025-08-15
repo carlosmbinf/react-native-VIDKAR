@@ -6,6 +6,7 @@ import {
   ScrollView,
   useColorScheme,
   Dimensions,
+  ImageBackground, // agregado
 } from 'react-native';
 import Meteor, {Accounts, Mongo, withTracker} from '@meteorrn/core';
 import {Colors} from 'react-native/Libraries/NewAppScreen';
@@ -17,7 +18,7 @@ const {width: screenWidth} = Dimensions.get('window');
 const {height: screenHeight} = Dimensions.get('window');
 import {Mensajes} from '../collections/collections';
 
-import Video from 'react-native-video';
+// import Video from 'react-native-video'; // comentado: ya no se usa video
 import { SafeAreaView } from 'react-native-safe-area-context';
 //import HeroBot from '../animations/HeroBot';
 
@@ -33,7 +34,7 @@ class Loguin extends Component {
   constructor(props) {
     super(props);
     const {navigation} = this.props;
-    Meteor.connect('ws://www.vidkar.com:6000/websocket'); //www.vidkar.com:6000
+    Meteor.connect('ws://localhost:3000/websocket'); //www.vidkar.com:6000
 
     // Meteor.user() && navigation.navigate('Peliculas');
 
@@ -83,8 +84,10 @@ class Loguin extends Component {
 
     return (
       <View style={{ minHeight: "100%", minWidth:"100%"}}>
+        {/* Fondo de video comentado */}
+        {/*
         <Video
-          source={require('../videobackground/background.mp4')}
+          source={require('../files/background.mp4')}
           style={{
             backgroundColor: 'black',
             width: "100%",
@@ -100,13 +103,29 @@ class Loguin extends Component {
           rate={1.0}
           ignoreSilentSwitch={'obey'}
         />
+        */}
+        {/* Nuevo fondo con imagen (corregido a .png) */}
+        <ImageBackground
+          source={require('../files/space-bg-shadowcodex.jpg')}
+          style={{
+            width: "100%",
+            height: "100%",
+            position: 'relative',
+            left: 0,
+            top: 0,
+            zIndex: 0,
+          }}
+          resizeMode="cover"
+          onLoad={() => console.log('[Loguin] Fondo cargado correctamente')}
+          onError={(e) => console.warn('[Loguin] Error cargando fondo:', e.nativeEvent?.error)}
+        />
 
-          {/* <HeroBot/>*/}
-          <SafeAreaView style={{ 
-      position: 'absolute',
-      // backgroundColor: 'red',
-      minHeight:'100%',
-      minWidth: '100%'}}>
+        {/* overlay con el contenido */}
+        <SafeAreaView style={{
+          position: 'absolute',
+          minHeight:'100%',
+          minWidth: '100%'
+        }}>
           <ScrollView >
           <View style={backgroundStyle}>
             <View style={styles.container}>

@@ -21,7 +21,7 @@ const chipColorEstado = (estado) => {
 const estadoLabel = (estado) => {
   switch (estado) {
     case 'PENDIENTE_ENTREGA':
-      return 'Pendiente a Entregar';
+      return 'Pendiente';
     case 'ENTREGADO':
       return 'Entregado';
     case 'CANCELADO':
@@ -44,9 +44,30 @@ const getItemsArray = (venta) =>
   venta?.producto?.carrito ||
   [];
 
+// nuevo: derivar estado desde los carritos
+const deriveEstadoVenta = (venta) => {
+  const carritos = getItemsArray(venta) || [];
+  if (carritos.length === 0) return venta?.estado || 'PENDIENTE_ENTREGA';
+
+  const hasCancel = carritos.some(c => c?.status === 'CANCELLED' || c?.cancelado === true);
+  if (hasCancel) return 'CANCELADO';
+
+  const allCompleted = carritos.every(c => c?.status === 'COMPLETED' || c?.entregado === true);
+  if (allCompleted) return 'ENTREGADO';
+
+  return 'PENDIENTE_ENTREGA';
+};
+
 const TableListRemesa = () => {
   const { width, height } = useWindowDimensions();
   const isWide = width > height || width >= 768; // apaisado o tablet
+
+  // nuevo: flex por columna según ancho
+  const flexes = React.useMemo(() => {
+    return isWide
+      ? { fecha: 1.4, metodo: 1.1, estado: 1.2, cobrado: 0.9, enviado: 0.9, items: 0.6, acc: 0.35 }
+      : { fecha: 1.6, estado: 1.5, acc: 0.35 };
+  }, [isWide]);
 
   const { ventas, loading } = useTracker(() => {
     const sub = Meteor.subscribe('ventasRecharge');
@@ -65,6 +86,11 @@ const TableListRemesa = () => {
   const formatFecha = (d) => (d ? new Date(d).toLocaleString() : '-');
   const money = (v, m) => `${v ?? 0} ${m ?? ''}`.trim();
 
+  // calcular alturas máximas para que el diálogo completo quepa en pantalla
+  const maxDialogHeight = Math.floor(height * 0.9); // 90% de alto de pantalla
+  const headerActionsReserve = 140; // espacio aprox. para título + acciones
+  const maxScrollHeight = Math.max(200, maxDialogHeight - headerActionsReserve);
+
   return (
     <Surface style={{ height: '100%' }}>
       <ScrollView style={styles.container}>
@@ -72,13 +98,13 @@ const TableListRemesa = () => {
 
         <DataTable>
           <DataTable.Header>
-            <DataTable.Title>Fecha</DataTable.Title>
-            {isWide && <DataTable.Title>Método</DataTable.Title>}
-            {isWide && <DataTable.Title>Estado</DataTable.Title>}
-            <DataTable.Title numeric>Cobrado</DataTable.Title>
-            {isWide && <DataTable.Title numeric>Enviado</DataTable.Title>}
-            {isWide && <DataTable.Title numeric>Ítems</DataTable.Title>}
-            <DataTable.Title numeric>Acc.</DataTable.Title>
+            <DataTable.Title style={{ flex: flexes.fecha }}>Fecha</DataTable.Title>
+            {isWide && <DataTable.Title style={{ flex: flexes.metodo }}>Método</DataTable.Title>}
+            <DataTable.Title style={{ flex: flexes.estado }}>Estado</DataTable.Title>
+            {isWide && <DataTable.Title numeric style={{ flex: flexes.cobrado }}>Cobrado</DataTable.Title>}
+            {isWide && <DataTable.Title numeric style={{ flex: flexes.enviado }}>Enviado</DataTable.Title>}
+            {isWide && <DataTable.Title numeric style={{ flex: flexes.items }}>Ítems</DataTable.Title>}
+            <DataTable.Title numeric style={{ flex: flexes.acc }}>Acc.</DataTable.Title>
           </DataTable.Header>
 
           {loading ? (
@@ -92,23 +118,22 @@ const TableListRemesa = () => {
               const cobrado = money(row?.cobrado, row?.monedaCobrado);
               const enviado = money(row?.precioOficial, row?.monedaPrecioOficial);
               const items = getItemsCount(row);
+              const estadoDerivado = deriveEstadoVenta(row); // usar estado derivado
 
               return (
                 <DataTable.Row key={row?._id || idx}>
-                  <DataTable.Cell>{fecha}</DataTable.Cell>
-                  {isWide && <DataTable.Cell>{metodo}</DataTable.Cell>}
-                  {isWide && (
-                    <DataTable.Cell>
-                      <Chip style={{ backgroundColor: chipColorEstado(row?.estado) }} textStyle={{ color: 'white' }}>
-                        {estadoLabel(row?.estado)}
-                      </Chip>
-                    </DataTable.Cell>
-                  )}
-                  <DataTable.Cell numeric>{cobrado}</DataTable.Cell>
-                  {isWide && <DataTable.Cell numeric>{enviado}</DataTable.Cell>}
-                  {isWide && <DataTable.Cell numeric>{items}</DataTable.Cell>}
-                  <DataTable.Cell numeric>
-                    <IconButton icon="information-outline" onPress={() => openDialog(row)} />
+                  <DataTable.Cell style={{ flex: flexes.fecha }}>{fecha}</DataTable.Cell>
+                  {isWide && <DataTable.Cell style={{ flex: flexes.metodo }}>{metodo}</DataTable.Cell>}
+                  <DataTable.Cell style={{ flex: flexes.estado }}>
+                    <Chip compact={!isWide} style={{ backgroundColor: chipColorEstado(estadoDerivado) }} textStyle={{ color: 'white' }}>
+                      {estadoLabel(estadoDerivado)}
+                    </Chip>
+                  </DataTable.Cell>
+                  {isWide && <DataTable.Cell numeric style={{ flex: flexes.cobrado }}>{cobrado}</DataTable.Cell>}
+                  {isWide && <DataTable.Cell numeric style={{ flex: flexes.enviado }}>{enviado}</DataTable.Cell>}
+                  {isWide && <DataTable.Cell numeric style={{ flex: flexes.items }}>{items}</DataTable.Cell>}
+                  <DataTable.Cell numeric style={{ flex: flexes.acc }}>
+                    <IconButton icon="information-outline" size={18} style={{ margin: 0 }} onPress={() => openDialog(row)} />
                   </DataTable.Cell>
                 </DataTable.Row>
               );
@@ -118,38 +143,44 @@ const TableListRemesa = () => {
       </ScrollView>
 
       <Portal>
-        <Dialog visible={visible} onDismiss={closeDialog}>
+        <Dialog visible={visible} onDismiss={closeDialog} style={{ maxHeight: maxDialogHeight }}>
           <Dialog.Title>Detalle de remesa</Dialog.Title>
           <Dialog.Content>
-            {ventaSel ? (
-              <>
-                <Text>Fecha: {formatFecha(ventaSel.createdAt)}</Text>
-                <Text>Método de pago: {ventaSel.metodoPago || '-'}</Text>
-                <Text>Estado: {estadoLabel(ventaSel.estado)}</Text>
-                <Text>Cobrado: {money(ventaSel.cobrado, ventaSel.monedaCobrado)}</Text>
-                <Text>Enviado: {money(ventaSel.precioOficial, ventaSel.monedaPrecioOficial)}</Text>
-                {!!ventaSel?.comentario && <Text>Comentario: {ventaSel.comentario}</Text>}
-                <Text style={{ marginTop: 12, fontWeight: 'bold' }}>Ítems</Text>
-                {getItemsArray(ventaSel).length === 0 ? (
-                  <Text>- Sin ítems -</Text>
-                ) : (
-                  getItemsArray(ventaSel).map((it, i) => (
-                    <Surface key={i} style={styles.item}>
-                      <Text>Nombre: {it?.nombre || '-'}</Text>
-                      <Text>Entregar: {(it?.recibirEnCuba ?? 0)} {it?.monedaRecibirEnCuba || ''}</Text>
-                      {it?.tarjetaCUP ? <Text>Tarjeta CUP: {it.tarjetaCUP}</Text> : null}
-                      {it?.direccionCuba ? <Text>Dirección: {it.direccionCuba}</Text> : null}
-                      {typeof it?.entregado === 'boolean' && (
-                        <Text>Entregado: {it.entregado ? 'Sí' : 'No'}</Text>
-                      )}
-                      {it?.comentario ? <Text>Comentario: {it.comentario}</Text> : null}
-                    </Surface>
-                  ))
-                )}
-              </>
-            ) : (
-              <Text>Sin datos</Text>
-            )}
+            <ScrollView
+              style={{ maxHeight: maxScrollHeight }}
+              contentContainerStyle={{ paddingBottom: 8 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              {ventaSel ? (
+                <>
+                  <Text>Fecha: {formatFecha(ventaSel.createdAt)}</Text>
+                  <Text>Método de pago: {ventaSel.metodoPago || '-'}</Text>
+                  <Text>Estado: {estadoLabel(deriveEstadoVenta(ventaSel))}</Text>
+                  <Text>Cobrado: {money(ventaSel.cobrado, ventaSel.monedaCobrado)}</Text>
+                  <Text>Enviado: {money(ventaSel.precioOficial, ventaSel.monedaPrecioOficial)}</Text>
+                  {!!ventaSel?.comentario && <Text>Comentario: {ventaSel.comentario}</Text>}
+                  <Text style={{ marginTop: 12, fontWeight: 'bold' }}>Ítems</Text>
+                  {getItemsArray(ventaSel).length === 0 ? (
+                    <Text>- Sin ítems -</Text>
+                  ) : (
+                    getItemsArray(ventaSel).map((it, i) => (
+                      <Surface key={i} style={styles.item}>
+                        <Text>Nombre: {it?.nombre || '-'}</Text>
+                        <Text>Entregar: {(it?.recibirEnCuba ?? 0)} {it?.monedaRecibirEnCuba || ''}</Text>
+                        {it?.tarjetaCUP ? <Text>Tarjeta CUP: {it.tarjetaCUP}</Text> : null}
+                        {it?.direccionCuba ? <Text>Dirección: {it.direccionCuba}</Text> : null}
+                        {typeof it?.entregado === 'boolean' && (
+                          <Text>Entregado: {it.entregado ? 'Sí' : 'No'}</Text>
+                        )}
+                        {it?.comentario ? <Text>Comentario: {it.comentario}</Text> : null}
+                      </Surface>
+                    ))
+                  )}
+                </>
+              ) : (
+                <Text>Sin datos</Text>
+              )}
+            </ScrollView>
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={closeDialog}>Cerrar</Button>
