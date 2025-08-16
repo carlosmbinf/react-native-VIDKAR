@@ -4,7 +4,7 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  useColorScheme,
+  Appearance, // NUEVO
   Dimensions,
   ImageBackground, // agregado
 } from 'react-native';
@@ -32,6 +32,10 @@ class Loguin extends Component {
       this.setState({ isLandscape: width > height });
     });
 
+    this.themeSub = Appearance.addChangeListener(({ colorScheme }) => {
+      this.setState({ isDarkMode: colorScheme === 'dark' });
+    });
+
     // Configura tu webClientId de Google (OAuth 2.0 client ID - tipo Web) desde Google Cloud Console
     // GoogleSignin.configure({
     //   // hostedDomain: "vidkar.com", // dominio de tu empresa, si aplica
@@ -45,6 +49,7 @@ class Loguin extends Component {
   componentWillUnmount() {
     // Orientation.lockToPortrait();
     this.dimSub?.remove?.();
+    this.themeSub?.remove?.();
   }
 
   constructor(props) {
@@ -60,7 +65,7 @@ class Loguin extends Component {
       ipserver: 'vidkar.ddns.net',
       username: '',
       password: '',
-      // isDarkMode: useColorScheme,
+      isDarkMode: Appearance.getColorScheme() === 'dark', // NUEVO
       isLandscape: screenWidth > screenHeight, // NUEVO
       loadingGoogle: false, // NUEVO
     };
@@ -140,7 +145,7 @@ class Loguin extends Component {
       // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
       minHeight: "100%",
       minWidth: "100%",
-      marginTop: "5%"
+      marginTop: isLandscape ? 0 : "5%", // ajustado para no empujar hacia abajo en landscape
     };
 
     return (
@@ -187,7 +192,9 @@ class Loguin extends Component {
           minHeight: '100%',
           minWidth: '100%'
         }}>
-          <ScrollView >
+          <ScrollView
+            contentContainerStyle={isLandscape ? styles.scrollLandscapeContent : undefined} // NUEVO
+          >
             <View style={[
               backgroundStyle,
               isLandscape ? styles.mainLandscape : styles.mainPortrait // NUEVO
@@ -213,12 +220,12 @@ class Loguin extends Component {
                 <View style={styles.blurCard}>
                   <BlurView
                     style={StyleSheet.absoluteFill}
-                    // blurType="light"
-                    blurAmount={2}
-                    blurRadius={2}
-                  // reducedTransparencyFallbackColor="rgba(255,255,255,0.6)"
+                    blurType={this.state.isDarkMode ? 'black' : 'light'} // NUEVO
+                    blurAmount={5}
+                    blurRadius={5}
                   />
                   <View style={styles.blurCardContent}>
+                  <Text style={{ fontSize: 16, justifyContent:'center',alignContent:'center',textAlign:'center'}}>Inicio de Session</Text>
                     <TextInput
                       mode="flat"
                       value={this.state.username}
@@ -228,7 +235,7 @@ class Loguin extends Component {
                       dense={true}
                       style={{
                         backgroundColor: 'transparent', // antes: "none"
-                        width: 200,
+                        width: 250,
                         marginBottom: 10,
                       }}
                     />
@@ -242,7 +249,7 @@ class Loguin extends Component {
                       dense={true}
                       style={{
                         backgroundColor: 'transparent', // antes: "none"
-                        width: 200,
+                        width: 250,
                         marginBottom: 10,
                       }}
                     />
@@ -252,18 +259,23 @@ class Loguin extends Component {
 
                     {/* NUEVO: separador y botón Google */}
                     <View style={{ height: 12 }} />
+                    <Text style={{ fontSize: 16, justifyContent:'center',alignContent:'center',textAlign:'center'}}>O</Text>
+                    <View style={{ height: 10}} />
                     <Button
                       mode="outlined"
                       icon="google"
+                      
                       onPress={this.onGoogleLogin}
                       disabled={this.state.loadingGoogle} // NUEVO
                       loading={this.state.loadingGoogle} // NUEVO
                     >
-                      Continuar con Google
+                      Entrar con Google
                     </Button>
                   </View>
                 </View>
+
               </View>
+              
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -290,13 +302,13 @@ const styles = StyleSheet.create({
   // NUEVO: card con blur
   blurCard: {
     position: 'relative',
-    borderRadius: 20,
+    borderRadius: 25,
     overflow: 'hidden',
     // color de respaldo cuando el blur no está disponible
     backgroundColor: 'rgba(255,255,255,0.25)',
   },
   blurCardContent: {
-    padding: 30,
+    padding: 15,
   },
   // NUEVO: layout principal según orientación
   mainLandscape: {
@@ -316,5 +328,12 @@ const styles = StyleSheet.create({
   formLandscape: {
     // quitar flex para no ocupar todo el ancho
     marginLeft: 24,
+  },
+
+  // NUEVO: centrar verticalmente el contenido del ScrollView en landscape
+  scrollLandscapeContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 0,
   },
 });
