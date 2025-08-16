@@ -5,6 +5,10 @@ module.exports = {
           windows: null, // Evita autolink en Windows
         },
       },
+      '@react-native-google-signin/google-signin': {
+        platforms: {
+          windows: null, // Evita autolink en Windows
+        },
+      },
     },
   };
-  
