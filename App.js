@@ -738,10 +738,11 @@ const App = () => {
               ),
             })}
           />
+            
           {/* nuevo: formulario de remesas */}
           <Stack.Screen
-            name="RemesasForm"
-            component={FormularioRemesa} // usar el componente correcto
+            name="remesas"
+            // component={FormularioRemesa} // usar el componente correcto
             options={({navigation, route}) => ({
               title: <Text style={{letterSpacing: 5}}>Formulario Remesas</Text>,
               headerStyle: { backgroundColor: '#3f51b5', height: 90 },
@@ -752,7 +753,32 @@ const App = () => {
                 <MenuHeader navigation={navigation} />
               ),
             })}
-          />
+          >
+          {props => {
+              const {navigation, route} = props;
+              // console.log(item)
+              return (
+                <Surface style={{height:"100%"}}>
+                <ScrollView>
+                {Meteor.user()?.permiteRemesas ? (
+                  <FormularioRemesa />
+                ) : (
+                  <Text style={{ textAlign: 'center', margin: 20 }}>
+                    No tiene permiso para realizar remesas.
+                  </Text>
+                )}
+                <TableListRemesa />                
+                </ScrollView>
+                
+                </Surface>
+                
+                                
+                // <TasksProvider user={user} projectPartition={projectPartition}>
+                //   <TasksView navigation={navigation} route={route} />
+                // </TasksProvider>
+              );
+            }}
+          </Stack.Screen>
 
           {/* nuevo: ventas stepper */}
           <Stack.Screen
