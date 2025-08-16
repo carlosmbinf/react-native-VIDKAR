@@ -14,7 +14,6 @@ import { Button, Surface, Text, TextInput } from 'react-native-paper';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import FontAwesome5Icon from 'react-native-vector-icons/FontAwesome5';
 import { BlurView } from '@react-native-community/blur'; // NUEVO
-import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin'; // NUEVO
 
 const { width: screenWidth } = Dimensions.get('window');
 const { height: screenHeight } = Dimensions.get('window');
@@ -22,6 +21,7 @@ import { Mensajes } from '../collections/collections';
 
 // import Video from 'react-native-video'; // comentado: ya no se usa video
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { loginWithGoogle } from '../../utilesMetodos/metodosUtiles';
 //import HeroBot from '../animations/HeroBot';
 
 class Loguin extends Component {
@@ -33,13 +33,13 @@ class Loguin extends Component {
     });
 
     // Configura tu webClientId de Google (OAuth 2.0 client ID - tipo Web) desde Google Cloud Console
-    GoogleSignin.configure({
-      // hostedDomain: "vidkar.com", // dominio de tu empresa, si aplica
-      webClientId: '1043110071233-pbeoteq8ua30rsbqmk8dtku6hcmeekci.apps.googleusercontent.com', // client id válido
-      iosClientId: "1043110071233-p7e56eu0sb203j32pf66b1blaql14f26.apps.googleusercontent.com",
-      scopes: ['profile', 'email'],
-      offlineAccess: false,
-    });
+    // GoogleSignin.configure({
+    //   // hostedDomain: "vidkar.com", // dominio de tu empresa, si aplica
+    //   webClientId: '1043110071233-pbeoteq8ua30rsbqmk8dtku6hcmeekci.apps.googleusercontent.com', // client id válido
+    //   iosClientId: "1043110071233-p7e56eu0sb203j32pf66b1blaql14f26.apps.googleusercontent.com",
+    //   scopes: ['https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
+    //   forceCodeForRefreshToken: false,
+    // });
   }
 
   componentWillUnmount() {
@@ -90,69 +90,44 @@ class Loguin extends Component {
     });
   }
 
-  // NUEVO: login con Google
-  onGoogleLogin = async () => {
-    if (this.state.loadingGoogle) return;
+  // Reemplazo: login con Google usando @meteorrn/oauth-google / Meteor.loginWithGoogle
+  onGoogleLogin = () => {
     try {
-      this.setState({ loadingGoogle: true });
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      if (this.state.loadingGoogle) return;
+    this.setState({ loadingGoogle: true });
 
-      // Limpia sesión previa si quedó a medias
-      try { await GoogleSignin.signOut(); } catch (_) {}
+    const options = {
+      clientId: '1043110071233-pbeoteq8ua30rsbqmk8dtku6hcmeekci.apps.googleusercontent.com',
+      scopes: ['profile', 'email'],
+      loginStyle: 'redirect',
+      // Debe coincidir con tu intent-filter. En AndroidManifest ya existe <data android:scheme="vidkar" />
+      redirectUrl: 'vidkar://oauth',
+    };
 
-      const userInfo = await GoogleSignin.signIn();
-      console.log('[Google] user:', userInfo?.user);
-      const { idToken } = userInfo || {};
-
-      let accessToken;
-      try {
-        const tokens = await GoogleSignin.getTokens();
-        accessToken = tokens?.accessToken;
-      } catch (e) {
-        console.log('[Google] getTokens error:', e?.message || e);
-      }
-
-      if (!idToken && !accessToken) {
-        Alert.alert('Google', 'No se pudo obtener credenciales de Google.');
-        this.setState({ loadingGoogle: false });
-        return;
-      }
-
-      // Usa tu método Meteor para intercambiar el token de Google por un loginToken de Meteor
-      Meteor.call('auth.googleSignIn', { idToken, accessToken }, (err, res) => {
-        this.setState({ loadingGoogle: false });
-        if (err) {
-          console.log('[Google][Meteor] error:', err);
-          Alert.alert('Google', err?.reason || 'Error iniciando sesión con Google.');
-          return;
-        }
-        // Si el servidor devuelve un token de sesión de Meteor, completa el login en el cliente
-        const loginToken = res?.token || res?.loginToken || res?.resume;
-        if (loginToken && Accounts?.loginWithToken) {
-          Accounts.loginWithToken(loginToken, (e2) => {
-            if (e2) {
-              Alert.alert('Google', e2?.reason || 'No se pudo completar el inicio de sesión.');
-              return;
-            }
-            // Éxito: ya estás autenticado en Meteor
-            // ...existing code... navegación post login si aplica
-          });
-        } else {
-          // Si tu método ya inicia sesión en el servidor o no devuelve token, nada más que hacer
-          // ...existing code...
-        }
-      });
-    } catch (error) {
+    const done = (err) => {
       this.setState({ loadingGoogle: false });
-      console.log('[Google] signIn error:', JSON.stringify(error, null, 2));
-      if (error?.code === statusCodes.SIGN_IN_CANCELLED) return;
-      if (error?.code === statusCodes.IN_PROGRESS) return;
-      if (error?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        Alert.alert('Google', 'Google Play Services no disponible o desactualizado.');
+      if (err) {
+        Alert.alert('Google', err.reason || err.message || 'Error iniciando sesión con Google.');
         return;
       }
-      Alert.alert('Google', 'Ocurrió un error al iniciar sesión.');
+      // ...existing code... navegación post login si aplica
+    };
+
+    if (typeof loginWithGoogle === 'function') {
+      loginWithGoogle(options, done);
+    } else if (typeof loginWithGoogle === 'function') {
+      loginWithGoogle(options, done);
+    } else {
+      this.setState({ loadingGoogle: false });
+      Alert.alert('Google', 'Proveedor de Google no disponible en el cliente.');
     }
+    } catch (error) {
+      Alert.alert(
+        'Error de Conexión',error
+      );
+      
+    }
+    
   };
 
   render() {
@@ -239,7 +214,7 @@ class Loguin extends Component {
                     // blurType="light"
                     blurAmount={2}
                     blurRadius={2}
-                    // reducedTransparencyFallbackColor="rgba(255,255,255,0.6)"
+                  // reducedTransparencyFallbackColor="rgba(255,255,255,0.6)"
                   />
                   <View style={styles.blurCardContent}>
                     <TextInput
