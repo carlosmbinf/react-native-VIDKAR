@@ -2,6 +2,11 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 apply plugin: 'com.google.android.gms.strict-version-matcher-plugin'
+
+import java.security.KeyStore
+import java.security.MessageDigest
+import java.io.FileInputStream
+
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
@@ -88,6 +93,52 @@ def ksFile = file(keystorePath)
 if (ksFile.exists()) {
     println "✅ El keystore existe en: ${ksFile.absolutePath}"
     println "Tamaño del keystore: ${ksFile.length()} bytes"
+
+    // === SHA1 del keystore ===
+    def keystorePassword = (System.getenv("KEYSTORE_PASSWORD") ?: 'lastunas123').toCharArray()
+    def keyAliasEnv = System.getenv("KEY_ALIAS")
+
+    def printKeystoreSHA1 = { File file, char[] pwd, String aliasOverride ->
+        try {
+            KeyStore ks = null
+            for (def t : ["JKS", "PKCS12"]) {
+                try {
+                    ks = KeyStore.getInstance(t)
+                    ks.load(new FileInputStream(file), pwd)
+                    println "Formato de keystore detectado: ${t}"
+                    break
+                } catch (Exception ignore) {
+                    ks = null
+                }
+            }
+            if (ks == null) {
+                println "❌ No se pudo abrir el keystore (tipo desconocido o password incorrecto)"
+                return
+            }
+            def aliasesEnum = ks.aliases()
+            def aliases = []
+            while (aliasesEnum.hasMoreElements()) { aliases << aliasesEnum.nextElement() }
+            println "Aliases disponibles: ${aliases}"
+            if (aliases.isEmpty()) { println "⚠️ Keystore sin aliases"; return }
+
+            def alias = aliasOverride ?: aliases[0]
+            if (!ks.containsAlias(alias)) {
+                println "⚠️ Alias '${alias}' no encontrado, usando '${aliases[0]}'"
+                alias = aliases[0]
+            }
+
+            def cert = ks.getCertificate(alias)
+            if (cert == null) { println "⚠️ Certificado no encontrado para alias '${alias}'"; return }
+
+            def sha1Bytes = MessageDigest.getInstance("SHA-1").digest(cert.getEncoded())
+            def sha1 = sha1Bytes.collect { String.format("%02X", it) }.join(":")
+            println "🔑 SHA1 (${alias}): ${sha1}"
+        } catch (Exception e) {
+            println "❌ Error obteniendo SHA1: ${e.class.simpleName}: ${e.message}"
+        }
+    }
+
+    printKeystoreSHA1(ksFile, keystorePassword, keyAliasEnv)
 } else {
     println "❌ No se encontró el keystore en: ${ksFile.absolutePath}"
 }
