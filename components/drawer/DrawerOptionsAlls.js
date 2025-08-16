@@ -22,14 +22,14 @@ const DrawerOptionsAlls = (opt) => {
       icon:"view-dashboard"
     },
     // nuevas opciones
+    // {
+    //   label: "Remesas",
+    //   url: "Remesas",
+    //   icon: "bank-transfer"
+    // },
     {
       label: "Remesas",
-      url: "Remesas",
-      icon: "bank-transfer"
-    },
-    {
-      label: "Formulario Remesas",
-      url: "RemesasForm",
+      url: "remesas",
       icon: "file-document-edit-outline"
     },
     {
