@@ -50,14 +50,14 @@ workflows:
           chmod +x gradlew
           ./gradlew bundleRelease
 
-      - name: Build APK Release
-        script: |
-          cd android
-          ./gradlew assembleRelease
+      # - name: Build APK Release
+      #   script: |
+      #     cd android
+      #     ./gradlew assembleRelease
 
     artifacts:
       - android/app/build/outputs/**/*.aab
-      - android/app/build/outputs/**/*.apk
+      # - android/app/build/outputs/**/*.apk
 
     publishing:
       google_play:
