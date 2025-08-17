@@ -111,3 +111,10 @@ workflows:
       google_play:
         credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
         track: production
+
+      slack:
+        channel: "#deploys"
+        notify_on_build_start: true
+        notify:
+          success: true
+          failure: true
