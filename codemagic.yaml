@@ -59,6 +59,13 @@ workflows:
         credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
         track: internal
 
+      slack:
+        channel: "#deploys"
+        notify_on_build_start: true
+        notify:
+          success: true
+          failure: true
+
   deploy_produccion:
     name: Production - React Native Android Build & Upload to Google Play
     environment:
@@ -113,7 +120,7 @@ workflows:
         track: production
 
       slack:
-        channel: "#deploys"
+        channel: "#deploys_production"
         notify_on_build_start: true
         notify:
           success: true
