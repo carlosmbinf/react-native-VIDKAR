@@ -53,7 +53,7 @@ const loginWithGoogle = async function(configuration, callback) {
 			}
 		);
 	} catch (error) {
-		callback({ reason: 'Error in Google Signing', details: error });
+		callback({ reason: 'Error in Google Signing', error });
 	}
 };
 
