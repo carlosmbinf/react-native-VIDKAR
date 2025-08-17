@@ -1,5 +1,6 @@
 import Meteor from '@meteorrn/core';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { Alert } from 'react-native';
 
 /**
  * Login with Google using Meteor Accounts and React Native
@@ -14,7 +15,14 @@ const loginWithGoogle = async function(configuration, callback) {
 			showPlayServicesUpdateDialog: true
 		});
 		let userInfo;
-		const isSignedIn = await GoogleSignin.isSignedIn();
+		var isSignedIn;
+		try {
+			isSignedIn = await GoogleSignin.isSignedIn();	
+		} catch (error) {
+			Alert.alert("Error", "No se pudo iniciar session con google.");
+			throw error;
+		}
+		
 		if (!isSignedIn) {
 			userInfo = await GoogleSignin.signIn();
 			if (!userInfo) {
@@ -53,7 +61,7 @@ const loginWithGoogle = async function(configuration, callback) {
 			}
 		);
 	} catch (error) {
-		callback({ reason: 'Error in Google Signing', error });
+		callback({ reason: 'No se pudo iniciar session con google, por favor inicie session con Usuario y contraseña', details: { error } });
 	}
 };
 
