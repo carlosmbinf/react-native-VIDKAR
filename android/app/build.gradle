@@ -91,12 +91,25 @@ file("android").listFiles()?.each { f ->
 
 def ksFile = file(keystorePath)
 if (ksFile.exists()) {
-    println "✅ El keystore existe en: ${ksFile.absolutePath}"
+    if (System.getenv()["CI"]) { // CI=true is exported by Codemagic
+        println "✅ Usando keystore de Codemagic"
+        ksFile = file(System.getenv()["CM_KEYSTORE_PATH"])
+        println System.getenv()["CM_KEYSTORE_PATH"]
+        println System.getenv()["CM_KEYSTORE_PASSWORD"]
+        println System.getenv()["CM_KEY_ALIAS"]
+        println System.getenv()["CM_KEY_PASSWORD"]
+    } else {
+        println "✅ Usando keystore local: ${ksFile.absolutePath}"
+    }
     println "Tamaño del keystore: ${ksFile.length()} bytes"
 
     // === SHA1 del keystore ===
     def keystorePassword = (System.getenv("KEYSTORE_PASSWORD") ?: 'lastunas123').toCharArray()
     def keyAliasEnv = System.getenv("KEY_ALIAS")
+
+
+            
+
 
     def printKeystoreSHA1 = { File file, char[] pwd, String aliasOverride ->
         try {
@@ -171,16 +184,30 @@ android {
     }
     signingConfigs {
         debug {
-            storeFile ksFile
-            storePassword System.getenv("KEYSTORE_PASSWORD") ?: 'lastunas123'
-            keyAlias System.getenv("KEY_ALIAS") ?: 'vidkar'
-            keyPassword System.getenv("KEY_PASSWORD") ?: 'lastunas123'
+            if (System.getenv()["CI"]) { // CI=true is exported by Codemagic
+                storeFile file(System.getenv()["CM_KEYSTORE_PATH"])
+                storePassword System.getenv()["CM_KEYSTORE_PASSWORD"]
+                keyAlias System.getenv()["CM_KEY_ALIAS"]
+                keyPassword System.getenv()["CM_KEY_PASSWORD"]
+            } else {
+                storeFile ksFile
+                storePassword System.getenv("KEYSTORE_PASSWORD") ?: "lastunas123"
+                keyAlias System.getenv("KEY_ALIAS") ?: "vidkar"
+                keyPassword System.getenv("KEY_PASSWORD") ?: "lastunas123"
+            }   
         }
         release {
-            storeFile ksFile
-            storePassword System.getenv("KEYSTORE_PASSWORD") ?: "lastunas123"
-            keyAlias System.getenv("KEY_ALIAS") ?: "vidkar"
-            keyPassword System.getenv("KEY_PASSWORD") ?: "lastunas123"
+             if (System.getenv()["CI"]) { // CI=true is exported by Codemagic
+                storeFile file(System.getenv()["CM_KEYSTORE_PATH"])
+                storePassword System.getenv()["CM_KEYSTORE_PASSWORD"]
+                keyAlias System.getenv()["CM_KEY_ALIAS"]
+                keyPassword System.getenv()["CM_KEY_PASSWORD"]
+            } else {
+                storeFile ksFile
+                storePassword System.getenv("KEYSTORE_PASSWORD") ?: "lastunas123"
+                keyAlias System.getenv("KEY_ALIAS") ?: "vidkar"
+                keyPassword System.getenv("KEY_PASSWORD") ?: "lastunas123"
+            }            
         }
     }
     buildTypes {
