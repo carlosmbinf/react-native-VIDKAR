@@ -9,6 +9,8 @@ workflows:
           include: true
           source: true
     environment:
+      android_signing:
+        - keystore_reference
       groups:
         - google_credentials
         - vidkar
