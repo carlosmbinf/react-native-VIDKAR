@@ -167,7 +167,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
 
-        def baseVersionCode = 308
+        def baseVersionCode = 309
         def buildNumber = System.getenv("BUILD_NUMBER")?.toInteger() ?: 0
 
         versionCode baseVersionCode + buildNumber
