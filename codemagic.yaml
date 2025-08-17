@@ -18,14 +18,14 @@ workflows:
         NODE_VERSION: 18
       java: 17
 
-    cache:
-      cache_paths:
-        - $HOME/.gradle/caches
-        - $HOME/.gradle/wrapper
-        - node_modules
-        - android/.gradle
-        - android/app/build
-        - ~/.npm
+    # cache:
+    #   cache_paths:
+    #     - $HOME/.gradle/caches
+    #     - $HOME/.gradle/wrapper
+    #     - node_modules
+    #     - android/.gradle
+    #     - android/app/build
+    #     - ~/.npm
         
     scripts:
       - name: Show build number
