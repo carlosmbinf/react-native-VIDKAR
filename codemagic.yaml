@@ -65,6 +65,13 @@ workflows:
         notify:
           success: true
           failure: true
+      email:
+        recipients:
+          - "carlosmbinf@gmail.com"
+          - "manumedinap0107@gmail.com"
+          - "yaimaduartes@gmail.com"
+        notify:
+          success: true
 
   deploy_produccion:
     name: Production - React Native Android Build & Upload to Google Play
@@ -125,3 +132,14 @@ workflows:
         notify:
           success: true
           failure: true
+
+      email:
+        recipients:
+          - "carlosmbinf@gmail.com"
+          - "honoriopompahernandez@gmail.com"
+          - "manumedinap0107@gmail.com"
+          - "yaimaduartes@gmail.com"
+          - "eu9023@gmail.com"
+          - "osmedebello74@gmail.com"
+        notify:
+          success: true
