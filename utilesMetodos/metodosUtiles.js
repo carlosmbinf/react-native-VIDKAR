@@ -15,14 +15,9 @@ const loginWithGoogle = async function(configuration, callback) {
 			showPlayServicesUpdateDialog: true
 		});
 		let userInfo;
-		var isSignedIn;
-		try {
-			isSignedIn = await GoogleSignin.isSignedIn();	
-		} catch (error) {
-			Alert.alert("Error", "No se pudo iniciar session con google.");
-			throw error;
-		}
-		
+		var isSignedIn = await GoogleSignin.isSignedIn();
+
+
 		if (!isSignedIn) {
 			userInfo = await GoogleSignin.signIn();
 			if (!userInfo) {
