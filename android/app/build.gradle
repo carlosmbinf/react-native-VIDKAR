@@ -168,7 +168,8 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
 
         def baseVersionCode = 309
-        def buildNumber = System.getenv("BUILD_NUMBER")?.toInteger() ?: 0
+        def buildNumber = System.getenv("PROJECT_BUILD_NUMBER")?.toInteger() ?: 0
+        println System.getenv("PROJECT_BUILD_NUMBER")
 
         versionCode baseVersionCode + buildNumber
         versionName "3.0.${baseVersionCode + buildNumber}"
