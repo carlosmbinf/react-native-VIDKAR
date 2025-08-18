@@ -78,6 +78,8 @@ workflows:
   deploy_produccion:
     name: Production - React Native Android Build & Upload to Google Play
     environment:
+      android_signing:
+        - keystore_reference
       groups:
         - google_credentials
         - vidkar
@@ -103,7 +105,7 @@ workflows:
         script: |
           export BUILD_NUMBER=$PROJECT_BUILD_NUMBER 
           echo "BUILD_NUMBER=$BUILD_NUMBER"
-          
+
       - name: Install dependencies
         script: |
           npm install -f
