@@ -10,7 +10,7 @@ import { Alert } from 'react-native';
  */
 const loginWithGoogle = async function(configuration, callback) {
 	try {
-		GoogleSignin.configure(configuration);
+		await GoogleSignin.configure(configuration);
 		await GoogleSignin.hasPlayServices({
 			showPlayServicesUpdateDialog: true
 		});
@@ -21,19 +21,19 @@ const loginWithGoogle = async function(configuration, callback) {
 		if (!isSignedIn) {
 			userInfo = await GoogleSignin.signIn();
 			if (!userInfo) {
-				callback({ reason: 'Something went wrong obtaining user info', details: { userInfo } });
+				callback({ reason: 'Algo salió mal al obtener la información del usuario', details: { userInfo } });
 				return;
 			}
 		} else {
 			userInfo = await GoogleSignin.signInSilently();
 			if (!userInfo) {
-				callback({ reason: 'Something went wrong obtaining user info', details: { userInfo } });
+				callback({ reason: 'Algo salió mal al obtener la información del usuario', details: { userInfo } });
 				return;
 			}
 		}
 		const tokens = await GoogleSignin.getTokens();
-		Meteor._startLoggingIn();
-		Meteor.call(
+		await Meteor._startLoggingIn();
+		await Meteor.call(
 			'login',
 			{
 				googleSignIn: true,

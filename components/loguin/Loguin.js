@@ -102,7 +102,7 @@ class Loguin extends Component {
     this.setState({ loadingGoogle: true });
 
     const options = {
-      webClientId: '1043110071233-pbeoteq8ua30rsbqmk8dtku6hcmeekci.apps.googleusercontent.com',
+      clientId: '1043110071233-pbeoteq8ua30rsbqmk8dtku6hcmeekci.apps.googleusercontent.com',
       iosClientId: '1043110071233-p7e56eu0sb203j32pf66b1blaql14f26.apps.googleusercontent.com', // opcional, si usas iOS
       scopes: ['profile', 'email'],
       forceCodeForRefreshToken: false,
