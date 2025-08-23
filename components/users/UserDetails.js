@@ -27,7 +27,7 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import {RefreshControl} from 'react-native';
 import {ActivityIndicator} from 'react-native';
 import {Alert} from 'react-native';
-import ReactNativeForegroundService from '@supersami/rn-foreground-service';
+// import ReactNativeForegroundService from '@supersami/rn-foreground-service';
 
 import {
   PreciosCollection,
@@ -222,26 +222,26 @@ class MyAppUserDetails extends React.Component {
       });
     };
     const eliminarNotificacion = () => {
-      ReactNativeForegroundService.stopAll();
+      // ReactNativeForegroundService.stopAll();
     }
 
     const iniciarNotificacion = () => {
-      ReactNativeForegroundService.start({
-        id: 1000000,
-        ServiceType: 'dataSync',
-        title: 'Servicio de VidKar',
-        message: 'Debe iniciar sesión!',
-        visibility: 'private',
-        // largeicon: 'home',
-        vibration: false,
-        button: true,
-        buttonText: 'Abrir Vidkar',
-        importance: 'max',
-        ongoing: true,
-        //   number: '10000',
+      // ReactNativeForegroundService.start({
+      //   id: 1000000,
+      //   ServiceType: 'dataSync',
+      //   title: 'Servicio de VidKar',
+      //   message: 'Debe iniciar sesión!',
+      //   visibility: 'private',
+      //   // largeicon: 'home',
+      //   vibration: false,
+      //   button: true,
+      //   buttonText: 'Abrir Vidkar',
+      //   importance: 'max',
+      //   ongoing: true,
+      //   //   number: '10000',
   
-        // icon: 'home',
-      });
+      //   // icon: 'home',
+      // });
     }
     const addVenta = () => {
       // console.log(`Precio MEGAS ${precios}`);

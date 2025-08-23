@@ -1183,7 +1183,7 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
-"@meteorrn/core@^2.1.0", "@meteorrn/core@^2.8.1-rc.0", "@meteorrn/core@>=2.1.0":
+"@meteorrn/core@^2.1.0", "@meteorrn/core@^2.8.1-rc.0":
   version "2.8.1"
   dependencies:
     "@meteorrn/core" "^2.8.1-rc.0"
@@ -1199,13 +1199,6 @@
     base64-js "^1.5.1"
     eventemitter3 "^1.1.0"
     invariant "^2.1.1"
-
-"@meteorrn/oauth-google@^1.0.1":
-  version "1.0.1"
-  resolved "https://registry.npmjs.org/@meteorrn/oauth-google/-/oauth-google-1.0.1.tgz"
-  integrity sha512-ZuvdZJNlnm+a4qYa8u23sOCgc7uVYSctEmYNRbUVn5TcMGcZT2XWV4nx1OeRAFaXPZOX4+pZ0ZQP8PHVrVrMQw==
-  dependencies:
-    "@react-native-google-signin/google-signin" "6.0.1"
 
 "@microsoft/1ds-core-js@^4.3.0", "@microsoft/1ds-core-js@4.3.9":
   version "4.3.9"
@@ -1621,11 +1614,6 @@
   resolved "https://registry.npmjs.org/@react-native-google-signin/google-signin/-/google-signin-11.0.1.tgz"
   integrity sha512-ZRSEd1ME31XZ+azS3Qe6TRb8NRicGmtRdD1vT4Tz2birnlTfNfRgy4qLrEKNZyMUTodA6+J2UvA2JWwT8ZQ/dw==
 
-"@react-native-google-signin/google-signin@6.0.1":
-  version "6.0.1"
-  resolved "https://registry.npmjs.org/@react-native-google-signin/google-signin/-/google-signin-6.0.1.tgz"
-  integrity sha512-8Kyt3v6JcAQoJqZau3z4Mj+8R5Zv1yB8TfL/iCrB6ZI9lIR7gm4wuNzgpNSjX7OwNTboyhBek9Tjx8qJj7a6Mw==
-
 "@react-native-windows/cli@0.79.2":
   version "0.79.2"
   resolved "https://registry.npmjs.org/@react-native-windows/cli/-/cli-0.79.2.tgz"
@@ -2005,9 +1993,6 @@
   version "3.1.2"
   resolved "https://registry.npmjs.org/@socket.io/component-emitter/-/component-emitter-3.1.2.tgz"
   integrity sha512-9BCxFwvbGg/RsZK9tjXd8s4UcwR0MWeFQ1XEKIQVVvAGJyINdrqKMcTRyLoK8Rse1GjzLV9cwjWV1olXRWEXVA==
-
-"@supersami/rn-foreground-service@^2.2.1":
-  version "2.2.1"
 
 "@types/babel__core@^7.1.14":
   version "7.20.5"
