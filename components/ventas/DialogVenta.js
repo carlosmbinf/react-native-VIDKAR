@@ -16,12 +16,12 @@ const DialogVenta = ({ visible, hideDialog, data }) => {
     const [createdAt, setCreatedAt] = useState();
 
     React.useEffect(() => {
-        setAdmin(Meteor.users.findOne(data.adminId))
-    }, [data.adminId])
+        setAdmin(data.adminusername)
+    }, [data.adminusername])
 
     React.useEffect(() => {
-        setUser(Meteor.users.findOne(data.userId))
-    }, [data.userId])
+        setUser(data.userusername)
+    }, [data.userusername])
 
 
     React.useEffect(() => {
@@ -81,12 +81,12 @@ const DialogVenta = ({ visible, hideDialog, data }) => {
                         
                                 <TextInput
                                     label="Admin ID"
-                                    value={admin && admin.username}
+                                    value={admin && admin}
                                     disabled
                                 />
                                 <TextInput
                                     label="User ID"
-                                    value={user && user.username}
+                                    value={user && user}
                                     disabled
                                 />
                                 <TextInput

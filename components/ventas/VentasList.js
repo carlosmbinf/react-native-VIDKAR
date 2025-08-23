@@ -74,13 +74,12 @@ class MyApp extends React.Component {
     // const carouselRef = useRef(null);
   }
   render() {
-    const { user, ready, navigation } = this.props;
+    const { user, ready, navigation, myTodoTasks, ventas} = this.props;
     //  console.log("DATA:" + JSON.stringify(myTodoTasks));
 
     const from = this.state.page * this.state.itemsPerPage;
-    let myTodoTasks = VentasCollection.find({}, { sort: { createdAt: -1 }, limit: 100 }).fetch()
 
-    const to = Math.min((this.state.page + 1) * this.state.itemsPerPage, myTodoTasks.length);
+    const to = Math.min((this.state.page + 1) * this.state.itemsPerPage, ventas.length);
 
     const backgroundStyle = {
       // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
@@ -117,9 +116,8 @@ class MyApp extends React.Component {
               </DataTable.Header>
 
 
-              {myTodoTasks.map((element, index) => {
-                 let userusername = Meteor.users.findOne(element.userId) && Meteor.users.findOne(element.userId).username
-                 let adminusername = Meteor.users.findOne(element.adminId) && Meteor.users.findOne(element.adminId).username
+              {ventas.map((element, index) => {
+                
                 return index >= from && index < to &&
                   <DataTable.Row onPress={() => {
                    
@@ -130,8 +128,8 @@ class MyApp extends React.Component {
                     mostrarDialog();
                   }}>
                     <DataTable.Cell>{element.type}</DataTable.Cell>
-                    <DataTable.Cell >{element.adminId != "SERVER" ? adminusername : "SERVER"}</DataTable.Cell>
-                    <DataTable.Cell>{userusername}</DataTable.Cell>
+                    <DataTable.Cell >{element.adminusername}</DataTable.Cell>
+                    <DataTable.Cell>{element.userusername}</DataTable.Cell>
                     {/* <DataTable.Cell >{element.message}</DataTable.Cell> */}
                     <DataTable.Cell>{moment(new Date(element.createdAt))
                       .format('DD-MM-YY')}</DataTable.Cell>
@@ -155,9 +153,9 @@ class MyApp extends React.Component {
 
               <DataTable.Pagination
                 page={this.state.page}
-                numberOfPages={Math.ceil(myTodoTasks.length / this.state.itemsPerPage)}
+                numberOfPages={Math.ceil(ventas.length / this.state.itemsPerPage)}
                 onPageChange={(page) => this.setState({ page: page })}
-                label={`${from + 1}-${to} of ${myTodoTasks.length}`}
+                label={`${from + 1}-${to} of ${ventas.length}`}
 
                 numberOfItemsPerPageList={optionsPerPage}
                 numberOfItemsPerPage={this.state.itemsPerPage}
@@ -185,14 +183,37 @@ class MyApp extends React.Component {
   }
 }
 const VentasList = withTracker(navigation => {
+  let ventas = [];
   //  console.log(user.user)
   const handle2 = Meteor.subscribe('ventas', {}, { sort: { createdAt: -1 }, limit: 100 }).ready();
-  const myTodoTasks = null;
+  const usersSubs = Meteor.subscribe("user",{},{fields:{_id:1, username: 1}}).ready();
+  const myTodoTasks = VentasCollection.find({}, { sort: { createdAt: -1 }, limit: 100 }).fetch();
   //  console.log(myTodoTasks);
+
+  handle2 && myTodoTasks.length > 0 && myTodoTasks.map((element, index) => {
+    let userusername = usersSubs ? Meteor.users.findOne(element.userId)?.username : "";
+    let adminusername = usersSubs ? Meteor.users.findOne(element.adminId)?.username : "";
+    
+  ventas.push({
+      _id: element._id,
+      type: element.type,
+      userId: element.userId,
+      adminId: element.adminId,
+      userusername: userusername ? userusername : "Desconocido",
+      adminusername: element.adminId != "SERVER" ? adminusername : "SERVER" ,
+      comentario: element.comentario,
+      precio:element.precio,
+      gananciasAdmin: element.gananciasAdmin,
+      createdAt: new Date(element.createdAt),
+      cobrado: element.cobrado
+    });  
+  });
+
   return {
     navigation,
     myTodoTasks,
-    ready: handle2,
+    ventas,
+    ready: handle2 && usersSubs,
   };
 })(MyApp);
 
