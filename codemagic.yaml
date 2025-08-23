@@ -155,9 +155,9 @@ workflows:
     integrations:
       app_store_connect: codemagic
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.vidkar
+      #ios_signing:
+       # distribution_type: app_store
+        #bundle_identifier: com.vidkar
       vars:
         XCODE_WORKSPACE: "Vidkar.xcworkspace" # <-- Put the name of your Xcode workspace here
         XCODE_SCHEME: "Vidkar" # <-- Put the name of your Xcode scheme here
