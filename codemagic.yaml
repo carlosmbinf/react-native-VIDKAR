@@ -162,6 +162,7 @@ workflows:
         XCODE_WORKSPACE: "Vidkar.xcworkspace" # <-- Put the name of your Xcode workspace here
         XCODE_SCHEME: "Vidkar" # <-- Put the name of your Xcode scheme here
         APP_ID: 6751348594 # <-- Put the app id number here. This is found in App Store Connect > App > General > App Information
+        BUNDLE_ID: "com.vidkar" # <- agregado para los comandos de firma
       node: v19.7.0
       xcode: latest
       cocoapods: default
@@ -174,10 +175,14 @@ workflows:
             cd ios && pod install
         - name: Set up code signing settings on Xcode project
           script: |
-            xcode-project use-profiles --warn-only
+            # Inicializa llavero y obtiene/crea perfiles de distribución App Store para el bundle id
+            keychain initialize
+            app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+            keychain add-certificates
+            # Aplica los perfiles al proyecto
+            xcode-project use-profiles
         - name: Increment build number
           script: |
-            # Information about getting the latest build version can be found here: https://docs.codemagic.io/knowledge-codemagic/build-versioning/#app-store-or-testflight-latest-build-number
             cd $CM_BUILD_DIR/ios
             LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$APP_ID")
             agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
