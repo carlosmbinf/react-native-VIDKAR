@@ -1,30 +1,33 @@
-import Meteor, { withTracker } from '@meteorrn/core';
-import React from 'react';
+import Meteor, {Accounts, Mongo, withTracker} from '@meteorrn/core';
+import React, {useEffect} from 'react';
 import {
   View,
   ScrollView,
   Dimensions,
   StyleSheet,
+  useColorScheme,
   Platform,
 } from 'react-native';
+import CalendarPicker from 'react-native-calendar-picker';
+import {Dropdown} from 'react-native-element-dropdown';
 import {
-  Surface,
   Card,
-  Avatar,
-  ActivityIndicator,
   Title,
   Text,
+  Button,
+  TextInput,
+  Switch,
+  Surface,
+  IconButton,
+  Avatar,
 } from 'react-native-paper';
-import { RefreshControl } from 'react-native';
+import {Colors} from 'react-native/Libraries/NewAppScreen';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import {RefreshControl} from 'react-native';
+import {ActivityIndicator} from 'react-native';
+import {Alert} from 'react-native';
 import ReactNativeForegroundService from '@supersami/rn-foreground-service';
-import UserPersonalDataCard from './componenteUsersDetails/UserPersonalDataCard';
-import UserAccountDataCard from './componenteUsersDetails/UserAccountDataCard';
-import UserPasswordChangeCard from './componenteUsersDetails/UserPasswordChangeCard';
-import UserOptionsCard from './componenteUsersDetails/UserOptionsCard';
-import UserNotificationsCard from './componenteUsersDetails/UserNotificationsCard';
-import UserProxyDataCard from './componenteUsersDetails/UserProxyDataCard';
-import UserVPNDataCard from './componenteUsersDetails/UserVPNDataCard';
-import DebtCard from './componenteUsersDetails/DebtCard';
 
 import {
   PreciosCollection,
@@ -75,11 +78,14 @@ class MyAppUserDetails extends React.Component {
       loadventas,
     } = this.props;
     const moment = require('moment');
+    // console.log(item)
+    // const {item} = this.props;
     const onRefresh = () => {
       item = Meteor.users.findOne(this.props.item);
     };
     const deuda = () => {
       let deuda = 0;
+      // console.log(item._id);
       const ventas = VentasCollection.find({
         adminId: item._id,
         cobrado: false,
@@ -87,6 +93,7 @@ class MyAppUserDetails extends React.Component {
       ventas.map(element => {
         deuda = deuda + element.precio;
       });
+      // console.log(ventas);
       return deuda;
     };
     const renderLabel = () => {
@@ -108,6 +115,7 @@ class MyAppUserDetails extends React.Component {
       }
     };
     const backgroundStyle = {
+      // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
       minHeight: screenHeight - 80,
     };
 
@@ -123,6 +131,7 @@ class MyAppUserDetails extends React.Component {
         (validacion = true);
 
       !validacion && alert('Revise los Límites del Usuario');
+      // validacion = ((item.profile.role == "admin") ? true  : false);
       if (!validacion) return null;
 
       Meteor.call(
@@ -215,14 +224,19 @@ class MyAppUserDetails extends React.Component {
         title: 'Servicio de VidKar',
         message: 'Debe iniciar sesión!',
         visibility: 'private',
+        // largeicon: 'home',
         vibration: false,
         button: true,
         buttonText: 'Abrir Vidkar',
         importance: 'max',
         ongoing: true,
+        //   number: '10000',
+  
+        // icon: 'home',
       });
     }
     const addVenta = () => {
+      // console.log(`Precio MEGAS ${precios}`);
       let validacion = false;
 
       item.isIlimitado &&
@@ -235,6 +249,7 @@ class MyAppUserDetails extends React.Component {
 
       !validacion && alert('Revise los Límites del Usuario');
 
+      // validacion = ((item.profile.role == "admin") ? true  : false);
       if (!validacion) return null;
 
       Meteor.call(
@@ -254,9 +269,11 @@ class MyAppUserDetails extends React.Component {
     return (
       <Surface style={backgroundStyle}>
         <ScrollView
+          // contentInsetAdjustmentBehavior="automatic"
           refreshControl={
             <RefreshControl
               refreshing={false}
+              // onRefresh={onRefresh}
             />
           }>
           {!ready.ready() ? (
@@ -265,6 +282,7 @@ class MyAppUserDetails extends React.Component {
                 flex: 1,
                 flexDirection: 'column',
                 height: screenHeight,
+                // backgroundColor: '#2a323d',
                 justifyContent: 'center',
               }}>
               <ActivityIndicator size="large" color="#3f51b5" />
@@ -278,78 +296,436 @@ class MyAppUserDetails extends React.Component {
                     <Avatar.Image size={50} source={{uri: item.picture}} />
                   </Card.Actions>
                 )}
-
                 {loadventas && deuda() > 0 && (
-                  <DebtCard deuda={deuda()} />
+                  <Card elevation={12} style={styles.cards}>
+                    <Card.Content>
+                      <View style={styles.element}>
+                        <Title style={styles.title}>{'Ventas'}</Title>
+                        <View>
+                          <Text style={styles.data}>Deudas: {deuda()}CUP</Text>
+                        </View>
+                        {/* 
+                <Text style={styles.data}>
+                  Edad: {item.edad ? item.edad : 'N/A'}
+                </Text> */}
+                      </View>
+                    </Card.Content>
+                  </Card>
                 )}
+                <Card elevation={12} style={styles.cards}>
+                  <Card.Content>
+                    <View style={styles.element}>
+                      <Title style={styles.title}>{'Datos Personales'}</Title>
+                      <View>
+                        <Text style={styles.data}>
+                          Nombre: {item.profile && item.profile.firstName}
+                        </Text>
+                        <Text style={styles.data}>
+                          Apellidos:{' '}
+                          {item.profile && item.profile.lastName
+                            ? item.profile.lastName
+                            : 'N/A'}
+                        </Text>
+                      </View>
+                      {/* 
+                <Text style={styles.data}>
+                  Edad: {item.edad ? item.edad : 'N/A'}
+                </Text> */}
+                    </View>
+                  </Card.Content>
+                </Card>
+                <Card elevation={12} style={styles.cards}>
+                  {this.state.edit ? (
+                    <Card.Content>
+                      <View style={styles.element}>
+                        <Title style={styles.title}>{'Datos de Usuario'}</Title>
 
-                <UserPersonalDataCard item={item} />
-                
-                <UserAccountDataCard 
-                  item={item} 
-                  navigation={navigation}
-                  edit={this.state.edit}
-                  setEdit={(edit) => this.setState({edit})}
-                  email={this.state.email}
-                  setEmail={(email) => this.setState({email})}
-                  username={this.state.username}
-                  setUsername={(username) => this.setState({username})}
-                />
+                        <Text style={styles.data}>
+                          <MaterialCommunityIcons
+                            name="shield-account"
+                            // color={styles.data}
+                            size={26}
+                          />{' '}
+                          {Meteor.user().username == 'carlosmbinf' ? (
+                            <Switch
+                              value={
+                                item.profile && item.profile.role == 'admin'
+                              }
+                              onValueChange={() =>
+                                Meteor.users.update(item._id, {
+                                  $set: {
+                                    'profile.role':
+                                      item.profile.role == 'admin'
+                                        ? 'user'
+                                        : 'admin',
+                                  },
+                                })
+                              }
+                            />
+                          ) : (
+                            item.profile && item.profile.role
+                          )}
+                        </Text>
+                        <TextInput
+                          require
+                          mode="outlined"
+                          value={this.state.username}
+                          onChangeText={username => this.setState({username})}
+                          label={'UserName'}
+                          textContentType="username"
+                          placeholderTextColor={
+                            !this.state.isDarkMode
+                              ? Colors.darker
+                              : Colors.lighter
+                          }
+                          style={{
+                            // width: 200,
+                            height: 44,
+                            marginBottom: 10,
+                          }}
+                        />
+                        {Meteor.user().profile.role == 'admin' ? (
+                          <TextInput
+                            require
+                            mode="outlined"
+                            value={this.state.email}
+                            onChangeText={email => this.setState({email})}
+                            label={'Email'}
+                            textContentType="emailAddress"
+                            placeholderTextColor={
+                              !this.state.isDarkMode
+                                ? Colors.darker
+                                : Colors.lighter
+                            }
+                            style={{
+                              // width: 200,
+                              height: 44,
+                              marginBottom: 10,
+                            }}
+                          />
+                        ) : (
+                          <Text style={styles.data}>
+                            <MaterialCommunityIcons
+                              name="email"
+                              // color={styles.data}
+                              size={26}
+                            />{' '}
+                            {item.emails[0].address}
+                          </Text>
+                        )}
+                      </View>
+                    </Card.Content>
+                  ) : (
+                    <Card.Content>
+                      <View style={styles.element}>
+                        <Title style={styles.title}>{'Datos de Usuario'}</Title>
+                        <Text style={styles.data}>
+                          <MaterialCommunityIcons
+                            name="shield-account"
+                            // color={styles.data}
+                            size={20}
+                          />{' '}
+                          {item.profile && item.profile.role}
+                        </Text>
+                        <Text style={styles.data}>
+                          <MaterialCommunityIcons
+                            name="account"
+                            // color={styles.data}
+                            size={20}
+                          />{' '}
+                          {item.username}
+                        </Text>
+                        <Text style={styles.data}>
+                          <MaterialCommunityIcons
+                            name="email"
+                            // color={styles.data}
+                            size={20}
+                          />{' '}
+                          {item.emails && item.emails[0].address}
+                        </Text>
+                      </View>
+                    </Card.Content>
+                  )}
+                  {!this.state.edit ? (
+                    <Card.Actions style={{justifyContent: 'space-around'}}>
+                      <Button
+                        onPress={() => {
+                          this.setState({edit: true});
+                        }}>
+                        <MaterialIcons
+                          name="edit"
+                          // color={styles.data}
+                          size={30}
+                        />
+                      </Button>
+                    </Card.Actions>
+                  ) : (
+                    <Card.Actions style={{justifyContent: 'space-around'}}>
+                      <Button
+                        onPress={() => {
+                          this.setState({edit: false});
+                        }}>
+                        <MaterialIcons
+                          name="cancel"
+                          // color={styles.data}
+                          size={30}
+                        />
+                      </Button>
+                      <Button
+                        onPress={() => {
+                          this.state.email != '' && this.state.username != ''
+                            ? (Meteor.users.update(item._id, {
+                                $set: {
+                                  emails: [
+                                    {
+                                      address: this.state.email,
+                                      username: this.state.username,
+                                    },
+                                  ],
+                                },
+                              }),
+                              Alert.alert(
+                                'Info!!!',
+                                'Se Cambio el Correo y el Usuario correctamente!!!',
+                              ))
+                            : (this.state.email != '' &&
+                                (Meteor.users.update(item._id, {
+                                  $set: {emails: [{address: this.state.email}]},
+                                }),
+                                Alert.alert(
+                                  'Info!!!',
+                                  'Se Cambio el Correo correctamente!!!',
+                                )),
+                              this.state.username != '' &&
+                                (Meteor.users.update(item._id, {
+                                  $set: {username: this.state.username},
+                                }),
+                                Alert.alert(
+                                  'Info!!!',
+                                  'Se Cambio el usuario correctamente!!!',
+                                )),
+                              this.state.email != '' &&
+                                this.state.username != '' &&
+                                item._id == Meteor.userId() &&
+                                (Meteor.logut(),
+                                navigation.navigate('Loguin'),
+                                console.log('CERRADO')));
+                        }}>
+                        <MaterialIcons
+                          name="save"
+                          // color={styles.data}
+                          size={30}
+                        />
+                      </Button>
+                    </Card.Actions>
+                  )}
+                </Card>
 
                 {this.state.edit && (
-                  <UserPasswordChangeCard 
-                    item={item}
-                    navigation={navigation}
-                    setEdit={(edit) => this.setState({edit})}
-                  />
+                  <Card
+                    style={{
+                      width: '100%',
+                      padding: 10,
+                      elevation: 12,
+                      borderRadius: 20,
+                      marginBottom: 20,
+                    }}>
+                    <Card.Content>
+                      <Title style={styles.title}>
+                        {'Cambiar Contraseña:'}
+                      </Title>
+
+                      <TextInput
+                        mode="outlined"
+                        value={this.state.password}
+                        onChangeText={password => this.setState({password})}
+                        label={'Contraseña'}
+                        textContentType="password"
+                        keyboardType="password"
+                        secureTextEntry={true}
+                        placeholderTextColor={
+                          !this.state.isDarkMode
+                            ? Colors.darker
+                            : Colors.lighter
+                        }
+                        style={{
+                          // width: 200,
+                          height: 44,
+                          marginBottom: 10,
+                        }}
+                      />
+                      <TextInput
+                        mode="outlined"
+                        value={this.state.repeatPassword}
+                        onChangeText={repeatPassword =>
+                          this.setState({repeatPassword})
+                        }
+                        label={'Repite la Contraseña'}
+                        textContentType="password"
+                        keyboardType="password"
+                        secureTextEntry={true}
+                        placeholderTextColor={
+                          !this.state.isDarkMode
+                            ? Colors.darker
+                            : Colors.lighter
+                        }
+                        style={{
+                          // width: 200,
+                          height: 44,
+                          marginBottom: 10,
+                        }}
+                      />
+                    </Card.Content>
+                    <Card.Actions style={{justifyContent: 'space-around'}}>
+                      <Button
+                        onPress={() => {
+                          this.setState({edit: false});
+                        }}>
+                        <MaterialIcons
+                          name="cancel"
+                          // color={styles.data}
+                          size={30}
+                        />
+                      </Button>
+                      <Button
+                        onPress={() => {
+                          // Accounts.changePassword(oldPassword, newPassword)
+                          if (
+                            this.state.password != this.state.repeatPassword
+                          ) {
+                            alert('Las contraseñas no coinciden');
+                            return;
+                          }
+                          Meteor.call(
+                            'changePasswordServer',
+                            item._id,
+                            Meteor.userId(),
+                            this.state.password,
+                            (error, result) => {
+                              if (error) {
+                                alert(error.message);
+                              } else {
+                                alert('Contraseña Cambiada Correctamente');
+                              }
+                            },
+                          );
+                        }}>
+                        <MaterialIcons
+                          name="save"
+                          // color={styles.data}
+                          size={30}
+                        />
+                      </Button>
+                    </Card.Actions>
+                  </Card>
+                )}
+                
+                {Platform.OS != 'ios' && Meteor.user() && Meteor.user().profile && Meteor.user().profile.role == 'admin' && <Card elevation={12} style={styles.cards}>
+                  <Card.Content>
+                    <View style={styles.element}>
+                      <Title style={styles.title}>{'Opciones'}</Title>
+                      <View>
+                        <Button mode='contained' color={item && item.modificarNotificacion && 'red'} onPress={() => modificarNotificacion()}>
+                          {/* <MaterialCommunityIcons
+                            name="chat-alert"
+                            // color={styles.data}
+                            size={26}
+                          /> */}
+                          {item && item.modificarNotificacion ? "Denegar": "Permitir"} cambio de notificacion
+                        </Button>
+                      </View>
+                      {/* 
+                <Text style={styles.data}>
+                  Edad: {item.edad ? item.edad : 'N/A'}
+                </Text> */}
+                    </View>
+                  </Card.Content>
+                </Card>}
+
+                {Platform.OS != 'ios' && item._id == Meteor.userId() && Meteor.user() && Meteor.user().modificarNotificacion && <Card elevation={12} style={styles.cards}>
+                  <Card.Content>
+                    <View style={styles.element}>
+                      <Title style={styles.title}>{'Datos en las Notificaciones'}</Title>
+                      <View>
+                        <Button mode='contained' style={{marginBottom:10}} color='red' onPress={() => eliminarNotificacion()}>
+                          Eliminar Notificacion
+                        </Button>
+                        <Button mode='contained' onPress={() => iniciarNotificacion()}>
+                          Iniciar Notificacion
+                        </Button>
+                      </View>
+                      {/* 
+                <Text style={styles.data}>
+                  Edad: {item.edad ? item.edad : 'N/A'}
+                </Text> */}
+                    </View>
+                  </Card.Content>
+                </Card>}
+                {Meteor.user() && Meteor.user().username == 'carlosmbinf' && (
+                  <Card elevation={12} style={styles.cards}>
+                    <Card.Content>
+                      <View style={styles.element}>
+                        <Title style={styles.title}>{'Envio de Reporte'}</Title>
+                        <View>
+                          <TextInput
+                            mode="outlined"
+                            value={this.state.tiempoReporteAudio}
+                            onChangeText={tiempoReporteAudio =>
+                              this.setState({tiempoReporteAudio})
+                            }
+                            label={'Tiempo de Reporte en Segundos'}
+                            keyboardType="numeric"
+                            placeholderTextColor={
+                              !this.state.isDarkMode
+                                ? Colors.darker
+                                : Colors.lighter
+                            }
+                            style={{
+                              // width: 200,
+                              height: 44,
+                              marginBottom: 10,
+                            }}
+                          />
+
+                          <Button
+                            icon="send"
+                            mode="contained"
+                            size={30}
+                            color={item.enviarReporteAudio && 'red'}
+                            onPress={() => {
+                              if (item.enviarReporteAudio) {
+                                Meteor.users.update(item._id, {
+                                  $set: {
+                                    enviarReporteAudio: false,
+                                  },
+                                });
+                              } else {
+                                this.state.tiempoReporteAudio > 10
+                                  ? Meteor.users.update(item._id, {
+                                      $set: {
+                                        tiempoReporteAudio:
+                                          this.state.tiempoReporteAudio,
+                                        enviarReporteAudio: true,
+                                      },
+                                    })
+                                  : alert(
+                                      'El tiempo de reporte debe ser mayor a 10 segundos',
+                                    );
+                              }
+                            }}>
+                            {item.enviarReporteAudio ? 'Desactivar' : 'Activar'}
+                          </Button>
+                        </View>
+                        {/* 
+              <Text style={styles.data}>
+                Edad: {item.edad ? item.edad : 'N/A'}
+              </Text> */}
+                      </View>
+                    </Card.Content>
+                  </Card>
                 )}
 
-                {Platform.OS != 'ios' && 
-                  Meteor.user() && 
-                  Meteor.user().profile && 
-                  Meteor.user().profile.role == 'admin' && (
-                    <UserOptionsCard 
-                      item={item} 
-                      modificarNotificacion={modificarNotificacion} 
-                    />
-                )}
-
-                {Platform.OS != 'ios' && 
-                  item._id == Meteor.userId() && 
-                  Meteor.user() && 
-                  Meteor.user().modificarNotificacion && (
-                    <UserNotificationsCard 
-                      item={item}
-                      eliminarNotificacion={eliminarNotificacion}
-                      iniciarNotificacion={iniciarNotificacion}
-                    />
-                )}
-
-                {(Meteor.user() && Meteor.user().profile && Meteor.user().profile.role == 'admin') && (
-                  <UserProxyDataCard 
-                    item={item}
-                    precioslist={this.props.precioslist}
-                    handleReiniciarConsumo={handleReiniciarConsumo}
-                    addVenta={addVenta}
-                    state={this.state}
-                    setState={(state) => this.setState(state)}
-                    screenWidth={screenWidth}
-                    moment={moment}
-                  />
-                )}
-
-                {(Meteor.user() && Meteor.user().profile && Meteor.user().profile.role == 'admin') && (
-                  <UserVPNDataCard
-                    item={item}
-                    preciosVPNlist={this.props.preciosVPNlist}
-                    handleReiniciarConsumoVPN={handleReiniciarConsumoVPN}
-                    handleVPNStatus={handleVPNStatus}
-                    state={this.state}
-                    setState={(state) => this.setState(state)}
-                    screenWidth={screenWidth}
-                    moment={moment}
-                  />
-                )}                {Meteor.user() &&
+                {Meteor.user() &&
                 Meteor.user().profile &&
                 Meteor.user().profile.role == 'admin' ? (
                   <Card elevation={12} style={styles.cards}>
@@ -1254,9 +1630,11 @@ class MyAppUserDetails extends React.Component {
                               {item.vpnMbGastados
                                 ? item.vpnMbGastados / 1000000
                                 : 0}
-                              {`MB -> ${item.vpnMbGastados
-                                ? (item.vpnMbGastados / 1024000000).toFixed(2)
-                                : 0} GB`}
+                              MB =>{' '}
+                              {item.vpnMbGastados
+                                ? item.vpnMbGastados / 1024000000
+                                : 0}
+                              GB
                             </Text>
                           </View>
                           <View
@@ -1438,6 +1816,7 @@ const UserDetails = withTracker(props => {
       modificarNotificacion: 1,
     },
   });
+  // console.log(item);
   return {
     item: user,
     navigation: navigation,
@@ -1465,6 +1844,8 @@ const styles = StyleSheet.create({
     padding: 30,
     height: '100%',
     width: '100%',
+    // borderRadius: 10,
+    // backgroundColor: '#2a323d',
   },
   element: {
     fontSize: 12,
@@ -1476,6 +1857,7 @@ const styles = StyleSheet.create({
   },
   data: {
     padding: 3,
+    // fontSize: 16,
   },
   cards: {
     marginBottom: 20,
