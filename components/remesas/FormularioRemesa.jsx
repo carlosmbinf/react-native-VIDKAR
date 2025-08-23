@@ -15,7 +15,7 @@ const FormularioRemesa = () => {
     metodoPago: '',
     monedaRecibirEnCuba: '',
   });
-  const [open, setOpen] = useState(true); // abrir por defecto para ver el formulario
+  const [open, setOpen] = useState(false); // abrir por defecto para ver el formulario
   const [properties, setProperties] = useState([]);
   const [precioCUP, setPrecioCUP] = useState(0);
   const [descuento, setDescuento] = useState(0);
@@ -189,6 +189,7 @@ const FormularioRemesa = () => {
             />
 
             {/* Select Moneda a cobrar en Cuba (inline) */}
+            <View>
             <TextInput
               label="Moneda a cobrar en Cuba"
               value={form.monedaRecibirEnCuba || ''}
@@ -218,11 +219,13 @@ const FormularioRemesa = () => {
                 </List.Section>
               </Card>
             )}
-
+            </View>
+            
             {/* Método de pago cuando es CUP (inline) */}
             {form.monedaRecibirEnCuba === 'CUP' && (
               <>
-                <Divider style={styles.divider} />
+                {/* <Divider style={styles.divider} /> */}
+                <View>
                 <TextInput
                   label="Método de pago"
                   value={form.metodoPago || ''}
@@ -252,6 +255,8 @@ const FormularioRemesa = () => {
                     </List.Section>
                   </Card>
                 )}
+                </View>
+                
               </>
             )}
 
@@ -266,11 +271,11 @@ const FormularioRemesa = () => {
               label="Monto a enviar en USD"
               value={form.cobrarUSD}
               onChangeText={(value) => handleChange('cobrarUSD', value)}
-              style={styles.input}
+              
               dense={true}
               keyboardType="numeric"
             />
-            <HelperText type="info">
+            <HelperText type="error" style={styles.input}>
               Valor a entregar en Cuba: {Number.isFinite(Number(valorEntregar)) ? valorEntregar.toFixed(2) : 0} {form.monedaRecibirEnCuba}
             </HelperText>
 
@@ -346,7 +351,14 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   selectCard: {
-    marginBottom: 8,
+   flex: 1,
+   position: 'absolute',
+   top: 50,
+   width: "100%",
+   zIndex: 1,
+   elevation: 5,
+   borderBottomLeftRadius: 20,
+   borderBottomRightRadius: 20,
   },
 });
 
