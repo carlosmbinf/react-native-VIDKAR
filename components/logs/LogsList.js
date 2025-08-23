@@ -66,12 +66,10 @@ class MyApp extends React.Component {
     // const carouselRef = useRef(null);
   }
   render() {
-    const { user, ready, navigation } = this.props;
+    const { user, ready, navigation, myTodoTasks } = this.props;
     //  console.log("DATA:" + JSON.stringify(myTodoTasks));
 
     const from = this.state.page * this.state.itemsPerPage;
-    let myTodoTasks = Logs.find({}, { sort: { createdAt: -1 }, limit: 100 }).fetch()
-
     const to = Math.min((this.state.page + 1) * this.state.itemsPerPage, myTodoTasks.length);
 
 
@@ -103,17 +101,22 @@ class MyApp extends React.Component {
 
 
               {myTodoTasks.map((element, index) =>{
-                 let userusername = Meteor.users.findOne(element.userAfectado) && Meteor.users.findOne(element.userAfectado).username
-                 let adminusername = Meteor.users.findOne(element.userAdmin) && Meteor.users.findOne(element.userAdmin).username
-
+                 
                 return index >= from && index < to &&
                 <DataTable.Row onPress={() => {
-                    Alert.alert(`Datos:`, `Mensaje: ${element.message}\n\nFecha: ${moment(new Date(element.createdAt))
-                    .format('DD/MM/YYYY=>hh:mm:ss A')}\n\nAdmin: ${adminusername != null ? adminusername : "SERVER"}\n\nUsuario: ${userusername&&userusername}`)
+                    // Alert.alert(`Datos:`, `Mensaje: ${element.message}\n\nFecha: ${moment(new Date(element.createdAt))
+                    // .format('DD/MM/YYYY=>hh:mm:ss A')}\n\nAdmin: ${element.adminusername != null ? element.adminusername : "SERVER"}\n\nUsuario: ${element.userusername&&element.userusername}`)
+                Alert.alert(
+                  "Datos:",
+                  `Admin: ${element.adminusername != null ? element.adminusername : "SERVER"}\n\n` +
+                  `Usuario: ${element.userusername}\n\n` +
+                  `Fecha: ${moment(new Date(element.createdAt)).format('DD/MM/YYYY=>hh:mm:ss A')}\n\n` +
+                  `Mensaje: ${element.message}`
+                );
                 }}>
                   <DataTable.Cell>{element.type}</DataTable.Cell>
-                  <DataTable.Cell >{adminusername != null ? adminusername : "SERVER"}</DataTable.Cell>
-                  <DataTable.Cell>{userusername}</DataTable.Cell>
+                  <DataTable.Cell >{element.adminusername != null ? element.adminusername : "SERVER"}</DataTable.Cell>
+                  <DataTable.Cell>{element.userusername}</DataTable.Cell>
                   {/* <DataTable.Cell >{element.message}</DataTable.Cell> */}
                   <DataTable.Cell>{moment(new Date(element.createdAt))
                     .format('DD/MM=>hh:mm:ss A')}</DataTable.Cell>
@@ -151,14 +154,34 @@ class MyApp extends React.Component {
   }
 }
 const LogsList = withTracker(navigation => {
+  let logs = []
   //  console.log(user.user)
   const handle2 = Meteor.subscribe('logs', {}, { sort: { createdAt: -1 }, limit: 100 }).ready();
-  const myTodoTasks = null;
+  const usersSubs = Meteor.subscribe("user",{},{fields:{_id:1, username: 1}}).ready();
+
+
+  const myTodoTasks = Logs.find({}, { sort: { createdAt: -1 }, limit: 100 }).fetch();
+
+  handle2 && myTodoTasks.map(task => {
+    let userusername = usersSubs ? Meteor.users.findOne(task.userAfectado)?.username : "";
+    let adminusername = usersSubs ? Meteor.users.findOne(task.adminId)?.username : "";
+    
+    logs.push({
+      userusername: userusername ? userusername : "Desconocido",
+      adminusername: task.userAdmin != "SERVER" ? adminusername : "SERVER" ,
+      _id: task._id,
+      createdAt: task.createdAt,
+      type: task.type,
+      message: task.message,
+      userId: task.userAfectado,
+      adminId: task.userAdmin,
+    });
+  })
   //  console.log(myTodoTasks);
   return {
     navigation,
-    myTodoTasks,
-    ready: handle2,
+    myTodoTasks : logs,
+    ready: handle2 && usersSubs,
   };
 })(MyApp);
 
