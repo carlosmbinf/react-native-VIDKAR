@@ -106,7 +106,6 @@ class Loguin extends Component {
       iosClientId: '1043110071233-p7e56eu0sb203j32pf66b1blaql14f26.apps.googleusercontent.com', // opcional, si usas iOS
       scopes: ['profile', 'email'],
       forceCodeForRefreshToken: false,
-      enableOnBackInvokedCallback: true, // opcional, para manejar el botón de retroceso en Android
       // loginStyle: 'redirect',
       // Debe coincidir con tu intent-filter. En AndroidManifest ya existe <data android:scheme="vidkar" />
       // redirectUrl: 'vidkar://oauth',
