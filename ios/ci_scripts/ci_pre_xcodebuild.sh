@@ -1,35 +1,6 @@
-#!/bin/bash
-
-# Pre Xcode build script for React Native project
-echo "Starting pre-build setup for iOS..."
-
-# Exit on any error
+#!/bin/zsh
 set -e
-
-# Navigate to project root (parent of ios folder)
-cd "$(dirname "$0")/../.."
-
-# Install npm dependencies with force flag
-echo "Installing npm dependencies..."
-npm install -f
-
-# Navigate to iOS directory
-echo "Navigating to iOS directory..."
-cd ios
-
-# Install CocoaPods dependencies
-echo "Installing CocoaPods dependencies..."
-if command -v pod &> /dev/null; then
-	pod install
-else
-	echo "CocoaPods not found, installing..."
-	gem install cocoapods
-	pod install
-fi
-
-# Clean any previous builds
-echo "Cleaning previous builds..."
-rm -rf build/
-rm -rf DerivedData/
-
-echo "Pre-build setup completed successfully!"
+echo "Stage: Pre-Xcode build start..."
+# Aquí solo cosas puntuales, como exportar vars de entorno
+echo "Stage: Pre-Xcode build done."
+exit 0
