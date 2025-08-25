@@ -32,11 +32,11 @@ const DrawerOptionsAlls = (opt) => {
       url: "remesas",
       icon: "file-document-edit-outline"
     },
-    {
-      label: "Ventas (Stepper)",
-      url: "VentasStepper",
-      icon: "chart-timeline-variant"
-    },
+    // {
+    //   label: "Ventas (Stepper)",
+    //   url: "VentasStepper",
+    //   icon: "chart-timeline-variant"
+    // },
     
   ]
 

@@ -1,6 +1,6 @@
 import React from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
-import { DataTable, Text, Chip, Surface, Portal, Dialog, Button, IconButton } from 'react-native-paper';
+import { Alert, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { DataTable, Text, Chip, Surface, Portal, Dialog, Button, IconButton, Divider } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 import { VentasRechargeCollection } from '../collections/collections';
 
@@ -39,10 +39,10 @@ const getItemsCount = (venta) => (
 );
 
 const getItemsArray = (venta) =>
-  venta?.producto?.carritos ||
-  venta?.carrito ||
-  venta?.producto?.carrito ||
-  [];
+  (venta?.producto?.carritos ||
+    venta?.carrito ||
+    venta?.producto?.carrito ||
+    [])?.filter(carrito => carrito.type === 'REMESA') || [];
 
 // nuevo: derivar estado desde los carritos
 const deriveEstadoVenta = (venta) => {
@@ -69,10 +69,19 @@ const TableListRemesa = () => {
       : { fecha: 1.6, estado: 1.5, acc: 0.35 };
   }, [isWide]);
 
+  const isAdmin = Meteor.user()?.profile?.role === 'admin' || false;
+  const isAdminPrincipal = Meteor.user()?.username === 'carlosmbinf' || false;
+
+  const listIdSubordinados = useTracker(() => {
+    console.log("idAdmin", Meteor.userId());
+    isAdmin && Meteor.subscribe("user", { bloqueadoDesbloqueadoPor: Meteor.userId() }, { fields: { _id: 1, bloqueadoDesbloqueadoPor: 1 } })
+    return isAdmin ? Meteor.users.find({ bloqueadoDesbloqueadoPor: Meteor.userId() }).fetch()?.map((element) => element._id) : [];
+  }, [Meteor.userId()]);
+
   const { ventas, loading } = useTracker(() => {
-    const sub = Meteor.subscribe('ventasRecharge');
-    const isAdmin = Meteor.user()?.profile?.role === 'admin';
-    const query = isAdmin ? {} : { userId: Meteor.userId() };
+    const sub = Meteor.subscribe('ventasRecharge', { 'producto.carritos.type': 'REMESA' });
+    const query = isAdminPrincipal ? { 'producto.carritos.type': 'REMESA' } : (isAdmin ? { 'producto.carritos.type': 'REMESA', $or: [{ userId: Meteor.userId() }, { userId: { $in: listIdSubordinados } }] } : { 'producto.carritos.type': 'REMESA', userId: Meteor.userId() });
+    console.log("query", query);
     const ventas = VentasRechargeCollection.find(query, { sort: { createdAt: -1 } });
     return { ventas, loading: !sub.ready() };
   }, []);
@@ -92,8 +101,9 @@ const TableListRemesa = () => {
   const maxScrollHeight = Math.max(200, maxDialogHeight - headerActionsReserve);
 
   return (
-    <Surface style={{ height: '100%' }}>
-      <ScrollView style={styles.container}>
+    <ScrollView style={styles.container}>
+      <Surface style={{ height: '100%' }}>
+
         <Text variant="headlineMedium" style={styles.title}>Lista de Remesas</Text>
 
         <DataTable>
@@ -140,54 +150,168 @@ const TableListRemesa = () => {
             })
           )}
         </DataTable>
-      </ScrollView>
 
-      <Portal>
-        <Dialog visible={visible} onDismiss={closeDialog} style={{ maxHeight: maxDialogHeight }}>
-          <Dialog.Title>Detalle de remesa</Dialog.Title>
-          <Dialog.Content>
-            <ScrollView
-              style={{ maxHeight: maxScrollHeight }}
-              contentContainerStyle={{ paddingBottom: 8 }}
-              keyboardShouldPersistTaps="handled"
-            >
-              {ventaSel ? (
-                <>
-                  <Text>Fecha: {formatFecha(ventaSel.createdAt)}</Text>
-                  <Text>Método de pago: {ventaSel.metodoPago || '-'}</Text>
-                  <Text>Estado: {estadoLabel(deriveEstadoVenta(ventaSel))}</Text>
-                  <Text>Cobrado: {money(ventaSel.cobrado, ventaSel.monedaCobrado)}</Text>
-                  <Text>Enviado: {money(ventaSel.precioOficial, ventaSel.monedaPrecioOficial)}</Text>
-                  {!!ventaSel?.comentario && <Text>Comentario: {ventaSel.comentario}</Text>}
-                  <Text style={{ marginTop: 12, fontWeight: 'bold' }}>Ítems</Text>
-                  {getItemsArray(ventaSel).length === 0 ? (
-                    <Text>- Sin ítems -</Text>
-                  ) : (
-                    getItemsArray(ventaSel).map((it, i) => (
-                      <Surface key={i} style={styles.item}>
-                        <Text>Nombre: {it?.nombre || '-'}</Text>
-                        <Text>Entregar: {(it?.recibirEnCuba ?? 0)} {it?.monedaRecibirEnCuba || ''}</Text>
-                        {it?.tarjetaCUP ? <Text>Tarjeta CUP: {it.tarjetaCUP}</Text> : null}
-                        {it?.direccionCuba ? <Text>Dirección: {it.direccionCuba}</Text> : null}
-                        {typeof it?.entregado === 'boolean' && (
-                          <Text>Entregado: {it.entregado ? 'Sí' : 'No'}</Text>
-                        )}
-                        {it?.comentario ? <Text>Comentario: {it.comentario}</Text> : null}
+
+        <Portal>
+          <Dialog visible={visible} onDismiss={closeDialog} style={{ maxHeight: maxDialogHeight }}>
+            <Dialog.Content>
+              <ScrollView
+                style={{ maxHeight: maxScrollHeight }}
+                contentContainerStyle={{ paddingBottom: 8 }}
+                keyboardShouldPersistTaps="handled"
+                refreshControl={
+                  <RefreshControl
+                    refreshing={false}
+                    onRefresh={() => {
+                      // Lógica de refresh para remesas si es necesaria
+                    }}
+                  />
+                }
+              >
+                {ventaSel ? (
+                  <View style={{ borderRadius: 8 }}>
+
+                    <View style={{ padding: 0, borderRadius: 6, marginBottom: 0 }}>
+                      <Text style={{ marginBottom: 6 }}><Text style={{ fontWeight: 'bold' }}>ID de la Venta: </Text> {ventaSel._id}</Text>
+                      <Divider style={{ marginBottom: 6 }} />
+                      <Text style={{ marginBottom: 6 }}>📅 <Text style={{ fontWeight: 'bold' }}>Fecha:</Text> {formatFecha(ventaSel.createdAt)}</Text>
+                      <Text style={{ marginBottom: 6 }}>💳 <Text style={{ fontWeight: 'bold' }}>Método de pago:</Text> {ventaSel.metodoPago || '-'}</Text>
+                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                        <Text style={{ marginBottom: 6 }}>📊 <Text style={{ fontWeight: 'bold' }}>Estado:</Text></Text>
+                        <Chip
+                          compact
+                          style={{
+                            backgroundColor: chipColorEstado(deriveEstadoVenta(ventaSel)),
+                            marginLeft: 8
+                          }}
+                          textStyle={{ color: 'black', fontSize: 12 }}
+                        >
+                          {estadoLabel(deriveEstadoVenta(ventaSel))}
+                        </Chip>
+                      </View>
+                      <Text style={{ marginBottom: 6 }}>💰 <Text style={{ fontWeight: 'bold' }}>Cobrado:</Text> {money(ventaSel.cobrado, ventaSel.monedaCobrado)}</Text>
+                      <Text style={{ marginBottom: 6 }}>💸 <Text style={{ fontWeight: 'bold' }}>Enviado:</Text> {money(ventaSel.precioOficial, ventaSel.monedaPrecioOficial)}</Text>
+                    </View>
+                    <Divider />
+
+                    {/* Lista de Ítems */}
+                    <Text variant="titleMedium" style={{ marginBottom: 12, marginTop: 12 }}>
+                      💰 Cantidad de Remesas ({getItemsArray(ventaSel).length})
+                    </Text>
+
+                    {getItemsArray(ventaSel).length === 0 ? (
+                      <Surface style={{ padding: 16, borderRadius: 6, backgroundColor: '#fff3cd', borderColor: '#ffeaa7', borderWidth: 1 }}>
+                        <Text style={{ textAlign: 'center', color: '#856404' }}>⚠️ Sin remesas registradas</Text>
                       </Surface>
-                    ))
-                  )}
-                </>
-              ) : (
-                <Text>Sin datos</Text>
-              )}
-            </ScrollView>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={closeDialog}>Cerrar</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-    </Surface>
+                    ) : (
+                      getItemsArray(ventaSel).map((it, i) => {
+                        const isCompleted = it?.entregado === true;
+
+                        return (
+                          <Surface
+                            key={i}
+                            style={{
+                              maxWidth: 400,
+                              padding: 14,
+                              marginBottom: 12,
+                              borderRadius: 8,
+                              elevation: 2,
+                              borderLeftWidth: 4,
+                              borderLeftColor: isCompleted ? '#28a745' : '#ffc107'
+                            }}
+                          >
+                            {/* Header del item */}
+                            <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 8, color: '#343a40' }}>
+                              💰 Remesa #{i + 1}
+                            </Text>
+
+                            {/* Información básica */}
+                            <Text style={{ marginBottom: 4 }}>👤 <Text style={{ fontWeight: 'bold' }}>Beneficiario:</Text> {it?.nombre || 'Sin especificar'}</Text>
+                            <Text style={{ marginBottom: 4 }}>💳 <Text style={{ fontWeight: 'bold' }}>Tarjeta CUP:</Text> {it?.tarjetaCUP || 'Sin especificar'}</Text>
+                            <Text style={{ marginBottom: 6 }}>💰 <Text style={{ fontWeight: 'bold' }}>Monto a entregar:</Text> {money(it?.recibirEnCuba, it?.monedaRecibirEnCuba)}</Text>
+                            <Text style={{ marginBottom: 6 }}>💸 <Text style={{ fontWeight: 'bold' }}>Precio USD:</Text> {money(it?.precioDolar, "USD")}</Text>
+
+                            {/* Dirección si existe */}
+                            {it?.direccionCuba && (
+                              <Text style={{ marginBottom: 6 }}>📍 <Text style={{ fontWeight: 'bold' }}>Dirección:</Text> {it.direccionCuba}</Text>
+                            )}
+
+                            {/* Estado de entrega */}
+                            <Surface style={{
+                              padding: 8,
+                              borderRadius: 6,
+                              backgroundColor: isCompleted ? '#d4edda' : '#fff3cd',
+                              marginVertical: 8
+                            }}>
+                              <Text style={{
+                                fontWeight: 'bold',
+                                color: isCompleted ? '#155724' : '#856404',
+                                marginBottom: 4
+                              }}>
+                                {isCompleted ? '✅' : '⏳'} Estado de la Remesa
+                              </Text>
+                              <Text style={{ color: isCompleted ? '#155724' : '#856404' }}>
+                                Entregado: {isCompleted ? 'Sí' : 'No'}
+                              </Text>
+                            </Surface>
+
+                            {/* Método de pago del item */}
+                            {it?.metodoPago && (
+                              <Chip
+                                compact
+                                style={{
+                                  backgroundColor: '#17a2b8',
+                                  // alignSelf: 'flex-start',
+                                  marginVertical: 6
+                                }}
+                                textStyle={{ color: 'white', fontSize: 11 }}
+                                icon='credit-card'
+                              >
+                                {it.metodoPago}
+                              </Chip>
+                            )}
+
+                            {/* Comentario del item */}
+                            {it?.comentario && (
+                              <Surface style={{
+                                padding: 8,
+                                borderRadius: 6,
+                                backgroundColor: '#e9ecef',
+                                marginTop: 8
+                              }}>
+                                <Text style={{ fontStyle: 'italic', color: '#6c757d' }}>
+                                  💬 {it.comentario}
+                                </Text>
+                              </Surface>
+                            )}
+                          </Surface>
+                        );
+                      })
+                    )}
+                  </View>
+                ) : (
+                  <Surface style={{ padding: 20, borderRadius: 8, backgroundColor: '#f8d7da' }}>
+                    <Text style={{ textAlign: 'center', color: '#721c24' }}>❌ Sin datos disponibles</Text>
+                  </Surface>
+                )}
+                {!!ventaSel?.comentario && (
+                  <Text style={{ marginTop: 8, fontStyle: 'italic' }}>💬 {ventaSel.comentario}</Text>
+                )}
+              </ScrollView>
+            </Dialog.Content>
+            <Dialog.Actions style={{ paddingHorizontal: 16 }}>
+              <Button
+                mode="contained"
+                onPress={closeDialog}
+                style={{ borderRadius: 8 }}
+              >
+                Cerrar
+              </Button>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
+      </Surface>
+    </ScrollView>
   );
 };
 

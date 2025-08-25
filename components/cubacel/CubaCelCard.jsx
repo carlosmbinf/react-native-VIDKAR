@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ImageBackground, ScrollView, Alert } from 'react-native';
 import { Card, Title, Chip, IconButton, Portal, Dialog, Button, TextInput, Modal } from 'react-native-paper';
-import { useTheme, Text   } from 'react-native-paper';
-import { useWindowDimensions, Button as BotonReact} from 'react-native';
-import  Meteor  from '@meteorrn/core';
+import { useTheme, Text } from 'react-native-paper';
+import { useWindowDimensions, Button as BotonReact } from 'react-native';
+import Meteor from '@meteorrn/core';
 import { BlurView } from '@react-native-community/blur';
 import moment from 'moment';
 
@@ -17,7 +17,7 @@ const CubaCelCard = ({ product }) => {
         promotions,
         requiredCreditPartyIdentifierFields = []
     } = product;
-    
+
     const [open, setOpen] = useState(false);
     const [nombre, setNombre] = useState('');
     const [extraFields, setExtraFields] = useState({});
@@ -70,19 +70,19 @@ const CubaCelCard = ({ product }) => {
     return (
         <>
             <Card style={styles.card} onPress={() => setOpen(true)}>
-            
+
                 <ImageBackground
                     source={require('./Gemini_Generated_Image_rtg44brtg44brtg4.png')} // reemplaza por tu imagen local
                     resizeMode="cover"
                     imageStyle={{ borderRadius: 20 }}
                     style={styles.imageBackground}
                 >
-                <BlurView
+                    <BlurView
                         style={StyleSheet.absoluteFill}
-                        
-                        blurType= {isDarkMode ?"dark":"light"}
+
+                        blurType={isDarkMode ? "dark" : "light"}
                         autoUpdate={false}
-                        
+
                         reducedTransparencyFallbackColor="dark"
                     />
                     <View style={styles.cardContent}>
@@ -96,9 +96,9 @@ const CubaCelCard = ({ product }) => {
                         )}
                         <View style={styles.chips}>
                             {/* {hasPromo && <Chip maxFontSizeMultiplier={0} style={styles.promoChip}><Text style={{fontSize:10}}>Con promoción</Text></Chip>} */}
-                            {hasPromo &&<View style={styles.chipsComponentRed}><Text style={{fontSize:10}}>Con promoción</Text></View>}
-                            <View style={styles.chipsComponentGreen}><Text style={{fontSize:10}}>{`${precioUSD} USD`}</Text></View>
-                            
+                            {hasPromo && <View style={styles.chipsComponentRed}><Text style={{ fontSize: 10 }}>Con promoción</Text></View>}
+                            <View style={styles.chipsComponentGreen}><Text style={{ fontSize: 10 }}>{`${precioUSD} USD`}</Text></View>
+
                             {/* <Chip icon="currency-usd"  style={styles.priceChip}><Text style={{fontSize:10}}>{`${precioUSD} USD`}</Text></Chip> */}
                         </View>
                     </View>
@@ -107,7 +107,7 @@ const CubaCelCard = ({ product }) => {
 
             <Portal>
                 <Dialog visible={open} onDismiss={() => setOpen(false)} style={styles.dialog} >
-                
+
                     <View style={styles.dialogTitleContainer}>
                         <Text style={styles.dialogTitleText}>Recarga</Text>
                         <IconButton icon="close" onPress={() => setOpen(false)} />
@@ -115,25 +115,25 @@ const CubaCelCard = ({ product }) => {
                     <Dialog.ScrollArea>
                         <ScrollView contentContainerStyle={{ paddingHorizontal: 0 }}>
                             <View>
-                            <Text style={{ marginTop: 6, fontWeight:'bold' }}>{name}</Text>
+                                <Text style={{ marginTop: 6, fontWeight: 'bold' }}>{name}</Text>
                                 {description ? (
-                                    <Text style={{ paddingLeft:10 , marginTop: 6, fontWeight:'bold' }}>{description}</Text>
+                                    <Text style={{ paddingLeft: 10, marginTop: 6, fontWeight: 'bold' }}>{description}</Text>
                                 ) : null}
 
                                 {hasPromo && promotions?.length > 0 && (
                                     <View >
-                                        
+
                                         {promotions.map((promo, index) => (
                                             <View style={{ marginTop: 10 }}>
                                                 <Text style={{ fontWeight: 'bold', color: '#f50057' }}>{`Promoción #${index + 1}`}</Text>
                                                 <Text style={{ fontWeight: 'bold', color: '#ccc' }}>{promo.title}</Text>
                                                 <Text style={{ fontWeight: 'bold', color: '#ccc' }}>Desde el {moment(promo?.startDate).format("dddd DD MMMM")} hasta el {moment(promo?.endDate).format("dddd DD MMMM")}</Text>
                                                 <Text style={{ fontWeight: 'bold', color: '#ccc' }}>Descripción: </Text>
-                                                <Text style={{  paddingLeft:15 }} key={index} >
+                                                <Text style={{ paddingLeft: 15 }} key={index} >
                                                     {promo.terms}
                                                 </Text>
                                             </View>
-                                            
+
                                         ))}
                                     </View>
                                 )}
@@ -142,50 +142,50 @@ const CubaCelCard = ({ product }) => {
 
                         </ScrollView>
                     </Dialog.ScrollArea>
-                    
-
-                    <Dialog.Actions style={{maxHeight: "100%"}}>
-                    
-                    <View style={{ flexDirection: 'column', width: '100%'}}>
-                    <ScrollView contentContainerStyle={{ paddingHorizontal: 0 }}>
-                     
-                            <TextInput
-                                label="Nombre de la persona"
-                                value={nombre}
-                                onChangeText={setNombre}
-                                mode="outlined"
-                                autoComplete='name'
-                                style={styles.input}
-                                dense
-                            />
 
 
-                            {[
-                                'requiredCreditPartyIdentifierFields',
-                                'requiredBeneficiaryFields',
-                                'requiredAdditionalIdentifierFields',
-                                'requiredDebitPartyIdentifierFields',
-                                'requiredSenderFields',
-                                'requiredStatementIdentifierFields'
-                            ].map((group) => {
-                                const fields = product[group];
-                                if (!fields) return null;
-                                return fields.flat().map((field, index) => (
-                                    <TextInput
-                                        key={`${group}-${field}-${index}`}
-                                        label={field.replace(/_/g, ' ').toUpperCase()}
-                                        value={extraFields[field] || ''}
-                                        onChangeText={(value) => handleExtraFieldChange(field, value)}
-                                        mode="outlined"
-                                        keyboardType={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? 'number-pad' : 'default'}// 
-                                        style={styles.input}
-                                        dense
-                                        maxLength={8} // Limitar a 8 caracteres
-                                        left={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? <TextInput.Affix text="+53" /> : null}
-                                        inputMode={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? 'tel' : 'default'} // Asegura que el teclado sea numérico
-                                    />
-                                ));
-                            })}
+                    <Dialog.Actions style={{ maxHeight: "100%" }}>
+
+                        <View style={{ flexDirection: 'column', width: '100%' }}>
+                            <ScrollView contentContainerStyle={{ paddingHorizontal: 0 }}>
+
+                                <TextInput
+                                    label="Nombre de la persona"
+                                    value={nombre}
+                                    onChangeText={setNombre}
+                                    mode="outlined"
+                                    autoComplete='name'
+                                    style={styles.input}
+                                    dense
+                                />
+
+
+                                {[
+                                    'requiredCreditPartyIdentifierFields',
+                                    'requiredBeneficiaryFields',
+                                    'requiredAdditionalIdentifierFields',
+                                    'requiredDebitPartyIdentifierFields',
+                                    'requiredSenderFields',
+                                    'requiredStatementIdentifierFields'
+                                ].map((group) => {
+                                    const fields = product[group];
+                                    if (!fields) return null;
+                                    return fields.flat().map((field, index) => (
+                                        <TextInput
+                                            key={`${group}-${field}-${index}`}
+                                            label={field.replace(/_/g, ' ').toUpperCase()}
+                                            value={extraFields[field] || ''}
+                                            onChangeText={(value) => handleExtraFieldChange(field, value)}
+                                            mode="outlined"
+                                            keyboardType={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? 'number-pad' : 'default'}// 
+                                            style={styles.input}
+                                            dense
+                                            maxLength={8} // Limitar a 8 caracteres
+                                            left={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? <TextInput.Affix text="+53" /> : null}
+                                            inputMode={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? 'tel' : 'default'} // Asegura que el teclado sea numérico
+                                        />
+                                    ));
+                                })}
                             </ScrollView>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
                                 <Button onPress={() => setOpen(false)} mode="outlined" style={styles.botonesAccion}>
@@ -197,8 +197,8 @@ const CubaCelCard = ({ product }) => {
                             </View>
 
                         </View>
-                        
-                        
+
+
                     </Dialog.Actions>
                 </Dialog>
             </Portal>
@@ -207,9 +207,9 @@ const CubaCelCard = ({ product }) => {
 };
 
 const styles = StyleSheet.create({
-    dialog: { 
-        maxHeight: '95%', 
-        borderRadius: 20, 
+    dialog: {
+        maxHeight: '95%',
+        borderRadius: 20,
         padding: 2
     },
     botonesAccion: {
@@ -224,8 +224,8 @@ const styles = StyleSheet.create({
         width: 280, // 👈 AÑADIDO para que todos tengan el mismo ancho
     },
     imageBackground: {
-      padding: 12,
-      borderRadius: 20
+        padding: 12,
+        borderRadius: 20
     },
     cardContent: {
         justifyContent: 'space-between',
@@ -234,8 +234,8 @@ const styles = StyleSheet.create({
         overflow: 'hidden' // 👈 AÑADIDO para evitar que se desborde el contenido
     },
     row: {
-      flexDirection: 'row',
-      alignItems: 'center'
+        flexDirection: 'row',
+        alignItems: 'center'
     },
     title: {
         // color: 'white',
@@ -246,32 +246,32 @@ const styles = StyleSheet.create({
         maxWidth: 200 // Ajustable según el diseño
     },
     beneficios: {
-    //   color: '#ccc',
-      marginTop: 1,
-      fontSize: 14
+        //   color: '#ccc',
+        marginTop: 1,
+        fontSize: 14
     },
     operador: {
-    //   color: '#ccc',
-      marginTop: 4,
-      fontSize: 12
+        //   color: '#ccc',
+        marginTop: 4,
+        fontSize: 12
     },
     chips: {
-      flexDirection: 'row',
-      gap: 6,
-      marginTop: 8,
-      justifyContent: "flex-end",
-      
+        flexDirection: 'row',
+        gap: 6,
+        marginTop: 8,
+        justifyContent: "flex-end",
+
     },
     promoChip: {
         backgroundColor: '#f50057',
         marginRight: 6,
         fontWeight: 'bold' // 👈 negrita
     },
-    chipsComponentRed:{
-        backgroundColor:'red',
+    chipsComponentRed: {
+        backgroundColor: 'red',
         alignContent: "center",
         justifyContent: "center",
-        
+
         paddingBottom: 4,
         paddingTop: 4,
         paddingLeft: 8,
@@ -279,11 +279,11 @@ const styles = StyleSheet.create({
         borderRadius: 25,
 
     },
-    chipsComponentGreen:{
-        backgroundColor:'#4caf50',
+    chipsComponentGreen: {
+        backgroundColor: '#4caf50',
         alignContent: "center",
         justifyContent: "center",
-        
+
         paddingBottom: 4,
         paddingTop: 4,
         paddingLeft: 8,
@@ -292,12 +292,12 @@ const styles = StyleSheet.create({
 
     },
     priceChip: {
-      backgroundColor: '#4caf50',
-      fontWeight: 'bold' // 👈 negrita
-    //   color: '#fff'
+        backgroundColor: '#4caf50',
+        fontWeight: 'bold' // 👈 negrita
+        //   color: '#fff'
     },
     input: {
-      marginBottom: 10
+        marginBottom: 10
     },
     dialogTitleContainer: {
         flexDirection: 'row',
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
-  });
-  
+});
+
 
 export default CubaCelCard;

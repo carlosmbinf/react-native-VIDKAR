@@ -40,9 +40,9 @@ const getItemsCount = (venta) => (
 
 const getItemsArray = (venta) =>
   (venta?.producto?.carritos ||
-  venta?.carrito ||
-  venta?.producto?.carrito ||
-  [])?.filter(carrito => carrito.type === 'RECARGA') || [];
+    venta?.carrito ||
+    venta?.producto?.carrito ||
+    [])?.filter(carrito => carrito.type === 'RECARGA') || [];
 
 
 const TableRecargas = () => {
@@ -67,8 +67,8 @@ const TableRecargas = () => {
 
   const { ventas, loading } = useTracker(() => {
 
-    const sub = Meteor.subscribe('ventasRecharge',{'producto.carritos.type': 'RECARGA'});
-    const query = isAdminPrincipal ? {} : (isAdmin ? { $or: [ { userId: Meteor.userId() }, { userId: { $in: listIdSubordinados } } ] } : { userId: Meteor.userId() });
+    const sub = Meteor.subscribe('ventasRecharge', { 'producto.carritos.type': 'RECARGA' });
+    const query = isAdminPrincipal ? { 'producto.carritos.type': 'RECARGA' } : (isAdmin ? { 'producto.carritos.type': 'RECARGA', $or: [{ userId: Meteor.userId() }, { userId: { $in: listIdSubordinados } }] } : { 'producto.carritos.type': 'RECARGA', userId: Meteor.userId() });
     console.log("query", query);
     const ventas = VentasRechargeCollection.find(query, { sort: { createdAt: -1 } });
     return { ventas, loading: !sub.ready() };
@@ -95,7 +95,7 @@ const TableRecargas = () => {
   }, [ventasArr]);
 
   // nuevo: tracker de transacciones por externalId de carritos
-  const {transacciones, cargandoTransacciones} = useTracker(() => {
+  const { transacciones, cargandoTransacciones } = useTracker(() => {
     if (!carritoIds || carritoIds.length === 0) return { loading: false };
     const sub = Meteor.subscribe('transacciones', { externalId: { $in: carritoIds } });
     // mantener reactividad
@@ -103,13 +103,13 @@ const TableRecargas = () => {
     return { transacciones, cargandoTransacciones: !sub.ready() };
   }, [JSON.stringify(carritoIds)]);
 
-  const transaccion =  (idCarrito) => {
+  const transaccion = (idCarrito) => {
     console.log("idCarrito", idCarrito);
-    let trans =  transacciones.find(t => t.externalId === idCarrito);
+    let trans = transacciones.find(t => t.externalId === idCarrito);
     console.log("trans", trans);
-  return trans
+    return trans
   }
-      
+
   const [visible, setVisible] = React.useState(false);
   const [ventaSel, setVentaSel] = React.useState(null);
 
@@ -125,21 +125,22 @@ const TableRecargas = () => {
   const maxScrollHeight = Math.max(200, maxDialogHeight - headerActionsReserve);
 
   // nuevo: derivar estado desde los carritos
-const deriveEstadoVenta = (venta) => {
-  const carritos = getItemsArray(venta) || [];
-  if (carritos.length === 0) return 'PENDIENTE_ENTREGA';
-  let t = transacciones?.filter(t => carritos?.map(car => car._id)?.includes(t.externalId));
-  const allCompleted = t.length > 0 ?t.every(c => c?.status?.message  === 'COMPLETED') : false;
-  console.log("venta", venta._id, "allCompleted", allCompleted, "transacciones", t?.filter(t => carritos?.map(car => car._id)?.includes(t.externalId)));
-  if (allCompleted) return 'ENTREGADO';
+  const deriveEstadoVenta = (venta) => {
+    const carritos = getItemsArray(venta) || [];
+    if (carritos.length === 0) return 'PENDIENTE_ENTREGA';
+    let t = transacciones?.filter(t => carritos?.map(car => car._id)?.includes(t.externalId));
+    const allCompleted = t.length > 0 ? t.every(c => c?.status?.message === 'COMPLETED') : false;
+    console.log("venta", venta._id, "allCompleted", allCompleted, "transacciones", t?.filter(t => carritos?.map(car => car._id)?.includes(t.externalId)));
+    if (allCompleted) return 'ENTREGADO';
 
-  return 'PENDIENTE_ENTREGA';
-};
+    return 'PENDIENTE_ENTREGA';
+  };
 
 
   return (
-    <Surface style={{ height: '100%' }}>
-      <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} scrollEnabled>
+      <Surface style={{ height: '100%' }}>
+
         <Text variant="headlineMedium" style={styles.title}>Lista de Recargas</Text>
 
         <DataTable>
@@ -186,182 +187,183 @@ const deriveEstadoVenta = (venta) => {
             })
           )}
         </DataTable>
-      </ScrollView>
 
-      <Portal>
-        <Dialog visible={visible} onDismiss={closeDialog} style={{ maxHeight: maxDialogHeight }}>
-          <Dialog.Content>
-            <ScrollView
-              style={{ maxHeight: maxScrollHeight}}
-              contentContainerStyle={{ paddingBottom: 8 }}
-              keyboardShouldPersistTaps="handled"
-              refreshControl={
-                          <RefreshControl
-                            refreshing={false}
-                            onRefresh={() => {
-                              ventaSel?.producto?.carritos?.forEach(c => {
-                                let t = transaccion(c._id)
-                                console.log("t",t)
-                                t && t?.status?.message != "COMPLETED" ? Meteor.call("dtshop.getStatusTransaccionById", t.id, (error, result) => {
-                                if(error){
-                                  console.log(error);
-                                }else{
-                                  console.log("result", result);
-                                }    
-                              }): Alert.alert("Transacción ya completada","La transacción ya se encuentra completada, no es posible actualizar su estado")
-                                } );
-                              
-                            }}
-                          />
-                        }
-            >
-              {ventaSel ? (
-                <View style={{ borderRadius: 8}}>
-                  
-                  
-                  <View style={{ padding: 0, borderRadius: 6, marginBottom: 0 }}>
-                    <Text style={{ marginBottom: 6 }}><Text style={{ fontWeight: 'bold' }}>ID de la Venta: </Text> {ventaSel._id}</Text>
-                    <Divider style={{marginBottom: 6}} /> 
-                    <Text style={{ marginBottom: 6 }}>📅 <Text style={{ fontWeight: 'bold' }}>Fecha:</Text> {formatFecha(ventaSel.createdAt)}</Text>
-                    <Text style={{ marginBottom: 6 }}>💳 <Text style={{ fontWeight: 'bold' }}>Método de pago:</Text> {ventaSel.metodoPago || '-'}</Text>
-                    <View style={{flex:1, flexDirection: 'row', alignItems: 'center', marginBottom: 6}}>
-                      <Text style={{ marginBottom: 6 }}>📊 <Text style={{ fontWeight: 'bold' }}>Estado:</Text></Text>
-                      <Chip 
-                        compact 
-                        style={{ 
-                          backgroundColor: chipColorEstado(deriveEstadoVenta(ventaSel)), 
-                          marginLeft: 8 
-                        }} 
-                        textStyle={{ color: 'black', fontSize: 12 }}
-                      >
-                        {estadoLabel(deriveEstadoVenta(ventaSel))}
-                      </Chip>
-                    </View>
-                    
-                    {/* <Text style={{ marginBottom: 6 }}>💸 <Text style={{ fontWeight: 'bold' }}>Enviado:</Text> {money(ventaSel.precioOficial, ventaSel.monedaPrecioOficial)}</Text> */}
-                    
-                  </View>
-                  <Divider/>
 
-                  {/* Lista de Ítems */}
-                  <Text variant="titleMedium" style={{ marginBottom: 12, marginTop:12 }}>
-                    📱 Cantidad de Recargas ({getItemsArray(ventaSel).length})
-                  </Text>
-                  
-                  {getItemsArray(ventaSel).length === 0 ? (
-                    <Surface style={{ padding: 16, borderRadius: 6, backgroundColor: '#fff3cd', borderColor: '#ffeaa7', borderWidth: 1 }}>
-                      <Text style={{ textAlign: 'center', color: '#856404' }}>⚠️ Sin recargas registradas</Text>
-                    </Surface>
-                  ) : (
-                    getItemsArray(ventaSel).map((it, i) => {
-                      const transaccionItem = transacciones?.find(t => t.externalId === it._id);
-                      const isCompleted = transaccionItem?.status?.message === "COMPLETED";
-                      
-                      return (
-                        <Surface 
-                          key={i} 
+        <Portal>
+          <Dialog visible={visible} onDismiss={closeDialog} style={{ maxHeight: maxDialogHeight }}>
+            <Dialog.Content>
+              <ScrollView
+                style={{ maxHeight: maxScrollHeight }}
+                contentContainerStyle={{ paddingBottom: 8 }}
+                keyboardShouldPersistTaps="handled"
+                refreshControl={
+                  <RefreshControl
+                    refreshing={false}
+                    onRefresh={() => {
+                      ventaSel?.producto?.carritos?.forEach(c => {
+                        let t = transaccion(c._id)
+                        console.log("t", t)
+                        t && t?.status?.message != "COMPLETED" ? Meteor.call("dtshop.getStatusTransaccionById", t.id, (error, result) => {
+                          if (error) {
+                            console.log(error);
+                          } else {
+                            console.log("result", result);
+                          }
+                        }) : Alert.alert("Transacción ya completada", "La transacción ya se encuentra completada, no es posible actualizar su estado")
+                      });
+
+                    }}
+                  />
+                }
+              >
+                {ventaSel ? (
+                  <View style={{ borderRadius: 8 }}>
+
+
+                    <View style={{ padding: 0, borderRadius: 6, marginBottom: 0 }}>
+                      <Text style={{ marginBottom: 6 }}><Text style={{ fontWeight: 'bold' }}>ID de la Venta: </Text> {ventaSel._id}</Text>
+                      <Divider style={{ marginBottom: 6 }} />
+                      <Text style={{ marginBottom: 6 }}>📅 <Text style={{ fontWeight: 'bold' }}>Fecha:</Text> {formatFecha(ventaSel.createdAt)}</Text>
+                      <Text style={{ marginBottom: 6 }}>💳 <Text style={{ fontWeight: 'bold' }}>Método de pago:</Text> {ventaSel.metodoPago || '-'}</Text>
+                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                        <Text style={{ marginBottom: 6 }}>📊 <Text style={{ fontWeight: 'bold' }}>Estado:</Text></Text>
+                        <Chip
+                          compact
                           style={{
-                            maxWidth: 400,
-                            padding: 14,
-                            marginBottom: 12,
-                            borderRadius: 8,
-                            elevation: 2,
-                            borderLeftWidth: 4,
-                            borderLeftColor: isCompleted ? '#28a745' : '#ffc107'
+                            backgroundColor: chipColorEstado(deriveEstadoVenta(ventaSel)),
+                            marginLeft: 8
                           }}
+                          textStyle={{ color: 'black', fontSize: 12 }}
                         >
-                          {/* Header del item */}
-                          <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 8, color: '#343a40' }}>
-                            📱 Recarga #{i + 1}
-                          </Text>
-                          
-                          {/* Información básica */}
-                          <Text style={{ marginBottom: 6 }}><Text style={{ fontWeight: 'bold' }}>ID de la Recarga: </Text> {transaccionItem?._id || "N/A"}</Text>
-                          <Text style={{ marginBottom: 4 }}>👤 <Text style={{ fontWeight: 'bold' }}>Cliente:</Text> {it?.nombre || 'Sin especificar'}</Text>
-                          <Text style={{ marginBottom: 4 }}>📞 <Text style={{ fontWeight: 'bold' }}>Móvil:</Text> {it?.movilARecargar || 'Sin especificar'}</Text>
-                          <Text style={{ marginBottom: 6 }}>💰 <Text style={{ fontWeight: 'bold' }}>Precio:</Text> {money(it.cobrarUSD, "USD")}</Text>
-                          
-                          {/* Estado de entrega */}
-                          <Surface style={{ 
-                            padding: 8, 
-                            borderRadius: 6, 
-                            backgroundColor: isCompleted ? '#d4edda' : '#fff3cd',
-                            marginVertical: 8
-                          }}>
-                            <Text style={{ 
-                              fontWeight: 'bold', 
-                              color: isCompleted ? '#155724' : '#856404',
-                              marginBottom: 4
-                            }}>
-                              {isCompleted ? '✅' : '⏳'} Estado de la Recarga
-                            </Text>
-                            <Text style={{ color: isCompleted ? '#155724' : '#856404' }}>
-                              Entregado: {isCompleted ? 'Sí' : 'No'}
-                            </Text>
-                            <Text style={{ color: isCompleted ? '#155724' : '#856404' }}>
-                              Estado: {transaccionItem?.status?.message || 'Pendiente'}
-                            </Text>
-                          </Surface>
+                          {estadoLabel(deriveEstadoVenta(ventaSel))}
+                        </Chip>
+                      </View>
 
-                          {/* Promociones */}
-                          {it?.producto?.promotions?.length && <Chip 
-                            compact
+                      {/* <Text style={{ marginBottom: 6 }}>💸 <Text style={{ fontWeight: 'bold' }}>Enviado:</Text> {money(ventaSel.precioOficial, ventaSel.monedaPrecioOficial)}</Text> */}
+
+                    </View>
+                    <Divider />
+
+                    {/* Lista de Ítems */}
+                    <Text variant="titleMedium" style={{ marginBottom: 12, marginTop: 12 }}>
+                      📱 Cantidad de Recargas ({getItemsArray(ventaSel).length})
+                    </Text>
+
+                    {getItemsArray(ventaSel).length === 0 ? (
+                      <Surface style={{ padding: 16, borderRadius: 6, backgroundColor: '#fff3cd', borderColor: '#ffeaa7', borderWidth: 1 }}>
+                        <Text style={{ textAlign: 'center', color: '#856404' }}>⚠️ Sin recargas registradas</Text>
+                      </Surface>
+                    ) : (
+                      getItemsArray(ventaSel).map((it, i) => {
+                        const transaccionItem = transacciones?.find(t => t.externalId === it._id);
+                        const isCompleted = transaccionItem?.status?.message === "COMPLETED";
+
+                        return (
+                          <Surface
+                            key={i}
                             style={{
-                              backgroundColor: it?.producto?.promotions?.length ? '#28a745' : '#dc3545',
-                              // alignSelf: 'flex-start',
-                              // marginVertical: 6
+                              maxWidth: 400,
+                              padding: 14,
+                              marginBottom: 12,
+                              borderRadius: 8,
+                              elevation: 2,
+                              borderLeftWidth: 4,
+                              borderLeftColor: isCompleted ? '#28a745' : '#ffc107'
                             }}
-                            textStyle={{ color: 'white', fontSize: 11 }}
-                            icon={it?.producto?.promotions?.length ? 'gift' : 'close-circle'}
                           >
-                            {it?.producto?.promotions?.length ? 'CON PROMOCIÓN' : 'SIN PROMOCIÓN'}
-                          </Chip>}
-                          
-                          {/* Comentario del item */}
-                          {it?.comentario && (
-                            <Surface style={{ 
-                              padding: 8, 
-                              borderRadius: 6, 
-                              backgroundColor: '#e9ecef',
-                              marginTop: 8
+                            {/* Header del item */}
+                            <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 8, color: '#343a40' }}>
+                              📱 Recarga #{i + 1}
+                            </Text>
+
+                            {/* Información básica */}
+                            <Text style={{ marginBottom: 6 }}><Text style={{ fontWeight: 'bold' }}>ID de la Recarga: </Text> {transaccionItem?._id || "N/A"}</Text>
+                            <Text style={{ marginBottom: 4 }}>👤 <Text style={{ fontWeight: 'bold' }}>Cliente:</Text> {it?.nombre || 'Sin especificar'}</Text>
+                            <Text style={{ marginBottom: 4 }}>📞 <Text style={{ fontWeight: 'bold' }}>Móvil:</Text> {it?.movilARecargar || 'Sin especificar'}</Text>
+                            <Text style={{ marginBottom: 6 }}>💰 <Text style={{ fontWeight: 'bold' }}>Precio:</Text> {money(it.cobrarUSD, "USD")}</Text>
+
+                            {/* Estado de entrega */}
+                            <Surface style={{
+                              padding: 8,
+                              borderRadius: 6,
+                              backgroundColor: isCompleted ? '#d4edda' : '#fff3cd',
+                              marginVertical: 8
                             }}>
-                              <Text style={{ fontStyle: 'italic', color: '#6c757d' }}>
-                                💬 {it.comentario}
+                              <Text style={{
+                                fontWeight: 'bold',
+                                color: isCompleted ? '#155724' : '#856404',
+                                marginBottom: 4
+                              }}>
+                                {isCompleted ? '✅' : '⏳'} Estado de la Recarga
+                              </Text>
+                              <Text style={{ color: isCompleted ? '#155724' : '#856404' }}>
+                                Entregado: {isCompleted ? 'Sí' : 'No'}
+                              </Text>
+                              <Text style={{ color: isCompleted ? '#155724' : '#856404' }}>
+                                Estado: {transaccionItem?.status?.message || 'Pendiente'}
                               </Text>
                             </Surface>
-                          )}
-                        </Surface>
-                      );
-                    })
-                  )}
-                </View>
-              ) : (
-                <Surface style={{ padding: 20, borderRadius: 8, backgroundColor: '#f8d7da' }}>
-                  <Text style={{ textAlign: 'center', color: '#721c24' }}>❌ Sin datos disponibles</Text>
-                </Surface>
-              )}
-              {!!ventaSel?.comentario && (
-                      <Text style={{ marginTop: 8, fontStyle: 'italic' }}>💬 <Text style={{ fontWeight: 'bold' }}></Text>{ventaSel.comentario}</Text>
+
+                            {/* Promociones */}
+                            {it?.producto?.promotions?.length && <Chip
+                              compact
+                              style={{
+                                backgroundColor: it?.producto?.promotions?.length ? '#28a745' : '#dc3545',
+                                // alignSelf: 'flex-start',
+                                // marginVertical: 6
+                              }}
+                              textStyle={{ color: 'white', fontSize: 11 }}
+                              icon={it?.producto?.promotions?.length ? 'gift' : 'close-circle'}
+                            >
+                              {it?.producto?.promotions?.length ? 'CON PROMOCIÓN' : 'SIN PROMOCIÓN'}
+                            </Chip>}
+
+                            {/* Comentario del item */}
+                            {it?.comentario && (
+                              <Surface style={{
+                                padding: 8,
+                                borderRadius: 6,
+                                backgroundColor: '#e9ecef',
+                                marginTop: 8
+                              }}>
+                                <Text style={{ fontStyle: 'italic', color: '#6c757d' }}>
+                                  💬 {it.comentario}
+                                </Text>
+                              </Surface>
+                            )}
+                          </Surface>
+                        );
+                      })
                     )}
-            </ScrollView>
-          </Dialog.Content>
-          <Dialog.Actions style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
-            <Button 
-              mode="contained" 
-              onPress={closeDialog}
-              style={{ borderRadius: 8 }}
-            >
-              Cerrar
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-    </Surface>
+                  </View>
+                ) : (
+                  <Surface style={{ padding: 20, borderRadius: 8, backgroundColor: '#f8d7da' }}>
+                    <Text style={{ textAlign: 'center', color: '#721c24' }}>❌ Sin datos disponibles</Text>
+                  </Surface>
+                )}
+                {!!ventaSel?.comentario && (
+                  <Text style={{ marginTop: 8, fontStyle: 'italic' }}>💬 <Text style={{ fontWeight: 'bold' }}></Text>{ventaSel.comentario}</Text>
+                )}
+              </ScrollView>
+            </Dialog.Content>
+            <Dialog.Actions style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+              <Button
+                mode="contained"
+                onPress={closeDialog}
+                style={{ borderRadius: 8 }}
+              >
+                Cerrar
+              </Button>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
+      </Surface>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
+  container: { flex: 1, },
   title: { marginBottom: 16, textAlign: 'center' },
   item: { padding: 8, marginTop: 8 }
 });
