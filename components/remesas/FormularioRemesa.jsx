@@ -165,9 +165,9 @@ const FormularioRemesa = () => {
   const valorEntregar = Number(form.cobrarUSD || 0) * Number(precioCUP - descuento);
 
   return (
+    // <ScrollView style={styles.container}>
     <View style={styles.container}>
-    <ScrollView>
-    <Card style={{ margin: 8, borderRadius: 20, width:350 }} mode="outlined">
+      <Card style={{ margin: 16, borderRadius: 20, maxWidth:400}} elevation={5} mode="outlined">
         <Card.Title
           title={open ? 'Formulario de Remesa' : 'Agregar nueva remesa'}
           right={(props) => (
@@ -190,73 +190,73 @@ const FormularioRemesa = () => {
 
             {/* Select Moneda a cobrar en Cuba (inline) */}
             <View>
-            <TextInput
-              label="Moneda a cobrar en Cuba"
-              value={form.monedaRecibirEnCuba || ''}
-              style={styles.input}
-              dense={true}
-              editable={false}
-              right={
-                <TextInput.Icon
-                  icon={showMonedas ? 'chevron-up' : 'chevron-down'}
-                  onPress={() => setShowMonedas((v) => !v)}
-                />
-              }
-            />
-            {showMonedas && (
-              <Card mode="outlined" style={styles.selectCard}>
-                <List.Section>
-                  {(monedas || []).map((m) => (
-                    <List.Item
-                      key={String(m)}
-                      title={String(m)}
-                      onPress={() => {
-                        handleChange('monedaRecibirEnCuba', m);
-                        setShowMonedas(false);
-                      }}
-                    />
-                  ))}
-                </List.Section>
-              </Card>
-            )}
+              <TextInput
+                label="Moneda a cobrar en Cuba"
+                value={form.monedaRecibirEnCuba || ''}
+                style={styles.input}
+                dense={true}
+                editable={false}
+                right={
+                  <TextInput.Icon
+                    icon={showMonedas ? 'chevron-up' : 'chevron-down'}
+                    onPress={() => setShowMonedas((v) => !v)}
+                  />
+                }
+              />
+              {showMonedas && (
+                <Card mode="outlined" style={styles.selectCard}>
+                  <List.Section>
+                    {(monedas || []).map((m) => (
+                      <List.Item
+                        key={String(m)}
+                        title={String(m)}
+                        onPress={() => {
+                          handleChange('monedaRecibirEnCuba', m);
+                          setShowMonedas(false);
+                        }}
+                      />
+                    ))}
+                  </List.Section>
+                </Card>
+              )}
             </View>
-            
+
             {/* Método de pago cuando es CUP (inline) */}
             {form.monedaRecibirEnCuba === 'CUP' && (
               <>
                 {/* <Divider style={styles.divider} /> */}
                 <View>
-                <TextInput
-                  label="Método de pago"
-                  value={form.metodoPago || ''}
-                  style={styles.input}
-                  dense={true}
-                  editable={false}
-                  right={
-                    <TextInput.Icon
-                      icon={showMetodos ? 'chevron-up' : 'chevron-down'}
-                      onPress={() => setShowMetodos((v) => !v)}
-                    />
-                  }
-                />
-                {showMetodos && (
-                  <Card mode="outlined" style={styles.selectCard}>
-                    <List.Section>
-                      {(metodosPagoCUP || []).map((m) => (
-                        <List.Item
-                          key={String(m)}
-                          title={String(m)}
-                          onPress={() => {
-                            handleChange('metodoPago', m);
-                            setShowMetodos(false);
-                          }}
-                        />
-                      ))}
-                    </List.Section>
-                  </Card>
-                )}
+                  <TextInput
+                    label="Método de pago"
+                    value={form.metodoPago || ''}
+                    style={styles.input}
+                    dense={true}
+                    editable={false}
+                    right={
+                      <TextInput.Icon
+                        icon={showMetodos ? 'chevron-up' : 'chevron-down'}
+                        onPress={() => setShowMetodos((v) => !v)}
+                      />
+                    }
+                  />
+                  {showMetodos && (
+                    <Card mode="outlined" style={styles.selectCard}>
+                      <List.Section>
+                        {(metodosPagoCUP || []).map((m) => (
+                          <List.Item
+                            key={String(m)}
+                            title={String(m)}
+                            onPress={() => {
+                              handleChange('metodoPago', m);
+                              setShowMetodos(false);
+                            }}
+                          />
+                        ))}
+                      </List.Section>
+                    </Card>
+                  )}
                 </View>
-                
+
               </>
             )}
 
@@ -271,7 +271,7 @@ const FormularioRemesa = () => {
               label="Monto a enviar en USD"
               value={form.cobrarUSD}
               onChangeText={(value) => handleChange('cobrarUSD', value)}
-              
+
               dense={true}
               keyboardType="numeric"
             />
@@ -315,22 +315,23 @@ const FormularioRemesa = () => {
           </Card.Content>
         )}
       </Card>
-    </ScrollView>
-      
     </View>
-    
+      
+    // </ScrollView>
+
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    justifyContent: "center",
-    alignContent: "center",
-    alignItems: "center", // Centra horizontalmente el contenido
+    // flex: 1,
+    // alignItems: 'center',       // centrar horizontalmente
+    justifyContent: 'center',   // centrar verticalmente
     padding: 16,
-    
+    // backgroundColor: "#f5f5f5",
   },
   input: {
+    zIndex: 0,
     marginBottom: 16,
   },
   label: {
@@ -351,14 +352,14 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   selectCard: {
-   flex: 1,
-   position: 'absolute',
-   top: 50,
-   width: "100%",
-   zIndex: 1,
-   elevation: 5,
-   borderBottomLeftRadius: 20,
-   borderBottomRightRadius: 20,
+    flex: 1,
+    position: 'absolute',
+    top: 50,
+    width: "100%",
+    zIndex: 1,
+    elevation: 5,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
 });
 
