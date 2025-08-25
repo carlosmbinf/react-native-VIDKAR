@@ -20,11 +20,8 @@ npm install --legacy-peer-deps -f
 
 # Instalar pods
 cd ios
-rm -rf Pods Podfile.lock
-pod install --repo-update
-
-# === Actualizar versión iOS ===
-cd "$CI_PRIMARY_REPOSITORY_PATH/ios"
+# rm -rf Pods Podfile.lock
+pod install
 
 # 1️⃣ Actualizar el build number (CFBundleVersion)
 xcrun agvtool new-version -all $CI_BUILD_NUMBER
