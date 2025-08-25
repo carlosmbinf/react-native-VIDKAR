@@ -4,27 +4,19 @@ echo "Stage: Post-clone start..."
 
 # Debug: ver dónde estoy parado y qué hay en el workspace
 echo "PWD: $(pwd)"
-echo "CI_WORKSPACE: $CI_WORKSPACE"
-ls -la "$CI_WORKSPACE"
+echo "CI_PRIMARY_REPOSITORY_PATH: $CI_PRIMARY_REPOSITORY_PATH"
+ls -la "$CI_PRIMARY_REPOSITORY_PATH"
 
-# Instalar Node versión estable usada en RN
-brew install node@18
+# Instalar Node (versión estable para RN), Yarn y CocoaPods
+brew install node@18 yarn cocoapods
 brew link --overwrite node@18
 
-# Instalar Yarn y CocoaPods
-brew install yarn cocoapods
-
 # Ir a la raíz del repo (donde está package.json)
-cd "$CI_WORKSPACE/repository" || {
-  echo "❌ No existe $CI_WORKSPACE/repository"
-  exit 1
-}
+cd "$CI_PRIMARY_REPOSITORY_PATH"
 
 # Instalar dependencias JS
-cd $CI_WORKSPACE
-
 echo "Using npm..."
-npm install -f
+npm install --legacy-peer-deps -f
 
 # Instalar pods
 cd ios
