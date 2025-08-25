@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ImageBackground, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ImageBackground, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Card, Title, Chip, IconButton, Portal, Dialog, Button, TextInput, Modal } from 'react-native-paper';
 import { useTheme, Text } from 'react-native-paper';
 import { useWindowDimensions, Button as BotonReact } from 'react-native';
@@ -107,99 +107,107 @@ const CubaCelCard = ({ product }) => {
 
             <Portal>
                 <Dialog visible={open} onDismiss={() => setOpen(false)} style={styles.dialog} >
-
-                    <View style={styles.dialogTitleContainer}>
-                        <Text style={styles.dialogTitleText}>Recarga</Text>
-                        <IconButton icon="close" onPress={() => setOpen(false)} />
-                    </View>
-                    <Dialog.ScrollArea>
-                        <ScrollView contentContainerStyle={{ paddingHorizontal: 0 }}>
-                            <View>
-                                <Text style={{ marginTop: 6, fontWeight: 'bold' }}>{name}</Text>
-                                {description ? (
-                                    <Text style={{ paddingLeft: 10, marginTop: 6, fontWeight: 'bold' }}>{description}</Text>
-                                ) : null}
-
-                                {hasPromo && promotions?.length > 0 && (
-                                    <View >
-
-                                        {promotions.map((promo, index) => (
-                                            <View style={{ marginTop: 10 }}>
-                                                <Text style={{ fontWeight: 'bold', color: '#f50057' }}>{`Promoción #${index + 1}`}</Text>
-                                                <Text style={{ fontWeight: 'bold', color: '#ccc' }}>{promo.title}</Text>
-                                                <Text style={{ fontWeight: 'bold', color: '#ccc' }}>Desde el {moment(promo?.startDate).format("dddd DD MMMM")} hasta el {moment(promo?.endDate).format("dddd DD MMMM")}</Text>
-                                                <Text style={{ fontWeight: 'bold', color: '#ccc' }}>Descripción: </Text>
-                                                <Text style={{ paddingLeft: 15 }} key={index} >
-                                                    {promo.terms}
-                                                </Text>
-                                            </View>
-
-                                        ))}
-                                    </View>
-                                )}
-                            </View>
-
-
-                        </ScrollView>
-                    </Dialog.ScrollArea>
-
-
-                    <Dialog.Actions style={{ maxHeight: "100%" }}>
-
-                        <View style={{ flexDirection: 'column', width: '100%' }}>
-                            <ScrollView contentContainerStyle={{ paddingHorizontal: 0 }}>
-
-                                <TextInput
-                                    label="Nombre de la persona"
-                                    value={nombre}
-                                    onChangeText={setNombre}
-                                    mode="outlined"
-                                    autoComplete='name'
-                                    style={styles.input}
-                                    dense
-                                />
-
-
-                                {[
-                                    'requiredCreditPartyIdentifierFields',
-                                    'requiredBeneficiaryFields',
-                                    'requiredAdditionalIdentifierFields',
-                                    'requiredDebitPartyIdentifierFields',
-                                    'requiredSenderFields',
-                                    'requiredStatementIdentifierFields'
-                                ].map((group) => {
-                                    const fields = product[group];
-                                    if (!fields) return null;
-                                    return fields.flat().map((field, index) => (
-                                        <TextInput
-                                            key={`${group}-${field}-${index}`}
-                                            label={field.replace(/_/g, ' ').toUpperCase()}
-                                            value={extraFields[field] || ''}
-                                            onChangeText={(value) => handleExtraFieldChange(field, value)}
-                                            mode="outlined"
-                                            keyboardType={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? 'number-pad' : 'default'}// 
-                                            style={styles.input}
-                                            dense
-                                            maxLength={8} // Limitar a 8 caracteres
-                                            left={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? <TextInput.Affix text="+53" /> : null}
-                                            inputMode={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? 'tel' : 'default'} // Asegura que el teclado sea numérico
-                                        />
-                                    ));
-                                })}
-                            </ScrollView>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
-                                <Button onPress={() => setOpen(false)} mode="outlined" style={styles.botonesAccion}>
-                                    Cancelar
-                                </Button>
-                                <Button onPress={handleSubmit} mode="outlined" style={styles.botonesAccion}>
-                                    Confirmar Recarga
-                                </Button>
-                            </View>
-
+                    <KeyboardAvoidingView 
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        style={{ flex: 1 }}
+                        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+                    >
+                        <View style={styles.dialogTitleContainer}>
+                            <Text style={styles.dialogTitleText}>Recarga</Text>
+                            <IconButton icon="close" onPress={() => setOpen(false)} />
                         </View>
+                        
+                        <Dialog.ScrollArea style={{ flex: 1 }}>
+                            <ScrollView 
+                                contentContainerStyle={{ paddingHorizontal: 0, flexGrow: 1 }}
+                                keyboardShouldPersistTaps="handled"
+                                showsVerticalScrollIndicator={true}
+                            >
+                                <View>
+                                    <Text style={{ marginTop: 6, fontWeight: 'bold' }}>{name}</Text>
+                                    {description ? (
+                                        <Text style={{ paddingLeft: 10, marginTop: 6, fontWeight: 'bold' }}>{description}</Text>
+                                    ) : null}
 
+                                    {hasPromo && promotions?.length > 0 && (
+                                        <View >
+                                            {promotions.map((promo, index) => (
+                                                <View key={index} style={{ marginTop: 10 }}>
+                                                    <Text style={{ fontWeight: 'bold', color: '#f50057' }}>{`Promoción #${index + 1}`}</Text>
+                                                    <Text style={{ fontWeight: 'bold', color: '#ccc' }}>{promo.title}</Text>
+                                                    <Text style={{ fontWeight: 'bold', color: '#ccc' }}>Desde el {moment(promo?.startDate).format("dddd DD MMMM")} hasta el {moment(promo?.endDate).format("dddd DD MMMM")}</Text>
+                                                    <Text style={{ fontWeight: 'bold', color: '#ccc' }}>Descripción: </Text>
+                                                    <Text style={{ paddingLeft: 15 }} >
+                                                        {promo.terms}
+                                                    </Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    )}
+                                </View>
+                            </ScrollView>
+                        </Dialog.ScrollArea>
 
-                    </Dialog.Actions>
+                        <Dialog.Actions style={{ maxHeight: "100%" }}>
+                            <View style={{ flexDirection: 'column', width: '100%' }}>
+                                <ScrollView 
+                                    contentContainerStyle={{ paddingHorizontal: 0, flexGrow: 1 }}
+                                    keyboardShouldPersistTaps="handled"
+                                    showsVerticalScrollIndicator={true}
+                                    nestedScrollEnabled={true}
+                                >
+                                    <TextInput
+                                        label="Nombre de la persona"
+                                        value={nombre}
+                                        onChangeText={setNombre}
+                                        mode="outlined"
+                                        autoComplete='name'
+                                        style={styles.input}
+                                        dense
+                                        returnKeyType="next"
+                                    />
+
+                                    {[
+                                        'requiredCreditPartyIdentifierFields',
+                                        'requiredBeneficiaryFields',
+                                        'requiredAdditionalIdentifierFields',
+                                        'requiredDebitPartyIdentifierFields',
+                                        'requiredSenderFields',
+                                        'requiredStatementIdentifierFields'
+                                    ].map((group) => {
+                                        const fields = product[group];
+                                        if (!fields) return null;
+                                        return fields.flat().map((field, index) => (
+                                            <TextInput
+                                                key={`${group}-${field}-${index}`}
+                                                label={field.replace(/_/g, ' ').toUpperCase()}
+                                                value={extraFields[field] || ''}
+                                                onChangeText={(value) => handleExtraFieldChange(field, value)}
+                                                mode="outlined"
+                                                keyboardType={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? 'number-pad' : 'default'}
+                                                style={styles.input}
+                                                dense
+                                                maxLength={8}
+                                                left={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? <TextInput.Affix text="+53" /> : null}
+                                                inputMode={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? 'tel' : 'default'}
+                                                returnKeyType="next"
+                                                blurOnSubmit={false}
+                                            />
+                                        ));
+                                    })}
+                                </ScrollView>
+                                
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingTop: 16 }}>
+                                    <Button onPress={() => setOpen(false)} mode="outlined" style={styles.botonesAccion}>
+                                        Cancelar
+                                    </Button>
+                                    <Button onPress={handleSubmit} mode="outlined" style={styles.botonesAccion}>
+                                        Confirmar Recarga
+                                    </Button>
+                                </View>
+                            </View>
+                        </Dialog.Actions>
+                    </KeyboardAvoidingView>
                 </Dialog>
             </Portal>
         </>
@@ -210,7 +218,8 @@ const styles = StyleSheet.create({
     dialog: {
         maxHeight: '95%',
         borderRadius: 20,
-        padding: 2
+        padding: 2,
+        flex: 1
     },
     botonesAccion: {
         borderRadius: 15,
