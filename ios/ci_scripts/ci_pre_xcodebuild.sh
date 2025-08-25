@@ -19,7 +19,13 @@ cd ios
 
 # Install CocoaPods dependencies
 echo "Installing CocoaPods dependencies..."
-pod install
+if command -v pod &> /dev/null; then
+	pod install
+else
+	echo "CocoaPods not found, installing..."
+	gem install cocoapods
+	pod install
+fi
 
 # Clean any previous builds
 echo "Cleaning previous builds..."
