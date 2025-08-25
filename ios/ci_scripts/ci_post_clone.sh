@@ -11,13 +11,9 @@ brew install yarn cocoapods
 
 # Instalar dependencias JS
 cd $CI_WORKSPACE
-if [ -f yarn.lock ]; then
-  echo "Using yarn..."
-  yarn install --frozen-lockfile
-else
-  echo "Using npm..."
-  npm ci
-fi
+
+echo "Using npm..."
+npm install -f
 
 # Instalar pods
 cd ios
