@@ -492,7 +492,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 4TWB6RN383;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Vidkar/Info.plist;
@@ -501,7 +501,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.4;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -510,8 +510,11 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.vidkar;
 				PRODUCT_NAME = Vidkar;
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
@@ -524,7 +527,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 4TWB6RN383;
 				INFOPLIST_FILE = Vidkar/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
@@ -532,7 +535,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.4;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -541,7 +544,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.vidkar;
 				PRODUCT_NAME = Vidkar;
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
