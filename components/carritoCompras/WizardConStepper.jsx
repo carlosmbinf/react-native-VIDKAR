@@ -238,7 +238,7 @@ const WizardConStepper = ({ product, navigation }) => {
                             {/* Paso 1: Datos */}
                             <ProgressStep buttonNextDisabled={(!pedidosRemesa || pedidosRemesa.length === 0)} buttonNextText='Siguiente' label="Confirmar Pedidos" onNext={() => setActiveStep(1)}>
                                 <Dialog.ScrollArea>
-                                    <ListaPedidos />
+                                    <ListaPedidos eliminar={true} />
                                 </Dialog.ScrollArea>
                             </ProgressStep>
 
@@ -288,18 +288,15 @@ const WizardConStepper = ({ product, navigation }) => {
 
                             { /* Paso 4: Confirmación y pago */}
                             <ProgressStep buttonDisabledColor='#aaa' buttonFinishDisabled={(activeStep === 3 && !compra?.link) } buttonFinishText='Pagar' buttonFillColor='#6200ee' buttonPreviousText='Atras' buttonPreviousTextColor='white' buttonPre  onSubmit={handlePagar}  label="Pago" onPrevious={() => setActiveStep(Number(activeStep)-1)}>
-                                <View style={{ padding: 16 }}>
-                                    <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>
-                                        Resumen de la Recarga
-                                    </Text>
-                                    <Divider style={{ marginVertical: 10 }} />
-                                    <Text>Nombre: {nombre}</Text>
-                                    <Text>Producto: {product?.name}</Text>
-                                    <Text>Monto: <Chip>{precioUSD} USD</Chip></Text>
-                                    <Text>Promo: <Chip color={product?.promotions ? 'success' : 'secondary'}>{product?.promotions ? 'Tiene Promo' : 'Sin Promo'}</Chip></Text>
-                                    {product?.description && <Text>Comentario: {product.description}</Text>}
-                                </View>
+                            <>
+                            <Dialog.ScrollArea>
+                                    <ListaPedidos eliminar={false} />
+                            </Dialog.ScrollArea>
+                                
+                              <Chip style={{padding:20, borderRadius:30}}>Total a Pagar: {totalAPagar} USD</Chip>
+                            </>
                             </ProgressStep>
+                            
                             
                         </ProgressSteps>
                         {/* <Dialog.Actions>
