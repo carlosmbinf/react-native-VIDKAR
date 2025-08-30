@@ -153,21 +153,16 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
     integrations:
-      app_store_connect: VidkarAPIKey
+      app_store_connect: VidkarAPIKey    # nombre de la integración creada en Codemagic UI
     environment:
       vars:
-        XCODE_WORKSPACE: "Vidkar.xcworkspace"
-        XCODE_SCHEME: "Vidkar"
-        APP_ID: 6751348594
-        BUNDLE_ID: "com.vidkar"
-        # Agregar variables para certificados si los tienes subidos manualmente
-        # CERTIFICATE_PRIVATE_KEY: Encrypted(...)
+        XCODE_WORKSPACE: "Vidkar.xcworkspace"     # ajusta si tu workspace tiene otro nombre
+        XCODE_SCHEME: "Vidkar"                    # ajusta si tu scheme tiene otro nombre
+        APP_ID: 6751348594                        # App Store Connect - Apple ID (número)
+        BUNDLE_ID: "com.vidkar"                   # Bundle Identifier exacto
       node: 18
       xcode: latest
       cocoapods: default
-      # Grupos que contienen certificados y perfiles si los subiste manualmente
-      groups:
-        - app_store_credentials  # grupo que debe contener los certificados
 
     scripts:
       - name: Install npm dependencies
@@ -180,64 +175,33 @@ workflows:
           pod install
           cd ..
 
-      - name: Initialize keychain
+      - name: Initialize keychain and fetch signing files
         script: |
+          # crea/abre un keychain en la VM y descarga/crea certificados y provisioning profiles
           keychain initialize
 
-      - name: Fetch signing files
-        script: |
-          # Intentar obtener archivos de firma desde App Store Connect
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create
+          # fetch-signing-files usará la integración App Store Connect configurada
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
 
-      - name: Add certificates to keychain
-        script: |
-          # Solo agregar certificados si existen
-          if ls /Users/builder/Library/MobileDevice/Certificates/*.p12 1> /dev/null 2>&1; then
-            keychain add-certificates
-          else
-            echo "No certificates found, checking if they need to be created..."
-            # Verificar si hay certificados en el grupo de variables de entorno
-            if [ -n "$CERTIFICATE_PRIVATE_KEY" ]; then
-              echo "Using certificates from environment variables..."
-              keychain add-certificates
-            else
-              echo "Warning: No certificates found. You may need to:"
-              echo "1. Upload certificates manually to Codemagic"
-              echo "2. Or ensure App Store Connect integration has proper permissions"
-              echo "3. Or create certificates through Xcode/Apple Developer Portal"
-            fi
-          fi
+          # añade los certificados al keychain actual
+          keychain add-certificates
 
-      - name: Set up code signing
-        script: |
-          # Configurar code signing solo si hay perfiles disponibles
-          if ls /Users/builder/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision 1> /dev/null 2>&1 || 
-             ls /Users/builder/Library/MobileDevice/Provisioning\ Profiles/*.provisionprofile 1> /dev/null 2>&1; then
-            xcode-project use-profiles
-          else
-            echo "No provisioning profiles found. Setting up automatic code signing..."
-            # Configurar automatic code signing como fallback
-            xcode-project use-profiles --no-profiles
-          fi
+          # aplica los provisioning profiles y settings al proyecto Xcode
+          xcode-project use-profiles
 
-      - name: Increment build number
+      - name: Increment build number (optional)
         script: |
           cd $CM_BUILD_DIR/ios
-          # Obtener el último build number de TestFlight
-          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$APP_ID" 2>/dev/null || echo "0")
+          # obtiene el ultimo build number de TestFlight y suma 1
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$APP_ID" || echo 0)
           NEW_BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
-          echo "Latest build number from TestFlight: $LATEST_BUILD_NUMBER"
-          echo "Setting new build number to: $NEW_BUILD_NUMBER"
-          
-          # Usar PlistBuddy para actualizar el build number
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEW_BUILD_NUMBER" "Vidkar/Info.plist"
-          
+          agvtool new-version -all $NEW_BUILD_NUMBER
+          echo "New build number: $NEW_BUILD_NUMBER"
           cd $CM_BUILD_DIR
 
       - name: Build ipa for distribution
         script: |
+          # build-ipa usa la configuración aplicada por xcode-project use-profiles
           xcode-project build-ipa \
             --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
             --scheme "$XCODE_SCHEME" \
