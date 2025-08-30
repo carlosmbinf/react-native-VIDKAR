@@ -72,7 +72,7 @@ class MyAppUserDetails extends React.Component {
       megasVPNlabel: 0,
       tiempoReporteAudio: 0,
     };
-    !Meteor.userId() && navigation.navigation.navigate('Loguin');
+    // !Meteor.userId() && navigation.navigation.navigate('Loguin');
   }
 
   render() {
@@ -429,7 +429,8 @@ const UserDetails = withTracker(props => {
     });
 
   const {item, navigation} = props;
-  const {_id} = item;
+  console.log("item",item);
+  const _id = item;
   const loadventas = Meteor.subscribe('ventas', {
     adminId: _id,
     cobrado: false,
