@@ -153,7 +153,7 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
     integrations:
-      app_store_connect: Codemagic    # nombre de la integración creada en Codemagic UI
+      app_store_connect: VidkarAPIKey    # nombre de la integración creada en Codemagic UI
     environment:
       vars:
         XCODE_WORKSPACE: "Vidkar.xcworkspace"     # ajusta si tu workspace tiene otro nombre
