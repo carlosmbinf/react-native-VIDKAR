@@ -32,7 +32,7 @@ const MenuHeader = ({ navigation }) => {
             onPress={() => {
               setVisibleMenu(false);
               navigation.navigate('User', {
-                item: Meteor.users.findOne({ _id: Meteor.userId() }),
+                item: Meteor.userId(),
               });
             }}
             title="Mi usuario"
