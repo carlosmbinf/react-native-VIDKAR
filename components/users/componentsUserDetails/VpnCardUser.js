@@ -6,7 +6,7 @@ const VpnCardUser = ({item, styles}) => {
   if (!item) return null;
 
   return (
-    (item.megasGastadosinBytes || item.fechaSubscripcion || item.megas) && (
+    (item.vpnMbGastados || item.vpnfechaSubscripcion || item.vpnmegas ) && (
       <Card elevation={12} style={styles.cards}>
         <Card.Content>
           <View style={styles.element}>
@@ -49,8 +49,8 @@ const VpnCardUser = ({item, styles}) => {
               }}>
               <Text style={{paddingTop: 10, textAlign: 'center'}}>Consumo:</Text>
               <Text style={{paddingBottom: 10, textAlign: 'center'}}>
-                {item.vpnMbGastados ? item.vpnMbGastados / 1000000 : 0}
-                MB => {item.vpnMbGastados ? item.vpnMbGastados / 1024000000 : 0}GB
+                {item.vpnMbGastados ? Number(item.vpnMbGastados / 1024000).toFixed(2) : 0}
+                MB => {item.vpnMbGastados ? Number(item.vpnMbGastados / 1024000000).toFixed(2) : 0}GB
               </Text>
             </View>
 
