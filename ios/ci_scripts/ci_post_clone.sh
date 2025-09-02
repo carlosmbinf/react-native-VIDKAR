@@ -11,6 +11,10 @@ echo "Build Number: $CI_BUILD_NUMBER"
 brew install node@18 yarn cocoapods
 brew link --overwrite node@18
 
+# Habilitar Yarn 3.6.4
+corepack enable
+corepack prepare yarn@3.6.4 --activate
+
 # Ir a la raíz del repo (donde está package.json)
 cd "$CI_PRIMARY_REPOSITORY_PATH"
 
