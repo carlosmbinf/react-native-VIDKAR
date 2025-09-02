@@ -8,20 +8,15 @@ echo "Repo: $CI_PRIMARY_REPOSITORY_PATH"
 echo "Build Number: $CI_BUILD_NUMBER"
 
 # Instalar Node (versión estable para RN), Yarn y CocoaPods
-brew install node@18 cocoapods
+brew install node@18 yarn cocoapods
 brew link --overwrite node@18
-
-# Habilitar Yarn 3.6.4
-corepack enable
-corepack prepare yarn@3.6.4 --activate
 
 # Ir a la raíz del repo (donde está package.json)
 cd "$CI_PRIMARY_REPOSITORY_PATH"
 
 # Instalar dependencias JS
-echo "Using YARN..."
-yarn install --immutable
-#npm install --legacy-peer-deps -f
+echo "Using npm..."
+npm install --legacy-peer-deps -f
 
 # Instalar pods
 cd ios
