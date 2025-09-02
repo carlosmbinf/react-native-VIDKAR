@@ -20,7 +20,7 @@ cd "$CI_PRIMARY_REPOSITORY_PATH"
 
 # Instalar dependencias JS
 echo "Using YARN..."
-yarn install
+yarn install --immutable
 #npm install --legacy-peer-deps -f
 
 # Instalar pods
