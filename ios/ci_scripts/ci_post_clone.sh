@@ -8,7 +8,7 @@ echo "Repo: $CI_PRIMARY_REPOSITORY_PATH"
 echo "Build Number: $CI_BUILD_NUMBER"
 
 # Instalar Node (versión estable para RN), Yarn y CocoaPods
-brew install node@18 yarn cocoapods
+brew install node@18 cocoapods
 brew link --overwrite node@18
 
 # Habilitar Yarn 3.6.4
