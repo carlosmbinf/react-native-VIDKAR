@@ -15,8 +15,9 @@ brew link --overwrite node@18
 cd "$CI_PRIMARY_REPOSITORY_PATH"
 
 # Instalar dependencias JS
-echo "Using npm..."
-npm install --legacy-peer-deps -f
+echo "Using YARN..."
+yarn install
+#npm install --legacy-peer-deps -f
 
 # Instalar pods
 cd ios
