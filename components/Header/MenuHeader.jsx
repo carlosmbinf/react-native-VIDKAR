@@ -4,7 +4,7 @@ import { Appbar, Menu, IconButton, Text } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import WizardConStepper from '../carritoCompras/WizardConStepper';
 import Meteor, {Mongo, withTracker} from '@meteorrn/core';
-import { logoutFromGoogle } from '../../utilesMetodos/metodosUtiles';
+// import { logoutFromGoogle } from '../../utilesMetodos/metodosUtiles';
 
 const MenuHeader = ({ navigation }) => {
   const [visibleMenu, setVisibleMenu] = useState(false);
@@ -40,7 +40,8 @@ const MenuHeader = ({ navigation }) => {
           <Menu.Item
             icon="logout"
             onPress={() => {
-              logoutFromGoogle();
+              Meteor.logout()
+
               setVisibleMenu(false);
             }}
             title="Cerrar Sesión"

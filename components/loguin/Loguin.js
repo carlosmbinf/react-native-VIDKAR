@@ -20,7 +20,7 @@ const { height: screenHeight } = Dimensions.get('window');
 import { ConfigCollection, Mensajes } from '../collections/collections';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { loginWithGoogle } from '../../utilesMetodos/metodosUtiles';
+// import { loginWithGoogle } from '../../utilesMetodos/metodosUtiles';
 
 const Loguin = ({ navigation }) => {
   // Estado usando useState
@@ -29,7 +29,6 @@ const Loguin = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(Appearance.getColorScheme() === 'dark');
   const [isLandscape, setIsLandscape] = useState(screenWidth > screenHeight);
-  const [loadingGoogle, setLoadingGoogle] = useState(false);
 
   // Efectos usando useEffect (reemplazan componentDidMount y componentWillUnmount)
   useEffect(() => {
@@ -68,57 +67,7 @@ const Loguin = ({ navigation }) => {
     }
   };
 
-  const permitirLoginWithGoogle = useTracker(() => {
-    if(!Meteor.status()?.connected) return null;
-    let sub = Meteor.subscribe(
-      'propertys', {
-      "active": true,
-      "type": "CONFIG",
-      "clave": "LOGIN_WITH_GOOGLE"
-    }
-    );
-    console.log("sub",sub?.ready());
-    // console.log(VentasCollection.find({ adminId: id}).fetch());
-    // console.log(VentasCollection.find({ adminId: id }).count() > 0);
-    return ConfigCollection.findOne({ 
-      "active" : true,
-      "type" : "CONFIG",
-      "clave" : "LOGIN_WITH_GOOGLE"
-     });
-  });
-
-  // Método de login con Google
-  const onGoogleLogin = () => {
-    try {
-      if (loadingGoogle) return;
-      setLoadingGoogle(true);
-
-      const options = {
-        clientId: '1043110071233-pbeoteq8ua30rsbqmk8dtku6hcmeekci.apps.googleusercontent.com',
-        iosClientId: '1043110071233-p7e56eu0sb203j32pf66b1blaql14f26.apps.googleusercontent.com',
-        scopes: ['profile', 'email'],
-        forceCodeForRefreshToken: false,
-      };
-
-      const done = (err) => {
-        setLoadingGoogle(false);
-        if (err) {
-          Alert.alert('Google', err.reason || err.message || 'Error iniciando sesión con Google.');
-          return;
-        }
-      };
-
-      if (typeof loginWithGoogle === 'function') {
-        loginWithGoogle(options, done);
-      } else {
-        setLoadingGoogle(false);
-        Alert.alert('Google', 'Proveedor de Google no disponible en el cliente.');
-      }
-    } catch (error) {
-      Alert.alert('Error de Conexión', error);
-    }
-  };
-
+  
   const backgroundStyle = {
     minHeight: "100%",
     minWidth: "100%",
@@ -213,21 +162,7 @@ const Loguin = ({ navigation }) => {
                   </Button>
 
                   <View style={{ height: 12 }} />
-                  {permitirLoginWithGoogle?.valor == 'true' && 
-                  (<>
-                    <Text style={{ fontSize: 16, justifyContent: 'center', alignContent: 'center', textAlign: 'center' }}>O</Text>
-                  <View style={{ height: 10 }} />
-                  <Button
-                    mode="outlined"
-                    icon="google"
-                    onPress={onGoogleLogin}
-                    disabled={loadingGoogle}
-                    loading={loadingGoogle}
-                  >
-                    Entrar con Google
-                  </Button>
-                  </>)
-                  }
+                  
                 </View>
               </View>
             </View>
