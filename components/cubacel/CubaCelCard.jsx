@@ -107,23 +107,23 @@ const CubaCelCard = ({ product }) => {
 
             <Portal>
                 <Dialog visible={open} onDismiss={() => setOpen(false)} style={styles.dialog} >
-                    {/* <KeyboardAvoidingView 
+                    <KeyboardAvoidingView 
                         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                         style={{ flex: 1 }}
-                        keyboardVerticalOffset={Platform.OS === 'ios' ? 128 : 0}
-                    > */}
+                        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+                    >
                         <View style={styles.dialogTitleContainer}>
                             <Text style={styles.dialogTitleText}>Recarga</Text>
                             <IconButton icon="close" onPress={() => setOpen(false)} />
                         </View>
                         
-                        <Dialog.ScrollArea  >
+                        <Dialog.ScrollArea style={{ flex: 1 }}>
                             <ScrollView 
                                 contentContainerStyle={{ paddingHorizontal: 0, flexGrow: 1 }}
                                 keyboardShouldPersistTaps="handled"
                                 showsVerticalScrollIndicator={true}
                             >
-                                <View >
+                                <View>
                                     <Text style={{ marginTop: 6, fontWeight: 'bold' }}>{name}</Text>
                                     {description ? (
                                         <Text style={{ paddingLeft: 10, marginTop: 6, fontWeight: 'bold' }}>{description}</Text>
@@ -148,7 +148,7 @@ const CubaCelCard = ({ product }) => {
                             </ScrollView>
                         </Dialog.ScrollArea>
 
-                        <Dialog.Actions >
+                        <Dialog.Actions style={{ maxHeight: "100%" }}>
                             <View style={{ flexDirection: 'column', width: '100%' }}>
                                 <ScrollView 
                                     contentContainerStyle={{ paddingHorizontal: 0, flexGrow: 1 }}
@@ -207,7 +207,7 @@ const CubaCelCard = ({ product }) => {
                                 </View>
                             </View>
                         </Dialog.Actions>
-                    {/* </KeyboardAvoidingView> */}
+                    </KeyboardAvoidingView>
                 </Dialog>
             </Portal>
         </>
@@ -216,10 +216,10 @@ const CubaCelCard = ({ product }) => {
 
 const styles = StyleSheet.create({
     dialog: {
-        maxHeight: '85%',
+        maxHeight: '60%',
         borderRadius: 20,
         padding: 2,
-        // flex: 1
+        flex: 1
     },
     botonesAccion: {
         borderRadius: 15,
