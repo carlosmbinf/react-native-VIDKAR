@@ -24,11 +24,14 @@ const WizardConStepper = ({ product, navigation }) => {
     const showModal = () => setVisible(true);
     const hideModal = () => setVisible(false);
 
-  const data = [
+  const data = (Meteor.user()?.profile?.role === 'admin' ||  Meteor.user()?.permitirPagoEfectivoCUP )? [
     { label: 'Paypal', value: 'paypal' },
     { label: 'MercadoPago', value: 'mercadopago' },
-   
-  ];
+    { label: 'Efectivo', value: 'efectivo' }
+  ] : [
+      { label: 'Paypal', value: 'paypal' },
+      { label: 'MercadoPago', value: 'mercadopago' },
+    ]
 
   //ORDENES
   const { readyCompra, compra } = useTracker(() => {
@@ -93,6 +96,14 @@ const WizardConStepper = ({ product, navigation }) => {
               setTotalAPagar(res);
             }
           });
+        }else if (metodoPago == 'efectivo') {
+          Meteor.call("efectivo.totalAPagar", pedidosRemesa,(err, res) => {
+            if (err) {
+              console.error('Error al calcular total a pagar:', err);
+            } else {
+              setTotalAPagar(res);
+            }
+          });
         }
       },[metodoPago,pedidosRemesa])
 
@@ -102,6 +113,23 @@ const WizardConStepper = ({ product, navigation }) => {
           userId,
           totalAPagar,
           "Compras Online a travez de VidKar",
+          pedidosRemesa,
+          function (error, success) {
+            if (error) {
+              console.log("error", error);
+            }
+            if (success) {
+              console.log("success", success);
+            }
+          }
+        );
+    
+      };
+
+      const crearOrdenEfectivo = () => {
+        Meteor.call(
+          "efectivo.createOrder",
+          userId,
           pedidosRemesa,
           function (error, success) {
             if (error) {
@@ -148,6 +176,9 @@ const WizardConStepper = ({ product, navigation }) => {
               break;
             case "mercadopago":
               crearOrdenMercadoPago();
+              break;
+            case "efectivo":
+              crearOrdenEfectivo();
               break;
           }
         }    
