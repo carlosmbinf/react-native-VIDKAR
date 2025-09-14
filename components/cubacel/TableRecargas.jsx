@@ -11,6 +11,7 @@ const chipColorEstado = (estado) => {
     case 'PENDIENTE_ENTREGA':
       return '#ffc107';
     case 'CANCELADO':
+    case 'PENDIENTE_PAGO':
       return '#dc3545';
     default:
       return '#6c757d';
@@ -20,6 +21,8 @@ const chipColorEstado = (estado) => {
 // nuevo: mapeo a etiquetas amigables
 const estadoLabel = (estado) => {
   switch (estado) {
+    case 'PENDIENTE_PAGO':
+      return 'Pendiente de Pago';
     case 'PENDIENTE_ENTREGA':
       return 'Pendiente';
     case 'ENTREGADO':
@@ -127,6 +130,7 @@ const TableRecargas = () => {
   // nuevo: derivar estado desde los carritos
   const deriveEstadoVenta = (venta) => {
     const carritos = getItemsArray(venta) || [];
+    if(venta.isCobrado !== true) return 'PENDIENTE_PAGO';
     if (carritos.length === 0) return 'PENDIENTE_ENTREGA';
     let t = transacciones?.filter(t => carritos?.map(car => car._id)?.includes(t.externalId));
     const allCompleted = t.length > 0 ? t.every(c => c?.status?.message === 'COMPLETED') : false;

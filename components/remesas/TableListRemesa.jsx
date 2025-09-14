@@ -11,6 +11,7 @@ const chipColorEstado = (estado) => {
     case 'PENDIENTE_ENTREGA':
       return '#ffc107';
     case 'CANCELADO':
+    case 'PENDIENTE_PAGO':
       return '#dc3545';
     default:
       return '#6c757d';
@@ -20,6 +21,8 @@ const chipColorEstado = (estado) => {
 // nuevo: mapeo a etiquetas amigables
 const estadoLabel = (estado) => {
   switch (estado) {
+    case 'PENDIENTE_PAGO':
+      return 'Pendiente de pago';
     case 'PENDIENTE_ENTREGA':
       return 'Pendiente';
     case 'ENTREGADO':
@@ -47,6 +50,8 @@ const getItemsArray = (venta) =>
 // nuevo: derivar estado desde los carritos
 const deriveEstadoVenta = (venta) => {
   const carritos = getItemsArray(venta) || [];
+
+  if (venta?.isCobrado !== true) return 'PENDIENTE_PAGO';
   if (carritos.length === 0) return venta?.estado || 'PENDIENTE_ENTREGA';
 
   const hasCancel = carritos.some(c => c?.status === 'CANCELLED' || c?.cancelado === true);

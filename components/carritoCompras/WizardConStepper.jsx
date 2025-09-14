@@ -198,6 +198,22 @@ const WizardConStepper = ({ product, navigation }) => {
         // }
     };
 
+    const handleGenerarVenta= async () => {
+      const ventaData = {
+        producto: compra,
+        precioOficial: totalAPagar
+      };
+      Meteor.call('generarVentaEfectivo', ventaData, (error, success) => {
+        if (error) {
+          console.log("error", error);
+        }
+        if (success) {
+          console.log("success", success);
+          setVisible(false);
+        }
+      });
+  };
+
     return (
         <>
         <View style={{ position: 'relative' }}>
@@ -318,17 +334,25 @@ const WizardConStepper = ({ product, navigation }) => {
                             </ProgressStep>
 
                             { /* Paso 4: Confirmación y pago */}
-                            <ProgressStep buttonDisabledColor='#aaa' buttonFinishDisabled={(activeStep === 3 && !compra?.link) } buttonFinishText='Pagar' buttonFillColor='#6200ee' buttonPreviousText='Atras' buttonPreviousTextColor='white' buttonPre  onSubmit={handlePagar}  label="Pago" onPrevious={() => setActiveStep(Number(activeStep)-1)}>
-                            <>
-                            <Dialog.ScrollArea>
-                                    <ListaPedidos eliminar={false} />
-                            </Dialog.ScrollArea>
-                                
-                              <Chip style={{padding:20, borderRadius:30}}>Total a Pagar: {totalAPagar} USD</Chip>
-                            </>
-                            </ProgressStep>
-                            
-                            
+                                          <ProgressStep 
+                                            buttonDisabledColor='#aaa' 
+                                            buttonFinishDisabled={(activeStep === 3 && metodoPago !== 'efectivo' && !compra?.link)} 
+                                            buttonFinishText={metodoPago === 'efectivo' ? 'Generar Venta' : 'Pagar'} 
+                                            buttonFillColor='#6200ee' 
+                                            buttonPreviousText='Atras' 
+                                            buttonPreviousTextColor='white' 
+                                            onSubmit={metodoPago === 'efectivo' ? handleGenerarVenta : handlePagar}  
+                                            label="Pago" 
+                                            onPrevious={() => setActiveStep(Number(activeStep)-1)}
+                                          >
+                                          <>
+                                          <Dialog.ScrollArea>
+                                              <ListaPedidos eliminar={false} />
+                                          </Dialog.ScrollArea>
+                                            
+                                            <Chip style={{padding:20, borderRadius:30}}>Total a Pagar: {totalAPagar} USD</Chip>
+                                          </>
+                                          </ProgressStep>
                         </ProgressSteps>
                         {/* <Dialog.Actions>
                             <Button mode="contained" onPress={onClose}>Cerrar</Button>
