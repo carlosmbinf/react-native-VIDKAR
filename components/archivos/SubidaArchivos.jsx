@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react'; // agregado useEffect
 import { View, Alert, StyleSheet, Image, Pressable, ScrollView } from 'react-native';
 import { Button, TextInput, ActivityIndicator, Text, Card, Chip, Divider, useTheme, IconButton } from 'react-native-paper';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
@@ -7,9 +7,18 @@ import DrawerBottom from '../drawer/DrawerBottom';
 import moment from 'moment';
 import { EvidenciasVentasEfectivoCollection } from '../collections/collections';
 
+// Opcional: intento cargar Clipboard (soporta distintos entornos)
+let ClipboardModule = null;
+// try {
+//   ClipboardModule = require('@react-native-clipboard/clipboard');
+// } catch (e) {
+//   try {
+    ClipboardModule = require('react-native').Clipboard;
+//   } catch (_) {}
+// }
+
 const SubidaArchivos = ({ venta }) => {
   if (!venta) return null;
-  const theme = useTheme();
   const ventaId = venta._id;
 
   const [openSheet, setOpenSheet] = useState(false);
@@ -21,11 +30,55 @@ const SubidaArchivos = ({ venta }) => {
   const [width, setWidth] = useState()
   const [eliminando, setEliminando] = useState(false);
   const categoria = 'general';
+  const [tarjetaCUP, setTarjetaCUP] = useState("0000-0000-0000-0000");
+
+  useEffect(() => {
+    const fetchTarjetaCUP = async () => {
+      try {
+        const userId = Meteor.user()?.bloqueadoDesbloqueadoPor;
+        if (userId) {
+          const result = await new Promise((resolve, reject) => {
+            Meteor.call("property.getValor", "CONFIG",`TARJETA_CUP_${userId}`, (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            });
+          });
+          setTarjetaCUP(result || "0000 0000 0000 0000");
+        }
+      } catch (error) {
+        console.error("Error al obtener tarjeta CUP:", error);
+        setTarjetaCUP("0000 0000 0000 0000");
+      }
+    };
+
+    if (Meteor.user()) {
+      fetchTarjetaCUP();
+    }
+  }, [Meteor.user()?.bloqueadoDesbloqueadoPor]);
+
+  const copyTarjeta = async () => {
+    if (!tarjetaCUP) {
+      Alert.alert('Aviso', 'No hay tarjeta para copiar.');
+      return;
+    }
+    try {
+      if (ClipboardModule?.setString) {
+        ClipboardModule.setString(tarjetaCUP);
+      } else if (ClipboardModule?.setStringAsync) {
+        await ClipboardModule.setStringAsync(tarjetaCUP);
+      } else {
+        throw new Error('Clipboard no disponible');
+      }
+      Alert.alert('Copiado', 'La tarjeta de destino fue copiada al portapapeles.');
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo copiar la tarjeta.');
+    }
+  };
 
   const evidenciasSubsc  = useTracker(() => {
 
     let readyEvidencias = Meteor.subscribe('evidenciasVentasEfectivoRecharge', {ventaId:ventaId}).ready();
-        
+    
      console.log("ventaId ", ventaId);
     const evidenciasCollection = EvidenciasVentasEfectivoCollection.find({ventaId:ventaId}, {
       sort: { createdAt: -1 }
@@ -151,12 +204,50 @@ const SubidaArchivos = ({ venta }) => {
         <Card.Content>
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.labelMonto}>Monto a pagar</Text>
-              <Text style={styles.montoAPagar}>${venta.cobrado} {venta.monedaCobrado}</Text>
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                // backgroundColor: '#fff',
+                borderRadius: 8,
+                // elevation: 2 // sombra en Android
+              }}>
+                <View>
+                  <Text style={[styles.labelMonto, { fontSize: 14 }]}>
+                    Monto a pagar
+                  </Text>
+                  <Text style={[styles.montoAPagar, { fontSize: 18, fontWeight: 'bold', marginTop: 2 }]}>
+                    ${venta.cobrado} {venta.monedaCobrado}
+                  </Text>
+                </View>
+
+                <Chip
+                  compact
+                  mode="contained"
+                  // style={[styles.metodoChip]}
+                  textStyle={{ fontSize: 12 }}
+                >
+                  TRANSFERENCIA
+                </Chip>
+              </View>
+              {/* NUEVO: Tarjeta destino */}
+              <View style={styles.tarjetaRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.tarjetaLabel}>Tarjeta destino (CUP)</Text>
+                  <Text style={styles.tarjetaNumero}>{tarjetaCUP || '—'}</Text>
+                </View>
+                <IconButton
+                  icon="content-copy"
+                  size={20}
+                  onPress={copyTarjeta}
+                  disabled={!tarjetaCUP}
+                  accessibilityLabel="Copiar tarjeta"
+                />
+              </View>
             </View>
-            <Chip compact mode="contained" style={styles.metodoChip}>
-              TRANSFERENCIA
-            </Chip>
+            
           </View>
 
           {miniBase64 && (
@@ -167,7 +258,7 @@ const SubidaArchivos = ({ venta }) => {
               />
               <View style={styles.thumbTextBox}>
                 <Text style={styles.thumbLabel}>
-                  {archivoSeleccionado ? 'Evidencia seleccionada' : 'Última evidencia'}
+                  {archivoSeleccionado ? 'Evidencia seleccionada' : 'Última Captura Subida'}
                 </Text>
                 {archivoSeleccionado && (
                   <Text style={styles.thumbSize}>
@@ -347,7 +438,7 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center' },
   labelMonto: { fontSize: 11, color: '#666', fontWeight: '500' },
   montoAPagar: { fontSize: 16, fontWeight: '700', color: '#2E7D32', marginTop: 2 },
-  metodoChip: { backgroundColor: '#1976d2', alignSelf: 'flex-start' },
+  
 
   thumbRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 6 },
   thumbnail: { width: 50, height: 50, borderRadius: 8, backgroundColor: '#eee' },
@@ -418,4 +509,25 @@ const styles = StyleSheet.create({
     borderRadius: 6
   },
   botonEliminar: { marginTop: 14 },
+
+  tarjetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderColor: '#eeeeee'
+  },
+  tarjetaLabel: {
+    fontSize: 11,
+    color: '#555',
+    fontWeight: '600'
+  },
+  tarjetaNumero: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 2,
+    letterSpacing: 0.5,
+    color: '#1d3557'
+  },
 });

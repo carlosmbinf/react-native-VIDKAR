@@ -33,7 +33,7 @@ const Loguin = ({ navigation }) => {
   // Efectos usando useEffect (reemplazan componentDidMount y componentWillUnmount)
   useEffect(() => {
     // Conectar a Meteor
-    Meteor.connect('ws://www.vidkar.com:6000/websocket');
+    Meteor.connect('ws://localhost:3000/websocket');
 
     // Suscripción a cambios de dimensiones
     const dimSub = Dimensions.addEventListener('change', ({ window }) => {

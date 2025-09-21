@@ -135,7 +135,7 @@ const TableRecargas = () => {
     if (carritos.length === 0) return 'PENDIENTE_ENTREGA';
     let t = transacciones?.filter(t => carritos?.map(car => car._id)?.includes(t.externalId));
     const allCompleted = t.length > 0 ? t.every(c => c?.status?.message === 'COMPLETED') : false;
-    console.log("venta", venta._id, "allCompleted", allCompleted, "transacciones", t?.filter(t => carritos?.map(car => car._id)?.includes(t.externalId)));
+    
     if (allCompleted) return 'ENTREGADO';
 
     return 'PENDIENTE_ENTREGA';

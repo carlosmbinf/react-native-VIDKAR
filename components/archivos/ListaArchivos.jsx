@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { Text, Button, ActivityIndicator } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
-import SubidaArchivos from './SubidaArchivos';
+import AprobacionEvidenciasVenta from './AprobacionEvidenciasVenta';
 import { VentasRechargeCollection } from '../collections/collections';
 
 const ListaVentasEfectivo = ({ userId }) => {
@@ -51,7 +51,7 @@ const ListaVentasEfectivo = ({ userId }) => {
     <View style={styles.container}>
       <FlatList
         data={ventas}
-        renderItem={({ item }) => <SubidaArchivos venta={item} />}  // ahora todo lo visual está en SubidaArchivos
+        renderItem={({ item }) => <AprobacionEvidenciasVenta venta={item} />}
         keyExtractor={(item) => item._id}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
