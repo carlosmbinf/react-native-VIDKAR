@@ -24,7 +24,7 @@ const WizardConStepper = ({ product, navigation }) => {
     const showModal = () => setVisible(true);
     const hideModal = () => setVisible(false);
 
-  const data = (Meteor.user()?.profile?.role === 'admin' ||  Meteor.user()?.permitirPagoEfectivoCUP )? [
+  const data = (Meteor.user()?.permitirPagoEfectivoCUP )? [
     { label: 'Paypal', value: 'paypal' },
     { label: 'MercadoPago', value: 'mercadopago' },
     { label: 'Efectivo', value: 'efectivo' }

@@ -33,6 +33,6 @@ export const RegionsCollection = new Mongo.Collection("regions_Recharge");
 
 /////////////////////DTSHOP////////////////////////////////////
 export const DTShopProductosCollection = new Mongo.Collection("dtshopProductos_Recharge");
-
+export const EvidenciasVentasEfectivoCollection = new Mongo.Collection("evidenciasVentasEfectivo");
 ////////////////////////////////////////////////////////////////////
 

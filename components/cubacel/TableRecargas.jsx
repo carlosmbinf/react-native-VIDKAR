@@ -3,6 +3,7 @@ import { Alert, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, Vie
 import { DataTable, Text, Chip, Surface, Portal, Dialog, Button, IconButton, Divider } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 import { TransaccionRecargasCollection, VentasRechargeCollection } from '../collections/collections';
+import SubidaArchivos from '../archivos/SubidaArchivos';
 
 const chipColorEstado = (estado) => {
   switch (estado) {
@@ -191,6 +192,7 @@ const TableRecargas = () => {
             })
           )}
         </DataTable>
+        
 
 
         <Portal>
@@ -339,6 +341,16 @@ const TableRecargas = () => {
                         );
                       })
                     )}
+                    {/* NUEVO: solo para método EFECTIVO */}
+                    {ventaSel?.metodoPago === 'EFECTIVO' && (
+                      <Surface style={{ marginTop: 5,  borderRadius: 6, backgroundColor: '#fff3cd', borderColor: '#ffeaa7', borderWidth: 1 }}>
+                        <Text style={{ textAlign: 'center', color: '#856404', paddingBottom: 5 }}> 
+                          ⚠️ Debe subir Evidencia para poder corroborar el pago y Autorizar la recarga
+                        </Text>
+                        <SubidaArchivos venta={ventaSel} />
+                      </Surface>
+                    )}
+                    
                   </View>
                 ) : (
                   <Surface style={{ padding: 20, borderRadius: 8, backgroundColor: '#f8d7da' }}>

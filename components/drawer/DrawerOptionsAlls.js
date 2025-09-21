@@ -78,6 +78,16 @@ const DrawerOptionsAlls = (opt) => {
       url:"Ventas",
       icon:"vpn"
     },
+    {
+      label: "Subida de Archivos",
+      url:"SubidaArchivos",
+      icon:"cloud-upload"
+    },
+    {
+      label: "Lista de Archivos",
+      url:"ListaArchivos",
+      icon:"file-multiple"
+    }
 
   ]
   return (

@@ -1,3 +1,5 @@
+Ten en cuenta que en cada modificacion de frontend o backend se debe ser y modificar lo mas profesional posible, pues los proyectos trabajados son para clientes y queremos dar la mejor impresion y siempre pensar en posibles modificaciones a futuro, o sea a la hora de crear algo tambien pensar en lo que el usuario quisiera que le mostremos, tambien en el backend tenemos que hacer las cosas teniendo en cuenta futuras mejoras
+
 las collection y sus schemas estan declaradas en esta url "components\collections\collections.js"
 
 todo lo visual esta dentro de la carpeta "components"
@@ -305,3 +307,5 @@ ejemplo de una venta
     "monedaPrecioOficial" : "CUP"
 }
 esa venta tiene un producto y ese producto tiene una lista de carritos, el estado de la venta debe clasificarse dependiendo del status del carrito
+
+
