@@ -100,5 +100,7 @@
 	<false/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Esta aplicación necesita acceder a tu galería de fotos para que puedas seleccionar y compartir imágenes.</string>
 </dict>
 </plist>
