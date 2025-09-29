@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Image, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { View, Image, Pressable, ScrollView, StyleSheet, Alert } from 'react-native';
 import { Card, Text, Chip, Divider, Button, ActivityIndicator } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 import moment from 'moment';
@@ -8,11 +8,53 @@ import { EvidenciasVentasEfectivoCollection } from '../collections/collections';
 
 /**
  * Props:
- *  - venta: objeto de la venta (se usa venta._id)
- *  - onAprobar?: (evidencia) => void
- *  - onRechazar?: (evidencia) => void
- *  - loadingIds?: string[] lista de evidencias en proceso (para mostrar spinners)
+ *  - venta
+ *  - onAprobar?: (evidencia)
+ *  - onRechazar?: (evidencia)
+ *  - loadingIds?: string[]
  */
+const ESTADOS = {
+  APROBADA: 'APROBADA',
+  RECHAZADA: 'RECHAZADA',
+  PENDIENTE: 'PENDIENTE'
+};
+
+const mapEvidenciaDoc = (e, i) => {
+  const aprobado = !!e.aprobado;
+  // Se amplía la detección de cancelación: algunos documentos pueden venir con 'cancelada' (fem) o 'isCancelada'
+  const cancelFlag = !!(
+    e.cancelado ||
+    e.cancelada ||
+    e.isCancelada ||
+    e.estado === 'CANCELADA'
+  );
+  const rechazadoFlag = !!(
+    e.rechazado ||
+    e.denegado ||
+    e.estado === ESTADOS.RECHAZADA ||
+    e.estado === 'RECHAZADA'
+  );
+  // Unificamos (por ahora) cancelada dentro de rechazado para mantener el badge 'CANC'
+  const rechazado = cancelFlag || rechazadoFlag;
+
+  let estado = ESTADOS.PENDIENTE;
+  if (rechazado) estado = ESTADOS.RECHAZADA; // Nota: si se quiere distinguir CANCELADA, crear ESTADOS.CANCELADA y adaptar badge.
+  else if (aprobado) estado = ESTADOS.APROBADA;
+
+  return {
+    _idx: i,
+    _id: e._id,
+    base64: e.base64 || e.dataBase64 || e.data || e.dataB64,
+    aprobado,
+    rechazado,
+    estado,
+    createdAt: e.createdAt || e.fecha || null,
+    size: e.size || 0,
+    descripcion: e.descripcion || '',
+    raw: e
+  };
+};
+
 const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, loadingIds = [] }) => {
   if (!venta) return null;
   const ventaId = venta._id;
@@ -27,42 +69,53 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, loadingIds = 
   const evidencias = useMemo(() => {
     const raw = Array.isArray(evidenciasSubsc) ? evidenciasSubsc : [];
     return raw
-      .map((e, i) => ({
-        _idx: i,
-        _id: e._id,
-        base64: e.base64 || e.dataBase64 || e.data || e.dataB64,
-        aprobado: !!e.aprobado,
-        createdAt: e.createdAt || e.fecha || null,
-        size: e.size || 0,
-        descripcion: e.descripcion || '',
-        raw: e
-      }))
+      .map(mapEvidenciaDoc)
       .filter(e => !!e.base64);
   }, [evidenciasSubsc]);
 
   const abrirPreview = (ev) => setPreview(ev);
   const cerrarPreview = () => setPreview(null);
 
-  const handleAprobar = async () => {
+  const handleAprobar = () => {
     if (!preview) return;
-    // console.log(preview)
-    Meteor.call('archivos.aprobarEvidencia', preview._id, null, function(error, success) { 
-        if (error) { 
-            console.log('error', error); 
-        } 
-        if (success) { 
-             console.log("success", success);
-        } 
+    if (preview.aprobado || preview.rechazado) return; // nada que hacer
+    Meteor.call('archivos.aprobarEvidencia', preview._id, null, (error, success) => {
+      if (error) {
+        Alert.alert('Error', error.reason || 'No se pudo aprobar la evidencia.');
+        return;
+      }
+      if (success) {
+        onAprobar && onAprobar(preview);
+        // Opcional: setPreview(null);
+      }
     });
-    
-    // TODO: Implementar llamada Meteor (ej: Meteor.call('evidencias.aprobar', preview._id, ...))
-    // onAprobar && onAprobar(preview);
+  };
+
+  const confirmarRechazo = () => {
+    Meteor.call('archivos.denegarEvidencia', preview._id, null, (error, success) => {
+      if (error) {
+        Alert.alert('Error', error.reason || 'No se pudo rechazar la evidencia.');
+        return;
+      }
+      if (success) {
+        onRechazar && onRechazar(preview);
+        Alert.alert('Listo', 'Evidencia rechazada.');
+        // Opcional: setPreview(null);
+      }
+    });
   };
 
   const handleRechazar = () => {
     if (!preview) return;
-    // TODO: Implementar llamada Meteor (ej: Meteor.call('evidencias.rechazar', preview._id, ...))
-    onRechazar && onRechazar(preview);
+    if (preview.aprobado || preview.rechazado) return;
+    Alert.alert(
+      'Confirmar rechazo',
+      '¿Desea marcar esta evidencia como rechazada? Esta acción puede requerir nueva subida del usuario.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Rechazar', style: 'destructive', onPress: confirmarRechazo }
+      ]
+    );
   };
 
   const miniBase64 = evidencias[0]?.base64;
@@ -108,13 +161,17 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, loadingIds = 
             {evidencias.map(ev => {
               const uri = `data:image/jpeg;base64,${ev.base64}`;
               const isLoading = loadingIds.includes(ev._id);
+              const borderStyle = ev.rechazado
+                ? styles.borderRechazado
+                : ev.aprobado
+                  ? styles.borderAprobado
+                  : styles.borderPendiente;
+              const badgeText =
+                ev.rechazado ? 'CANC' : ev.aprobado ? 'OK' : 'PEND';
               return (
                 <Pressable
                   key={ev._id}
-                  style={[
-                    styles.thumbContainer,
-                    ev.aprobado ? styles.borderAprobado : styles.borderPendiente
-                  ]}
+                  style={[styles.thumbContainer, borderStyle]}
                   onPress={() => abrirPreview(ev)}
                 >
                   <Image source={{ uri }} style={styles.thumb} />
@@ -124,8 +181,16 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, loadingIds = 
                     </View>
                   )}
                   <View style={styles.badgeEstado}>
-                    <Text style={[styles.badgeText, ev.aprobado && styles.badgeTextOk]}>
-                      {ev.aprobado ? 'OK' : 'PEND'}
+                    <Text
+                      testID={`badge-estado-${ev.estado}`}
+                      accessibilityLabel={`Estado evidencia ${ev.estado}`}
+                      style={[
+                        styles.badgeText,
+                        ev.aprobado && styles.badgeTextOk,
+                        ev.rechazado && styles.badgeTextDenied
+                      ]}
+                    >
+                      {badgeText}
                     </Text>
                   </View>
                 </Pressable>
@@ -143,9 +208,13 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, loadingIds = 
         title={preview ? `Evidencia ${preview._idx + 1}` : ''}
         side="bottom"
         actions={[
-          preview && preview.aprobado
-            ? { icon: 'check-decagram', disabled: true }
-            : { icon: 'clock-outline', disabled: true }
+          preview
+            ? preview.rechazado
+              ? { icon: 'close-octagon', disabled: true }
+              : preview.aprobado
+                ? { icon: 'check-decagram', disabled: true }
+                : { icon: 'clock-outline', disabled: true }
+            : {}
         ]}
       >
         {preview && (
@@ -157,15 +226,39 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, loadingIds = 
             />
             <View style={styles.metaBox}>
               <View style={styles.metaRow}>
-                <Chip
-                  mode="outlined"
-                  compact
-                  icon={preview.aprobado ? 'check' : 'progress-clock'}
-                  style={preview.aprobado ? styles.chipOk : styles.chipPending}
-                  textStyle={styles.chipText}
-                >
-                  {preview.aprobado ? 'Aprobada' : 'Pendiente'}
-                </Chip>
+                {preview.estado === ESTADOS.APROBADA && (
+                  <Chip
+                    mode="outlined"
+                    compact
+                    icon="check"
+                    style={[styles.chipOk]}
+                    textStyle={styles.chipText}
+                  >
+                    Aprobada
+                  </Chip>
+                )}
+                {preview.estado === ESTADOS.RECHAZADA && (
+                  <Chip
+                    mode="outlined"
+                    compact
+                    icon="close-octagon"
+                    style={styles.chipDenied}
+                    textStyle={styles.chipText}
+                  >
+                    Rechazada
+                  </Chip>
+                )}
+                {preview.estado === ESTADOS.PENDIENTE && (
+                  <Chip
+                    mode="outlined"
+                    compact
+                    icon="progress-clock"
+                    style={styles.chipPending}
+                    textStyle={styles.chipText}
+                  >
+                    Pendiente
+                  </Chip>
+                )}
                 <Text style={styles.fechaText}>
                   {preview.createdAt
                     ? moment(preview.createdAt).format('DD/MM/YYYY HH:mm')
@@ -182,7 +275,7 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, loadingIds = 
               )}
 
               <View style={styles.actionsRow}>
-                {!preview.aprobado && (
+                {preview.estado === ESTADOS.PENDIENTE && (
                   <>
                     <Button
                       mode="contained"
@@ -197,13 +290,17 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, loadingIds = 
                       icon="close"
                       onPress={handleRechazar}
                       style={styles.actionBtn}
+                      textColor="#c62828"
                     >
                       Rechazar
                     </Button>
                   </>
                 )}
-                {preview.aprobado && (
+                {preview.estado === ESTADOS.APROBADA && (
                   <Text style={styles.aprobadaInfo}>Ya aprobada</Text>
+                )}
+                {preview.estado === ESTADOS.RECHAZADA && (
+                  <Text style={styles.rechazadaInfo}>Rechazada</Text>
                 )}
               </View>
             </View>
@@ -245,6 +342,7 @@ const styles = StyleSheet.create({
   thumb: { width: '100%', height: '100%' },
   borderAprobado: { borderWidth: 2, borderColor: '#2ecc71' },
   borderPendiente: { borderWidth: 2, borderColor: '#f1c40f' },
+  borderRechazado: { borderWidth: 2, borderColor: '#e74c3c' },
   badgeEstado: {
     position: 'absolute',
     bottom: 2,
@@ -256,6 +354,7 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontSize: 9, color: '#fff', fontWeight: '600' },
   badgeTextOk: { color: '#2ecc71' },
+  badgeTextDenied: { color: '#e74c3c' },
   loadingOverlay: {
     position: 'absolute',
     inset: 0,
@@ -273,6 +372,7 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   chipOk: { borderColor: '#2ecc71' },
   chipPending: { borderColor: '#f1c40f' },
+  chipDenied: { borderColor: '#e74c3c' },
   chipText: { fontSize: 11 },
   fechaText: { fontSize: 11, color: '#555' },
   sizeText: { fontSize: 11, color: '#555', marginTop: 6 },
@@ -286,5 +386,14 @@ const styles = StyleSheet.create({
   },
   actionsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16 },
   actionBtn: { marginRight: 10 },
-  aprobadaInfo: { fontSize: 12, color: '#2e7d32', fontWeight: '600' }
+  aprobadaInfo: { fontSize: 12, color: '#2e7d32', fontWeight: '600' },
+  rechazadaInfo: { fontSize: 12, color: '#e74c3c', fontWeight: '600' }
 });
+
+/*
+  FUTURAS MEJORAS:
+  - Implementar método 'archivos.resetEstadoEvidencia' para revertir rechazo si fue un error.
+  - Añadir timestamp y usuario que cambió el estado (auditoría).
+  - Unificar color palette vía theme react-native-paper.
+  - Soportar tipos de archivo (PDF) mostrando ícono en lugar de intentar renderizar imagen.
+*/

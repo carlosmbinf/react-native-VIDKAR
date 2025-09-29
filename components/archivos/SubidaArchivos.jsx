@@ -7,6 +7,36 @@ import DrawerBottom from '../drawer/DrawerBottom';
 import moment from 'moment';
 import { EvidenciasVentasEfectivoCollection } from '../collections/collections';
 
+// Estados unificados (igual que en AprobacionEvidenciasVenta)
+const ESTADOS = {
+  APROBADA: 'APROBADA',
+  RECHAZADA: 'RECHAZADA',
+  PENDIENTE: 'PENDIENTE'
+};
+
+// Función de mapeo consistente
+const mapEvidenciaDoc = (e, i) => {
+  const aprobado = !!e.aprobado;
+  const cancelFlag = !!(e.cancelado || e.cancelada || e.isCancelada || e.estado === 'CANCELADA');
+  const rechazadoFlag = !!(e.rechazado || e.denegado || e.estado === ESTADOS.RECHAZADA || e.estado === 'RECHAZADA');
+  const rechazado = cancelFlag || rechazadoFlag;
+  let estado = ESTADOS.PENDIENTE;
+  if (rechazado) estado = ESTADOS.RECHAZADA;
+  else if (aprobado) estado = ESTADOS.APROBADA;
+  return {
+    _idx: i,
+    _id: e._id,
+    base64: e.base64 || e.dataBase64 || e.data || e.dataB64,
+    aprobado,
+    rechazado,
+    estado,
+    descripcion: e.descripcion || e.detalles || '',
+    createdAt: e.createdAt || e.fecha || e.fechaSubida || null,
+    size: e.size || e.tamano || 0,
+    raw: e
+  };
+};
+
 // Opcional: intento cargar Clipboard (soporta distintos entornos)
 let ClipboardModule = null;
 // try {
@@ -89,18 +119,9 @@ const SubidaArchivos = ({ venta }) => {
 
   const evidencias = useMemo(() => {
     const raw = Array.isArray(evidenciasSubsc) ? evidenciasSubsc : [];
-    console.log("raw",raw?.length ?? 0);
-    console.log("evidenciasSubsc",evidenciasSubsc?.length ?? 0)
-    return raw.map((e, i) => ({
-      _idx: i,
-      _id: e._id, // NUEVO: conservar id para eliminación puntual
-      base64: e.base64 || e.dataBase64 || e.data || e.dataB64,
-      aprobado: !!e.aprobado,
-      descripcion: e.descripcion || e.detalles || '',
-      createdAt: e.createdAt || e.fecha || e.fechaSubida || null,
-      size: e.size || e.tamano || 0,
-      raw: e
-    })).filter(e => !!e.base64);
+    return raw
+      .map(mapEvidenciaDoc)
+      .filter(e => !!e.base64);
   }, [evidenciasSubsc]);
 
   const tieneEvidencias = evidencias.length > 0;
@@ -292,18 +313,30 @@ const SubidaArchivos = ({ venta }) => {
             >
               {evidencias.map((ev) => {
                 const uri = `data:image/jpeg;base64,${ev.base64}`;
+                const borderStyle = ev.rechazado
+                  ? styles.rechazadoBorder
+                  : ev.aprobado
+                    ? styles.aprobadoBorder
+                    : styles.pendienteBorder;
+                const badgeText = ev.rechazado ? 'CANC' : ev.aprobado ? 'OK' : 'PEND';
                 return (
                   <Pressable
-                    key={ev._idx}
-                    style={[styles.evidenciaThumbContainer, ev.aprobado ? styles.aprobadoBorder : styles.pendienteBorder]}
+                    key={ev._id}
+                    style={[styles.evidenciaThumbContainer, borderStyle]}
                     onPress={() => abrirPreview(ev)}
                   >
                     <Image source={{ uri }} style={styles.evidenciaThumb} />
-                    {ev.aprobado && (
-                      <View style={styles.badgeCheck}>
-                        <Text style={styles.badgeCheckText}>✓</Text>
-                      </View>
-                    )}
+                    <View style={styles.badgeEstado}>
+                      <Text
+                        style={[
+                          styles.badgeEstadoText,
+                          ev.aprobado && styles.badgeEstadoOk,
+                          ev.rechazado && styles.badgeEstadoDenied
+                        ]}
+                      >
+                        {badgeText}
+                      </Text>
+                    </View>
                   </Pressable>
                 );
               })}
@@ -378,9 +411,13 @@ const SubidaArchivos = ({ venta }) => {
         title={preview ? `Evidencia ${preview._idx + 1}` : ''}
         side="bottom"
         actions={[
-          preview && preview.aprobado
-            ? { icon: 'check-decagram', disabled: true }
-            : { icon: 'clock-outline', disabled: true }
+          preview
+            ? preview.rechazado
+              ? { icon: 'close-octagon', disabled: true }
+              : preview.aprobado
+                ? { icon: 'check-decagram', disabled: true }
+                : { icon: 'clock-outline', disabled: true }
+            : {}
         ]}
       >
         {preview && (
@@ -391,15 +428,22 @@ const SubidaArchivos = ({ venta }) => {
               resizeMode="contain"
             />
             <View style={styles.previewMetaBox}>
-              <Chip
-                mode="outlined"
-                compact
-                icon={preview.aprobado ? 'check' : 'timer-sand'}
-                style={preview.aprobado ? styles.chipAprobado : styles.chipPendiente}
-                textStyle={{ fontSize: 11 }}
-              >
-                {preview.aprobado ? 'Aprobada' : 'Pendiente'}
-              </Chip>
+              {/* Chip de estado unificado */}
+              {preview.estado === ESTADOS.APROBADA && (
+                <Chip mode="outlined" compact icon="check" style={styles.chipAprobado} textStyle={styles.chipEstadoText}>
+                  Aprobada
+                </Chip>
+              )}
+              {preview.estado === ESTADOS.RECHAZADA && (
+                <Chip mode="outlined" compact icon="close-octagon" style={styles.chipRechazada} textStyle={styles.chipEstadoText}>
+                  Rechazada
+                </Chip>
+              )}
+              {preview.estado === ESTADOS.PENDIENTE && (
+                <Chip mode="outlined" compact icon="progress-clock" style={styles.chipPendiente} textStyle={styles.chipEstadoText}>
+                  Pendiente
+                </Chip>
+              )}
               <Text style={styles.previewFecha}>
                 {preview.createdAt ? moment(preview.createdAt).format('DD/MM/YYYY HH:mm') : 'Sin fecha'}
               </Text>
@@ -409,10 +453,10 @@ const SubidaArchivos = ({ venta }) => {
                 </Text>
               )}
               {!!preview.descripcion && (
-                <Text style={styles.previewDescripcion}>
-                  {preview.descripcion}
-                </Text>
+                <Text style={styles.previewDescripcion}>{preview.descripcion}</Text>
               )}
+
+              {/* Eliminación permitida incluso si está rechazada */}
               <Button
                 mode="contained-tonal"
                 icon="delete"
@@ -463,18 +507,19 @@ const styles = StyleSheet.create({
   evidenciaThumb: { width: '100%', height: '100%' },
   aprobadoBorder: { borderWidth: 2, borderColor: '#2ecc71' },
   pendienteBorder: { borderWidth: 2, borderColor: '#f1c40f' },
-  badgeCheck: {
+  rechazadoBorder: { borderWidth: 2, borderColor: '#e74c3c' },
+  badgeEstado: {
     position: 'absolute',
-    top: 2,
+    bottom: 2,
     right: 2,
-    backgroundColor: '#2ecc71',
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center'
+    backgroundColor: '#00000088',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4
   },
-  badgeCheckText: { color: 'white', fontSize: 11, fontWeight: '700' },
+  badgeEstadoText: { fontSize: 9, color: '#fff', fontWeight: '600' },
+  badgeEstadoOk: { color: '#2ecc71' },
+  badgeEstadoDenied: { color: '#e74c3c' },
   sinEvidenciasText: { fontSize: 11, color: '#777', marginTop: 4, fontStyle: 'italic' },
 
   botonSubirEvidencia: { marginTop: 8 },
@@ -498,6 +543,8 @@ const styles = StyleSheet.create({
   previewMetaBox: { marginTop: 12 },
   chipAprobado: { borderColor: '#2ecc71' },
   chipPendiente: { borderColor: '#f1c40f' },
+  chipRechazada: { borderColor: '#e74c3c' },
+  chipEstadoText: { fontSize: 11 },
   previewFecha: { fontSize: 11, color: '#555', marginTop: 6 },
   previewTamano: { fontSize: 11, color: '#555', marginTop: 2 },
   previewDescripcion: {

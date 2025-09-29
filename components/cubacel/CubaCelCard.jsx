@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ImageBackground, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { Card, Title, Chip, IconButton, Portal, Dialog, Button, TextInput, Modal } from 'react-native-paper';
+import { Card, Title, Chip, IconButton, Portal, Dialog, Button, TextInput, Modal, Surface } from 'react-native-paper';
 import { useTheme, Text } from 'react-native-paper';
 import { useWindowDimensions, Button as BotonReact } from 'react-native';
 import Meteor from '@meteorrn/core';
@@ -68,7 +68,7 @@ const CubaCelCard = ({ product }) => {
     };
 
     return (
-        <>
+        <Surface>
             <Card style={styles.card} onPress={() => setOpen(true)}>
 
                 <ImageBackground
@@ -210,13 +210,13 @@ const CubaCelCard = ({ product }) => {
                     </KeyboardAvoidingView>
                 </Dialog>
             </Portal>
-        </>
+        </Surface>
     );
 };
 
 const styles = StyleSheet.create({
     dialog: {
-        maxHeight: '60%',
+        maxHeight: '40%',
         borderRadius: 20,
         padding: 2,
         flex: 1

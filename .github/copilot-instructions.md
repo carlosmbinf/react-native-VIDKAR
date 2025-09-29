@@ -1,7 +1,9 @@
 Ten en cuenta que en cada modificacion de frontend o backend se debe ser y modificar lo mas profesional posible, pues los proyectos trabajados son para clientes y queremos dar la mejor impresion y siempre pensar en posibles modificaciones a futuro, o sea a la hora de crear algo tambien pensar en lo que el usuario quisiera que le mostremos, tambien en el backend tenemos que hacer las cosas teniendo en cuenta futuras mejoras
 
-las collection y sus schemas estan declaradas en esta url "components\collections\collections.js"
+escribe en este archivo copilot-instructions.md todo lo relacionado y aprendido a este proyecto, debe ser cosas tecnicas a tener en cuenta para otros desarrolladores, cosas a corregir, cosas a perfeccionar, no debes eliminar lo que ya esta en este archivo sino agregar un resumen de cada conversacion teniendo en cuenta lo mensionado en este archivo, para que en cada conversacion se escriba lo que se aprendio
 
+las collection y sus schemas estan declaradas en esta url "components\collections\collections.js"
+s
 todo lo visual esta dentro de la carpeta "components"
 
 los modulos que se usan en el proyecto se encuentran en el archivo "package.json"

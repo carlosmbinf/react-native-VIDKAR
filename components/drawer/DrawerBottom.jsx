@@ -203,7 +203,6 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 14, paddingVertical: 12, flexGrow: 1 },
   overlay: { ...StyleSheet.absoluteFillObject },
   mainWrapper: { flex: 1 },
-
   // NUEVOS estilos bottom sheet
   portalContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -212,6 +211,7 @@ const styles = StyleSheet.create({
   },
   bottomSheetWrapper: {
     width: '100%',
+    // minHeight: "100%",
   },
   bottomSurface: {
     borderTopLeftRadius: 22,

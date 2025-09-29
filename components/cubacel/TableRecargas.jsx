@@ -71,7 +71,7 @@ const TableRecargas = () => {
 
   const { ventas, loading } = useTracker(() => {
 
-    const sub = Meteor.subscribe('ventasRecharge', { 'producto.carritos.type': 'RECARGA' });
+    const sub = Meteor.subscribe('ventasRecharge', isAdminPrincipal ? { 'producto.carritos.type': 'RECARGA' } : (isAdmin ? { 'producto.carritos.type': 'RECARGA', $or: [{ userId: Meteor.userId() }, { userId: { $in: listIdSubordinados } }] } : { 'producto.carritos.type': 'RECARGA', userId: Meteor.userId() }));
     const query = isAdminPrincipal ? { 'producto.carritos.type': 'RECARGA' } : (isAdmin ? { 'producto.carritos.type': 'RECARGA', $or: [{ userId: Meteor.userId() }, { userId: { $in: listIdSubordinados } }] } : { 'producto.carritos.type': 'RECARGA', userId: Meteor.userId() });
     console.log("query", query);
     const ventas = VentasRechargeCollection.find(query, { sort: { createdAt: -1 } });
@@ -131,13 +131,15 @@ const TableRecargas = () => {
   // nuevo: derivar estado desde los carritos
   const deriveEstadoVenta = (venta) => {
     const carritos = getItemsArray(venta) || [];
-    if(venta.isCobrado !== true) return 'PENDIENTE_PAGO';
-    if (carritos.length === 0) return 'PENDIENTE_ENTREGA';
+    
     let t = transacciones?.filter(t => carritos?.map(car => car._id)?.includes(t.externalId));
     const allCompleted = t.length > 0 ? t.every(c => c?.status?.message === 'COMPLETED') : false;
+    const allCancelled = t.length > 0 ? t.every(c => c?.status?.message === 'CANCELLED') : false;
     
     if (allCompleted) return 'ENTREGADO';
-
+    if (allCancelled) return 'CANCELADO';
+    if(venta.isCobrado !== true) return 'PENDIENTE_PAGO';
+    if (carritos.length === 0) return 'PENDIENTE_ENTREGA';
     return 'PENDIENTE_ENTREGA';
   };
 
