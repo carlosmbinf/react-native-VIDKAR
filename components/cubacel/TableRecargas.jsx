@@ -27,7 +27,7 @@ const estadoLabel = (estado) => {
     case 'PENDIENTE_ENTREGA':
       return 'Pendiente';
     case 'ENTREGADO':
-      return 'Entregado';
+      return 'Pagado';
     case 'CANCELADO':
       return 'Cancelado';
     default:
