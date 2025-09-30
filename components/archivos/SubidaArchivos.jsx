@@ -5,7 +5,7 @@ import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import Meteor, {useTracker} from '@meteorrn/core';
 import DrawerBottom from '../drawer/DrawerBottom';
 import moment from 'moment';
-import { EvidenciasVentasEfectivoCollection } from '../collections/collections';
+import { EvidenciasVentasEfectivoCollection, VentasRechargeCollection } from '../collections/collections';
 
 // Estados unificados (igual que en AprobacionEvidenciasVenta)
 const ESTADOS = {
@@ -47,7 +47,7 @@ let ClipboardModule = null;
 //   } catch (_) {}
 // }
 
-const SubidaArchivos = ({ venta }) => {
+const SubidaArchivos = ({ venta}) => {
   if (!venta) return null;
   const ventaId = venta._id;
 
@@ -105,6 +105,18 @@ const SubidaArchivos = ({ venta }) => {
     }
   };
 
+
+  const ventaReact  = useTracker(() => {
+
+    const susc = Meteor.subscribe('ventasRecharge', {_id:ventaId}).ready();
+    
+     console.log("ventaId ", ventaId);
+    const vent = susc ? VentasRechargeCollection.find({_id:ventaId}).fetch() : null
+    console.log("VentasRechargeCollection", vent?.length ?? 0);
+    return vent?.length > 0 ? vent[0] : null;
+  });
+
+
   const evidenciasSubsc  = useTracker(() => {
 
     let readyEvidencias = Meteor.subscribe('evidenciasVentasEfectivoRecharge', {ventaId:ventaId}).ready();
@@ -126,6 +138,11 @@ const SubidaArchivos = ({ venta }) => {
 
   const tieneEvidencias = evidencias.length > 0;
 
+  // Inhabilita subida si la venta ya fue cobrada o está cancelada
+  const uploadInhabilitado = useMemo(() => {
+    return !!(ventaReact?.isCobrado || ventaReact?.isCancelada);
+  }, [ventaReact?.isCobrado, ventaReact?.isCancelada]);
+  
   const miniBase64 = archivoSeleccionado?.base64 || evidencias[0]?.base64;
 
   const seleccionarArchivo = () => {
@@ -188,6 +205,10 @@ const SubidaArchivos = ({ venta }) => {
   const cerrarPreview = () => setPreview(null);
 
   const handleEliminarEvidencias = () => {
+    if (uploadInhabilitado) {
+      Alert.alert('Acción no permitida', 'No se pueden eliminar evidencias de una venta cobrada o cancelada.');
+      return;
+    }
     if (eliminando || !preview) return;
     const evidenciaId = preview._id || preview.raw?._id;
     if (!evidenciaId) {
@@ -239,9 +260,9 @@ const SubidaArchivos = ({ venta }) => {
                   <Text style={[styles.labelMonto, { fontSize: 14 }]}>
                     Monto a pagar
                   </Text>
-                  <Text style={[styles.montoAPagar, { fontSize: 18, fontWeight: 'bold', marginTop: 2 }]}>
-                    ${venta.cobrado} {venta.monedaCobrado}
-                  </Text>
+                  {<Text style={[styles.montoAPagar, { fontSize: 18, fontWeight: 'bold', marginTop: 2 }]}>
+                    ${ventaReact?.cobrado} {ventaReact?.monedaCobrado}
+                  </Text>}
                 </View>
 
                 <Chip
@@ -297,9 +318,9 @@ const SubidaArchivos = ({ venta }) => {
             <Button
               mode={tieneEvidencias ? 'text' : 'contained'}
               icon={tieneEvidencias ? 'plus' : 'camera-plus'}
-              onPress={() => setOpenSheet(true)}
+              onPress={() => !uploadInhabilitado && setOpenSheet(true)}
               compact
-              disabled={cargando}
+              disabled={cargando || uploadInhabilitado}
             >
               {tieneEvidencias ? 'Agregar' : 'Subir'}
             </Button>
@@ -356,8 +377,8 @@ const SubidaArchivos = ({ venta }) => {
         actions={[
           {
             icon: 'upload',
-            onPress: () => !cargando && subirArchivo(),
-            disabled: !archivoSeleccionado || cargando
+            onPress: () => !cargando && !uploadInhabilitado && subirArchivo(),
+            disabled: !archivoSeleccionado || cargando || uploadInhabilitado
           }
         ]}
       >
@@ -365,7 +386,7 @@ const SubidaArchivos = ({ venta }) => {
           mode="outlined"
           onPress={seleccionarArchivo}
           style={styles.boton}
-          disabled={cargando}
+          disabled={cargando || uploadInhabilitado}
           icon={archivoSeleccionado ? 'image-edit' : 'camera'}
         >
           {archivoSeleccionado ? 'Cambiar archivo' : 'Seleccionar archivo'}
@@ -397,7 +418,7 @@ const SubidaArchivos = ({ venta }) => {
         <Button
           mode="contained"
           onPress={subirArchivo}
-          disabled={!archivoSeleccionado || cargando}
+          disabled={!archivoSeleccionado || cargando || uploadInhabilitado}
           style={styles.botonSubir}
           icon="upload"
         >
@@ -461,7 +482,7 @@ const SubidaArchivos = ({ venta }) => {
                 mode="contained-tonal"
                 icon="delete"
                 onPress={handleEliminarEvidencias}
-                disabled={eliminando}
+                disabled={eliminando || uploadInhabilitado}
                 loading={eliminando}
                 style={styles.botonEliminar}
               >

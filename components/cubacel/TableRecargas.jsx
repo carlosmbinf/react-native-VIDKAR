@@ -131,7 +131,10 @@ const TableRecargas = () => {
   // nuevo: derivar estado desde los carritos
   const deriveEstadoVenta = (venta) => {
     const carritos = getItemsArray(venta) || [];
-    
+    const isCanceladaVenta = venta.isCancelada;
+    const isCobrado = venta.isCobrado;
+    if (isCobrado) return 'ENTREGADO';
+    if (isCanceladaVenta) return 'CANCELADO';
     let t = transacciones?.filter(t => carritos?.map(car => car._id)?.includes(t.externalId));
     const allCompleted = t.length > 0 ? t.every(c => c?.status?.message === 'COMPLETED') : false;
     const allCancelled = t.length > 0 ? t.every(c => c?.status?.message === 'CANCELLED') : false;

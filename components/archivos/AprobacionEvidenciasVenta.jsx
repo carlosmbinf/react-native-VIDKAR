@@ -11,6 +11,7 @@ import { EvidenciasVentasEfectivoCollection } from '../collections/collections';
  *  - venta
  *  - onAprobar?: (evidencia)
  *  - onRechazar?: (evidencia)
+ *  - onVentaAprobada?: (venta)
  *  - loadingIds?: string[]
  */
 const ESTADOS = {
@@ -55,10 +56,13 @@ const mapEvidenciaDoc = (e, i) => {
   };
 };
 
-const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, loadingIds = [] }) => {
+const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAprobada, loadingIds = [] }) => {
   if (!venta) return null;
   const ventaId = venta._id;
   const [preview, setPreview] = useState(null);
+
+  // NUEVO: estado para procesar la aprobación de la venta
+  const [aprobandoVenta, setAprobandoVenta] = useState(false);
 
   // Suscripción de evidencias (igual que en SubidaArchivos)
   const evidenciasSubsc = useTracker(() => {
@@ -72,6 +76,40 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, loadingIds = 
       .map(mapEvidenciaDoc)
       .filter(e => !!e.base64);
   }, [evidenciasSubsc]);
+
+  // NUEVO: comprobación para permitir aprobar la venta
+  const existeAprobada = evidencias.some(ev => !!ev.aprobado);
+  const ventaYaEntregada = venta?.estado === 'ENTREGADO' || venta?.estado === 'ENTREGADO' /* compat */ || venta?.estado === 'PAGADA' || venta?.estado === 'COMPLETADA';
+  const canApproveSale = existeAprobada && !ventaYaEntregada;
+
+  // NUEVO: handler para aprobar venta con confirmación
+  const handleAprobarVenta = () => {
+    if (!canApproveSale || aprobandoVenta) return;
+    Alert.alert(
+      'Aprobar venta',
+      'Se aprobará la venta y se procesarán sus carritos. ¿Desea continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Aprobar',
+          onPress: () => {
+            setAprobandoVenta(true);
+            Meteor.call('ventas.aprobarVenta', venta._id, {}, (err, res) => {
+              setAprobandoVenta(false);
+              if (err) {
+                Alert.alert('Error', err.reason || 'No se pudo aprobar la venta');
+                return;
+              }
+              Alert.alert('Éxito', res?.message || 'Venta aprobada correctamente');
+              // callback opcional para que el componente padre actualice la lista/estado
+              onVentaAprobada && onVentaAprobada(res);
+            });
+          },
+          style: 'destructive'
+        }
+      ]
+    );
+  };
 
   const abrirPreview = (ev) => setPreview(ev);
   const cerrarPreview = () => setPreview(null);
@@ -145,6 +183,20 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, loadingIds = 
 
         <View style={styles.headerRow}>
           <Text style={styles.sectionTitle}>Listado ({evidencias.length})</Text>
+
+          {/* NUEVO: botón para aprobar la venta */}
+          <View style={{ marginLeft: 8 }}>
+            <Button
+              mode="contained"
+              onPress={handleAprobarVenta}
+              disabled={!canApproveSale || aprobandoVenta}
+              icon="check-decagram"
+              compact
+              contentStyle={{ height: 36 }}
+            >
+              {aprobandoVenta ? 'Procesando...' : 'Aprobar venta'}
+            </Button>
+          </View>
         </View>
 
         {cargando && evidencias.length === 0 ? (
