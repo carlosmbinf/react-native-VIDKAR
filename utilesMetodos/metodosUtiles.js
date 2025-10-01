@@ -56,6 +56,7 @@ const loginWithGoogle = async function(configuration, callback) {
 			}
 		);
 	} catch (error) {
+		console.error(error);
 		callback({ reason: 'No se pudo iniciar session con google, por favor inicie session con Usuario y contraseña', details: { error } });
 	}
 };

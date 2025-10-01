@@ -1,5 +1,5 @@
 import React, { memo, useState } from 'react';
-import { View, Dimensions } from 'react-native';
+import { View, Dimensions, StyleSheet } from 'react-native';
 import { Card, Title, Text, Button, Switch, Surface } from 'react-native-paper';
 import CalendarPicker from 'react-native-calendar-picker';
 import { Dropdown } from 'react-native-element-dropdown';
@@ -235,6 +235,7 @@ const VpnCardAdmin = ({
                                 <Button
                                     icon="send"
                                     disabled={item.vpnMbGastados ? false : true}
+                                    style={btnStyles.action}
                                     mode="contained"
                                     onPress={handleReiniciarConsumoVPN}>
                                     REINICIAR CONSUMO!!!
@@ -244,6 +245,7 @@ const VpnCardAdmin = ({
                                 <Button
                                     mode="contained"
                                     color={item.vpn && 'red'}
+                                    style={btnStyles.action}
                                     onPress={handleVPNStatus}>
                                     {!item.vpn ? 'Habilitar' : 'Desabilitar'}
                                 </Button>
@@ -255,5 +257,9 @@ const VpnCardAdmin = ({
         </Card >
     );
 };
+
+const btnStyles = StyleSheet.create({
+    action: { marginTop: 8, borderRadius: 20, margin: 15 },
+  });
 
 export default memo(VpnCardAdmin);

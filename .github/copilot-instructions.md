@@ -35,3 +35,26 @@ Resumen técnico – Rutas y menú (PropertyList)
   - Asegurar Meteor.publish('config', ...) en backend limitando fields y acceso por roles.
   - Centralizar constantes de rutas en un módulo (ej. navigation/routes.ts) para evitar strings repetidos.
   - Validar existencia de permisos antes de renderizar el item del menú (si aplica control por roles).
+
+
+---
+
+Resumen técnico – Tarjeta de Débito (CUP) en UserDetails
+- Frontend RN:
+  - Nuevo componente TarjetaDebitoCard.jsx (components/users/componentsUserDetails) que consulta la property por método Meteor.call("property.getValor", "CONFIG", `TARJETA_CUP_${userId}`) y renderiza un Card solo si existe valor.
+  - Cálculo de userId: se usa item.bloqueadoDesbloqueadoPor si está disponible; de lo contrario item._id. Esto permite flexibilidad con la clave de property registrada.
+  - Integración en UserDetails justo debajo del card de Datos Personales, respetando estilos existentes (styles.cards, styles.title, styles.data).
+  - Sin nuevas suscripciones; llamada segura y no bloqueante. Manejo de errores via console.warn y render condicional.
+
+- Consideraciones de backend:
+  - Confirmar existencia del Meteor.method property.getValor con validación de tipos (type y clave como strings no vacíos) y control de acceso (roles autorizados).
+  - Limitar retorno a valores no sensibles. Evitar publicar datos de configuración si no es imprescindible.
+  - Opcional: cache en servidor para claves de alta lectura (CONFIG/TARJETA_CUP_*) con TTL corto.
+
+- UX/Extensibilidad:
+  - Preparado para agregar acciones (p. ej., copiar al portapapeles) o mostrar múltiples tarjetas en el futuro.
+  - Mantener consistencia visual con el resto de Cards (título, Divider, tipografías).
+
+- Próximos pasos:
+  - Tests de integración: render condicional (existe/no existe property) y variación con bloqueadoDesbloqueadoPor.
+  - Documentar contrato de property.getValor en el backend (parámetros, retorno y errores).

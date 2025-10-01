@@ -1,5 +1,5 @@
 import React, {memo, useState} from 'react';
-import {View, Dimensions} from 'react-native';
+import {View, Dimensions, StyleSheet} from 'react-native';
 import {Card, Title, Text, Button, Switch, Surface} from 'react-native-paper';
 import CalendarPicker from 'react-native-calendar-picker';
 import {Dropdown} from 'react-native-element-dropdown';
@@ -200,6 +200,7 @@ const ProxyCardAdmin = ({
                     icon="send"
                     disabled={!value}
                     mode="contained"
+                    style={btnStyles.action}
                     onPress={async () => {
                       try {
                         await Meteor.users.update(item._id, {$set: {megas: value}});
@@ -231,7 +232,8 @@ const ProxyCardAdmin = ({
                   <Button
                     disabled={item.megasGastadosinBytes ? false : true}
                     mode="contained"
-                    onPress={handleReiniciarConsumo}>
+                    onPress={handleReiniciarConsumo}
+                    style={btnStyles.action}>
                     REINICIAR CONSUMO!!!
                   </Button>
                 </View>
@@ -239,7 +241,8 @@ const ProxyCardAdmin = ({
                   <Button
                     mode="contained"
                     color={!item.baneado && 'red'}
-                    onPress={addVenta}>
+                    onPress={addVenta}
+                    style={btnStyles.action}>
                     {item.baneado ? 'Habilitar' : 'Desabilitar'}
                   </Button>
                 </View>
@@ -251,5 +254,7 @@ const ProxyCardAdmin = ({
     </Card>
   );
 };
-
+const btnStyles = StyleSheet.create({
+  action: { marginTop: 8, borderRadius: 20, margin: 15 },
+});
 export default memo(ProxyCardAdmin);

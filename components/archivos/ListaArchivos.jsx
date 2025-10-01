@@ -20,7 +20,7 @@ const ListaVentasEfectivo = ({ userId }) => {
   }, [isAdmin, Meteor.userId()]);
 
   const { ventas, cargando } = useTracker(() => {
-    const filtroBase = { isCobrado: false, metodoPago: "EFECTIVO" };
+    const filtroBase = { isCobrado: false, metodoPago: "EFECTIVO", isCancelada: false };
     const query = isAdminPrincipal
       ? filtroBase
       : isAdmin

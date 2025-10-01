@@ -2,7 +2,7 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "D:/android-VIDKAR/android/app/build/intermediates/cxx/Debug/5qm6r6w5/obj/armeabi-v7a/libappmodules.so"
+			"path" : "D:/android-VIDKAR/android/app/build/intermediates/cxx/Debug/5qm6r6w5/obj/x86_64/libappmodules.so"
 		}
 	],
 	"backtrace" : 3,
@@ -94,7 +94,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security   -fno-limit-debug-info  -fPIC"
+					"fragment" : "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security   -fno-limit-debug-info  -fPIC"
 				},
 				{
 					"backtrace" : 6,
@@ -404,7 +404,7 @@
 		},
 		{
 			"backtrace" : 5,
-			"id" : "react_codegen_rnblurview::@9a34ffec6e39b5c9049e"
+			"id" : "react_codegen_RNPermissionsSpec::@7ad697819b753921c957"
 		},
 		{
 			"backtrace" : 5,
@@ -412,11 +412,11 @@
 		},
 		{
 			"backtrace" : 5,
-			"id" : "react_codegen_RNPermissionsSpec::@7ad697819b753921c957"
+			"id" : "react_codegen_rnblurview::@9a34ffec6e39b5c9049e"
 		},
 		{
 			"backtrace" : 5,
-			"id" : "react_codegen_rnsvg::@4f40eb209d0c0b4a3b65"
+			"id" : "react_codegen_RNVectorIconsSpec::@479809fae146501fd34d"
 		},
 		{
 			"backtrace" : 5,
@@ -424,7 +424,7 @@
 		},
 		{
 			"backtrace" : 5,
-			"id" : "react_codegen_RNVectorIconsSpec::@479809fae146501fd34d"
+			"id" : "react_codegen_rnsvg::@4f40eb209d0c0b4a3b65"
 		}
 	],
 	"id" : "appmodules::@6890427a1f51a3e7e1df",
@@ -438,167 +438,167 @@
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\fabricjni\\libs\\android.armeabi-v7a\\libfabricjni.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\fabricjni\\libs\\android.x86_64\\libfabricjni.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\mapbufferjni\\libs\\android.armeabi-v7a\\libmapbufferjni.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\mapbufferjni\\libs\\android.x86_64\\libmapbufferjni.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_newarchdefaults\\libs\\android.armeabi-v7a\\libreact_newarchdefaults.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_newarchdefaults\\libs\\android.x86_64\\libreact_newarchdefaults.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_render_textlayoutmanager\\libs\\android.armeabi-v7a\\libreact_render_textlayoutmanager.a",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_render_textlayoutmanager\\libs\\android.x86_64\\libreact_render_textlayoutmanager.a",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\rrc_text\\libs\\android.armeabi-v7a\\librrc_text.a",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\rrc_text\\libs\\android.x86_64\\librrc_text.a",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\rrc_textinput\\libs\\android.armeabi-v7a\\librrc_textinput.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\rrc_textinput\\libs\\android.x86_64\\librrc_textinput.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\rrc_legacyviewmanagerinterop\\libs\\android.armeabi-v7a\\librrc_legacyviewmanagerinterop.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\rrc_legacyviewmanagerinterop\\libs\\android.x86_64\\librrc_legacyviewmanagerinterop.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\runtimeexecutor\\libs\\android.armeabi-v7a\\libruntimeexecutor.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\runtimeexecutor\\libs\\android.x86_64\\libruntimeexecutor.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 5,
-				"fragment" : "D:\\android-VIDKAR\\android\\app\\build\\intermediates\\cxx\\Debug\\5qm6r6w5\\obj\\armeabi-v7a\\libreact_codegen_RNPermissionsSpec.so",
+				"fragment" : "D:\\android-VIDKAR\\android\\app\\build\\intermediates\\cxx\\Debug\\5qm6r6w5\\obj\\x86_64\\libreact_codegen_RNPermissionsSpec.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 5,
-				"fragment" : "D:\\android-VIDKAR\\android\\app\\build\\intermediates\\cxx\\Debug\\5qm6r6w5\\obj\\armeabi-v7a\\libreact_codegen_rnasyncstorage.so",
+				"fragment" : "D:\\android-VIDKAR\\android\\app\\build\\intermediates\\cxx\\Debug\\5qm6r6w5\\obj\\x86_64\\libreact_codegen_rnasyncstorage.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 5,
-				"fragment" : "D:\\android-VIDKAR\\android\\app\\build\\intermediates\\cxx\\Debug\\5qm6r6w5\\obj\\armeabi-v7a\\libreact_codegen_rnblurview.so",
+				"fragment" : "D:\\android-VIDKAR\\android\\app\\build\\intermediates\\cxx\\Debug\\5qm6r6w5\\obj\\x86_64\\libreact_codegen_rnblurview.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 5,
-				"fragment" : "D:\\android-VIDKAR\\android\\app\\build\\intermediates\\cxx\\Debug\\5qm6r6w5\\obj\\armeabi-v7a\\libreact_codegen_RNCSlider.so",
+				"fragment" : "D:\\android-VIDKAR\\android\\app\\build\\intermediates\\cxx\\Debug\\5qm6r6w5\\obj\\x86_64\\libreact_codegen_RNCSlider.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 5,
-				"fragment" : "D:\\android-VIDKAR\\android\\app\\build\\intermediates\\cxx\\Debug\\5qm6r6w5\\obj\\armeabi-v7a\\libreact_codegen_RNImagePickerSpec.so",
+				"fragment" : "D:\\android-VIDKAR\\android\\app\\build\\intermediates\\cxx\\Debug\\5qm6r6w5\\obj\\x86_64\\libreact_codegen_RNImagePickerSpec.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 5,
-				"fragment" : "D:\\android-VIDKAR\\android\\app\\build\\intermediates\\cxx\\Debug\\5qm6r6w5\\obj\\armeabi-v7a\\libreact_codegen_rnsvg.so",
+				"fragment" : "D:\\android-VIDKAR\\android\\app\\build\\intermediates\\cxx\\Debug\\5qm6r6w5\\obj\\x86_64\\libreact_codegen_rnsvg.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 5,
-				"fragment" : "D:\\android-VIDKAR\\android\\app\\build\\intermediates\\cxx\\Debug\\5qm6r6w5\\obj\\armeabi-v7a\\libreact_codegen_RNVectorIconsSpec.so",
+				"fragment" : "D:\\android-VIDKAR\\android\\app\\build\\intermediates\\cxx\\Debug\\5qm6r6w5\\obj\\x86_64\\libreact_codegen_RNVectorIconsSpec.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\2b2c08b78f61be1aff6d584e740d7456\\transformed\\fbjni-0.6.0\\prefab\\modules\\fbjni\\libs\\android.armeabi-v7a\\libfbjni.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\2b2c08b78f61be1aff6d584e740d7456\\transformed\\fbjni-0.6.0\\prefab\\modules\\fbjni\\libs\\android.x86_64\\libfbjni.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\folly_runtime\\libs\\android.armeabi-v7a\\libfolly_runtime.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\folly_runtime\\libs\\android.x86_64\\libfolly_runtime.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\glog\\libs\\android.armeabi-v7a\\libglog.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\glog\\libs\\android.x86_64\\libglog.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\jsi\\libs\\android.armeabi-v7a\\libjsi.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\jsi\\libs\\android.x86_64\\libjsi.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_codegen_rncore\\libs\\android.armeabi-v7a\\libreact_codegen_rncore.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_codegen_rncore\\libs\\android.x86_64\\libreact_codegen_rncore.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_debug\\libs\\android.armeabi-v7a\\libreact_debug.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_debug\\libs\\android.x86_64\\libreact_debug.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_utils\\libs\\android.armeabi-v7a\\libreact_utils.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_utils\\libs\\android.x86_64\\libreact_utils.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_nativemodule_core\\libs\\android.armeabi-v7a\\libreact_nativemodule_core.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_nativemodule_core\\libs\\android.x86_64\\libreact_nativemodule_core.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_render_componentregistry\\libs\\android.armeabi-v7a\\libreact_render_componentregistry.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_render_componentregistry\\libs\\android.x86_64\\libreact_render_componentregistry.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_render_core\\libs\\android.armeabi-v7a\\libreact_render_core.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_render_core\\libs\\android.x86_64\\libreact_render_core.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_render_debug\\libs\\android.armeabi-v7a\\libreact_render_debug.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_render_debug\\libs\\android.x86_64\\libreact_render_debug.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_render_graphics\\libs\\android.armeabi-v7a\\libreact_render_graphics.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_render_graphics\\libs\\android.x86_64\\libreact_render_graphics.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_render_imagemanager\\libs\\android.armeabi-v7a\\libreact_render_imagemanager.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_render_imagemanager\\libs\\android.x86_64\\libreact_render_imagemanager.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_render_mapbuffer\\libs\\android.armeabi-v7a\\libreact_render_mapbuffer.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\react_render_mapbuffer\\libs\\android.x86_64\\libreact_render_mapbuffer.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\rrc_image\\libs\\android.armeabi-v7a\\librrc_image.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\rrc_image\\libs\\android.x86_64\\librrc_image.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\rrc_view\\libs\\android.armeabi-v7a\\librrc_view.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\rrc_view\\libs\\android.x86_64\\librrc_view.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\turbomodulejsijni\\libs\\android.armeabi-v7a\\libturbomodulejsijni.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\turbomodulejsijni\\libs\\android.x86_64\\libturbomodulejsijni.so",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\yoga\\libs\\android.armeabi-v7a\\libyoga.so",
+				"fragment" : "C:\\Users\\Krly\\.gradle\\caches\\8.8\\transforms\\a81bdb59a5693865820ceb39c0c6a53b\\transformed\\react-android-0.75.3-debug\\prefab\\modules\\yoga\\libs\\android.x86_64\\libyoga.so",
 				"role" : "libraries"
 			},
 			{

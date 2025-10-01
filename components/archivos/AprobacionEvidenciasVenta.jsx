@@ -189,7 +189,7 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
             <Button
               mode="contained"
               onPress={handleAprobarVenta}
-              disabled={!canApproveSale || aprobandoVenta}
+              disabled={!canApproveSale || aprobandoVenta || !Meteor?.user()?.permitirAprobacionEfectivoCUP}
               icon="check-decagram"
               compact
               contentStyle={{ height: 36 }}

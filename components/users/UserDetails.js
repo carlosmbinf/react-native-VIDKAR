@@ -42,6 +42,7 @@ import ProxyCardUser from './componentsUserDetails/ProxyCardUser';
 import VpnCardAdmin from './componentsUserDetails/VpnCardAdmin';
 import VpnCardUser from './componentsUserDetails/VpnCardUser';
 import OptionsCardAdmin from './componentsUserDetails/OptionsCardAdmin';
+import TarjetaDebitoCard from './componentsUserDetails/TarjetaDebitoCard';
 
 const axios = require('axios').default;
 
@@ -314,6 +315,9 @@ class MyAppUserDetails extends React.Component {
                 {/* Datos Personales */}
                 <PersonalDataCard item={item} styles={styles} />
                 {/* Fin Datos Personales */}
+                {/* Tarjeta de Débito (solo si existe property CONFIG.TARJETA_CUP_{userId}) */}
+                <TarjetaDebitoCard item={item} styles={styles} />
+                {/* Fin Tarjeta de Débito */}
                 {/* Datos de Usuario (incluye cambiar contraseña cuando edit=true) */}
                 <UserDataCard
                   item={item}
