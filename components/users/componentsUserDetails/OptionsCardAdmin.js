@@ -37,6 +37,7 @@ const OptionsCardAdmin = ({item, styles}) => {
     );
   };
 
+  const isAdmin = Meteor.user() && Meteor.user().username === "carlosmbinf";
   return (
     <Card elevation={12} style={styles.cards}>
       <Card.Content>
@@ -59,48 +60,51 @@ const OptionsCardAdmin = ({item, styles}) => {
             ? 'Cancelar Desconexion de VPN'
             : 'Desconectar VPN'}
         </Button>
-            
-        {/* Botón permitir Aprobación Efectivo CUP */}
-        <Button
-          mode="contained"
-          color={u?.permitirAprobacionEfectivoCUP ? 'red' : undefined}
-          onPress={() => toggleFlag('permitirAprobacionEfectivoCUP', u?.permitirAprobacionEfectivoCUP)}
-          style={btnStyles.action}>
-          {u?.permitirAprobacionEfectivoCUP
-            ? 'Desactivar Aprobación Efectivo (CUP)'
-            : 'Permitir Aprobación Efectivo (CUP)'}
-        </Button>
 
-        {/* Botón permitir Pago Efectivo CUP */}
-        <Button
-          mode="contained"
-          color={u?.permitirPagoEfectivoCUP ? 'red' : undefined}
-          onPress={() => toggleFlag('permitirPagoEfectivoCUP', u?.permitirPagoEfectivoCUP)}
-          style={btnStyles.action}>
-          {u?.permitirPagoEfectivoCUP
-            ? 'Desactivar Pago Efectivo (CUP)'
-            : 'Permitir Pago Efectivo (CUP)'}
-        </Button>
+        {/* Los siguientes 4 botones solo para admin carlosmbinf */}
+        {isAdmin && <>
+          {/* Botón permitir Aprobación Efectivo CUP */}
+          <Button
+            mode="contained"
+            color={u?.permitirAprobacionEfectivoCUP ? 'red' : undefined}
+            onPress={() => toggleFlag('permitirAprobacionEfectivoCUP', u?.permitirAprobacionEfectivoCUP)}
+            style={btnStyles.action}>
+            {u?.permitirAprobacionEfectivoCUP
+              ? 'Desactivar Aprobación Efectivo (CUP)'
+              : 'Permitir Aprobación Efectivo (CUP)'}
+          </Button>
 
-        {/* Botón Remesas */}
-        <Button
-          mode="contained"
-          color={u?.permiteRemesas ? 'red' : undefined}
-          onPress={() => toggleFlag('permiteRemesas', u?.permiteRemesas)}
-          style={btnStyles.action}>
-          {u?.permiteRemesas ? 'Desactivar Remesas' : 'Permitir Remesas'}
-        </Button>
+          {/* Botón permitir Pago Efectivo CUP */}
+          <Button
+            mode="contained"
+            color={u?.permitirPagoEfectivoCUP ? 'red' : undefined}
+            onPress={() => toggleFlag('permitirPagoEfectivoCUP', u?.permitirPagoEfectivoCUP)}
+            style={btnStyles.action}>
+            {u?.permitirPagoEfectivoCUP
+              ? 'Desactivar Pago Efectivo (CUP)'
+              : 'Permitir Pago Efectivo (CUP)'}
+          </Button>
 
-        {/* Botón Suscripción Pelis */}
-        <Button
-          mode="contained"
-          color={u?.subscipcionPelis ? 'red' : undefined}
-          onPress={() => toggleFlag('subscipcionPelis', u?.subscipcionPelis)}
-          style={btnStyles.action}>
-          {u?.subscipcionPelis
-            ? 'Desactivar Suscripción Pelis'
-            : 'Activar Suscripción Pelis'}
-        </Button>
+          {/* Botón Remesas */}
+          <Button
+            mode="contained"
+            color={u?.permiteRemesas ? 'red' : undefined}
+            onPress={() => toggleFlag('permiteRemesas', u?.permiteRemesas)}
+            style={btnStyles.action}>
+            {u?.permiteRemesas ? 'Desactivar Remesas' : 'Permitir Remesas'}
+          </Button>
+
+          {/* Botón Suscripción Pelis */}
+          <Button
+            mode="contained"
+            color={u?.subscipcionPelis ? 'red' : undefined}
+            onPress={() => toggleFlag('subscipcionPelis', u?.subscipcionPelis)}
+            style={btnStyles.action}>
+            {u?.subscipcionPelis
+              ? 'Desactivar Suscripción Pelis'
+              : 'Activar Suscripción Pelis'}
+          </Button>
+        </>}
       </Card.Content>
     </Card>
   );

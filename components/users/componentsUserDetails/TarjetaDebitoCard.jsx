@@ -29,8 +29,8 @@ const TarjetaDebitoCard = ({ item, styles }) => {
     const [saving, setSaving] = useState(false);
 
     const userId = useMemo(
-        () => item?.bloqueadoDesbloqueadoPor || item?._id,
-        [item?._id, item?.bloqueadoDesbloqueadoPor]
+        () => item?._id,
+        [item?._id]
     );
     const isAdmin = useMemo(() => Meteor.user()?.profile?.role === 'admin', [Meteor.user()?.profile?.role]);
 
@@ -45,9 +45,13 @@ const TarjetaDebitoCard = ({ item, styles }) => {
                 console.warn('property.getValor TARJETA_CUP error:', error);
                 setTarjeta(null);
             } else {
-                const val = typeof result === 'string' ? result.trim() : result;
-                const normalized = normalizeCardWithSpaces(val);
-                setTarjeta(normalized || null); // GUARDAR COMO STRING (CON ESPACIOS)
+                if (result === null || result === undefined || result === "") {
+                    setTarjeta(null);
+                } else {
+                    const val = typeof result === 'string' ? result.trim() : result;
+                    const normalized = normalizeCardWithSpaces(val);
+                    setTarjeta(normalized || null); // GUARDAR COMO STRING (CON ESPACIOS)
+                }
             }
         });
 
