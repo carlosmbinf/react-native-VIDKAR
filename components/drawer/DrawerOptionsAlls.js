@@ -71,24 +71,28 @@ const DrawerOptionsAlls = (opt) => {
     {
       label: "Registro de Logs",
       url:"Logs",
-      icon:"vpn"
+      icon:"clipboard-list-outline"
     },
     {
       label: "Ventas",
       url:"Ventas",
-      icon:"vpn"
+      icon:"cash-register"
     },
     {
       label: "Subida de Archivos",
       url:"SubidaArchivos",
-      icon:"cloud-upload"
+      icon:"cloud-upload-outline"
     },
     {
       label: "Lista de Archivos",
       url:"ListaArchivos",
-      icon:"file-multiple"
+      icon:"file-document-outline"
+    },
+    {
+      label: "Propertys",
+      url:"ListaPropertys",
+      icon:"cog-outline"
     }
-
   ]
   return (
     <>

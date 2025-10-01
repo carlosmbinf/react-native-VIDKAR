@@ -63,6 +63,7 @@ import FormularioRemesa from './components/remesas/FormularioRemesa'; // corregi
 import VentasStepper from './components/remesas/VentasStepper';       // corregido: path real
 import SubidaArchivos from './components/archivos/SubidaArchivos';
 import ListaArchivos from './components/archivos/ListaArchivos';
+import PropertyTable from './components/property/PropertyTable';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -634,7 +635,31 @@ const App = () => {
               // headerTransparent:false
             })}
           />
-
+<Stack.Screen
+            name="ListaPropertys"
+            component={PropertyTable}
+            options={({navigation, route}) => ({
+              title: <Text style={{letterSpacing: 5}}>Registro de Logs</Text>,
+              headerStyle: {
+                backgroundColor: '#3f51b5',
+                height: 90,
+              },
+              headerTitleAlign: 'center',
+              headerTintColor: '#fff',
+              // headerTitleStyle: {
+              //   fontWeight: 'bold',
+              // },
+              // headerLeft:null,
+              headerShown: true,
+              headerRight: () => (
+                <MenuHeader
+                  navigation={navigation}
+                />
+              ),
+              // headerRight
+              // headerTransparent:false
+            })}
+          />
 
           <Stack.Screen
             name="Video"
