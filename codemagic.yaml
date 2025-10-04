@@ -225,3 +225,94 @@ workflows:
         notify:
           success: true
           failure: true
+
+  ios_release_build:
+    name: iOS Release – React Native
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: VidkarAPIKey
+    environment:
+      vars:
+        XCODE_WORKSPACE: "Vidkar.xcworkspace"          # Ajustar si cambia
+        XCODE_SCHEME: "Vidkar"
+        APP_ID: 6751348594
+        BUNDLE_ID: "com.vidkar"
+        NODE_VERSION: 18
+        # SELF_SIGNED_CERT_BASE64: (Definir en UI si se usa un cert autofirmado para QA)
+      node: 18
+      xcode: latest
+      cocoapods: default
+    cache:
+      cache_paths:
+        - node_modules
+        - ios/Pods
+        - $HOME/Library/Caches/CocoaPods
+        - ~/Library/Developer/Xcode/DerivedData
+    scripts:
+      - name: Mostrar variables base
+        script: |
+          echo "Node $(node -v)"
+          echo "Workspace: $XCODE_WORKSPACE | Scheme: $XCODE_SCHEME"
+
+      - name: Instalar dependencias npm (forzado)
+        script: |
+          npm install -f
+
+      - name: Instalar dependencias CocoaPods
+        script: |
+          cd ios
+          pod install --repo-update
+          cd ..
+
+      - name: Importar certificado autofirmado (opcional)
+        script: |
+          if [ -n "$SELF_SIGNED_CERT_BASE64" ]; then
+            echo "$SELF_SIGNED_CERT_BASE64" | base64 --decode > selfsigned.cer
+            security import selfsigned.cer -k "$HOME/Library/Keychains/login.keychain-db" -A || true
+            security add-trusted-cert -d -r trustRoot -k "$HOME/Library/Keychains/login.keychain-db" selfsigned.cer || true
+            echo "Certificado autofirmado importado."
+          else
+            echo "No se definió SELF_SIGNED_CERT_BASE64. Se omite importación."
+          fi
+
+      - name: Inicializar keychain y perfiles
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Incrementar build number desde TestFlight
+        script: |
+          cd ios
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$APP_ID" || echo 0)
+          NEW_BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
+          agvtool new-version -all $NEW_BUILD_NUMBER
+          echo "Nuevo build number: $NEW_BUILD_NUMBER"
+          cd ..
+
+      - name: Compilar IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace "ios/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME" \
+            --export-method app-store
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - group carlitoPruebas
+      email:
+        recipients:
+          - "carlosmbinf@gmail.com"
+        notify:
+          success: true
+          failure: true
