@@ -149,12 +149,13 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
                 console.log("Rechazando venta", venta._id);
                 // Actualización directa (considerar mover a Meteor.method para seguridad)
                 VentasRechargeCollection.update(
-                  {_id:ventaId} ,
+                  ventaId ,
                   {
                     $set: {
-                      estado: 'RECHAZADA',
-                      rechazadaAt: new Date(),
-                      rechazadaBy: Meteor.userId()
+                      isCancelada: true,
+                      // estado: 'RECHAZADA',
+                      // rechazadaAt: new Date(),
+                      // rechazadaBy: Meteor.userId()
                     }
                   },
                   (err) => {
