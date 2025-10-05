@@ -42,10 +42,16 @@ const DrawerOptionsAlls = (opt) => {
 
   const opcionesAdministradores = [
     {
+      label: "Dashboard",
+      url:"Dashboard",
+      icon:"view-dashboard"
+    },
+    {
       label: "Lista de Usuarios",
       url:"Users",
       icon:"account"
-    },{
+    },
+    {
       label: "Add Usuarios",
       url:"CreateUsers",
       icon:"account-plus"
@@ -56,10 +62,10 @@ const DrawerOptionsAlls = (opt) => {
       icon:"server"
     },
     {
-      label: "Dashboard",
-      url:"Dashboard",
-      icon:"view-dashboard"
-    },
+      label: "Aprobar Recargas",
+      url:"ListaArchivos",
+      icon:"cellphone-wireless"
+    }
     
     // {
     //   label: "Consumo Proxy",
@@ -77,16 +83,6 @@ const DrawerOptionsAlls = (opt) => {
       label: "Ventas",
       url:"Ventas",
       icon:"cash-register"
-    },
-    {
-      label: "Subida de Archivos",
-      url:"SubidaArchivos",
-      icon:"cloud-upload-outline"
-    },
-    {
-      label: "Lista de Archivos",
-      url:"ListaArchivos",
-      icon:"file-document-outline"
     },
     {
       label: "Propertys",

@@ -306,11 +306,15 @@ class MyAppUserDetails extends React.Component {
                   </Card.Actions>
                 )}
                 {/* Ventas */}
-                <VentasCard
-                  visible={loadventas && deuda() > 0}
-                  deuda={deuda}
-                  styles={styles}
-                />
+                {Meteor.user() &&
+                  Meteor.user().profile &&
+                  Meteor.user().profile.role == 'admin' && (
+                    <VentasCard
+                      visible={loadventas && deuda() > 0}
+                      deuda={deuda}
+                      styles={styles}
+                    />
+                  )}
                 {/* Fin Ventas */}
                 {/* Datos Personales */}
                 <PersonalDataCard item={item} styles={styles} />
