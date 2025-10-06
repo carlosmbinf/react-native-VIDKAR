@@ -67,151 +67,154 @@ const CubaCelCard = ({ product }) => {
         setExtraFields(prev => ({ ...prev, [field]: numericValue }));
     };
 
-    return (
-        <Surface>
-            <Card style={styles.card} onPress={() => setOpen(true)}>
+    if (precioUSD != "---") {
+        return (
 
-                <ImageBackground
-                    source={require('./Gemini_Generated_Image_rtg44brtg44brtg4.png')} // reemplaza por tu imagen local
-                    resizeMode="cover"
-                    imageStyle={{ borderRadius: 20 }}
-                    style={styles.imageBackground}
-                >
-                    <BlurView
-                        style={StyleSheet.absoluteFill}
+            <Surface>
+                <Card style={styles.card} onPress={() => setOpen(true)}>
 
-                        blurType={isDarkMode ? "dark" : "light"}
-                        autoUpdate={false}
-
-                        reducedTransparencyFallbackColor="dark"
-                    />
-                    <View style={styles.cardContent}>
-                        <View style={styles.row}>
-                            <IconButton icon="cellphone" iconColor="white" size={16} />
-                            <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">{operadorNombre}</Text>
-                        </View>
-
-                        {beneficios() !== '' && (
-                            <Text style={styles.beneficios}>{beneficios()}</Text>
-                        )}
-                        <View style={styles.chips}>
-                            {/* {hasPromo && <Chip maxFontSizeMultiplier={0} style={styles.promoChip}><Text style={{fontSize:10}}>Con promoción</Text></Chip>} */}
-                            {hasPromo && <View style={styles.chipsComponentRed}><Text style={{ fontSize: 10 }}>Con promoción</Text></View>}
-                            <View style={styles.chipsComponentGreen}><Text style={{ fontSize: 10 }}>{`${precioUSD} USD`}</Text></View>
-
-                            {/* <Chip icon="currency-usd"  style={styles.priceChip}><Text style={{fontSize:10}}>{`${precioUSD} USD`}</Text></Chip> */}
-                        </View>
-                    </View>
-                </ImageBackground>
-            </Card>
-
-            <Portal>
-                <Dialog visible={open} onDismiss={() => setOpen(false)} style={styles.dialog} >
-                    <KeyboardAvoidingView 
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                        style={{ flex: 1 }}
-                        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+                    <ImageBackground
+                        source={require('./Gemini_Generated_Image_rtg44brtg44brtg4.png')} // reemplaza por tu imagen local
+                        resizeMode="cover"
+                        imageStyle={{ borderRadius: 20 }}
+                        style={styles.imageBackground}
                     >
-                        <View style={styles.dialogTitleContainer}>
-                            <Text style={styles.dialogTitleText}>Recarga</Text>
-                            <IconButton icon="close" onPress={() => setOpen(false)} />
+                        <BlurView
+                            style={StyleSheet.absoluteFill}
+
+                            blurType={isDarkMode ? "dark" : "light"}
+                            autoUpdate={false}
+
+                            reducedTransparencyFallbackColor="dark"
+                        />
+                        <View style={styles.cardContent}>
+                            <View style={styles.row}>
+                                <IconButton icon="cellphone" iconColor="white" size={16} />
+                                <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">{operadorNombre}</Text>
+                            </View>
+
+                            {beneficios() !== '' && (
+                                <Text style={styles.beneficios}>{beneficios()}</Text>
+                            )}
+                            <View style={styles.chips}>
+                                {/* {hasPromo && <Chip maxFontSizeMultiplier={0} style={styles.promoChip}><Text style={{fontSize:10}}>Con promoción</Text></Chip>} */}
+                                {hasPromo && <View style={styles.chipsComponentRed}><Text style={{ fontSize: 10 }}>Con promoción</Text></View>}
+                                <View style={styles.chipsComponentGreen}><Text style={{ fontSize: 10 }}>{`${precioUSD} USD`}</Text></View>
+
+                                {/* <Chip icon="currency-usd"  style={styles.priceChip}><Text style={{fontSize:10}}>{`${precioUSD} USD`}</Text></Chip> */}
+                            </View>
                         </View>
-                        
-                        <Dialog.ScrollArea style={{ flex: 1 }}>
-                            <ScrollView 
-                                contentContainerStyle={{ paddingHorizontal: 0, flexGrow: 1 }}
-                                keyboardShouldPersistTaps="handled"
-                                showsVerticalScrollIndicator={true}
-                            >
-                                <View>
-                                    <Text style={{ marginTop: 6, fontWeight: 'bold' }}>{name}</Text>
-                                    {description ? (
-                                        <Text style={{ paddingLeft: 10, marginTop: 6, fontWeight: 'bold' }}>{description}</Text>
-                                    ) : null}
+                    </ImageBackground>
+                </Card>
 
-                                    {hasPromo && promotions?.length > 0 && (
-                                        <View >
-                                            {promotions.map((promo, index) => (
-                                                <View key={index} style={{ marginTop: 10 }}>
-                                                    <Text style={{ fontWeight: 'bold', color: '#f50057' }}>{`Promoción #${index + 1}`}</Text>
-                                                    <Text style={{ fontWeight: 'bold', color: '#ccc' }}>{promo.title}</Text>
-                                                    <Text style={{ fontWeight: 'bold', color: '#ccc' }}>Desde el {moment(promo?.startDate).format("dddd DD MMMM")} hasta el {moment(promo?.endDate).format("dddd DD MMMM")}</Text>
-                                                    <Text style={{ fontWeight: 'bold', color: '#ccc' }}>Descripción: </Text>
-                                                    <Text style={{ paddingLeft: 15 }} >
-                                                        {promo.terms}
-                                                    </Text>
-                                                </View>
-                                            ))}
-                                        </View>
-                                    )}
-                                </View>
-                            </ScrollView>
-                        </Dialog.ScrollArea>
+                <Portal>
+                    <Dialog visible={open} onDismiss={() => setOpen(false)} style={styles.dialog} >
+                        <KeyboardAvoidingView
+                            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                            style={{ flex: 1 }}
+                            keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+                        >
+                            <View style={styles.dialogTitleContainer}>
+                                <Text style={styles.dialogTitleText}>Recarga</Text>
+                                <IconButton icon="close" onPress={() => setOpen(false)} />
+                            </View>
 
-                        <Dialog.Actions style={{ maxHeight: "100%" }}>
-                            <View style={{ flexDirection: 'column', width: '100%' }}>
-                                <ScrollView 
+                            <Dialog.ScrollArea style={{ flex: 1 }}>
+                                <ScrollView
                                     contentContainerStyle={{ paddingHorizontal: 0, flexGrow: 1 }}
                                     keyboardShouldPersistTaps="handled"
                                     showsVerticalScrollIndicator={true}
-                                    nestedScrollEnabled={true}
                                 >
-                                    <TextInput
-                                        label="Nombre de la persona"
-                                        value={nombre}
-                                        onChangeText={setNombre}
-                                        mode="outlined"
-                                        autoComplete='name'
-                                        style={styles.input}
-                                        dense
-                                        returnKeyType="next"
-                                    />
+                                    <View>
+                                        <Text style={{ marginTop: 6, fontWeight: 'bold' }}>{name}</Text>
+                                        {description ? (
+                                            <Text style={{ paddingLeft: 10, marginTop: 6, fontWeight: 'bold' }}>{description}</Text>
+                                        ) : null}
 
-                                    {[
-                                        'requiredCreditPartyIdentifierFields',
-                                        'requiredBeneficiaryFields',
-                                        'requiredAdditionalIdentifierFields',
-                                        'requiredDebitPartyIdentifierFields',
-                                        'requiredSenderFields',
-                                        'requiredStatementIdentifierFields'
-                                    ].map((group) => {
-                                        const fields = product[group];
-                                        if (!fields) return null;
-                                        return fields.flat().map((field, index) => (
-                                            <TextInput
-                                                key={`${group}-${field}-${index}`}
-                                                label={field.replace(/_/g, ' ').toUpperCase()}
-                                                value={extraFields[field] || ''}
-                                                onChangeText={(value) => handleExtraFieldChange(field, value)}
-                                                mode="outlined"
-                                                keyboardType={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? 'number-pad' : 'default'}
-                                                style={styles.input}
-                                                dense
-                                                maxLength={8}
-                                                left={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? <TextInput.Affix text="+53" /> : null}
-                                                inputMode={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? 'tel' : 'default'}
-                                                returnKeyType="next"
-                                                blurOnSubmit={false}
-                                            />
-                                        ));
-                                    })}
+                                        {hasPromo && promotions?.length > 0 && (
+                                            <View >
+                                                {promotions.map((promo, index) => (
+                                                    <View key={index} style={{ marginTop: 10 }}>
+                                                        <Text style={{ fontWeight: 'bold', color: '#f50057' }}>{`Promoción #${index + 1}`}</Text>
+                                                        <Text style={{ fontWeight: 'bold', color: '#ccc' }}>{promo.title}</Text>
+                                                        <Text style={{ fontWeight: 'bold', color: '#ccc' }}>Desde el {moment(promo?.startDate).format("dddd DD MMMM")} hasta el {moment(promo?.endDate).format("dddd DD MMMM")}</Text>
+                                                        <Text style={{ fontWeight: 'bold', color: '#ccc' }}>Descripción: </Text>
+                                                        <Text style={{ paddingLeft: 15 }} >
+                                                            {promo.terms}
+                                                        </Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        )}
+                                    </View>
                                 </ScrollView>
-                                
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingTop: 16 }}>
-                                    <Button onPress={() => setOpen(false)} mode="outlined" style={styles.botonesAccion}>
-                                        Cancelar
-                                    </Button>
-                                    <Button onPress={handleSubmit} mode="outlined" style={styles.botonesAccion}>
-                                        Confirmar Recarga
-                                    </Button>
+                            </Dialog.ScrollArea>
+
+                            <Dialog.Actions style={{ maxHeight: "100%" }}>
+                                <View style={{ flexDirection: 'column', width: '100%' }}>
+                                    <ScrollView
+                                        contentContainerStyle={{ paddingHorizontal: 0, flexGrow: 1 }}
+                                        keyboardShouldPersistTaps="handled"
+                                        showsVerticalScrollIndicator={true}
+                                        nestedScrollEnabled={true}
+                                    >
+                                        <TextInput
+                                            label="Nombre de la persona"
+                                            value={nombre}
+                                            onChangeText={setNombre}
+                                            mode="outlined"
+                                            autoComplete='name'
+                                            style={styles.input}
+                                            dense
+                                            returnKeyType="next"
+                                        />
+
+                                        {[
+                                            'requiredCreditPartyIdentifierFields',
+                                            'requiredBeneficiaryFields',
+                                            'requiredAdditionalIdentifierFields',
+                                            'requiredDebitPartyIdentifierFields',
+                                            'requiredSenderFields',
+                                            'requiredStatementIdentifierFields'
+                                        ].map((group) => {
+                                            const fields = product[group];
+                                            if (!fields) return null;
+                                            return fields.flat().map((field, index) => (
+                                                <TextInput
+                                                    key={`${group}-${field}-${index}`}
+                                                    label={field.replace(/_/g, ' ').toUpperCase()}
+                                                    value={extraFields[field] || ''}
+                                                    onChangeText={(value) => handleExtraFieldChange(field, value)}
+                                                    mode="outlined"
+                                                    keyboardType={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? 'number-pad' : 'default'}
+                                                    style={styles.input}
+                                                    dense
+                                                    maxLength={8}
+                                                    left={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? <TextInput.Affix text="+53" /> : null}
+                                                    inputMode={field.replace(/_/g, ' ').toUpperCase().includes("MOBILE NUMBER") ? 'tel' : 'default'}
+                                                    returnKeyType="next"
+                                                    blurOnSubmit={false}
+                                                />
+                                            ));
+                                        })}
+                                    </ScrollView>
+
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingTop: 16 }}>
+                                        <Button onPress={() => setOpen(false)} mode="outlined" style={styles.botonesAccion}>
+                                            Cancelar
+                                        </Button>
+                                        <Button onPress={handleSubmit} mode="outlined" style={styles.botonesAccion}>
+                                            Confirmar Recarga
+                                        </Button>
+                                    </View>
                                 </View>
-                            </View>
-                        </Dialog.Actions>
-                    </KeyboardAvoidingView>
-                </Dialog>
-            </Portal>
-        </Surface>
-    );
+                            </Dialog.Actions>
+                        </KeyboardAvoidingView>
+                    </Dialog>
+                </Portal>
+            </Surface>
+        )
+    } else return <></>
 };
 
 const styles = StyleSheet.create({

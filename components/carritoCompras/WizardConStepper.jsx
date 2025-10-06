@@ -101,6 +101,7 @@ const WizardConStepper = ({ product, navigation }) => {
             if (err) {
               console.error('Error al calcular total a pagar:', err);
             } else {
+              console.log("efectivo.totalAPagar",totalAPagar);
               setTotalAPagar(res);
             }
           });
@@ -127,6 +128,7 @@ const WizardConStepper = ({ product, navigation }) => {
       };
 
       const crearOrdenEfectivo = () => {
+        totalAPagar > 0 && 
         Meteor.call(
           "efectivo.createOrder",
           userId,
