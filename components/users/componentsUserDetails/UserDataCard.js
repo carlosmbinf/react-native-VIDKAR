@@ -214,14 +214,14 @@ const UserDataCard = ({item, styles, edit, setEdit, navigation}) => {
                 <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6}}>
                   <Chip
                     compact
-                    style={{
-                      backgroundColor:
-                        item?.profile?.role === 'admin' ? '#FFEBEE' : '#E3F2FD',
-                    }}
-                    textStyle={{
-                      color: item?.profile?.role === 'admin' ? '#C62828' : '#1565C0',
-                      fontSize: 11,
-                    }}
+                    // style={{
+                    //   backgroundColor:
+                    //     item?.profile?.role === 'admin' ? '#FFEBEE' : '#E3F2FD',
+                    // }}
+                    // textStyle={{
+                    //   color: item?.profile?.role === 'admin' ? '#C62828' : '#1565C0',
+                    //   fontSize: 11,
+                    // }}
                     icon={item?.profile?.role === 'admin' ? 'shield-crown' : 'account'}>
                     {item?.profile?.role || 'N/R'}
                   </Chip>
@@ -237,11 +237,11 @@ const UserDataCard = ({item, styles, edit, setEdit, navigation}) => {
                     }}>
                     {item?.emails?.[0]?.verified ? 'Email verificado' : 'Sin verificar'}
                   </Chip> */}
-                  {item?.createdAt && (
+                  {/* {item?.createdAt && (
                     <Chip compact icon="clock" style={{backgroundColor: '#F3E5F5'}} textStyle={{fontSize: 11, color: '#6A1B9A'}}>
                       Alta: {formatDate(item?.createdAt).split(' ')[0]}
                     </Chip>
-                  )}
+                  )} */}
                 </View>
               </View>
               {!edit && (

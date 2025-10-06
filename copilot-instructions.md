@@ -229,3 +229,29 @@ Actualización menor – PersonalDataCard (Campo Móvil sin normalización)
   - Agregar test unitario para priorización de claves (movil > mobile > phone).
 
 ---
+
+Resumen técnico – Mejora UX Cards Proxy & VPN (Admin/User)
+- Objetivo: Unificar y profesionalizar la presentación de datos de consumo y estado sin alterar la lógica Meteor existente.
+- Cambios clave:
+  - Incorporación de Chips (react-native-paper) para estado (habilitado/deshabilitado) en Proxy y VPN (user/admin).
+  - Normalización de textos y corrección ortográfica ("Deshabilitar" en lugar de "Desabilitar").
+  - Introducción de helpers reutilizables: formatDate / formatLimitDate / getPlanLabel / cálculos de consumo (MB → GB).
+  - Reducción de duplicación: extracción de lógica de etiquetas y formateo; uso de useMemo para consumo (optimización menor pero escalable).
+  - Consistencia visual: secciones jerarquizadas (Título, Oferta/Límite, Consumo, Acciones) + Divider ligero.
+  - Añadidos testIDs para facilitar pruebas e2e (vpnUserCard, proxyUserCard, vpnAdminCard, proxyAdminCard, chips y botones).
+  - Mejora de accesibilidad semántica: títulos con fontWeight y estructura más clara.
+  - No se modificaron llamadas Meteor ni colecciones; cambios aislados a capa de presentación.
+- Consideraciones futuras:
+  - Centralizar helpers en /utils/dataFormat.js para evitar duplicaciones (cuando se requiera en otros módulos).
+  - Parametrizar colores de estado vía theme para soportar theming dinámico.
+  - Añadir barra de progreso de consumo (ej. porcentaje de megas usados) cuando haya definición robusta del límite (evitar cálculos ambiguos si ilimitado).
+  - Internacionalización (i18n) de etiquetas (agregar módulo de strings centralizado).
+  - Tests recomendados: snapshot de cada variante (ilimitado / por megas / habilitado / deshabilitado).
+  - Posible extracción de un componente StatusChip y ConsumptionBlock compartido entre Proxy y VPN.
+- Decisiones de coherencia:
+  - Se conservan factores de conversión originales (1024000 / 1000000) según el contexto previo para no alterar datos percibidos.
+  - Se mantuvo la estructura condicional (ilimitado vs limitado) para que futuros cambios (nuevos planes) sean poco invasivos.
+- Riesgos mitigados:
+  - No se introdujo dependencia nueva (Chip y Divider ya provienen de react-native-paper).
+  - Se evitó alterar nombres de props/handlers utilizados externamente.
+  - Se añadieron testIDs previendo automatización futura sin romper UI actual.

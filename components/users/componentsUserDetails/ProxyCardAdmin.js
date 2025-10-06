@@ -1,12 +1,16 @@
-import React, {memo, useState} from 'react';
-import {View, Dimensions, StyleSheet} from 'react-native';
-import {Card, Title, Text, Button, Switch, Surface} from 'react-native-paper';
+import React, { memo, useState, useMemo } from 'react';
+import { View, Dimensions, StyleSheet } from 'react-native';
+import { Card, Title, Text, Button, Switch, Surface, Chip, Divider } from 'react-native-paper';
 import CalendarPicker from 'react-native-calendar-picker';
-import {Dropdown} from 'react-native-element-dropdown';
+import { Dropdown } from 'react-native-element-dropdown';
 import Meteor from '@meteorrn/core';
-import {Logs} from '../../collections/collections';
+import { Logs } from '../../collections/collections';
 
-const {width: screenWidth} = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
+
+const BYTES_IN_MB_APPROX = 1024000;
+const formatLimitDate = (moment, d) =>
+  d ? moment.utc(d).format('DD-MM-YYYY') : 'Fecha límite sin especificar';
 
 const ProxyCardAdmin = ({
   item,
@@ -20,79 +24,82 @@ const ProxyCardAdmin = ({
   const [value, setValue] = useState(null);
   const [isFocus, setIsFocus] = useState(false);
 
-  const renderLabel = () => {
-    if (value || isFocus) {
-      return (
-        <Text style={[styles.label, isFocus && {color: 'blue'}]}>
-          Megas • Precio
-        </Text>
-      );
-    }
-    return null;
-  };
+  const consumo = useMemo(() => {
+    const bytes = item.megasGastadosinBytes || 0;
+    return {
+      mb: (bytes / BYTES_IN_MB_APPROX).toFixed(2),
+      gb: (bytes / (BYTES_IN_MB_APPROX * 1000)).toFixed(2),
+    };
+  }, [item.megasGastadosinBytes]);
+
+  const renderLabel = () =>
+    value || isFocus ? (
+      <Text style={[styles.label, isFocus && { color: 'blue' }]}>Megas • Precio</Text>
+    ) : null;
+
+  const statusActivo = !item.baneado;
 
   return (
-    <Card elevation={12} style={styles.cards}>
+    <Card elevation={12} style={styles.cards} testID="proxyAdminCard">
       <Card.Content>
         <View style={styles.element}>
-          <Title style={styles.title}>{'Datos del Proxy'}</Title>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+            <Title style={styles.title}>Datos del Proxy</Title>
+            <Chip
+              compact
+              icon={statusActivo ? 'check-circle' : 'close-circle'}
+              style={{ backgroundColor: statusActivo ? '#2e7d32' : '#c62828' }}
+              selectedColor="#fff"
+              testID="proxyStatusChipAdmin"
+            >
+              {statusActivo ? 'Habilitado' : 'Deshabilitado'}
+            </Chip>
+          </View>
 
-          <View style={{flexDirection: 'row'}}>
-            <Text style={{justifyContent: 'center', paddingRight: 10}}>
-              Por Tiempo:
-            </Text>
+          <View style={{ flexDirection: 'row', marginTop: 4 }}>
+            <Text style={{ paddingRight: 10 }}>Por Tiempo:</Text>
             <Switch
               value={item.isIlimitado}
-              onValueChange={() => {
-                Meteor.users.update(item._id, {
-                  $set: {isIlimitado: !item.isIlimitado},
-                });
-              }}
+              onValueChange={() =>
+                Meteor.users.update(item._id, { $set: { isIlimitado: !item.isIlimitado } })
+              }
+              testID="switchIlimitadoProxy"
             />
           </View>
 
+          <Divider style={{ marginVertical: 8, opacity: 0.4 }} />
+
           {item.isIlimitado ? (
             <>
-              <View style={{width: '100%', borderRadius: 20, marginTop: 10}}>
-                <Text style={{paddingTop: 10, textAlign: 'center'}}>
-                  Fecha Limite:
-                </Text>
-                <Text style={{paddingBottom: 10, textAlign: 'center'}}>
-                  {item.fechaSubscripcion
-                    ? moment.utc(item.fechaSubscripcion).format('DD-MM-YYYY')
-                    : 'Fecha Límite sin especificar'}
+              <View style={{ width: '100%', marginTop: 6 }}>
+                <Text style={{ textAlign: 'center', fontWeight: '600' }}>Fecha Límite</Text>
+                <Text style={{ textAlign: 'center', marginTop: 4 }}>
+                  {formatLimitDate(moment, item.fechaSubscripcion)}
                 </Text>
               </View>
 
-              <View
-                style={{
-                  width: '100%',
-                  borderRadius: 20,
-                  marginTop: 10,
-                  marginBottom: 10,
-                }}>
-                <Text style={{paddingTop: 10, textAlign: 'center'}}>
-                  Consumo:
-                </Text>
-                <Text style={{paddingBottom: 10, textAlign: 'center'}}>
-                  {item.megasGastadosinBytes
-                    ? (item.megasGastadosinBytes / 1000000).toFixed(2) + ' MB'
-                    : '0 MB'}
+              <View style={{ width: '100%', marginTop: 14 }}>
+                <Text style={{ textAlign: 'center', fontWeight: '600' }}>Consumo</Text>
+                <Text style={{ textAlign: 'center', marginTop: 4 }}>
+                  {(item.megasGastadosinBytes
+                    ? (item.megasGastadosinBytes / 1000000).toFixed(2)
+                    : '0.00') + ' MB'}
                 </Text>
               </View>
 
               <Surface
                 style={{
                   width: '100%',
-                  borderRadius: 20,
-                  elevation: 12,
+                  borderRadius: 16,
+                  // elevation: 12,
                   marginTop: 20,
-                  backgroundColor: '#607d8b',
-                  padding: 20,
-                }}>
+                  backgroundColor: '#546e7a',
+                  padding: 18,
+                }}
+              >
                 <CalendarPicker
                   minDate={new Date()}
-                  selectedDayColor="#7300e6"
+                  selectedDayColor="#6200ee"
                   selectedDayTextColor="#FFFFFF"
                   selectedStartDate={item.fechaSubscripcion}
                   width={screenWidth - 100}
@@ -110,7 +117,7 @@ const ProxyCardAdmin = ({
                       userAfectado: item._id,
                       userAdmin: Meteor.userId(),
                       message:
-                        'La Fecha Limite del Proxy se cambió para: ' +
+                        'La Fecha Límite del Proxy se cambió para: ' +
                         moment.utc(new Date(date)).format('YYYY-MM-DD'),
                     });
                     if (!item.baneado) {
@@ -119,45 +126,32 @@ const ProxyCardAdmin = ({
                         userAfectado: item._id,
                         userAdmin: Meteor.userId(),
                         message:
-                          'Se Desactivó el PROXY porque estaba activa y cambio la fecha Limite',
+                          'Se desactivó el PROXY porque cambió la fecha límite',
                       });
                       Meteor.users.update(item._id, {
-                        $set: {baneado: !item.baneado},
+                        $set: { baneado: !item.baneado },
                       });
                     }
                   }}
+                  testID="calendarProxy"
                 />
               </Surface>
             </>
           ) : (
-            <View style={{paddingTop: 20}}>
-              <View style={{width: '100%', borderRadius: 20, marginTop: 10}}>
-                <Text style={{paddingTop: 10, textAlign: 'center'}}>
-                  Limite de Megas por el Proxy:
-                </Text>
-                <Text style={{paddingBottom: 10, textAlign: 'center'}}>
+            <View style={{ paddingTop: 10 }}>
+              <View style={{ width: '100%', marginTop: 4 }}>
+                <Text style={{ textAlign: 'center', fontWeight: '600' }}>Límite de Megas</Text>
+                <Text style={{ textAlign: 'center', marginTop: 4 }}>
                   {item.megas
-                    ? `${item.megas} MB => ${(item.megas / 1024).toFixed(2)} GB`
-                    : 'No se ha especificado aun el Límite de megas'}
+                    ? `${item.megas} MB  →  ${(item.megas / 1024).toFixed(2)} GB`
+                    : 'No configurado'}
                 </Text>
               </View>
 
-              <View
-                style={{
-                  width: '100%',
-                  borderRadius: 20,
-                  marginTop: 10,
-                  marginBottom: 10,
-                }}>
-                <Text style={{paddingTop: 10, textAlign: 'center'}}>
-                  Consumo:
-                </Text>
-                <Text style={{paddingBottom: 10, textAlign: 'center'}}>
-                  {item.megasGastadosinBytes
-                    ? `${(item.megasGastadosinBytes / 1024000).toFixed(
-                        2,
-                      )} MB => ${(item.megasGastadosinBytes / 1024000000).toFixed(2)} GB`
-                    : '0 MB'}
+              <View style={{ width: '100%', marginTop: 14 }}>
+                <Text style={{ textAlign: 'center', fontWeight: '600' }}>Consumo</Text>
+                <Text style={{ textAlign: 'center', marginTop: 4 }}>
+                  {consumo.mb} MB  →  {consumo.gb} GB
                 </Text>
               </View>
 
@@ -165,13 +159,14 @@ const ProxyCardAdmin = ({
                 style={{
                   width: '100%',
                   elevation: 3,
-                  borderRadius: 20,
-                  marginTop: 10,
-                  padding: 10,
-                }}>
+                  borderRadius: 16,
+                  marginTop: 14,
+                  padding: 12,
+                }}
+              >
                 {renderLabel()}
                 <Dropdown
-                  style={[styles.dropdown, isFocus && {borderColor: 'blue'}]}
+                  style={[styles.dropdown, isFocus && { borderColor: 'blue' }]}
                   placeholderStyle={styles.placeholderStyle}
                   selectedTextStyle={styles.selectedTextStyle}
                   inputSearchStyle={styles.inputSearchStyle}
@@ -186,7 +181,7 @@ const ProxyCardAdmin = ({
                   labelField="label"
                   valueField="value"
                   placeholder={!isFocus ? 'Seleccione un paquete' : '...'}
-                  searchPlaceholder="Search..."
+                  searchPlaceholder="Buscar..."
                   value={value}
                   onFocus={() => setIsFocus(true)}
                   onBlur={() => setIsFocus(false)}
@@ -194,59 +189,59 @@ const ProxyCardAdmin = ({
                     setValue(opt.value);
                     setIsFocus(false);
                   }}
+                  testID="dropdownProxy"
                 />
-                <View style={{paddingTop: 10, paddingBottom: 10}}>
+                <View style={{ paddingTop: 10 }}>
                   <Button
-                    icon="send"
+                    icon="database-import"
                     disabled={!value}
                     mode="contained"
                     style={btnStyles.action}
                     onPress={async () => {
                       try {
-                        await Meteor.users.update(item._id, {$set: {megas: value}});
+                        await Meteor.users.update(item._id, { $set: { megas: value } });
                         await Meteor.call(
                           'registrarLog',
                           'Proxy',
                           item._id,
                           Meteor.userId(),
-                          `Ha sido Cambiado el consumo de Datos del Proxy a: ${value}MB`,
+                          `Consumo de Proxy actualizado a: ${value}MB`,
                         );
                       } catch (error) {
                         console.error(error);
                       }
-                    }}>
-                    {`Seleccione 1 Compra`}
+                    }}
+                    testID="btnSetMegasProxy"
+                  >
+                    {value ? `Establecer ${value}MB` : 'Seleccione un paquete'}
                   </Button>
                 </View>
               </Surface>
             </View>
           )}
 
-          <View style={{width: '100%', borderRadius: 20, marginTop: 10}}>
-            <Text style={{paddingTop: 10, textAlign: 'center'}}>
-              Estado del Proxy:
-            </Text>
-            <View style={{paddingBottom: 10, textAlign: 'center'}}>
-              <>
-                <View style={{padding: 10}}>
-                  <Button
-                    disabled={item.megasGastadosinBytes ? false : true}
-                    mode="contained"
-                    onPress={handleReiniciarConsumo}
-                    style={btnStyles.action}>
-                    REINICIAR CONSUMO!!!
-                  </Button>
-                </View>
-                <View style={{padding: 10}}>
-                  <Button
-                    mode="contained"
-                    color={!item.baneado && 'red'}
-                    onPress={addVenta}
-                    style={btnStyles.action}>
-                    {item.baneado ? 'Habilitar' : 'Desabilitar'}
-                  </Button>
-                </View>
-              </>
+          <View style={{ width: '100%', marginTop: 18 }}>
+            <Text style={{ textAlign: 'center', fontWeight: '600' }}>Acciones</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Button
+                disabled={!item.megasGastadosinBytes}
+                mode="outlined"
+                onPress={handleReiniciarConsumo}
+                style={btnStyles.action}
+                icon="backup-restore"
+                testID="btnReiniciarConsumoProxy"
+              >
+                Reiniciar Consumo
+              </Button>
+              <Button
+                mode="contained"
+                buttonColor={statusActivo ? '#c62828' : '#2e7d32'}
+                onPress={addVenta}
+                style={btnStyles.action}
+                testID="btnToggleProxy"
+              >
+                {statusActivo ? 'Deshabilitar' : 'Habilitar'}
+              </Button>
             </View>
           </View>
         </View>
@@ -254,7 +249,9 @@ const ProxyCardAdmin = ({
     </Card>
   );
 };
+
 const btnStyles = StyleSheet.create({
-  action: { marginTop: 8, borderRadius: 20, margin: 15 },
+  action: { marginTop: 8, borderRadius: 20, marginHorizontal: 8 },
 });
+
 export default memo(ProxyCardAdmin);
