@@ -20,6 +20,7 @@ import {
   Surface,
   IconButton,
   Avatar,
+  Divider,
 } from 'react-native-paper';
 import {Colors} from 'react-native/Libraries/NewAppScreen';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -43,6 +44,7 @@ import VpnCardAdmin from './componentsUserDetails/VpnCardAdmin';
 import VpnCardUser from './componentsUserDetails/VpnCardUser';
 import OptionsCardAdmin from './componentsUserDetails/OptionsCardAdmin';
 import TarjetaDebitoCard from './componentsUserDetails/TarjetaDebitoCard';
+import SaldoRecargasCard from './componentsUserDetails/SaldoRecargasCard'; // NUEVO
 
 const axios = require('axios').default;
 
@@ -72,8 +74,22 @@ class MyAppUserDetails extends React.Component {
       email: '',
       megasVPNlabel: 0,
       tiempoReporteAudio: 0,
+      refreshing: false,          // NUEVO
+      refreshKey: 0               // NUEVO
     };
     // !Meteor.userId() && navigation.navigation.navigate('Loguin');
+    this.onRefresh = this.onRefresh.bind(this); // NUEVO
+  }
+
+  // NUEVO: handler de refresco pull-to-refresh
+  onRefresh() {
+    this.setState(
+      (prev) => ({ refreshing: true, refreshKey: prev.refreshKey + 1 }),
+      () => {
+        // Simulación de pequeña espera para UX consistente
+        setTimeout(() => this.setState({ refreshing: false }), 600);
+      }
+    );
   }
 
   render() {
@@ -278,11 +294,10 @@ class MyAppUserDetails extends React.Component {
     return (
       <Surface style={backgroundStyle}>
         <ScrollView
-          // contentInsetAdjustmentBehavior="automatic"
           refreshControl={
             <RefreshControl
-              refreshing={false}
-              // onRefresh={onRefresh}
+              refreshing={this.state.refreshing} // MODIFICADO
+              onRefresh={this.onRefresh}         // MODIFICADO
             />
           }>
           {!ready.ready() ? (
@@ -299,12 +314,6 @@ class MyAppUserDetails extends React.Component {
           ) : (
             item && (
               <View style={styles.root}>
-                {item.picture && (
-                  <Card.Actions
-                    style={{justifyContent: 'space-around', paddingBottom: 30}}>
-                    <Avatar.Image size={50} source={{uri: item.picture}} />
-                  </Card.Actions>
-                )}
                 {/* Ventas */}
                 {Meteor.user() &&
                   Meteor.user().profile &&
@@ -315,12 +324,23 @@ class MyAppUserDetails extends React.Component {
                       styles={styles}
                     />
                   )}
-                {/* Fin Ventas */}
+                    {/* NUEVO: Saldo disponible para recargas */}
+                    {Meteor.user() &&
+                  Meteor.user().profile &&
+                  Meteor.user().profile.role == 'admin' && (
+                    <SaldoRecargasCard refreshKey={this.state.refreshKey} />
+                  )}
+
+                  {Meteor.user() &&
+                  Meteor.user().profile &&
+                  Meteor.user().profile.role == 'admin' && (
+                    <Divider style={{marginBottom:20}}/>
+                  )}
+                
                 {/* Datos Personales */}
                 <PersonalDataCard item={item} styles={styles} />
                 {/* Fin Datos Personales */}
                 {/* Tarjeta de Débito (solo si existe property CONFIG.TARJETA_CUP_{userId}) */}
-                <TarjetaDebitoCard item={item} styles={styles} />
                 {/* Fin Tarjeta de Débito */}
                 {/* Datos de Usuario (incluye cambiar contraseña cuando edit=true) */}
                 <UserDataCard
@@ -331,7 +351,10 @@ class MyAppUserDetails extends React.Component {
                   navigation={navigation}
                 />
                 {/* Fin Datos de Usuario */}
-                
+
+                {item?.profile?.role == 'admin' &&
+                <TarjetaDebitoCard item={item} styles={styles} />
+                }
                 {/* Datos del Proxy */}
                 {Meteor.user() &&
                 Meteor.user().profile &&
@@ -472,6 +495,8 @@ const UserDetails = withTracker(props => {
       enviarReporteAudio: 1,
       desconectarVPN: 1,
       modificarNotificacion: 1,
+      createdAt:1,
+      movil:1
     },
   });
   const user = Meteor.users.findOne({_id: _id}, {
@@ -501,6 +526,8 @@ const UserDetails = withTracker(props => {
       enviarReporteAudio: 1,
       desconectarVPN: 1,
       modificarNotificacion: 1,
+      createdAt:1,
+      movil:1
     },
   });
   console.log(item?._id);
