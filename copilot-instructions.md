@@ -255,3 +255,43 @@ Resumen técnico – Mejora UX Cards Proxy & VPN (Admin/User)
   - No se introdujo dependencia nueva (Chip y Divider ya provienen de react-native-paper).
   - Se evitó alterar nombres de props/handlers utilizados externamente.
   - Se añadieron testIDs previendo automatización futura sin romper UI actual.
+
+---
+
+Mejora responsiva – Alineación horizontal Proxy & VPN (Tablet)
+- Problema: En grid de 3 columnas (≈31% cada card) Proxy y VPN podían separarse en filas distintas dependiendo del número previo de tarjetas, rompiendo la coherencia visual.
+- Solución: Se introdujo contenedor rowPairFull (width 100%) que fuerza un salto de fila y agrupa ambas tarjetas, renderizándolas lado a lado sólo en modo tablet. Cada una recibe pairItemWidth (flexBasis/maxWidth 48%) para equilibrio y evitar wrap prematuro.
+- Comportamiento móvil conservado: stack vertical previo sin cambios funcionales.
+- Beneficios UX: Relación semántica (servicios de conectividad) ahora clara y agrupada; reduce scroll vertical y mejora escaneabilidad.
+- No se modificó lógica de negocio: mismas props, handlers y llamadas Meteor (reinicios, toggles, logs).
+- Extensiones futuras sugeridas:
+  - Parametrizar pares usando un layout manager (ej. <ResponsiveRow pair keys={['proxy','vpn']} />).
+  - Añadir breakpoint intermedio (>=1024) para variar proporción (por ejemplo 50/50 vs 60/40 si se añaden métricas).
+  - Animación LayoutAnimation al reorganizar (suavizar reflow en rotación).
+  - Hook usePairRow(condition, deps) para reutilizar en otras parejas (ej. Balance + Ventas).
+- Riesgos mitigados: Evita reflow inconsistente al cambiar orientación; mantiene minWidth 300 para legibilidad mínima.
+
+---
+
+### Resumen técnico – Adaptación responsiva UserDetails (Tablets)
+- Objetivo: hacer el componente UserDetails visualmente escalable en tablets y pantallas grandes sin alterar lógica de negocio ni llamadas Meteor.
+- Enfoque: patrón de grid fluido controlado por breakpoints (>=768px tablet, >=1200px wide). Se añadió cálculo dinámico de ancho por tarjeta (100% móvil, 48% tablet media, 31% wide).
+- Cambios clave:
+  - Estado: isTablet y currentWidth para reaccionar a cambios con Dimensions.addEventListener.
+  - Estilos nuevos: rootTablet (flex-wrap + spacing) y cardItem (wrapper genérico con minWidth).
+  - Envoltura: cada Card existente ahora se renderiza dentro de un wrapper responsivo sin modificar sus props originales.
+  - No se tocaron funciones (Meteor.call, cálculos de deuda, lógica de reinicios ni suscripciones).
+  - Se evita recomputar estilos pesados; solo cálculo ligero (objeto computedCardWidth) en cada render.
+- Buenas prácticas aplicadas:
+  - No se mutó style original root; se extendió vía array combinando root + rootTablet.
+  - Se mantuvo separación entre estilos estáticos (StyleSheet.create) y decisiones dinámicas (computedCardWidth en render).
+  - Breakpoints simples y claros para facilitar futuras refactorizaciones (posible migración a un theming centralizado).
+- Posibles mejoras futuras:
+  - Extraer hook useResponsiveDimensions para reutilizar en otros módulos.
+  - Implementar memoización de layout si el árbol crece (React.memo / PureComponent).
+  - Normalizar breakpoints en un módulo constants/responsive.js y agregar tests de snapshot en diferentes tamaños.
+  - Añadir preferencia de densidad (compact / comfortable) según roles o ajustes de accesibilidad.
+- Riesgos mitigados:
+  - Evitado reflow excesivo: solo se fuerza setState en evento de cambio de dimensión.
+  - No se reorganizó jerarquía semántica de tarjetas (mismo orden lógico para accesibilidad).
+- Recomendación: aplicar mismo patrón a otros contenedores de dashboards para consistencia UX en tablets.

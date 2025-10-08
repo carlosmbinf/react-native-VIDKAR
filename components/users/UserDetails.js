@@ -48,16 +48,22 @@ import SaldoRecargasCard from './componentsUserDetails/SaldoRecargasCard'; // NU
 
 const axios = require('axios').default;
 
-const {width: screenWidth} = Dimensions.get('window');
-const {height: screenHeight} = Dimensions.get('window');
+
 
 class MyAppUserDetails extends React.Component {
-  componentDidMount() {}
+  
+  componentDidMount() {
+    this.dimSub = Dimensions.addEventListener('change', this.updateLayout);
+  }
 
-  componentWillUnmount() {}
+  componentWillUnmount() {
+    this.dimSub && this.dimSub.remove && this.dimSub.remove();
+  }
 
   constructor(props) {
     super(props);
+    const {width: screenWidth} = Dimensions.get('window');
+    const { height: screenHeight } = Dimensions.get('window');
     this.state = {
       value: null,
       valuevpn: null,
@@ -66,7 +72,6 @@ class MyAppUserDetails extends React.Component {
       isFocusvpn: false,
       paused: false,
       isModalVisible: false,
-      // colorText:  Colors.darker,
       backgroundColor: '#2a323d',
       edit: false,
       date: new Date(),
@@ -75,18 +80,25 @@ class MyAppUserDetails extends React.Component {
       megasVPNlabel: 0,
       tiempoReporteAudio: 0,
       refreshing: false,          // NUEVO
-      refreshKey: 0               // NUEVO
+      refreshKey: 0,              // NUEVO
+      isTablet: screenWidth >= 768,          // NUEVO
+      currentWidth: screenWidth              // NUEVO
     };
-    // !Meteor.userId() && navigation.navigation.navigate('Loguin');
     this.onRefresh = this.onRefresh.bind(this); // NUEVO
+    this.updateLayout = this.updateLayout.bind(this); // NUEVO
   }
 
-  // NUEVO: handler de refresco pull-to-refresh
+  updateLayout({window}) {
+    this.setState({
+      currentWidth: window.width,
+      isTablet: window.width >= 768
+    });
+  }
+
   onRefresh() {
     this.setState(
       (prev) => ({ refreshing: true, refreshKey: prev.refreshKey + 1 }),
       () => {
-        // Simulación de pequeña espera para UX consistente
         setTimeout(() => this.setState({ refreshing: false }), 600);
       }
     );
@@ -102,15 +114,16 @@ class MyAppUserDetails extends React.Component {
       preciosVPNlist,
       loadventas,
     } = this.props;
+
+    const {width: screenWidth} = Dimensions.get('window');
+    const { height: screenHeight } = Dimensions.get('window');
+
     const moment = require('moment');
-    // console.log(item)
-    // const {item} = this.props;
     const onRefresh = () => {
       item = Meteor.users.findOne(this.props.item);
     };
     const deuda = () => {
       let deuda = 0;
-      // console.log(item._id);
       const ventas = VentasCollection.find({
         adminId: item._id,
         cobrado: false,
@@ -118,7 +131,6 @@ class MyAppUserDetails extends React.Component {
       ventas.map(element => {
         deuda = deuda + element.precio;
       });
-      // console.log(ventas);
       return deuda;
     };
     const renderLabel = () => {
@@ -140,9 +152,17 @@ class MyAppUserDetails extends React.Component {
       }
     };
     const backgroundStyle = {
-      // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
       minHeight: screenHeight - 80,
     };
+
+    const {isTablet, currentWidth} = this.state;
+    const computedCardWidth =
+      !isTablet
+        ? {width: '100%'}
+        : (currentWidth >= 1200
+            ? {width: '31%'}
+            : {width: '48%'});
+    const rootStyle = [styles.root, isTablet && styles.rootTablet];
 
     const handleVPNStatus = event => {
       let validacion = false;
@@ -156,7 +176,6 @@ class MyAppUserDetails extends React.Component {
         (validacion = true);
 
       !validacion && alert('Revise los Límites del Usuario');
-      // validacion = ((item.profile.role == "admin") ? true  : false);
       if (!validacion) return null;
 
       Meteor.call(
@@ -174,7 +193,6 @@ class MyAppUserDetails extends React.Component {
     };
 
     const handleReiniciarConsumo = async event => {
-      console.log('INICIO');
       try {
         await Meteor.call('guardarDatosConsumidosByUserPROXYHoras', item);
         await Meteor.call('reiniciarConsumoDeDatosPROXY', item);
@@ -188,7 +206,6 @@ class MyAppUserDetails extends React.Component {
           `Ha sido Reiniciado el consumo de Datos del PROXY de ${item.profile.firstName} ${item.profile.lastName} y desactivado el proxy`,
         );
 
-        // Meteor.call('sendemail', users, { text: `Ha sido Reiniciado el consumo de Datos del PROXY de ${users.profile.firstName} ${users.profile.lastName}` }, 'Reinicio ' + Meteor.user().username)
         await Meteor.call(
           'sendMensaje',
           item,
@@ -216,7 +233,6 @@ class MyAppUserDetails extends React.Component {
           Meteor.userId(),
           `Ha sido Reiniciado el consumo de Datos de la VPN de ${item.profile.firstName} ${item.profile.lastName}`,
         );
-        // Meteor.call('sendemail', users, { text: `Ha sido Reiniciado el consumo de Datos de la VPN de ${users.profile.firstName} ${users.profile.lastName}` }, 'Reinicio ' + Meteor.user().username)
         await Meteor.call(
           'sendMensaje',
           item,
@@ -238,30 +254,11 @@ class MyAppUserDetails extends React.Component {
         },
       });
     };
-    const eliminarNotificacion = () => {
-      // ReactNativeForegroundService.stopAll();
-    }
+    const eliminarNotificacion = () => {}
 
-    const iniciarNotificacion = () => {
-      // ReactNativeForegroundService.start({
-      //   id: 1000000,
-      //   ServiceType: 'dataSync',
-      //   title: 'Servicio de VidKar',
-      //   message: 'Debe iniciar sesión!',
-      //   visibility: 'private',
-      //   // largeicon: 'home',
-      //   vibration: false,
-      //   button: true,
-      //   buttonText: 'Abrir Vidkar',
-      //   importance: 'max',
-      //   ongoing: true,
-      //   //   number: '10000',
-  
-      //   // icon: 'home',
-      // });
-    }
+    const iniciarNotificacion = () => {}
+
     const addVenta = () => {
-      // console.log(`Precio MEGAS ${precios}`);
       let validacion = false;
 
       item.isIlimitado &&
@@ -274,7 +271,6 @@ class MyAppUserDetails extends React.Component {
 
       !validacion && alert('Revise los Límites del Usuario');
 
-      // validacion = ((item.profile.role == "admin") ? true  : false);
       if (!validacion) return null;
 
       Meteor.call(
@@ -306,88 +302,133 @@ class MyAppUserDetails extends React.Component {
                 flex: 1,
                 flexDirection: 'column',
                 height: screenHeight,
-                // backgroundColor: '#2a323d',
                 justifyContent: 'center',
               }}>
               <ActivityIndicator size="large" color="#3f51b5" />
             </View>
           ) : (
             item && (
-              <View style={styles.root}>
+              <View style={rootStyle}>
                 {/* Ventas */}
                 {Meteor.user() &&
                   Meteor.user().profile &&
                   Meteor.user().profile.role == 'admin' && (
-                    <VentasCard
-                      visible={loadventas && deuda() > 0}
-                      deuda={deuda}
-                      styles={styles}
-                    />
+                    <View style={[styles.cardItem, computedCardWidth]}>
+                      <VentasCard
+                        visible={loadventas && deuda() > 0}
+                        deuda={deuda}
+                        styles={styles}
+                      />
+                    </View>
                   )}
-                    {/* NUEVO: Saldo disponible para recargas */}
-                    {Meteor.user() &&
-                  Meteor.user().profile &&
-                  Meteor.user().profile.role == 'admin' && (
-                    <SaldoRecargasCard refreshKey={this.state.refreshKey} />
-                  )}
-
-                  {Meteor.user() &&
-                  Meteor.user().profile &&
-                  Meteor.user().profile.role == 'admin' && (
-                    <Divider style={{marginBottom:20}}/>
-                  )}
-                
-                {/* Datos Personales */}
-                <PersonalDataCard item={item} styles={styles} />
-                {/* Fin Datos Personales */}
-                {/* Tarjeta de Débito (solo si existe property CONFIG.TARJETA_CUP_{userId}) */}
-                {/* Fin Tarjeta de Débito */}
-                {/* Datos de Usuario (incluye cambiar contraseña cuando edit=true) */}
-                <UserDataCard
-                  item={item}
-                  styles={styles}
-                  edit={this.state.edit}
-                  setEdit={(v) => this.setState({edit: v})}
-                  navigation={navigation}
-                />
-                {/* Fin Datos de Usuario */}
-
-                {item?.profile?.role == 'admin' &&
-                <TarjetaDebitoCard item={item} styles={styles} />
-                }
-                {/* Datos del Proxy */}
+                {/* NUEVO: Saldo disponible para recargas */}
                 {Meteor.user() &&
-                Meteor.user().profile &&
-                Meteor.user().profile.role == 'admin' ? (
-                  <ProxyCardAdmin
+                  Meteor.user().profile &&
+                  Meteor.user().profile.role == 'admin' && (
+                    <View style={[styles.cardItem, computedCardWidth]}>
+                      <SaldoRecargasCard refreshKey={this.state.refreshKey} />
+                    </View>
+                  )}
+                {/* {Meteor.user() &&
+                  Meteor.user().profile &&
+                  Meteor.user().profile.role == 'admin' && (
+                    <View style={[styles.cardItem, computedCardWidth]}>
+                      <Divider style={{marginBottom:20}}/>
+                    </View>
+                  )} */}
+                {/* Datos Personales */}
+                <View style={[styles.cardItem, computedCardWidth]}>
+                  <PersonalDataCard item={item} styles={styles} />
+                </View>
+                {/* Fin Datos Personales */}
+                {/* Datos de Usuario */}
+                <View style={[styles.cardItem, computedCardWidth]}>
+                  <UserDataCard
                     item={item}
                     styles={styles}
-                    precioslist={precioslist}
-                    handleReiniciarConsumo={handleReiniciarConsumo}
-                    addVenta={addVenta}
+                    edit={this.state.edit}
+                    setEdit={(v) => this.setState({edit: v})}
+                    navigation={navigation}
                   />
+                </View>
+                {/* Fin Datos de Usuario */}
+                {item?.profile?.role == 'admin' &&
+                  <View style={[styles.cardItem, computedCardWidth]}>
+                    <TarjetaDebitoCard item={item} styles={styles} />
+                  </View>
+                }
+                {/* Pair Proxy + VPN en misma fila para tablet */}
+                {isTablet ? (
+                  <View style={styles.rowPairFull}>
+                    <View style={[styles.cardItem, styles.pairItemWidth]}>
+                      {Meteor.user()?.profile?.role === 'admin' ? (
+                        <ProxyCardAdmin
+                          item={item}
+                          styles={styles}
+                          precioslist={precioslist}
+                          handleReiniciarConsumo={handleReiniciarConsumo}
+                          addVenta={addVenta}
+                        />
+                      ) : (
+                        <ProxyCardUser item={item} styles={styles} />
+                      )}
+                    </View>
+                    <View style={[styles.cardItem, styles.pairItemWidth]}>
+                      {Meteor.user()?.profile?.role === 'admin' ? (
+                        <VpnCardAdmin
+                          item={item}
+                          styles={styles}
+                          preciosVPNlist={preciosVPNlist}
+                          handleReiniciarConsumoVPN={handleReiniciarConsumoVPN}
+                          handleVPNStatus={handleVPNStatus}
+                        />
+                      ) : (
+                        <VpnCardUser item={item} styles={styles} />
+                      )}
+                    </View>
+                  </View>
                 ) : (
-                  <ProxyCardUser item={item} styles={styles} />
-                )}
-                {/* Fin Datos del Proxy */}
+                  <>
+                    {/* Móvil / no tablet: comportamiento previo (stack) */}
+                    {Meteor.user()?.profile?.role === 'admin' ? (
+                      <View style={[styles.cardItem, computedCardWidth]}>
+                        <ProxyCardAdmin
+                          item={item}
+                          styles={styles}
+                          precioslist={precioslist}
+                          handleReiniciarConsumo={handleReiniciarConsumo}
+                          addVenta={addVenta}
+                        />
+                      </View>
+                    ) : (
+                      <View style={[styles.cardItem, computedCardWidth]}>
+                        <ProxyCardUser item={item} styles={styles} />
+                      </View>
+                    )}
 
-                {/* Datos VPN */}
-                {Meteor.user() && Meteor.user()?.profile?.role == 'admin' ? (
-                  <VpnCardAdmin
-                    item={item}
-                    styles={styles}
-                    preciosVPNlist={preciosVPNlist}
-                    handleReiniciarConsumoVPN={handleReiniciarConsumoVPN}
-                    handleVPNStatus={handleVPNStatus}
-                  />
-                ) : (
-                  <VpnCardUser item={item} styles={styles} />
+                    {Meteor.user()?.profile?.role === 'admin' ? (
+                      <View style={[styles.cardItem, computedCardWidth]}>
+                        <VpnCardAdmin
+                          item={item}
+                          styles={styles}
+                          preciosVPNlist={preciosVPNlist}
+                          handleReiniciarConsumoVPN={handleReiniciarConsumoVPN}
+                          handleVPNStatus={handleVPNStatus}
+                        />
+                      </View>
+                    ) : (
+                      <View style={[styles.cardItem, computedCardWidth]}>
+                        <VpnCardUser item={item} styles={styles} />
+                      </View>
+                    )}
+                  </>
                 )}
-                {/* Fin Datos VPN */}
 
                 {/* OPCIONES */}
                 {Meteor.user() && Meteor.user().profile.role == 'admin' && (
-                  <OptionsCardAdmin item={item} styles={styles} />
+                  <View style={[styles.cardItem, computedCardWidth]}>
+                    <OptionsCardAdmin item={item} styles={styles} />
+                  </View>
                 )}
                 {/* Fin OPCIONES */}
               </View>
@@ -460,77 +501,13 @@ const UserDetails = withTracker(props => {
     });
 
   const {item, navigation} = props;
-  console.log("item",item);
   const _id = item;
   const loadventas = Meteor.subscribe('ventas', {
     adminId: _id,
     cobrado: false,
   }).ready();
-  console.log("Cargando ventas para el usuario:", {_id: _id});
-  // const {navigation} = props;
-  const ready = Meteor.subscribe('user', {_id: _id}, {
-    fields: {
-      descuentovpn: 1,
-      descuentoproxy: 1,
-      vpnfechaSubscripcion: 1,
-      vpnisIlimitado: 1,
-      vpnplus: 1,
-      vpn2mb: 1,
-      _id: 1,
-      picture: 1,
-      profile: 1,
-      username: 1,
-      emails: 1,
-      isIlimitado: 1,
-      fechaSubscripcion: 1,
-      megas: 1,
-      megasGastadosinBytes: 1,
-      baneado: 1,
-      bloqueadoDesbloqueadoPor: 1,
-      vpn: 1,
-      vpnip: 1,
-      vpnmegas: 1,
-      vpnMbGastados: 1,
-      tiempoReporteAudio: 1,
-      enviarReporteAudio: 1,
-      desconectarVPN: 1,
-      modificarNotificacion: 1,
-      createdAt:1,
-      movil:1
-    },
-  });
-  const user = Meteor.users.findOne({_id: _id}, {
-    fields: {
-      descuentovpn: 1,
-      descuentoproxy: 1,
-      vpnfechaSubscripcion: 1,
-      vpnisIlimitado: 1,
-      vpnplus: 1,
-      vpn2mb: 1,
-      _id: 1,
-      picture: 1,
-      profile: 1,
-      username: 1,
-      emails: 1,
-      isIlimitado: 1,
-      fechaSubscripcion: 1,
-      megas: 1,
-      megasGastadosinBytes: 1,
-      baneado: 1,
-      bloqueadoDesbloqueadoPor: 1,
-      vpn: 1,
-      vpnip: 1,
-      vpnmegas: 1,
-      vpnMbGastados: 1,
-      tiempoReporteAudio: 1,
-      enviarReporteAudio: 1,
-      desconectarVPN: 1,
-      modificarNotificacion: 1,
-      createdAt:1,
-      movil:1
-    },
-  });
-  console.log(item?._id);
+  const ready = Meteor.subscribe('user', {_id: _id});
+  const user = Meteor.users.findOne({_id: _id});
   return {
     item: user,
     navigation: navigation,
@@ -558,8 +535,20 @@ const styles = StyleSheet.create({
     padding: 30,
     height: '100%',
     width: '100%',
-    // borderRadius: 10,
-    // backgroundColor: '#2a323d',
+  },
+  rootTablet: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignContent: 'flex-start',
+    paddingHorizontal: 32,
+    paddingTop: 32,
+    maxWidth: 1400,
+    alignSelf: 'center'
+  },
+  cardItem: {
+    marginBottom: 24,
+    minWidth: 300
   },
   element: {
     fontSize: 12,
@@ -571,7 +560,6 @@ const styles = StyleSheet.create({
   },
   data: {
     padding: 3,
-    // fontSize: 16,
   },
   cards: {
     marginBottom: 20,
@@ -614,5 +602,17 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: 'white',
     padding: 16,
+  },
+  rowPairFull: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'nowrap',
+    marginBottom: 8,
+  },
+  pairItemWidth: {
+    flexBasis: '48%',
+    maxWidth: '48%',
+    minWidth: 300,
   },
 });

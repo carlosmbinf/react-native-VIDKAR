@@ -110,7 +110,6 @@ const VpnCardAdmin = ({
               borderRadius: 16,
               marginTop: 20,
               backgroundColor: '#546e7a',
-              padding: 18,
             }}
           >
             <CalendarPicker
@@ -119,7 +118,8 @@ const VpnCardAdmin = ({
               selectedDayColor="#6200ee"
               selectedDayTextColor="#FFFFFF"
               mode="date"
-              width={screenWidth - 100}
+              width={320}
+              height={320}
               selectedStartDate={item.vpnfechaSubscripcion}
               onDateChange={date => {
                 if (!date) return;

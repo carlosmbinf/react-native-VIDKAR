@@ -89,12 +89,11 @@ const ProxyCardAdmin = ({
 
               <Surface
                 style={{
-                  width: '100%',
                   borderRadius: 16,
                   // elevation: 12,
                   marginTop: 20,
                   backgroundColor: '#546e7a',
-                  padding: 18,
+                  // padding: 18,
                 }}
               >
                 <CalendarPicker
@@ -102,7 +101,8 @@ const ProxyCardAdmin = ({
                   selectedDayColor="#6200ee"
                   selectedDayTextColor="#FFFFFF"
                   selectedStartDate={item.fechaSubscripcion}
-                  width={screenWidth - 100}
+                  width={320}
+                  height={320}
                   onDateChange={date => {
                     if (!date) return;
                     Meteor.users.update(item._id, {

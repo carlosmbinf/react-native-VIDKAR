@@ -37,7 +37,7 @@ class MyApp extends React.Component {
 
     return (
       <PaperProvider>
-        {ready && user ? (
+        { Meteor.loggingIn() || (ready && user) ? (
           <>
            <StatusBar
               translucent={true}
