@@ -1,17 +1,45 @@
 {
-    // Use IntelliSense para saber los atributos posibles.
-    // Mantenga el puntero para ver las descripciones de los existentes atributos.
-    // Para más información, visite: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "type": "pwa-node",
-            "request": "launch",
-            "name": "Launch Program",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "program": "${workspaceFolder}\\components\\mensajes\\MensajesDetails.js"
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Meteor: Run",
+      "runtimeExecutable": "meteor",
+      "outputCapture": "std",
+      "noDebug": "true",
+      "runtimeArgs": [
+        "run",
+        "--port",
+        "3000"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Meteor: Debug",
+      "runtimeExecutable": "meteor",
+      "runtimeArgs": [
+        "run",
+        "--port",
+        "3000",
+        "--inspect-brk"
+      ],
+      "outputCapture": "std",
+      "serverReadyAction": {
+        "pattern": "App running at: http://localhost:([0-9]+)/",
+        "uriFormat": "http://localhost:%s",
+        "action": "debugWithChrome"
+      }
+    },
+    {
+      "type": "pwa-node",
+      "request": "launch",
+      "name": "Launch Program",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "program": "${workspaceFolder}\\components\\mensajes\\MensajesDetails.js"
+    }
+  ]
 }
