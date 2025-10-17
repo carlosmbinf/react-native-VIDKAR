@@ -24,6 +24,8 @@ import {
   Dimensions,
   Alert,
   ScrollView,
+  PermissionsAndroid,
+  Platform, // agregado: se usa en permisos y lógica por plataforma
 } from 'react-native';
 
 import {
@@ -64,6 +66,72 @@ import VentasStepper from './components/remesas/VentasStepper';       // corregi
 import SubidaArchivos from './components/archivos/SubidaArchivos';
 import ListaArchivos from './components/archivos/ListaArchivos';
 import PropertyTable from './components/property/PropertyTable';
+
+
+import messaging from '@react-native-firebase/messaging';
+// agregado: notifee opcional para mostrar notificaciones locales (foreground/background)
+let NotifeeLib = null;
+try {
+  // carga condicional para no romper si @notifee/react-native no está instalado
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  NotifeeLib = require('@notifee/react-native');
+} catch (e) {
+  console.warn('[Notifications] @notifee/react-native no instalado; se usará Alert en primer plano.');
+}
+
+// util: mostrar notificación local (usa Notifee si está, si no Alert en foreground)
+const displayLocalNotification = async (remoteMessage, {allowAlert = true} = {}) => {
+  console.log("[Notifications] Mostrar notificación local para mensaje:", remoteMessage);
+  const title =
+    remoteMessage?.notification?.title ||
+    remoteMessage?.data?.title ||
+    'Nueva notificación';
+  const body =
+    remoteMessage?.notification?.body ||
+    remoteMessage?.data?.body ||
+    (remoteMessage?.data ? JSON.stringify(remoteMessage.data) : 'Tienes un nuevo mensaje');
+
+    Alert.alert(title, body);
+  if (NotifeeLib?.default) {
+    const notifee = NotifeeLib.default;
+    try {
+      // canal Android (necesario para mostrar notificaciones)
+      const channelId = await notifee.createChannel({
+        id: 'default',
+        name: 'General',
+        // Importance alta para heads-up
+        importance: 4, // AndroidImportance.HIGH
+      });
+
+      await notifee.displayNotification({
+        title,
+        body,
+        android: {
+          channelId,
+          smallIcon: 'ic_launcher', // asegúrate de tener el recurso
+          pressAction: {id: 'default'},
+        },
+        ios: {
+          foregroundPresentationOptions: {
+            alert: true,
+            badge: true,
+            sound: true,
+          },
+        },
+      });
+    } catch (err) {
+      console.warn('[Notifications] Error mostrando notificación con Notifee:', err);
+      if (allowAlert) {
+        Alert.alert(title, body);
+      }
+    }
+  } else {
+    // Fallback simple en primer plano
+    if (allowAlert) {
+    Alert.alert(title, body);
+    }
+  }
+};
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -127,13 +195,83 @@ const App = () => {
       error && Alert.alert('Error Cerrando Session');
     });
   }
+
+  async function requestUserPermission() {
+    const authStatus = await messaging().requestPermission();
+    const enabled =
+      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+  
+    if (enabled) {
+      console.log('Authorization status:', authStatus);
+      // opcional: obtener FCM token si necesitas registrarlo en backend
+      try {
+        const token = await messaging().getToken();
+        console.log('FCM token:', token);
+      } catch (e) {
+        console.warn('No se pudo obtener el FCM token:', e);
+      }
+    }
+  }
+  
   useEffect(() => {
-    // Meteor.connect('ws://10.0.2.2:8080', AsyncStorage);
-    // alert(Meteor.status().status);
-    // let handle = Meteor.subscribe('mensajes', {});
-    // handle.ready() &&
-    //   setMessageCount(MyCol.find({to: Meteor.userId()}).count());
+
+    if (Platform.OS === 'ios') {
+      requestUserPermission();
+    }else{
+    (async ()=>{
+      await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+
+      try {
+        const token = await messaging().getToken();
+        console.log('FCM token:', token);
+      } catch (e) {
+        console.warn('No se pudo obtener el FCM token:', e);
+      }
+
+    })()
+      
+    }
+
+    
+
+    // listener de mensajes en primer plano
+    const unsubscribeOnMessage = messaging().onMessage(async remoteMessage => {
+      // Mostrar notificación sencilla con el contenido recibido
+      await displayLocalNotification(remoteMessage, {allowAlert: true});
+    });
+
+    // app abierta desde una notificación (background -> foreground)
+    const unsubscribeOpened = messaging().onNotificationOpenedApp(remoteMessage => {
+      console.log('Notificación abrió la app desde background:', remoteMessage);
+      // aquí se podría navegar según data del mensaje
+    });
+
+    // app abierta desde estado "quit"
+    messaging()
+      .getInitialNotification()
+      .then(remoteMessage => {
+        if (remoteMessage) {
+          Alert.alert(remoteMessage?.notification?.title
+            , remoteMessage?.notification?.body,[{text: 'OK', onPress: () => console.log('OK Pressed')}]);
+          console.log('Se abrio desde la Notificacion:', remoteMessage);
+          
+          // aquí se podría navegar según data del mensaje
+        }
+      })
+      .catch(err => console.warn('getInitialNotification error:', err));
+
+    return () => {
+      unsubscribeOnMessage();
+      unsubscribeOpened();
+    };
   }, []);
+
+
+
+
+  
+
 
   return (
     <>

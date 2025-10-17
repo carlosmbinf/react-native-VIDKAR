@@ -1,0 +1,41 @@
+{
+  "project_info": {
+    "project_number": "1043110071233",
+    "project_id": "vidkar-7e690",
+    "storage_bucket": "vidkar-7e690.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1043110071233:android:6d2a9cc6fb2bd69ab4fd40",
+        "android_client_info": {
+          "package_name": "com.vidkar"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDbhTA5uR11TfJKBiSeuHZ6_xDVDKqb0oQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1043110071233-5mf355rcrf02hq4ja99uaq9kspokur1t.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1043110071233-p7e56eu0sb203j32pf66b1blaql14f26.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.vidkar"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
