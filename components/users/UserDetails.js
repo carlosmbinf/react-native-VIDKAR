@@ -45,6 +45,7 @@ import VpnCardUser from './componentsUserDetails/VpnCardUser';
 import OptionsCardAdmin from './componentsUserDetails/OptionsCardAdmin';
 import TarjetaDebitoCard from './componentsUserDetails/TarjetaDebitoCard';
 import SaldoRecargasCard from './componentsUserDetails/SaldoRecargasCard'; // NUEVO
+import SendPushMessageCard from '../mensajes/SendPushMessageCard';
 
 const axios = require('axios').default;
 
@@ -53,11 +54,17 @@ const axios = require('axios').default;
 class MyAppUserDetails extends React.Component {
   
   componentDidMount() {
+    this._isMounted = true; // NUEVO: flag de montaje
     this.dimSub = Dimensions.addEventListener('change', this.updateLayout);
+    // NUEVO: verificación inicial de tokens si hay item disponible
+    if (this.props?.item?._id) {
+      this.checkPushTokens(this.props.item._id);
+    }
   }
 
   componentWillUnmount() {
     this.dimSub && this.dimSub.remove && this.dimSub.remove();
+    this._isMounted = false; // NUEVO
   }
 
   constructor(props) {
@@ -82,10 +89,43 @@ class MyAppUserDetails extends React.Component {
       refreshing: false,          // NUEVO
       refreshKey: 0,              // NUEVO
       isTablet: screenWidth >= 768,          // NUEVO
-      currentWidth: screenWidth              // NUEVO
+      currentWidth: screenWidth,             // NUEVO
+      // NUEVO: estado para tokens push
+      hasPushTokens: null,
+      tokenCount: 0,
+      loadingPushTokens: false,
     };
     this.onRefresh = this.onRefresh.bind(this); // NUEVO
     this.updateLayout = this.updateLayout.bind(this); // NUEVO
+  }
+
+  // NUEVO: método para consultar tokens push
+  checkPushTokens(userId) {
+    if (!userId) return;
+    this.setState({ loadingPushTokens: true });
+    Meteor.call('push.hasTokens', { userId }, (error, result) => {
+      if (!this._isMounted) return;
+      if (error) {
+        console.warn('push.hasTokens error:', error);
+        this.setState({ hasPushTokens: false, tokenCount: 0, loadingPushTokens: false });
+        return;
+      }
+      const hasTokens = !!result?.hasTokens;
+      const tokenCount = result?.tokenCount ?? 0;
+      this.setState({ hasPushTokens: hasTokens, tokenCount, loadingPushTokens: false });
+    });
+  }
+
+  // NUEVO: volver a consultar cuando cambie el usuario o se dispare refresh
+  componentDidUpdate(prevProps, prevState) {
+    const prevId = prevProps?.item?._id;
+    const currId = this.props?.item?._id;
+    if (currId && currId !== prevId) {
+      this.checkPushTokens(currId);
+    }
+    if (prevState.refreshKey !== this.state.refreshKey && currId) {
+      this.checkPushTokens(currId);
+    }
   }
 
   updateLayout({window}) {
@@ -431,6 +471,10 @@ class MyAppUserDetails extends React.Component {
                   </View>
                 )}
                 {/* Fin OPCIONES */}
+                {/* MODIFICADO: Mostrar envío de Push solo si hay tokens */}
+                {item?._id && (item?._id != Meteor.userId() || Meteor?.user()?.profile?.role == 'admin') && this.state.hasPushTokens ? (
+                  <SendPushMessageCard toUserId={item._id} />
+                ) : null}
               </View>
             )
           )}

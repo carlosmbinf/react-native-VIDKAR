@@ -26,6 +26,7 @@ import {
   ScrollView,
   PermissionsAndroid,
   Platform, // agregado: se usa en permisos y lógica por plataforma
+  AppRegistry
 } from 'react-native';
 
 import {
@@ -78,6 +79,19 @@ try {
 } catch (e) {
   console.warn('[Notifications] @notifee/react-native no instalado; se usará Alert en primer plano.');
 }
+
+const registerPushTokenForUser = async (userId, token) => {
+  try {
+    await Meteor.call('push.registerToken', {
+      userId,
+      token,
+      platform: Platform.OS
+    });
+   } catch (e) {
+      console.error("error en push.registerToken", e);
+     }
+
+    };
 
 // util: mostrar notificación local (usa Notifee si está, si no Alert en foreground)
 const displayLocalNotification = async (remoteMessage, {allowAlert = true} = {}) => {
@@ -191,6 +205,7 @@ const App = () => {
   };
 
   function logOut(navigation) {
+    unsubscribeTokenRefresh();
     Meteor.logout(error => {
       error && Alert.alert('Error Cerrando Session');
     });
@@ -208,6 +223,8 @@ const App = () => {
       try {
         const token = await messaging().getToken();
         console.log('FCM token:', token);
+        // registrar token con el usuario actual en backend (push.registerToken)
+        await registerPushTokenForUser(Meteor.userId(),token);
       } catch (e) {
         console.warn('No se pudo obtener el FCM token:', e);
       }
@@ -225,6 +242,8 @@ const App = () => {
       try {
         const token = await messaging().getToken();
         console.log('FCM token:', token);
+        // registrar token con el usuario actual en backend (push.registerToken)
+        await registerPushTokenForUser(Meteor.userId(), token);
       } catch (e) {
         console.warn('No se pudo obtener el FCM token:', e);
       }
@@ -233,7 +252,11 @@ const App = () => {
       
     }
 
-    
+    // listener de refresh de token -> re-registrar en backend
+    const unsubscribeTokenRefresh = messaging().onTokenRefresh(async (newToken) => {
+      console.log('FCM token refreshed:', newToken);
+      await registerPushTokenForUser(Meteor.userId(),newToken);
+    });
 
     // listener de mensajes en primer plano
     const unsubscribeOnMessage = messaging().onMessage(async remoteMessage => {
