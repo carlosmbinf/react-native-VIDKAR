@@ -232,7 +232,7 @@ const TableRecargas = () => {
                         }) : Alert.alert("Transacción ya completada", "La transacción ya se encuentra completada, no es posible actualizar su estado")
                         }else{
                           // Meteor.call("registrarLog", "ERROR TRANSACCION", Meteor.userId(), "SERVER", `No se encontró transacción asociada a la recarga con ID:\n${c._id}`);
-                          Alert.alert("Info", "No se encontró transacción asociada a la recarga con ID: \n" + c._id)
+                          console.log("Info", "No se encontró transacción asociada a la recarga con ID: \n" + c._id)
                         }
                         
                       });
@@ -287,7 +287,8 @@ const TableRecargas = () => {
                         const transaccionItem = transacciones?.find(t => t.externalId === it._id);
                         const isCompleted = transaccionItem?.status?.message === "COMPLETED";
 
-                        return (
+
+                        return transaccionItem ? (
                           <Surface
                             key={i}
                             style={{
@@ -329,7 +330,7 @@ const TableRecargas = () => {
                                 Entregado: {isCompleted ? 'Sí' : 'No'}
                               </Text>
                               <Text style={{ color: isCompleted ? '#155724' : '#856404' }}>
-                                Estado: {transaccionItem?.status?.message || 'Pendiente'}
+                                Estado: {transaccionItem?.status?.message || 'No Disponible'}
                               </Text>
                             </Surface>
 
@@ -361,7 +362,7 @@ const TableRecargas = () => {
                               </Surface>
                             )}
                           </Surface>
-                        );
+                        ):<></>;
                       })
                     )}
                     {/* NUEVO: solo para método EFECTIVO */}
