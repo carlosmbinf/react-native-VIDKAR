@@ -11,7 +11,7 @@ const OptionsCardAdmin = ({item, styles}) => {
     const id = item?._id || Meteor.userId();
     if (!id) return { ready: false, userDoc: null };
     // Reemplazar 'users.byId' por el nombre real de la publicación disponible
-    const sub = Meteor.subscribe('users.byId', id);
+    const sub = Meteor.subscribe('userID', id);
     const doc = Meteor.users.findOne(id, {
       fields: {
         desconectarVPN: 1,

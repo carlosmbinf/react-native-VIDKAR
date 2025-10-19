@@ -132,7 +132,7 @@ export const registerPushTokenForUser = async (userId?: string) => {
       );
     });
     // Suscribir al tópico por usuario (opcional)
-    await subscribeUserTopic(uid);
+    // await subscribeUserTopic(uid);
     // Callback opcional
     return token;
   } catch (e) {
@@ -153,7 +153,7 @@ export const unregisterPushTokenForUser = async (userId?: string) => {
         (err: any, res: any) => (err ? reject(err) : resolve(res)),
       );
     });
-    await unsubscribeUserTopic(uid);
+    // await unsubscribeUserTopic(uid);
   } catch (e) {
     console.warn('[PushMessaging] Error desregistrando token:', e);
   }
