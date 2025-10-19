@@ -221,8 +221,20 @@ const App = () => {
       console.log('Authorization status:', authStatus);
       // opcional: obtener FCM token si necesitas registrarlo en backend
       try {
+        let a = await messaging().registerDeviceForRemoteMessages();
+        console.log('FCM messaging().registerDeviceForRemoteMessages():', a);
+        console.log('FCM messaging():', messaging().isDeviceRegisteredForRemoteMessages);
+        // await messaging().registerForRemoteNotifications();
+        
+        
+        if(Platform.OS === 'ios'){
+          let tokenApns = await messaging().getAPNSToken();
+          !tokenApns && await messaging().setAPNSToken(Meteor.userId());
+          tokenApns = await messaging().getAPNSToken();
+          console.log('FCM getAPNSToken (iOS):', tokenApns);
+        }
         const token = await messaging().getToken();
-        console.log('FCM token:', token);
+         console.log('FCM token:', token);
         // registrar token con el usuario actual en backend (push.registerToken)
         await registerPushTokenForUser(Meteor.userId(),token);
       } catch (e) {
@@ -243,7 +255,7 @@ const App = () => {
         const token = await messaging().getToken();
         console.log('FCM token:', token);
         // registrar token con el usuario actual en backend (push.registerToken)
-        await registerPushTokenForUser(Meteor.userId(), token);
+         token && await registerPushTokenForUser(Meteor.userId(), token);
       } catch (e) {
         console.warn('No se pudo obtener el FCM token:', e);
       }

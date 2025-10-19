@@ -24,9 +24,8 @@ const MenuHeader = ({ navigation }) => {
             onPress={() => setVisibleMenu(true)}
           />
         }
-        style={{ top: 70, width: 210, paddingRight: 30 }}
+        style={{ top: 70, width: 210, paddingRight: 30, zIndex:999 }}
       >
-        <View style={{ padding: 0 }}>
           <Menu.Item
             icon="account"
             onPress={() => {
@@ -45,7 +44,6 @@ const MenuHeader = ({ navigation }) => {
             }}
             title="Cerrar Sesión"
           />
-        </View>
       </Menu>
     </View>
   );

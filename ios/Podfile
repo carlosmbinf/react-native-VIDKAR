@@ -23,7 +23,8 @@ target 'Vidkar' do
   
   use_frameworks! :linkage => :static
   $RNFirebaseAsStaticFramework = true
-
+  $FirebaseSDKVersion = '12.4.0'
+  
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.
