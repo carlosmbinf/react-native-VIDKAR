@@ -50,6 +50,11 @@ const DrawerOptionsAlls = (opt) => {
       label: "Lista de Usuarios",
       url:"Users",
       icon:"account"
+    },    
+    {
+      label: "Mensajes de Usuarios",
+      url:"AllMensajesUser",
+      icon:"message-text-outline"
     },
     {
       label: "Add Usuarios",

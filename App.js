@@ -895,7 +895,7 @@ const App = () => {
               // console.log(item)
               const {item} = route.params;
               return (
-                <MensajesHome user={item} />
+                <MensajesHome user={item} navigation={navigation} route={route} />
                 // <TasksProvider user={user} projectPartition={projectPartition}>
                 //   <TasksView navigation={navigation} route={route} />
                 // </TasksProvider>

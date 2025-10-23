@@ -251,7 +251,7 @@ class MyApp extends React.Component {
       let connected = Online.find({ userId: item._id }).count() > 0 ? true : false;
       let message = MensajesCollection.findOne({ $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 } })
       return (
-        message?<Surface key={"Surface_" + item._id} style={{ elevation: 12, margin: 10, borderRadius: 20 }}>
+        <Surface key={"Surface_" + item._id} style={{ elevation: 12, margin: 10, borderRadius: 20 }}>
           <List.Item
             key={"Item_" + item._id}
             onPress={() => {
@@ -262,7 +262,7 @@ class MyApp extends React.Component {
             title={item && (item.profile.firstName + ' ' + item.profile.lastName)}
             //  titleStyle={{fontSize: 20}}
             description={
-              ( message.mensaje? MensajesCollection.findOne({ $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 } }).mensaje:"")
+              ( message?.mensaje? MensajesCollection.findOne({ $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 } }).mensaje:"")
               //  + "\nConexiones: "+(connected?connected:0)
             }
             left={props =>
@@ -330,7 +330,6 @@ class MyApp extends React.Component {
             // )}
           />
         </Surface>
-        :<></>
       );
     };
     //     <TouchableHighlight
@@ -354,7 +353,7 @@ class MyApp extends React.Component {
     }
 
     return (
-      <>
+      <Surface style={{height:"100%"}}>
         {/* // <Surface style={{flex: 1}}> */}
         {/* <ScrollView
           contentInsetAdjustmentBehavior="automatic"
@@ -368,7 +367,7 @@ class MyApp extends React.Component {
 
         {Meteor.user().profile.role == "admin" ? (loading ? (
           <>
-            <Surface style={backgroundStyle}>
+            
               <View
                 style={{
                   flex: 1,
@@ -379,7 +378,6 @@ class MyApp extends React.Component {
                 }}>
                 <ActivityIndicator size="large" color="#3f51b5" />
               </View>
-            </Surface>
           </>
         ) : (
           <>
@@ -413,9 +411,9 @@ class MyApp extends React.Component {
                     </View>
                   </View>
                 </Appbar>
-            <Surface>
+            <>
               {renderFilter()}
-            </Surface>
+            </>
 
             < ScrollView >
               <Surface style={backgroundStyle}>
@@ -435,15 +433,33 @@ class MyApp extends React.Component {
           </>
         )) : <Surface style={backgroundStyle}><Text style={{ textAlign: "center", justifyContent: "center", fontSize: 25, fontWeight: 'bold',paddingTop:10 }}>Sin Acceso</Text></Surface>}
 
-      </>
+      </Surface>
     );
   }
 }
 const ChatUsersHome = withTracker(navigation => {
-  const handle = Meteor.subscribe('user', Meteor.user().username == "carlosmbinf" ? ({}, { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, picture: 1, megas: 1 } }) : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, picture: 1, megas: 1 } });
+  const handle = Meteor.subscribe('user', 
+    Meteor.user().username == "carlosmbinf" ? ({}) : { 
+      $or: [
+        { "bloqueadoDesbloqueadoPor": Meteor.userId() }, 
+        { "bloqueadoDesbloqueadoPor": { $exists: false } }, 
+        { "bloqueadoDesbloqueadoPor": { $in: [""] } }
+      ] 
+    }, 
+    { 
+      fields: {
+        username: 1,
+        'profile.firstName': 1,
+        'profile.lastName': 1,
+        'profile.role': 1,
+        picture: 1,
+        bloqueadoDesbloqueadoPor: 1
+      }
+    }
+  );
 
-  let myTodoTasks = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: { megasGastadosinBytes: -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, megasGastadosinBytes: 1, profile: 1, picture: 1, megas: 1 } }).fetch();
-
+  let myTodoTasks = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? ({}) : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }).fetch();
+console.log("myTodoTasks",myTodoTasks);
   //  console.log(Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"picture":1, megas:1} }).fetch());
   return {
     navigation,

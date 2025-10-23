@@ -65,6 +65,7 @@ class MyApp extends React.Component {
     const { users, loading, navigation, myTodoTasks } = this.props;
     const countMensajes = Mensajes.find({ $or: [{ $and: [{ to: Meteor.userId(), leido: false }] }] }).count();
     const arrayMensajes = myTodoTasks.fetch();
+    console.log("navigation",navigation.navigate)
     // !loading &&
     //   ReactNativeForegroundService.add_task(
     //     () => {
@@ -202,8 +203,8 @@ class MyApp extends React.Component {
                   <View key={index}>
                     <List.Item
                       onPress={() => {
-                        // this.setState({ menuVisible: false })
-                        // navigation.navigation.navigate('Mensaje', { item: item })
+                        this.setState({ menuVisible: false })
+                        navigation.navigate('Mensaje', { item: item })
 
                         // Alert.alert(
                         //   Meteor.users.findOne({_id: item.from}) &&
@@ -289,7 +290,7 @@ class MyApp extends React.Component {
     );
   }
 }
-const MenuIconMensajes = withTracker(navigation => {
+const MenuIconMensajes = withTracker(({navigation}) => {
   //  console.log(user.user)
   const handle1 = Meteor.subscribe('user', {}, { fields: { _id: 1 } });
   const handle2 = Meteor.subscribe('mensajes', { to: Meteor.userId() });

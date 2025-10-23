@@ -5,13 +5,15 @@ import { useNavigation } from '@react-navigation/native';
 import WizardConStepper from '../carritoCompras/WizardConStepper';
 import Meteor, {Mongo, withTracker} from '@meteorrn/core';
 import { logoutFromGoogle } from '../../utilesMetodos/metodosUtiles';
+import MenuIconMensajes from '../components/MenuIconMensajes';
 
 const MenuHeader = ({ navigation }) => {
   const [visibleMenu, setVisibleMenu] = useState(false);
-
+// console.log(navigation);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
       {/* 🛒 Botón del carrito */}
+      <MenuIconMensajes navigation={navigation}/>
       <WizardConStepper/>
       {/* 📋 Botón del menú */}
       <Menu
