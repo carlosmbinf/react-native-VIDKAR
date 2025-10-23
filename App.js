@@ -11,12 +11,12 @@ import React, {useEffect, useState} from 'react';
 import {
   Appbar,
   Menu,
-  Text,  
   Provider as PaperProvider,
   Surface,
 } from 'react-native-paper';
 
 import {
+  Text,
   StatusBar,
   StyleSheet,
   useColorScheme,
@@ -336,7 +336,7 @@ const App = () => {
                 backgroundColor: '#3f51b5',
                 height: 90,
               },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               // headerTitleStyle: {
               //   fontWeight: 'bold',
@@ -375,7 +375,7 @@ const App = () => {
                 backgroundColor: '#3f51b5',
                 height: 90,
               },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               // headerTitleStyle: {
               //   fontWeight: 'bold',
@@ -417,7 +417,7 @@ const App = () => {
                   backgroundColor: '#3f51b5',
                   height: 90,
                 },
-                headerTitleAlign: 'center',
+                headerTitleAlign: 'left',
                 headerTintColor: '#fff',
                 // headerTitleStyle: {
                 //   fontWeight: 'bold',
@@ -489,7 +489,7 @@ const App = () => {
                 backgroundColor: '#3f51b5',
                 height: 90,
               },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               // headerTitleStyle: {
               //   fontWeight: 'bold',
@@ -514,7 +514,7 @@ const App = () => {
                 backgroundColor: '#3f51b5',
                 height: 90,
               },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               // headerTitleStyle: {
               //   fontWeight: 'bold',
@@ -578,7 +578,7 @@ const App = () => {
                   backgroundColor: '#3f51b5',
                   height: 90,
                 },
-                headerTitleAlign: 'center',
+                headerTitleAlign: 'left',
                 headerTintColor: '#fff',
                 // headerTitleStyle: {
                 //   fontWeight: 'bold',
@@ -622,7 +622,7 @@ const App = () => {
                 backgroundColor: '#3f51b5',
                 height: 90,
               },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               // headerTitleStyle: {
               //   fontWeight: 'bold',
@@ -667,7 +667,7 @@ const App = () => {
                 backgroundColor: '#3f51b5',
                 height: 90,
               },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               // headerTitleStyle: {
               //   fontWeight: 'bold',
@@ -692,7 +692,7 @@ const App = () => {
                 backgroundColor: '#3f51b5',
                 height: 90,
               },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               // headerTitleStyle: {
               //   fontWeight: 'bold',
@@ -717,7 +717,7 @@ const App = () => {
                 backgroundColor: '#3f51b5',
                 height: 90,
               },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               // headerTitleStyle: {
               //   fontWeight: 'bold',
@@ -742,7 +742,7 @@ const App = () => {
                 backgroundColor: '#3f51b5',
                 height: 90,
               },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               // headerTitleStyle: {
               //   fontWeight: 'bold',
@@ -767,7 +767,7 @@ const App = () => {
                 backgroundColor: '#3f51b5',
                 height: 90,
               },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               // headerTitleStyle: {
               //   fontWeight: 'bold',
@@ -792,7 +792,7 @@ const App = () => {
                 backgroundColor: '#3f51b5',
                 height: 90,
               },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               // headerTitleStyle: {
               //   fontWeight: 'bold',
@@ -817,7 +817,7 @@ const App = () => {
                 backgroundColor: '#3f51b5',
                 height: 90,
               },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               // headerTitleStyle: {
               //   fontWeight: 'bold',
@@ -881,7 +881,7 @@ const App = () => {
                 backgroundColor: '#3f51b5',
                 height: 90,
               },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               // headerTitleStyle: {
               //   fontWeight: 'bold',
@@ -910,7 +910,7 @@ const App = () => {
                 backgroundColor: '#3f51b5',
                 height: 90,
               },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               // headerTitleStyle: {
               //   fontWeight: 'bold',
@@ -934,12 +934,12 @@ const App = () => {
             name="ProductosCubacelCards"
             // component={Productos}
             options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 5}}>Recargas</Text>,
+              title: <Text>Recargas</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
               },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               // headerTitleStyle: {
               //   fontWeight: 'bold',
@@ -981,7 +981,7 @@ const App = () => {
             options={({navigation, route}) => ({
               title: <Text style={{letterSpacing: 5}}>Remesas</Text>,
               headerStyle: { backgroundColor: '#3f51b5', height: 90 },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               headerShown: true,
               headerRight: () => (
@@ -997,7 +997,7 @@ const App = () => {
             options={({navigation, route}) => ({
               title: <Text style={{letterSpacing: 5}}>Formulario Remesas</Text>,
               headerStyle: { backgroundColor: '#3f51b5', height: 90 },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               headerShown: true,
               headerRight: () => (
@@ -1038,7 +1038,7 @@ const App = () => {
             options={({navigation, route}) => ({
               title: <Text style={{letterSpacing: 5}}>Ventas (Stepper)</Text>,
               headerStyle: { backgroundColor: '#3f51b5', height: 90 },
-              headerTitleAlign: 'center',
+              headerTitleAlign: 'left',
               headerTintColor: '#fff',
               headerShown: true,
               headerRight: () => (

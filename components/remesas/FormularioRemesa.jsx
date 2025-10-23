@@ -142,7 +142,16 @@ const FormularioRemesa = () => {
     };
 
     try {
-      await Meteor.call('insertarCarrito', nuevoCarrito);
+        await Meteor.call("insertarCarrito", nuevoCarrito, (error, result) => {
+            if (error) {
+                console.error('Error al insertar en el carrito:', error);
+                Alert.alert("Error", error.reason);
+            } else {
+                console.log('Producto agregado al carrito:', result);
+                alert('✅ Remesa añadida al carrito');
+                setOpen(false);
+            }
+        });
       alert('✅ Remesa añadida al carrito');
       // Reset consistente con el estado inicial
       setForm({

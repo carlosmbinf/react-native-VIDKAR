@@ -48,6 +48,7 @@ import {
   TouchableHighlight,
   Alert,
   TextInput,
+  KeyboardAvoidingView,
 } from 'react-native';
 
 import {
@@ -101,7 +102,7 @@ class MyApp extends React.Component {
     // const [data, setData] = ;
     // const [textSearch, setTextSearch] = useState("");
     // const carouselRef = useRef(null);
-    !Meteor.userId()&&navigation.navigation.navigate("Loguin")
+    // !Meteor.userId()&&navigation.navigation.navigate("Loguin")
   }
   render() {
     const { loading, navigation, myTodoTasks } = this.props;
@@ -112,34 +113,7 @@ class MyApp extends React.Component {
       // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
       minHeight: (ScreenHeight - 80),
     };
-
-    // const onRefresh = () => {
-    //   this.setState({
-    //     // refreshing: false,
-    //     data: myTodoTasks,
-    //   });
-    // console.log(this.props.myTodoTasks);
-
-    // this.state.navigation.navigate('Home')
-    // this.setState({
-    //   data:
-    // })
-    // };
-    function searchUser(user) {
-      return user.profile.firstName == textSearch;
-      // this.state.textSearch || user.profile.lastName == this.state.textSearch || user.username == this.state.textSearch;
-    }
-
-    function filterUsers(user) {
-      // console.log(this.state.userName);
-      return user.username == this.state.userName
-      // return user?(user.username.include(this.state.userName) ):true ;
-    }
-    // const backgroundStyle = {
-    //   // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
-    //   height: screenHeight,
-    //   // backgroundColor:'red'
-    // };
+    
 
     const renderFilter = () => (
       <Banner
@@ -153,56 +127,18 @@ class MyApp extends React.Component {
           justifyContent: 'center', margin: 0
         }}
       >
-        <View
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{
             flexDirection: 'column',
             backgroundColor: '',
-            // padding: 10,
             alignItems: 'center',
             justifyContent: 'center',
             width: screenWidth - 40,
           }}>
-          {/* <TextInput
-          value={this.state.firstName}
-          autoCapitalize="none"
-          autoCorrect={false}
-          onChangeText={textSearch => {
-            this.setState({
-              userName: '',
-              firstName: textSearch,
-              // data: myTodoTasks
-                // .find(
-                //   textSearch
-                //     ? {
-                //         'profile.firstName': {
-                //           $regex: this.state.firstName,
-                //           $options: 'g',
-                //         },
-                //       }
-                //     : {},
-                //   textSearch
-                //     ? {sort: {'profile.firstName': 1, 'profile.lastName': 1}}
-                //     : {sort: {megasGastadosinBytes: -1}},
-                // )
-                // .fetch()
-            });
-          }}
-          status="info"
-          placeholder="Buscar por Nombre"
-          style={{
-            borderRadius: 30,
-            borderColor: 'black',
-            borderWidth: 1,
-            backgroundColor: '',
-            // width:'100%',
-            padding: 10,
-            marginRight: 10,
-            height: 35,
-          }}
-          textStyle={{color: '#000'}}
-        /> */}
-
           <TextInput
+            autoFocus={true}
+            focusable={true}
             value={this.state.userName}
             autoCapitalize="none"
             autoCorrect={false}
@@ -210,21 +146,6 @@ class MyApp extends React.Component {
               this.setState({
                 userName: textSearch,
                 firstName: '',
-                // data: myTodoTasks
-                // .find(
-                //   textSearch
-                //     ? {
-                //         username: {
-                //           $regex: this.state.userName,
-                //           $options: 'g',
-                //         },
-                //       }
-                //     : {},
-                //   textSearch
-                //     ? {sort: {'profile.firstName': 1, 'profile.lastName': 1}}
-                //     : {sort: {megasGastadosinBytes: -1}},
-                // )
-                // .fetch()
               });
             }}
             status="info"
@@ -233,23 +154,22 @@ class MyApp extends React.Component {
               borderRadius: 30,
               borderColor: 'black',
               borderWidth: 1,
-              // backgroundColor: '',
               width: '100%',
               padding: 10,
               height: 45,
             }}
             textStyle={{ color: '#000' }}
           />
-        </View>
+        </KeyboardAvoidingView>
       </Banner>
 
     );
 
-    const Item = item => {
-      Meteor.subscribe('conexiones', { userId: item._id }, { fields: { userId: 1 },limit:1 });
-      Meteor.subscribe('mensajes', { $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { limit: 1 });
+    const Item =  item => {
+       Meteor.subscribe('conexiones', { userId: item._id }, { fields: { userId: 1 },limit:1 });
       let connected = Online.find({ userId: item._id }).count() > 0 ? true : false;
-      let message = MensajesCollection.findOne({ $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 } })
+       Meteor.subscribe('mensajes', { $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 }});
+      let message =  MensajesCollection.findOne({ $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 } });
       return (
         <Surface key={"Surface_" + item._id} style={{ elevation: 12, margin: 10, borderRadius: 20 }}>
           <List.Item
@@ -262,7 +182,7 @@ class MyApp extends React.Component {
             title={item && (item.profile.firstName + ' ' + item.profile.lastName)}
             //  titleStyle={{fontSize: 20}}
             description={
-              ( message?.mensaje? MensajesCollection.findOne({ $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 } }).mensaje:"")
+              ( message?.mensaje || "")
               //  + "\nConexiones: "+(connected?connected:0)
             }
             left={props =>
@@ -415,7 +335,10 @@ class MyApp extends React.Component {
               {renderFilter()}
             </>
 
-            < ScrollView >
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            >
               <Surface style={backgroundStyle}>
                 <List.Accordion
                   title="Administradores"
@@ -458,8 +381,26 @@ const ChatUsersHome = withTracker(navigation => {
     }
   );
 
-  let myTodoTasks = Meteor.users.find(Meteor.user().username == "carlosmbinf" ? ({}) : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }).fetch();
-console.log("myTodoTasks",myTodoTasks);
+  let myTodoTasks = Meteor.users.find(
+    Meteor.user().username == "carlosmbinf" ? ({}) : { 
+      $or: [
+        { "bloqueadoDesbloqueadoPor": Meteor.userId() }, 
+        { "bloqueadoDesbloqueadoPor": { $exists: false } }, 
+        { "bloqueadoDesbloqueadoPor": { $in: [""] } }
+      ] 
+    },
+    { 
+      fields: {
+        username: 1,
+        'profile.firstName': 1,
+        'profile.lastName': 1,
+        'profile.role': 1,
+        picture: 1,
+        bloqueadoDesbloqueadoPor: 1
+      }
+    }
+  ).fetch();
+// console.log("myTodoTasks",myTodoTasks);
   //  console.log(Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"picture":1, megas:1} }).fetch());
   return {
     navigation,

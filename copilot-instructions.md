@@ -54,3 +54,372 @@ Resumen técnico – Render condicional de SendPushMessageCard por tokens push
   - Añadir un pequeño indicador visual o hint en UI cuando no existan tokens (opcional, según requisitos de UX).
   - Cache con TTL corto del estado de tokens por usuario si se detecta alto volumen de llamadas.
   - Tests: unit test del método checkPushTokens (mocks de Meteor.call) y pruebas e2e del flujo con/si tokens.
+
+---
+
+Resumen técnico – Manejo de Teclado en React Native (KeyboardAvoidingView)
+- Problema identificado: En componentes con TextInput (UsersHome, ChatUsersHome), cuando aparece el teclado en dispositivos móviles, este cubría los campos de entrada, impidiendo al usuario ver lo que escribía.
+
+- Solución implementada:
+  - Importación de `KeyboardAvoidingView` desde 'react-native' en ambos componentes.
+  - Envolver el TextInput del Banner de filtro con `KeyboardAvoidingView` configurado con `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}` para ajuste automático según plataforma.
+  - Configuración del `ScrollView` principal con propiedades específicas para manejo de teclado:
+    - `keyboardShouldPersistTaps="handled"`: Permite interacción con elementos mientras el teclado está visible, mejorando UX al permitir tocar botones sin cerrar el teclado primero.
+    - `keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}`: Controla cómo se oculta el teclado al hacer scroll (interactivo en iOS, al arrastrar en Android).
+
+- Consideraciones técnicas:
+  - El `behavior` de KeyboardAvoidingView debe ajustarse según la plataforma: iOS responde mejor a 'padding', Android a 'height'.
+  - En componentes con múltiples ScrollViews anidados, asegurar que solo el ScrollView principal tenga las configuraciones de teclado.
+  - El `autoFocus={true}` en TextInput debe usarse con precaución en formularios con múltiples campos para evitar comportamientos inesperados.
+  - En banners o modales con TextInput, siempre envolver con KeyboardAvoidingView para garantizar visibilidad del input.
+
+- Componentes afectados:
+  - UsersHome.js: Lista de usuarios con filtro de búsqueda.
+  - ChatUsersHome.js: Lista de conversaciones con filtro de búsqueda.
+
+- Patrón replicable:
+  - Este patrón debe aplicarse en cualquier componente que contenga TextInput dentro de ScrollView/FlatList/SectionList.
+  - Especialmente crítico en pantallas de formularios, búsquedas y chats donde la visibilidad del input es esencial.
+
+- Mejoras futuras sugeridas:
+  - Implementar `KeyboardAwareScrollView` de la librería 'react-native-keyboard-aware-scroll-view' para casos más complejos con múltiples inputs.
+  - Considerar agregar botón "Done/Listo" en teclado iOS para mejor control de cierre.
+  - Implementar scroll automático al input activo en formularios largos.
+  - Agregar animaciones suaves al aparecer/desaparecer el teclado para mejor feedback visual.
+
+- Testing recomendado:
+  - Probar en dispositivos físicos iOS y Android (el comportamiento en simuladores puede diferir).
+  - Verificar en diferentes tamaños de pantalla (pequeñas, medianas, grandes).
+  - Probar con teclados de terceros que pueden tener alturas diferentes.
+  - Validar comportamiento en orientación horizontal (landscape).
+
+---
+
+Resumen técnico – Corrección avanzada de KeyboardAvoidingView en MensajesHome (Android + iOS)
+- Problema persistente: Después de la implementación inicial de KeyboardAvoidingView, el input seguía quedando oculto detrás del teclado, especialmente en Android.
+
+- Análisis profundo del problema:
+  - `behavior='height'` en Android no siempre funciona debido a diferencias en cómo Android maneja el `windowSoftInputMode`.
+  - El `KeyboardAvoidingView` nativo de React Native tiene limitaciones conocidas en Android con diferentes configuraciones de manifest.
+  - Se necesita un enfoque híbrido: KeyboardAvoidingView para iOS + listeners manuales para Android.
+
+- Solución robusta implementada:
+  - Listeners del teclado nativos:
+    - iOS: `keyboardWillShow` y `keyboardWillHide` (eventos "will" para animaciones suaves).
+    - Android: `keyboardDidShow` y `keyboardDidHide` (eventos "did" porque Android no tiene "will").
+  - Estado `keyboardHeight` que captura la altura exacta del teclado desde el evento nativo.
+  - Ajuste dinámico con `marginBottom` en Android: se aplica `marginBottom: keyboardHeight` al contenedor cuando el teclado está visible.
+  - KeyboardAvoidingView se mantiene para iOS con `behavior='padding'`.
+  - Limpieza apropiada de listeners en `componentWillUnmount` para prevenir memory leaks.
+
+- Estructura mejorada:
+  ```jsx
+  <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <View style={[styles.contentContainer, Platform.OS === 'android' && keyboardHeight > 0 && { marginBottom: keyboardHeight }]}>
+      <FlatList inverted ... />
+      <InputToolbar />
+    </View>
+  </KeyboardAvoidingView>
+  ```
+
+- Consideraciones técnicas críticas:
+  - En Android, el `windowSoftInputMode` en AndroidManifest.xml debe estar configurado como `adjustResize` o `adjustPan`. Si está en `adjustNothing`, ninguna solución JavaScript funcionará.
+  - Los eventos del teclado proporcionan `endCoordinates.height` que es la altura exacta del teclado en píxeles.
+  - En iOS, los eventos "will" permiten animaciones sincronizadas con la aparición del teclado.
+  - En Android, los eventos "did" son instantáneos pero menos fluidos visualmente.
+  - El `backgroundColor: '#FFFFFF'` en `inputContainer` es crucial para evitar transparencias que hacen que el input parezca oculto.
+
+- Solución de problemas comunes:
+  - Si el input sigue oculto en Android: Verificar `android:windowSoftInputMode="adjustResize"` en AndroidManifest.xml.
+  - Si hay doble ajuste (input muy arriba): Remover `behavior` en Android (ya implementado con `undefined`).
+  - Si el teclado cubre el input en tablets: Ajustar el offset considerando barras de sistema y headers dinámicamente.
+  - Si hay lag en la animación: Usar `Animated.View` con `Animated.timing` para transiciones suaves (opcional, siguiente iteración).
+
+- Mejoras adicionales implementadas:
+  - Limpieza segura de todos los listeners en unmount (4 listeners: 2 para iOS, 2 para Android).
+  - Estructura de contenedor adicional (`contentContainer`) para aplicar estilos sin afectar el KeyboardAvoidingView.
+  - Background color explícito en input toolbar para garantizar opacidad.
+
+- Testing exhaustivo requerido:
+  - Probar en Android con diferentes versiones (API 21-34) ya que el comportamiento del teclado varía.
+  - Validar en dispositivos con barras de navegación on-screen vs físicas.
+  - Probar con teclados de terceros (Gboard, SwiftKey) que pueden tener alturas diferentes.
+  - Verificar en tablets donde la altura del teclado puede ser menor.
+  - Probar en modo split-screen (multitarea) donde las dimensiones cambian dinámicamente.
+
+- Alternativa futura si persisten problemas:
+  - Considerar librería `react-native-keyboard-aware-scroll-view` que maneja estos casos automáticamente.
+  - Implementar `android:windowSoftInputMode="adjustPan"` si adjustResize no es viable por diseño.
+  - Usar `react-native-keyboard-controller` para control más granular en casos edge.
+
+- Documentación para AndroidManifest.xml:
+  ```xml
+  <activity
+    android:name=".MainActivity"
+    android:windowSoftInputMode="adjustResize">
+  </activity>
+  ```
+
+- Patrón replicable para otros chats:
+  - Siempre usar listeners del teclado en Android para ajustes precisos.
+  - Mantener KeyboardAvoidingView para iOS por su mejor soporte nativo.
+  - Aplicar `marginBottom` dinámico solo en Android, no en iOS.
+  - Limpiar listeners para evitar memory leaks.
+  - Background color en input toolbar obligatorio.
+
+---
+
+Resumen técnico – Manejo de teclado en Dialog de React Native Paper (CubaCelCard)
+- Problema identificado: En el componente CubaCelCard, el Dialog con formularios de recarga quedaba estático cuando aparecía el teclado, ocultando los inputs inferiores y botones de acción detrás del teclado.
+
+- Diferencias con otros componentes:
+  - Dialog de React Native Paper no es una pantalla completa, sino un modal que flota sobre el contenido.
+  - KeyboardAvoidingView dentro de Dialog tiene comportamiento diferente que en pantallas completas.
+  - Los Dialog tienen altura fija/máxima que complica el ajuste automático.
+
+- Solución implementada:
+  - Listeners del teclado usando hooks de React (useEffect):
+    - iOS: `keyboardWillShow` y `keyboardWillHide` (eventos "will" para animaciones suaves).
+    - Android: `keyboardDidShow` y `keyboardDidHide` (eventos "did" porque Android no tiene "will").
+  - Estado `keyboardHeight` que captura la altura exacta del teclado desde el evento nativo.
+  - Ajuste dinámico con `marginBottom` en Android: se aplica `marginBottom: keyboardHeight` al contenedor cuando el teclado está visible.
+  - KeyboardAvoidingView se mantiene para iOS con `behavior='padding'`.
+  - Limpieza apropiada de listeners en `componentWillUnmount` para prevenir memory leaks.
+
+- Estructura mejorada:
+  ```jsx
+  <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <View style={[styles.contentContainer, Platform.OS === 'android' && keyboardHeight > 0 && { marginBottom: keyboardHeight }]}>
+      <FlatList inverted ... />
+      <InputToolbar />
+    </View>
+  </KeyboardAvoidingView>
+  ```
+
+- Consideraciones técnicas críticas:
+  - En Android, el `windowSoftInputMode` en AndroidManifest.xml debe estar configurado como `adjustResize` o `adjustPan`. Si está en `adjustNothing`, ninguna solución JavaScript funcionará.
+  - Los eventos del teclado proporcionan `endCoordinates.height` que es la altura exacta del teclado en píxeles.
+  - En iOS, los eventos "will" permiten animaciones sincronizadas con la aparición del teclado.
+  - En Android, los eventos "did" son instantáneos pero menos fluidos visualmente.
+  - El `backgroundColor: '#FFFFFF'` en `inputContainer` es crucial para evitar transparencias que hacen que el input parezca oculto.
+
+- Solución de problemas comunes:
+  - Si el input sigue oculto en Android: Verificar `android:windowSoftInputMode="adjustResize"` en AndroidManifest.xml.
+  - Si hay doble ajuste (input muy arriba): Remover `behavior` en Android (ya implementado con `undefined`).
+  - Si el teclado cubre el input en tablets: Ajustar el offset considerando barras de sistema y headers dinámicamente.
+  - Si hay lag en la animación: Usar `Animated.View` con `Animated.timing` para transiciones suaves (opcional, siguiente iteración).
+
+- Mejoras adicionales implementadas:
+  - Limpieza segura de todos los listeners en unmount (4 listeners: 2 para iOS, 2 para Android).
+  - Estructura de contenedor adicional (`contentContainer`) para aplicar estilos sin afectar el KeyboardAvoidingView.
+  - Background color explícito en input toolbar para garantizar opacidad.
+
+- Testing exhaustivo requerido:
+  - Probar en Android con diferentes versiones (API 21-34) ya que el comportamiento del teclado varía.
+  - Validar en dispositivos con barras de navegación on-screen vs físicas.
+  - Probar con teclados de terceros (Gboard, SwiftKey) que pueden tener alturas diferentes.
+  - Verificar en tablets donde la altura del teclado puede ser menor.
+  - Probar en modo split-screen (multitarea) donde las dimensiones cambian dinámicamente.
+
+- Alternativa futura si persisten problemas:
+  - Considerar librería `react-native-keyboard-aware-scroll-view` que maneja estos casos automáticamente.
+  - Implementar `android:windowSoftInputMode="adjustPan"` si adjustResize no es viable por diseño.
+  - Usar `react-native-keyboard-controller` para control más granular en casos edge.
+
+- Documentación para AndroidManifest.xml:
+  ```xml
+  <activity
+    android:name=".MainActivity"
+    android:windowSoftInputMode="adjustResize">
+  </activity>
+  ```
+
+- Patrón replicable para otros chats:
+  - Siempre usar listeners del teclado en Android para ajustes precisos.
+  - Mantener KeyboardAvoidingView para iOS por su mejor soporte nativo.
+  - Aplicar `marginBottom` dinámico solo en Android, no en iOS.
+  - Limpiar listeners para evitar memory leaks.
+  - Background color en input toolbar obligatorio.
+
+---
+
+Resumen técnico – Solución completa de manejo de teclado en React Native (múltiples escenarios)
+
+**Contexto general:**
+El manejo del teclado en React Native es uno de los problemas más comunes y complejos, especialmente en aplicaciones multiplataforma (iOS/Android). Se requieren soluciones diferentes según el contexto: pantallas completas, banners, diálogos, chats, etc.
+
+**Escenarios identificados y solucionados:**
+
+1. **Banners con búsqueda (UsersHome, ChatUsersHome):**
+   - Problema: Input de búsqueda quedaba oculto cuando aparecía el teclado.
+   - Solución: KeyboardAvoidingView envolviendo el TextInput dentro del Banner.
+   - Configuración: `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}`.
+   - ScrollView con `keyboardShouldPersistTaps="handled"` y `keyboardDismissMode`.
+
+2. **Chat/Mensajería (MensajesHome):**
+   - Problema: Input toolbar quedaba detrás del teclado, especialmente en Android.
+   - Solución híbrida:
+     - iOS: KeyboardAvoidingView con `behavior='padding'`.
+     - Android: Listeners del teclado + `marginBottom` dinámico.
+   - Listeners implementados:
+     ```javascript
+     // iOS
+     keyboardWillShow / keyboardWillHide
+     // Android  
+     keyboardDidShow / keyboardDidHide
+     ```
+   - Estado `keyboardHeight` para capturar altura exacta del teclado.
+   - Aplicar `marginBottom: keyboardHeight` solo en Android al contenedor.
+   - CRÍTICO: Limpiar listeners en `componentWillUnmount` para evitar memory leaks.
+
+3. **Dialog con formularios (CubaCelCard):**
+   - Problema: Dialog estático no se ajustaba al teclado, ocultando inputs y botones.
+   - Diferencia clave: Dialog es modal flotante, no pantalla completa.
+   - Solución:
+     - Listeners del teclado en useEffect (componente funcional).
+     - `marginBottom` dinámico aplicado al Dialog en Android.
+     - KeyboardAvoidingView interno con `behavior='padding'` solo en iOS.
+     - `maxHeight: '80%'` en Dialog para flexibilidad.
+     - `nestedScrollEnabled={true}` en ScrollViews internos.
+     - `blurOnSubmit={false}` y `returnKeyType="next"` para navegación fluida entre inputs.
+
+**Patrón general replicable:**
+
+```javascript
+// Para componentes de clase (Chat)
+componentDidMount() {
+  if (Platform.OS === 'ios') {
+    this.keyboardWillShowSub = Keyboard.addListener('keyboardWillShow', this.keyboardWillShow);
+    this.keyboardWillHideSub = Keyboard.addListener('keyboardWillHide', this.keyboardWillHide);
+  } else {
+    this.keyboardDidShowSub = Keyboard.addListener('keyboardDidShow', this.keyboardDidShow);
+    this.keyboardDidHideSub = Keyboard.addListener('keyboardDidHide', this.keyboardDidHide);
+  }
+}
+
+componentWillUnmount() {
+  this.keyboardWillShowSub?.remove();
+  this.keyboardWillHideSub?.remove();
+  this.keyboardDidShowSub?.remove();
+  this.keyboardDidHideSub?.remove();
+}
+
+keyboardWillShow = (event) => {
+  this.setState({ keyboardHeight: event.endCoordinates.height });
+};
+
+keyboardWillHide = () => {
+  this.setState({ keyboardHeight: 0 });
+};
+
+// Para componentes funcionales (Dialog)
+React.useEffect(() => {
+  let keyboardDidShowListener;
+  let keyboardDidHideListener;
+  let keyboardWillShowListener;
+  let keyboardWillHideListener;
+
+  if (Platform.OS === 'ios') {
+    keyboardWillShowListener = Keyboard.addListener('keyboardWillShow', (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+    });
+    keyboardWillHideListener = Keyboard.addListener('keyboardWillHide', () => {
+      setKeyboardHeight(0);
+    });
+  } else {
+    keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+    });
+    keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+  }
+
+  return () => {
+    keyboardDidShowListener?.remove();
+    keyboardDidHideListener?.remove();
+    keyboardWillShowListener?.remove();
+    keyboardWillHideListener?.remove();
+  };
+}, []);
+```
+
+**Configuración AndroidManifest.xml requerida:**
+```xml
+<activity
+  android:name=".MainActivity"
+  android:windowSoftInputMode="adjustResize">
+</activity>
+```
+
+**Consideraciones técnicas críticas:**
+
+1. **Diferencias iOS vs Android:**
+   - iOS: Usar `behavior='padding'` en KeyboardAvoidingView.
+   - Android: Usar listeners + `marginBottom` dinámico (más confiable que `behavior='height'`).
+   - iOS: Eventos "will" para animaciones suaves.
+   - Android: Eventos "did" (no existen "will").
+
+2. **Limpieza de recursos:**
+   - SIEMPRE limpiar listeners en unmount/cleanup.
+   - Usar `?.remove()` para manejo seguro.
+   - En componentes de clase: `componentWillUnmount`.
+   - En componentes funcionales: return del useEffect.
+
+3. **Configuraciones de TextInput:**
+   - `blurOnSubmit={false}`: Mantiene teclado al navegar entre inputs.
+   - `returnKeyType="next"`: Indica al usuario que hay más campos.
+   - `keyboardType` apropiado: 'number-pad', 'email-address', etc.
+   - `inputMode` para teclados modernos: 'tel', 'numeric', 'email'.
+
+4. **ScrollView con teclado:**
+   - `keyboardShouldPersistTaps="handled"`: Permite interacción sin cerrar teclado.
+   - `keyboardDismissMode`: 'interactive' (iOS), 'on-drag' (Android).
+   - `nestedScrollEnabled={true}`: Necesario cuando hay múltiples ScrollViews.
+
+5. **Dialog específico:**
+   - No usar altura fija, usar `maxHeight`.
+   - Aplicar `marginBottom` al Dialog completo en Android.
+   - KeyboardAvoidingView dentro del Dialog solo para iOS.
+   - ScrollViews separados para contenido informativo vs formulario.
+
+**Testing requerido:**
+
+- [ ] Dispositivos físicos iOS y Android (simuladores no son confiables).
+- [ ] Diferentes versiones de Android (API 21-34).
+- [ ] Tablets (altura de teclado diferente).
+- [ ] Teclados de terceros (Gboard, SwiftKey, etc.).
+- [ ] Modo landscape (orientación horizontal).
+- [ ] Split-screen / multitarea.
+- [ ] Diferentes tamaños de pantalla (pequeño, mediano, grande).
+
+**Debugging común:**
+
+- **Input oculto en Android**: Verificar `windowSoftInputMode="adjustResize"` en AndroidManifest.xml.
+- **Doble ajuste (input muy arriba)**: No usar `behavior` en Android, solo listeners.
+- **Lag en animación**: Eventos "will" en iOS son más suaves que "did".
+- **Memory leaks**: Verificar limpieza de listeners.
+- **Background transparente**: Siempre set `backgroundColor` explícito en input toolbar.
+
+**Alternativas futuras:**
+
+- `react-native-keyboard-aware-scroll-view`: Librería que automatiza este comportamiento.
+- `react-native-keyboard-controller`: Control más granular del teclado.
+- `react-native-avoid-softinput`: Alternativa moderna con mejor API.
+
+**Lecciones aprendidas:**
+
+1. No existe una solución única para todos los escenarios de teclado.
+2. Android requiere listeners manuales; iOS funciona mejor con KeyboardAvoidingView.
+3. Los Dialogs necesitan tratamiento especial vs pantallas completas.
+4. La limpieza de listeners es CRÍTICA para evitar crashes y memory leaks.
+5. El testing en dispositivos físicos es imprescindible.
+6. La configuración del AndroidManifest es tan importante como el código JavaScript.
+
+**Próximos pasos recomendados:**
+
+- Crear un hook custom `useKeyboardHeight()` para reutilizar lógica.
+- Crear un componente wrapper `KeyboardAwareDialog` que encapsule la solución para Dialogs.
+- Documentar y testear con diferentes configuraciones de `windowSoftInputMode`.
+- Implementar scroll automático al input con foco cuando aparece el teclado.
+- Agregar animaciones suaves usando `Animated.timing` sincronizado con eventos del teclado.

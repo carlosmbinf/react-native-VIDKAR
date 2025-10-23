@@ -16,6 +16,7 @@ import {
   Appearance,
   Animated,
   TouchableOpacity,
+  Keyboard,
 } from 'react-native';
 import {
   TextInput,
@@ -40,23 +41,73 @@ class MensajesHome extends React.Component {
       isDarkMode: Appearance?.getColorScheme?.() === 'dark',
       isSending: false,
       inputHeight: 40,
+      keyboardHeight: 0,
     };
     this.flatListRef = React.createRef();
     this.textInputRef = React.createRef();
     // Animaciones para el botón de envío
     this.sendButtonScale = new Animated.Value(0);
     this.sendButtonRotation = new Animated.Value(0);
+    this.keyboardWillShowSub = null;
+    this.keyboardWillHideSub = null;
+    this.keyboardDidShowSub = null;
+    this.keyboardDidHideSub = null;
   }
 
   componentDidMount() {
     this.appearanceSubscription = Appearance?.addChangeListener?.(({ colorScheme }) => {
       this.setState({ isDarkMode: colorScheme === 'dark' });
     });
+
+    // Listeners del teclado para ajuste manual
+    if (Platform.OS === 'ios') {
+      this.keyboardWillShowSub = Keyboard.addListener(
+        'keyboardWillShow',
+        this.keyboardWillShow
+      );
+      this.keyboardWillHideSub = Keyboard.addListener(
+        'keyboardWillHide',
+        this.keyboardWillHide
+      );
+    } else {
+      this.keyboardDidShowSub = Keyboard.addListener(
+        'keyboardDidShow',
+        this.keyboardDidShow
+      );
+      this.keyboardDidHideSub = Keyboard.addListener(
+        'keyboardDidHide',
+        this.keyboardDidHide
+      );
+    }
   }
 
   componentWillUnmount() {
     this.appearanceSubscription?.remove?.();
+    
+    // Limpiar listeners del teclado
+    this.keyboardWillShowSub?.remove();
+    this.keyboardWillHideSub?.remove();
+    this.keyboardDidShowSub?.remove();
+    this.keyboardDidHideSub?.remove();
   }
+
+  keyboardWillShow = (event) => {
+    const keyboardHeight = event.endCoordinates.height;
+    this.setState({ keyboardHeight });
+  };
+
+  keyboardWillHide = () => {
+    this.setState({ keyboardHeight: 0 });
+  };
+
+  keyboardDidShow = (event) => {
+    const keyboardHeight = event.endCoordinates.height;
+    this.setState({ keyboardHeight });
+  };
+
+  keyboardDidHide = () => {
+    this.setState({ keyboardHeight: 0 });
+  };
 
   componentDidUpdate(prevProps, prevState) {
     // Auto-scroll al recibir nuevos mensajes
@@ -306,7 +357,7 @@ class MensajesHome extends React.Component {
 
   render() {
     const { loading, myTodoTasks } = this.props;
-    const { screenHeight } = this.state;
+    const { keyboardHeight } = this.state;
 
     if (loading) {
       return (
@@ -316,46 +367,45 @@ class MensajesHome extends React.Component {
             <Text style={styles.loadingText}>Cargando mensajes...</Text>
           </View>
         </Surface>
-        
       );
     }
 
     return (
       <Surface style={{ height: "100%", flex: 1 }}>
         <KeyboardAvoidingView
-          style={[styles.container, { height: screenHeight }]}
+          style={styles.container}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
-          {myTodoTasks.length === 0 ? (
+          <View style={[styles.contentContainer, Platform.OS === 'android' && keyboardHeight > 0 && { marginBottom: keyboardHeight }]}>
+            {myTodoTasks.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <IconButton icon="message-outline" size={64} iconColor="#B0BEC5" />
+                <Text style={styles.emptyText}>No hay mensajes aún</Text>
+                <Text style={styles.emptySubtext}>Inicia la conversación</Text>
+              </View>
+            ) : (
+              <FlatList
+                ref={this.flatListRef}
+                data={myTodoTasks}
+                renderItem={this.renderMessage}
+                keyExtractor={(item) => item._id}
+                inverted
+                contentContainerStyle={styles.messagesList}
+                ListHeaderComponent={this.renderHeader}
+                showsVerticalScrollIndicator={false}
+                initialNumToRender={20}
+                maxToRenderPerBatch={10}
+                windowSize={10}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+              />
+            )}
 
-            <View style={styles.emptyContainer}>
-              <IconButton icon="message-outline" size={64} iconColor="#B0BEC5" />
-              <Text style={styles.emptyText}>No hay mensajes aún</Text>
-              <Text style={styles.emptySubtext}>Inicia la conversación</Text>
-            </View>
-
-          ) : (
-            <FlatList
-              ref={this.flatListRef}
-              data={myTodoTasks}
-              renderItem={this.renderMessage}
-              keyExtractor={(item) => item._id}
-              inverted
-              contentContainerStyle={styles.messagesList}
-              ListHeaderComponent={this.renderHeader}
-              showsVerticalScrollIndicator={false}
-              initialNumToRender={20}
-              maxToRenderPerBatch={10}
-              windowSize={10}
-            />
-
-          )}
-
-          {this.renderInputToolbar()}
+            {this.renderInputToolbar()}
+          </View>
         </KeyboardAvoidingView>
       </Surface>
-
     );
   }
 }
@@ -437,7 +487,9 @@ const MensajesHomeWithTracker = withTracker((user) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // backgroundColor: '#F5F5F5',
+  },
+  contentContainer: {
+    flex: 1,
   },
   loadingContainer: {
     justifyContent: 'center',
@@ -554,11 +606,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   inputContainer: {
-    // backgroundColor: '#FFFFFF',
     paddingTop: 4,
     paddingBottom: 4,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
+    backgroundColor: '#FFFFFF',
   },
   charCountContainer: {
     alignItems: 'flex-end',
@@ -581,11 +633,9 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     flex: 1,
-    // backgroundColor: '#F5F5F5',
     borderRadius: 24,
     paddingHorizontal: 4,
     marginHorizontal: 4,
-    
   },
   textInput: {
     backgroundColor: 'transparent',
