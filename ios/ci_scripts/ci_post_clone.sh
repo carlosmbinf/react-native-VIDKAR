@@ -2,27 +2,22 @@
 set -e
 echo "Stage: Post-clone start..."
 
-# Debug
+# --- Debug ---
 echo "PWD: $(pwd)"
 echo "Repo: $CI_PRIMARY_REPOSITORY_PATH"
 echo "Build Number: $CI_BUILD_NUMBER"
 
-# Instalar Node (versión estable para RN), Yarn y CocoaPods
+# --- Instalar Node 22, Yarn y CocoaPods ---
 brew install node@22 yarn cocoapods
 brew link --overwrite node@22
 
-# Ir a la raíz del repo (donde está package.json)
-cd "$CI_PRIMARY_REPOSITORY_PATH"
+# --- PATH para usar Node 22 ---
+export PATH="/usr/local/opt/node@22/bin:$PATH"
+echo "Usando Node:"
+node -v
+npm -v
 
-# Instalar dependencias JS
-echo "Using npm..."
-npm install --legacy-peer-deps -f
-
-#!/bin/bash
-
-echo "🔧 Configurando entorno para React Native en macOS..."
-
-# 1. Instalar watchman si no está
+# --- Instalar watchman ---
 if ! command -v watchman &> /dev/null
 then
   echo "📦 Instalando watchman con Homebrew..."
@@ -31,62 +26,56 @@ else
   echo "✅ Watchman ya está instalado."
 fi
 
-# 2. Aumentar límite de archivos abiertos en la shell (permanente)
-SHELL_RC="$HOME/.zshrc"
-if ! grep -q "ulimit -n 65536" "$SHELL_RC"; then
-  echo "⚙️  Configurando ulimit en $SHELL_RC..."
-  echo "ulimit -n 65536" >> "$SHELL_RC"
-else
-  echo "✅ ulimit ya está configurado en $SHELL_RC."
-fi
+# --- Aumentar límite de archivos abiertos ---
+ulimit -n 65536
+echo "ulimit actual: $(ulimit -n)"
 
-# 3. Crear un LaunchAgent para aplicar límite en todo el sistema (sesión gráfica incluida)
-PLIST="$HOME/Library/LaunchAgents/limit.maxfiles.plist"
-if [ ! -f "$PLIST" ]; then
-  echo "📝 Creando $PLIST..."
-  mkdir -p "$HOME/Library/LaunchAgents"
-  cat <<EOF > "$PLIST"
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>limit.maxfiles</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>launchctl</string>
-        <string>limit</string>
-        <string>maxfiles</string>
-        <string>65536</string>
-        <string>65536</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-</dict>
-</plist>
-EOF
-  launchctl load -w "$PLIST"
-else
-  echo "✅ LaunchAgent ya existe en $PLIST."
-fi
+# --- Ir a la raíz del repo ---
+cd "$CI_PRIMARY_REPOSITORY_PATH"
 
-echo "🎉 Listo. Reinicia tu terminal y/o sesión de usuario para aplicar cambios."
+# --- Instalar dependencias JS ---
+npm install --legacy-peer-deps -f
 
-
-
-# Instalar pods
+# --- Instalar pods ---
 cd ios
-# rm -rf Pods Podfile.lock
 pod install
 
-# 1️⃣ Actualizar el build number (CFBundleVersion)
+# --- Actualizar build number y marketing version ---
 xcrun agvtool new-version -all $CI_BUILD_NUMBER
-echo "CFBundleVersion set to $CI_BUILD_NUMBER"
-
-# 2️⃣ Actualizar la versión de marketing (CFBundleShortVersionString)
-MARKETING_VERSION="1.0.$CI_BUILD_NUMBER"  # <- ajusta el "1.0" si quieres otro prefijo
+MARKETING_VERSION="1.0.$CI_BUILD_NUMBER"
 xcrun agvtool new-marketing-version $MARKETING_VERSION
-echo "CFBundleShortVersionString set to $MARKETING_VERSION"
+
+# --- Variables para Archive ---
+WORKSPACE_PATH="$CI_PRIMARY_REPOSITORY_PATH/ios/Vidkar.xcworkspace"
+SCHEME="Vidkar"
+ARCHIVE_DIR="$CI_PRIMARY_REPOSITORY_PATH/archives"
+mkdir -p "$ARCHIVE_DIR"
+
+# --- Build & Archive ---
+echo "🏗 Ejecutando build y generando archive..."
+xcodebuild -workspace "$WORKSPACE_PATH" \
+           -scheme "$SCHEME" \
+           -configuration Release \
+           -archivePath "$ARCHIVE_DIR/$SCHEME.xcarchive" \
+           clean archive
+
+echo "✅ Archive generado en $ARCHIVE_DIR/$SCHEME.xcarchive"
+
+# --- Subir a TestFlight ---
+# Requiere Apple ID y App-Specific Password en variables de entorno:
+# APPLE_ID, APP_SPECIFIC_PASSWORD
+if [[ -n "$APPLE_ID" && -n "$APP_SPECIFIC_PASSWORD" ]]; then
+  echo "🚀 Subiendo a TestFlight..."
+  xcrun altool --upload-app \
+    -f "$ARCHIVE_DIR/$SCHEME.xcarchive/Products/Applications/$SCHEME.app" \
+    -t ios \
+    -u "$APPLE_ID" \
+    -p "$APP_SPECIFIC_PASSWORD" \
+    --verbose
+  echo "✅ Upload a TestFlight completado."
+else
+  echo "⚠️ APPLE_ID o APP_SPECIFIC_PASSWORD no configurados. Se omite upload a TestFlight."
+fi
 
 echo "Stage: Post-clone done."
 exit 0
