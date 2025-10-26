@@ -1,60 +1,47 @@
 import Meteor from '@meteorrn/core';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { appleAuth } from '@invertase/react-native-apple-authentication';
 
 /**
- * Decodificar JWT sin verificar firma (solo para extraer payload)
- * @param {string} token JWT token
- * @returns {object|null} Payload decodificado o null si hay error
- */
-const decodeJWT = (token) => {
-	try {
-		const parts = token.split('.');
-		if (parts.length !== 3) return null;
-		
-		// Decodificar base64url
-		const payload = parts[1];
-		// Agregar padding si es necesario
-		const padded = payload + '='.repeat((4 - payload.length % 4) % 4);
-		const decoded = atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
-		return JSON.parse(decoded);
-	} catch (error) {
-		console.error('Error decodificando JWT:', error);
-		return null;
-	}
-};
-
-/**
  * Login with Google using Meteor Accounts and React Native
- * @param configuration Options for the configure method of GoogleSignin.
- * @param callback function to see if there is error
- * @returns {Promise<void> | Promise.Promise}
+ * @param {Object} configuration - Options for the configure method of GoogleSignin
+ * @param {Function} callback - Callback function to handle errors
+ * @returns {Promise<void>}
  */
-const loginWithGoogle = async function(configuration, callback) {
+export const loginWithGoogle = async function(configuration, callback) {
 	try {
 		await GoogleSignin.configure(configuration);
 		await GoogleSignin.hasPlayServices({
 			showPlayServicesUpdateDialog: true
 		});
+		
 		let userInfo;
-		var isSignedIn = await GoogleSignin.isSignedIn();
+		const isSignedIn = await GoogleSignin.isSignedIn();
 
 		if (!isSignedIn) {
 			userInfo = await GoogleSignin.signIn();
 			if (!userInfo) {
-				callback({ reason: 'Algo salió mal al obtener la información del usuario', details: { userInfo } });
+				callback({ 
+					reason: 'Algo salió mal al obtener la información del usuario', 
+					details: { userInfo } 
+				});
 				return;
 			}
 		} else {
 			userInfo = await GoogleSignin.signInSilently();
 			if (!userInfo) {
-				callback({ reason: 'Algo salió mal al obtener la información del usuario', details: { userInfo } });
+				callback({ 
+					reason: 'Algo salió mal al obtener la información del usuario', 
+					details: { userInfo } 
+				});
 				return;
 			}
 		}
+
 		const tokens = await GoogleSignin.getTokens();
 		await Meteor._startLoggingIn();
+		
 		await Meteor.call(
 			'login',
 			{
@@ -74,16 +61,22 @@ const loginWithGoogle = async function(configuration, callback) {
 				}
 				Meteor._endLoggingIn();
 				Meteor._handleLoginCallback(error, response);
-				typeof callback == 'function' && callback(error);
+				typeof callback === 'function' && callback(error);
 			}
 		);
 	} catch (error) {
-		console.error(error);
-		callback({ reason: 'No se pudo iniciar session con google, por favor inicie session con Usuario y contraseña', details: { error } });
+		console.error('Error en Google Login:', error);
+		callback({ 
+			reason: 'No se pudo iniciar sesión con Google, por favor inicie sesión con Usuario y contraseña', 
+			details: { error } 
+		});
 	}
 };
 
-const logoutFromGoogle = function() {
+/**
+ * Logout from Google and Meteor session
+ */
+export const logoutFromGoogle = function() {
 	Meteor.logout((error) => {
 		if (!error) {
 			GoogleSignin.revokeAccess();
@@ -96,144 +89,119 @@ const logoutFromGoogle = function() {
 
 /**
  * Login with Apple using Meteor Accounts and React Native
- * @param callback function to see if there is error
- * @returns {Promise<void> | Promise.Promise}
+ * @param {Function} callback - Callback function to handle errors and success
+ * @returns {Promise<void>}
  */
-const loginWithApple = async function(callback) {
+export const loginWithApple = async function(callback) {
 	try {
 		// Solo funciona en iOS
 		if (Platform.OS !== 'ios') {
-			callback({ reason: 'Apple Login solo está disponible en dispositivos iOS' });
+			callback({ 
+				error: true,
+				reason: 'Apple Login solo está disponible en dispositivos iOS' 
+			});
 			return;
 		}
 
 		// Realizar la autenticación con Apple
 		const appleAuthRequestResponse = await appleAuth.performRequest({
 			requestedOperation: appleAuth.Operation.LOGIN,
-			// Importante: FULL_NAME debe ir primero según la documentación
 			requestedScopes: [appleAuth.Scope.FULL_NAME, appleAuth.Scope.EMAIL],
 		});
 
-		console.log('🍎 Apple Auth Response completo:', JSON.stringify(appleAuthRequestResponse, null, 2));
-
-		// ALERT 1: Mostrar datos raw de Apple
-		Alert.alert(
-			'🍎 Apple Auth Exitoso', 
-			`User: ${appleAuthRequestResponse.user}\nEmail: ${appleAuthRequestResponse.email || 'null'}\nFullName: ${appleAuthRequestResponse.fullName ? JSON.stringify(appleAuthRequestResponse.fullName) : 'null'}\nHas Identity Token: ${appleAuthRequestResponse.identityToken ? 'Sí' : 'No'}`
-		);
+		console.log('Apple Auth Response - User ID:', appleAuthRequestResponse.user);
 
 		// Verificar el estado de las credenciales
-		const credentialState = await appleAuth.getCredentialStateForUser(appleAuthRequestResponse.user);
-		console.log('🍎 Apple credential state:', credentialState);
+		const credentialState = await appleAuth.getCredentialStateForUser(
+			appleAuthRequestResponse.user
+		);
 
 		if (credentialState === appleAuth.State.AUTHORIZED) {
-			// IMPORTANTE: Apple solo devuelve email y fullName en el PRIMER login
-			// En logins subsecuentes, estos campos son null y deben extraerse del identityToken
-			let email = appleAuthRequestResponse.email;
-			let fullName = appleAuthRequestResponse.fullName;
-			
-			console.log('📧 Email directo de Apple:', email);
-			console.log('👤 FullName directo de Apple:', fullName ? JSON.stringify(fullName) : 'null');
-			
-			// Siempre intentar extraer datos del identityToken como respaldo
-			if (appleAuthRequestResponse.identityToken) {
-				console.log('🔍 Extrayendo datos del identityToken...');
-				const payload = decodeJWT(appleAuthRequestResponse.identityToken);
-				if (payload) {
-					console.log('📄 Payload completo del token:', JSON.stringify(payload, null, 2));
-					
-					// Usar email del token si no hay email directo
-					if (!email && payload.email) {
-						email = payload.email;
-						console.log('✅ Email extraído del token:', email);
-					}
-					
-					// También verificar el subject (sub) que siempre debería estar presente
-					console.log('🆔 Subject del token (user ID):', payload.sub);
-				}
-			} else {
-				console.warn('⚠️ No hay identityToken disponible');
-			}
-
-			// Formatear fullName si existe
-			let displayName = null;
-			if (fullName && fullName.givenName) {
-				displayName = `${fullName.givenName || ''} ${fullName.familyName || ''}`.trim();
-				console.log('👨‍💼 Nombre formateado:', displayName);
-			}
-
-			// Estructura exactamente igual a Google Login para mantener compatibilidad
-			const data = {
-				appleSignIn: true, // Flag principal como Google
-				// Campos que espera el backend (estructura de Google)
-				accessToken: appleAuthRequestResponse.authorizationCode, // authorizationCode actúa como accessToken
-				refreshToken: undefined, // Apple no maneja refresh tokens igual que Google
-				idToken: appleAuthRequestResponse.identityToken, // identityToken es similar al idToken de Google
-				serverAuthCode: appleAuthRequestResponse.authorizationCode, // Para compatibilidad
-				email: email, // Email del usuario
-				imageUrl: null, // Apple no proporciona imagen
-				userId: appleAuthRequestResponse.user, // ID único del usuario
-				// Campos adicionales específicos de Apple (por si el backend los necesita)
-				displayName: displayName,
-				user: appleAuthRequestResponse.user,
-				fullName: fullName,
+			// Preparar datos para enviar a Meteor
+			const appleAuthData = {
 				identityToken: appleAuthRequestResponse.identityToken,
+				user: appleAuthRequestResponse.user,
+				email: appleAuthRequestResponse.email,
 				authorizationCode: appleAuthRequestResponse.authorizationCode,
-				realUserStatus: appleAuthRequestResponse.realUserStatus,
 			};
 
-			console.log('📤 Datos finales a enviar al servidor:', JSON.stringify(data, null, 2));
-
-			// ALERT 2: Mostrar datos procesados que se enviarán al servidor
-			Alert.alert(
-				'📤 Datos para el servidor', 
-				`Email final: ${email || 'NO ENCONTRADO'}\nDisplay Name: ${displayName || 'NO ENCONTRADO'}\nUser ID: ${appleAuthRequestResponse.user}\nTiene accessToken: ${data.accessToken ? 'Sí' : 'No'}\nTiene idToken: ${data.idToken ? 'Sí' : 'No'}`
-			);
+			// Agregar fullName si está disponible (solo primera vez)
+			if (appleAuthRequestResponse.fullName && appleAuthRequestResponse.fullName.givenName) {
+				appleAuthData.fullName = {
+					givenName: appleAuthRequestResponse.fullName.givenName,
+					familyName: appleAuthRequestResponse.fullName.familyName,
+					middleName: appleAuthRequestResponse.fullName.middleName,
+					nickname: appleAuthRequestResponse.fullName.nickname,
+				};
+			}
 
 			await Meteor._startLoggingIn();
-			await Meteor.call(
-				'login', // Usar el mismo método que Google
-				data,
-				(error, response) => {
-					Meteor._endLoggingIn();
-					Meteor._handleLoginCallback(error, response);
-					
-					// ALERT 3: Resultado del backend
-					if (error) {
-						Alert.alert('❌ Error del Backend', `Error: ${JSON.stringify(error, null, 2)}`);
-					} else {
-						Alert.alert('✅ Login Exitoso', 'Apple Login completado correctamente en el backend');
-					}
-					
-					typeof callback == 'function' && callback(error);
+
+			// Llamar al método de Meteor para autenticar
+			await Meteor.call('auth.appleSignIn', appleAuthData, (error, result) => {
+				Meteor._endLoggingIn();
+				
+				if (error) {
+					console.error('Error en login con Apple (Meteor):', error);
+					callback({ 
+						error: true, 
+						message: error.reason || 'Error al autenticar con Apple' 
+					});
+				} else {
+					// Login exitoso, establecer token en Meteor
+					Meteor.loginWithToken(result.token, (loginError) => {
+						if (loginError) {
+							console.error('Error al establecer sesión:', loginError);
+							callback({ 
+								error: true, 
+								message: 'Error al establecer sesión' 
+							});
+						} else {
+							console.log('Login con Apple exitoso');
+							Meteor._handleLoginCallback(null, result);
+							callback({ 
+								error: false, 
+								user: result.user,
+								message: 'Login exitoso con Apple' 
+							});
+						}
+					});
 				}
-			);
+			});
 		} else {
-			Alert.alert('⚠️ Apple Auth', `Estado de credenciales: ${credentialState} (esperado: ${appleAuth.State.AUTHORIZED})`);
-			callback({ reason: 'Autorización de Apple denegada' });
+			callback({ 
+				error: true, 
+				message: `Credenciales de Apple no autorizadas (Estado: ${credentialState})` 
+			});
 		}
 	} catch (error) {
-		console.error('🚨 Apple Login error:', error);
-		
-		// ALERT 4: Solo para errores importantes (no cancelación)
 		if (error.code === appleAuth.Error.CANCELED) {
-			// Usuario canceló el proceso - no mostrar alert, es normal
-			callback({ reason: 'Proceso de Apple Login cancelado por el usuario' });
+			console.log('Usuario canceló el login con Apple');
+			callback({ 
+				error: true, 
+				cancelled: true,
+				message: 'Login cancelado por el usuario' 
+			});
 		} else {
-			Alert.alert('🚨 Error Apple Login', `Error ${error.code || 'desconocido'}: ${error.message || 'Error desconocido'}`);
-			callback({ reason: 'No se pudo iniciar sesión con Apple', details: { error } });
+			console.error('Error en Apple Auth:', error);
+			callback({ 
+				error: true, 
+				message: error.message || 'Error desconocido en Apple Auth' 
+			});
 		}
 	}
 };
 
-const logoutFromApple = function() {
-	// Apple no tiene un método de logout específico como Google
-	// Solo se necesita limpiar la sesión de Meteor
+/**
+ * Logout from Apple (closes Meteor session)
+ * Note: Apple doesn't require specific client-side logout like Google
+ */
+export const logoutFromApple = function() {
 	Meteor.logout((error) => {
 		if (error) {
-			console.error('Error during Apple logout:', error);
+			console.error('Error al cerrar sesión:', error);
+		} else {
+			console.log('Sesión cerrada correctamente');
 		}
 	});
 };
-
-export { loginWithGoogle, logoutFromGoogle, loginWithApple, logoutFromApple };
