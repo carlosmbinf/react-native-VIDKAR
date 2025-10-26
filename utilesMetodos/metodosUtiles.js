@@ -185,7 +185,7 @@ export const loginWithApple = async function(callback) {
 			});
 		};
 
-		if (credentialState != appleAuth.State.AUTHORIZED) {
+		if (credentialState === appleAuth.State.AUTHORIZED) {
 			await Meteor._startLoggingIn();
 
 			// En RN nativo no hay state/redirectUri de OAuth. Si faltan, saltar handler nativo y usar fallback.
