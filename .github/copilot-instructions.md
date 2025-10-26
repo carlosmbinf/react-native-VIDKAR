@@ -113,3 +113,57 @@ Resumen técnico – Sistema de Despliegue Automatizado (CI/CD con Codemagic)
   - Configurar Fastlane local como alternativa a Codemagic.
   - Implementar tests automatizados pre-deploy.
   - Agregar changelog automático basado en commits.
+
+---
+
+Resumen técnico – Implementación de Apple Login (@invertase/react-native-apple-authentication)
+- Frontend RN:
+  - Integración completa de Apple Authentication siguiendo el patrón existente de Google Login.
+  - Instalación de @invertase/react-native-apple-authentication v2.4.1 con --legacy-peer-deps para resolver conflictos de React Navigation.
+  - Configuración automática de CocoaPods con pod install que detectó y configuró RNAppleAuthentication.
+
+- Implementación profesional:
+  - Patron consistente: funciones loginWithApple/logoutFromApple en utilesMetodos/metodosUtiles.js espejando la estructura de Google.
+  - Manejo de errores robusto: diferenciación entre cancelación del usuario vs errores de autenticación.
+  - Validación de plataforma: botón y funcionalidad solo disponibles en iOS (Platform.OS === 'ios').
+  - Estados de loading independientes: loadingApple separado de loadingGoogle para UX apropiada.
+
+- Características técnicas implementadas:
+  - appleAuth.performRequest con scopes [FULL_NAME, EMAIL] en orden correcto según documentación.
+  - Verificación de credentialState con appleAuth.State.AUTHORIZED antes de proceder.
+  - Event listener onCredentialRevoked para detectar revocación de credenciales de Apple.
+  - Llamada a Meteor.call('login', { appleSignIn: true, ... }) siguiendo contrato del backend.
+  - Property de configuración LOGIN_WITH_APPLE para control de visibilidad del botón.
+
+- Consideraciones de backend pendientes:
+  - Implementar Meteor.method login con soporte para appleSignIn: true.
+  - Validar identityToken y authorizationCode del lado del servidor.
+  - Considerar verificación de nonce SHA256 para seguridad adicional.
+  - Manejar fullName que solo viene en el primer login (Apple limitation).
+  - Configurar Apple Developer Account con Service ID para producción.
+
+- UX/UI mejorado:
+  - Botón con mismo estilo que Google (mode="outlined", icon="apple").
+  - Separación visual apropiada entre botones de auth social.
+  - Mensajes de error específicos (cancelación vs error técnico).
+  - Loading states independientes evitando bloqueos cruzados.
+
+- Dependencias y setup:
+  - Auto-linking funcionando correctamente con React Native 0.75.3.
+  - Codegen detectando y configurando specs automáticamente.
+  - Privacy Manifest Aggregation manejado por la librería.
+  - Compatible con static frameworks (Firebase).
+
+- Consideraciones futuras:
+  - Migrar React Navigation a v6 para eliminar conflictos --legacy-peer-deps.
+  - Implementar tests e2e para flujos de Apple/Google login.
+  - Añadir analytics para trackear uso de métodos de auth.
+  - Considerar AppleButton component nativo para mejor UX en lugar de Button genérico.
+  - Implementar refresh de tokens Apple si se requiere para sesiones largas.
+
+- Lecciones técnicas aprendidas:
+  - Apple Authentication requiere orden específico de scopes (FULL_NAME primero).
+  - Credential revocation listener debe limpiarse en useEffect cleanup.
+  - Platform checks esenciales para evitar crashes en Android.
+  - Patrón callback consistente entre providers de auth simplifica mantenimiento.
+  - CocoaPods maneja automáticamente capabilities requeridas para Apple auth.

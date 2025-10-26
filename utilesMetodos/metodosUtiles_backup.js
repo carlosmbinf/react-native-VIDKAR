@@ -40,6 +40,7 @@ const loginWithGoogle = async function(configuration, callback) {
 		let userInfo;
 		var isSignedIn = await GoogleSignin.isSignedIn();
 
+
 		if (!isSignedIn) {
 			userInfo = await GoogleSignin.signIn();
 			if (!userInfo) {
@@ -84,14 +85,14 @@ const loginWithGoogle = async function(configuration, callback) {
 };
 
 const logoutFromGoogle = function() {
-	Meteor.logout((error) => {
-		if (!error) {
-			GoogleSignin.revokeAccess();
-			GoogleSignin.signOut();
-		} else {
-			console.error('Error during Google logout:', error);
-		}
-	});
+		Meteor.logout((error) => {
+			if (!error) {
+				GoogleSignin.revokeAccess();
+				GoogleSignin.signOut();
+			}else{
+				console.error('Error during Google logout:', error);
+			}
+		});
 };
 
 /**
@@ -114,17 +115,11 @@ const loginWithApple = async function(callback) {
 			requestedScopes: [appleAuth.Scope.FULL_NAME, appleAuth.Scope.EMAIL],
 		});
 
-		console.log('🍎 Apple Auth Response completo:', JSON.stringify(appleAuthRequestResponse, null, 2));
-
-		// ALERT 1: Mostrar datos raw de Apple
-		Alert.alert(
-			'🍎 Apple Auth Exitoso', 
-			`User: ${appleAuthRequestResponse.user}\nEmail: ${appleAuthRequestResponse.email || 'null'}\nFullName: ${appleAuthRequestResponse.fullName ? JSON.stringify(appleAuthRequestResponse.fullName) : 'null'}\nHas Identity Token: ${appleAuthRequestResponse.identityToken ? 'Sí' : 'No'}`
-		);
+		console.log('Apple Auth Response completo:', JSON.stringify(appleAuthRequestResponse, null, 2));
 
 		// Verificar el estado de las credenciales
 		const credentialState = await appleAuth.getCredentialStateForUser(appleAuthRequestResponse.user);
-		console.log('🍎 Apple credential state:', credentialState);
+		console.log('Apple credential state:', credentialState);
 
 		if (credentialState === appleAuth.State.AUTHORIZED) {
 			// IMPORTANTE: Apple solo devuelve email y fullName en el PRIMER login
@@ -132,15 +127,15 @@ const loginWithApple = async function(callback) {
 			let email = appleAuthRequestResponse.email;
 			let fullName = appleAuthRequestResponse.fullName;
 			
-			console.log('📧 Email directo de Apple:', email);
-			console.log('👤 FullName directo de Apple:', fullName ? JSON.stringify(fullName) : 'null');
+			console.log('Email directo de Apple:', email);
+			console.log('FullName directo de Apple:', fullName ? JSON.stringify(fullName) : 'null');
 			
 			// Siempre intentar extraer datos del identityToken como respaldo
 			if (appleAuthRequestResponse.identityToken) {
-				console.log('🔍 Extrayendo datos del identityToken...');
+				console.log('Extrayendo datos del identityToken...');
 				const payload = decodeJWT(appleAuthRequestResponse.identityToken);
 				if (payload) {
-					console.log('📄 Payload completo del token:', JSON.stringify(payload, null, 2));
+					console.log('Payload completo del token:', JSON.stringify(payload, null, 2));
 					
 					// Usar email del token si no hay email directo
 					if (!email && payload.email) {
@@ -149,32 +144,48 @@ const loginWithApple = async function(callback) {
 					}
 					
 					// También verificar el subject (sub) que siempre debería estar presente
-					console.log('🆔 Subject del token (user ID):', payload.sub);
+					console.log('Subject del token (user ID):', payload.sub);
 				}
 			} else {
 				console.warn('⚠️ No hay identityToken disponible');
+			}
+
+		if (credentialState === appleAuth.State.AUTHORIZED) {
+			// Extraer el email del identityToken si no viene directamente
+			let email = appleAuthRequestResponse.email;
+			let fullName = appleAuthRequestResponse.fullName;
+			
+			console.log('Email directo de Apple:', email);
+			console.log('FullName directo de Apple:', fullName);
+			
+			// Si no hay email directo, intentar extraerlo del identityToken
+			if (!email && appleAuthRequestResponse.identityToken) {
+				console.log('Intentando extraer email del identityToken...');
+				const payload = decodeJWT(appleAuthRequestResponse.identityToken);
+				if (payload) {
+					email = payload.email;
+					console.log('Payload del token:', payload);
+					console.log('Email extraído del token:', email);
+				}
 			}
 
 			// Formatear fullName si existe
 			let displayName = null;
 			if (fullName && fullName.givenName) {
 				displayName = `${fullName.givenName || ''} ${fullName.familyName || ''}`.trim();
-				console.log('👨‍💼 Nombre formateado:', displayName);
 			}
 
-			// Estructura exactamente igual a Google Login para mantener compatibilidad
+			// Estructura similar a Google Login
 			const data = {
-				appleSignIn: true, // Flag principal como Google
-				// Campos que espera el backend (estructura de Google)
-				accessToken: appleAuthRequestResponse.authorizationCode, // authorizationCode actúa como accessToken
-				refreshToken: undefined, // Apple no maneja refresh tokens igual que Google
-				idToken: appleAuthRequestResponse.identityToken, // identityToken es similar al idToken de Google
-				serverAuthCode: appleAuthRequestResponse.authorizationCode, // Para compatibilidad
+				appleSignIn: true,
+				// Campos equivalentes a Google
+				accessToken: appleAuthRequestResponse.authorizationCode, // Similar al accessToken de Google
+				idToken: appleAuthRequestResponse.identityToken, // Similar al idToken de Google
 				email: email, // Email del usuario
-				imageUrl: null, // Apple no proporciona imagen
 				userId: appleAuthRequestResponse.user, // ID único del usuario
-				// Campos adicionales específicos de Apple (por si el backend los necesita)
-				displayName: displayName,
+				imageUrl: null, // Apple no proporciona imagen
+				displayName: displayName, // Nombre completo formateado
+				// Campos específicos de Apple
 				user: appleAuthRequestResponse.user,
 				fullName: fullName,
 				identityToken: appleAuthRequestResponse.identityToken,
@@ -182,45 +193,27 @@ const loginWithApple = async function(callback) {
 				realUserStatus: appleAuthRequestResponse.realUserStatus,
 			};
 
-			console.log('📤 Datos finales a enviar al servidor:', JSON.stringify(data, null, 2));
-
-			// ALERT 2: Mostrar datos procesados que se enviarán al servidor
-			Alert.alert(
-				'📤 Datos para el servidor', 
-				`Email final: ${email || 'NO ENCONTRADO'}\nDisplay Name: ${displayName || 'NO ENCONTRADO'}\nUser ID: ${appleAuthRequestResponse.user}\nTiene accessToken: ${data.accessToken ? 'Sí' : 'No'}\nTiene idToken: ${data.idToken ? 'Sí' : 'No'}`
-			);
+			console.log('Datos finales a enviar al servidor:', JSON.stringify(data, null, 2));
 
 			await Meteor._startLoggingIn();
 			await Meteor.call(
-				'login', // Usar el mismo método que Google
+				'login',
 				data,
 				(error, response) => {
 					Meteor._endLoggingIn();
 					Meteor._handleLoginCallback(error, response);
-					
-					// ALERT 3: Resultado del backend
-					if (error) {
-						Alert.alert('❌ Error del Backend', `Error: ${JSON.stringify(error, null, 2)}`);
-					} else {
-						Alert.alert('✅ Login Exitoso', 'Apple Login completado correctamente en el backend');
-					}
-					
 					typeof callback == 'function' && callback(error);
 				}
 			);
 		} else {
-			Alert.alert('⚠️ Apple Auth', `Estado de credenciales: ${credentialState} (esperado: ${appleAuth.State.AUTHORIZED})`);
 			callback({ reason: 'Autorización de Apple denegada' });
 		}
 	} catch (error) {
-		console.error('🚨 Apple Login error:', error);
-		
-		// ALERT 4: Solo para errores importantes (no cancelación)
+		console.error('Apple Login error:', error);
 		if (error.code === appleAuth.Error.CANCELED) {
-			// Usuario canceló el proceso - no mostrar alert, es normal
+			// Usuario canceló el proceso
 			callback({ reason: 'Proceso de Apple Login cancelado por el usuario' });
 		} else {
-			Alert.alert('🚨 Error Apple Login', `Error ${error.code || 'desconocido'}: ${error.message || 'Error desconocido'}`);
 			callback({ reason: 'No se pudo iniciar sesión con Apple', details: { error } });
 		}
 	}

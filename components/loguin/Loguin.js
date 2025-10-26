@@ -7,6 +7,7 @@ import {
   Appearance,
   Dimensions,
   ImageBackground,
+  Platform,
 } from 'react-native';
 import Meteor, { Accounts, Mongo, withTracker, useTracker } from '@meteorrn/core';
 import { Colors } from 'react-native/Libraries/NewAppScreen';
@@ -14,13 +15,14 @@ import { Button, Surface, Text, TextInput } from 'react-native-paper';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import FontAwesome5Icon from 'react-native-vector-icons/FontAwesome5';
 import { BlurView } from '@react-native-community/blur';
+import { appleAuth } from '@invertase/react-native-apple-authentication';
 
 const { width: screenWidth } = Dimensions.get('window');
 const { height: screenHeight } = Dimensions.get('window');
 import { ConfigCollection, Mensajes } from '../collections/collections';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { loginWithGoogle } from '../../utilesMetodos/metodosUtiles';
+import { loginWithGoogle, loginWithApple } from '../../utilesMetodos/metodosUtiles';
 
 const Loguin = ({ navigation }) => {
   // Estado usando useState
@@ -30,11 +32,12 @@ const Loguin = ({ navigation }) => {
   const [isDarkMode, setIsDarkMode] = useState(Appearance.getColorScheme() === 'dark');
   const [isLandscape, setIsLandscape] = useState(screenWidth > screenHeight);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
+  const [loadingApple, setLoadingApple] = useState(false);
 
   // Efectos usando useEffect (reemplazan componentDidMount y componentWillUnmount)
   useEffect(() => {
     // Conectar a Meteor
-    Meteor.connect('ws://www.vidkar.com:6000/websocket');
+    Meteor.connect('ws://186.54.121.127:3000/websocket');
 
     // Suscripción a cambios de dimensiones
     const dimSub = Dimensions.addEventListener('change', ({ window }) => {
@@ -47,10 +50,24 @@ const Loguin = ({ navigation }) => {
       setIsDarkMode(colorScheme === 'dark');
     });
 
+    // Listener para credenciales de Apple revocadas (solo en iOS)
+    let appleCredentialsRevoked = null;
+    if (Platform.OS === 'ios') {
+      appleCredentialsRevoked = appleAuth.onCredentialRevoked(async () => {
+        console.warn('Apple credentials have been revoked. User should be logged out.');
+        // Aquí puedes agregar lógica para cerrar sesión automáticamente
+        // Por ejemplo: Meteor.logout();
+      });
+    }
+
     // Cleanup al desmontar el componente
     return () => {
       dimSub?.remove?.();
       themeSub?.remove?.();
+      // Limpiar listener de Apple
+      if (appleCredentialsRevoked) {
+        appleCredentialsRevoked();
+      }
     };
   }, []);
 
@@ -87,6 +104,23 @@ const Loguin = ({ navigation }) => {
      });
   });
 
+  const permitirLoginWithApple = useTracker(() => {
+    if(!Meteor.status()?.connected) return null;
+    let sub = Meteor.subscribe(
+      'propertys', {
+      "active": true,
+      "type": "CONFIG",
+      "clave": "LOGIN_WITH_APPLE"
+    }
+    );
+    console.log("sub apple",sub?.ready());
+    return ConfigCollection.findOne({ 
+      "active" : true,
+      "type" : "CONFIG",
+      "clave" : "LOGIN_WITH_APPLE"
+     });
+  });
+
   // Método de login con Google
   const onGoogleLogin = () => {
     try {
@@ -116,6 +150,32 @@ const Loguin = ({ navigation }) => {
       }
     } catch (error) {
       Alert.alert('Error de Conexión', error);
+    }
+  };
+
+  // Método de login con Apple
+  const onAppleLogin = () => {
+    try {
+      if (loadingApple) return;
+      setLoadingApple(true);
+
+      const done = (err) => {
+        setLoadingApple(false);
+        if (err) {
+          Alert.alert('Apple', err.reason || err.message || 'Error iniciando sesión con Apple.');
+          return;
+        }
+      };
+
+      if (typeof loginWithApple === 'function') {
+        loginWithApple(done);
+      } else {
+        setLoadingApple(false);
+        Alert.alert('Apple', 'Proveedor de Apple no disponible en el cliente.');
+      }
+    } catch (error) {
+      setLoadingApple(false);
+      Alert.alert('Error de Conexión', 'Error iniciando sesión con Apple: ' + error);
     }
   };
 
@@ -226,6 +286,21 @@ const Loguin = ({ navigation }) => {
                   >
                     Entrar con Google
                   </Button>
+                  </>)
+                  }
+
+                  {permitirLoginWithApple?.valor == 'true' && Platform.OS === 'ios' && 
+                  (<>
+                    <View style={{ height: 10 }} />
+                    <Button
+                      mode="outlined"
+                      icon="apple"
+                      onPress={onAppleLogin}
+                      disabled={loadingApple}
+                      loading={loadingApple}
+                    >
+                      Entrar con Apple
+                    </Button>
                   </>)
                   }
                 </View>
