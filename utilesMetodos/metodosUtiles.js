@@ -1,4 +1,4 @@
-import Meteor from '@meteorrn/core';
+import Meteor,{Accounts} from '@meteorrn/core';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Alert, Platform } from 'react-native';
 import { appleAuth } from '@invertase/react-native-apple-authentication';
@@ -117,7 +117,7 @@ export const loginWithApple = async function(callback) {
 			appleAuthRequestResponse.user
 		);
 		console.log('Apple Credential State:', credentialState);
-		if (credentialState === appleAuth.State.AUTHORIZED) {
+		if (credentialState != appleAuth.State.AUTHORIZED) {
 			// Preparar datos para enviar a Meteor
 			const appleAuthData = {
 				identityToken: appleAuthRequestResponse.identityToken,
@@ -138,38 +138,58 @@ export const loginWithApple = async function(callback) {
 
 			await Meteor._startLoggingIn();
 
-			// Llamar al método de Meteor para autenticar
-			await Meteor.call('auth.appleSignIn', appleAuthData, (error, result) => {
-				Meteor._endLoggingIn();
-				
-				if (error) {
-					Alert.alert('Error en login con Apple (Meteor):', JSON.stringify(error));
-					callback({ 
-						error: true, 
-						message: error.reason || 'Error al autenticar con Apple' 
-					});
-				} else {
-					Alert.alert('Apple Sign-In exitoso:', JSON.stringify(result), " intentando hacer login con token ");
-					// Login exitoso, establecer token en Meteor
-					Meteor.loginWithToken(result.token, (loginError) => {
-						if (loginError) {
-							Alert.alert('Error al establecer sesión:', JSON.stringify(loginError));
-							callback({ 
-								error: true, 
-								message: 'Error al establecer sesión' 
+			// Intentar primero el método específico de Apple
+			try {
+				await Meteor.call('auth.appleSignIn', appleAuthData, (error, result) => {
+					Meteor._endLoggingIn();
+					
+					if (error) {
+						Alert.alert('Error en método auth.appleSignIn:', JSON.stringify(error));
+						console.error('auth.appleSignIn error:', error);
+						
+						// Si falla el método específico, intentar el método login estándar
+						tryStandardLogin(appleAuthData, callback);
+					} else {
+						console.log('Apple Sign-In result:', result);
+						Alert.alert('Apple Sign-In exitoso:', JSON.stringify(result));
+						
+						// El resultado debe contener los datos necesarios para la sesión
+						if (result && result.userId && result.token) {
+							// Método 1: Usar loginWithToken si el resultado es un resume token
+							Meteor._handleLoginCallback({token: result.token, id: result.userId}, (loginError) => {
+								if (loginError) {
+									Alert.alert('Error al establecer sesión con token:', JSON.stringify(loginError));
+									console.error('LoginWithToken error:', loginError);
+									callback({ 
+										error: true, 
+										message: 'Error al establecer sesión con token' 
+									});
+								} else {
+									Alert.alert('Login con Apple exitoso (método token)', 'Sesión establecida correctamente');
+									callback({ 
+										error: false, 
+										user: result.user || { _id: result.userId },
+										message: 'Login exitoso con Apple' 
+									});
+								}
 							});
 						} else {
-							Alert.alert('Login con Apple exitoso', JSON.stringify(result));
-							Meteor._handleLoginCallback(null, result);
+							// Método 2: Manejar directamente como resultado de login
+							Alert.alert('Usando resultado directo de login');
+							Meteor._handleLoginCallback(null, {token:result.token, id: result.userId});
 							callback({ 
 								error: false, 
-								user: result.user,
-								message: 'Login exitoso con Apple' 
+								user: result.user || result,
+								message: 'Login exitoso con Apple (directo)' 
 							});
 						}
-					});
-				}
-			});
+					}
+				});
+			} catch (methodError) {
+				console.log('Método auth.appleSignIn no disponible, usando método estándar');
+				Meteor._endLoggingIn();
+				tryStandardLogin(appleAuthData, callback);
+			}
 		} else {
 			callback({ 
 				error: true, 
@@ -191,6 +211,56 @@ export const loginWithApple = async function(callback) {
 				message: error.message || 'Error desconocido en Apple Auth' 
 			});
 		}
+	}
+};
+
+/**
+ * Función auxiliar para intentar login estándar de Meteor
+ */
+const tryStandardLogin = async (appleAuthData, callback) => {
+	try {
+		await Meteor._startLoggingIn();
+		
+		// Preparar datos en formato estándar como Google
+		const loginData = {
+			appleSignIn: true,
+			accessToken: appleAuthData.authorizationCode,
+			idToken: appleAuthData.identityToken,
+			email: appleAuthData.email,
+			userId: appleAuthData.user,
+			user: appleAuthData.user,
+			fullName: appleAuthData.fullName,
+			authorizationCode: appleAuthData.authorizationCode,
+			identityToken: appleAuthData.identityToken
+		};
+		
+		Alert.alert('Intentando login estándar:', JSON.stringify(loginData));
+		
+		await Meteor.call('login', loginData, (error, response) => {
+			Meteor._endLoggingIn();
+			
+			if (error) {
+				Alert.alert('Error en login estándar:', JSON.stringify(error));
+				callback({ 
+					error: true, 
+					message: error.reason || 'Error en login estándar' 
+				});
+			} else {
+				Alert.alert('Login estándar exitoso:', JSON.stringify(response));
+				Meteor._handleLoginCallback(error, response);
+				callback({ 
+					error: false, 
+					user: response.user || response,
+					message: 'Login exitoso con Apple (estándar)' 
+				});
+			}
+		});
+	} catch (loginError) {
+		Alert.alert('Error total en login:', JSON.stringify(loginError));
+		callback({ 
+			error: true, 
+			message: 'Error completo en proceso de login' 
+		});
 	}
 };
 
