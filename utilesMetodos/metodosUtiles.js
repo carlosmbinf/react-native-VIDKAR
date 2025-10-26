@@ -1,6 +1,6 @@
 import Meteor from '@meteorrn/core';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { appleAuth } from '@invertase/react-native-apple-authentication';
 
 /**
@@ -110,12 +110,13 @@ export const loginWithApple = async function(callback) {
 		});
 
 		console.log('Apple Auth Response - User ID:', appleAuthRequestResponse.user);
+		console.log('Apple Auth Response:', appleAuthRequestResponse);
 
 		// Verificar el estado de las credenciales
 		const credentialState = await appleAuth.getCredentialStateForUser(
 			appleAuthRequestResponse.user
 		);
-
+		console.log('Apple Credential State:', credentialState);
 		if (credentialState === appleAuth.State.AUTHORIZED) {
 			// Preparar datos para enviar a Meteor
 			const appleAuthData = {
@@ -142,22 +143,23 @@ export const loginWithApple = async function(callback) {
 				Meteor._endLoggingIn();
 				
 				if (error) {
-					console.error('Error en login con Apple (Meteor):', error);
+					Alert.alert('Error en login con Apple (Meteor):', JSON.stringify(error));
 					callback({ 
 						error: true, 
 						message: error.reason || 'Error al autenticar con Apple' 
 					});
 				} else {
+					Alert.alert('Apple Sign-In exitoso:', JSON.stringify(result), " intentando hacer login con token ");
 					// Login exitoso, establecer token en Meteor
 					Meteor.loginWithToken(result.token, (loginError) => {
 						if (loginError) {
-							console.error('Error al establecer sesión:', loginError);
+							Alert.alert('Error al establecer sesión:', JSON.stringify(loginError));
 							callback({ 
 								error: true, 
 								message: 'Error al establecer sesión' 
 							});
 						} else {
-							console.log('Login con Apple exitoso');
+							Alert.alert('Login con Apple exitoso', JSON.stringify(result));
 							Meteor._handleLoginCallback(null, result);
 							callback({ 
 								error: false, 
