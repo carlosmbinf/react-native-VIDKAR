@@ -5,7 +5,11 @@ echo "Stage: Post-clone start..."
 # Debug
 echo "PWD: $(pwd)"
 echo "Repo: $CI_PRIMARY_REPOSITORY_PATH"
-echo "Build Number: $CI_BUILD_NUMBER"
+
+# Ajustar CI_BUILD_NUMBER sumándole 60 (si no existe, tomar 0)
+original="${CI_BUILD_NUMBER:-0}"
+CI_BUILD_NUMBER=$(( ${original} + 60 ))
+echo "Build Number original: $original -> Build Number ajustado: $CI_BUILD_NUMBER"
 
 # Instalar Node (versión estable para RN), Yarn y CocoaPods
 brew install node@22 yarn cocoapods
