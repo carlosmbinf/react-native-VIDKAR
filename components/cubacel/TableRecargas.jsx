@@ -335,18 +335,18 @@ const TableRecargas = () => {
                             </Surface>
 
                             {/* Promociones */}
-                            {it?.producto?.promotions?.length && <Chip
-                              compact
-                              style={{
-                                backgroundColor: it?.producto?.promotions?.length ? '#28a745' : '#dc3545',
-                                // alignSelf: 'flex-start',
-                                // marginVertical: 6
-                              }}
-                              textStyle={{ color: 'white', fontSize: 11 }}
-                              icon={it?.producto?.promotions?.length ? 'gift' : 'close-circle'}
-                            >
-                              {it?.producto?.promotions?.length ? 'CON PROMOCIÓN' : 'SIN PROMOCIÓN'}
-                            </Chip>}
+                            {!!it?.producto?.promotions?.length && (
+                              <Chip
+                                compact
+                                style={{
+                                  backgroundColor: it?.producto?.promotions?.length ? '#28a745' : '#dc3545',
+                                }}
+                                textStyle={{ color: 'white', fontSize: 11 }}
+                                icon={it?.producto?.promotions?.length ? 'gift' : 'close-circle'}
+                              >
+                                {it?.producto?.promotions?.length ? 'CON PROMOCIÓN' : 'SIN PROMOCIÓN'}
+                              </Chip>
+                            )}
 
                             {/* Comentario del item */}
                             {it?.comentario && (

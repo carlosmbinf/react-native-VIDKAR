@@ -512,7 +512,9 @@ const styles = StyleSheet.create({
   thumbSize: { fontSize: 10, color: '#666', marginTop: 2 },
 
   evidenciasHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
-  evidenciasTitle: { fontSize: 13, fontWeight: '600', color: '#333' },
+  evidenciasTitle: { fontSize: 13, fontWeight: '600',
+    //  color: '#333' 
+    },
   evidenciasScroll: { paddingVertical: 6 },
   evidenciaThumbContainer: {
     width: 62,
@@ -588,7 +590,7 @@ const styles = StyleSheet.create({
   },
   tarjetaLabel: {
     fontSize: 11,
-    color: '#555',
+    // color: '#555',
     fontWeight: '600'
   },
   tarjetaNumero: {
@@ -596,6 +598,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 2,
     letterSpacing: 0.5,
-    color: '#1d3557'
+    // color: '#1d3557'
   },
 });
