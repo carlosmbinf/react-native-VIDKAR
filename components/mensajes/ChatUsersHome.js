@@ -60,7 +60,7 @@ import {
 // import PelisCard from './PelisCard';
 // import Loguin from '../loguin/Loguin';
 
-import { Online } from '../collections/collections'
+import { Online, PushTokens } from '../collections/collections'
 import DrawerOptionsAlls from '../drawer/DrawerOptionsAlls';
 
 import {Mensajes as MensajesCollection} from '../collections/collections';
@@ -170,6 +170,10 @@ class MyApp extends React.Component {
       let connected = Online.find({ userId: item._id }).count() > 0 ? true : false;
        Meteor.subscribe('mensajes', { $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 }});
       let message =  MensajesCollection.findOne({ $or: [{ $and: [{ from: item._id, to: Meteor.userId() }] }, { $and: [{ from: Meteor.userId(), to: item._id }] }] }, { sort: { createdAt: -1 } });
+      
+      Meteor.subscribe('push_tokens', { userId: item._id },{fields:{_id:1,userId:1},limit:1});
+      let tieneNotificacionPush = PushTokens.find({ userId: item._id },{fields:{_id:1,userId:1},limit:1}).count() > 0;
+
       return (
         <Surface key={"Surface_" + item._id} style={{ elevation: 12, margin: 10, borderRadius: 20 }}>
           <List.Item
@@ -185,6 +189,14 @@ class MyApp extends React.Component {
               ( message?.mensaje || "")
               //  + "\nConexiones: "+(connected?connected:0)
             }
+            right={props =>  tieneNotificacionPush && <IconButton
+                icon="bell"
+                iconColor="#3f51b5"
+                // size={10}
+                animated={true}
+              />}
+            
+             
             left={props =>
               item.picture ? (
                 <View style={{ justifyContent: 'center' }}>

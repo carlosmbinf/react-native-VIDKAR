@@ -36,3 +36,5 @@ export const DTShopProductosCollection = new Mongo.Collection("dtshopProductos_R
 export const EvidenciasVentasEfectivoCollection = new Mongo.Collection("evidenciasVentasEfectivo");
 ////////////////////////////////////////////////////////////////////
 
+export const PushTokens = new Mongo.Collection('push_tokens'); // { userId, token, platform, deviceId?, createdAt, updatedAt }
+
