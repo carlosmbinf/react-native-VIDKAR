@@ -26,9 +26,12 @@ import {
   Surface,
   ActivityIndicator,
 } from 'react-native-paper';
+// Agregar BlurView
+import { BlurView } from '@react-native-community/blur';
 import Meteor, { withTracker } from '@meteorrn/core';
 import { Mensajes as MensajesCollection } from '../collections/collections';
 import moment from 'moment';
+
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -42,6 +45,7 @@ class MensajesHome extends React.Component {
       isSending: false,
       inputHeight: 40,
       keyboardHeight: 0,
+      messageText: '', // ← estado para el input del mensaje
     };
     this.flatListRef = React.createRef();
     this.textInputRef = React.createRef();
@@ -168,6 +172,21 @@ class MensajesHome extends React.Component {
     }
   };
 
+  sendNow = async () => {
+    // Redirigir el envío del composer moderno a la lógica existente de handleSend
+    const text = (this.state.messageText || '').trim();
+    if (!text || this.state.isSending) return;
+
+    try {
+      // Sincronizar con el estado usado por handleSend
+      await new Promise((resolve) => this.setState({ message: text }, resolve));
+      await this.handleSend();
+    } finally {
+      // Limpiar el input del composer moderno siempre
+      this.setState({ messageText: '' });
+    }
+  };
+
   handleContentSizeChange = (event) => {
     const { height } = event.nativeEvent.contentSize;
     // Limitar altura máxima del input a 100px
@@ -266,98 +285,21 @@ class MensajesHome extends React.Component {
     );
   };
 
-  renderInputToolbar = () => {
-    const { message, isSending, inputHeight } = this.state;
-    const hasText = message.trim().length > 0;
-    const charCount = message.length;
-    const isNearLimit = charCount > 900;
-
-    const spin = this.sendButtonRotation.interpolate({
-      inputRange: [0, 1],
-      outputRange: ['0deg', '360deg'],
-    });
-
-    return (
-      <Surface style={styles.inputContainer} elevation={4}>
-        {/* Contador de caracteres (solo visible cerca del límite) */}
-        {isNearLimit && (
-          <View style={styles.charCountContainer}>
-            <Text style={[
-              styles.charCountText,
-              charCount >= 1000 && styles.charCountLimit
-            ]}>
-              {charCount}/1000
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.inputRow}>
-          {/* Input de texto */}
-          <View style={styles.inputWrapper}>
-            <TextInput
-              ref={this.textInputRef}
-              mode="outlined"
-              placeholder="Escribe un mensaje..."
-              placeholderTextColor="#9E9E9E"
-              value={message}
-              onChangeText={(text) => this.setState({ message: text })}
-              onSubmitEditing={hasText ? this.handleSend : undefined}
-              multiline
-              maxLength={1000}
-              style={[styles.textInput, { height: inputHeight }]}
-              outlineColor="transparent"
-              activeOutlineColor="transparent"
-              dense
-              disabled={isSending}
-              onContentSizeChange={this.handleContentSizeChange}
-              blurOnSubmit={false}
-              returnKeyType="send"
-            />
-          </View>
-
-          {/* Botón de envío animado */}
-          {hasText && (
-            <Animated.View
-              style={[
-                styles.sendButtonContainer,
-                {
-                  transform: [
-                    { scale: this.sendButtonScale },
-                    { rotate: spin }
-                  ],
-                  opacity: this.sendButtonScale,
-                }
-              ]}
-            >
-              <TouchableOpacity
-                onPress={this.handleSend}
-                disabled={isSending}
-                activeOpacity={0.7}
-                style={styles.sendButton}
-              >
-                <View style={styles.sendButtonBackground}>
-                  {isSending ? (
-                    <ActivityIndicator size={20} color="#FFFFFF" />
-                  ) : (
-                    <IconButton
-                      icon="send"
-                      iconColor="#FFFFFF"
-                      size={20}
-                      style={styles.sendIcon}
-                    />
-                  )}
-                </View>
-              </TouchableOpacity>
-            </Animated.View>
-          )}
-        </View>
-      </Surface>
-    );
-  };
-
   render() {
     const { loading, myTodoTasks } = this.props;
     const { keyboardHeight } = this.state;
+
+
+    const colorScheme = Appearance.getColorScheme();
+    const isDark = colorScheme === 'dark';
+
+    const BLUE = '#3f51b5';
+    const bgColor = isDark ? '#121a24' : '#E8F0FE';
+    const inputBg = isDark ? '#1b2633' : '#FFFFFF';
+    const borderColor = isDark ? '#2b3a4a' : '#C5CAE9';
+    const textColor = isDark ? '#E3F2FD' : '#0D47A1';
+    const placeholderColor = isDark ? '#90CAF9' : '#5C6BC0';
+    const sendColor = isDark ? '#90CAF9' : BLUE;
 
     if (loading) {
       return (
@@ -377,7 +319,7 @@ class MensajesHome extends React.Component {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
-          <View style={[styles.contentContainer, Platform.OS === 'android' && keyboardHeight > 0 && { marginBottom: keyboardHeight }]}>
+          <View style={[styles.contentContainer]}>
             {myTodoTasks.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <IconButton icon="message-outline" size={64} iconColor="#B0BEC5" />
@@ -401,8 +343,88 @@ class MensajesHome extends React.Component {
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
               />
             )}
+          </View>
 
-            {this.renderInputToolbar()}
+          {/* Composer moderno y accesible */}
+          {/* Contenedor con blur de fondo y radios superiores */}
+          <View
+            style={{
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              overflow: 'hidden',
+              backgroundColor: 'transparent', // asegurar transparencia del wrapper
+              ...(Platform.OS === 'android' && keyboardHeight > 0 ? { marginBottom: keyboardHeight } : null),
+            }}
+          >
+            {/* Capa de blur (iOS) o fallback translúcido (Android) */}
+            {Platform.OS === 'ios' ? (
+              <BlurView
+                style={StyleSheet.absoluteFill}
+                blurType={isDark ? 'dark' : 'light'}
+                blurAmount={16}
+                reducedTransparencyFallbackColor={bgColor}
+                pointerEvents="none"
+              />
+            ) : (
+              <View
+                pointerEvents="none"
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    // Fallback translúcido simulando glass en Android
+                    // backgroundColor: "transparent",
+                    backgroundColor: isDark
+                      ? 'rgba(18,26,36,0.6)'
+                      : 'rgba(232,240,254,0.6)',
+                  },
+                ]}
+              />
+            )}
+            {/* Contenido del composer (el input se ve normal) */}
+            <View
+              style={{
+                paddingHorizontal: 12,
+                paddingTop: 8,
+                paddingBottom: Platform.OS === 'ios' ? 20 : 30,
+              }}
+            >
+              <TextInput
+                mode="flat"
+                value={this.state.messageText}
+                onChangeText={(messageText) => this.setState({ messageText })}
+                onSubmitEditing={this.sendNow}
+                placeholder="Escribe un mensaje..."
+                placeholderTextColor={placeholderColor}
+                style={{
+                  backgroundColor: "transparent",
+                  borderRadius: 20,
+                  borderTopLeftRadius: 20,
+                  borderTopRightRadius: 20,
+                }}
+                outlineStyle={{ borderTopLeftRadius: 20, borderTopRightRadius: 20 }}
+                theme={{
+                  colors: {
+                    primary: BLUE,
+                    outline: borderColor,
+                    text: textColor,
+                    placeholder: placeholderColor,
+                    background: inputBg,
+                  },
+                }}
+                underlineColor="transparent"
+                // selectionColor={sendColor}
+                returnKeyType="send"
+                right={
+                  <TextInput.Icon
+                    icon="send"
+                    disabled={!this.state.messageText.trim()}
+                    onPress={this.sendNow}
+                    color={this.state.messageText.trim() ? sendColor : (isDark ? '#5f6e7a' : '#B0BEC5')}
+                  />
+                }
+                // left={<TextInput.Icon icon="message" color={isDark ? '#6FA8FF' : BLUE} />}
+              />
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Surface>
@@ -604,6 +626,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
+    minWidth: 150,
+    textAlign: 'center',
+
   },
   inputContainer: {
     paddingTop: 4,
@@ -611,6 +636,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
     backgroundColor: '#FFFFFF',
+    // Bordes superiores del contenedor legado
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   charCountContainer: {
     alignItems: 'flex-end',
