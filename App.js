@@ -617,7 +617,7 @@ const App = () => {
             name="Servidores"
             component={ServerList}
             options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 5}}>Servidores</Text>,
+              title: <Text style={{letterSpacing: 2}}>Servidores</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -687,7 +687,7 @@ const App = () => {
             name="CreateUsers"
             component={CreateUsers}
             options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 5}}>Crear Usuario</Text>,
+              title: <Text style={{letterSpacing: 2}}>Crear Usuario</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -712,7 +712,7 @@ const App = () => {
             name="Logs"
             component={LogsList}
             options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 5}}>Registro de Logs</Text>,
+              title: <Text style={{letterSpacing: 2}}>Logs</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -737,7 +737,7 @@ const App = () => {
             name="Ventas"
             component={VentasList}
             options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 5}}>Registro de Logs</Text>,
+              title: <Text style={{letterSpacing: 2}}>Ventas</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -762,7 +762,7 @@ const App = () => {
             name="SubidaArchivos"
             component={SubidaArchivos}
             options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 5}}>Registro de Logs</Text>,
+              title: <Text style={{letterSpacing: 2}}>Upload</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -787,7 +787,7 @@ const App = () => {
             name="ListaArchivos"
             component={ListaArchivos}
             options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 5}}>Registro de Logs</Text>,
+              title: <Text style={{letterSpacing: 2}}>Archivos</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -812,7 +812,7 @@ const App = () => {
             name="ListaPropertys"
             component={PropertyTable}
             options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 5}}>Registro de Logs</Text>,
+              title: <Text style={{letterSpacing: 2}}>Propertys</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -979,7 +979,7 @@ const App = () => {
             name="Remesas"
             component={TableListRemesa}
             options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 5}}>Remesas</Text>,
+              title: <Text style={{letterSpacing: 2}}>Remesas</Text>,
               headerStyle: { backgroundColor: '#3f51b5', height: 90 },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -995,7 +995,7 @@ const App = () => {
             name="remesas"
             // component={FormularioRemesa} // usar el componente correcto
             options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 5}}>Formulario Remesas</Text>,
+              title: <Text style={{letterSpacing: 2}}>Formulario Remesas</Text>,
               headerStyle: { backgroundColor: '#3f51b5', height: 90 },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -1036,7 +1036,7 @@ const App = () => {
             name="VentasStepper"
             component={VentasStepper}
             options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 5}}>Ventas (Stepper)</Text>,
+              title: <Text style={{letterSpacing: 2}}>Ventas (Stepper)</Text>,
               headerStyle: { backgroundColor: '#3f51b5', height: 90 },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',

@@ -156,15 +156,17 @@ class MyApp extends React.Component {
 const LogsList = withTracker(navigation => {
   let logs = []
   //  console.log(user.user)
-  const handle2 = Meteor.subscribe('logs', {}, { sort: { createdAt: -1 }, limit: 100 }).ready();
+  const isPrincipal = Meteor?.user()?.username == "carlosmbinf" ? true : false;
+
+  const handle2 = Meteor.subscribe('logs', isPrincipal ? {} : { $or: [{ userAfectado: Meteor.userId() }, { userAdmin: Meteor.userId() }] }, { sort: { createdAt: -1 }, limit: 100 }).ready();
   const usersSubs = Meteor.subscribe("user",{},{fields:{_id:1, username: 1}}).ready();
 
 
-  const myTodoTasks = Logs.find({}, { sort: { createdAt: -1 }, limit: 100 }).fetch();
+  const myTodoTasks = Logs.find(isPrincipal ? {} : { $or: [{ userAfectado: Meteor.userId() }, { userAdmin: Meteor.userId() }] }, { sort: { createdAt: -1 }, limit: 100 }).fetch();
 
   handle2 && myTodoTasks.map(task => {
     let userusername = usersSubs ? Meteor.users.findOne(task.userAfectado)?.username : "";
-    let adminusername = usersSubs ? Meteor.users.findOne(task.adminId)?.username : "";
+    let adminusername = usersSubs ? Meteor.users.findOne(task.userAdmin)?.username : "";
     
     logs.push({
       userusername: userusername ? userusername : "Desconocido",

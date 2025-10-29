@@ -70,7 +70,12 @@ const DrawerOptionsAlls = (opt) => {
       label: "Aprobar Recargas",
       url:"ListaArchivos",
       icon:"cellphone-wireless"
-    }
+    },
+    {
+      label: "Registro de Logs",
+      url:"Logs",
+      icon:"clipboard-list-outline"
+    },
     
     // {
     //   label: "Consumo Proxy",
@@ -79,11 +84,6 @@ const DrawerOptionsAlls = (opt) => {
     // }
   ]
   const opcionesAdministradorGeneral = [
-    {
-      label: "Registro de Logs",
-      url:"Logs",
-      icon:"clipboard-list-outline"
-    },
     {
       label: "Ventas",
       url:"Ventas",
