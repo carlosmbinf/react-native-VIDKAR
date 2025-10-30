@@ -27,6 +27,17 @@ const DrawerOptionsAlls = (opt) => {
     //   url: "Remesas",
     //   icon: "bank-transfer"
     // },
+    
+    {
+      label: "Productos Proxy",
+      url: "ProxyPackages",
+      icon: "wifi"
+    },
+    {
+      label: "Productos VPN",
+      url: "VPNPackages",
+      icon: "cellphone"
+    },
     {
       label: "Remesas",
       url: "remesas",

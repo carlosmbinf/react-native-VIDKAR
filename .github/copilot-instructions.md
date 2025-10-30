@@ -230,314 +230,197 @@ Resumen técnico – Manejo profesional del teclado en MensajesHome (iOS/Android
   - Parametrizar keyboardVerticalOffset por pantalla (header dinámico).
   - Considerar migración a hooks (useEffect/useRef) o adopción de react-native-keyboard-controller para animaciones sincronizadas con el compositor del sistema.
 
+---
 
+Resumen técnico – Corrección de Validación de Paquetes Activos (Proxy/VPN)
+- Problema identificado: La validación de paquetes activos en frontend y backend estaba incorrecta. Se validaba con `user.megas > 0` y `user.vpnmegas > 0`, pero los flags correctos son diferentes.
 
+- Lógica de validación correcta descubierta:
+  - **Proxy activo**: `user.baneado === false` (cuando baneado es false, el usuario tiene proxy activo).
+  - **VPN activo**: `user.vpn === true` (cuando vpn es true, el usuario tiene VPN activo).
+  - Los campos `megas` y `vpnmegas` almacenan la cantidad de datos, pero NO indican si el servicio está activo.
 
-// ...existing content...
+- Cambios aplicados en frontend:
+  - **VPNPackageCard.jsx**:
+    - Cambiado `vpnMegasActuales > 0` por `user?.vpn === true` en handleComprarPaquete.
+    - Mantiene validación de ilimitados con `vpnIsIlimitado`.
+  
+  - **ProxyPackageCard.jsx**:
+    - Cambiado `megasActuales > 0` por `user?.baneado === false` en handleComprarPaquete.
+    - Mantiene validación de ilimitados con `isIlimitado`.
+
+- Cambios aplicados en backend (ventasProxyVPN.js):
+  - **carrito.addProxyVPN**:
+    - Proxy: validación cambiada de `user.megas > 0` a `user.baneado === false`.
+    - VPN: validación cambiada de `user.vpnmegas > 0` a `user.vpn === true`.
+    - Ambos mantienen excepción para ilimitados.
+  
+  - **ventas.activarServicioProxyVPN**:
+    - Proxy: ahora setea `baneado: false` al activar servicio (además de incrementar megas).
+    - VPN: ahora setea `vpn: true` y `vpnplus: true` al activar servicio (además de incrementar vpnmegas).
+
+- Estructura de campos del usuario confirmada:
+  ```javascript
+  {
+    // Proxy
+    baneado: false,        // false = proxy activo, true = sin proxy
+    megas: 61440,          // cantidad de MB disponibles
+    isIlimitado: true,     // si es ilimitado
+    fechaSubscripcion: Date, // fecha de vencimiento
+    descuentoproxy: "0",   // descuento en % (puede ser String)
+    
+    // VPN
+    vpn: true,             // true = VPN activo, false/undefined = sin VPN
+    vpnmegas: 71680,       // cantidad de MB disponibles
+    vpnisIlimitado: true,  // si es ilimitado
+    vpnfechaSubscripcion: Date, // fecha de vencimiento
+    descuentovpn: "0",     // descuento en % (String)
+    vpnplus: true,         // tipo de VPN
+    vpn2mb: true,          // otro tipo de VPN
+  }
+  ```
+
+- Consideraciones técnicas críticas:
+  - **No confundir megas con estado activo**: Los campos `megas` y `vpnmegas` solo indican cantidad disponible, no si el servicio está activo.
+  - **Validación defensiva**: Usar `user?.baneado === false` y `user?.vpn === true` (no `=== undefined` o truthy checks).
+  - **Parseo de descuentos**: `descuentoproxy` puede ser String o Number, `descuentovpn` es siempre String. Usar `parseFloat()` defensivamente.
+  - **Flags de activación**: Al activar servicio, SIEMPRE setear los flags correspondientes (`baneado: false` o `vpn: true`), no solo incrementar megas.
+
+- Impacto de la corrección:
+  - Evita que usuarios con megas en 0 pero servicio activo puedan comprar duplicados.
+  - Previene inconsistencias donde `baneado = true` pero `megas > 0` (servicio inactivo con datos residuales).
+  - Alinea validación frontend con lógica real del backend.
+
+- Testing recomendado post-corrección:
+  - Usuario con `baneado: false, megas: 0` → no debe poder comprar Proxy (tiene servicio activo pero sin datos).
+  - Usuario con `baneado: true, megas: 5000` → debe poder comprar Proxy (servicio inactivo con datos residuales).
+  - Usuario con `vpn: true, vpnmegas: 0` → no debe poder comprar VPN.
+  - Usuario con `vpn: false, vpnmegas: 10000` → debe poder comprar VPN.
+  - Validar que tras activación, los flags `baneado` y `vpn` se actualicen correctamente.
+
+- Lecciones aprendidas:
+  - Siempre verificar la lógica de negocio real en base de datos antes de implementar validaciones.
+  - Los nombres de campos pueden ser engañosos (`baneado` no significa "usuario bloqueado", sino "sin servicio proxy").
+  - Documentar flags booleanos con comentarios claros en el código para futuros desarrolladores.
+  - En sistemas legacy, revisar estructura de datos existente antes de asumir convenciones estándar.
+  - Validaciones en cliente y servidor deben usar exactamente la misma lógica para evitar inconsistencias.
+
+- Archivos modificados:
+  - components/vpn/VPNPackageCard.jsx: corrección de validación en handleComprarPaquete.
+  - components/proxy/ProxyPackageCard.jsx: corrección de validación en handleComprarPaquete.
+  - server/metodos/ventasProxyVPN.js: corrección en carrito.addProxyVPN y ventas.activarServicioProxyVPN.
+
+- Próximos pasos:
+  - Documentar en README.md la estructura de campos relacionados con Proxy/VPN.
+  - Agregar comentarios en User schema explicando el significado de `baneado` y `vpn`.
+  - Crear método backend `user.hasActiveProxy()` y `user.hasActiveVPN()` para encapsular lógica de validación.
+  - Tests unitarios para validaciones de paquetes activos con diferentes combinaciones de flags/megas.
 
 ---
 
-Corrección técnica – Registro del método messages.send y saneamiento del payload
-- Problema: El frontend llamaba Meteor.call('messages.send', ...) pero el backend no tenía el método cargado (Method not found).
-- Solución backend:
-  - server/main.js ahora importa './metodos/mensajeriaPush' para registrar los métodos push.registerToken, push.unregisterToken y messages.send durante el arranque de Meteor.
-- Mejora frontend (PushMessaging.tsx → sendMessage):
-  - Normalización del payload: se fuerzan title/body a string y se añaden toUserId/fromUserId dentro de data además de los campos principales.
-  - Manejo de error explícito para “Method not found” con log guía para revisar el import en server/main.js.
-- Recomendaciones:
-  - Confirmar que el proyecto Meteor tenga instalada la dependencia firebase-admin y las credenciales (FIREBASE_SERVICE_ACCOUNT o GOOGLE_APPLICATION_CREDENTIALS).
-  - Si el proyecto no usa TypeScript en servidor, mantener mensajeriaPush.tsx importado desde server/main.js o migrarlo a .js según la configuración del build.
+Resumen técnico – Implementación de Pantallas de Compra Proxy/VPN (ProxyPurchaseScreen/VPNPurchaseScreen)
+- Problema identificado: Error de navegación "action 'NAVIGATE' with payload VPNPurchase was not handled" indicaba que las rutas de compra no estaban registradas en el Stack Navigator.
 
----
+- Pantallas creadas:
+  - **ProxyPurchaseScreen.jsx** (components/proxy/): Pantalla de confirmación de compra para paquetes Proxy.
+  - **VPNPurchaseScreen.jsx** (components/vpn/): Pantalla de confirmación de compra para paquetes VPN.
 
-Actualización técnica – Registro de token FCM con usuario (frontend -> backend)
-- Objetivo: asegurar que cada token FCM quede asociado al Meteor.userId en el backend (push.registerToken) y se actualice ante cambios.
-- Cambios en App.js:
-  - Se importa registerPushTokenForUser del servicio centralizado.
-  - iOS/Android: tras obtener el token (requestPermission/getToken), se llama await registerPushTokenForUser(Meteor.userId()) para registrar en backend.
-  - Token refresh: messaging().onTokenRefresh invoca registerPushTokenForUser para mantener sincronizada la asociación userId <-> token.
-- Consideraciones:
-  - registerPushTokenForUser ya encapsula Meteor.call('push.registerToken', { userId, token, platform, updatedAt }).
-  - Si no hay sesión activa en el momento del arranque, registrar tras el login para evitar tokens huérfanos.
-  - En logout, la app debe llamar push.unregisterToken para eliminar la asociación del dispositivo (ya soportado en servicio).
+- Funcionalidades implementadas:
+  - **Cálculo automático de precio**: Al montar el componente (componentDidMount), invoca `ventas.calcularPrecioProxyVPN` para obtener precio con descuento aplicado.
+  - **Desglose de precio visible**: Muestra precio base, descuento aplicado (si existe) y total a pagar.
+  - **Selector de método de pago**: RadioButton.Group con opciones TRANSFERENCIA y EFECTIVO (consistente con sistema existente).
+  - **Validación pre-compra**: Verifica que el precio esté calculado antes de permitir confirmar.
+  - **Integración con carrito**: Llama a `carrito.addProxyVPN` con todos los datos necesarios.
+  - **Feedback post-compra**: Alert con opciones "Ver Carrito" o "Continuar comprando".
 
----
+- Estructura de la UI:
+  - Card principal con elevation 4 para consistencia visual.
+  - Secciones separadas por Divider:
+    1. Detalles del paquete (Chip con megas en GB + descripción).
+    2. Detalles de precio (desglose completo).
+    3. Método de pago (RadioButtons).
+  - Card.Actions con botones "Cancelar" (outlined) y "Confirmar Compra" (contained).
 
-Resumen técnico – Render condicional de SendPushMessageCard por tokens push
-- Objetivo: Mostrar el componente SendPushMessageCard únicamente cuando el usuario destino tiene tokens push registrados.
-- Frontend (React Native, Meteor RN):
-  - Se añadió estado en UserDetails: hasPushTokens, tokenCount, loadingPushTokens y un flag de ciclo de vida _isMounted para evitar setState tras desmontar.
-  - Se implementó el método checkPushTokens(userId) que invoca Meteor.call('push.hasTokens', { userId }) y actualiza el estado.
-  - Se invoca checkPushTokens en:
-    - componentDidMount si existe item._id.
-    - componentDidUpdate cuando cambie item._id o el refreshKey (pull-to-refresh).
-  - Renderizado: SendPushMessageCard ahora se muestra solo si item?._id && hasPushTokens es true.
-  - UX: En caso de error o ausencia de tokens, el componente no se muestra (fallback seguro, sin alertas intrusivas).
+- Estados manejados:
+  - `metodoPago`: String con valor 'TRANSFERENCIA' o 'EFECTIVO' (default: 'TRANSFERENCIA').
+  - `loading`: Boolean para deshabilitar UI durante llamadas async.
+  - `precioCalculado`: Object con { precioBase, descuento, descuentoAplicado, precioFinal, megas }.
 
-- Backend (consideraciones):
-  - Método utilizado: push.hasTokens(args: { userId: string }) que retorna { hasTokens, tokenCount, userId }.
-  - Asegurar validación y rate limiting (ej. ddp-rate-limiter) para evitar abuso del método desde el cliente.
-  - Índice sugerido: índice en PushTokens { userId: 1 } para consultas count() eficientes.
-  - Control de acceso: el método no expone datos sensibles; mantener checks y evitar filtrar tokens concretos al cliente.
+- Manejo de errores:
+  - Validación de sesión activa (Meteor.user()) antes de calcular precio.
+  - Alert específico si falla cálculo de precio ("No se pudo calcular el precio del paquete").
+  - Alert con error.reason si falla inserción en carrito.
+  - Navegación de retorno (goBack) si usuario no autenticado.
 
-- Calidad y mantenibilidad:
-  - Se evitó lógica en render y se centralizó en un método reutilizable.
-  - Se agregó protección _isMounted para prevenir memory leaks.
-  - Se reconsulta al hacer pull-to-refresh para reflejar cambios recientes en tokens.
+- Colores temáticos mantenidos:
+  - **Proxy**: #2196F3 (azul) en título, total y botón confirmar.
+  - **VPN**: #4CAF50 (verde) en título, total y botón confirmar.
+  - Descuentos: #4CAF50 (verde) para valores negativos.
 
-- Próximas mejoras:
-  - Añadir un pequeño indicador visual o hint en UI cuando no existan tokens (opcional, según requisitos de UX).
-  - Cache con TTL corto del estado de tokens por usuario si se detecta alto volumen de llamadas.
-  - Tests: unit test del método checkPushTokens (mocks de Meteor.call) y pruebas e2e del flujo con/si tokens.
+- Registro de rutas en App.js:
+  - Ruta `ProxyPurchase` apuntando a ProxyPurchaseScreen con header azul.
+  - Ruta `VPNPurchase` apuntando a VPNPurchaseScreen con header verde.
+  - Headers configurados con colores temáticos y texto en blanco (headerTintColor: '#fff').
 
----
+- Parámetros de navegación esperados:
+  ```javascript
+  navigation.navigate('ProxyPurchase', {
+    paquete: {
+      _id: String,
+      megas: Number,
+      precio: Number,
+      comentario: String,
+      // ...otros campos de PreciosCollection
+    },
+    descuentoProxy: Number // o descuentoVPN para VPN
+  });
+  ```
 
-Resumen técnico – Manejo de Teclado en React Native (KeyboardAvoidingView)
-- Problema identificado: En componentes con TextInput (UsersHome, ChatUsersHome), cuando aparece el teclado en dispositivos móviles, este cubría los campos de entrada, impidiendo al usuario ver lo que escribía.
-
-- Solución implementada:
-  - Importación de `KeyboardAvoidingView` desde 'react-native' en ambos componentes.
-  - Envolver el TextInput del Banner de filtro con `KeyboardAvoidingView` configurado con `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}` para ajuste automático según plataforma.
-  - Configuración del `ScrollView` principal con propiedades específicas para manejo de teclado:
-    - `keyboardShouldPersistTaps="handled"`: Permite interacción con elementos mientras el teclado está visible, mejorando UX al permitir tocar botones sin cerrar el teclado primero.
-    - `keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}`: Controla cómo se oculta el teclado al hacer scroll (interactivo en iOS, al arrastrar en Android).
-
-- Consideraciones técnicas:
-  - El `behavior` de KeyboardAvoidingView debe ajustarse según la plataforma: iOS responde mejor a 'padding', Android a 'height'.
-  - En componentes con múltiples ScrollViews anidados, asegurar que solo el ScrollView principal tenga las configuraciones de teclado.
-  - El `autoFocus={true}` en TextInput debe usarse con precaución en formularios con múltiples campos para evitar comportamientos inesperados.
-  - En banners o modales con TextInput, siempre envolver con KeyboardAvoidingView para garantizar visibilidad del input.
-
-- Componentes afectados:
-  - UsersHome.js: Lista de usuarios con filtro de búsqueda.
-  - ChatUsersHome.js: Lista de conversaciones con filtro de búsqueda.
-
-- Patrón replicable:
-  - Este patrón debe aplicarse en cualquier componente que contenga TextInput dentro de ScrollView/FlatList/SectionList.
-  - Especialmente crítico en pantallas de formularios, búsquedas y chats donde la visibilidad del input es esencial.
+- Flujo completo de compra:
+  1. Usuario selecciona paquete en ProxyPackageCard/VPNPackageCard.
+  2. Navega a ProxyPurchaseScreen/VPNPurchaseScreen con params.
+  3. Pantalla calcula precio automáticamente al montar.
+  4. Usuario revisa desglose y selecciona método de pago.
+  5. Toca "Confirmar Compra" → inserta en carrito.
+  6. Opción de ir a Carrito o continuar comprando.
 
 - Mejoras futuras sugeridas:
-  - Implementar `KeyboardAwareScrollView` de la librería 'react-native-keyboard-aware-scroll-view' para casos más complejos con múltiples inputs.
-  - Considerar agregar botón "Done/Listo" en teclado iOS para mejor control de cierre.
-  - Implementar scroll automático al input activo en formularios largos.
-  - Agregar animaciones suaves al aparecer/desaparecer el teclado para mejor feedback visual.
+  - Agregar opción de pago con PAYPAL (requiere integración con PayPal SDK).
+  - Mostrar términos y condiciones con checkbox de aceptación antes de confirmar.
+  - Agregar preview de evidencia de pago para TRANSFERENCIA/EFECTIVO.
+  - Implementar contador de tiempo para ofertas limitadas (si aplica).
+  - Cache del cálculo de precio para evitar llamadas duplicadas en re-renders.
+  - Skeleton loader durante cálculo de precio en lugar de texto plano.
 
 - Testing recomendado:
-  - Probar en dispositivos físicos iOS y Android (el comportamiento en simuladores puede diferir).
-  - Verificar en diferentes tamaños de pantalla (pequeñas, medianas, grandes).
-  - Probar con teclados de terceros que pueden tener alturas diferentes.
-  - Validar comportamiento en orientación horizontal (landscape).
-
----
-
-Resumen técnico – Corrección avanzada de KeyboardAvoidingView en MensajesHome (Android + iOS)
-- Problema persistente: Después de la implementación inicial de KeyboardAvoidingView, el input seguía quedando oculto detrás del teclado, especialmente en Android.
-
-- Análisis profundo del problema:
-  - `behavior='height'` en Android no siempre funciona debido a diferencias en cómo Android maneja el `windowSoftInputMode`.
-  - El `KeyboardAvoidingView` nativo de React Native tiene limitaciones conocidas en Android con diferentes configuraciones de manifest.
-  - Se necesita un enfoque híbrido: KeyboardAvoidingView para iOS + listeners manuales para Android.
-
-- Solución robusta implementada:
-  - Listeners del teclado nativos:
-    - iOS: `keyboardWillShow` y `keyboardWillHide` (eventos "will" para animaciones suaves).
-    - Android: `keyboardDidShow` y `keyboardDidHide` (eventos "did" porque Android no tiene "will").
-  - Estado `keyboardHeight` que captura la altura exacta del teclado desde el evento nativo.
-  - Ajuste dinámico con `marginBottom` en Android: se aplica `marginBottom: keyboardHeight` al contenedor cuando el teclado está visible.
-  - KeyboardAvoidingView se mantiene para iOS con `behavior='padding'`.
-  - Limpieza apropiada de listeners en `componentWillUnmount` para prevenir memory leaks.
-
-- Estructura mejorada:
-  ```jsx
-  <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-    <View style={[styles.contentContainer, Platform.OS === 'android' && keyboardHeight > 0 && { marginBottom: keyboardHeight }]}>
-      <FlatList inverted ... />
-      <InputToolbar />
-    </View>
-  </KeyboardAvoidingView>
-  ```
+  - Navegación desde cards con diferentes paquetes (250MB, 1GB, 5GB, etc.).
+  - Calcular precio con descuento 0%, 50%, 100%.
+  - Confirmar compra con TRANSFERENCIA y EFECTIVO.
+  - Validar error cuando usuario no autenticado.
+  - Validar error cuando paquete ya activo (debe bloquearse en card, pero validar defensivamente).
+  - Verificar inserción en CarritoCollection tras confirmación.
+  - Probar botones "Ver Carrito" y "Continuar" en Alert post-compra.
 
 - Consideraciones técnicas críticas:
-  - En Android, el `windowSoftInputMode` en AndroidManifest.xml debe estar configurado como `adjustResize` o `adjustPan`. Si está en `adjustNothing`, ninguna solución JavaScript funcionará.
-  - Los eventos del teclado proporcionan `endCoordinates.height` que es la altura exacta del teclado en píxeles.
-  - En iOS, los eventos "will" permiten animaciones sincronizadas con la aparición del teclado.
-  - En Android, los eventos "did" son instantáneos pero menos fluidos visualmente.
-  - El `backgroundColor: '#FFFFFF'` en `inputContainer` es crucial para evitar transparencias que hacen que el input parezca oculto.
+  - Las pantallas NO validan si el usuario ya tiene paquete activo (esa validación debe hacerse en el card antes de navegar).
+  - El método `carrito.addProxyVPN` en backend SÍ valida paquetes activos, por lo que si la validación del card falla, el backend bloqueará la compra.
+  - `precioCalculado.descuentoAplicado` ya viene calculado del backend, NO se recalcula en frontend.
+  - `metodoPago` debe coincidir exactamente con los valores esperados por el backend ('TRANSFERENCIA', 'EFECTIVO').
 
-- Solución de problemas comunes:
-  - Si el input sigue oculto en Android: Verificar `android:windowSoftInputMode="adjustResize"` en AndroidManifest.xml.
-  - Si hay doble ajuste (input muy arriba): Remover `behavior` en Android (ya implementado con `undefined`).
-  - Si el teclado cubre el input en tablets: Ajustar el offset considerando barras de sistema y headers dinámicamente.
-  - Si hay lag en la animación: Usar `Animated.View` con `Animated.timing` para transiciones suaves (opcional, siguiente iteración).
+- Archivos creados/modificados:
+  - components/proxy/ProxyPurchaseScreen.jsx: Nueva pantalla de compra Proxy.
+  - components/vpn/VPNPurchaseScreen.jsx: Nueva pantalla de compra VPN.
+  - App.js: Registro de rutas ProxyPurchase y VPNPurchase en Stack.Navigator (pendiente de aplicar).
 
-- Mejoras adicionales implementadas:
-  - Limpieza segura de todos los listeners en unmount (4 listeners: 2 para iOS, 2 para Android).
-  - Estructura de contenedor adicional (`contentContainer`) para aplicar estilos sin afectar el KeyboardAvoidingView.
-  - Background color explícito en input toolbar para garantizar opacidad.
+- Lecciones aprendidas:
+  - Error "action NAVIGATE was not handled" siempre indica ruta no registrada en Navigator.
+  - Calcular precio en componentDidMount asegura que el usuario ve el total antes de confirmar.
+  - Usar estado `loading` durante cálculos async mejora percepción de respuesta de la app.
+  - Separar lógica de cálculo de precio en método backend facilita consistencia entre cards y pantalla de compra.
+  - RadioButton.Group de React Native Paper requiere values exactos (Strings), no booleans ni enums.
 
-- Testing exhaustivo requerido:
-  - Probar en Android con diferentes versiones (API 21-34) ya que el comportamiento del teclado varía.
-  - Validar en dispositivos con barras de navegación on-screen vs físicas.
-  - Probar con teclados de terceros (Gboard, SwiftKey) que pueden tener alturas diferentes.
-  - Verificar en tablets donde la altura del teclado puede ser menor.
-  - Probar en modo split-screen (multitarea) donde las dimensiones cambian dinámicamente.
-
-- Alternativa futura si persisten problemas:
-  - Considerar librería `react-native-keyboard-aware-scroll-view` que maneja estos casos automáticamente.
-  - Implementar `android:windowSoftInputMode="adjustPan"` si adjustResize no es viable por diseño.
-  - Usar `react-native-keyboard-controller` para control más granular en casos edge.
-
-- Documentación para AndroidManifest.xml:
-  ```xml
-  <activity
-    android:name=".MainActivity"
-    android:windowSoftInputMode="adjustResize">
-  </activity>
-  ```
-
-- Patrón replicable para otros chats:
-  - Siempre usar listeners del teclado en Android para ajustes precisos.
-  - Mantener KeyboardAvoidingView para iOS por su mejor soporte nativo.
-  - Aplicar `marginBottom` dinámico solo en Android, no en iOS.
-  - Limpiar listeners para evitar memory leaks.
-  - Background color en input toolbar obligatorio.
-
----
-
-Resumen técnico – Compatibilidad de teclado en MensajesHome (Android)
-- Contexto: El input de mensajes quedaba detrás del teclado en Android. Antes se movía hacia arriba.
-- Causa raíz: KeyboardAvoidingView no tenía behavior en Android y el ajuste de altura (marginBottom con keyboardHeight) solo se aplicaba a la lista, no al contenedor del composer.
-- Cambios aplicados:
-  - Se configuró KeyboardAvoidingView con behavior="height" en Android (iOS mantiene 'padding').
-  - Se añadió marginBottom dinámico al contenedor del composer basado en keyboardHeight para subir el input sobre el teclado en Android.
-- Consideraciones:
-  - Verificar en AndroidManifest.xml que MainActivity use android:windowSoftInputMode="adjustResize" para que el teclado reduzca el viewport correctamente.
-  - Mantener los listeners de teclado (keyboardDidShow/keyboardDidHide en Android) para medir endCoordinates.height y evitar solapamiento.
-- Recomendaciones futuras:
-  - Unificar el uso de un solo composer y estado (messageText) para evitar duplicidades.
-  - Evaluar Animated para transiciones suaves del offset del teclado.
-  - Alternativa: react-native-keyboard-aware-scroll-view si se complica el manejo manual.
-
----
-
-Resumen técnico – Manejo de teclado en Dialog de React Native Paper (CubaCelCard)
-- Problema identificado: En el componente CubaCelCard, el Dialog con formularios de recarga quedaba estático cuando aparecía el teclado, ocultando los inputs inferiores y botones de acción detrás del teclado.
-
-- Diferencias con otros componentes:
-  - Dialog de React Native Paper no es una pantalla completa, sino un modal que flota sobre el contenido.
-  - KeyboardAvoidingView dentro de Dialog tiene comportamiento diferente que en pantallas completas.
-  - Los Dialog tienen altura fija/máxima que complica el ajuste automático.
-
-- Solución implementada:
-  - Listeners del teclado usando hooks de React (useEffect):
-    - iOS: `keyboardWillShow` y `keyboardWillHide` (eventos "will" para animaciones suaves).
-    - Android: `keyboardDidShow` y `keyboardDidHide` (eventos "did" porque Android no tiene "will").
-  - Estado `keyboardHeight` que captura la altura exacta del teclado desde el evento nativo.
-  - Ajuste dinámico con `marginBottom` en Android: se aplica `marginBottom: keyboardHeight` al contenedor cuando el teclado está visible.
-  - KeyboardAvoidingView se mantiene para iOS con `behavior='padding'`.
-  - Limpieza apropiada de listeners en `componentWillUnmount` para prevenir memory leaks.
-
-- Estructura mejorada:
-  ```jsx
-  <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-    <View style={[styles.contentContainer, Platform.OS === 'android' && keyboardHeight > 0 && { marginBottom: keyboardHeight }]}>
-      <FlatList inverted ... />
-      <InputToolbar />
-    </View>
-  </KeyboardAvoidingView>
-  ```
-
-- Consideraciones técnicas críticas:
-  - En Android, el `windowSoftInputMode` en AndroidManifest.xml debe estar configurado como `adjustResize` o `adjustPan`. Si está en `adjustNothing`, ninguna solución JavaScript funcionará.
-  - Los eventos del teclado proporcionan `endCoordinates.height` que es la altura exacta del teclado en píxeles.
-  - En iOS, los eventos "will" permiten animaciones sincronizadas con la aparición del teclado.
-  - En Android, los eventos "did" son instantáneos pero menos fluidos visualmente.
-  - El `backgroundColor: '#FFFFFF'` en `inputContainer` es crucial para evitar transparencias que hacen que el input parezca oculto.
-
-- Solución de problemas comunes:
-  - Si el input sigue oculto en Android: Verificar `android:windowSoftInputMode="adjustResize"` en AndroidManifest.xml.
-  - Si hay doble ajuste (input muy arriba): Remover `behavior` en Android (ya implementado con `undefined`).
-  - Si el teclado cubre el input en tablets: Ajustar el offset considerando barras de sistema y headers dinámicamente.
-  - Si hay lag en la animación: Usar `Animated.View` con `Animated.timing` para transiciones suaves (opcional, siguiente iteración).
-
-- Mejoras adicionales implementadas:
-  - Limpieza segura de todos los listeners en unmount (4 listeners: 2 para iOS, 2 para Android).
-  - Estructura de contenedor adicional (`contentContainer`) para aplicar estilos sin afectar el KeyboardAvoidingView.
-  - Background color explícito en input toolbar para garantizar opacidad.
-
-- Testing exhaustivo requerido:
-  - Probar en Android con diferentes versiones (API 21-34) ya que el comportamiento del teclado varía.
-  - Validar en dispositivos con barras de navegación on-screen vs físicas.
-  - Probar con teclados de terceros (Gboard, SwiftKey) que pueden tener alturas diferentes.
-  - Verificar en tablets donde la altura del teclado puede ser menor.
-  - Probar en modo split-screen (multitarea) donde las dimensiones cambian dinámicamente.
-
-- Alternativa futura si persisten problemas:
-  - Considerar librería `react-native-keyboard-aware-scroll-view` que maneja estos casos automáticamente.
-  - Implementar `android:windowSoftInputMode="adjustPan"` si adjustResize no es viable por diseño.
-  - Usar `react-native-keyboard-controller` para control más granular en casos edge.
-
-- Documentación para AndroidManifest.xml:
-  ```xml
-  <activity
-    android:name=".MainActivity"
-    android:windowSoftInputMode="adjustResize">
-  </activity>
-  ```
-
-- Patrón replicable para otros chats:
-  - Siempre usar listeners del teclado en Android para ajustes precisos.
-  - Mantener KeyboardAvoidingView para iOS por su mejor soporte nativo.
-  - Aplicar `marginBottom` dinámico solo en Android, no en iOS.
-  - Limpiar listeners para evitar memory leaks.
-  - Background color en input toolbar obligatorio.
-
----
-
-Resumen técnico – Corrección RN: “Text strings must be rendered within a <Text> component” en Dialog de TableRecargas
-- Causa raíz: se usó el patrón condicional expr && <Componente/> dentro del Dialog, donde expr era un número (length = 0). En RN, renderizar 0 como hijo de un View/Surface rompe con el error “Text strings must be rendered within a <Text> component”.
-- Cambio aplicado (frontend RN):
-  - En components/cubacel/TableRecargas.jsx, dentro del detalle del Dialog, el render de la sección de “Promociones” fue cambiado de it?.producto?.promotions?.length && <Chip .../> a !!it?.producto?.promotions?.length && <Chip .../> para evitar insertar 0 en el árbol de JSX.
-- Buenas prácticas establecidas:
-  - Evitar expr && <Componente/> cuando expr pueda ser un número o string; usar !!expr && <Componente/> o (condición ? <Componente/> : null).
-  - Añadir regla ESLint recomendada: react-native/no-raw-text para detectar cadenas no envueltas en <Text>.
-  - Mantener consistencia en condicionales UI para prevenir render de valores primitivos fuera de <Text>.
-- Consideraciones futuras:
-  - Revisar otros condicionales similares en la base de código (especialmente longitudes o flags numéricos) para aplicar coerción booleana.
-  - Tests de regresión: abrir el Dialog con casos de promociones 0 y >0 para validar la ausencia del error.
-
----
-
-Resumen técnico – Corrección de envío de mensajes en MensajesHome
-- Contexto: Se introdujo un composer moderno que usa state.messageText y un método sendNow que dependía de handlers externos (sendMensaje/handleSendMessage/onSendMessage/props.onSend). Esos handlers ya no estaban presentes, provocando el warning “No hay handler de envío definido...” y evitando el envío.
-- Problema raíz: Desacoplamiento del nuevo composer respecto a la lógica de envío vigente (handleSend), la cual opera sobre state.message y gestiona inserción, flags de envío y la llamada a Meteor.call("enviarMensajeDirecto2").
-- Solución implementada:
-  - Se modificó sendNow para:
-    - Validar texto no vacío y respetar isSending.
-    - Sincronizar estados transfiriendo messageText -> message antes de invocar handleSend.
-    - Reutilizar handleSend (inserción en MensajesCollection, “leído”, autoscroll y llamada a enviarMensajeDirecto2).
-    - Limpiar siempre messageText tras el envío.
-- Consideraciones técnicas:
-  - Se mantuvo la compatibilidad para una futura reintroducción de handlers externos sin romper el flujo actual.
-  - Evita dobles envíos verificando isSending.
-  - Se deja constancia de que existen dos compositores en el componente (renderInputToolbar y composer moderno). El activo es el moderno; se recomienda una futura refactorización para mantener una sola fuente de verdad del estado (messageText) y eliminar UI/estados duplicados (message/inputHeight).
-- Recomendaciones de mejora:
-  - Unificar a un único composer y estado (messageText), incorporando el contador de caracteres y animaciones si se desean conservar.
-  - Extraer la lógica de envío a un helper (ej. sendMessage(text, toUserId)) para facilitar pruebas y reutilización.
-  - Validar en backend reglas de seguridad de inserción y mantener métodos Meteor para mutaciones críticas.
-- Fe de cambios:
-  - Archivo modificado: components/mensajes/MensajesHome.js
-  - Cambio principal: sendNow ahora reutiliza handleSend y sincroniza estados (messageText -> message) para restaurar el envío.
-
----
-
-Resumen técnico – Reversión controlada del manejo de teclado en MensajesHome (Android)
-- Contexto: Antes funcionaba con KeyboardAvoidingView sin behavior en Android y ajuste manual con keyboardHeight. Al cambiar a behavior="height" el input quedó detrás del teclado en ciertos dispositivos.
-- Cambios aplicados:
-  - Se restauró behavior en Android a undefined y se mantuvo el offset dinámico marginBottom tanto en el contentContainer como en el composer.
-  - Se documentó y reforzó android:windowSoftInputMode="adjustResize" en MainActivity para asegurar que el teclado reduzca el viewport.
-- Justificación técnica:
-  - En Android, KAV con behavior="height" varía según fabricantes y puede no interactuar bien con ciertos layouts. El patrón manual con keyboardHeight + adjustResize es más predecible.
-- Recomendaciones:
-  - Mantener un único composer (idealmente el moderno) y eliminar el obsoleto para evitar estados duplicados.
-  - Si persisten casos edge, evaluar react-native-keyboard-aware-scroll-view o medir insets de safe area para refinar padding inferior.
+- Próximos pasos:
+  - Aplicar registro de rutas en App.js (código proporcionado arriba).
+  - Crear pantallas de historial (ProxyHistoryScreen, VPNHistoryScreen).
+  - Implementar sistema de evidencias para TRANSFERENCIA/EFECTIVO.
+  - Tests e2e del flujo completo: card → compra → carrito → pago → activación.

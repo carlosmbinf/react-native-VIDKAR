@@ -70,6 +70,10 @@ import PropertyTable from './components/property/PropertyTable';
 
 
 import messaging from '@react-native-firebase/messaging';
+import VPNPackageCard from './components/vpn/VPNPackageCard';
+import ProxyPackageCard from './components/proxy/ProxyPackageCard';
+import ProxyPurchaseScreen from './components/proxy/ProxyPurchaseScreen';
+import VPNPurchaseScreen from './components/vpn/VPNPurchaseScreen';
 // agregado: notifee opcional para mostrar notificaciones locales (foreground/background)
 let NotifeeLib = null;
 try {
@@ -1046,6 +1050,59 @@ const App = () => {
               ),
             })}
           />
+
+          <Stack.Screen 
+            name="ProxyPackages" 
+            component={ProxyPackageCard}
+            options={{
+              title: 'Paquetes Proxy',
+              headerStyle: { backgroundColor: '#2196F3' },
+              headerTintColor: '#fff',
+              headerTitleStyle: { fontWeight: 'bold' }
+            }}
+          />
+          
+          <Stack.Screen 
+            name="VPNPackages" 
+            component={VPNPackageCard}
+            options={{
+              title: 'Paquetes VPN',
+              headerStyle: { backgroundColor: '#4CAF50' },
+              headerTintColor: '#fff',
+              headerTitleStyle: { fontWeight: 'bold' }
+            }}
+          />
+
+          <Stack.Screen 
+            name="ProxyPurchase" 
+            component={ProxyPurchaseScreen}
+            options={{
+              title: 'Comprar Paquete Proxy',
+              headerStyle: {
+                backgroundColor: '#2196F3',
+              },
+              headerTintColor: '#fff',
+              headerTitleStyle: {
+                fontWeight: 'bold',
+              },
+            }}
+          />
+          
+          <Stack.Screen 
+            name="VPNPurchase" 
+            component={VPNPurchaseScreen}
+            options={{
+              title: 'Comprar Paquete VPN',
+              headerStyle: {
+                backgroundColor: '#4CAF50',
+              },
+              headerTintColor: '#fff',
+              headerTitleStyle: {
+                fontWeight: 'bold',
+              },
+            }}
+          />
+
           {/* <Stack.Screen name="Video" component={VideoPlayer} /> */}
           {/* <Stack.Screen name="Task List">
                 {props => {
