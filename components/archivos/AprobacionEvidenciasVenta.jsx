@@ -1,19 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { View, Image, Pressable, ScrollView, StyleSheet, Alert } from 'react-native';
-import { Card, Text, Chip, Divider, Button, ActivityIndicator, IconButton } from 'react-native-paper';
+import { Card, Text, Chip, Divider, Button, ActivityIndicator, IconButton, Surface, Badge } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 import moment from 'moment';
 import DrawerBottom from '../drawer/DrawerBottom';
 import { EvidenciasVentasEfectivoCollection, VentasRechargeCollection } from '../collections/collections';
 
-/**
- * Props:
- *  - venta
- *  - onAprobar?: (evidencia)
- *  - onRechazar?: (evidencia)
- *  - onVentaAprobada?: (venta)
- *  - loadingIds?: string[]
- */
 const ESTADOS = {
   APROBADA: 'APROBADA',
   RECHAZADA: 'RECHAZADA',
@@ -22,7 +14,6 @@ const ESTADOS = {
 
 const mapEvidenciaDoc = (e, i) => {
   const aprobado = !!e.aprobado;
-  // Se amplía la detección de cancelación: algunos documentos pueden venir con 'cancelada' (fem) o 'isCancelada'
   const cancelFlag = !!(
     e.cancelado ||
     e.cancelada ||
@@ -35,11 +26,10 @@ const mapEvidenciaDoc = (e, i) => {
     e.estado === ESTADOS.RECHAZADA ||
     e.estado === 'RECHAZADA'
   );
-  // Unificamos (por ahora) cancelada dentro de rechazado para mantener el badge 'CANC'
   const rechazado = cancelFlag || rechazadoFlag;
 
   let estado = ESTADOS.PENDIENTE;
-  if (rechazado) estado = ESTADOS.RECHAZADA; // Nota: si se quiere distinguir CANCELADA, crear ESTADOS.CANCELADA y adaptar badge.
+  if (rechazado) estado = ESTADOS.RECHAZADA;
   else if (aprobado) estado = ESTADOS.APROBADA;
 
   return {
@@ -56,17 +46,35 @@ const mapEvidenciaDoc = (e, i) => {
   };
 };
 
+// NUEVO: Utility para formatear moneda
+const formatCurrency = (amount, currency = 'CUP') => {
+  const num = parseFloat(amount) || 0;
+  return `${num.toLocaleString('es-CU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${currency}`;
+};
+
+// NUEVO: Utility para convertir MB a GB
+const megasToGB = (megas) => {
+  if (!megas || megas === 0) return '0 GB';
+  const gb = megas / 1024;
+  return gb >= 1 ? `${gb.toFixed(0)} GB` : `${megas} MB`;
+};
+
+// NUEVO: Configuración de colores por tipo de producto
+const PRODUCT_COLORS = {
+  PROXY: { primary: '#2196F3', bg: '#E3F2FD', icon: 'wifi' },
+  VPN: { primary: '#4CAF50', bg: '#E8F5E9', icon: 'shield-check' },
+  RECARGA: { primary: '#FF6F00', bg: 'rgba(255, 111, 0, 0.12)', icon: 'cellphone' },
+  REMESA: { primary: '#9C27B0', bg: 'rgba(156, 39, 176, 0.12)', icon: 'cash' }
+};
+
 const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAprobada, loadingIds = [] }) => {
   if (!venta) return null;
   const ventaId = venta._id;
   const [preview, setPreview] = useState(null);
-
-  // NUEVO: estado para procesar la aprobación de la venta
   const [aprobandoVenta, setAprobandoVenta] = useState(false);
-  const [rechazandoVenta, setRechazandoVenta] = useState(false); // NUEVO
-  const [expanded, setExpanded] = useState(false); // NUEVO: control de expansión
+  const [rechazandoVenta, setRechazandoVenta] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
-  // Suscripción de evidencias (igual que en SubidaArchivos)
   const evidenciasSubsc = useTracker(() => {
     Meteor.subscribe('evidenciasVentasEfectivoRecharge', { ventaId });
     return EvidenciasVentasEfectivoCollection.find({ ventaId }, { sort: { createdAt: -1 } }).fetch();
@@ -79,31 +87,35 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
       .filter(e => !!e.base64);
   }, [evidenciasSubsc]);
 
-  // NUEVO: recargas (carritos type RECARGA)
-  const recargas = useMemo(() => {
+  const carritosAgrupados = useMemo(() => {
     const lista = venta?.producto?.carritos || [];
-    return lista.filter(c => c?.type === 'RECARGA');
+    return {
+      proxy: lista.filter(c => c?.type === 'PROXY'),
+      vpn: lista.filter(c => c?.type === 'VPN'),
+      recarga: lista.filter(c => c?.type === 'RECARGA'),
+      remesa: lista.filter(c => c?.type === 'REMESA')
+    };
   }, [venta]);
 
-  // NUEVO: resumen compacto para vista colapsada
-  const recargasResumen = useMemo(() => {
-    if (!recargas.length) return 'Sin recargas';
-    const fmt = r => {
-      const telefono = r.movilARecargar || r?.extraFields?.mobile_number || r?.extraFields?.mobileNumber || '¿?';
-      const nombre = r.nombre || r.producto?.name || 'Sin Nombre';
-      return `${telefono} - ${nombre}`;
-    };
-    const base = recargas.slice(0, 2).map(fmt).join(', ');
-    return recargas.length > 2 ? `${base} +${recargas.length - 2} más` : base;
-  }, [recargas]);
+  const totalItems = useMemo(() => {
+    return Object.values(carritosAgrupados).reduce((sum, arr) => sum + arr.length, 0);
+  }, [carritosAgrupados]);
 
-  // NUEVO: comprobación para permitir aprobar la venta
+  const resumenVenta = useMemo(() => {
+    const items = [];
+    if (carritosAgrupados.proxy.length) items.push(`${carritosAgrupados.proxy.length} Proxy`);
+    if (carritosAgrupados.vpn.length) items.push(`${carritosAgrupados.vpn.length} VPN`);
+    if (carritosAgrupados.recarga.length) items.push(`${carritosAgrupados.recarga.length} Recarga${carritosAgrupados.recarga.length > 1 ? 's' : ''}`);
+    if (carritosAgrupados.remesa.length) items.push(`${carritosAgrupados.remesa.length} Remesa${carritosAgrupados.remesa.length > 1 ? 's' : ''}`);
+    return items.join(' • ') || 'Sin productos';
+  }, [carritosAgrupados]);
+
   const existeAprobada = evidencias.some(ev => !!ev.aprobado);
-  const ventaYaEntregada = venta?.estado === 'ENTREGADO' || venta?.estado === 'ENTREGADO' /* compat */ || venta?.estado === 'PAGADA' || venta?.estado === 'COMPLETADA';
-  const ventaRechazada = venta?.estado === 'RECHAZADA'; // NUEVO
+  const ventaYaEntregada = venta?.estado === 'ENTREGADO' || venta?.estado === 'PAGADA' || venta?.estado === 'COMPLETADA';
+  const ventaRechazada = venta?.estado === 'RECHAZADA' || venta?.isCancelada;
   const canApproveSale = existeAprobada && !ventaYaEntregada && !ventaRechazada;
 
-  // NUEVO: handler para aprobar venta con confirmación
+  // RESTAURADO: Handler para aprobar venta
   const handleAprobarVenta = () => {
     if (!canApproveSale || aprobandoVenta) return;
     Alert.alert(
@@ -122,7 +134,6 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
                 return;
               }
               Alert.alert('Éxito', res?.message || 'Venta aprobada correctamente');
-              // callback opcional para que el componente padre actualice la lista/estado
               onVentaAprobada && onVentaAprobada(res);
             });
           },
@@ -132,7 +143,7 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
     );
   };
 
-  // NUEVO: handler rechazar venta
+  // RESTAURADO: Handler para rechazar venta
   const handleRechazarVenta = () => {
     if (rechazandoVenta || ventaYaEntregada || ventaRechazada) return;
     Alert.alert(
@@ -142,38 +153,27 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Rechazar',
-            style: 'destructive',
-            onPress: () => {
-              setRechazandoVenta(true);
-              try {
-                console.log("Rechazando venta", venta._id);
-                // Actualización directa (considerar mover a Meteor.method para seguridad)
-                VentasRechargeCollection.update(
-                  ventaId ,
-                  {
-                    $set: {
-                      isCancelada: true,
-                      // estado: 'RECHAZADA',
-                      // rechazadaAt: new Date(),
-                      // rechazadaBy: Meteor.userId()
-                    }
-                  },
-                  (err) => {
-                    setRechazandoVenta(false);
-                    if (err) {
-                      console.log(err);
-                      Alert.alert('Error', err.reason || 'No se pudo rechazar la venta');
-                      return;
-                    }
-                    Alert.alert('Listo', 'Venta rechazada.');
-                    onVentaAprobada && onVentaAprobada({ _id: venta._id, estado: 'RECHAZADA' });
-                  }
-                );
-              } catch (e) {
+          style: 'destructive',
+          onPress: () => {
+            setRechazandoVenta(true);
+            VentasRechargeCollection.update(
+              ventaId,
+              {
+                $set: {
+                  isCancelada: true,
+                }
+              },
+              (err) => {
                 setRechazandoVenta(false);
-                Alert.alert('Error', e.message || 'Fallo inesperado al rechazar');
+                if (err) {
+                  Alert.alert('Error', err.reason || 'No se pudo rechazar la venta');
+                  return;
+                }
+                Alert.alert('Listo', 'Venta rechazada.');
+                onVentaAprobada && onVentaAprobada({ _id: venta._id, estado: 'RECHAZADA' });
               }
-            }
+            );
+          }
         }
       ]
     );
@@ -184,7 +184,7 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
 
   const handleAprobar = () => {
     if (!preview) return;
-    if (preview.aprobado || preview.rechazado) return; // nada que hacer
+    if (preview.aprobado || preview.rechazado) return;
     Meteor.call('archivos.aprobarEvidencia', preview._id, null, (error, success) => {
       if (error) {
         Alert.alert('Error', error.reason || 'No se pudo aprobar la evidencia.');
@@ -192,7 +192,6 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
       }
       if (success) {
         onAprobar && onAprobar(preview);
-        // Opcional: setPreview(null);
       }
     });
   };
@@ -206,7 +205,6 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
       if (success) {
         onRechazar && onRechazar(preview);
         Alert.alert('Listo', 'Evidencia rechazada.');
-        // Opcional: setPreview(null);
       }
     });
   };
@@ -224,16 +222,124 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
     );
   };
 
+  const renderProductCard = (carrito, idx, type) => {
+    const config = PRODUCT_COLORS[type];
+    const borderColor = config.primary;
+    
+    if (type === 'PROXY' || type === 'VPN') {
+      const esPorTiempo = carrito.esPorTiempo || carrito.megas === null;
+      return (
+        <Surface key={carrito._id} style={[styles.miniCard, { borderLeftColor: borderColor }]} elevation={1}>
+          <View style={styles.miniCardHeader}>
+            <IconButton icon={config.icon} iconColor={config.primary} size={18} style={styles.miniIcon} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.miniCardTitle, { color: config.primary }]}>{type}</Text>
+              <Text style={styles.miniCardUser}>{carrito.nombre || 'Usuario'}</Text>
+            </View>
+            {esPorTiempo ? (
+              <View style={styles.unlimitedBadge}>
+                <IconButton icon="infinity" iconColor="#FFD700" size={16} style={{ margin: 0 }} />
+                <Text style={styles.unlimitedText}>ILIMITADO</Text>
+              </View>
+            ) : (
+              <Chip icon="database" compact textStyle={{ fontSize: 11, fontWeight: '700' }} >
+                {megasToGB(carrito.megas)}
+              </Chip>
+            )}
+          </View>
+          <View style={styles.miniCardRow}>
+            <IconButton icon="currency-usd" size={14} iconColor="#666" style={styles.miniRowIcon} />
+            <Text style={styles.miniCardLabel}>Precio:</Text>
+            <Text style={styles.miniCardValue}>{formatCurrency(carrito.cobrarUSD)}</Text>
+          </View>
+        </Surface>
+      );
+    }
+
+    if (type === 'RECARGA') {
+      const telefono = carrito.movilARecargar || carrito?.extraFields?.mobile_number || '¿?';
+      const monto = carrito.producto?.destination?.amount || carrito.comentario?.match(/\d+/)?.[0] || 'N/D';
+      const operadora = carrito.producto?.operator?.name || 'CubaCel';
+      return (
+        <Surface key={carrito._id} style={[styles.miniCard, { borderLeftColor: borderColor }]} elevation={1}>
+          <View style={styles.miniCardHeader}>
+            <IconButton icon={config.icon} iconColor={config.primary} size={18} style={styles.miniIcon} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.miniCardTitle, { color: config.primary }]}>RECARGA</Text>
+              <Text style={styles.miniCardUser}>{carrito.nombre || 'Usuario'}</Text>
+            </View>
+            <Chip icon="phone" compact textStyle={{ fontSize: 11, fontWeight: '700' }} style={{ backgroundColor: config.bg }}>
+              {monto} CUP
+            </Chip>
+          </View>
+          <View style={styles.miniCardRow}>
+            <IconButton icon="cellphone" size={14} iconColor="#666" style={styles.miniRowIcon} />
+            <Text style={styles.miniCardLabel}>Teléfono:</Text>
+            <Text style={styles.miniCardValue}>{telefono}</Text>
+          </View>
+          <View style={styles.miniCardRow}>
+            <IconButton icon="sim" size={14} iconColor="#666" style={styles.miniRowIcon} />
+            <Text style={styles.miniCardLabel}>Operadora:</Text>
+            <Text style={styles.miniCardValue}>{operadora}</Text>
+          </View>
+        </Surface>
+      );
+    }
+
+    if (type === 'REMESA') {
+      return (
+        <Surface key={carrito._id} style={[styles.miniCard, { borderLeftColor: borderColor }]} elevation={1}>
+          <View style={styles.miniCardHeader}>
+            <IconButton icon={config.icon} iconColor={config.primary} size={18} style={styles.miniIcon} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.miniCardTitle, { color: config.primary }]}>REMESA</Text>
+              <Text style={styles.miniCardUser}>{carrito.nombre || 'Usuario'}</Text>
+            </View>
+            <Chip icon="cash" compact textStyle={{ fontSize: 11, fontWeight: '700' }} style={{ backgroundColor: config.bg }}>
+              {formatCurrency(carrito.recibirEnCuba || 0, carrito.monedaRecibirEnCuba)}
+            </Chip>
+          </View>
+          <View style={styles.miniCardRow}>
+            <IconButton icon="map-marker" size={14} iconColor="#666" style={styles.miniRowIcon} />
+            <Text style={styles.miniCardLabel}>Dirección:</Text>
+            <Text style={styles.miniCardValue} numberOfLines={1} ellipsizeMode="tail">
+              {carrito.direccionCuba || 'No especificada'}
+            </Text>
+          </View>
+          {carrito.tarjetaCUP && (
+            <View style={styles.miniCardRow}>
+              <IconButton icon="credit-card-outline" size={14} iconColor="#666" style={styles.miniRowIcon} />
+              <Text style={styles.miniCardLabel}>Tarjeta:</Text>
+              <Text style={styles.miniCardValue}>{carrito.tarjetaCUP}</Text>
+            </View>
+          )}
+        </Surface>
+      );
+    }
+
+    return null;
+  };
+
   const miniBase64 = evidencias[0]?.base64;
-  const cargando = !evidenciasSubsc; // placeholder simple
+  const cargando = !evidenciasSubsc;
 
   return (
     <Card style={styles.card}>
       <Card.Title
-        title="Evidencias de Pago"
-        subtitle={`Venta: ${ventaId}`}
-        titleStyle={styles.title}
-        subtitleStyle={styles.subtitle}
+        title={
+          <View style={styles.headerTitleRow}>
+            <Text style={styles.title}>Venta #{ventaId.slice(-6).toUpperCase()}</Text>
+            {ventaRechazada && <Badge style={styles.badgeRechazada}>RECHAZADA</Badge>}
+            {ventaYaEntregada && <Badge style={styles.badgeEntregada}>FINALIZADA</Badge>}
+          </View>
+        }
+        subtitle={
+          <View style={styles.subtitleRow}>
+            <IconButton icon="account" size={14} iconColor="#666" style={{ margin: 0, padding: 0 }} />
+            <Text style={styles.subtitle}>{venta.userId || 'Usuario N/D'}</Text>
+            <Text style={[styles.subtitle, { marginLeft: 8 }]}>• {totalItems} item{totalItems !== 1 ? 's' : ''}</Text>
+          </View>
+        }
         right={(props) => (
           <IconButton
             {...props}
@@ -243,73 +349,72 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
           />
         )}
       />
-      {/* Vista colapsada siempre visible */}
-      <View style={styles.collapsedBox}>
-        <Text style={styles.colLabel}>Usuario:</Text>
-        <Text style={styles.colValue}>{venta.userId || venta?.producto?.userId || 'N/D'}</Text>
-      </View>
-      <View style={styles.collapsedBox}>
-        <Text style={styles.colLabel}>Recargas:</Text>
-        <Text style={styles.colValue} numberOfLines={2}>{recargasResumen}</Text>
-      </View>
-      {(ventaRechazada || ventaYaEntregada) && (
-        <View style={styles.estadoVentaBadge}>
-          <Text style={[styles.estadoVentaText, ventaRechazada && { color: '#e74c3c' }]}>
-            {ventaRechazada ? 'VENTA RECHAZADA' : 'VENTA FINALIZADA'}
+
+      <View style={styles.summaryBar}>
+        <View style={styles.summaryItem}>
+          <IconButton icon="package-variant" size={16} iconColor="#666" style={styles.summaryIcon} />
+          <Text style={styles.summaryText}>{resumenVenta}</Text>
+        </View>
+        <View style={styles.summaryItem}>
+          <IconButton icon="currency-usd" size={16} iconColor="#1976D2" style={styles.summaryIcon} />
+          <Text style={[styles.summaryText, { fontWeight: '700', color: '#1976D2' }]}>
+            {formatCurrency(venta.cobrado, venta.monedaCobrado)}
           </Text>
         </View>
-      )}
+      </View>
+
+      <View style={styles.summaryBar}>
+        <View style={styles.summaryItem}>
+          <IconButton icon="calendar" size={16} iconColor="#666" style={styles.summaryIcon} />
+          <Text style={styles.summaryText}>
+            {venta.createdAt ? moment(venta.createdAt).format('DD/MM/YYYY HH:mm') : 'Fecha N/D'}
+          </Text>
+        </View>
+        <View style={styles.summaryItem}>
+          <IconButton icon="credit-card" size={16} iconColor="#666" style={styles.summaryIcon} />
+          <Text style={styles.summaryText}>{venta.metodoPago || 'Método N/D'}</Text>
+        </View>
+      </View>
 
       {expanded && (
         <Card.Content>
           <Divider style={styles.divider} />
+
           {miniBase64 && (
-            <View style={styles.lastWrapper}>
-              <Image source={{ uri: `data:image/jpeg;base64,${miniBase64}` }} style={styles.lastThumb} />
-              <View style={styles.lastInfo}>
-                <Text style={styles.lastLabel}>Última evidencia</Text>
-                <Text style={styles.lastSub}>
-                  Total evidencias: {evidencias.length}
-                </Text>
+            <Surface style={styles.evidencePreview} elevation={2}>
+              <Image source={{ uri: `data:image/jpeg;base64,${miniBase64}` }} style={styles.evidenceThumb} />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.evidenceLabel}>Última evidencia subida</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                  <Chip icon="file-image" compact textStyle={{ fontSize: 10 }}>
+                    {evidencias.length} evidencia{evidencias.length !== 1 ? 's' : ''}
+                  </Chip>
+                  <Text style={[styles.evidenceSub, { marginLeft: 8 }]}>
+                    {evidencias[0].createdAt ? moment(evidencias[0].createdAt).fromNow() : ''}
+                  </Text>
+                </View>
               </View>
-            </View>
+            </Surface>
           )}
 
-          <View style={styles.headerRow}>
-            <Text style={styles.sectionTitle}>Listado ({evidencias.length})</Text>
+          <Text style={styles.sectionTitle}>Productos de la venta</Text>
+          <ScrollView style={styles.productsScroll} nestedScrollEnabled>
+            {carritosAgrupados.proxy.map((c, i) => renderProductCard(c, i, 'PROXY'))}
+            {carritosAgrupados.vpn.map((c, i) => renderProductCard(c, i, 'VPN'))}
+            {carritosAgrupados.recarga.map((c, i) => renderProductCard(c, i, 'RECARGA'))}
+            {carritosAgrupados.remesa.map((c, i) => renderProductCard(c, i, 'REMESA'))}
+          </ScrollView>
 
-            {/* NUEVO: botón para aprobar la venta */}
-            <View style={{ flexDirection: 'row' }}>
-              <Button
-                mode="outlined"
-                onPress={handleRechazarVenta}
-                disabled={rechazandoVenta || ventaRechazada || ventaYaEntregada || !Meteor?.user()?.permitirAprobacionEfectivoCUP}
-                icon="close-octagon"
-                compact
-                style={{ marginRight: 8 }}
-                textColor="#e53935"
-              >
-                {rechazandoVenta ? 'Rechazando...' : 'Rechazar'}
-              </Button>
-              <Button
-                mode="contained"
-                onPress={handleAprobarVenta}
-                disabled={!canApproveSale || aprobandoVenta || !Meteor?.user()?.permitirAprobacionEfectivoCUP}
-                icon="check-decagram"
-                compact
-                contentStyle={{ height: 36 }}
-              >
-                {aprobandoVenta ? 'Procesando...' : 'Aprobar venta'}
-              </Button>
-            </View>
-          </View>
+          <Divider style={styles.divider} />
+
+          <Text style={styles.sectionTitle}>Evidencias de Pago</Text>
 
           {cargando && evidencias.length === 0 ? (
-              <View style={styles.emptyBox}>
-                <ActivityIndicator />
-                <Text style={styles.emptyText}>Cargando evidencias...</Text>
-              </View>
-            ) : evidencias.length > 0 ? (
+            <View style={styles.emptyBox}>
+              <ActivityIndicator />
+              <Text style={styles.emptyText}>Cargando evidencias...</Text>
+            </View>
+          ) : evidencias.length > 0 ? (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -355,12 +460,36 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
               })}
             </ScrollView>
           ) : (
-            <Text style={styles.emptyText}>No hay evidencias.</Text>
+            <Text style={styles.emptyText}>No hay evidencias subidas.</Text>
           )}
+
+          <Divider style={styles.divider} />
+          
+          <View style={styles.actionsContainer}>
+            <Button
+              mode="outlined"
+              onPress={handleRechazarVenta}
+              disabled={rechazandoVenta || ventaRechazada || ventaYaEntregada || !Meteor?.user()?.permitirAprobacionEfectivoCUP}
+              icon="close-octagon"
+              style={styles.rejectButton}
+              color="#e53935"
+            >
+              {rechazandoVenta ? 'Rechazando...' : 'Rechazar Venta'}
+            </Button>
+            <Button
+              mode="contained"
+              onPress={handleAprobarVenta}
+              disabled={!canApproveSale || aprobandoVenta || !Meteor?.user()?.permitirAprobacionEfectivoCUP}
+              icon="check-decagram"
+              style={styles.approveButton}
+              contentStyle={{ height: 44 }}
+            >
+              {aprobandoVenta ? 'Procesando...' : 'Aprobar Venta'}
+            </Button>
+          </View>
         </Card.Content>
       )}
 
-      {/* Drawer sólo si expanded */}
       {expanded && (
         <DrawerBottom
           open={!!preview}
@@ -475,18 +604,58 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
 export default AprobacionEvidenciasVenta;
 
 const styles = StyleSheet.create({
-  card: { marginHorizontal: 8, marginVertical: 6, elevation: 2 },
-  title: { fontSize: 16, fontWeight: '600' },
+  card: { marginHorizontal: 10, marginVertical: 15, elevation: 10, borderRadius: 12, padding:10 },
+  
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center' },
+  title: { fontSize: 16, fontWeight: '700' },
+  badgeRechazada: { marginLeft: 8, backgroundColor: '#e74c3c', fontSize: 9 },
+  badgeEntregada: { marginLeft: 8, backgroundColor: '#2e7d32', fontSize: 9 },
+  subtitleRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   subtitle: { fontSize: 11 },
-  divider: { marginBottom: 10 },
-  lastWrapper: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  lastThumb: { width: 46, height: 46, borderRadius: 8, backgroundColor: '#eee' },
-  lastInfo: { marginLeft: 10, flex: 1 },
-  lastLabel: { fontSize: 12, fontWeight: '600', color: '#222' },
-  lastSub: { fontSize: 11, color: '#666', marginTop: 2 },
 
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  sectionTitle: { fontSize: 13, fontWeight: '600', color: '#333' },
+  summaryBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 4
+  },
+  summaryItem: { flexDirection: 'row', alignItems: 'center' },
+  summaryIcon: { margin: 0, padding: 0 },
+  summaryText: { fontSize: 11, marginLeft: 4 },
+
+  divider: { marginVertical: 12 },
+
+  evidencePreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 16,
+    // backgroundColor: '#fafafa'
+  },
+  evidenceThumb: { width: 56, height: 56, borderRadius: 8, backgroundColor: '#eee' },
+  evidenceLabel: { fontSize: 12, fontWeight: '600'},
+  evidenceSub: { fontSize: 10, color: '#888' },
+
+  sectionTitle: { fontSize: 14, fontWeight: '700', marginBottom: 8 },
+  productsScroll: { maxHeight: 300, marginBottom: 12 },
+  miniCard: {
+    borderLeftWidth: 4,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 8,
+    // backgroundColor: '#fff'
+  },
+  miniCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  miniIcon: { margin: 0, padding: 0 },
+  miniCardTitle: { fontSize: 12, fontWeight: '700' },
+  miniCardUser: { fontSize: 10, marginTop: 2 },
+  miniCardRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, minHeight: 20 },
+  miniRowIcon: { margin: 0, padding: 0, marginRight: 4 },
+  miniCardLabel: { fontSize: 10, marginRight: 6 },
+  miniCardValue: { fontSize: 10, fontWeight: '600', flex: 1 },
+  unlimitedBadge: { flexDirection: 'row', alignItems: 'center' },
+  unlimitedText: { fontSize: 9, fontWeight: '900', color: '#FFD700', marginLeft: -4 },
 
   scrollRow: { paddingVertical: 4 },
   thumbContainer: {
@@ -550,25 +719,21 @@ const styles = StyleSheet.create({
   aprobadaInfo: { fontSize: 12, color: '#2e7d32', fontWeight: '600' },
   rechazadaInfo: { fontSize: 12, color: '#e74c3c', fontWeight: '600' },
 
-  collapsedBox: {
-    paddingHorizontal: 16,
-    paddingBottom: 4,
-    flexDirection: 'row'
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 16,
+    paddingTop: 8
   },
-  colLabel: { fontSize: 11, fontWeight: '600', color: '#555', marginRight: 6 },
-  colValue: { flex: 1, fontSize: 11, color: '#333' },
-  estadoVentaBadge: { marginHorizontal: 16, marginTop: 4, paddingVertical: 4 },
-  estadoVentaText: { fontSize: 11, fontWeight: '700', color: '#2e7d32' },
+  rejectButton: {
+    flex: 1,
+    borderColor: '#e53935',
+    borderWidth: 1.5,
+    borderRadius:22
+  },
+  approveButton: {
+    flex: 1,
+    borderRadius:22
+  },
 });
-
-/*
-  FUTURAS MEJORAS:
-  - Implementar método 'archivos.resetEstadoEvidencia' para revertir rechazo si fue un error.
-  - Añadir timestamp y usuario que cambió el estado (auditoría).
-  - Unificar color palette vía theme react-native-paper.
-  - Soportar tipos de archivo (PDF) mostrando ícono en lugar de intentar renderizar imagen.
-  - Card expandible (expanded) para mejorar performance y UX.
-  - Resumen colapsado con userId y recargas (teléfono - nombre).
-  - Botón Rechazar venta usando VentasRechargeCollection.update (recomendado migrar a Meteor.method).
-  - Manejo de estados finales (RECHAZADA / ENTREGADO / PAGADA / COMPLETADA) deshabilitando acciones.
-*/

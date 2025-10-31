@@ -1,465 +1,322 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
-import {
-  Text,
-  Card,
-  Button,
-  Divider,
-  RadioButton,
-  ActivityIndicator,
-  Chip,
-  Surface,
-  Portal,
-  Dialog,
-} from 'react-native-paper';
+import React, { Component } from 'react';
+import { View, StyleSheet, Alert, ScrollView } from 'react-native';
+import { Card, Title, Paragraph, Button, Divider, Chip, ActivityIndicator, IconButton } from 'react-native-paper';
 import Meteor from '@meteorrn/core';
 import { megasToGB } from '../shared/MegasConverter';
 
-/**
- * ProxyPurchaseScreen - Pantalla profesional de confirmación de compra Proxy
- * 
- * Props esperadas via route.params:
- * - paquete: { _id, megas, precio, comentario }
- * - descuentoProxy: Number (descuento del usuario en %)
- */
-const ProxyPurchaseScreen = ({ route, navigation }) => {
-  const { paquete, descuentoProxy = 0 } = route.params || {};
+export default class ProxyPurchaseScreen extends Component {
+  state = {
+    loading: false,
+    precioCalculado: null
+  };
 
-  // Estados
-  const [user, setUser] = useState(null);
-  const [precioCalculado, setPrecioCalculado] = useState(null);
-  const [metodoPago, setMetodoPago] = useState('PAYPAL');
-  const [loading, setLoading] = useState(true);
-  const [procesando, setProcesando] = useState(false);
-  const [dialogVisible, setDialogVisible] = useState(false);
+  componentDidMount() {
+    this.calcularPrecio();
+  }
 
-  useEffect(() => {
-    // Validar datos del paquete
-    if (!paquete?.megas || !paquete?.precio) {
-      Alert.alert('Error', 'Datos del paquete inválidos');
-      navigation.goBack();
-      return;
-    }
+  calcularPrecio = async () => {
+    const { paquete } = this.props.route.params;
+    const user = Meteor.user();
 
-    // Obtener usuario actual
-    const userData = Meteor.user();
-    if (!userData) {
-      Alert.alert('Error', 'Debes iniciar sesión para continuar');
-      navigation.goBack();
-      return;
-    }
-    setUser(userData);
-
-    // Calcular precio con descuento
-    Meteor.call(
-      'ventas.calcularPrecioProxyVPN',
-      {
-        userId: Meteor.userId(),
-        type: 'PROXY',
-        megas: paquete.megas,
-      },
-      (error, result) => {
-        setLoading(false);
-        if (error) {
-          console.error('Error calculando precio Proxy:', error);
-          Alert.alert('Error', 'No se pudo calcular el precio del paquete');
-          navigation.goBack();
-        } else {
-          setPrecioCalculado(result);
-        }
-      }
-    );
-  }, [paquete, navigation]);
-
-  // Validar paquete Proxy activo
-  const validarPaqueteActivo = () => {
     if (!user) {
-      Alert.alert('Error', 'No se pudo cargar información del usuario');
-      return false;
-    }
-
-    // ✅ user.baneado === false significa Proxy activo
-    const tieneProxyActivo = user.baneado === false;
-    const esIlimitado = user.isIlimitado === true;
-
-    if (tieneProxyActivo && !esIlimitado) {
-      Alert.alert(
-        'Paquete Proxy Activo',
-        'Ya tienes un paquete Proxy activo. Debes esperar a que venza o se consuma antes de comprar otro.',
-        [{ text: 'Entendido' }]
-      );
-      return false;
-    }
-
-    return true;
-  };
-
-  // Handler confirmación de compra
-  const handleConfirmarCompra = () => {
-    Alert.alert("Info", "Pronto Llegara esta funcionalidad")
-    return;
-    if (!validarPaqueteActivo()) return;
-
-    // Para métodos que requieren evidencia, mostrar diálogo de confirmación
-    if (metodoPago === 'TRANSFERENCIA' || metodoPago === 'EFECTIVO') {
-      setDialogVisible(true);
-    } else {
-      procesarCompra();
-    }
-  };
-
-  // Procesar compra y agregar al carrito
-  const procesarCompra = () => {
-    if (!precioCalculado) {
-      Alert.alert('Error', 'Precio no calculado');
+      Alert.alert('Error', 'Debes iniciar sesión para continuar');
+      this.props.navigation.goBack();
       return;
     }
 
-    setLoading(true);
-    setProcesando(true);
-    setDialogVisible(false);
+    this.setState({ loading: true });
 
-    Meteor.call(
-      'carrito.addProxyVPN',
-      {
-        type: 'PROXY',
-        megas: paquete.megas,
-        precioBaseProxyVPN: precioCalculado.precioBase,
-        descuentoAdmin: precioCalculado.descuento,
-        metodoPago,
-      },
-      (error, carritoId) => {
-        setLoading(false);
-        setProcesando(false);
-
-        if (error) {
-          console.error('Error agregando Proxy al carrito:', error);
-          Alert.alert(
-            'Error',
-            error.reason || 'No se pudo agregar el paquete al carrito'
-          );
-        } else {
-          // Navegación según método de pago
-          if (metodoPago === 'PAYPAL') {
-            Alert.alert(
-              '¡Éxito!',
-              'Paquete agregado al carrito. Serás redirigido a PayPal.',
-              [
-                {
-                  text: 'Continuar',
-                  onPress: () => navigation.navigate('Carrito', {
-                    autoCheckout: true,
-                    paymentMethod: 'PAYPAL',
-                  }),
-                },
-              ]
-            );
-          } else {
-            Alert.alert(
-              'Paquete Agregado',
-              'Ahora debes subir evidencia de pago. El servicio se activará tras aprobación del administrador.',
-              [
-                {
-                  text: 'Subir Evidencia',
-                  onPress: () => navigation.navigate('EvidenciaVenta', {
-                    carritoId,
-                    metodoPago,
-                    type: 'PROXY',
-                  }),
-                },
-                {
-                  text: 'Después',
-                  onPress: () => navigation.navigate('Carrito'),
-                  style: 'cancel',
-                },
-              ]
-            );
-          }
-        }
+    Meteor.call('ventas.calcularPrecioProxyVPN', {
+      userId: user._id,
+      type: 'PROXY',
+      megas: paquete.megas,
+      esPorTiempo: paquete.esPorTiempo || false
+    }, (error, result) => {
+      if (error) {
+        console.error('Error calculando precio:', error);
+        Alert.alert('Error', 'No se pudo calcular el precio del paquete');
+        this.setState({ loading: false });
+        return;
       }
-    );
+
+      this.setState({ 
+        precioCalculado: result,
+        loading: false 
+      });
+    });
   };
 
-  // Loading inicial
-  if (loading && !precioCalculado) {
+  handleConfirmarCompra = async () => {
+    const { paquete } = this.props.route.params;
+    const { precioCalculado } = this.state;
+
+    if (!precioCalculado) {
+      Alert.alert('Error', 'Calculando precio, por favor espera...');
+      return;
+    }
+
+    this.setState({ loading: true });
+
+    try {
+      await new Promise((resolve, reject) => {
+        Meteor.call('carrito.addProxyVPN', {
+          type: 'PROXY',
+          megas: paquete.megas,
+          precioBaseProxyVPN: precioCalculado.precioBase,
+          descuentoAdmin: precioCalculado.descuento,
+          comentario: paquete.comentario || paquete.detalles,
+          esPorTiempo: paquete.esPorTiempo || false
+        }, (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        });
+      });
+
+      this.setState({ loading: false });
+
+      Alert.alert(
+        '¡Agregado al Carrito!',
+        'El paquete ha sido agregado al carrito. Abre el carrito para completar tu compra.',
+        [
+          {
+            text: 'Continuar comprando',
+            style: 'cancel',
+            onPress: () => this.props.navigation.goBack()
+          },
+          {
+            text: 'Ir al Carrito',
+            onPress: () => {
+              this.props.navigation.navigate('Home');
+            }
+          }
+        ]
+      );
+
+    } catch (error) {
+      this.setState({ loading: false });
+      console.error('Error agregando al carrito:', error);
+      Alert.alert(
+        'Error',
+        error.reason || 'No se pudo agregar el paquete al carrito'
+      );
+    }
+  };
+
+  render() {
+    const { paquete } = this.props.route.params;
+    const { loading, precioCalculado } = this.state;
+    const esPorTiempo = paquete.esPorTiempo || false;
+
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2196F3" />
-        <Text style={styles.loadingText}>Calculando precio...</Text>
-      </View>
+      <ScrollView style={styles.container}>
+        <Card style={styles.card}>
+          <Card.Content>
+            <View style={styles.section}>
+              <Title style={styles.sectionTitle}>Detalles del Paquete</Title>
+              
+              {/* ✅ Chip adaptado para ilimitados */}
+              {esPorTiempo ? (
+                <View style={styles.unlimitedChipContainer}>
+                  <IconButton 
+                    icon="infinity" 
+                    size={28} 
+                    iconColor="#FFD700"
+                    style={{ margin: 0 }}
+                  />
+                  <Paragraph style={styles.unlimitedChipText}>ILIMITADO - 30 días</Paragraph>
+                </View>
+              ) : (
+                <Chip 
+                  icon="wifi" 
+                  style={styles.packageChip}
+                  textStyle={styles.packageChipText}
+                >
+                  {megasToGB(paquete.megas)}
+                </Chip>
+              )}
+
+              {!!(paquete.comentario || paquete.detalles) && (
+                <Paragraph style={styles.description}>
+                  {paquete.comentario || paquete.detalles}
+                </Paragraph>
+              )}
+            </View>
+
+            <Divider style={styles.divider} />
+
+            <View style={styles.section}>
+              <Title style={styles.sectionTitle}>Detalles de Precio</Title>
+              
+              {loading || !precioCalculado ? (
+                <ActivityIndicator size="small" color="#2196F3" style={{ marginVertical: 16 }} />
+              ) : (
+                <>
+                  <View style={styles.priceRow}>
+                    <Paragraph>Precio base:</Paragraph>
+                    <Paragraph style={styles.priceText}>
+                      ${precioCalculado.precioBase} CUP
+                    </Paragraph>
+                  </View>
+
+                  {precioCalculado.descuento > 0 && (
+                    <View style={styles.priceRow}>
+                      <Paragraph>Descuento ({precioCalculado.descuento}%):</Paragraph>
+                      <Paragraph style={[styles.priceText, styles.discountText]}>
+                        -${precioCalculado.descuentoAplicado.toFixed(2)} CUP
+                      </Paragraph>
+                    </View>
+                  )}
+
+                  <Divider style={styles.smallDivider} />
+
+                  <View style={styles.priceRow}>
+                    <Title style={styles.totalLabel}>Total a pagar:</Title>
+                    <Title style={[styles.totalPrice, { color: '#2196F3' }]}>
+                      ${precioCalculado.precioFinal} CUP
+                    </Title>
+                  </View>
+                </>
+              )}
+            </View>
+
+            <Divider style={styles.divider} />
+
+            <View style={styles.infoBox}>
+              <Paragraph style={styles.infoText}>
+                ℹ️ El paquete será agregado al carrito. Podrás seleccionar el método de pago (Efectivo o Transferencia) en el siguiente paso.
+              </Paragraph>
+            </View>
+          </Card.Content>
+
+          <Card.Actions style={styles.actions}>
+            <Button
+              mode="outlined"
+              onPress={() => this.props.navigation.goBack()}
+              disabled={loading}
+              style={styles.cancelButton}
+            >
+              Cancelar
+            </Button>
+            <Button
+              mode="contained"
+              onPress={this.handleConfirmarCompra}
+              loading={loading}
+              disabled={loading || !precioCalculado}
+              buttonColor="#2196F3"
+              style={styles.confirmButton}
+            >
+              Agregar al Carrito
+            </Button>
+          </Card.Actions>
+        </Card>
+      </ScrollView>
     );
   }
-
-  if (!precioCalculado) {
-    return null;
-  }
-
-  const megasGB = megasToGB(paquete.megas);
-  const tieneDescuento = precioCalculado.descuento > 0;
-
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Card: Resumen del Paquete */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <View style={styles.header}>
-            <Text variant="headlineSmall" style={styles.titleProxy}>
-              Resumen de Compra
-            </Text>
-            <Chip icon="wifi" mode="outlined" textStyle={styles.chipProxy}>
-              Proxy
-            </Chip>
-          </View>
-
-          <Divider style={styles.divider} />
-
-          <View style={styles.row}>
-            <Text variant="bodyLarge">Paquete:</Text>
-            <Text variant="bodyLarge" style={styles.bold}>
-              {megasGB}
-            </Text>
-          </View>
-
-          <View style={styles.row}>
-            <Text variant="bodyLarge">Precio base:</Text>
-            <Text variant="bodyLarge">${precioCalculado?.precioBase?.toFixed(2)}</Text>
-          </View>
-
-          {tieneDescuento && (
-            <>
-              <View style={styles.row}>
-                <Text variant="bodyLarge">Descuento:</Text>
-                <Text variant="bodyLarge" style={styles.descuento}>
-                  -{precioCalculado.descuento}% (-${precioCalculado.descuentoAplicado.toFixed(2)})
-                </Text>
-              </View>
-              <Divider style={styles.divider} />
-            </>
-          )}
-
-          <View style={styles.row}>
-            <Text variant="titleLarge" style={styles.bold}>
-              Total a pagar:
-            </Text>
-            <Text variant="titleLarge" style={[styles.bold, styles.precioFinalProxy]}>
-              ${precioCalculado.precioFinal.toFixed(2)}
-            </Text>
-          </View>
-        </Card.Content>
-      </Card>
-
-      {/* Card: Método de Pago */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.subtitle}>
-            Método de Pago
-          </Text>
-          <Divider style={styles.divider} />
-
-          <RadioButton.Group onValueChange={setMetodoPago} value={metodoPago}>
-            <Surface style={styles.radioOption}>
-              <RadioButton.Item
-                label="PayPal (Activación inmediata)"
-                value="PAYPAL"
-                status={metodoPago === 'PAYPAL' ? 'checked' : 'unchecked'}
-              />
-            </Surface>
-
-            <Surface style={styles.radioOption}>
-              <RadioButton.Item
-                label="Transferencia bancaria (Requiere evidencia)"
-                value="TRANSFERENCIA"
-                status={metodoPago === 'TRANSFERENCIA' ? 'checked' : 'unchecked'}
-              />
-            </Surface>
-
-            <Surface style={styles.radioOption}>
-              <RadioButton.Item
-                label="Efectivo (Requiere evidencia)"
-                value="EFECTIVO"
-                status={metodoPago === 'EFECTIVO' ? 'checked' : 'unchecked'}
-              />
-            </Surface>
-          </RadioButton.Group>
-
-          {metodoPago !== 'PAYPAL' && (
-            <Text variant="bodySmall" style={styles.nota}>
-              ℹ️ Deberás subir evidencia de pago. El servicio se activará tras
-              aprobación del administrador (2-24 horas).
-            </Text>
-          )}
-        </Card.Content>
-      </Card>
-
-      {/* Card: Tu Saldo Actual */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.subtitle}>
-            Tu Saldo Actual de Proxy
-          </Text>
-          <Divider style={styles.divider} />
-
-          <View style={styles.row}>
-            <Text variant="bodyMedium">Estado Proxy:</Text>
-            {user?.baneado === false ? (
-              <Chip icon="check-circle" textStyle={styles.chipActive} compact>
-                Activo
-              </Chip>
-            ) : (
-              <Text variant="bodyMedium" style={styles.inactive}>Sin servicio</Text>
-            )}
-          </View>
-
-          <View style={styles.row}>
-            <Text variant="bodyMedium">Datos disponibles:</Text>
-            <Text variant="bodyMedium" style={styles.bold}>
-              {user?.isIlimitado
-                ? '∞ Ilimitado'
-                : megasToGB(user?.megas || 0)}
-            </Text>
-          </View>
-        </Card.Content>
-      </Card>
-
-      {/* Botones de Acción */}
-      <View style={styles.actions}>
-        <Button
-          mode="outlined"
-          onPress={() => navigation.goBack()}
-          style={styles.buttonOutlined}
-          disabled={procesando}
-        >
-          Cancelar
-        </Button>
-        <Button
-          mode="contained"
-          onPress={handleConfirmarCompra}
-          style={styles.buttonContainedProxy}
-          buttonColor="#2196F3"
-          loading={procesando}
-          disabled={procesando}
-        >
-          Confirmar Compra
-        </Button>
-      </View>
-
-      {/* Dialog de Confirmación */}
-      <Portal>
-        <Dialog visible={dialogVisible} onDismiss={() => setDialogVisible(false)}>
-          <Dialog.Title>Confirmar Compra</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">
-              Deberás subir evidencia de {metodoPago === 'TRANSFERENCIA' ? 'transferencia' : 'pago en efectivo'}.
-              {'\n\n'}
-              ¿Deseas continuar?
-            </Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setDialogVisible(false)}>Cancelar</Button>
-            <Button onPress={procesarCompra} mode="contained" buttonColor="#2196F3">
-              Confirmar
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-    </ScrollView>
-  );
-};
+}
 
 const styles = StyleSheet.create({
-  // ...existing code...
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    color: '#666',
+    backgroundColor: '#F5F5F5'
   },
   card: {
-    marginBottom: 16,
-    elevation: 2,
-    borderRadius: 12,
+    margin: 16,
+    elevation: 4,
+    borderRadius: 12
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+  section: {
+    marginVertical: 12
   },
-  titleProxy: {
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#2196F3',
+    marginBottom: 12
   },
-  chipProxy: {
-    color: '#2196F3',
-  },
-  subtitle: {
-    fontWeight: '600',
+  packageChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(33, 150, 243, 0.12)', // ✅ Más sutil para modo oscuro
     marginBottom: 8,
+    maxHeight: 32
+  },
+  packageChipText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2196F3'
+  },
+  // ✅ NUEVO: Estilos para chip ilimitado
+  unlimitedChipContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 215, 0, 0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginBottom: 8
+  },
+  unlimitedChipText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFD700',
+    marginLeft: 4
+  },
+  description: {
+    color: '#666',
+    fontSize: 14,
+    lineHeight: 20
   },
   divider: {
-    marginVertical: 12,
+    marginVertical: 16
   },
-  row: {
+  smallDivider: {
+    marginVertical: 8
+  },
+  priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 6,
+    marginVertical: 6
   },
-  bold: {
+  priceText: {
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  discountText: {
+    color: '#4CAF50'
+  },
+  totalLabel: {
+    fontSize: 18,
     fontWeight: 'bold',
+    color: '#333'
   },
-  descuento: {
-    color: '#4CAF50',
-    fontWeight: '600',
+  totalPrice: {
+    fontSize: 24,
+    fontWeight: 'bold'
   },
-  precioFinalProxy: {
-    color: '#2196F3',
-    fontSize: 20,
-  },
-  radioOption: {
-    marginVertical: 4,
-    borderRadius: 8,
-    elevation: 1,
-  },
-  nota: {
-    marginTop: 12,
+  infoBox: {
+    backgroundColor: '#FFF3CD',
     padding: 12,
-    backgroundColor: '#E3F2FD',
     borderRadius: 8,
-    color: '#1565C0',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFC107'
   },
-  chipActive: {
-    fontSize: 12,
-    color: '#4CAF50',
-  },
-  inactive: {
-    color: '#999',
-    fontStyle: 'italic',
+  infoText: {
+    color: '#856404',
+    fontSize: 13,
+    lineHeight: 18
   },
   actions: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
-    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12
   },
-  buttonOutlined: {
+  cancelButton: {
     flex: 1,
-    borderColor: '#2196F3',
+    marginRight: 8
   },
-  buttonContainedProxy: {
+  confirmButton: {
     flex: 1,
-  },
+    marginLeft: 8
+  }
 });
-
-export default ProxyPurchaseScreen;

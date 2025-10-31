@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
-import { Text, Button, ActivityIndicator } from 'react-native-paper';
+import { Text, Button, ActivityIndicator, Surface } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 import AprobacionEvidenciasVenta from './AprobacionEvidenciasVenta';
 import { VentasRechargeCollection } from '../collections/collections';
@@ -48,7 +48,7 @@ const ListaVentasEfectivo = ({ userId }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <Surface style={styles.container}>
       <FlatList
         data={ventas}
         renderItem={({ item }) => <AprobacionEvidenciasVenta venta={item} />}
@@ -63,14 +63,14 @@ const ListaVentasEfectivo = ({ userId }) => {
           </View>
         }
       />
-    </View>
+    </Surface>
   );
 };
 
 export default ListaVentasEfectivo;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1 },
   centrado: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   textoCargando: { marginTop: 16, fontSize: 16 },
   textoVacio: { fontSize: 16, color: '#666', marginBottom: 16 },

@@ -24,15 +24,6 @@ const WizardConStepper = ({ product, navigation }) => {
     const showModal = () => setVisible(true);
     const hideModal = () => setVisible(false);
 
-  const data = (Meteor.user()?.permitirPagoEfectivoCUP )? [
-    { label: 'Paypal', value: 'paypal' },
-    { label: 'MercadoPago', value: 'mercadopago' },
-    { label: 'Efectivo', value: 'efectivo' }
-  ] : [
-      { label: 'Paypal', value: 'paypal' },
-      { label: 'MercadoPago', value: 'mercadopago' },
-    ]
-
   //ORDENES
   const { readyCompra, compra } = useTracker(() => {
     const readyCompra = Meteor.subscribe('ordenes', {
@@ -55,6 +46,36 @@ const WizardConStepper = ({ product, navigation }) => {
     const pedidos = CarritoCollection.find({ idUser: userId }).fetch();
     return { pedidosRemesa: pedidos,subCarrito };
   });
+
+  // ✅ NUEVO: Detectar si hay items Proxy/VPN en el carrito
+  const tieneProxyVPN = pedidosRemesa?.some(item => 
+    item.type === 'PROXY' || item.type === 'VPN'
+  );
+
+  // ✅ ADAPTACIÓN: Filtrar métodos de pago según contenido del carrito
+  const data = React.useMemo(() => {
+    const baseOptions = [];
+
+    // Si NO tiene Proxy/VPN, mostrar PayPal y MercadoPago
+    if (!tieneProxyVPN) {
+      baseOptions.push(
+        { label: 'Paypal', value: 'paypal' },
+        { label: 'MercadoPago', value: 'mercadopago' }
+      );
+    }
+
+    // Siempre mostrar Efectivo si el usuario tiene permiso
+    if (Meteor.user()?.permitirPagoEfectivoCUP || tieneProxyVPN) {
+      baseOptions.push({ label: 'Efectivo O Transferencia', value: 'efectivo' });
+    }
+
+    // ✅ NUEVO: Agregar Transferencia si hay Proxy/VPN
+    // if (tieneProxyVPN) {
+    //   baseOptions.push({ label: 'Transferencia', value: 'transferencia' });
+    // }
+
+    return baseOptions;
+  }, [tieneProxyVPN, Meteor.user()?.permitirPagoEfectivoCUP]);
 
     useEffect(() => {
         console.log("Active Step:", activeStep);
@@ -79,6 +100,20 @@ const WizardConStepper = ({ product, navigation }) => {
             return;
         }
         console.log(`Método de pago seleccionado: ${metodoPago}`);
+        if (!metodoPago) return;
+
+        // ✅ Para Proxy/VPN con Efectivo/Transferencia, calcular diferente
+        if (tieneProxyVPN && (metodoPago === 'efectivo' || metodoPago === 'transferencia')) {
+          Meteor.call("efectivo.totalAPagar", pedidosRemesa, (err, res) => {
+            if (err) {
+              console.error('Error al calcular total a pagar:', err);
+            } else {
+              setTotalAPagar(res);
+            }
+          });
+          return;
+        }
+
         if (metodoPago == 'paypal') {
           // Aquí podrías hacer algo con el método de pago seleccionado
          Meteor.call("paypal.totalAPagar", pedidosRemesa,(err, res) => {
@@ -106,7 +141,7 @@ const WizardConStepper = ({ product, navigation }) => {
             }
           });
         }
-      },[metodoPago,pedidosRemesa])
+      },[metodoPago,pedidosRemesa, tieneProxyVPN])
 
       const crearOrdenPaypal = () => {
         Meteor.call(
@@ -294,6 +329,17 @@ const WizardConStepper = ({ product, navigation }) => {
                             {/* Paso 2: Resumen del pedido */}
                             <ProgressStep buttonNextDisabled={(!metodoPago || metodoPago == '')} buttonPreviousText='Atras' buttonNextText='Siguiente' buttonPreviousTextColor='white' label="Metodo de Pago" onNext={() => setActiveStep(Number(activeStep)+1)} onPrevious={() => setActiveStep(Number(activeStep)-1)} >
                             <Dialog.Title>Seleccione el Metodo de Pago</Dialog.Title>
+
+                            {/* ✅ NUEVO: Mensaje informativo para Proxy/VPN */}
+                            {tieneProxyVPN && (
+                              <View style={{ padding: 16, backgroundColor: '#FFF3CD', borderRadius: 8, margin: 16 }}>
+                                <Text style={{ color: '#856404', fontSize: 14 }}>
+                                  ℹ️ Los paquetes Proxy/VPN requieren pago por Efectivo o Transferencia. 
+                                  Deberás subir un comprobante de pago para su aprobación.
+                                </Text>
+                              </View>
+                            )}
+
                             <Dropdown
                                 style={styles.dropdown}
                                 placeholderStyle={styles.placeholderStyle}

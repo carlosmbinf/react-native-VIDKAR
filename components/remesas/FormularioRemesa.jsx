@@ -137,7 +137,7 @@ const FormularioRemesa = () => {
         form.metodoPago === 'EFECTIVO' || form.monedaRecibirEnCuba !== 'CUP' ? form.direccionCuba : '',
       comentario: form.comentario,
       type: 'REMESA',
-      metodoPago: 'EFECTIVO',
+      metodoPago: form.metodoPago,
       monedaRecibirEnCuba: form.monedaRecibirEnCuba,
     };
 

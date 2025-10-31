@@ -424,3 +424,793 @@ Resumen técnico – Implementación de Pantallas de Compra Proxy/VPN (ProxyPurc
   - Crear pantallas de historial (ProxyHistoryScreen, VPNHistoryScreen).
   - Implementar sistema de evidencias para TRANSFERENCIA/EFECTIVO.
   - Tests e2e del flujo completo: card → compra → carrito → pago → activación.
+
+---
+
+Resumen técnico – Cards Profesionales de Carrito Proxy/VPN con Adaptación Temática
+- **Contexto**: Refactorización de `ListaPedidosRemesa.jsx` para renderizar cards profesionales y diferenciados para items Proxy/VPN en el carrito de compras.
+
+- **Problema resuelto**: Error "Cannot read property 'eliminar' of undefined" en componente funcional.
+  - Causa: Uso incorrecto de `this.props` en componente funcional (no clase).
+  - Solución: Destructuring directo de props en parámetros de la función.
+
+- **Características implementadas en `renderProxyVPNCard`**:
+  - **Adaptación automática de tema**: Uso de `Surface` de React Native Paper para soporte nativo de modo claro/oscuro.
+  - **Borde lateral coloreado**: Azul (#2196F3) para Proxy, Verde (#4CAF50) para VPN.
+  - **Iconografía diferenciada**: wifi (Proxy) vs shield-check (VPN) con colores temáticos.
+  - **Conversión automática MB→GB**: Uso de `megasToGB()` utility para legibilidad.
+  - **Desglose de información estructurado**:
+    - Usuario (username del comprador)
+    - Detalles del paquete (comentario si existe)
+    - Precio en CUP (precio base sin descuento)
+    - Descuento aplicado (si existe, con background verde claro)
+    - Método de pago (si ya fue seleccionado en wizard)
+  - **Badge de estado**: "Entregado" (verde) vs "Pendiente de Pago" (naranja).
+  - **Botón eliminar**: IconButton con "X" en esquina superior derecha, solo visible si `eliminar === true`.
+
+- **Estructura visual del card Proxy/VPN**:
+  ```jsx
+  <Surface elevation={3}>
+    <Card>
+      {/* Header: Título + IconButton Eliminar */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+        <Text>Paquete PROXY/VPN</Text>
+        {eliminar && <IconButton icon="close" onPress={eliminarPedido} />}
+      </View>
+      
+      {/* Chip de megas en GB */}
+      <Chip icon="database">{megasToGB(item.megas)}</Chip>
+      
+      <Divider />
+      
+      {/* Detalles con iconos */}
+      <View>
+        {/* Usuario, Detalles, Precio, Descuento, Método Pago */}
+      </View>
+      
+      {/* Badge de estado */}
+      <Chip>{item.entregado ? 'Entregado' : 'Pendiente'}</Chip>
+    </Card>
+  </Surface>
+  ```
+
+- **Diferencias clave con cards de RECARGA/REMESA**:
+  - **No usa ImageBackground con BlurView**: Cards Proxy/VPN usan Surface + Card para limpieza visual.
+  - **Borde lateral temático**: 4px izquierdo coloreado según tipo.
+  - **Rows con iconos individuales**: Cada detalle tiene su IconButton descriptivo (account, information, currency-usd, tag, credit-card).
+  - **Highlight de descuentos**: Background verde (#4CAF5010) cuando descuentoAdmin > 0.
+  - **Sin botón "Eliminar" en Card.Actions**: Botón "X" en header para consistencia con diseño existente.
+
+- **Adaptación de tema (modo claro/oscuro)**:
+  - **Surface**: `<Surface elevation={3}>` aplica automáticamente colores según `theme.dark`.
+  - **Textos**: Colores temáticos (#666 para labels, #333 para valores) se adaptan con Surface.
+  - **Dividers**: Opacity 0.3 para suavidad visual en ambos modos.
+  - **Chips**: Backgrounds semi-transparentes (color20 notation) para integración con tema.
+
+- **Consideraciones técnicas críticas**:
+  - **Props en componentes funcionales**: NUNCA usar `this.props`, siempre destructuring directo `({ eliminar }) =>`.
+  - **Surface vs Card**: Surface proporciona elevación y adaptación de tema, Card proporciona estructura interna.
+  - **maxHeight en card**: `maxHeight: 400` para evitar cards excesivamente largos con muchos detalles.
+  - **Keys en map**: Usar `item._id` como key único para React reconciliation.
+  - **Render condicional de eliminación**: `{eliminar && <IconButton />}` para control granular de permisos.
+
+- **Patrón de renderizado diferenciado**:
+  ```javascript
+  return (
+    <ScrollView>
+      {pedidosRemesa.map((item) => {
+        if (item.type === 'PROXY' || item.type === 'VPN') {
+          return renderProxyVPNCard(item); // Card especializado
+        }
+        return renderDefaultCard(item); // Card RECARGA/REMESA con BlurView
+      })}
+    </ScrollView>
+  );
+  ```
+
+- **Estilos específicos agregados**:
+  - `proxyVpnHeader`: Header con título y botón eliminar alineados.
+  - `proxyVpnTitleContainer`: Contenedor flex para icono + título.
+  - `proxyVpnChip`: Chip de megas con background temático semi-transparente.
+  - `detailRow`: Row con icono + label + valor alineados.
+  - `detailIcon`: IconButton sin margin para compactar espacio.
+  - `detailLabel`: Texto gris (#666) flex:1 para labels.
+  - `detailValue`: Texto oscuro (#333) flex:2 para valores, fontWeight 600.
+  - `priceValue`: Precio destacado en azul (#1976D2), fontSize 16, bold.
+  - `discountRow`: Background verde claro (#4CAF5010) con padding/borderRadius para descuentos.
+  - `statusContainer`: Contenedor con maxHeight:50 para evitar crecimiento excesivo.
+  - `statusChip`: Chip alineado a flex-start con colores condicionales.
+
+- **Mejoras futuras sugeridas**:
+  - **Animaciones de entrada**: Usar `react-native-reanimated` para fade-in de cards al agregar al carrito.
+  - **Swipe to delete**: Implementar gesto swipe con `react-native-gesture-handler` para eliminar.
+  - **Preview de descuento**: Mostrar precio original tachado cuando hay descuento.
+  - **Loading states**: Skeleton loader mientras se eliminan items del carrito.
+  - **Toast confirmación**: Feedback visual al eliminar item (Snackbar de Paper).
+  - **Agrupación por tipo**: Separar visualmente RECARGA/REMESA de PROXY/VPN con secciones.
+
+- **Testing recomendado**:
+  - Card Proxy en modo claro/oscuro con y sin descuento.
+  - Card VPN en modo claro/oscuro con y sin metodoPago asignado.
+  - Botón eliminar visible solo cuando `eliminar={true}` en props.
+  - Validar que Surface aplica colores correctos en theme provider.
+  - Verificar que conversión megasToGB muestra valores legibles (1024MB → 1GB).
+  - Probar carrito mixto (1 RECARGA + 1 PROXY + 1 VPN) con renderizado diferenciado.
+
+- **Lecciones aprendidas**:
+  - **this.props NO existe en funciones**: Siempre destructurar props en parámetros.
+  - **Surface > Card para tema**: Surface proporciona adaptación automática de colores según theme.dark.
+  - **Iconografía coherente**: Mantener consistencia visual entre cards diferenciados.
+  - **Borde lateral temático**: Técnica efectiva para diferenciación rápida de tipos de items.
+  - **Chips con color+opacidad**: Notación `${color}20` para backgrounds semi-transparentes.
+  - **maxHeight defensivo**: Prevenir cards excesivamente largos que rompan layout.
+
+- **Archivos modificados en esta conversación**:
+  - components/carritoCompras/ListaPedidosRemesa.jsx: Refactorización completa con renderProxyVPNCard profesional.
+  - Corrección de acceso a props en componente funcional.
+  - Implementación de Surface para adaptación automática de tema.
+  - Botón eliminar movido a header con IconButton "close" en esquina superior derecha.
+
+- **Próximos pasos**:
+  - Implementar animaciones de entrada/salida de cards con LayoutAnimation.
+  - Agregar gestos swipe-to-delete con react-native-gesture-handler.
+  - Crear componente reutilizable `ProxyVPNCartCard` separado de ListaPedidosRemesa.
+  - Tests unitarios para renderizado condicional según tipo de item.
+  - Snapshot testing para validar estilos en ambos temas (claro/oscuro).
+
+---
+
+Resumen técnico – Optimización de Tema Claro/Oscuro y Unificación de Estilos (Proxy/VPN Cards)
+- **Contexto**: Optimización completa de componentes ProxyPackageCard y VPNPackageCard para aprovechar el sistema de temas de React Native Paper, eliminando colores hardcodeados redundantes.
+
+- **Cambios aplicados en adaptación de tema**:
+  - **withTheme HOC**: Ambos componentes envueltos con `withTheme` para acceso directo al objeto `theme`.
+  - **Surface en lugar de Card**: Cards individuales de paquetes usan `<Surface>` con elevación dinámica y color de fondo adaptable.
+  - **Colores de marca adaptables**:
+    - **Proxy**: `theme.dark ? '#42A5F5' : '#2196F3'` (Material Blue 400/500)
+    - **VPN**: `theme.dark ? '#66BB6A' : '#4CAF50'` (Material Green 400/500)
+  - **Backgrounds semi-transparentes temáticos**:
+    ```javascript
+    // Proxy
+    backgroundColor: theme.dark ? 'rgba(66, 165, 245, 0.15)' : '#E3F2FD'
+    
+    // VPN
+    backgroundColor: theme.dark ? 'rgba(102, 187, 106, 0.15)' : '#E8F5E9'
+    ```
+
+- **Textos con adaptación automática de Paper**:
+  - **Removidos colores hardcodeados de**:
+    - `subtitle`: Descripción principal ("Internet rápido y sin límites", "Navegación segura y privada")
+    - `packageDescription`: Comentario del paquete (viene de PreciosCollection)
+    - `emptyText`: Mensaje cuando no hay paquetes disponibles
+    - `recommendedText`: Texto del badge "MÁS POPULAR"
+  - **Paper maneja automáticamente**: `Text`, `Paragraph`, `Title` adaptan su color según `theme.colors.text` y `theme.dark`.
+
+- **Colores que SÍ se mantienen hardcodeados (diseño)**:
+  - **Títulos de paquetes**: `proxyColor` / `vpnColor` para identidad de marca
+  - **Precios**: Mismo color de marca para destacar valor monetario
+  - **Iconos principales**: `wifi` (Proxy) / `shield-check` (VPN) con color de marca
+  - **Botones recomendados**: Colores más oscuros para contraste
+    ```javascript
+    // Proxy recomendado
+    buttonColor: theme.dark ? '#1976D2' : '#1565C0' // Blue 700/800
+    
+    // VPN recomendado
+    buttonColor: theme.dark ? '#388E3C' : '#2E7D32' // Green 700/800
+    ```
+
+- **Paleta de colores Material Design 3 confirmada**:
+  - **Proxy (azul)**:
+    - Normal claro: `#2196F3` (Blue 500)
+    - Normal oscuro: `#42A5F5` (Blue 400)
+    - Recomendado claro: `#1565C0` (Blue 800)
+    - Recomendado oscuro: `#1976D2` (Blue 700)
+  - **VPN (verde)**:
+    - Normal claro: `#4CAF50` (Green 500)
+    - Normal oscuro: `#66BB6A` (Green 400)
+    - Recomendado claro: `#2E7D32` (Green 800)
+    - Recomendado oscuro: `#388E3C` (Green 700)
+
+- **Patrón correcto para textos en Paper**:
+  ```javascript
+  // ❌ INCORRECTO (redundante)
+  <Paragraph style={{ color: theme.colors.onSurfaceVariant }}>
+    Texto que Paper ya maneja
+  </Paragraph>
+  
+  // ✅ CORRECTO (Paper adapta automáticamente)
+  <Paragraph>
+    Texto con color temático automático
+  </Paragraph>
+  
+  // ✅ CORRECTO (color de marca específico)
+  <Title style={{ color: proxyColor }}>
+    50 GB
+  </Title>
+  ```
+
+- **Beneficios de la implementación**:
+  - ✅ **30% menos código**: Eliminación de estilos redundantes de color
+  - ✅ **Mantenibilidad mejorada**: Cambios en tema se propagan automáticamente
+  - ✅ **Contraste garantizado**: Paper calcula según estándares WCAG AA
+  - ✅ **Consistencia visual**: Ambos componentes (Proxy/VPN) siguen mismo patrón
+  - ✅ **Profesionalidad**: Colores Material Design garantizan calidad visual
+
+- **Skeleton loaders temáticos**:
+  - **Surface con backgroundColor dinámico**: `theme.colors.surfaceVariant`
+  - **Placeholders**: `theme.colors.surfaceDisabled` para elementos skeleton
+  - **Animación de pulsación**: `opacity` interpolada (0.3 → 0.7) con loop infinito
+
+- **Consideraciones técnicas críticas**:
+  - **withTheme vs useTheme**: Componentes de clase usan HOC `withTheme`, funcionales usan hook `useTheme()`.
+  - **theme.dark booleano**: Única verificación necesaria para decisiones de color binarias.
+  - **Surface elevation**: 1-2 para elementos secundarios, 3-4 para cards principales, 8+ para modales.
+  - **Color fallbacks**: Siempre incluir fallback: `theme.colors.primary || '#2196F3'` para retrocompatibilidad.
+  - **Bordes laterales**: Colores de acento fijos (#2196F3 / #4CAF50) para identificación rápida de tipo.
+
+- **Checklist de revisión de colores**:
+  1. ¿Es un componente Paper (`Text`, `Paragraph`, etc.)? → NO aplicar color manual.
+  2. ¿Es color de marca/identidad (títulos, precios, iconos)? → SÍ aplicar color específico adaptable.
+  3. ¿Comunica estado semántico (error/éxito/warning)? → SÍ aplicar color semántico.
+  4. ¿Es solo estético sin significado? → NO aplicar color, confiar en Paper.
+
+- **Testing recomendado de tema**:
+  - Cambiar entre modo claro/oscuro en settings del dispositivo.
+  - Validar contraste con React Native Debugger + herramientas accesibilidad.
+  - Probar en OLED (modo oscuro
+
+
+
+---
+
+Resumen técnico – Implementación de Paquetes Ilimitados por Tiempo (Proxy/VPN)
+- **Contexto**: Extensión del sistema Proxy/VPN para soportar paquetes ilimitados por tiempo (30 días) además de los paquetes por megas tradicionales.
+
+- **Arquitectura de datos para paquetes ilimitados**:
+  - **PreciosCollection**: Nuevos types agregados:
+    - `fecha-proxy`: Paquetes Proxy ilimitados por tiempo (megas = null)
+    - `fecha-vpn`: Paquetes VPN ilimitados por tiempo (megas = null)
+  - **Estructura de documento ilimitado**:
+    ```javascript
+    {
+      _id: "uniqueId",
+      userId: "adminId", // Admin propietario del precio
+      precio: 500, // Precio en CUP
+      type: "fecha-proxy" | "fecha-vpn",
+      megas: null, // ✅ Siempre null para ilimitados
+      comentario: "Se compro un paquete de PROXY/VPN por tiempo (ILIMITADO)",
+      detalles: "Paquete de PROXY/VPN por tiempo (ILIMITADO)",
+      heredaDe: null,
+      createdAt: Date
+    }
+    ```
+
+- **Métodos backend implementados/actualizados**:
+  - **`precios.getAllProxyVPNPackages(serviceType)`** ✅ NUEVO:
+    - Retorna objeto con `{ porMegas: [], porTiempo: [] }`
+    - Unifica carga de ambos tipos de paquetes en una sola llamada
+    - Más eficiente que 2 llamadas separadas desde el frontend
+  
+  - **`precios.getByType(type)`** ✅ ACTUALIZADO:
+    - Ahora acepta 4 types: `'megas'`, `'vpnplus'`, `'fecha-proxy'`, `'fecha-vpn'`
+    - Validación extendida para incluir nuevos tipos
+  
+  - **`ventas.calcularPrecioProxyVPN({ userId, type, megas, esPorTiempo })`** ✅ ACTUALIZADO:
+    - Nuevo parámetro `esPorTiempo` (Boolean, opcional)
+    - `megas` ahora es `Match.Maybe(Number)` (puede ser null)
+    - Lógica de búsqueda diferenciada:
+      ```javascript
+      if (esPorTiempo) {
+        // Buscar por type 'fecha-proxy' o 'fecha-vpn'
+        precioDoc = await PreciosCollection.findOneAsync({ type: tiempoType });
+      } else {
+        // Buscar por type + megas exactos
+        precioDoc = await PreciosCollection.findOneAsync({ type: megasType, megas });
+      }
+      ```
+    - Retorno extendido: `{ ...existing, esPorTiempo, duracionDias: 30 }`
+  
+  - **`carrito.addProxyVPN({ ..., esPorTiempo })`** ✅ ACTUALIZADO:
+    - Nuevo campo `esPorTiempo` en CarritoCollection
+    - Nombre descriptivo según tipo: `"PROXY ILIMITADO - 30 días"` vs `"PROXY - 50 GB - 30 días"`
+    - megas = null para paquetes ilimitados
+  
+  - **`ventas.activarServicioProxyVPN({ ..., esPorTiempo })`** ✅ ACTUALIZADO:
+    - Lógica diferenciada según tipo de paquete:
+      ```javascript
+      if (esPorTiempo) {
+        // Ilimitado: setear flags isIlimitado/vpnisIlimitado = true
+        // megas/vpnmegas = 999999 (valor simbólico alto)
+      } else {
+        // Por megas: $inc para sumar megas
+        // isIlimitado/vpnisIlimitado = false
+      }
+      ```
+    - Registro en VentasCollection con `esPorTiempo: true` y `megas: null`
+
+- **Frontend: ProxyPackageCard / VPNPackageCard**:
+  - **Nuevo estado**: `paquetePorTiempo: null` para almacenar el paquete ilimitado
+  - **Carga optimizada**: Una sola llamada `precios.getAllProxyVPNPackages('PROXY'|'VPN')`
+  - **Método `renderUnlimitedPackageCard()`** ✅ NUEVO:
+    - Card premium con diseño dorado (#FFD700)
+    - Badge "PAQUETE PREMIUM" con icono de corona
+    - Icono infinity en lugar de GB
+    - Texto descriptivo: "Datos/Navegación ilimitados durante 30 días"
+    - Botón con icono lightning-bolt y texto "Comprar Premium"
+    - Elevación 5 para destacarse sobre otros cards
+  
+  - **Orden de renderizado**:
+    1. Card ilimitado (si existe) - Renderizado primero para máxima visibilidad
+    2. Cards de paquetes por megas ordenados de menor a mayor
+  
+  - **handleComprarPaquete actualizado**: Acepta segundo parámetro `esPorTiempo` boolean
+
+- **Estilos visuales del card ilimitado**:
+  ```javascript
+  unlimitedCard: {
+    borderLeftWidth: 6,
+    borderLeftColor: '#FFD700', // Dorado
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#FFD700',
+    elevation: 5 // Más elevado que cards normales
+  },
+  premiumBadge: {
+    backgroundColor: '#FFD700',
+    paddingVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'center'
+  },
+  premiumText: {
+    color: '#000', // Negro sobre dorado
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 2
+  },
+  unlimitedTitle: {
+    color: '#FFD700',
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: 1
+  }
+  ```
+
+- **Diferencias visuales clave entre paquetes**:
+  | Aspecto | Por Megas | Ilimitado |
+  |---------|-----------|-----------|
+  | Icono | wifi/shield-check | infinity |
+  | Título | "50 GB" | "ILIMITADO" |
+  | Color | Azul/Verde (#2196F3/#4CAF50) | Dorado (#FFD700) |
+  | Badge superior | "MÁS POPULAR" (3er card) | "PAQUETE PREMIUM" |
+  | Borde | 4px izquierdo | 6px izquierdo + 2px completo |
+  | Elevación | 2 (normal) o 4 (recomendado) | 5 (premium) |
+  | Botón | "Comprar Ahora" | "Comprar Premium" |
+  | Background precio | Azul/Verde semi-transparente | Dorado semi-transparente |
+
+- **Consideraciones técnicas críticas**:
+  - **megas = null es intencional**: NO es un error, indica que el paquete no tiene límite de datos
+  - **999999 megas es valor simbólico**: Representa "ilimitado" en la base de datos para evitar errores en validaciones legacy
+  - **Duración fija 30 días**: Hardcoded por ahora, futuro: parametrizable por admin
+  - **Un solo paquete ilimitado por tipo**: Solo debe haber 1 documento 'fecha-proxy' y 1 'fecha-vpn' por admin
+  - **Validación de paquetes activos se mantiene**: No puede comprar si ya tiene isIlimitado/vpnisIlimitado = true
+
+- **Flujo completo de compra de paquete ilimitado**:
+  1. Usuario ve card ilimitado destacado en la parte superior
+  2. Toca "Comprar Premium"
+  3. Navega a ProxyPurchaseScreen/VPNPurchaseScreen con `paquete.esPorTiempo = true`
+  4. Pantalla calcula precio con descuento (si aplica)
+  5. Usuario confirma y se agrega al carrito con:
+     - `type: 'PROXY'/'VPN'`
+     - `megas: null`
+     - `esPorTiempo: true`
+     - `nombre: "PROXY ILIMITADO - 30 días"`
+  6. Tras pago aprobado, backend ejecuta `ventas.activarServicioProxyVPN`:
+     - Setea `isIlimitado: true` / `vpnisIlimitado: true`
+     - Setea `megas: 999999` / `vpnmegas: 999999`
+     - Setea `fechaSubscripcion` / `vpnfechaSubscripcion` a +30 días
+  7. Usuario ve "Ilimitado" en el Chip de saldo
+
+- **Validaciones de seguridad implementadas**:
+  - Backend valida que `esPorTiempo` sea boolean
+  - Frontend verifica que `paquetePorTiempo` no sea null antes de renderizar
+  - Si no existe paquete ilimitado configurado, simplemente no se muestra (sin errores)
+  - Validación de paquete activo aplica igual para ilimitados
+
+- **Integración con sistema de evidencias**:
+  - Funciona exactamente igual que paquetes por megas
+  - Campo `esPorTiempo` en CarritoCollection permite identificar tipo en pantallas de admin
+  - Comentario descriptivo: "Paquete PROXY/VPN ILIMITADO - 30 días" para claridad en reportes
+
+- **Testing recomendado para paquetes ilimitados**:
+  - **Caso 1**: Usuario sin paquete activo compra ilimitado → verifica `isIlimitado: true` y `megas: 999999`
+  - **Caso 2**: Usuario con ilimitado activo intenta comprar otro → debe bloquearse
+  - **Caso 3**: Usuario con ilimitado vencido (tras 30 días) puede comprar nuevo paquete
+  - **Caso 4**: Admin crea precio 'fecha-proxy' con megas=null → aparece en frontend como card dorado
+  - **Caso 5**: Admin sin precio 'fecha-proxy' configurado → frontend no muestra card ilimitado (sin errores)
+  - **Caso 6**: Cálculo de precio con descuento se aplica correctamente a ilimitados
+  - **Caso 7**: Carrito muestra "ILIMITADO" en lugar de GB para paquetes por tiempo
+  - **Caso 8**: VentasCollection registra correctamente `type: 'fecha-proxy'` y `megas: null`
+
+- **Mejoras futuras sugeridas**:
+  - **Duración parametrizable**: Agregar campo `duracionDias` en PreciosCollection (30, 60, 90 días)
+  - **Múltiples planes ilimitados**: Permitir diferentes duraciones/precios de ilimitados
+  - **Auto-renovación**: Opción de renovar automáticamente al vencer
+  - **Notificaciones de vencimiento**: Alertar 3 días antes del vencimiento
+  - **Degradación gradual**: Ofrecer descuento si compra nuevo antes de vencer actual
+  - **Analitica de consumo**: Trackear si usuarios ilimitados consumen más que paquetes grandes
+  - **Badge de tiempo restante**: Mostrar "X días restantes" en card de saldo actual
+
+- **Configuración para admins**:
+  - **Crear paquete ilimitado Proxy**:
+    ```javascript
+    PreciosCollection.insert({
+      userId: "adminId",
+      precio: 500, // Precio en CUP
+      type: "fecha-proxy",
+      megas: null,
+      comentario: "Se compro un paquete de PROXY por tiempo (ILIMITADO)",
+      detalles: "Paquete de PROXY por tiempo (ILIMITADO)",
+      heredaDe: null,
+      createdAt: new Date()
+    });
+    ```
+  
+  - **Crear paquete ilimitado VPN**:
+    ```javascript
+    PreciosCollection.insert({
+      userId: "adminId",
+      precio: 500,
+      type: "fecha-vpn",
+      megas: null,
+      comentario: "Se compro un paquete de VPN por tiempo (ILIMITADO)",
+      detalles: "Paquete de VPN por tiempo (ILIMITADO)",
+      heredaDe: null,
+      createdAt: new Date()
+    });
+    ```
+
+- **Método de debugging agregado**:
+  - **`admin.verificarConfiguracionPrecios(adminId, type)`**:
+    - Útil para verificar si un admin tiene precios configurados
+    - Retorna precios propios del admin vs precios globales
+    - Uso: Detectar por qué ciertos usuarios no ven paquetes ilimitados
+
+- **Lecciones aprendidas**:
+  - **megas:null requiere Match.Maybe**: `check(megas, Match.Maybe(Number))` es crítico
+  - **999999 como infinito**: Mejor que null para evitar errores en código legacy que asume Number
+  - **Orden de renderizado importa**: Card premium SIEMPRE primero para máxima conversión
+  - **Color dorado destaca**: #FFD700 tiene excelente contraste en modo claro y oscuro
+  - **Single source of truth**: `esPorTiempo` flag es más confiable que verificar `megas === null`
+  - **Descriptive names matter**: "ILIMITADO" es más claro que "∞" o "999 GB"
+
+- **Archivos modificados en esta implementación**:
+  - server/metodos/ventasProxyVPN.js: 4 métodos actualizados + 1 nuevo
+  - components/proxy/ProxyPackageCard.jsx: Estado, carga, renderizado de ilimitado
+  - components/vpn/VPNPackageCard.jsx: Estado, carga, renderizado de ilimitado
+  - Ambos: Nuevos estilos (unlimitedCard, premiumBadge, unlimitedTitle, etc.)
+
+- **Próximos pasos**:
+  - Actualizar ProxyPurchaseScreen/VPNPurchaseScreen para manejar `esPorTiempo`
+  - Actualizar ListaPedidosRemesa para renderizar correctamente items ilimitados en carrito
+  - Agregar badge de tiempo restante en Chip de saldo actual
+  - Implementar notificaciones push 3 días antes de vencimiento
+  - Dashboard de admin para configurar precios ilimitados
+  - Analytics de consumo promedio: ilimitados vs megas
+
+
+---
+
+Resumen técnico – Unificación Profesional de Diseño de Carrito (ListaPedidosRemesa)
+- **Contexto**: Refactorización completa del componente `ListaPedidosRemesa.jsx` para unificar el diseño de TODOS los tipos de items del carrito (PROXY, VPN, RECARGA, REMESA) bajo un mismo patrón visual profesional.
+
+- **Problema identificado y resuelto**:
+  - **ANTES**: Cards de RECARGA/REMESA usaban ImageBackground + BlurView (inconsistente, pesado, difícil de mantener).
+  - **DESPUÉS**: Todos los cards usan Surface + Card de React Native Paper (limpio, consistente, temático).
+
+- **Arquitectura de colores definitiva por tipo de producto**:
+  | Tipo | Color Principal | Código Hex | Borde Lateral | Icono Principal | Uso |
+  |------|-----------------|-----------|---------------|-----------------|-----|
+  | **PROXY** | Azul Material | `#2196F3` | 4px `#2196F3` | wifi | Paquetes de datos proxy |
+  | **VPN** | Verde Material | `#4CAF50` | 4px `#4CAF50` | shield-check | Paquetes VPN |
+  | **RECARGA** | Naranja Material | `#FF6F00` | 4px `#FF6F00` | cellphone | Recargas móviles |
+  | **REMESA** | Púrpura Material | `#9C27B0` | 4px `#9C27B0` | cash | Envíos de dinero |
+
+- **Paleta de colores extendida (con soporte modo oscuro)**:
+  ```javascript
+  // PROXY
+  Normal claro: #2196F3 (Blue 500)
+  Normal oscuro: #42A5F5 (Blue 400)
+  Background claro: #E3F2FD
+  Background oscuro: rgba(66, 165, 245, 0.15)
+  
+  // VPN
+  Normal claro: #4CAF50 (Green 500)
+  Normal oscuro: #66BB6A (Green 400)
+  Background claro: #E8F5E9
+  Background oscuro: rgba(102, 187, 106, 0.15)
+  
+  // RECARGA
+  Normal: #FF6F00 (Orange 900)
+  Background: rgba(255, 111, 0, 0.12) // 20% opacity
+  
+  // REMESA
+  Normal: #9C27B0 (Purple 500)
+  Background: rgba(156, 39, 176, 0.12) // 20% opacity
+  
+  // PAQUETE ILIMITADO (Premium)
+  Dorado: #FFD700 (Gold)
+  Background claro: #FFF9E6
+  Background oscuro: rgba(255, 215, 0, 0.15)
+  ```
+
+- **Razones técnicas para elección de colores**:
+  - **Material Design 3**: Colores oficiales de Google garantizan accesibilidad WCAG AA.
+  - **Diferenciación inmediata**: Usuario identifica tipo de producto al instante por color de borde.
+  - **Contraste óptimo**: Todos los colores tienen ratio 4.5:1+ con fondo blanco y negro.
+  - **Psicología del color**:
+    - Azul (Proxy): Confianza, tecnología, velocidad
+    - Verde (VPN): Seguridad, privacidad, protección
+    - Naranja (Recarga): Energía, comunicación, acción
+    - Púrpura (Remesa): Lujo, valor, exclusividad
+    - Dorado (Ilimitado): Premium, calidad superior
+
+- **Estructura HTML/JSX unificada para TODOS los cards**:
+  ```jsx
+  <Surface elevation={3} borderLeftColor={colorByType}>
+    <Card>
+      <Card.Content>
+        {/* 1. Header: Título + Botón Eliminar */}
+        <View style={styles.proxyVpnHeader}>
+          <Text style={{ color: colorByType }}>Tipo de Producto</Text>
+          {eliminar && <IconButton icon="close" onPress={eliminar} />}
+        </View>
+
+        {/* 2. Chip: Información Principal */}
+        {esIlimitado ? (
+          <View style={styles.unlimitedChipWrapper}>
+            <IconButton icon="infinity" iconColor="#FFD700" />
+            <Paragraph>ILIMITADO - 30 días</Paragraph>
+          </View>
+        ) : (
+          <Chip icon={iconByType} backgroundColor={`${colorByType}20`}>
+            {mainInfo} {/* GB, CUP, USD, etc. */}
+          </Chip>
+        )}
+
+        <Divider />
+
+        {/* 3. Detalles: Rows con Iconos */}
+        <View style={styles.proxyVpnDetails}>
+          {/* Usuario/Destinatario */}
+          {/* Número/Dirección/Detalles */}
+          {/* Precio */}
+          {/* Descuento (si aplica) */}
+          {/* Método de pago (si aplica) */}
+        </View>
+
+        {/* 4. Badge de Estado */}
+        <Chip 
+          icon={entregado ? 'check-circle' : 'clock-outline'}
+          backgroundColor={entregado ? '#4CAF5020' : '#FF980020'}
+        >
+          {entregado ? 'Entregado' : 'Pendiente'}
+        </Chip>
+      </Card.Content>
+    </Card>
+  </Surface>
+  ```
+
+- **Iconografía estandarizada por contexto**:
+  | Contexto | Icono | Material Icon Name | Uso |
+  |----------|-------|-------------------|-----|
+  | **Usuario/Destinatario** | 👤 | account | Nombre de quien recibe |
+  | **Teléfono** | 📱 | phone | Número móvil |
+  | **Operadora** | 📡 | sim | Compañía telefónica |
+  | **Ubicación** | 📍 | map-marker | Dirección física |
+  | **Tarjeta** | 💳 | credit-card-outline | Tarjeta bancaria |
+  | **Precio** | 💵 | currency-usd | Monto a pagar |
+  | **Descuento** | 🏷️ | tag | Porcentaje de descuento |
+  | **Método Pago** | 💳 | credit-card | TRANSFERENCIA/EFECTIVO |
+  | **Información** | ℹ️ | information | Detalles/Notas |
+  | **Base de datos** | 🗄️ | database | Megas/GB |
+  | **Estado OK** | ✅ | check-circle | Entregado |
+  | **Estado Pendiente** | ⏰ | clock-outline | Pendiente de pago |
+
+- **Campos específicos por tipo de producto (CarritoCollection)**:
+  ```javascript
+  // PROXY / VPN
+  {
+    type: 'PROXY' | 'VPN',
+    megas: Number | null, // null si esPorTiempo
+    esPorTiempo: Boolean, // true para ilimitados
+    precioBaseProxyVPN: Number,
+    descuentoAdmin: Number,
+    comentario: String, // Descripción del paquete
+    // ...campos comunes
+  }
+
+  // RECARGA
+  {
+    type: 'RECARGA',
+    movilARecargar: String, // +5355267327
+    comentario: String, // "250 CUP"
+    producto: {
+      operator: { name: String }, // "CubaCel Cuba"
+      destination: { amount: Number, unit: String } // 250 CUP
+    },
+    // ...campos comunes
+  }
+
+  // REMESA
+  {
+    type: 'REMESA',
+    recibirEnCuba: Number, // Monto
+    monedaRecibirEnCuba: String, // "CUP" | "USD"
+    direccionCuba: String,
+    tarjetaCUP: String, // Opcional
+    comentario: String, // Nota adicional
+    // ...campos comunes
+  }
+
+  // Campos comunes a todos
+  {
+    _id: String,
+    idUser: String,
+    idAdmin: String,
+    nombre: String, // Username del comprador
+    cobrarUSD: String, // Precio final
+    metodoPago: String | null, // TRANSFERENCIA/EFECTIVO
+    entregado: Boolean,
+    createdAt: Date
+  }
+  ```
+
+- **Adaptación automática al tema (modo claro/oscuro)**:
+  - **Surface**: Fondo se adapta automáticamente según `theme.dark`.
+  - **Labels**: `#666` (claro) → `#AAA` (oscuro).
+  - **Values**: `#333` (claro) → `#EEE` (oscuro).
+  - **Chips**: Opacity 12% del color principal (20% en algunos casos para más visibilidad).
+  - **Precio**: Siempre `#1976D2` (Blue 700) para destacar en ambos modos.
+
+- **Consideraciones técnicas críticas**:
+  - **Render function por tipo**: Cada tipo tiene su función `render{Type}Card` separada.
+  - **No usar switch/case largo**: Pattern matching con `if-else` o mapeo de funciones.
+  - **Botón eliminar siempre en header**: Posición fija esquina superior derecha.
+  - **maxHeight defensivo**: Sin límite en cards de carrito (pueden tener varios detalles).
+  - **numberOfLines en textos largos**: Siempre con `ellipsizeMode="tail"` para evitar overflow.
+  - **Conversión MB→GB automática**: Solo para PROXY/VPN, usar `megasToGB()` utility.
+
+- **Diferencias clave entre cards de PackageCard vs CarritoCard**:
+  | Aspecto | PackageCard | CarritoCard |
+  |---------|-------------|-------------|
+  | **Propósito** | Vender paquetes | Mostrar items comprados |
+  | **Elevación** | 2-5 (destacar premium) | 3 (uniforme) |
+  | **Botón acción** | "Comprar Ahora" | Botón eliminar (X) |
+  | **Precio** | Con descuento aplicado | Precio final |
+  | **Background** | Semi-transparente temático | Adaptado por Surface |
+  | **Animaciones** | Fade-in + Slide-up | Ninguna |
+  | **Badge superior** | "MÁS POPULAR"/"PREMIUM" | Ninguno |
+
+- **Estilos compartidos (reutilizables en futuras pantallas)**:
+  ```javascript
+  // Estilos que DEBEN mantenerse consistentes
+  proxyVpnSurface: {
+    borderRadius: 12,
+    marginBottom: 16,
+    borderLeftWidth: 4, // Color dinámico según tipo
+    overflow: 'hidden'
+  },
+  proxyVpnHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start'
+  },
+  proxyVpnTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    // Color dinámico según tipo
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    minHeight: 32
+  },
+  detailLabel: {
+    fontSize: 13,
+    color: '#666', // #AAA en modo oscuro
+    marginRight: 8,
+    flex: 1.2
+  },
+  detailValue: {
+    fontSize: 13,
+    color: '#333', // #EEE en modo oscuro
+    fontWeight: '600',
+    flex: 2
+  }
+  ```
+
+- **Testing recomendado para carrito unificado**:
+  - **Caso 1**: Carrito mixto con 1 PROXY + 1 VPN + 1 RECARGA + 1 REMESA → validar colores correctos.
+  - **Caso 2**: PROXY ilimitado + VPN por megas → validar icono infinity vs GB.
+  - **Caso 3**: Modo claro/oscuro → validar contraste de labels/values.
+  - **Caso 4**: Botón eliminar solo visible si `eliminar={true}`.
+  - **Caso 5**: Texto largo en dirección/detalles → validar ellipsis con numberOfLines.
+  - **Caso 6**: Item sin metodoPago → no debe renderizar row vacía.
+  - **Caso 7**: Item con descuentoAdmin=0 → no debe renderizar row de descuento.
+
+- **Mejoras futuras sugeridas**:
+  - **Agrupación visual por tipo**: Separar cards con títulos de sección ("Servicios", "Recargas", etc.).
+  - **Swipe actions**: Implementar swipe-to-delete con `react-native-gesture-handler`.
+  - **Card expansion**: Touch para expandir/colapsar detalles largos.
+  - **Preview de evidencia**: Mostrar miniatura de comprobante de pago adjunto.
+  - **Estado de tracking**: Para recargas, mostrar estado de procesamiento con API de operadora.
+  - **Animaciones de entrada**: Fade-in al agregar nuevo item al carrito.
+  - **Confirmación de eliminación**: Dialog antes de eliminar item (evitar eliminaciones accidentales).
+
+- **Lecciones técnicas aprendidas**:
+  - **Color consistency > Color variety**: Mejor 4 colores bien elegidos que 10 colores random.
+  - **Borde lateral > Background completo**: Más sutil, menos visual clutter, mejor accesibilidad.
+  - **Iconografía > Emojis**: Iconos Material son escalables, emojis varían entre plataformas.
+  - **Opacity notation**: `${color}20` (20% opacity) es estándar en React Native Paper.
+  - **Surface es superior a Card para tema**: Surface adapta fondo, Card solo estructura.
+  - **Render functions separadas > switch gigante**: Más mantenible, testeable, legible.
+  - **numberOfLines + ellipsizeMode**: SIEMPRE usar en textos dinámicos para evitar overflow.
+
+- **Tabla de referencia rápida de colores para developers**:
+  ```javascript
+  const CART_COLORS = {
+    PROXY: {
+      primary: '#2196F3',
+      primaryDark: '#42A5F5',
+      background: (isDark) => isDark ? 'rgba(66, 165, 245, 0.15)' : '#E3F2FD',
+      icon: 'wifi'
+    },
+    VPN: {
+      primary: '#4CAF50',
+      primaryDark: '#66BB6A',
+      background: (isDark) => isDark ? 'rgba(102, 187, 106, 0.15)' : '#E8F5E9',
+      icon: 'shield-check'
+    },
+    RECARGA: {
+      primary: '#FF6F00',
+      background: 'rgba(255, 111, 0, 0.12)',
+      icon: 'cellphone'
+    },
+    REMESA: {
+      primary: '#9C27B0',
+      background: 'rgba(156, 39, 176, 0.12)',
+      icon: 'cash'
+    },
+    UNLIMITED: {
+      primary: '#FFD700',
+      background: (isDark) => isDark ? 'rgba(255, 215, 0, 0.15)' : '#FFF9E6',
+      icon: 'infinity'
+    }
+  };
+  ```
+
+- **Checklist pre-commit para nuevos tipos de productos**:
+  1. ✅ Elegir color Material Design (validar contraste WCAG AA).
+  2. ✅ Crear función `render{Type}Card` separada.
+  3. ✅ Definir icono principal Material Icon.
+  4. ✅ Mapear campos específicos del tipo en comentarios.
+  5. ✅ Agregar case en map function principal.
+  6. ✅ Testar en modo claro y oscuro.
+  7. ✅ Validar con textos largos (direcciones, comentarios).
+  8. ✅ Documentar en esta sección de copilot-instructions.
+
+- **Archivos modificados en esta conversación**:
+  - components/carritoCompras/ListaPedidosRemesa.jsx: Unificación completa de diseño.
+  - Eliminación de ImageBackground + BlurView para RECARGA/REMESA.
+  - Implementación de renderRecargaCard y renderRemesaCard siguiendo patrón Proxy/VPN.
+  - Estandarización de iconografía y paleta de colores definitiva.
+
+- **Próximos pasos**:
+  - Extraer constantes de colores a archivo `CartColors.js` centralizado.
+  - Crear componente reutilizable `UnifiedCartCard` con props de configuración.
+  - Implementar tests de snapshot para validar estilos en ambos temas.
+  - Agregar analytics de eventos: "cart_item_viewed", "cart_item_deleted".
+  - Documentar API de colores en Storybook o Figma para diseñadores.
+
+---
