@@ -398,7 +398,7 @@ const WizardConStepper = ({ product, navigation }) => {
                                               <ListaPedidos eliminar={false} />
                                           </Dialog.ScrollArea>
                                             
-                                            <Chip style={{padding:20, borderRadius:30}}>Total a Pagar: {totalAPagar} USD</Chip>
+                                            <Chip style={{padding:20, borderRadius:30}}>Total a Pagar: {totalAPagar} {tieneProxyVPN ?  "CUP" : "USD"}</Chip>
                                           </>
                                           </ProgressStep>
                         </ProgressSteps>
