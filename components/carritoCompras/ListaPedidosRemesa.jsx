@@ -328,7 +328,7 @@ const ListaPedidos = ({ eliminar }) => {
                 </Paragraph>
               </View>
 
-              {item.descuentoAdmin > 0 && (
+              {/* {item.descuentoAdmin > 0 && (
                 <View style={[styles.detailRow, styles.discountRow]}>
                   <IconButton icon="tag" size={16} iconColor="#4CAF50" style={styles.detailIcon} />
                   <Paragraph style={[styles.detailLabel, { color: '#4CAF50' }]}>Descuento:</Paragraph>
@@ -336,7 +336,7 @@ const ListaPedidos = ({ eliminar }) => {
                     -{item.descuentoAdmin}%
                   </Paragraph>
                 </View>
-              )}
+              )} */}
 
               {item.metodoPago && (
                 <View style={styles.detailRow}>

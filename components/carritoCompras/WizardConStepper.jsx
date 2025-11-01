@@ -235,11 +235,61 @@ const WizardConStepper = ({ product, navigation }) => {
         // }
     };
 
-    const handleGenerarVenta= async () => {
+  const handleGenerarVenta = async () => {
+    // ✅ VALIDACIÓN: Detectar si la compra contiene items Proxy/VPN
+    if (false) {
+      console.log("Es PROXY o VPN - Generando venta con nuevo método");
+      
+      // ✅ Construir objeto ventaData según contrato del método backend
+      const ventaData = {
+        carritos: compra?.carritos || pedidosRemesa, // Array de items del carrito
+        userId: userId,
+        type: metodoPago === 'efectivo' ? 'EFECTIVO' : 'TRANSFERENCIA',
+        idOrder: compra?.idOrder || null,
+        precioOficial: totalAPagar
+      };
+
+      console.log("ventaData a enviar:", ventaData);
+
+      Meteor.call('generarVentaEfectivoPROXYVPN', ventaData, (error, success) => {
+        if (error) {
+          console.error("❌ Error generando venta Proxy/VPN:", error);
+          Alert.alert(
+            'Error al generar venta',
+            error.reason || 'No se pudo procesar la venta. Intente nuevamente.',
+            [{ text: 'OK' }]
+          );
+        }
+        if (success) {
+          console.log("✅ Venta Proxy/VPN generada exitosamente:", success);
+          Alert.alert(
+            'Venta generada',
+            success.message || `${success.ventasGeneradas} venta(s) generada(s) exitosamente`,
+            [
+              // {
+              //   text: 'Ver Historial',
+              //   onPress: () => {
+              //     setVisible(false);
+              //     // navigation.navigate('ProxyHistory'); // Opcional: navegar al historial
+              //   }
+              // },
+              {
+                text: 'OK',
+                // onPress: () => setVisible(false)
+              }
+            ]
+          );
+        }
+      });
+
+    } else {
+      // Mantener lógica existente para RECARGA/REMESA
+      console.log("compra:",compra)
       const ventaData = {
         producto: compra,
         precioOficial: totalAPagar
       };
+      
       Meteor.call('generarVentaEfectivo', ventaData, (error, success) => {
         if (error) {
           console.log("error", error);
@@ -249,7 +299,9 @@ const WizardConStepper = ({ product, navigation }) => {
           setVisible(false);
         }
       });
+    }
   };
+     
 
     return (
         <>

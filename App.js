@@ -74,6 +74,7 @@ import VPNPackageCard from './components/vpn/VPNPackageCard';
 import ProxyPackageCard from './components/proxy/ProxyPackageCard';
 import ProxyPurchaseScreen from './components/proxy/ProxyPurchaseScreen';
 import VPNPurchaseScreen from './components/vpn/VPNPurchaseScreen';
+import TableProxyVPNHistory from './components/ventas/TableProxyVPNHistory';
 // agregado: notifee opcional para mostrar notificaciones locales (foreground/background)
 let NotifeeLib = null;
 try {
@@ -1100,6 +1101,19 @@ const App = () => {
               headerTitleStyle: {
                 fontWeight: 'bold',
               },
+            }}
+          />
+          <Stack.Screen 
+            name="ProxyVPNHistory" 
+            component={TableProxyVPNHistory}
+            options={{
+              title: 'Historial Proxy/VPN',
+              headerStyle: { 
+                backgroundColor: '#673AB7', // Púrpura para indicar mixto
+                height: 90 
+              },
+              headerTintColor: '#fff',
+              headerTitleStyle: { fontWeight: 'bold' }
             }}
           />
 

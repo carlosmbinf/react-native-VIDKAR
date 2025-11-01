@@ -431,7 +431,7 @@ class VPNPackageCard extends Component {
             <Button
               mode="outlined"
               icon="history"
-              onPress={() => this.props.navigation.navigate('VPNHistory')}
+              onPress={() => this.props.navigation.navigate('ProxyVPNHistory')}
               style={[styles.historyButton, isTablet && styles.historyButtonTablet]}
               textColor={vpnColor}
               contentStyle={styles.historyButtonContent}

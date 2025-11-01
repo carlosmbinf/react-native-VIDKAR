@@ -78,7 +78,7 @@ const DrawerOptionsAlls = (opt) => {
       icon:"server"
     },
     {
-      label: "Aprobar Recargas",
+      label: "Aprobaciones de Ventas Efectivo",
       url:"ListaArchivos",
       icon:"cellphone-wireless"
     },

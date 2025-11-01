@@ -1214,3 +1214,177 @@ Resumen técnico – Unificación Profesional de Diseño de Carrito (ListaPedido
   - Documentar API de colores en Storybook o Figma para diseñadores.
 
 ---
+
+
+---
+
+Resumen técnico – Pantalla de Historial Proxy/VPN (`TableProxyVPNHistory`)
+- **Contexto**: Pantalla profesional para consultar el historial de compras de paquetes Proxy y VPN, con soporte para evidencias de pago y estructura similar a `TableRecargas`.
+
+- **Ubicación**: `components/proxyVPN/TableProxyVPNHistory.jsx`
+
+- **Características implementadas**:
+  - **DataTable responsiva**: Adaptación automática según orientación (portrait/landscape) y tamaño de dispositivo (móvil/tablet).
+  - **Filtrado inteligente**: Consulta solo ventas con `'producto.carritos.type': { $in: ['PROXY', 'VPN'] }`.
+  - **Permisos por rol**:
+    - Admin principal (`carlosmbinf`): Ve TODAS las ventas Proxy/VPN del sistema.
+    - Admin regular: Ve ventas propias + subordinados.
+    - Usuario normal: Solo ve sus propias compras.
+  - **Columnas dinámicas**:
+    - Móvil: Fecha, Estado, Acciones (columnas críticas).
+    - Tablet/Landscape: + Tipo, Cobrado, Ítems (información extendida).
+
+- **Colores temáticos por tipo de servicio**:
+  ```javascript
+  PROXY: #2196F3 (Azul Material) - Icono: wifi
+  VPN: #4CAF50 (Verde Material) - Icono: shield-check
+  MIXTO: Ambos tipos en una misma venta (detectado automáticamente)
+  ```
+
+- **Derivación de estados**:
+  - `ENTREGADO`: Cuando `venta.isCobrado === true` o todos los carritos tienen `entregado: true`.
+  - `CANCELADO`: Cuando `venta.isCancelada === true`.
+  - `PENDIENTE_PAGO`: Cuando `venta.isCobrado !== true`.
+  - `PENDIENTE_ENTREGA`: Estado por defecto si no cumple anteriores.
+
+- **Dialog de detalles (Modal)**:
+  - **Información de venta**: ID, fecha, método de pago, estado con Chip coloreado.
+  - **Lista de paquetes**: Cards individuales por cada item Proxy/VPN con:
+    - Borde lateral coloreado según tipo (azul/verde).
+    - Chip de tipo (PROXY/VPN) en esquina superior derecha.
+    - Conversión automática MB→GB con utility `megasToGB()` (999999 MB = "ILIMITADO").
+    - Descuento aplicado destacado con Surface verde si `descuentoAdmin > 0`.
+    - Estado de entrega con Surface verde (✅) o amarillo (⏳).
+    - Comentario del item si existe.
+  - **Subida de evidencias**: Componente `SubidaArchivos` integrado para ventas con `metodoPago === 'EFECTIVO'`.
+  - **ScrollView con RefreshControl**: Permite actualizar estado de ventas (útil para check manual de estados).
+
+- **Integración con `SubidaArchivos.jsx`**:
+  - Reutiliza componente existente para comprobantes de pago.
+  - Soporta imágenes (jpg, png) y PDFs.
+  - Almacena en `EvidenciasVentasEfectivoCollection` con:
+    - `ventaId`: ID del item del carrito (no de la venta padre).
+    - `userId`: Usuario que compra.
+    - `dataBase64`: Imagen/PDF en base64.
+    - `aprobado`/`denegado`: Flags para aprobación de admin.
+
+- **Conversión MB → GB profesional**:
+  ```javascript
+  const megasToGB = (megas) => {
+    if (!megas || megas === 999999) return 'ILIMITADO';
+    return `${(megas / 1024).toFixed(2)} GB`;
+  };
+  ```
+
+- **Detección de tipo predominante**:
+  ```javascript
+  const getTipoPredominante = (venta) => {
+    const carritos = getItemsArray(venta);
+    const hasProxy = carritos.some(c => c.type === 'PROXY');
+    const hasVPN = carritos.some(c => c.type === 'VPN');
+    if (hasProxy && hasVPN) return 'MIXTO';
+    if (hasProxy) return 'PROXY';
+    if (hasVPN) return 'VPN';
+    return '-';
+  };
+  ```
+
+- **Campos específicos del carrito Proxy/VPN**:
+  ```javascript
+  {
+    _id: String,
+    type: 'PROXY' | 'VPN',
+    nombre: String, // Username del comprador
+    cobrarUSD: String, // Precio final en CUP
+    megas: Number | null, // MB (null si es ilimitado)
+    precioBaseProxyVPN: Number, // Precio antes de descuento
+    descuentoAdmin: Number, // Porcentaje 0-100
+    comentario: String, // Descripción del paquete
+    entregado: Boolean, // Si fue activado
+    metodoPago: String | null, // EFECTIVO/TRANSFERENCIA
+    createdAt: Date
+  }
+  ```
+
+- **Navegación desde PackageCards**:
+  - Botón "Ver Historial de Compras" agregado en `ProxyPackageCard.jsx` y `VPNPackageCard.jsx`.
+  - Ambos navegan a la misma ruta `ProxyVPNHistory` (historial unificado).
+  - Iconografía: `icon="history"` con color temático (azul para Proxy, verde para VPN).
+
+- **Ruta registrada en App.js**:
+  ```javascript
+  <Stack.Screen 
+    name="ProxyVPNHistory" 
+    component={TableProxyVPNHistory}
+    options={{
+      title: 'Historial Proxy/VPN',
+      headerStyle: { 
+        backgroundColor: '#673AB7', // Púrpura (combina azul y verde)
+        height: 90 
+      },
+      headerTintColor: '#fff',
+      headerTitleStyle: { fontWeight: 'bold' }
+    }}
+  />
+  ```
+
+- **Suscripciones Meteor**:
+  - `ventasRecharge`: Filtra ventas con carritos Proxy/VPN según permisos de usuario.
+  - `evidencias`: Carga evidencias de pago relacionadas con los `carritoIds`.
+  - Ambas suscripciones con lazy loading (solo se activan si hay datos).
+
+- **Estado vacío (Empty state)**:
+  - Mensaje amigable: "📭 No tienes compras de Proxy/VPN registradas".
+  - Surface con fondo gris claro (#e9ecef) para destacar sin alarmar.
+
+- **Adaptación a modo claro/oscuro**:
+  - Colores de Surface y Chips adaptan automáticamente con `react-native-paper`.
+  - Bordes laterales de cards mantienen colores fijos (azul/verde) para identidad de marca.
+
+- **Consideraciones técnicas críticas**:
+  - **Filtrado de carritos**: Solo procesa items con `type === 'PROXY'` o `type === 'VPN'`, ignora RECARGA/REMESA si vienen mezclados.
+  - **999999 megas = ILIMITADO**: Valor simbólico detectado en utility `megasToGB()`.
+  - **IDs únicos para keys**: Usa `item._id` en maps para evitar warnings de React.
+  - **maxHeight en Dialog**: Calculado dinámicamente como 90% del alto de pantalla para evitar overflow.
+  - **RefreshControl sin lógica**: Placeholder para futura implementación de actualización manual de estados.
+
+- **Testing recomendado**:
+  - **Caso 1**: Usuario sin compras → validar empty state.
+  - **Caso 2**: Venta con 1 PROXY + 1 VPN → validar detección de tipo "MIXTO" y colores correctos.
+  - **Caso 3**: Venta con `metodoPago: 'EFECTIVO'` → validar aparición de `SubidaArchivos`.
+  - **Caso 4**: Paquete ilimitado (999999 MB) → validar que muestra "ILIMITADO" y no "976.56 GB".
+  - **Caso 5**: Admin general → validar que ve ventas de todos los usuarios.
+  - **Caso 6**: Usuario normal → validar que solo ve sus propias compras.
+  - **Caso 7**: Tablet en landscape → validar que muestra columnas adicionales (Tipo, Cobrado, Ítems).
+
+- **Mejoras futuras sugeridas**:
+  - **Filtros avanzados**: Por fecha (hoy/semana/mes), estado (pagado/pendiente), tipo (PROXY/VPN/MIXTO).
+  - **Paginación**: Implementar skip/limit si el volumen de ventas crece >100 registros.
+  - **Export a PDF**: Botón para generar reporte de historial con react-native-html-to-pdf.
+  - **Notificaciones push**: Alertar cuando una evidencia es aprobada/denegada por admin.
+  - **Búsqueda por ID**: Input para buscar venta específica por `_id` o `idOrder`.
+  - **Gráficos de consumo**: Mostrar evolución de compras Proxy/VPN en el tiempo con react-native-chart-kit.
+  - **Deep linking**: URL directa a venta específica (ej. `vidkar://history/PROXY/abc123`).
+
+- **Lecciones aprendidas**:
+  - **Reutilizar estructura de TableRecargas**: Acelera desarrollo y mantiene consistencia visual.
+  - **getTipoPredominante()**: Utility simple pero poderosa para UX clara (usuario sabe qué compró de un vistazo).
+  - **Evidencias por carritoId**: Asociar evidencia al item específico (no a la venta padre) permite granularidad por paquete.
+  - **megasToGB() con fallback 999999**: Evita mostrar números absurdos en UI para paquetes ilimitados.
+  - **Colores temáticos consistentes**: Azul (PROXY), Verde (VPN), Púrpura (MIXTO) facilita navegación visual.
+  - **Empty state profesional**: Mejor experiencia que tabla vacía sin mensaje.
+
+- **Archivos creados/modificados en esta implementación**:
+  - `components/proxyVPN/TableProxyVPNHistory.jsx`: Nuevo componente principal.
+  - `components/proxy/ProxyPackageCard.jsx`: Agregado botón "Ver Historial".
+  - `components/vpn/VPNPackageCard.jsx`: Agregado botón "Ver Historial".
+  - `App.js`: Registrada ruta `ProxyVPNHistory` con header púrpura.
+
+- **Próximos pasos**:
+  - Implementar filtros de fecha y estado en `TableProxyVPNHistory`.
+  - Agregar badge de notificación en botón "Ver Historial" si hay ventas pendientes.
+  - Tests unitarios para `getTipoPredominante()` y `megasToGB()`.
+  - Implementar actualización automática de estado al aprobar evidencia (webhook o polling).
+  - Documentar en README el flujo completo de compra Proxy/VPN desde card hasta activación.
+
+---

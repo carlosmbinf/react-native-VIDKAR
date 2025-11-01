@@ -63,7 +63,7 @@ export default class VPNPurchaseScreen extends Component {
           type: 'VPN',
           megas: paquete.megas,
           precioBaseProxyVPN: precioCalculado.precioBase,
-          descuentoAdmin: precioCalculado.descuento,
+          descuentoAdmin: Number(precioCalculado.descuento),
           comentario: paquete.comentario || paquete.detalles,
           esPorTiempo: paquete.esPorTiempo || false
         }, (error, result) => {
@@ -158,21 +158,21 @@ export default class VPNPurchaseScreen extends Component {
                     </Paragraph>
                   </View>
 
-                  {precioCalculado.descuento > 0 && (
+                  {/* {precioCalculado.descuentoAplicado > 0 && (
                     <View style={styles.priceRow}>
-                      <Paragraph>Descuento ({precioCalculado.descuento}%):</Paragraph>
+                      <Paragraph>Descuento ({precioCalculado.descuentoAplicado}%):</Paragraph>
                       <Paragraph style={[styles.priceText, styles.discountText]}>
-                        -${precioCalculado.descuentoAplicado.toFixed(2)} CUP
+                        -${precioCalculado.descuento.toFixed(2)} CUP
                       </Paragraph>
                     </View>
-                  )}
+                  )} */}
 
                   <Divider style={styles.smallDivider} />
 
                   <View style={styles.priceRow}>
                     <Title style={styles.totalLabel}>Total a pagar:</Title>
                     <Title style={[styles.totalPrice, { color: '#4CAF50' }]}>
-                      ${precioCalculado.precioFinal} CUP
+                      ${precioCalculado.precioBase} CUP
                     </Title>
                   </View>
                 </>
