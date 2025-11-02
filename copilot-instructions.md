@@ -479,3 +479,28 @@ Resumen técnico – Sistema de Filtros en Caliente (LogsList y VentasList)
   - Documentar en README el uso de filtros para nuevos desarrolladores.
 
 ---
+
+Resumen técnico – Términos y Condiciones Dinámicos por Método de Pago (WizardConStepper) ✅ IMPLEMENTADO
+- **Contexto**: Implementación profesional de términos y condiciones específicos para cada método de pago (PayPal, MercadoPago, Efectivo/Transferencia) en el wizard de compra, considerando expansión internacional y requisitos legales.
+
+- **Ubicación**: `components/carritoCompras/WizardConStepper.jsx` - ProgressStep 3 del wizard.
+
+- **Arquitectura de contenido implementada**:
+  - **Constante `terminosYCondiciones`**: Objeto con 3 keys (paypal, mercadopago, efectivo) conteniendo título y array de secciones.
+  - **Helper `getTerminos()`**: Retorna términos según `metodoPago` seleccionado o null si no hay selección.
+  - **Renderizado dinámico en ScrollView**: Muestra secciones con estilos profesionales y advertencia final destacada.
+
+- **Contenido por método de pago**:
+  - **PayPal (5 secciones)**: Comisiones 5-7%, redirección a pasarela segura, activación automática, sin reembolsos, tiempos de entrega 48h recargas/inmediato digitales.
+  - **MercadoPago (6 secciones)**: Tarifas 4-6%, medios aceptados (Visa/Mastercard/AmEx), PCI-DSS Level 1, confirmación 1-5min, sin reembolsos, soporte 24/7.
+  - **Efectivo/Transferencia (10 secciones)**: Efectivo Cuba + transferencias internacionales (Uruguay/Argentina/futuros), comprobante OBLIGATORIO, verificación manual 2-24h, sin reversiones, cobertura internacional detallada, comisiones bancarias responsabilidad usuario, contacto WhatsApp +5355267327.
+
+- **Estilos profesionales aplicados**:
+  - `terminosContainer`: padding 20, maxHeight 500 para scroll.
+  - `terminosTitulo`: fontSize 18, bold, color #1976D2 (azul Material), centrado.
+  - `seccionTermino`: marginBottom 16, background rgba(0,0,0,0.03), padding 12, borderRadius 8, borderLeft 3px #6200ee (púrpura).
+  - `terminosTexto`: fontSize 13, color #555, lineHeight 20, textAlign justify.
+  - `advertenciaFinal`: flexDirection row, background #FFF3CD (amarillo), padding 12, borderRadius 8, border 1px #FF6F00, con IconButton alert-circle.
+  - `sinMetodoContainer`: Estado vacío centrado con icono information-outline size 48.
+
+- **Consideraciones legales

@@ -1388,3 +1388,195 @@ Resumen técnico – Pantalla de Historial Proxy/VPN (`TableProxyVPNHistory`)
   - Documentar en README el flujo completo de compra Proxy/VPN desde card hasta activación.
 
 ---
+
+
+---
+
+Resumen técnico – Términos y Condiciones Dinámicos por Método de Pago (WizardConStepper)
+- **Contexto**: Implementación profesional de términos y condiciones específicos para cada método de pago (PayPal, MercadoPago, Efectivo/Transferencia) en el wizard de compra, considerando expansión internacional y requisitos legales.
+
+- **Ubicación**: `components/carritoCompras/WizardConStepper.jsx` - ProgressStep 3 del wizard.
+
+- **Problema resuelto**: Los términos y condiciones genéricos no cubrían las particularidades de cada método de pago ni contemplaban la expansión geográfica del negocio (Cuba, Uruguay, futuros países).
+
+- **Arquitectura de contenido implementada**:
+  - **Constante `terminosYCondiciones`**: Objeto con 3 keys (paypal, mercadopago, efectivo).
+  - **Estructura por método de pago**:
+    ```javascript
+    {
+      titulo: String, // Título principal del T&C
+      contenido: [
+        {
+          subtitulo: String, // Ej: "1. Comisiones y Tarifas"
+          texto: String // Párrafo explicativo detallado
+        },
+        // ...más secciones
+      ]
+    }
+    ```
+  - **Helper `getTerminos()`**: Retorna términos según `metodoPago` seleccionado o null si no hay selección.
+
+- **Términos y Condiciones por método de pago**:
+  
+  **1. PayPal (5 secciones)**:
+  - Comisiones y Tarifas: Transparencia sobre comisión del usuario, variabilidad por país/tipo de cuenta.
+  - Proceso de Pago: Redirección a pasarela segura, no almacenamiento de datos bancarios.
+  - Confirmación de Pago: Comprobante por email, activación automática (2h recargas, 24h Proxy/VPN).
+  - Política de No Reembolso: Irreversibilidad tras procesamiento, contacto pre-compra para correcciones.
+  - Tiempos de Entrega: 48h recargas Cuba, activación inmediata servicios digitales, remesas según disponibilidad.
+
+  **2. MercadoPago (6 secciones)**:
+  - Comisiones y Tarifas: Transparencia sobre tarifa MercadoPago, costos de procesamiento bancario.
+  - Medios de Pago Aceptados: Tarjetas crédito/débito, saldo MercadoPago, disponibilidad regional.
+  - Seguridad de la Transacción: Protocolo PCI-DSS, no acceso de VidKar a datos bancarios.
+  - Confirmación y Procesamiento: Tiempo de confirmación (1-5 min), posibilidad de reintentar si falla.
+  - Política de No Reembolso: Sin reembolsos post-confirmación, soporte 24h para inconvenientes.
+  - Entrega del Servicio: Activación inmediata digitales, 48h recargas, remesas sujetas a disponibilidad.
+
+  **3. Efectivo/Transferencia (10 secciones - más extenso por complejidad)**:
+  - Métodos de Pago Aceptados: Efectivo presencial Cuba + transferencias internacionales (Uruguay + futuros).
+  - Proceso de Pago en Efectivo (Cuba): Coordinación con agente, comprobante físico firmado, activación en 24h.
+  - Proceso de Transferencia Bancaria: Datos bancarios por email/WhatsApp, verificación 1-3 días según país.
+  - Comprobante de Pago Obligatorio: OBLIGATORIO subir foto/captura legible con fecha, monto y referencia.
+  - Verificación y Aprobación: Validación manual 2-24h horario laboral, contacto en caso de discrepancias.
+  - Política de No Reembolso: Sin reembolsos ni reversiones, confirmación previa de datos críticos.
+  - Tiempos de Entrega: Diferenciados por servicio (24-48h recargas, 2-6h Proxy/VPN, 1-3d remesas).
+  - Cobertura Internacional: Cuba (efectivo) y Uruguay (transferencia), próximamente América Latina.
+  - Comisiones Bancarias: Responsabilidad del usuario, verificar monto recibido coincida con orden.
+  - Soporte y Reclamaciones: 48h para reclamos con comprobante, contacto: soporte@vidkar.com / WhatsApp +5355267327.
+
+- **Renderizado dinámico en UI**:
+  ```jsx
+  <ProgressStep label="Términos y Condiciones">
+    <ScrollView style={styles.terminosContainer}>
+      {getTerminos() ? (
+        <>
+          <Text style={styles.terminosTitulo}>{getTerminos().titulo}</Text>
+          <Divider />
+          {getTerminos().contenido.map((seccion, index) => (
+            <View key={index} style={styles.seccionTermino}>
+              <Text style={styles.terminosSubtitulo}>{seccion.subtitulo}</Text>
+              <Text style={styles.terminosTexto}>{seccion.texto}</Text>
+            </View>
+          ))}
+          <View style={styles.advertenciaFinal}>
+            <IconButton icon="alert-circle" />
+            <Text>Al presionar "Aceptar", confirma...</Text>
+          </View>
+        </>
+      ) : (
+        <View style={styles.sinMetodoContainer}>
+          <IconButton icon="information-outline" />
+          <Text>Seleccione un método de pago...</Text>
+        </View>
+      )}
+    </ScrollView>
+  </ProgressStep>
+
+
+
+  Estilos profesionales implementados:
+
+terminosContainer: padding 20, maxHeight 500 para scroll.
+terminosTitulo: fontSize 18, fontWeight bold, color #1976D2 (azul), centrado.
+seccionTermino: marginBottom 16, background rgba(0,0,0,0.03), padding 12, borderRadius 8, borderLeft 3px #6200ee.
+terminosSubtitulo: fontSize 14, fontWeight bold, color #333, marginBottom 6.
+terminosTexto: fontSize 13, color #555, lineHeight 20, textAlign justify.
+advertenciaFinal: flexDirection row, background #FFF3CD (amarillo), padding 12, borderRadius 8, border 1px #FF6F00.
+sinMetodoContainer: alignItems center, padding 40, para estado vacío.
+Consideraciones legales y de UX:
+
+Transparencia total: Comisiones explícitas, tiempos de entrega realistas, responsabilidades claras.
+Sin letra pequeña: Texto legible (fontSize 13+), justificado, con espaciado generoso.
+Irreversibilidad enfatizada: "NO ofrece reembolsos" en todas las versiones para claridad.
+Contacto visible: Email y WhatsApp en términos de Efectivo/Transferencia.
+Cobertura internacional clara: "Actualmente... Uruguay" + "próximamente otros países".
+Advertencia final destacada: Background amarillo + icono alerta + texto confirmación explícita.
+Diferencias clave entre métodos de pago:
+
+Aspecto	PayPal	MercadoPago	Efectivo/Transferencia
+Secciones	5	6	10 (más complejo)
+Comprobante	Automático (email)	Automático (email)	Manual (obligatorio subir)
+Verificación	Inmediata	1-5 min	2-24h (manual)
+Cobertura	Internacional	Regional (varía)	Cuba + Uruguay + futuros
+Comisiones	Usuario asume PayPal	Usuario asume MP	Usuario asume bancarias
+Activación	Automática	Automática	Tras aprobación manual
+Reembolsos	No (política PayPal)	No (política VidKar)	No (sin reversión)
+Integración con lógica de carrito:
+
+Detección automática: tieneProxyVPN helper determina qué métodos mostrar en Paso 2.
+Términos coherentes: Si solo muestra Efectivo (Proxy/VPN), términos se ajustan automáticamente.
+Validación de flujo: No puede avanzar a Paso 4 sin aceptar términos del Paso 3.
+Manejo de estados edge cases:
+
+Sin método seleccionado: Muestra mensaje "Seleccione un método de pago en el paso anterior".
+Cambio de método en Paso 2: Términos se actualizan automáticamente al volver a Paso 3.
+Scroll largo: maxHeight 500 + ScrollView para términos extensos (Efectivo).
+Validaciones de seguridad legal:
+
+Aceptación explícita: Botón "Aceptar" con advertencia final visible.
+No bypass posible: ProgressStep valida paso actual antes de avanzar.
+Registro de aceptación: Timestamp de createdAt en OrdenesCollection como evidencia.
+Términos inmutables: Constante declarada dentro del componente (no editable por usuario).
+Preparación para auditorías:
+
+Versionado futuro: Considerar agregar campo terminosVersion: "1.0" en OrdenesCollection.
+Logging: Registrar en LogsCollection cuando usuario acepta términos con hash del contenido.
+Archivo legal: Exportar términos a PDF estático para respaldo legal con firma digital.
+Consideraciones de internacionalización:
+
+Idioma: Actualmente solo español, preparar para i18n (react-i18next).
+Moneda: Diferenciar CUP (Cuba/Efectivo) vs USD (PayPal/MP) en textos.
+Regulaciones: Actualizar términos según país (GDPR Europa, CCPA California, etc.).
+Horarios laborales: "Horario laboral" debe especificarse según timezone (Cuba GMT-5, Uruguay GMT-3).
+Testing recomendado:
+
+Caso 1: Seleccionar PayPal → validar 5 secciones visibles con título azul.
+Caso 2: Seleccionar MercadoPago → validar 6 secciones con mención de PCI-DSS.
+Caso 3: Seleccionar Efectivo → validar 10 secciones con contacto WhatsApp visible.
+Caso 4: Sin selección de método → validar estado vacío con icono información.
+Caso 5: Cambiar de PayPal a Efectivo → validar que términos se actualizan dinámicamente.
+Caso 6: Scroll en términos de Efectivo → validar que no se corta contenido.
+Caso 7: Modo oscuro → validar contraste de textos (especialmente advertencia amarilla).
+Caso 8: Tablet/iPad → validar que maxHeight 500 no causa problemas de layout.
+Mejoras futuras sugeridas:
+
+Checkbox de aceptación: Además de botón "Aceptar", checkbox explícito "He leído y acepto...".
+Link a T&C completos: Botón para abrir versión web full en browser con scroll infinito.
+Historial de cambios: Mostrar "Última actualización: DD/MM/AAAA" al final de términos.
+Notificación de cambios: Si términos cambian, notificar a usuarios existentes por email.
+PDF descargable: Botón "Descargar PDF" para guardar copia personal.
+Firma digital: Para compras +$500, requerir firma manuscrita en pantalla con react-native-signature-canvas.
+Quiz de comprensión: Para Efectivo/Transferencia, 2-3 preguntas de opción múltiple para confirmar lectura.
+Métricas de UX a trackear:
+
+Tiempo promedio de lectura en Paso 3 (objetivo: >30 seg para Efectivo).
+Tasa de abandono en Paso 3 (si >20%, simplificar términos).
+Rechazos por "no leí términos" en soporte (objetivo: <5%).
+Clicks en botón "Aceptar" sin scroll completo (implementar validación futura).
+Responsabilidades del equipo:
+
+Legal: Revisar términos cada 6 meses o ante cambio regulatorio.
+Desarrollo: Actualizar terminosVersion en código tras cada cambio legal.
+Soporte: Capacitación en contenido de términos para responder consultas.
+QA: Validar que nuevos métodos de pago tengan términos correspondientes.
+Archivos modificados en esta implementación:
+
+components/carritoCompras/WizardConStepper.jsx: Constante terminosYCondiciones + helper getTerminos() + render dinámico en Paso 3 + estilos profesionales.
+Lecciones aprendidas:
+
+Términos genéricos = riesgo legal: Cada método de pago tiene particularidades que DEBEN documentarse.
+Transparencia > brevedad: Mejor 10 secciones claras que 3 ambiguas.
+Contacto visible = confianza: Incluir email/WhatsApp reduce reclamos por "no sabía cómo contactar".
+Advertencia final crítica: Usuario debe saber que "Aceptar" = contrato vinculante.
+Scroll obligatorio futuro: Considerar deshabilitar "Aceptar" hasta scroll completo (patrón iOS App Store).
+No asumir conocimiento: "Comprobante de pago" debe explicarse (qué es, cómo obtenerlo, formato).
+Fechas relativas > absolutas: "48 horas hábiles" mejor que "2 días" (evita confusión con fines de semana).
+Próximos pasos:
+
+Revisar términos con asesor legal antes de despliegue a producción.
+Implementar versionado de términos en base de datos (TerminosCollection).
+Crear pantalla "Ver Términos Completos" accesible desde perfil de usuario.
+Agregar campo aceptoTerminos: { version: String, fecha: Date } en Users.
+Traducir términos al inglés para futura expansión a USA/Europa.
+Implementar A/B testing: términos cortos vs detallados (medir tasa de conversión).

@@ -108,7 +108,7 @@ export default class VPNPurchaseScreen extends Component {
     const esPorTiempo = paquete.esPorTiempo || false;
 
     return (
-      <Surface>
+      <Surface style={{ height: '100%' }}>
         <ScrollView style={styles.container}>
           <Card style={styles.card}>
             <Card.Content>
