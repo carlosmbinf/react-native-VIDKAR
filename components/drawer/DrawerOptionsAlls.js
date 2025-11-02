@@ -36,7 +36,12 @@ const DrawerOptionsAlls = (opt) => {
     {
       label: "Productos VPN",
       url: "VPNPackages",
-      icon: "cellphone"
+      icon: "shield-check"
+    },
+    {
+      label: "Historial de Compras PROXY/VPN",
+      url: "ProxyVPNHistory",
+      icon: "history"
     },
     {
       label: "Remesas",
@@ -68,26 +73,25 @@ const DrawerOptionsAlls = (opt) => {
       icon:"message-text-outline"
     },
     {
-      label: "Add Usuarios",
-      url:"CreateUsers",
-      icon:"account-plus"
-    },
-    {
-      label: "Servidores",
-      url:"Servidores",
-      icon:"server"
-    },
-    {
       label: "Aprobaciones de Ventas Efectivo",
       url:"ListaArchivos",
       icon:"cellphone-wireless"
+    },
+    {
+      label: "Add Usuarios",
+      url:"CreateUsers",
+      icon:"account-plus"
     },
     {
       label: "Registro de Logs",
       url:"Logs",
       icon:"clipboard-list-outline"
     },
-    
+    {
+      label: "Servidores",
+      url:"Servidores",
+      icon:"server"
+    },
     // {
     //   label: "Consumo Proxy",
     //   url:"ConsumoUsers",

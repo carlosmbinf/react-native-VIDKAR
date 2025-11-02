@@ -372,14 +372,14 @@ class VPNPackageCard extends Component {
                   Paquetes VPN
                 </Title>
               </View>
-              {!!descuentoVPN && descuentoVPN > 0 && (
+              {/* {!!descuentoVPN && descuentoVPN > 0 && (
                 <Badge 
                   style={[styles.discountBadge, { backgroundColor: theme.colors.tertiary }]} 
                   size={isTablet ? 28 : 24}
                 >
                   -{descuentoVPN}% OFF
                 </Badge>
-              )}
+              )} */}
             </View>
 
             <Paragraph style={[

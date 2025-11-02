@@ -132,7 +132,7 @@ const TableProxyVPNHistory = () => {
 
   const { evidencias, cargandoEvidencias } = useTracker(() => {
     if (!carritoIds || carritoIds.length === 0) return { evidencias: [], cargandoEvidencias: false };
-    const sub = Meteor.subscribe('evidencias', { ventaId: { $in: carritoIds } });
+    const sub = Meteor.subscribe('evidenciasVentasEfectivoRecharge', { ventaId: { $in: carritoIds } });
     const evidencias = EvidenciasVentasEfectivoCollection.find({ ventaId: { $in: carritoIds } }).fetch();
     return { evidencias, cargandoEvidencias: !sub.ready() };
   }, [JSON.stringify(carritoIds)]);
@@ -175,8 +175,8 @@ const TableProxyVPNHistory = () => {
   };
 
   return (
-    <ScrollView style={styles.container} scrollEnabled>
       <Surface style={{ height: '100%' }}>
+    <ScrollView style={styles.container} scrollEnabled>
         <Text variant="headlineMedium" style={styles.title}>
           📊 Historial Proxy/VPN
         </Text>
@@ -422,8 +422,8 @@ const TableProxyVPNHistory = () => {
             </Dialog.Actions>
           </Dialog>
         </Portal>
-      </Surface>
     </ScrollView>
+      </Surface>
   );
 };
 

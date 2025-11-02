@@ -377,14 +377,14 @@ class ProxyPackageCard extends Component {
                   Paquetes Proxy
                 </Title>
               </View>
-              {!!descuentoProxy && descuentoProxy > 0 && (
+              {/* {!!descuentoProxy && descuentoProxy > 0 && (
                 <Badge 
                   style={[styles.discountBadge, { backgroundColor: theme.colors.tertiary }]} 
                   size={isTablet ? 28 : 24}
                 >
                   -{descuentoProxy}% OFF
                 </Badge>
-              )}
+              )} */}
             </View>
 
             <Paragraph style={[
