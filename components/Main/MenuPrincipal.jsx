@@ -21,6 +21,7 @@ import { PreciosCollection, Logs, VentasCollection } from '../collections/collec
 import DrawerOptionsAlls from '../drawer/DrawerOptionsAlls';
 import Productos from '../cubacel/Productos';
 import MainPelis from '../pelis/MainPelis';
+import ProxyVPNPackagesHorizontal from '../proxyVPN/ProxyVPNPackagesHorizontal';
 
 const axios = require('axios').default;
 
@@ -71,20 +72,20 @@ const MenuPrincipal = ({ navigation }) => {
             <Appbar.Action icon="menu" color={"white"} onPress={() => setDrawer(!drawer)} />
           </View>
         </Appbar>
-        <Surface style={{ minHeight: "100%" }}>
+        <Surface style={{ height: "100%" ,paddingBottom:50}}>
           <ScrollView
             style={styles.container}
-            refreshControl={
-              <RefreshControl
-                refreshing={loading}
-                onRefresh={() => {
-                  setLoading(true);
-                  setTimeout(() => {
-                    setLoading(false);
-                  }, 2000);
-                }}
-              />
-            }
+            // refreshControl={
+            //   <RefreshControl
+            //     refreshing={loading}
+            //     onRefresh={() => {
+            //       setLoading(true);
+            //       setTimeout(() => {
+            //         setLoading(false);
+            //       }, 2000);
+            //     }}
+            //   />
+            // }
           >
 
             <Surface style={{ elevation: 0, padding: 10 }}>
@@ -99,7 +100,7 @@ const MenuPrincipal = ({ navigation }) => {
               />
             }
             <Productos />
-            
+            <ProxyVPNPackagesHorizontal navigation={navigation} />
 
           </ScrollView>
         </Surface>
@@ -113,6 +114,6 @@ export default MenuPrincipal;
 
 const styles = StyleSheet.create({
   container: {
-    minHeight: screenHeight
+    minHeight: "100%"
   },
 });

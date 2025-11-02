@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { View, StyleSheet, Alert, ScrollView } from 'react-native';
-import { Card, Title, Paragraph, Button, Divider, Chip, ActivityIndicator, IconButton } from 'react-native-paper';
+import { Card, Title, Paragraph, Button, Divider, Chip, ActivityIndicator, IconButton, Surface } from 'react-native-paper';
 import Meteor from '@meteorrn/core';
 import { megasToGB } from '../shared/MegasConverter';
 
@@ -39,9 +39,9 @@ export default class ProxyPurchaseScreen extends Component {
         return;
       }
 
-      this.setState({ 
+      this.setState({
         precioCalculado: result,
-        loading: false 
+        loading: false
       });
     });
   };
@@ -83,12 +83,12 @@ export default class ProxyPurchaseScreen extends Component {
             style: 'cancel',
             onPress: () => this.props.navigation.goBack()
           },
-          {
-            text: 'Ir al Carrito',
-            onPress: () => {
-              this.props.navigation.navigate('Home');
-            }
-          }
+          // {
+          //   text: 'Ir al Carrito',
+          //   onPress: () => {
+          //     this.props.navigation.navigate('Home');
+          //   }
+          // }
         ]
       );
 
@@ -108,57 +108,58 @@ export default class ProxyPurchaseScreen extends Component {
     const esPorTiempo = paquete.esPorTiempo || false;
 
     return (
-      <ScrollView style={styles.container}>
-        <Card style={styles.card}>
-          <Card.Content>
-            <View style={styles.section}>
-              <Title style={styles.sectionTitle}>Detalles del Paquete</Title>
-              
-              {/* ✅ Chip adaptado para ilimitados */}
-              {esPorTiempo ? (
-                <View style={styles.unlimitedChipContainer}>
-                  <IconButton 
-                    icon="infinity" 
-                    size={28} 
-                    iconColor="#FFD700"
-                    style={{ margin: 0 }}
-                  />
-                  <Paragraph style={styles.unlimitedChipText}>ILIMITADO - 30 días</Paragraph>
-                </View>
-              ) : (
-                <Chip 
-                  icon="wifi" 
-                  style={styles.packageChip}
-                  textStyle={styles.packageChipText}
-                >
-                  {megasToGB(paquete.megas)}
-                </Chip>
-              )}
+      <Surface style={{ height: '100%' }}>
+        <ScrollView style={styles.container}>
+          <Card style={styles.card}>
+            <Card.Content>
+              <View style={styles.section}>
+                <Title style={styles.sectionTitle}>Detalles del Paquete</Title>
 
-              {!!(paquete.comentario || paquete.detalles) && (
-                <Paragraph style={styles.description}>
-                  {paquete.comentario || paquete.detalles}
-                </Paragraph>
-              )}
-            </View>
-
-            <Divider style={styles.divider} />
-
-            <View style={styles.section}>
-              <Title style={styles.sectionTitle}>Detalles de Precio</Title>
-              
-              {loading || !precioCalculado ? (
-                <ActivityIndicator size="small" color="#2196F3" style={{ marginVertical: 16 }} />
-              ) : (
-                <>
-                  <View style={styles.priceRow}>
-                    <Paragraph>Precio base:</Paragraph>
-                    <Paragraph style={styles.priceText}>
-                      ${precioCalculado.precioBase} CUP
-                    </Paragraph>
+                {/* ✅ Chip adaptado para ilimitados */}
+                {esPorTiempo ? (
+                  <View style={styles.unlimitedChipContainer}>
+                    <IconButton
+                      icon="infinity"
+                      size={28}
+                      iconColor="#FFD700"
+                      style={{ margin: 0 }}
+                    />
+                    <Paragraph style={styles.unlimitedChipText}>ILIMITADO - 30 días</Paragraph>
                   </View>
+                ) : (
+                  <Chip
+                    icon="wifi"
+                    style={styles.packageChip}
+                    textStyle={styles.packageChipText}
+                  >
+                    {megasToGB(paquete.megas)}
+                  </Chip>
+                )}
 
-                  {/* {precioCalculado.descuento > 0 && (
+                {!!(paquete.comentario || paquete.detalles) && (
+                  <Paragraph style={styles.description}>
+                    {paquete.comentario || paquete.detalles}
+                  </Paragraph>
+                )}
+              </View>
+
+              <Divider style={styles.divider} />
+
+              <View style={styles.section}>
+                <Title style={styles.sectionTitle}>Detalles de Precio</Title>
+
+                {loading || !precioCalculado ? (
+                  <ActivityIndicator size="small" color="#2196F3" style={{ marginVertical: 16 }} />
+                ) : (
+                  <>
+                    <View style={styles.priceRow}>
+                      <Paragraph>Precio base:</Paragraph>
+                      <Paragraph style={styles.priceText}>
+                        ${precioCalculado.precioBase} CUP
+                      </Paragraph>
+                    </View>
+
+                    {/* {precioCalculado.descuento > 0 && (
                     <View style={styles.priceRow}>
                       <Paragraph>Descuento ({precioCalculado.descuentoAplicado}%):</Paragraph>
                       <Paragraph style={[styles.priceText, styles.discountText]}>
@@ -167,49 +168,51 @@ export default class ProxyPurchaseScreen extends Component {
                     </View>
                   )} */}
 
-                  <Divider style={styles.smallDivider} />
+                    <Divider style={styles.smallDivider} />
 
-                  <View style={styles.priceRow}>
-                    <Title style={styles.totalLabel}>Total a pagar:</Title>
-                    <Title style={[styles.totalPrice, { color: '#2196F3' }]}>
-                      ${precioCalculado.precioBase} CUP
-                    </Title>
-                  </View>
-                </>
-              )}
-            </View>
+                    <View style={styles.priceRow}>
+                      <Title style={styles.totalLabel}>Total a pagar:</Title>
+                      <Title style={[styles.totalPrice, { color: '#2196F3' }]}>
+                        ${precioCalculado.precioBase} CUP
+                      </Title>
+                    </View>
+                  </>
+                )}
+              </View>
 
-            <Divider style={styles.divider} />
+              <Divider style={styles.divider} />
 
-            <View style={styles.infoBox}>
-              <Paragraph style={styles.infoText}>
-                ℹ️ El paquete será agregado al carrito. Podrás seleccionar el método de pago (Efectivo o Transferencia) en el siguiente paso.
-              </Paragraph>
-            </View>
-          </Card.Content>
+              <View style={styles.infoBox}>
+                <Paragraph style={styles.infoText}>
+                  ℹ️ El paquete será agregado al carrito. Podrás seleccionar el método de pago (Efectivo o Transferencia) en el siguiente paso.
+                </Paragraph>
+              </View>
+            </Card.Content>
 
-          <Card.Actions style={styles.actions}>
-            <Button
-              mode="outlined"
-              onPress={() => this.props.navigation.goBack()}
-              disabled={loading}
-              style={styles.cancelButton}
-            >
-              Cancelar
-            </Button>
-            <Button
-              mode="contained"
-              onPress={this.handleConfirmarCompra}
-              loading={loading}
-              disabled={loading || !precioCalculado}
-              buttonColor="#2196F3"
-              style={styles.confirmButton}
-            >
-              Agregar al Carrito
-            </Button>
-          </Card.Actions>
-        </Card>
-      </ScrollView>
+            <Card.Actions style={styles.actions}>
+              <Button
+                mode="outlined"
+                onPress={() => this.props.navigation.goBack()}
+                disabled={loading}
+                style={styles.cancelButton}
+              >
+                Cancelar
+              </Button>
+              <Button
+                mode="contained"
+                onPress={this.handleConfirmarCompra}
+                loading={loading}
+                disabled={loading || !precioCalculado}
+                buttonColor="#2196F3"
+                style={styles.confirmButton}
+              >
+                Agregar al Carrito
+              </Button>
+            </Card.Actions>
+          </Card>
+        </ScrollView>
+      </Surface>
+
     );
   }
 }
@@ -217,11 +220,11 @@ export default class ProxyPurchaseScreen extends Component {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5'
+    // backgroundColor: '#F5F5F5'
   },
   card: {
     margin: 16,
-    elevation: 4,
+    // elevation: 4,
     borderRadius: 12
   },
   section: {
