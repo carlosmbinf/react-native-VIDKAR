@@ -6,12 +6,13 @@
  * @flow strict-local
  */
 
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 // import type {Node} from 'react';
 import {
   Appbar,
   Menu,
   Provider as PaperProvider,
+  Portal,
   Surface,
 } from 'react-native-paper';
 
@@ -35,11 +36,11 @@ import {
   LearnMoreLinks,
   ReloadInstructions,
 } from 'react-native/Libraries/NewAppScreen';
-import {NavigationContainer} from '@react-navigation/native';
-import {createStackNavigator} from '@react-navigation/stack';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
 // import Meteor, {Mongo, withTracker} from '@meteorrn/core';
 import Loguin from './components/loguin/Loguin';
-import Meteor, {withTracker} from '@meteorrn/core';
+import Meteor, { withTracker } from '@meteorrn/core';
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
@@ -75,6 +76,7 @@ import ProxyPackageCard from './components/proxy/ProxyPackageCard';
 import ProxyPurchaseScreen from './components/proxy/ProxyPurchaseScreen';
 import VPNPurchaseScreen from './components/vpn/VPNPurchaseScreen';
 import TableProxyVPNHistory from './components/ventas/TableProxyVPNHistory';
+import RequiredDataDialog from './components/auth/RequiredDataDialog';
 // agregado: notifee opcional para mostrar notificaciones locales (foreground/background)
 let NotifeeLib = null;
 try {
@@ -92,14 +94,14 @@ const registerPushTokenForUser = async (userId, token) => {
       token,
       platform: Platform.OS
     });
-   } catch (e) {
-      console.error("error en push.registerToken", e);
-     }
+  } catch (e) {
+    console.error("error en push.registerToken", e);
+  }
 
-    };
+};
 
 // util: mostrar notificación local (usa Notifee si está, si no Alert en foreground)
-const displayLocalNotification = async (remoteMessage, {allowAlert = true} = {}) => {
+const displayLocalNotification = async (remoteMessage, { allowAlert = true } = {}) => {
   console.log("[Notifications] Mostrar notificación local para mensaje:", remoteMessage);
   const title =
     remoteMessage?.notification?.title ||
@@ -110,7 +112,7 @@ const displayLocalNotification = async (remoteMessage, {allowAlert = true} = {})
     remoteMessage?.data?.body ||
     (remoteMessage?.data ? JSON.stringify(remoteMessage.data) : 'Tienes un nuevo mensaje');
 
-    Alert.alert(title, body);
+  Alert.alert(title, body);
   if (NotifeeLib?.default) {
     const notifee = NotifeeLib.default;
     try {
@@ -128,7 +130,7 @@ const displayLocalNotification = async (remoteMessage, {allowAlert = true} = {})
         android: {
           channelId,
           smallIcon: 'ic_launcher', // asegúrate de tener el recurso
-          pressAction: {id: 'default'},
+          pressAction: { id: 'default' },
         },
         ios: {
           foregroundPresentationOptions: {
@@ -147,7 +149,7 @@ const displayLocalNotification = async (remoteMessage, {allowAlert = true} = {})
   } else {
     // Fallback simple en primer plano
     if (allowAlert) {
-    Alert.alert(title, body);
+      Alert.alert(title, body);
     }
   }
 };
@@ -200,7 +202,7 @@ const App = () => {
       screens: {
         // Recargas: 'recargas',          // Ruta para pantalla Recargas
         // Users: 'users/:id',   
-        ProductosCubacelCards : 'productos',       // Ruta para pantalla los productos
+        ProductosCubacelCards: 'productos',       // Ruta para pantalla los productos
         Remesas: 'remesas', // nueva URL para Remesas
         RemesasForm: 'remesas/form',        // nueva URL
         VentasStepper: 'ventas/stepper',    // nueva URL
@@ -221,7 +223,7 @@ const App = () => {
     const enabled =
       authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
       authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-  
+
     if (enabled) {
       console.log('Authorization status:', authStatus);
       // opcional: obtener FCM token si necesitas registrarlo en backend
@@ -230,55 +232,55 @@ const App = () => {
         console.log('FCM messaging().registerDeviceForRemoteMessages():', a);
         console.log('FCM messaging():', messaging().isDeviceRegisteredForRemoteMessages);
         // await messaging().registerForRemoteNotifications();
-        
-        
-        if(Platform.OS === 'ios'){
+
+
+        if (Platform.OS === 'ios') {
           let tokenApns = await messaging().getAPNSToken();
           !tokenApns && await messaging().setAPNSToken(Meteor.userId());
           tokenApns = await messaging().getAPNSToken();
           console.log('FCM getAPNSToken (iOS):', tokenApns);
         }
         const token = await messaging().getToken();
-         console.log('FCM token:', token);
+        console.log('FCM token:', token);
         // registrar token con el usuario actual en backend (push.registerToken)
-        await registerPushTokenForUser(Meteor.userId(),token);
+        await registerPushTokenForUser(Meteor.userId(), token);
       } catch (e) {
         console.warn('No se pudo obtener el FCM token:', e);
       }
     }
   }
-  
+
   useEffect(() => {
 
     if (Platform.OS === 'ios') {
       requestUserPermission();
-    }else{
-    (async ()=>{
-      await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+    } else {
+      (async () => {
+        await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
 
-      try {
-        const token = await messaging().getToken();
-        console.log('FCM token:', token);
-        // registrar token con el usuario actual en backend (push.registerToken)
-         token && await registerPushTokenForUser(Meteor.userId(), token);
-      } catch (e) {
-        console.warn('No se pudo obtener el FCM token:', e);
-      }
+        try {
+          const token = await messaging().getToken();
+          console.log('FCM token:', token);
+          // registrar token con el usuario actual en backend (push.registerToken)
+          token && await registerPushTokenForUser(Meteor.userId(), token);
+        } catch (e) {
+          console.warn('No se pudo obtener el FCM token:', e);
+        }
 
-    })()
-      
+      })()
+
     }
 
     // listener de refresh de token -> re-registrar en backend
     const unsubscribeTokenRefresh = messaging().onTokenRefresh(async (newToken) => {
       console.log('FCM token refreshed:', newToken);
-      await registerPushTokenForUser(Meteor.userId(),newToken);
+      await registerPushTokenForUser(Meteor.userId(), newToken);
     });
 
     // listener de mensajes en primer plano
     const unsubscribeOnMessage = messaging().onMessage(async remoteMessage => {
       // Mostrar notificación sencilla con el contenido recibido
-      await displayLocalNotification(remoteMessage, {allowAlert: true});
+      await displayLocalNotification(remoteMessage, { allowAlert: true });
     });
 
     // app abierta desde una notificación (background -> foreground)
@@ -293,9 +295,9 @@ const App = () => {
       .then(remoteMessage => {
         if (remoteMessage) {
           Alert.alert(remoteMessage?.notification?.title
-            , remoteMessage?.notification?.body,[{text: 'OK', onPress: () => console.log('OK Pressed')}]);
+            , remoteMessage?.notification?.body, [{ text: 'OK', onPress: () => console.log('OK Pressed') }]);
           console.log('Se abrio desde la Notificacion:', remoteMessage);
-          
+
           // aquí se podría navegar según data del mensaje
         }
       })
@@ -310,10 +312,14 @@ const App = () => {
 
 
 
-  
+
 
 
   return (
+    <PaperProvider>
+      <Portal.Host>
+      {/* Dialog de datos obligatorios */}
+      <RequiredDataDialog />
     <>
       {/* <ScrollView
         contentInsetAdjustmentBehavior="automatic"
@@ -331,7 +337,7 @@ const App = () => {
             //     ? 'PeliculasVideos'
             //     : 'User'
           }
-          >
+        >
           {/* <Stack.Screen
             name="Loguin"
             component={Loguin}
@@ -354,9 +360,9 @@ const App = () => {
           <Stack.Screen
             name="Main"
             component={MenuPrincipal}
-            options={({navigation, route}) => ({
+            options={({ navigation, route }) => ({
               title: (
-                <Text style={{letterSpacing: 5}}>
+                <Text style={{ letterSpacing: 5 }}>
                   <FontAwesome
                     // onPress={() => logOut(navigation)}
                     name="hand-o-right"
@@ -398,8 +404,8 @@ const App = () => {
           />
           <Stack.Screen
             name="Dashboard"
-            options={({navigation, route}) => {
-              const {params} = route;
+            options={({ navigation, route }) => {
+              const { params } = route;
               var item = Meteor.users.findOne(
                 params ? params.item : Meteor.userId(),
                 {
@@ -437,25 +443,25 @@ const App = () => {
                 // headerLeftContainerStyle: { display: flex },
                 headerRight: () => (
                   <MenuHeader
-                  navigation={navigation}
-                />
+                    navigation={navigation}
+                  />
                 ),
                 // headerRight
                 // headerTransparent:false
               };
             }}>
             {props => {
-              const {navigation, route} = props;
-              const {params} = route;
+              const { navigation, route } = props;
+              const { params } = route;
               const item = params ? params.item : Meteor.userId();
               // const {navigation} = route.params;
               return (<Surface>
-              <ScrollView style={{width:"100%", height: "100%"}}>
-                <DashBoardPrincipal type={"HORA"} />
-                <DashBoardPrincipal type={"DIARIO"} />
-                <DashBoardPrincipal type={"MENSUAL"} />
-              </ScrollView>
-                
+                <ScrollView style={{ width: "100%", height: "100%" }}>
+                  <DashBoardPrincipal type={"HORA"} />
+                  <DashBoardPrincipal type={"DIARIO"} />
+                  <DashBoardPrincipal type={"MENSUAL"} />
+                </ScrollView>
+
               </Surface>
 
                 // <TasksProvider user={user} projectPartition={projectPartition}>
@@ -464,13 +470,13 @@ const App = () => {
               );
             }}
           </Stack.Screen>
-          
+
           <Stack.Screen
             name="Users"
             component={UserHome}
-            options={({navigation, route}) => ({
+            options={({ navigation, route }) => ({
               title: (
-                <Text style={{letterSpacing: 5}}>
+                <Text style={{ letterSpacing: 5 }}>
                   <FontAwesome
                     // onPress={() => logOut(navigation)}
                     name="hand-o-right"
@@ -513,8 +519,8 @@ const App = () => {
           <Stack.Screen
             name="PeliculasVideos"
             // component={MyTabs}
-            options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 4}}>Peliculas y Series</Text>,
+            options={({ navigation, route }) => ({
+              title: <Text style={{ letterSpacing: 4 }}>Peliculas y Series</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -534,21 +540,21 @@ const App = () => {
               // headerRight
               // headerTransparent:false
             })}
-            >
+          >
             {props => {
               const { navigation, route } = props;
               return (
                 Meteor.user() && Meteor.user().subscipcionPelis ? (
                   <MyTabs navigation={navigation} route={route} />
                 ) :
-                (
-                  <Surface style={{flex:1, justifyContent:'center', alignItems:'center', height:'100%'}}>
-                  <View style={{flex:1,}}
-                  >
-                    <Text style={{fontSize:20, textAlign:'center', marginTop:20}} >No tiene una Subscripcion Activa</Text>
-                     </View>
-                  </Surface>
-                )
+                  (
+                    <Surface style={{ flex: 1, justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                      <View style={{ flex: 1, }}
+                      >
+                        <Text style={{ fontSize: 20, textAlign: 'center', marginTop: 20 }} >No tiene una Subscripcion Activa</Text>
+                      </View>
+                    </Surface>
+                  )
 
                 // <Player id={id} subtitulo={subtitulo} navigation={navigation} urlPeliHTTPS={urlPeliHTTPS} />
                 // <TasksProvider user={user} projectPartition={projectPartition}>
@@ -559,8 +565,8 @@ const App = () => {
           </Stack.Screen>
           <Stack.Screen
             name="User"
-            options={({navigation, route}) => {
-              const {params} = route;
+            options={({ navigation, route }) => {
+              const { params } = route;
               var item = Meteor.users.findOne(
                 params ? params.item : Meteor.userId(),
                 {
@@ -598,16 +604,16 @@ const App = () => {
                 // headerLeftContainerStyle: { display: flex },
                 headerRight: () => (
                   <MenuHeader
-                  navigation={navigation}
-                />
+                    navigation={navigation}
+                  />
                 ),
                 // headerRight
                 // headerTransparent:false
               };
             }}>
             {props => {
-              const {navigation, route} = props;
-              const {params} = route;
+              const { navigation, route } = props;
+              const { params } = route;
               const item = params ? params.item : Meteor.userId();
               // const {navigation} = route.params;
               return (
@@ -621,8 +627,8 @@ const App = () => {
           <Stack.Screen
             name="Servidores"
             component={ServerList}
-            options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 2}}>Servidores</Text>,
+            options={({ navigation, route }) => ({
+              title: <Text style={{ letterSpacing: 2 }}>Servidores</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -646,9 +652,9 @@ const App = () => {
           <Stack.Screen
             name="ConsumoUsers"
             component={ConsumoUserHome}
-            options={({navigation, route}) => ({
+            options={({ navigation, route }) => ({
               title: (
-                <Text style={{letterSpacing: 5}}>
+                <Text style={{ letterSpacing: 5 }}>
                   <FontAwesome
                     // onPress={() => logOut(navigation)}
                     name="hand-o-right"
@@ -691,8 +697,8 @@ const App = () => {
           <Stack.Screen
             name="CreateUsers"
             component={CreateUsers}
-            options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 2}}>Crear Usuario</Text>,
+            options={({ navigation, route }) => ({
+              title: <Text style={{ letterSpacing: 2 }}>Crear Usuario</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -716,8 +722,8 @@ const App = () => {
           <Stack.Screen
             name="Logs"
             component={LogsList}
-            options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 2}}>Logs</Text>,
+            options={({ navigation, route }) => ({
+              title: <Text style={{ letterSpacing: 2 }}>Logs</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -741,8 +747,8 @@ const App = () => {
           <Stack.Screen
             name="Ventas"
             component={VentasList}
-            options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 2}}>Ventas</Text>,
+            options={({ navigation, route }) => ({
+              title: <Text style={{ letterSpacing: 2 }}>Ventas</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -766,8 +772,8 @@ const App = () => {
           <Stack.Screen
             name="SubidaArchivos"
             component={SubidaArchivos}
-            options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 2}}>Upload</Text>,
+            options={({ navigation, route }) => ({
+              title: <Text style={{ letterSpacing: 2 }}>Upload</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -791,8 +797,8 @@ const App = () => {
           <Stack.Screen
             name="ListaArchivos"
             component={ListaArchivos}
-            options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 2}}>Archivos</Text>,
+            options={({ navigation, route }) => ({
+              title: <Text style={{ letterSpacing: 2 }}>Archivos</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -813,11 +819,11 @@ const App = () => {
               // headerTransparent:false
             })}
           />
-<Stack.Screen
+          <Stack.Screen
             name="ListaPropertys"
             component={PropertyTable}
-            options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 2}}>Propertys</Text>,
+            options={({ navigation, route }) => ({
+              title: <Text style={{ letterSpacing: 2 }}>Propertys</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
                 height: 90,
@@ -841,12 +847,12 @@ const App = () => {
 
           <Stack.Screen
             name="Video"
-            options={({navigation, route}) => ({
+            options={({ navigation, route }) => ({
               headerShown: false,
             })}>
             {props => {
-              const {navigation, route} = props;
-              const {id, subtitulo} = route.params;
+              const { navigation, route } = props;
+              const { id, subtitulo } = route.params;
 
               if (Platform.OS == 'ios') {
                 return (
@@ -875,7 +881,7 @@ const App = () => {
           </Stack.Screen>
           <Stack.Screen
             name="Mensaje"
-            options={({navigation, route}) => ({
+            options={({ navigation, route }) => ({
               title: (
                 <Text>
                   {Meteor.users.findOne(route.params.item) &&
@@ -896,9 +902,9 @@ const App = () => {
               // headerTransparent:false
             })}>
             {props => {
-              const {navigation, route} = props;
+              const { navigation, route } = props;
               // console.log(item)
-              const {item} = route.params;
+              const { item } = route.params;
               return (
                 <MensajesHome user={item} navigation={navigation} route={route} />
                 // <TasksProvider user={user} projectPartition={projectPartition}>
@@ -909,7 +915,7 @@ const App = () => {
           </Stack.Screen>
           <Stack.Screen
             name="AllMensajesUser"
-            options={({navigation, route}) => ({
+            options={({ navigation, route }) => ({
               title: <Text>Mensajes</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
@@ -925,7 +931,7 @@ const App = () => {
               // headerTransparent:false
             })}>
             {props => {
-              const {navigation, route} = props;
+              const { navigation, route } = props;
               // console.log(item)
               return (
                 <ChatUsersHome navigation={navigation} />
@@ -938,7 +944,7 @@ const App = () => {
           <Stack.Screen
             name="ProductosCubacelCards"
             // component={Productos}
-            options={({navigation, route}) => ({
+            options={({ navigation, route }) => ({
               title: <Text>Recargas</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
@@ -949,31 +955,31 @@ const App = () => {
               // headerTitleStyle: {
               //   fontWeight: 'bold',
               // },
-                // headerLeft:null,
-                headerShown: true,
-                headerRight: () => (
+              // headerLeft:null,
+              headerShown: true,
+              headerRight: () => (
                 <MenuHeader
                   navigation={navigation}
                 />
-                ),
+              ),
               // headerRight
               // headerTransparent:false
             })}
           >
-          {props => {
-              const {navigation, route} = props;
+            {props => {
+              const { navigation, route } = props;
               // console.log(item)
               return (
                 <>
-                <Surface>
-                <Productos />
-                </Surface>
-                
-                <TableRecargas/> 
-                
+                  <Surface>
+                    <Productos />
+                  </Surface>
+
+                  <TableRecargas />
+
                 </>
-                
-                                
+
+
                 // <TasksProvider user={user} projectPartition={projectPartition}>
                 //   <TasksView navigation={navigation} route={route} />
                 // </TasksProvider>
@@ -983,8 +989,8 @@ const App = () => {
           <Stack.Screen
             name="Remesas"
             component={TableListRemesa}
-            options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 2}}>Remesas</Text>,
+            options={({ navigation, route }) => ({
+              title: <Text style={{ letterSpacing: 2 }}>Remesas</Text>,
               headerStyle: { backgroundColor: '#3f51b5', height: 90 },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -994,13 +1000,13 @@ const App = () => {
               ),
             })}
           />
-            
+
           {/* nuevo: formulario de remesas */}
           <Stack.Screen
             name="remesas"
             // component={FormularioRemesa} // usar el componente correcto
-            options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 2}}>Formulario Remesas</Text>,
+            options={({ navigation, route }) => ({
+              title: <Text style={{ letterSpacing: 2 }}>Formulario Remesas</Text>,
               headerStyle: { backgroundColor: '#3f51b5', height: 90 },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -1010,25 +1016,25 @@ const App = () => {
               ),
             })}
           >
-          {props => {
-              const {navigation, route} = props;
+            {props => {
+              const { navigation, route } = props;
               // console.log(item)
               return (
-                <Surface style={{height:"100%"}}>
-                <ScrollView>
-                {Meteor.user()?.permiteRemesas ? (
-                  <FormularioRemesa />
-                ) : (
-                  <Text style={{ textAlign: 'center', margin: 20 }}>
-                    No tiene permiso para realizar remesas.
-                  </Text>
-                )}
-                <TableListRemesa />                
-                </ScrollView>
-                
+                <Surface style={{ height: "100%" }}>
+                  <ScrollView>
+                    {Meteor.user()?.permiteRemesas ? (
+                      <FormularioRemesa />
+                    ) : (
+                      <Text style={{ textAlign: 'center', margin: 20 }}>
+                        No tiene permiso para realizar remesas.
+                      </Text>
+                    )}
+                    <TableListRemesa />
+                  </ScrollView>
+
                 </Surface>
-                
-                                
+
+
                 // <TasksProvider user={user} projectPartition={projectPartition}>
                 //   <TasksView navigation={navigation} route={route} />
                 // </TasksProvider>
@@ -1040,8 +1046,8 @@ const App = () => {
           <Stack.Screen
             name="VentasStepper"
             component={VentasStepper}
-            options={({navigation, route}) => ({
-              title: <Text style={{letterSpacing: 2}}>Ventas (Stepper)</Text>,
+            options={({ navigation, route }) => ({
+              title: <Text style={{ letterSpacing: 2 }}>Ventas (Stepper)</Text>,
               headerStyle: { backgroundColor: '#3f51b5', height: 90 },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -1052,8 +1058,8 @@ const App = () => {
             })}
           />
 
-          <Stack.Screen 
-            name="ProxyPackages" 
+          <Stack.Screen
+            name="ProxyPackages"
             component={ProxyPackageCard}
             options={{
               title: 'Paquetes Proxy',
@@ -1062,9 +1068,9 @@ const App = () => {
               headerTitleStyle: { fontWeight: 'bold' }
             }}
           />
-          
-          <Stack.Screen 
-            name="VPNPackages" 
+
+          <Stack.Screen
+            name="VPNPackages"
             component={VPNPackageCard}
             options={{
               title: 'Paquetes VPN',
@@ -1074,8 +1080,8 @@ const App = () => {
             }}
           />
 
-          <Stack.Screen 
-            name="ProxyPurchase" 
+          <Stack.Screen
+            name="ProxyPurchase"
             component={ProxyPurchaseScreen}
             options={{
               title: 'Comprar Paquete Proxy',
@@ -1088,9 +1094,9 @@ const App = () => {
               },
             }}
           />
-          
-          <Stack.Screen 
-            name="VPNPurchase" 
+
+          <Stack.Screen
+            name="VPNPurchase"
             component={VPNPurchaseScreen}
             options={{
               title: 'Comprar Paquete VPN',
@@ -1103,14 +1109,14 @@ const App = () => {
               },
             }}
           />
-          <Stack.Screen 
-            name="ProxyVPNHistory" 
+          <Stack.Screen
+            name="ProxyVPNHistory"
             component={TableProxyVPNHistory}
             options={{
               title: 'Historial Proxy/VPN',
-              headerStyle: { 
+              headerStyle: {
                 backgroundColor: '#673AB7', // Púrpura para indicar mixto
-                height: 90 
+                height: 90
               },
               headerTintColor: '#fff',
               headerTitleStyle: { fontWeight: 'bold' }
@@ -1137,6 +1143,8 @@ const App = () => {
       {/* <PelisHome /> */}
       {/* </ScrollView> */}
     </>
+    </Portal.Host>
+    </PaperProvider>
   );
 };
 // const MensajesHome = withTracker(user => {

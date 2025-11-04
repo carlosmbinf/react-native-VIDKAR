@@ -1580,3 +1580,134 @@ Crear pantalla "Ver Términos Completos" accesible desde perfil de usuario.
 Agregar campo aceptoTerminos: { version: String, fecha: Date } en Users.
 Traducir términos al inglés para futura expansión a USA/Europa.
 Implementar A/B testing: términos cortos vs detallados (medir tasa de conversión).
+
+
+// ...existing content...
+
+---
+
+Resumen técnico – Manejo Profesional de Teclado en Dialogs (DeleteAccountCard)
+- **Contexto**: Implementación de dialog de confirmación crítica (eliminación de cuenta) con manejo robusto del teclado en iOS/Android.
+
+- **Problema resuelto**: Dialog de React Native Paper queda oculto parcialmente cuando aparece el teclado, impidiendo ver botones de acción.
+
+- **Solución implementada**:
+  - **Listeners de teclado**: `keyboardWillShow/Hide` (iOS) y `keyboardDidShow/Hide` (Android) para detectar altura del teclado.
+  - **Ajuste dinámico con marginTop negativo**: 
+    ```javascript
+    marginTop: Platform.OS === 'ios' 
+      ? -keyboardHeight * 0.5  // Sube 50% altura teclado en iOS
+      : -keyboardHeight * 0.35 // Sube 35% en Android (ya tiene ajuste nativo)
+    ```
+  - **Dialog con dimensiones fijas**: Sin `maxHeight` porcentual para evitar cambios de tamaño bruscos.
+  - **ScrollView interno compacto**: `maxHeight: 250` para contenido scrollable si es necesario.
+
+- **Consideraciones técnicas críticas**:
+  - **Por qué marginTop negativo y no marginBottom**: `marginTop` negativo desplaza el Dialog hacia arriba manteniendo su tamaño, mientras que `marginBottom` solo comprime desde abajo.
+  - **Diferencia iOS vs Android**: Android ya tiene ajuste nativo del layout con `windowSoftInputMode="adjustResize"`, por eso usa factor 0.35 vs 0.5 en iOS.
+  - **Portal de Paper**: El Dialog debe estar dentro de `<Portal>` para que se renderice sobre todo el contenido.
+  - **Keyboard.dismiss() estratégico**: Se llama al cerrar dialog y tras confirmar acción para evitar teclado flotante.
+
+- **Patrón de validación defensiva**:
+  ```javascript
+  const handleAction = () => {
+    if (textInput.trim().toUpperCase() !== 'EXPECTED_TEXT') {
+      Alert.alert('Error', 'Texto incorrecto');
+      return; // No cerrar teclado aún
+    }
+    Keyboard.dismiss(); // Cerrar DESPUÉS de validar
+    hideDialog();
+    // ...ejecutar acción
+  };
+  ```
+
+- **Estilos clave para dialogs con teclado**:
+  ```javascript
+  dialog: {
+    borderRadius: 16,
+    maxWidth: 500,
+    alignSelf: 'center',
+    // NO usar maxHeight porcentual aquí
+  },
+  scrollView: {
+    maxHeight: 250, // Altura fija para evitar cambios bruscos
+  },
+  dialogActions: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    justifyContent: 'space-between',
+  }
+  ```
+
+- **Props críticos de TextInput dentro de Dialog**:
+  - `returnKeyType="done"`: Botón de teclado apropiado para acción final.
+  - `blurOnSubmit={false}`: Evita que se cierre el teclado al presionar "Done" si la validación falla.
+  - `onSubmitEditing={handleAction}`: Permite confirmar acción con tecla "Done" del teclado.
+  - `keyboardShouldPersistTaps="handled"`: Permite tocar botones sin cerrar teclado.
+
+- **Cleanup de listeners**:
+  ```javascript
+  useEffect(() => {
+    const showListener = Keyboard.addListener(...);
+    const hideListener = Keyboard.addListener(...);
+    
+    return () => {
+      showListener.remove();
+      hideListener.remove();
+    };
+  }, []);
+  ```
+
+- **Testing recomendado**:
+  - **iOS**: iPhone con notch (safe area), iPad (teclado más pequeño proporcionalmente).
+  - **Android**: Dispositivos con/sin botones virtuales, diferentes tamaños de teclado (Gboard, SwiftKey).
+  - **Orientación**: Portrait y landscape (altura de teclado cambia significativamente).
+  - **Teclados externos**: Bluetooth/USB (no disparan eventos keyboardDidShow en algunos casos).
+
+- **Alternativas descartadas y por qué**:
+  - **KeyboardAvoidingView**: No funciona bien dentro de Portal/Dialog de Paper, causa glitches visuales.
+  - **marginBottom dinámico**: Solo empuja desde abajo, no desplaza el dialog completo hacia arriba.
+  - **Animated.Value**: Más complejo, innecesario para este caso (Dialog ya tiene animación nativa).
+  - **react-native-keyboard-controller**: Dependencia adicional, overkill para un solo dialog.
+
+- **Casos edge a considerar**:
+  - **Teclado ya visible antes de abrir dialog**: Los listeners no se disparan, usar `Keyboard.metrics()` en `componentDidMount`.
+  - **Rotación de pantalla con teclado abierto**: Suscribirse a `Dimensions.addEventListener` para recalcular.
+  - **Multitasking en iPad**: Dialog puede quedar fuera de viewport, agregar `maxHeight: '90%'` al Dialog.
+  - **Accesibilidad con VoiceOver/TalkBack**: Validar que el focus salta correctamente entre elementos.
+
+- **Mejoras futuras**:
+  - **Animación sincronizada**: Usar `event.duration` de keyboardWillShow en iOS para animar el marginTop con `Animated`.
+  - **Safe area aware**: Sumar `useSafeAreaInsets().bottom` al cálculo de marginTop en dispositivos con notch.
+  - **Threshold de altura**: Si `keyboardHeight < 100`, no aplicar ajuste (teclado externo plegado).
+  - **Haptic feedback**: Vibración sutil al validar texto correctamente con `Haptics.notificationAsync()`.
+
+- **Patrón reutilizable para otros dialogs críticos**:
+  1. Extraer lógica de teclado a hook personalizado `useKeyboardAwareDialog()`.
+  2. Retornar `{ dialogStyle, keyboardHeight, isKeyboardVisible }`.
+  3. Aplicar `dialogStyle` directamente al Dialog.
+  4. Ejemplo de uso:
+     ```javascript
+     const { dialogStyle } = useKeyboardAwareDialog();
+     return <Dialog style={dialogStyle}>...</Dialog>;
+     ```
+
+- **Lecciones aprendidas**:
+  - **marginTop negativo > KeyboardAvoidingView**: Más confiable para dialogs de Paper.
+  - **Factores diferentes por plataforma**: iOS 0.5, Android 0.35 (empíricos, ajustar según necesidad).
+  - **Altura fija > altura porcentual**: Evita "saltos" visuales al aparecer teclado.
+  - **Keyboard.dismiss() DESPUÉS de validar**: Evita cerrar teclado si hay error.
+  - **Listeners SIEMPRE con cleanup**: Evita memory leaks y comportamientos erráticos.
+  - **Testing en dispositivos reales**: Emuladores no replican fielmente comportamiento de teclado.
+
+- **Archivos modificados en esta conversación**:
+  - `components/users/componentsUserDetails/DeleteAccountCard.jsx`: Implementación completa de manejo de teclado con marginTop negativo dinámico.
+  - `copilot-instructions.md`: Nueva sección técnica para referencia de futuros dialogs con input crítico.
+
+- **Próximos pasos**:
+  - Extraer hook `useKeyboardAwareDialog()` reutilizable.
+  - Aplicar patrón a otros dialogs con input (cambio de contraseña, envío de mensaje, etc.).
+  - Tests automatizados con Detox para validar comportamiento de teclado.
+  - Documentar en Storybook con ejemplos interactivos.
+
+---

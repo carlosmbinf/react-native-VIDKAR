@@ -9,52 +9,55 @@ const { height: screenHeight } = Dimensions.get('window');
 const DrawerOptionsAlls = (opt) => {
   const [active, setActive] = React.useState('');
 
+  // Construir opciones de servicios dinámicamente según permisos del usuario
+  const getOpcionesServicios = () => {
+    const user = Meteor.user();
+    const opciones = [];
 
-  const opcionesServicios = [
-    {
-      label: "Pelis y Series",
-      url:"PeliculasVideos",
-      icon:"movie-filter"
-    },
-    {
+    // Pelis y Series - solo si tiene suscripcionPelis
+    if (user?.suscripcionPelis === true) {
+      opciones.push({
+        label: "Pelis y Series",
+        url: "PeliculasVideos",
+        icon: "movie-filter"
+      });
+    }
+
+    opciones.push({
       label: "Productos Cubacel",
-      url:"ProductosCubacelCards",
-      icon:"view-dashboard"
-    },
-    // nuevas opciones
-    // {
-    //   label: "Remesas",
-    //   url: "Remesas",
-    //   icon: "bank-transfer"
-    // },
+      url: "ProductosCubacelCards",
+      icon: "view-dashboard"
+    });
     
-    {
+    opciones.push({
       label: "Productos Proxy",
       url: "ProxyPackages",
       icon: "wifi"
-    },
-    {
+    });
+    
+    opciones.push({
       label: "Productos VPN",
       url: "VPNPackages",
       icon: "shield-check"
-    },
-    {
+    });
+    
+    opciones.push({
       label: "Historial de Compras PROXY/VPN",
       url: "ProxyVPNHistory",
       icon: "history"
-    },
-    {
-      label: "Remesas",
-      url: "remesas",
-      icon: "file-document-edit-outline"
-    },
-    // {
-    //   label: "Ventas (Stepper)",
-    //   url: "VentasStepper",
-    //   icon: "chart-timeline-variant"
-    // },
-    
-  ]
+    });
+
+    // Remesas - solo si tiene permiteRemesas
+    if (user?.permiteRemesas === true) {
+      opciones.push({
+        label: "Remesas",
+        url: "remesas",
+        icon: "file-document-edit-outline"
+      });
+    }
+
+    return opciones;
+  };
 
   const opcionesAdministradores = [
     {
@@ -97,7 +100,8 @@ const DrawerOptionsAlls = (opt) => {
     //   url:"ConsumoUsers",
     //   icon:"chart-donut"
     // }
-  ]
+  ];
+
   const opcionesAdministradorGeneral = [
     {
       label: "Ventas",
@@ -109,7 +113,8 @@ const DrawerOptionsAlls = (opt) => {
       url:"ListaPropertys",
       icon:"cog-outline"
     }
-  ]
+  ];
+
   return (
     <>
       <Surface>
@@ -118,9 +123,10 @@ const DrawerOptionsAlls = (opt) => {
       <ScrollView>
         <Surface style={{minHeight: screenHeight - 180}}>
             <Drawer.Section title="Servicios VidKar">
-              {opcionesServicios.map(element => {
+              {getOpcionesServicios().map((element, index) => {
                 return (
                   <Drawer.Item
+                    key={`servicio-${index}`}
                     icon={element.icon}
                     label={element.label}
                     active={active === element.url}
@@ -134,9 +140,10 @@ const DrawerOptionsAlls = (opt) => {
             </Drawer.Section>
           { Meteor.user()?.profile?.role === 'admin' &&
           <Drawer.Section title="Opciones de Administradores">
-            {opcionesAdministradores.map(element => {
+            {opcionesAdministradores.map((element, index) => {
               return (
                 <Drawer.Item
+                  key={`admin-${index}`}
                   icon={element.icon}
                   label={element.label}
                   active={active === element.url}
@@ -150,9 +157,10 @@ const DrawerOptionsAlls = (opt) => {
           </Drawer.Section>}
           {Meteor.user()?.username == 'carlosmbinf' && (
             <Drawer.Section title="Opciones Privadas">
-              {opcionesAdministradorGeneral.map(element => {
+              {opcionesAdministradorGeneral.map((element, index) => {
                 return (
                   <Drawer.Item
+                    key={`privado-${index}`}
                     icon={element.icon}
                     label={element.label}
                     active={active === element.url}
