@@ -14,7 +14,6 @@ export const SignalsCollection = new Mongo.Collection("signals");
 
 
 ///////////////////////////////////NUEVOS PARA RECARGAS//////////////
-export const LogsRechargeCollection = new Mongo.Collection("Logs_Recharge");
 export const PreciosRechargeCollection = new Mongo.Collection("precios_Recharge");
 export const VentasRechargeCollection = new Mongo.Collection("ventas_Recharge");
 export const OrdenesCollection = new Mongo.Collection("ordenes_Recharge");

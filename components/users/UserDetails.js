@@ -21,6 +21,9 @@ import {
   IconButton,
   Avatar,
   Divider,
+  Portal,
+  Dialog,
+  Paragraph,
 } from 'react-native-paper';
 import {Colors} from 'react-native/Libraries/NewAppScreen';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -46,6 +49,7 @@ import OptionsCardAdmin from './componentsUserDetails/OptionsCardAdmin';
 import TarjetaDebitoCard from './componentsUserDetails/TarjetaDebitoCard';
 import SaldoRecargasCard from './componentsUserDetails/SaldoRecargasCard'; // NUEVO
 import SendPushMessageCard from '../mensajes/SendPushMessageCard';
+import DeleteAccountCard from './componentsUserDetails/DeleteAccountCard';
 
 const axios = require('axios').default;
 
@@ -475,6 +479,12 @@ class MyAppUserDetails extends React.Component {
                 {item?._id && (item?._id != Meteor.userId() || Meteor?.user()?.profile?.role == 'admin') && this.state.hasPushTokens ? (
                   <SendPushMessageCard toUserId={item._id} />
                 ) : null}
+                {/* NUEVO: Eliminar cuenta */}
+                {item?._id && item?._id === Meteor.userId() && (
+                  <View style={[styles.cardItem, computedCardWidth]}>
+                    <DeleteAccountCard userId={item._id} username={item.username} navigation={navigation} />
+                  </View>
+                )}
               </View>
             )
           )}
@@ -658,5 +668,64 @@ const styles = StyleSheet.create({
     flexBasis: '48%',
     maxWidth: '48%',
     minWidth: 300,
+  },
+  dialog: {
+    borderRadius: 16,
+    maxWidth: 500,
+    alignSelf: 'center',
+  },
+  dialogTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#D32F2F',
+    textAlign: 'center',
+  },
+  dialogWarning: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  dialogWarningText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#D32F2F',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  dialogDescription: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 12,
+    lineHeight: 20,
+    textAlign: 'justify',
+  },
+  codeText: {
+    fontFamily: 'monospace',
+    backgroundColor: '#F5F5F5',
+    padding: 2,
+    borderRadius: 4,
+    fontWeight: 'bold',
+    color: '#D32F2F',
+  },
+  input: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEBEE',
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 8,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#D32F2F',
+    marginLeft: 6,
+  },
+  dialogActions: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    justifyContent: 'space-between',
   },
 });
