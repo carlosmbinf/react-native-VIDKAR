@@ -17,7 +17,7 @@ const WizardConStepper = ({ product, navigation }) => {
     const [metodoPago, setMetodoPago] = useState(null);
     const [totalAPagar, setTotalAPagar] = useState(0);
     const userId = Meteor.userId();
-
+    const [cargadoPago, setCargadoPago] = useState(false);
     const theme = useTheme();
     const isDarkMode = theme.dark;
 
@@ -210,6 +210,7 @@ const WizardConStepper = ({ product, navigation }) => {
               console.error('Error al calcular total a pagar:', err);
             } else {
               setTotalAPagar(res);
+              setCargadoPago(true);
             }
           });
           return;
@@ -374,6 +375,7 @@ const WizardConStepper = ({ product, navigation }) => {
           }
           if (success) {
             console.log("success", success);
+
             setVisible(false);
           }
         });
@@ -511,7 +513,7 @@ const WizardConStepper = ({ product, navigation }) => {
                             {/* Paso 4: Pago */}
                             <ProgressStep 
                                 buttonDisabledColor='#aaa' 
-                                buttonFinishDisabled={(activeStep === 3 && metodoPago !== 'efectivo' && !compra?.link)} 
+                                buttonFinishDisabled={(activeStep === 3 && metodoPago !== 'efectivo' && !compra?.link) || (metodoPago == 'efectivo' && !cargadoPago) } 
                                 buttonFinishText={metodoPago === 'efectivo' ? 'Generar Venta' : 'Pagar'} 
                                 buttonFillColor='#6200ee' 
                                 buttonPreviousText='Atras' 
