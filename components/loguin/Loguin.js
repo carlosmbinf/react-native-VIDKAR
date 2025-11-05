@@ -26,18 +26,20 @@ import { loginWithGoogle, loginWithApple } from '../../utilesMetodos/metodosUtil
 
 const Loguin = ({ navigation }) => {
   // Estado usando useState
-  const [ipserver, setIpserver] = useState('vidkar.ddns.net');
+  const [ipserver, setIpserver] = useState('www.vidkar.com');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(Appearance.getColorScheme() === 'dark');
   const [isLandscape, setIsLandscape] = useState(screenWidth > screenHeight);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingApple, setLoadingApple] = useState(false);
+  const [showServerInput, setShowServerInput] = useState(false);
+  const [connectingToServer, setConnectingToServer] = useState(false);
 
   // Efectos usando useEffect (reemplazan componentDidMount y componentWillUnmount)
   useEffect(() => {
     // Conectar a Meteor
-    // Meteor.connect('ws://179.27.97.231:3000/websocket');
+    Meteor.connect(`ws://${ipserver}:3000/websocket`);
 
     // Suscripción a cambios de dimensiones
     const dimSub = Dimensions.addEventListener('change', ({ window }) => {
@@ -70,6 +72,50 @@ const Loguin = ({ navigation }) => {
       }
     };
   }, []);
+
+  // Función para detectar comando secreto en el campo usuario
+  const handleUsernameChange = (text) => {
+    setUsername(text);
+    // Activar modo desarrollador si se escribe "change server"
+    if (text.toLowerCase() === 'change server') {
+      setShowServerInput(true);
+      Alert.alert(
+        'Modo Desarrollador',
+        'Campo de servidor habilitado permanentemente',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  // Función para reconectar al servidor
+  const reconnectToServer = async () => {
+    try {
+      setConnectingToServer(true);
+      
+      // Desconectar primero
+      await Meteor.disconnect();
+      
+      // Pequeña pausa para asegurar desconexión
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Reconectar con el nuevo servidor
+      await Meteor.connect(`ws://${ipserver}:3000/websocket`);
+      
+      Alert.alert(
+        'Conexión Exitosa',
+        `Conectado exitosamente a: ${ipserver}`,
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      Alert.alert(
+        'Error de Conexión',
+        `No se pudo conectar al servidor: ${ipserver}\n\nError: ${error.message}`,
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setConnectingToServer(false);
+    }
+  };
 
   // Método de login
   const onLogin = () => {
@@ -241,10 +287,41 @@ const Loguin = ({ navigation }) => {
                   <Text style={{ fontSize: 16, justifyContent: 'center', alignContent: 'center', textAlign: 'center' }}>
                     Inicio de Session
                   </Text>
+                  
+                  {/* Campo de servidor (solo visible en modo desarrollador) */}
+                  {showServerInput && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                      <TextInput
+                        mode="flat"
+                        value={ipserver}
+                        onChangeText={setIpserver}
+                        label={'IP del Servidor'}
+                        returnKeyType="done"
+                        dense={true}
+                        style={{
+                          backgroundColor: 'transparent',
+                          flex: 1,
+                          marginRight: 8,
+                        }}
+                      />
+                      <Button
+                        mode="contained"
+                        onPress={reconnectToServer}
+                        disabled={connectingToServer}
+                        loading={connectingToServer}
+                        style={{ height: 36 }}
+                        contentStyle={{ height: 36 }}
+                        compact={true}
+                      >
+                        <FontAwesome5 name="sync-alt" size={14} />
+                      </Button>
+                    </View>
+                  )}
+                  
                   <TextInput
                     mode="flat"
                     value={username}
-                    onChangeText={setUsername}
+                    onChangeText={handleUsernameChange}
                     label={'Usuario'}
                     returnKeyType="next"
                     dense={true}

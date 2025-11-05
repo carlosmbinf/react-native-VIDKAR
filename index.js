@@ -13,7 +13,7 @@ import Meteor, { Accounts, Mongo, withTracker, useTracker } from '@meteorrn/core
 
 try {
   
-   Meteor.connect('ws://www.vidkar.com:3000/websocket');
+  //  Meteor.connect('ws://167.62.26.246:3000/websocket');
   AppRegistry.registerComponent(appName, () => Main);
 
   AppRegistry.registerHeadlessTask('MyBackgroundService', () => require('./services/SomeTaskName'));
