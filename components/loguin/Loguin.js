@@ -38,8 +38,29 @@ const Loguin = ({ navigation }) => {
 
   // Efectos usando useEffect (reemplazan componentDidMount y componentWillUnmount)
   useEffect(() => {
-    // Conectar a Meteor
-    Meteor.connect(`ws://${ipserver}:3000/websocket`);
+    // Conectar a Meteor solo si no está conectado
+    (async () => {
+      try {
+      const status = Meteor.status && Meteor.status();
+      if (!status || !status.connected) {
+        setConnectingToServer(true);
+        const url = `ws://${ipserver}:3000/websocket`;
+        console.log(`[Loguin] Intentando conectar a Meteor en ${url}`);
+        await Meteor.connect(url);
+        console.log('[Loguin] Conectado a Meteor');
+      } else {
+        console.log('[Loguin] Ya conectado a Meteor');
+      }
+      } catch (error) {
+      console.warn('[Loguin] Error conectando a Meteor:', error);
+      Alert.alert(
+        'Error de Conexión',
+        `No se pudo conectar al servidor: ${ipserver}\n\nError: ${error?.message || error}`
+      );
+      } finally {
+      setConnectingToServer(false);
+      }
+    })();
 
     // Suscripción a cambios de dimensiones
     const dimSub = Dimensions.addEventListener('change', ({ window }) => {

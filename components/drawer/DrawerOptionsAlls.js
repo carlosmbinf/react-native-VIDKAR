@@ -1,4 +1,4 @@
-import Meteor from '@meteorrn/core';
+import Meteor, {useTracker} from '@meteorrn/core';
 import * as React from 'react';
 import { ScrollView, Dimensions } from 'react-native';
 import { Card, Drawer, Surface } from 'react-native-paper';
@@ -9,13 +9,19 @@ const { height: screenHeight } = Dimensions.get('window');
 const DrawerOptionsAlls = (opt) => {
   const [active, setActive] = React.useState('');
 
+
+    const { user,ready } = useTracker(() => {
+    const subscription = Meteor.subscribe("user", Meteor.userId());
+    const user = Meteor.user();
+    return { user,ready: subscription.ready()};
+  });
+
   // Construir opciones de servicios dinámicamente según permisos del usuario
   const getOpcionesServicios = () => {
-    const user = Meteor.user();
     const opciones = [];
-
+    console.log("user en drawer", user);
     // Pelis y Series - solo si tiene suscripcionPelis
-    if (user?.suscripcionPelis === true) {
+    if (user?.subscipcionPelis == true) {
       opciones.push({
         label: "Pelis y Series",
         url: "PeliculasVideos",
@@ -48,7 +54,7 @@ const DrawerOptionsAlls = (opt) => {
     });
 
     // Remesas - solo si tiene permiteRemesas
-    if (user?.permiteRemesas === true) {
+    if (user?.permiteRemesas == true) {
       opciones.push({
         label: "Remesas",
         url: "remesas",
