@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
-import { View, Image, Pressable, ScrollView, StyleSheet, Alert } from 'react-native';
+import React, { useMemo, useState, useRef } from 'react';
+import { View, Image, Pressable, ScrollView, StyleSheet, Alert, Animated } from 'react-native';
 import { Card, Text, Chip, Divider, Button, ActivityIndicator, IconButton, Surface, Badge } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 import moment from 'moment';
 import DrawerBottom from '../drawer/DrawerBottom';
 import { EvidenciasVentasEfectivoCollection, VentasRechargeCollection } from '../collections/collections';
+import { PinchGestureHandler, PanGestureHandler, State } from 'react-native-gesture-handler';
 
 const ESTADOS = {
   APROBADA: 'APROBADA',
@@ -65,6 +66,170 @@ const PRODUCT_COLORS = {
   VPN: { primary: '#4CAF50', bg: '#E8F5E9', icon: 'shield-check' },
   RECARGA: { primary: '#FF6F00', bg: 'rgba(255, 111, 0, 0.12)', icon: 'cellphone' },
   REMESA: { primary: '#9C27B0', bg: 'rgba(156, 39, 176, 0.12)', icon: 'cash' }
+};
+
+// ✅ CORREGIDO: Zoom gradual + Pan simultáneo con gestión correcta de offsets
+const ZoomableImage = ({ uri, style }) => {
+  const scale = useRef(new Animated.Value(1)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+  
+  const lastScale = useRef(1);
+  const lastTranslateX = useRef(0);
+  const lastTranslateY = useRef(0);
+  const lastTapTime = useRef(0);
+
+  const pinchRef = useRef(null);
+  const panRef = useRef(null);
+
+  const onPinchEvent = Animated.event(
+    [{ nativeEvent: { scale: scale } }],
+    { useNativeDriver: true }
+  );
+
+  const onPinchStateChange = (event) => {
+    if (event.nativeEvent.oldState === State.ACTIVE) {
+      // ✅ Calcular nueva escala acumulada
+      const newScale = lastScale.current * event.nativeEvent.scale;
+      
+      if (newScale < 1) {
+        // Reset completo si zoom < 1x
+        lastScale.current = 1;
+        lastTranslateX.current = 0;
+        lastTranslateY.current = 0;
+        
+        // ✅ Limpiar offsets antes de animar
+        translateX.flattenOffset();
+        translateY.flattenOffset();
+        
+        Animated.parallel([
+          Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
+        ]).start();
+      } else if (newScale > 5) {
+        // Limitar a 5x
+        lastScale.current = 5;
+        // ✅ Ajustar offset de scale para próximo gesto
+        scale.setOffset(lastScale.current);
+        scale.setValue(1);
+      } else {
+        // ✅ Guardar escala acumulada
+        lastScale.current = newScale;
+        // ✅ Setear offset y resetear valor para próximo gesto
+        scale.setOffset(lastScale.current);
+        scale.setValue(1);
+      }
+    }
+  };
+
+  const onPanEvent = Animated.event(
+    [{ 
+      nativeEvent: { 
+        translationX: translateX,
+        translationY: translateY 
+      } 
+    }],
+    { useNativeDriver: true }
+  );
+
+  const onPanStateChange = (event) => {
+    if (event.nativeEvent.oldState === State.ACTIVE) {
+      if (lastScale.current > 1) {
+        // ✅ Acumular traslación
+        lastTranslateX.current += event.nativeEvent.translationX;
+        lastTranslateY.current += event.nativeEvent.translationY;
+        
+        // ✅ Setear offset y resetear valores para próximo gesto
+        translateX.setOffset(lastTranslateX.current);
+        translateY.setOffset(lastTranslateY.current);
+        translateX.setValue(0);
+        translateY.setValue(0);
+      } else {
+        // Si no hay zoom, resetear posición
+        lastTranslateX.current = 0;
+        lastTranslateY.current = 0;
+        
+        translateX.flattenOffset();
+        translateY.flattenOffset();
+        
+        Animated.parallel([
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
+        ]).start();
+      }
+    }
+  };
+
+  const handleDoubleTap = () => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
+
+    if (now - lastTapTime.current < DOUBLE_TAP_DELAY) {
+      if (lastScale.current > 1) {
+        // Reset completo
+        lastScale.current = 1;
+        lastTranslateX.current = 0;
+        lastTranslateY.current = 0;
+        
+        // ✅ Limpiar todos los offsets
+        scale.flattenOffset();
+        translateX.flattenOffset();
+        translateY.flattenOffset();
+        
+        Animated.parallel([
+          Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
+        ]).start();
+      } else {
+        // Zoom in a 2.5x
+        lastScale.current = 2.5;
+        scale.flattenOffset();
+        Animated.spring(scale, { toValue: 2.5, useNativeDriver: true }).start();
+      }
+    }
+    lastTapTime.current = now;
+  };
+
+  return (
+    <Pressable onPress={handleDoubleTap} style={styles.imageContainer}>
+      <PanGestureHandler
+        ref={panRef}
+        onGestureEvent={onPanEvent}
+        onHandlerStateChange={onPanStateChange}
+        minPointers={1}
+        maxPointers={2}
+        simultaneousHandlers={pinchRef}
+      >
+        <Animated.View style={{ flex: 1, width: '100%', height: '100%' }}>
+          <PinchGestureHandler
+            ref={pinchRef}
+            onGestureEvent={onPinchEvent}
+            onHandlerStateChange={onPinchStateChange}
+            simultaneousHandlers={panRef}
+          >
+            <Animated.View style={{ flex: 1, width: '100%', height: '100%' }}>
+              <Animated.Image
+                source={{ uri }}
+                style={[
+                  style,
+                  {
+                    transform: [
+                      { translateX: translateX },
+                      { translateY: translateY },
+                      { scale: scale }
+                    ]
+                  }
+                ]}
+                resizeMode="contain"
+              />
+            </Animated.View>
+          </PinchGestureHandler>
+        </Animated.View>
+      </PanGestureHandler>
+    </Pressable>
+  );
 };
 
 const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAprobada, loadingIds = [] }) => {
@@ -508,10 +673,9 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
         >
           {preview && (
             <View style={styles.previewWrapper}>
-              <Image
-                source={{ uri: `data:image/jpeg;base64,${preview.base64}` }}
+              <ZoomableImage
+                uri={`data:image/jpeg;base64,${preview.base64}`}
                 style={styles.previewImage}
-                resizeMode="contain"
               />
               <View style={styles.metaBox}>
                 <View style={styles.metaRow}>
@@ -697,7 +861,19 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 12, color: '#777', marginTop: 6 },
 
   previewWrapper: { paddingBottom: 10 },
-  previewImage: { width: '100%', height: 300, backgroundColor: '#000', borderRadius: 12 },
+  imageContainer: { 
+    width: '100%', 
+    height: 500, 
+    backgroundColor: '#000', 
+    borderRadius: 12,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  previewImage: { 
+    width: '100%', 
+    height: '100%'
+  },
   metaBox: { marginTop: 12 },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   chipOk: { borderColor: '#2ecc71' },
