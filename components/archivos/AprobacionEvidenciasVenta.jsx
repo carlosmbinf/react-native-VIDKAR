@@ -82,6 +82,13 @@ const ZoomableImage = ({ uri, style }) => {
   const pinchRef = useRef(null);
   const panRef = useRef(null);
 
+  const MAX_SCALE = 5;
+  const MIN_SCALE = 1;
+
+  // Tamaño aproximado de la imagen (puedes ajustarlo según tus dimensiones reales)
+  const IMAGE_WIDTH = 400;
+  const IMAGE_HEIGHT = 400;
+
   const onPinchEvent = Animated.event(
     [{ nativeEvent: { scale: scale } }],
     { useNativeDriver: true }
@@ -103,9 +110,9 @@ const ZoomableImage = ({ uri, style }) => {
         translateY.flattenOffset();
         
         Animated.parallel([
-          Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
-          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
-          Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
+          Animated.spring(scale, { toValue: 1, useNativeDriver: false }),
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: false }),
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: false }),
         ]).start();
       } else if (newScale > 5) {
         // Limitar a 5x
@@ -123,12 +130,15 @@ const ZoomableImage = ({ uri, style }) => {
     }
   };
 
+  const clampedTranslateX = Animated.diffClamp(translateX, -IMAGE_WIDTH, IMAGE_WIDTH);
+  const clampedTranslateY = Animated.diffClamp(translateY, -IMAGE_HEIGHT, IMAGE_HEIGHT);
+  
   const onPanEvent = Animated.event(
-    [{ 
-      nativeEvent: { 
-        translationX: translateX,
-        translationY: translateY 
-      } 
+    [{
+      nativeEvent: {
+        translationX: clampedTranslateX,
+        translationY: clampedTranslateY,
+      },
     }],
     { useNativeDriver: true }
   );
@@ -136,11 +146,20 @@ const ZoomableImage = ({ uri, style }) => {
   const onPanStateChange = (event) => {
     if (event.nativeEvent.oldState === State.ACTIVE) {
       if (lastScale.current > 1) {
-        // ✅ Acumular traslación
-        lastTranslateX.current += event.nativeEvent.translationX;
-        lastTranslateY.current += event.nativeEvent.translationY;
-        
-        // ✅ Setear offset y resetear valores para próximo gesto
+        // ✅ Calcular límites según escala
+        const maxOffsetX = (IMAGE_WIDTH * (lastScale.current - 1)) / 2;
+        const maxOffsetY = (IMAGE_HEIGHT * (lastScale.current - 1)) / 2;
+      
+        lastTranslateX.current = Math.min(
+          Math.max(lastTranslateX.current + event.nativeEvent.translationX, -maxOffsetX),
+          maxOffsetX
+        );
+      
+        lastTranslateY.current = Math.min(
+          Math.max(lastTranslateY.current + event.nativeEvent.translationY, -maxOffsetY),
+          maxOffsetY
+        );
+      
         translateX.setOffset(lastTranslateX.current);
         translateY.setOffset(lastTranslateY.current);
         translateX.setValue(0);
@@ -231,6 +250,7 @@ const ZoomableImage = ({ uri, style }) => {
     </Pressable>
   );
 };
+
 
 const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAprobada, loadingIds = [] }) => {
   if (!venta) return null;
