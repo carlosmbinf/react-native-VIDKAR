@@ -202,10 +202,10 @@ const ZoomableImage = ({ uri, style }) => {
           Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
         ]).start();
       } else {
-        // Zoom in a 2.5x
-        lastScale.current = 2.5;
+        // Zoom in a 1.5x
+        lastScale.current = 1.5;
         scale.flattenOffset();
-        Animated.spring(scale, { toValue: 2.5, useNativeDriver: true }).start();
+        Animated.spring(scale, { toValue: 1.5, useNativeDriver: true }).start();
       }
     }
     lastTapTime.current = now;
