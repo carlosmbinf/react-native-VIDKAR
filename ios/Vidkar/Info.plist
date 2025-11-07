@@ -55,8 +55,6 @@
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Esta aplicación necesita acceder a tu Localizacion</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Esta aplicación necesita acceder a tu galería de fotos para que puedas seleccionar y compartir imágenes.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>AntDesign.ttf</string>
@@ -105,5 +103,17 @@
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
+	    <!-- Permiso de cámara -->
+    <key>NSCameraUsageDescription</key>
+    <string>Necesitamos acceso a tu cámara para capturar comprobantes de pago y evidencias de transferencias.</string>
+    
+    <!-- Permiso de galería -->
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Necesitamos acceso a tu galería para seleccionar comprobantes de pago y evidencias de transferencias.</string>
+    
+    <!-- Permiso de agregar a galería (opcional, si permites guardar fotos) -->
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Necesitamos permiso para guardar las evidencias capturadas en tu galería.</string>
+    
 </dict>
 </plist>

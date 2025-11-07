@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react'; // agregado useEffect
-import { View, Alert, StyleSheet, Image, Pressable, ScrollView } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { View, Alert, StyleSheet, Image, Pressable, ScrollView, Platform, Linking } from 'react-native';
 import { Button, TextInput, ActivityIndicator, Text, Card, Chip, Divider, useTheme, IconButton } from 'react-native-paper';
-import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
+import ImagePicker from 'react-native-image-crop-picker';
+import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
 import Meteor, {useTracker} from '@meteorrn/core';
 import DrawerBottom from '../drawer/DrawerBottom';
 import moment from 'moment';
@@ -47,6 +48,65 @@ let ClipboardModule = null;
 //   } catch (_) {}
 // }
 
+// Configuración de compresión profesional
+const IMAGE_COMPRESSION_CONFIG = {
+  // CRÍTICO: width y height son las dimensiones MÁXIMAS
+  width: 1920,
+  height: 1920,
+  // Calidad de compresión JPEG (0 - 100, NO 0.0 - 1.0)
+  compressImageQuality: 0.8,
+  // Habilitar EXIF para mantener orientación correcta
+  includeExif: true,
+  // IMPORTANTE: cropperCircleOverlay debe ser false para permitir redimensionamiento
+  cropping: true,
+  // Formato de salida
+  mediaType: 'photo',
+};
+
+// Configuración optimizada para dispositivos de gama baja
+const IMAGE_COMPRESSION_CONFIG_LOW_END = {
+  width: 1280,  // Reducir dimensiones para dispositivos lentos
+  height: 1280,
+  compressImageQuality: 0.75, // Compresión más agresiva
+  includeExif: true,
+  cropping: false,
+  forceJpg: true,
+  // Android específico
+  enableRotationGesture: false, // Deshabilitar gestos de rotación (ahorra memoria)
+  avoidEmptySpaceAroundImage: true, // Optimiza layout del cropper
+};
+
+// Detectar si es dispositivo de gama baja
+const isLowEndDevice = () => {
+  // Heurística simple: Android con API <26 o <2GB RAM
+  if (Platform.OS === 'android') {
+    return Platform.Version < 26;
+  }
+  return false;
+};
+
+// Utility para formatear tamaños de archivo
+const formatFileSize = (bytes) => {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+};
+
+// Permisos según plataforma
+const CAMERA_PERMISSION = Platform.select({
+  ios: PERMISSIONS.IOS.CAMERA,
+  android: PERMISSIONS.ANDROID.CAMERA,
+});
+
+const PHOTO_LIBRARY_PERMISSION = Platform.select({
+  ios: PERMISSIONS.IOS.PHOTO_LIBRARY,
+  android: Platform.Version >= 33 
+    ? PERMISSIONS.ANDROID.READ_MEDIA_IMAGES 
+    : PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
+});
+
 const SubidaArchivos = ({ venta}) => {
   if (!venta) return null;
   const ventaId = venta._id;
@@ -61,6 +121,7 @@ const SubidaArchivos = ({ venta}) => {
   const [eliminando, setEliminando] = useState(false);
   const categoria = 'general';
   const [tarjetaCUP, setTarjetaCUP] = useState("0000-0000-0000-0000");
+  const [archivoOriginalSize, setArchivoOriginalSize] = useState(null);
 
   useEffect(() => {
     const fetchTarjetaCUP = async () => {
@@ -145,31 +206,336 @@ const SubidaArchivos = ({ venta}) => {
   
   const miniBase64 = archivoSeleccionado?.base64 || evidencias[0]?.base64;
 
+  /**
+   * Verifica y solicita permisos de cámara
+   * @returns {Promise<boolean>} true si el permiso está otorgado
+   */
+  const checkCameraPermission = async () => {
+    try {
+      const result = await check(CAMERA_PERMISSION);
+      
+      switch (result) {
+        case RESULTS.GRANTED:
+          return true;
+          
+        case RESULTS.DENIED:
+          // Solicitar permiso por primera vez
+          const requestResult = await request(CAMERA_PERMISSION);
+          if (requestResult === RESULTS.GRANTED) {
+            return true;
+          }
+          
+          Alert.alert(
+            'Permiso denegado',
+            'No podrás tomar fotos sin acceso a la cámara.',
+            [{ text: 'OK' }]
+          );
+          return false;
+          
+        case RESULTS.BLOCKED:
+        case RESULTS.LIMITED:
+          // Usuario denegó permanentemente, redirigir a Settings
+          Alert.alert(
+            'Permiso de cámara requerido',
+            'Para tomar fotos, debes habilitar el permiso de cámara en la configuración de la aplicación.',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              { 
+                text: 'Abrir Configuración', 
+                onPress: () => openSettings().catch(() => {
+                  Alert.alert('Error', 'No se pudo abrir la configuración');
+                })
+              }
+            ]
+          );
+          return false;
+          
+        case RESULTS.UNAVAILABLE:
+          Alert.alert(
+            'Cámara no disponible',
+            'Este dispositivo no tiene cámara o no está disponible.',
+            [{ text: 'OK' }]
+          );
+          return false;
+          
+        default:
+          return false;
+      }
+    } catch (error) {
+      console.error('Error verificando permiso de cámara:', error);
+      Alert.alert('Error', 'Ocurrió un error al verificar los permisos');
+      return false;
+    }
+  };
+
+  /**
+   * Verifica y solicita permisos de galería
+   * @returns {Promise<boolean>} true si el permiso está otorgado
+   */
+  const checkGalleryPermission = async () => {
+    try {
+      const result = await check(PHOTO_LIBRARY_PERMISSION);
+      
+      switch (result) {
+        case RESULTS.GRANTED:
+          return true;
+          
+        case RESULTS.DENIED:
+          const requestResult = await request(PHOTO_LIBRARY_PERMISSION);
+          if (requestResult === RESULTS.GRANTED) {
+            return true;
+          }
+          
+          Alert.alert(
+            'Permiso denegado',
+            'No podrás seleccionar fotos de tu galería sin este permiso.',
+            [{ text: 'OK' }]
+          );
+          return false;
+          
+        case RESULTS.BLOCKED:
+        case RESULTS.LIMITED:
+          Alert.alert(
+            'Permiso de galería requerido',
+            'Para seleccionar fotos, debes habilitar el permiso de galería en la configuración de la aplicación.',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              { 
+                text: 'Abrir Configuración', 
+                onPress: () => openSettings().catch(() => {
+                  Alert.alert('Error', 'No se pudo abrir la configuración');
+                })
+              }
+            ]
+          );
+          return false;
+          
+        case RESULTS.UNAVAILABLE:
+          // En Android 13+, si no está disponible, intentar con permiso legacy
+          if (Platform.OS === 'android' && Platform.Version >= 33) {
+            return await checkLegacyStoragePermission();
+          }
+          
+          Alert.alert(
+            'Galería no disponible',
+            'No se puede acceder a la galería en este dispositivo.',
+            [{ text: 'OK' }]
+          );
+          return false;
+          
+        default:
+          return false;
+      }
+    } catch (error) {
+      console.error('Error verificando permiso de galería:', error);
+      Alert.alert('Error', 'Ocurrió un error al verificar los permisos');
+      return false;
+    }
+  };
+
+  /**
+   * Fallback para Android <13 (permiso de almacenamiento legacy)
+   */
+  const checkLegacyStoragePermission = async () => {
+    try {
+      const legacyPermission = PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE;
+      const result = await check(legacyPermission);
+      
+      if (result === RESULTS.GRANTED) {
+        return true;
+      }
+      
+      if (result === RESULTS.DENIED) {
+        const requestResult = await request(legacyPermission);
+        return requestResult === RESULTS.GRANTED;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error con permiso legacy:', error);
+      return false;
+    }
+  };
+
   const seleccionarArchivo = () => {
     Alert.alert(
       'Seleccionar imagen',
       'Elige una opción:',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Cámara', onPress: abrirCamara },
-        { text: 'Galería', onPress: abrirGaleria },
+        { text: 'Cámara', onPress: abrirCamaraConPermisos },
+        { text: 'Galería', onPress: abrirGaleriaConPermisos },
       ]
     );
   };
 
-  const abrirCamara = () => {
-    const options = { mediaType: 'photo', quality: 0.8, includeBase64: true };
-    launchCamera(options, (response) => {
-      if (response.assets && response.assets[0]) setArchivoSeleccionado(response.assets[0]);
-    });
+  const abrirCamaraConPermisos = async () => {
+    const hasPermission = await checkCameraPermission();
+    
+    if (!hasPermission) {
+      return;
+    }
+    
+    abrirCamara();
   };
 
-  const abrirGaleria = () => {
-    const options = { mediaType: 'photo', quality: 0.8, includeBase64: true };
-    launchImageLibrary(options, (response) => {
-      setWidth(response.width, 0);
-      setHeight(response.height, 0);
-      if (response.assets && response.assets[0]) setArchivoSeleccionado(response.assets[0]);
+  const abrirGaleriaConPermisos = async () => {
+    const hasPermission = await checkGalleryPermission();
+    
+    if (!hasPermission) {
+      return;
+    }
+    
+    // Usar cropping inteligente en lugar de abrirGaleria directa
+    abrirGaleriaConCroppingInteligente();
+  };
+
+  /**
+   * Abre galería con cropping condicional según tamaño de imagen
+   * - Imágenes <5MB: Ofrece opción de cropping al usuario
+   * - Imágenes ≥5MB: Procesa automáticamente sin cropping (evita "Cannot find image data")
+   */
+  const abrirGaleriaConCroppingInteligente = async () => {
+    try {
+      // Paso 1: Abrir picker SIN cropping para obtener metadata
+      const image  = await ImagePicker.openPicker({
+        // path: image.path,
+        mediaType: 'photo',
+        width: 1920,
+        height: 1920,
+        compressImageQuality: 0.5,
+        includeBase64: true,
+        includeExif: true,
+        cropping: false, // Clave: solo redimensionar, no crop
+        forceJpg: true,
+      });
+
+      const imageSizeMB = (image.size || 0) / 1024 / 1024;
+
+      // Paso 2: Si imagen <5MB, permitir cropping opcional
+      if (imageSizeMB < 5) {
+        Alert.alert(
+          'Recortar imagen',
+          '¿Deseas recortar la imagen antes de subirla?',
+          [
+            {
+              text: 'No, usar completa',
+              onPress: () => procesarImagenSinCropping(image)
+            },
+            {
+              text: 'Sí, recortar',
+              onPress: () => abrirCroppingParaImagenPequena(image)
+            }
+          ]
+        );
+      } else {
+        // Imagen grande: procesar directamente sin cropping
+        console.log(`📦 Imagen grande (${imageSizeMB.toFixed(2)}MB), procesando sin cropping para evitar errores`);
+        procesarImagenSinCropping(image);
+      }
+    } catch (error) {
+      if (error.code !== 'E_PICKER_CANCELLED') {
+        Alert.alert('Error', 'No se pudo abrir la galería. Por favor, intenta nuevamente.');
+        console.error('Error galería:', error);
+      }
+    }
+  };
+
+  /**
+   * Abre cropper para imágenes pequeñas (<5MB)
+   * @param {Object} image - Imagen seleccionada previamente
+   */
+  const abrirCroppingParaImagenPequena = async (image) => {
+    try {
+      const croppedImage = await ImagePicker.openCropper({
+        path: image.path, // Ruta de la imagen ya seleccionada
+        width: 1920,
+        height: 1920,
+        compressImageQuality: 0.5,
+        includeBase64: true,
+        includeExif: true,
+        freeStyleCropEnabled: true, // Permite recorte libre (no solo cuadrado)
+        cropperCircleOverlay: false, // Recorte rectangular
+        forceJpg: true, // Convierte
+        mediaType: 'photo',
+        //  a JPEG para optimizar
+      });
+
+      setWidth(croppedImage.width);
+      setHeight(croppedImage.height);
+      setArchivoOriginalSize(image.size); // Tamaño ANTES del crop
+      setArchivoSeleccionado({
+        fileName: croppedImage.filename || `cropped_${Date.now()}.jpg`,
+        base64: croppedImage.data,
+        fileSize: croppedImage.size,
+        width: croppedImage.width,
+        height: croppedImage.height,
+      });
+    } catch (error) {
+      if (error.code !== 'E_PICKER_CANCELLED') {
+        Alert.alert('Error', 'No se pudo recortar la imagen. Procesando sin recorte...');
+        procesarImagenSinCropping(image);
+      }
+    }
+  };
+
+  /**
+   * Procesa imagen con compresión pero SIN cropping
+   * Usado para imágenes grandes o cuando usuario rechaza cropping
+   * @param {Object} image - Imagen a procesar
+   */
+  const procesarImagenSinCropping = async (image) => {
+    try {
+      // IMPORTANTE: NO usar openCropper con cropping:false, usar openPicker directamente
+      const processedImage = image ? image : await ImagePicker.openPicker({
+        path: image.path,
+        mediaType: 'photo',
+        width: 1920,
+        height: 1920,
+        compressImageQuality: 0.5,
+        includeBase64: true,
+        includeExif: true,
+        cropping: false, // Clave: solo redimensionar, no crop
+        forceJpg: true,
+      });
+
+      setWidth(processedImage.width);
+      setHeight(processedImage.height);
+      setArchivoOriginalSize(image.size); // Tamaño original pre-compresión
+      setArchivoSeleccionado({
+        fileName: processedImage.filename || `image_${Date.now()}.jpg`,
+        base64: processedImage.data,
+        fileSize: processedImage.size,
+        width: processedImage.width,
+        height: processedImage.height,
+      });
+    } catch (error) {
+      console.error('Error procesando imagen:', error);
+      Alert.alert('Error', 'No se pudo procesar la imagen. Por favor, intenta con una imagen más pequeña.');
+    }
+  };
+
+  const abrirCamara = () => {
+    // Cámara NO usa cropping inteligente (fotos recién tomadas son optimizadas)
+    ImagePicker.openCamera({
+      includeBase64: true,
+      ...IMAGE_COMPRESSION_CONFIG,
+    }).then(image => {
+      setWidth(image.width);
+      setHeight(image.height);
+      setArchivoOriginalSize(image.sourceSize || image.size);
+      setArchivoSeleccionado({
+        fileName: image.filename || `camera_${Date.now()}.jpg`,
+        base64: image.data,
+        fileSize: image.size,
+        width: image.width,
+        height: image.height,
+      });
+    }).catch(error => {
+      if (error.code !== 'E_PICKER_CANCELLED') {
+        Alert.alert('Error', 'No se pudo abrir la cámara. Por favor, intenta nuevamente.');
+        console.error('Error cámara:', error);
+      }
     });
   };
 
@@ -239,6 +605,13 @@ const SubidaArchivos = ({ venta}) => {
       ]
     );
   };
+
+  // Calcula porcentaje de reducción de tamaño
+  const compressionRatio = useMemo(() => {
+    if (!archivoSeleccionado?.fileSize || !archivoOriginalSize) return null;
+    const reduction = ((1 - (archivoSeleccionado.fileSize / archivoOriginalSize)) * 100);
+    return reduction > 0 ? reduction.toFixed(1) : null;
+  }, [archivoSeleccionado?.fileSize, archivoOriginalSize]);
 
   return (
     <>
@@ -395,12 +768,28 @@ const SubidaArchivos = ({ venta}) => {
         {archivoSeleccionado && (
           <View style={styles.archivoPreview}>
             <Text style={styles.archivoInfo}>📸 {archivoSeleccionado.fileName || 'imagen.jpg'}</Text>
-            <Text style={styles.archivoTamaño}>
-              Tamaño: {((archivoSeleccionado.fileSize || 0) / 1024 / 1024).toFixed(2)} MB
-            </Text>
-            <Text style={styles.archivoTamaño}>
-              Dimensiones: {(archivoSeleccionado.height + "x" + archivoSeleccionado.width)}
-            </Text>
+            <View style={styles.archivoMetaRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.archivoMetaLabel}>Tamaño optimizado</Text>
+                <Text style={styles.archivoTamaño}>
+                  {formatFileSize(archivoSeleccionado.fileSize)}
+                </Text>
+              </View>
+              <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                <Text style={styles.archivoMetaLabel}>Dimensiones</Text>
+                <Text style={styles.archivoTamaño}>
+                  {archivoSeleccionado.width}×{archivoSeleccionado.height}
+                </Text>
+              </View>
+            </View>
+            {compressionRatio && (
+              <View style={styles.compressionBadge}>
+                <IconButton icon="check-circle" size={16} iconColor="#2E7D32" style={{ margin: 0 }} />
+                <Text style={styles.compressionText}>
+                  Imagen optimizada • Reducción del {compressionRatio}%
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -550,14 +939,53 @@ const styles = StyleSheet.create({
   boton: { marginBottom: 14, height: 44, justifyContent: 'center' },
   archivoPreview: {
     backgroundColor: '#f8f9fa',
-    padding: 10,
+    padding: 12,
     borderRadius: 8,
     marginBottom: 14,
     borderWidth: 1,
     borderColor: '#e9ecef'
   },
-  archivoInfo: { fontSize: 12, color: '#495057', fontWeight: '500' },
-  archivoTamaño: { fontSize: 10, color: '#6c757d', marginTop: 4 },
+  archivoInfo: { 
+    fontSize: 13, 
+    color: '#495057', 
+    fontWeight: '600',
+    marginBottom: 8
+  },
+  archivoMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4
+  },
+  archivoMetaLabel: {
+    fontSize: 10,
+    color: '#6c757d',
+    fontWeight: '500',
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  archivoTamaño: { 
+    fontSize: 12, 
+    color: '#212529', 
+    fontWeight: '600'
+  },
+  compressionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#A5D6A7'
+  },
+  compressionText: {
+    fontSize: 11,
+    color: '#2E7D32',
+    fontWeight: '600',
+    marginLeft: -4
+  },
   input: { marginBottom: 14 },
   botonSubir: { marginTop: 6, height: 44, justifyContent: 'center' },
 
@@ -576,6 +1004,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     backgroundColor: '#f1f3f5',
     padding: 8,
+    marginTop: 2,
     borderRadius: 6
   },
   botonEliminar: { marginTop: 14 },
