@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   emptyText: {
-    color: '#999',
+    // color: '#999',
     fontStyle: 'italic',
     textAlign: 'center',
     marginTop: 16,
