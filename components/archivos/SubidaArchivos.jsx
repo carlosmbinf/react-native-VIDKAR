@@ -107,6 +107,169 @@ const PHOTO_LIBRARY_PERMISSION = Platform.select({
     : PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
 });
 
+// Debug function para iOS
+const debugPermissions = async () => {
+  if (Platform.OS === 'ios') {
+    console.log('🐛 [iOS Debug] Permisos disponibles:');
+    console.log('🐛 CAMERA_PERMISSION:', CAMERA_PERMISSION);
+    console.log('🐛 PHOTO_LIBRARY_PERMISSION:', PHOTO_LIBRARY_PERMISSION);
+    console.log('🐛 PERMISSIONS.IOS.CAMERA:', PERMISSIONS.IOS?.CAMERA);
+    console.log('🐛 PERMISSIONS.IOS.PHOTO_LIBRARY:', PERMISSIONS.IOS?.PHOTO_LIBRARY);
+    
+    // Verificar si las funciones están disponibles
+    console.log('🐛 check function:', typeof check);
+    console.log('🐛 request function:', typeof request);
+    console.log('🐛 openSettings function:', typeof openSettings);
+    
+    // Verificar estado actual
+    try {
+      const cameraStatus = await check(CAMERA_PERMISSION);
+      const photoStatus = await check(PHOTO_LIBRARY_PERMISSION);
+      console.log('🐛 Estado actual - Cámara:', cameraStatus);
+      console.log('🐛 Estado actual - Galería:', photoStatus);
+      
+      Alert.alert('Estado Debug', `Cámara: ${cameraStatus}\nGalería: ${photoStatus}`);
+    } catch (error) {
+      console.log('🐛 Error checking status:', error);
+      Alert.alert('Error Debug', error.message);
+    }
+  }
+};
+
+// TEMPORAL: Función para probar requests activos
+const testPermissionRequests = async () => {
+  if (Platform.OS === 'ios') {
+    console.log('🧪 [Test] Solicitando permisos activamente...');
+    try {
+      console.log('🧪 Solicitando cámara...');
+      const cameraResult = await request(CAMERA_PERMISSION);
+      console.log('🧪 Resultado cámara:', cameraResult);
+      
+      console.log('🧪 Solicitando galería...');
+      const photoResult = await request(PHOTO_LIBRARY_PERMISSION);
+      console.log('🧪 Resultado galería:', photoResult);
+      
+      Alert.alert(
+        'Resultado Test', 
+        `Cámara: ${cameraResult}\nGalería: ${photoResult}`,
+        [{ text: 'Verificar Estado', onPress: debugPermissions }]
+      );
+    } catch (error) {
+      console.log('🧪 Error en test:', error);
+      Alert.alert('Error Test', error.message);
+    }
+  }
+};
+
+// Funciones de solicitud de permisos
+const requestCameraPermission = async () => {
+  try {
+    const result = await check(CAMERA_PERMISSION);
+    
+    switch (result) {
+      case RESULTS.UNAVAILABLE:
+        Alert.alert(
+          'Cámara no disponible',
+          'La cámara no está disponible en este dispositivo.'
+        );
+        return false;
+      
+      case RESULTS.DENIED:
+        const requestResult = await request(CAMERA_PERMISSION);
+        if (requestResult === RESULTS.GRANTED) {
+          return true;
+        } else {
+          Alert.alert(
+            'Permiso de cámara denegado',
+            'Para tomar fotos, necesitas habilitar el acceso a la cámara en Configuración.',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Abrir Configuración', onPress: () => openSettings() }
+            ]
+          );
+          return false;
+        }
+      
+      case RESULTS.GRANTED:
+        return true;
+      
+      case RESULTS.BLOCKED:
+        Alert.alert(
+          'Permiso de cámara bloqueado',
+          'El acceso a la cámara está bloqueado. Ve a Configuración > VIDKAR > Cámara para habilitarlo.',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Abrir Configuración', onPress: () => openSettings() }
+          ]
+        );
+        return false;
+      
+      default:
+        return false;
+    }
+  } catch (error) {
+    console.error('Error solicitando permiso de cámara:', error);
+    Alert.alert('Error', 'Ocurrió un error al solicitar permisos de cámara.');
+    return false;
+  }
+};
+
+const requestGalleryPermission = async () => {
+  try {
+    const result = await check(PHOTO_LIBRARY_PERMISSION);
+    
+    switch (result) {
+      case RESULTS.UNAVAILABLE:
+        Alert.alert(
+          'Galería no disponible',
+          'El acceso a fotos no está disponible en este dispositivo.'
+        );
+        return false;
+      
+      case RESULTS.DENIED:
+        const requestResult = await request(PHOTO_LIBRARY_PERMISSION);
+        if (requestResult === RESULTS.GRANTED) {
+          return true;
+        } else {
+          Alert.alert(
+            'Permiso de galería denegado',
+            'Para seleccionar fotos, necesitas habilitar el acceso a la galería en Configuración.',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Abrir Configuración', onPress: () => openSettings() }
+            ]
+          );
+          return false;
+        }
+      
+      case RESULTS.GRANTED:
+        return true;
+      
+      case RESULTS.LIMITED:
+        // iOS 14+ "Seleccionar fotos" - es suficiente para nuestro caso
+        return true;
+      
+      case RESULTS.BLOCKED:
+        Alert.alert(
+          'Permiso de galería bloqueado',
+          'El acceso a la galería está bloqueado. Ve a Configuración > VIDKAR > Fotos para habilitarlo.',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Abrir Configuración', onPress: () => openSettings() }
+          ]
+        );
+        return false;
+      
+      default:
+        return false;
+    }
+  } catch (error) {
+    console.error('Error solicitando permiso de galería:', error);
+    Alert.alert('Error', 'Ocurrió un error al solicitar permisos de galería.');
+    return false;
+  }
+};
+
 const SubidaArchivos = ({ venta}) => {
   if (!venta) return null;
   const ventaId = venta._id;
@@ -206,156 +369,9 @@ const SubidaArchivos = ({ venta}) => {
   
   const miniBase64 = archivoSeleccionado?.base64 || evidencias[0]?.base64;
 
-  /**
-   * Verifica y solicita permisos de cámara
-   * @returns {Promise<boolean>} true si el permiso está otorgado
-   */
-  const checkCameraPermission = async () => {
-    try {
-      const result = await check(CAMERA_PERMISSION);
-      
-      switch (result) {
-        case RESULTS.GRANTED:
-          return true;
-          
-        case RESULTS.DENIED:
-          // Solicitar permiso por primera vez
-          const requestResult = await request(CAMERA_PERMISSION);
-          if (requestResult === RESULTS.GRANTED) {
-            return true;
-          }
-          
-          Alert.alert(
-            'Permiso denegado',
-            'No podrás tomar fotos sin acceso a la cámara.',
-            [{ text: 'OK' }]
-          );
-          return false;
-          
-        case RESULTS.BLOCKED:
-        case RESULTS.LIMITED:
-          // Usuario denegó permanentemente, redirigir a Settings
-          Alert.alert(
-            'Permiso de cámara requerido',
-            'Para tomar fotos, debes habilitar el permiso de cámara en la configuración de la aplicación.',
-            [
-              { text: 'Cancelar', style: 'cancel' },
-              { 
-                text: 'Abrir Configuración', 
-                onPress: () => openSettings().catch(() => {
-                  Alert.alert('Error', 'No se pudo abrir la configuración');
-                })
-              }
-            ]
-          );
-          return false;
-          
-        case RESULTS.UNAVAILABLE:
-          Alert.alert(
-            'Cámara no disponible',
-            'Este dispositivo no tiene cámara o no está disponible.',
-            [{ text: 'OK' }]
-          );
-          return false;
-          
-        default:
-          return false;
-      }
-    } catch (error) {
-      console.error('Error verificando permiso de cámara:', error);
-      Alert.alert('Error', 'Ocurrió un error al verificar los permisos');
-      return false;
-    }
-  };
-
-  /**
-   * Verifica y solicita permisos de galería
-   * @returns {Promise<boolean>} true si el permiso está otorgado
-   */
-  const checkGalleryPermission = async () => {
-    try {
-      const result = await check(PHOTO_LIBRARY_PERMISSION);
-      
-      switch (result) {
-        case RESULTS.GRANTED:
-          return true;
-          
-        case RESULTS.DENIED:
-          const requestResult = await request(PHOTO_LIBRARY_PERMISSION);
-          if (requestResult === RESULTS.GRANTED) {
-            return true;
-          }
-          
-          Alert.alert(
-            'Permiso denegado',
-            'No podrás seleccionar fotos de tu galería sin este permiso.',
-            [{ text: 'OK' }]
-          );
-          return false;
-          
-        case RESULTS.BLOCKED:
-        case RESULTS.LIMITED:
-          Alert.alert(
-            'Permiso de galería requerido',
-            'Para seleccionar fotos, debes habilitar el permiso de galería en la configuración de la aplicación.',
-            [
-              { text: 'Cancelar', style: 'cancel' },
-              { 
-                text: 'Abrir Configuración', 
-                onPress: () => openSettings().catch(() => {
-                  Alert.alert('Error', 'No se pudo abrir la configuración');
-                })
-              }
-            ]
-          );
-          return false;
-          
-        case RESULTS.UNAVAILABLE:
-          // En Android 13+, si no está disponible, intentar con permiso legacy
-          if (Platform.OS === 'android' && Platform.Version >= 33) {
-            return await checkLegacyStoragePermission();
-          }
-          
-          Alert.alert(
-            'Galería no disponible',
-            'No se puede acceder a la galería en este dispositivo.',
-            [{ text: 'OK' }]
-          );
-          return false;
-          
-        default:
-          return false;
-      }
-    } catch (error) {
-      console.error('Error verificando permiso de galería:', error);
-      Alert.alert('Error', 'Ocurrió un error al verificar los permisos');
-      return false;
-    }
-  };
-
-  /**
-   * Fallback para Android <13 (permiso de almacenamiento legacy)
-   */
-  const checkLegacyStoragePermission = async () => {
-    try {
-      const legacyPermission = PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE;
-      const result = await check(legacyPermission);
-      
-      if (result === RESULTS.GRANTED) {
-        return true;
-      }
-      
-      if (result === RESULTS.DENIED) {
-        const requestResult = await request(legacyPermission);
-        return requestResult === RESULTS.GRANTED;
-      }
-      
-      return false;
-    } catch (error) {
-      console.error('Error con permiso legacy:', error);
-      return false;
-    }
-  };
+  // Las funciones de permisos checkCameraPermission y checkGalleryPermission
+  // han sido reemplazadas por requestCameraPermission y requestGalleryPermission
+  // que están definidas fuera del componente para mayor reutilización
 
   const seleccionarArchivo = () => {
     Alert.alert(
@@ -370,23 +386,12 @@ const SubidaArchivos = ({ venta}) => {
   };
 
   const abrirCamaraConPermisos = async () => {
-    const hasPermission = await checkCameraPermission();
-    
-    if (!hasPermission) {
-      return;
-    }
-    
+    // La función abrirCamara ya maneja permisos internamente
     abrirCamara();
   };
 
   const abrirGaleriaConPermisos = async () => {
-    const hasPermission = await checkGalleryPermission();
-    
-    if (!hasPermission) {
-      return;
-    }
-    
-    // Usar cropping inteligente en lugar de abrirGaleria directa
+    // La función abrirGaleriaConCroppingInteligente ya maneja permisos internamente
     abrirGaleriaConCroppingInteligente();
   };
 
@@ -397,6 +402,47 @@ const SubidaArchivos = ({ venta}) => {
    */
   const abrirGaleriaConCroppingInteligente = async () => {
     try {
+      console.log('📱 [iOS Debug] Iniciando flujo de galería...');
+      
+      if (Platform.OS === 'ios') {
+        // Verificar permiso de galería
+        const currentStatus = await check(PHOTO_LIBRARY_PERMISSION);
+        console.log('📱 [iOS Debug] Estado actual permiso galería:', currentStatus);
+        
+        if (currentStatus === RESULTS.DENIED) {
+          console.log('📱 [iOS Debug] Solicitando permiso de galería...');
+          const result = await request(PHOTO_LIBRARY_PERMISSION);
+          console.log('📱 [iOS Debug] Resultado solicitud galería:', result);
+          
+          if (result !== RESULTS.GRANTED && result !== RESULTS.LIMITED) {
+            Alert.alert(
+              'Permiso de galería requerido',
+              'Para seleccionar fotos necesitas habilitar el acceso a la galería.',
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Configuración', onPress: () => openSettings() }
+              ]
+            );
+            return;
+          }
+        } else if (currentStatus === RESULTS.BLOCKED) {
+          Alert.alert(
+            'Galería bloqueada',
+            'Ve a Configuración > VIDKAR > Fotos para habilitar el acceso.',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Abrir Configuración', onPress: () => openSettings() }
+            ]
+          );
+          return;
+        } else if (currentStatus === RESULTS.UNAVAILABLE) {
+          Alert.alert('Error', 'El acceso a fotos no está disponible.');
+          return;
+        }
+        
+        console.log('📱 [iOS Debug] Permiso galería OK, abriendo picker...');
+      }
+
       // Paso 1: Abrir picker SIN cropping para obtener metadata
       const image  = await ImagePicker.openPicker({
         // path: image.path,
@@ -409,6 +455,8 @@ const SubidaArchivos = ({ venta}) => {
         cropping: false, // Clave: solo redimensionar, no crop
         forceJpg: true,
       });
+      
+      console.log('📱 [iOS Debug] Imagen seleccionada exitosamente');
 
       const imageSizeMB = (image.size || 0) / 1024 / 1024;
 
@@ -515,12 +563,60 @@ const SubidaArchivos = ({ venta}) => {
     }
   };
 
-  const abrirCamara = () => {
-    // Cámara NO usa cropping inteligente (fotos recién tomadas son optimizadas)
-    ImagePicker.openCamera({
-      includeBase64: true,
-      ...IMAGE_COMPRESSION_CONFIG,
-    }).then(image => {
+  const abrirCamara = async () => {
+    try {
+      // Debug de permisos
+      debugPermissions();
+      
+      console.log('🎥 [iOS Debug] Iniciando flujo de cámara...');
+      
+      if (Platform.OS === 'ios') {
+        // Verificar primero sin solicitar
+        const currentStatus = await check(CAMERA_PERMISSION);
+        console.log('🎥 [iOS Debug] Estado actual permiso cámara:', currentStatus);
+        
+        if (currentStatus === RESULTS.DENIED) {
+          console.log('🎥 [iOS Debug] Solicitando permiso por primera vez...');
+          const result = await request(CAMERA_PERMISSION);
+          console.log('🎥 [iOS Debug] Resultado solicitud:', result);
+          
+          if (result !== RESULTS.GRANTED) {
+            Alert.alert(
+              'Permiso de cámara requerido',
+              'Para tomar fotos necesitas habilitar el acceso a la cámara.',
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Configuración', onPress: () => openSettings() }
+              ]
+            );
+            return;
+          }
+        } else if (currentStatus === RESULTS.BLOCKED) {
+          Alert.alert(
+            'Cámara bloqueada',
+            'Ve a Configuración > VIDKAR > Cámara para habilitar el acceso.',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Abrir Configuración', onPress: () => openSettings() }
+            ]
+          );
+          return;
+        } else if (currentStatus === RESULTS.UNAVAILABLE) {
+          Alert.alert('Error', 'La cámara no está disponible en este dispositivo.');
+          return;
+        }
+        
+        console.log('🎥 [iOS Debug] Permiso OK, abriendo cámara...');
+      }
+
+      // Cámara NO usa cropping inteligente (fotos recién tomadas son optimizadas)
+      const image = await ImagePicker.openCamera({
+        includeBase64: true,
+        ...IMAGE_COMPRESSION_CONFIG,
+      });
+      
+      console.log('🎥 [iOS Debug] Imagen capturada exitosamente');
+
       setWidth(image.width);
       setHeight(image.height);
       setArchivoOriginalSize(image.sourceSize || image.size);
@@ -531,12 +627,27 @@ const SubidaArchivos = ({ venta}) => {
         width: image.width,
         height: image.height,
       });
-    }).catch(error => {
+    } catch (error) {
+      console.error('🎥 [iOS Debug] Error completo:', error);
+      console.error('🎥 [iOS Debug] Error code:', error.code);
+      console.error('🎥 [iOS Debug] Error message:', error.message);
+      
       if (error.code !== 'E_PICKER_CANCELLED') {
-        Alert.alert('Error', 'No se pudo abrir la cámara. Por favor, intenta nuevamente.');
-        console.error('Error cámara:', error);
+        // Error específico del simulador
+        if (error.message && error.message.includes('simulator')) {
+          Alert.alert(
+            'Cámara no disponible en simulador',
+            'La cámara no funciona en el simulador de iOS. Usa un dispositivo físico o selecciona una imagen de la galería.',
+            [
+              { text: 'Abrir Galería', onPress: abrirGaleriaConCroppingInteligente },
+              { text: 'Cancelar', style: 'cancel' }
+            ]
+          );
+        } else {
+          Alert.alert('Error', `No se pudo abrir la cámara: ${error.message}`);
+        }
       }
-    });
+    }
   };
 
   const subirArchivo = async () => {

@@ -1700,6 +1700,8 @@ PODS:
     - React-logger (= 0.75.3)
     - React-perflogger (= 0.75.3)
     - React-utils (= 0.75.3)
+  - RNAppleAuthentication (2.4.1):
+    - React-Core
   - RNCAsyncStorage (1.24.0):
     - React-Core
   - RNCMaskedView (0.1.11):
@@ -1723,6 +1725,53 @@ PODS:
   - RNGoogleSignin (11.0.1):
     - GoogleSignIn (~> 7.0.0)
     - React-Core
+  - RNImageCropPicker (0.51.1):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-RCTImage
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - RNImageCropPicker/QBImagePickerController (= 0.51.1)
+    - TOCropViewController (~> 2.8.0)
+    - Yoga
+  - RNImageCropPicker/QBImagePickerController (0.51.1):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-RCTImage
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - TOCropViewController (~> 2.8.0)
+    - Yoga
   - RNNotifee (9.1.8):
     - React-Core
     - RNNotifee/NotifeeCore (= 9.1.8)
@@ -1734,7 +1783,7 @@ PODS:
     - React-Core
   - RNSVG (15.11.1):
     - React-Core
-  - RNVectorIcons (10.2.0):
+  - RNVectorIcons (10.3.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1762,6 +1811,7 @@ PODS:
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.10)
   - SocketRocket (0.7.0)
+  - TOCropViewController (2.8.0)
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -1836,6 +1886,7 @@ DEPENDENCIES:
   - React-utils (from `../node_modules/react-native/ReactCommon/react/utils`)
   - ReactCodegen (from `build/generated/ios`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
+  - "RNAppleAuthentication (from `../node_modules/@invertase/react-native-apple-authentication`)"
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - "RNCMaskedView (from `../node_modules/@react-native-community/masked-view`)"
   - RNFastImage (from `../node_modules/react-native-fast-image`)
@@ -1844,6 +1895,7 @@ DEPENDENCIES:
   - RNFS (from `../node_modules/react-native-fs`)
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - "RNGoogleSignin (from `../node_modules/@react-native-google-signin/google-signin`)"
+  - RNImageCropPicker (from `../node_modules/react-native-image-crop-picker`)
   - "RNNotifee (from `../node_modules/@notifee/react-native`)"
   - RNPermissions (from `../node_modules/react-native-permissions`)
   - RNScreens (from `../node_modules/react-native-screens`)
@@ -1872,6 +1924,7 @@ SPEC REPOS:
     - SDWebImage
     - SDWebImageWebPCoder
     - SocketRocket
+    - TOCropViewController
 
 EXTERNAL SOURCES:
   boost:
@@ -2013,6 +2066,8 @@ EXTERNAL SOURCES:
     :path: build/generated/ios
   ReactCommon:
     :path: "../node_modules/react-native/ReactCommon"
+  RNAppleAuthentication:
+    :path: "../node_modules/@invertase/react-native-apple-authentication"
   RNCAsyncStorage:
     :path: "../node_modules/@react-native-async-storage/async-storage"
   RNCMaskedView:
@@ -2029,6 +2084,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-gesture-handler"
   RNGoogleSignin:
     :path: "../node_modules/@react-native-google-signin/google-signin"
+  RNImageCropPicker:
+    :path: "../node_modules/react-native-image-crop-picker"
   RNNotifee:
     :path: "../node_modules/@notifee/react-native"
   RNPermissions:
@@ -2128,6 +2185,7 @@ SPEC CHECKSUMS:
   React-utils: e6886d6eb62746bc75f68ab67bc7cc2b0b35e228
   ReactCodegen: 7462563b1a924d148e5170238e541050e3967408
   ReactCommon: 56b76c97fd1b01f815ec747ca9055f02328a053d
+  RNAppleAuthentication: c3dddf5918126c9aae85dc2e2ce9fb87835e9e04
   RNCAsyncStorage: b6410dead2732b5c72a7fdb1ecb5651bbcf4674b
   RNCMaskedView: 4c5ee1c8667d56077246cc6d1977f77393923560
   RNFastImage: 462a183c4b0b6b26fdfd639e1ed6ba37536c3b87
@@ -2136,14 +2194,16 @@ SPEC CHECKSUMS:
   RNFS: 89de7d7f4c0f6bafa05343c578f61118c8282ed8
   RNGestureHandler: 6572a5f44759900730562b418da289c373de8d06
   RNGoogleSignin: b8f09e3ec56e09497e1e53b0ff66d5a45916c6b1
+  RNImageCropPicker: b945b18157714a30b2924389fbf3e30131fba79b
   RNNotifee: 5e3b271e8ea7456a36eec994085543c9adca9168
-  RNPermissions: 4f7b81b0d457c8ec4e892cc36ef2376734a4b22c
+  RNPermissions: 5a02952732ef7b41d124266633be6d64e946b91a
   RNScreens: 6a2106686e0de9866ab14ca250d7e47a49416b51
   RNSVG: 46769c92d1609e617dbf9326ad8a0cff912d0982
-  RNVectorIcons: 55221459225ae0fe7a5ab6b029378c79f1a82d8f
+  RNVectorIcons: d629dbc9c0c9ec0fcb6aea868d4d66c5a34e9312
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
   SocketRocket: abac6f5de4d4d62d24e11868d7a2f427e0ef940d
+  TOCropViewController: 797deaf39c90e6e9ddd848d88817f6b9a8a09888
   Yoga: 33604ac44957ebe3f30f15b4cd0a3f96634e624a
 
 PODFILE CHECKSUM: bce14b7f31dedb30d2000faffa8e9be9446dd103

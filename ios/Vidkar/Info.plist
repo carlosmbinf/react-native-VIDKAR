@@ -115,5 +115,15 @@
     <key>NSPhotoLibraryAddUsageDescription</key>
     <string>Necesitamos permiso para guardar las evidencias capturadas en tu galería.</string>
     
+
+<key>NSMicrophoneUsageDescription</key>
+<string>Esta aplicación necesita acceso al micrófono para grabar audios, reproducir videos con sonido o realizar llamadas.</string>
+
+<key>NSUserNotificationUsageDescription</key>
+<string>Esta aplicación usa notificaciones para informarte sobre mensajes y eventos importantes.</string>
+
+<key>NSFaceIDUsageDescription</key>
+<string>Esta aplicación usa Face ID para iniciar sesión de forma segura.</string>
+
 </dict>
 </plist>

@@ -32,7 +32,6 @@
     "react-native": "0.75.3",
     "react-native-calendar-picker": "^7.1.2",
     "react-native-chart-kit": "^6.12.0",
-    "react-native-compressor": "^1.13.0",
     "react-native-credit-card": "^0.1.9",
     "react-native-custom-header": "^1.0.0",
     "react-native-drawer": "^2.5.1",
