@@ -30,6 +30,32 @@ const CubaCelCard = ({ product }) => {
     const operadorNombre = operator?.name || 'ETECSA';
     const hasPromo = Array.isArray(promotions) && promotions.length > 0;
 
+    // Nueva: extraer URL de imagen desde promociones (Markdown ![](url) o URL plana)
+    const extractPromoImageUrl = (promos = []) => {
+        for (const p of promos) {
+            const text = [p?.terms, p?.description, p?.title].filter(Boolean).join(' ');
+            // Markdown: ![alt](https://...)
+            const md = text.match(/!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/i);
+            if (md?.[1]) return md[1];
+            // URL plana como fallback
+            const plain = text.match(/https?:\/\/[^\s)]+/i);
+            if (plain?.[0]) return plain[0];
+        }
+        return null;
+    };
+
+    // Memorizar URL de imagen promocional
+    const promoImageUrl =hasPromo && React.useMemo(() => extractPromoImageUrl(promotions), [promotions]);
+
+    // Estado: si falla la imagen remota, volver a la imagen local
+    const [bgLoadError, setBgLoadError] = useState(false);
+
+    // Imagen local por defecto
+    const localFallback = require('./Gemini_Generated_Image_rtg44brtg44brtg4.png');
+
+    // Source condicional para el fondo
+    const backgroundSource = promoImageUrl && !bgLoadError ? { uri: promoImageUrl } : localFallback;
+
     // Listeners del teclado
     React.useEffect(() => {
         let keyboardDidShowListener;
@@ -104,28 +130,31 @@ const CubaCelCard = ({ product }) => {
             <Surface>
                 <Card style={styles.card} onPress={() => setOpen(true)}>
                     <ImageBackground
-                        source={require('./Gemini_Generated_Image_rtg44brtg44brtg4.png')}
+                        source={backgroundSource}
+                        // defaultSource solo iOS: muestra el fallback mientras carga la remota
+                        defaultSource={Platform.OS === 'ios' ? localFallback : undefined}
+                        onError={() => setBgLoadError(true)}
                         resizeMode="cover"
                         imageStyle={{ borderRadius: 20 }}
                         style={styles.imageBackground}
                     >
-                        <BlurView
+                        { !promoImageUrl && <BlurView
                             style={StyleSheet.absoluteFill}
                             blurType={isDarkMode ? "dark" : "light"}
                             autoUpdate={false}
                             reducedTransparencyFallbackColor="dark"
-                        />
+                        />}
                         <View style={styles.cardContent}>
                             <View style={styles.row}>
-                                <IconButton icon="cellphone" iconColor="white" size={16} />
-                                <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">{operadorNombre}</Text>
+                                {!promoImageUrl && <><IconButton icon="cellphone" iconColor="white" size={16} />
+                                <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">{operadorNombre}</Text></>}
                             </View>
 
-                            {beneficios() !== '' && (
+                            {beneficios() !== '' && !promoImageUrl && (
                                 <Text style={styles.beneficios}>{beneficios()}</Text>
                             )}
                             <View style={styles.chips}>
-                                {hasPromo && <View style={styles.chipsComponentRed}><Text style={{ fontSize: 10 }}>Con promoción</Text></View>}
+                                {hasPromo && !promoImageUrl && <View style={styles.chipsComponentRed}><Text style={{ fontSize: 10 }}>Con promoción</Text></View>}
                                 <View style={styles.chipsComponentGreen}><Text style={{ fontSize: 10 }}>{`${precioUSD} USD`}</Text></View>
                             </View>
                         </View>
@@ -287,7 +316,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: 6,
         marginTop: 8,
-        justifyContent: "flex-end",
+        paddingBottom: 8,
+        justifyContent: "flex-start",
     },
     chipsComponentRed: {
         backgroundColor: 'red',

@@ -184,6 +184,32 @@
 
 ---
 
+Resumen técnico – Fondo dinámico por promoción en CubaCelCard
+- Contexto: Mejorar UX mostrando como fondo del card una imagen oficial de la promoción si existe en el contenido del producto.
+- Frontend RN (CubaCelCard.jsx):
+  - Nuevo helper extractPromoImageUrl(promotions): extrae primera URL desde promociones con soporte a:
+    - Markdown ![](url) mediante regex: /!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/i
+    - URL plana de respaldo: /https?:\/\/[^\s)]+/i
+  - Estado bgLoadError: si la imagen remota falla, se revierte a la imagen local existente.
+  - Lógica de source condicional en ImageBackground:
+    - source = { uri: promoImageUrl } si existe y no hay error; en caso contrario usa require('./Gemini_Generated_Image_rtg44brtg44brtg4.png').
+    - defaultSource en iOS para mostrar imagen local mientras carga la remota.
+    - onError para activar fallback sin romper la UI.
+  - No se alteran estilos ni estructura: BlurView, Surface, Card y chips permanecen iguales.
+
+- Consideraciones técnicas:
+  - Robustez de parsing: Se combinan campos terms/description/title por promo; devuelve la primera coincidencia.
+  - Seguridad/estabilidad: Solo HTTPS; onError evita UI rota si el recurso remoto no es accesible.
+  - Performance: Sin fetch previo; RN maneja cache; defaultSource solo en iOS para mejor percepción.
+  - Extensibilidad: Si a futuro se agregan múltiples imágenes, se puede priorizar por tamaño/host o permitir swipe entre fondos.
+
+- Próximos pasos:
+  - Validar lazy-loading de imágenes en listas grandes (FlatList + getItemLayout).
+  - Parametrizar hosts permitidos para imágenes remotas si se requiere mayor control.
+  - Añadir telemetría (Sentry/Logs) cuando bgLoadError sea true para detectar URLs inválidas.
+
+---
+
 Resumen técnico – Bloqueo seguro del botón Finalizar hasta cálculo válido del Total
 - Problema: El botón del último paso (Pago) se habilitaba con totalAPagar = 0, permitiendo continuar sin un total válido.
 - Solución implementada:
@@ -243,4 +269,23 @@ Resumen técnico – Refuerzo legal verificación de número (PayPal / MercadoPa
   - Integrar API de validación de número (HLR Lookup) para detectar líneas inactivas (opcional).
   - Log de aceptación incluyendo hash de la cláusula para auditoría.
   - Mostrar resumen de número a recargar en paso final con confirmación “Sí, es correcto”.
-```
+
+---
+
+Resumen técnico – Ordenamiento profesional de productos CubaCel (promos primero + precio ascendente)
+- Objetivo: Priorizar visualmente ofertas activas y facilitar decisión de compra ordenando por precio.
+- Implementación (Productos.jsx):
+  - Lista derivada memoizada sortedProductos con React.useMemo para evitar mutaciones a Minimongo y mejorar performance en FlatList.
+  - Criterios:
+    1) Promociones primero: Array.isArray(promotions) && promotions.length > 0.
+    2) Precio ascendente: prices.retail.amount (Number.isFinite; fallback a Number.MAX_SAFE_INTEGER si no hay precio).
+    3) Desempate estable por id numérico (ascendente).
+  - FlatList.data ahora consume sortedProductos; resto intacto (renderItem, keyExtractor, batch settings).
+- Consideraciones:
+  - getPrice defensivo: castea strings numéricos y maneja datos incompletos.
+  - Estabilidad: desempate por id evita reordenamientos intermitentes en renders reactivos.
+  - Escalabilidad: lógica aislada y fácil de extender (ej. filtro por availabilityZones o operator).
+- Próximos pasos:
+  - Añadir filtros por rango de precio y búsqueda por operador.
+  - getItemLayout para scroll horizontal más eficiente si el dataset crece >100 elementos.
+  - Badge “PROMO” persistente en CubaCelCard con accesibilidad (role y label) para lectores de pantalla.

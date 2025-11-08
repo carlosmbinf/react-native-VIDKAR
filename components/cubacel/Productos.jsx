@@ -16,6 +16,30 @@ const Productos = () => {
     return {};
   });
 
+  // Nueva: lista ordenada (promos primero, luego por precio ascendente)
+  const sortedProductos = React.useMemo(() => {
+    if (!ready || !Array.isArray(productos)) return [];
+    const getPrice = (p) => {
+      const v = p?.prices?.retail?.amount;
+      const n = typeof v === 'number' ? v : Number(v);
+      return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+    };
+    const hasPromo = (p) => Array.isArray(p?.promotions) && p.promotions.length > 0;
+
+    return productos.slice().sort((a, b) => {
+      const ap = hasPromo(a) ? 0 : 1;
+      const bp = hasPromo(b) ? 0 : 1;
+      if (ap !== bp) return ap - bp; // promos primero
+      const pa = getPrice(a);
+      const pb = getPrice(b);
+      if (pa !== pb) return pa - pb; // precio ascendente
+      // desempate estable
+      const ai = typeof a?.id === 'number' ? a.id : Number.MAX_SAFE_INTEGER;
+      const bi = typeof b?.id === 'number' ? b.id : Number.MAX_SAFE_INTEGER;
+      return ai - bi;
+    });
+  }, [ready, productos]);
+
   // useEffect(() => {
   //   productos && setProductosActuales(productos);
   // }, [productos]);
@@ -23,12 +47,12 @@ const Productos = () => {
   return (
           <ScrollView contentContainerStyle={styles.container}>
           
-              {ready && productos && productos.length > 0 ? (
+              {ready && sortedProductos && sortedProductos.length > 0 ? (
                 <FlatList
               ref={flatListRef}
               focusable={true}
               accessible={true}
-              data={productos}
+              data={sortedProductos}
               renderItem={({item}) => (
                 <CubaCelCard  product={item} />
               )}
