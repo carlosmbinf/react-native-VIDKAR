@@ -91,7 +91,7 @@ const WizardConStepper = ({ product, navigation }) => {
           },
           {
             subtitulo: "4. Política de No Reembolso",
-            texto: "VidKar NO ofrece reembolsos una vez procesado el pago. Si requiere correcciones (número incorrecto, operadora equivocada), debe contactarnos ANTES de confirmar la compra. Los pagos son irreversibles según políticas de PayPal."
+            texto: "VidKar NO ofrece reembolsos una vez procesado el pago. Si requiere correcciones (número incorrecto, operadora equivocada), debe contactarnos ANTES de confirmar la compra. Los pagos son irreversibles según políticas de PayPal. IMPORTANTE: Usted es responsable de verificar que el número de teléfono a recargar esté escrito correctamente (incluyendo el código de país si aplica), pertenezca a la operadora seleccionada y esté activo. Cualquier error de digitación, número inexistente, desactivado, formateado incorrectamente o perteneciente a otra operadora implicará pérdida total del monto sin posibilidad de devolución ni reclamo."
           },
           {
             subtitulo: "5. Tiempos de Entrega",
@@ -120,7 +120,7 @@ const WizardConStepper = ({ product, navigation }) => {
           },
           {
             subtitulo: "5. Política de No Reembolso",
-            texto: "No se realizan reembolsos una vez confirmado el pago. En caso de errores en los datos, contacte soporte ANTES de confirmar. VidKar ofrece soporte 24/7 para resolver inconvenientes técnicos."
+            texto: "No se realizan reembolsos una vez confirmado el pago. En caso de errores en los datos, contacte soporte ANTES de confirmar. VidKar ofrece soporte 24/7 para resolver inconvenientes técnicos. IMPORTANTE: Debe verificar cuidadosamente el número de teléfono a recargar (formato correcto, operadora válida, línea activa). Si ingresa un número erróneo, inexistente, desactivado, de otra operadora o con dígitos mal escritos, la recarga aplicada a un tercero o fallida será considerada consumida y no habrá devolución ni crédito."
           },
           {
             subtitulo: "6. Entrega del Servicio",
@@ -137,7 +137,7 @@ const WizardConStepper = ({ product, navigation }) => {
           },
           {
             subtitulo: "2. Proceso de Pago en Efectivo (Cuba)",
-            texto: "Deberá coordinar la entrega del efectivo con nuestro agente mediante WhatsApp +5355267327. El agente entregará comprobante físico firmado. La activación del servicio se realiza en 24 horas tras confirmar recepción del pago."
+            texto: "Deberá coordinar la entrega del efectivo con nuestro agentes. El agente entregará comprobante físico firmado. La activación del servicio se realiza en 24 horas tras confirmar recepción del pago."
           },
           {
             subtitulo: "3. Proceso de Transferencia Bancaria",
@@ -199,6 +199,7 @@ const WizardConStepper = ({ product, navigation }) => {
       useEffect(() => {
         if( (!pedidosRemesa || pedidosRemesa.length === 0) && activeStep !== 0){
             setActiveStep(0);
+            setCargadoPago(false);
             return;
         }
         console.log(`Método de pago seleccionado: ${metodoPago}`);
@@ -222,6 +223,7 @@ const WizardConStepper = ({ product, navigation }) => {
               console.error('Error al calcular total a pagar:', err);
             } else {
               setTotalAPagar(res);
+              setCargadoPago(true);
             }
           });
         }else if (metodoPago == 'mercadopago') {
@@ -230,6 +232,7 @@ const WizardConStepper = ({ product, navigation }) => {
               console.error('Error al calcular total a pagar:', err);
             } else {
               setTotalAPagar(res);
+              setCargadoPago(true);
             }
           });
         }else if (metodoPago == 'efectivo') {
@@ -239,6 +242,7 @@ const WizardConStepper = ({ product, navigation }) => {
             } else {
               console.log("efectivo.totalAPagar",totalAPagar);
               setTotalAPagar(res);
+              setCargadoPago(true);
             }
           });
         }
@@ -589,13 +593,13 @@ const styles = StyleSheet.create({
     terminosTitulo: {
       fontSize: 18,
       fontWeight: 'bold',
-      color: '#1976D2',
+      // color: '#1976D2',
       textAlign: 'center',
       marginBottom: 8,
     },
     seccionTermino: {
       marginBottom: 16,
-      backgroundColor: 'rgba(0,0,0,0.03)',
+      backgroundColor: 'rgba(0,0,0,0.20)',
       padding: 12,
       borderRadius: 8,
       borderLeftWidth: 3,
@@ -604,12 +608,12 @@ const styles = StyleSheet.create({
     terminosSubtitulo: {
       fontSize: 14,
       fontWeight: 'bold',
-      color: '#333',
+      // color: '#333',
       marginBottom: 6,
     },
     terminosTexto: {
       fontSize: 13,
-      color: '#555',
+      // color: '#555',
       lineHeight: 20,
       textAlign: 'justify',
     },
@@ -626,7 +630,7 @@ const styles = StyleSheet.create({
     advertenciaTexto: {
       flex: 1,
       fontSize: 12,
-      color: '#856404',
+      color: '#6200ee',
       fontWeight: '600',
       marginLeft: 8,
     },
