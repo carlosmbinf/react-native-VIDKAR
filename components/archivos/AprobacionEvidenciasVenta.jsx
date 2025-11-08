@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { View, Image, Pressable, ScrollView, StyleSheet, Alert, Animated } from 'react-native';
 import { Card, Text, Chip, Divider, Button, ActivityIndicator, IconButton, Surface, Badge } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
@@ -259,6 +259,29 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
   const [aprobandoVenta, setAprobandoVenta] = useState(false);
   const [rechazandoVenta, setRechazandoVenta] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  
+  // ✅ NUEVO: Estado de animación
+  const expandAnimation = useRef(new Animated.Value(0)).current;
+
+  // ✅ NUEVO: Efecto para animar expansión/colapso
+  useEffect(() => {
+    Animated.timing(expandAnimation, {
+      toValue: expanded ? 1 : 0,
+      duration: 250, // Duración rápida (250ms)
+      useNativeDriver: false, // height no soporta useNativeDriver
+    }).start();
+  }, [expanded]);
+
+  // ✅ NUEVO: Interpolaciones para animación suave
+  const contentHeight = expandAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1000], // Altura máxima estimada del contenido expandido
+  });
+
+  const contentOpacity = expandAnimation.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, 0.5, 1], // Fade in progresivo
+  });
 
   const evidenciasSubsc = useTracker(() => {
     Meteor.subscribe('evidenciasVentasEfectivoRecharge', { ventaId });
@@ -561,7 +584,17 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
         </View>
       </View>
 
-      {expanded && (
+      {/* ✅ MODIFICADO: Contenido expandible con animación */}
+      <Animated.View
+        style={[
+          styles.expandableContent,
+          {
+            maxHeight: contentHeight,
+            opacity: contentOpacity,
+            overflow: 'hidden',
+          },
+        ]}
+      >
         <Card.Content>
           <Divider style={styles.divider} />
 
@@ -673,7 +706,7 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
             </Button>
           </View>
         </Card.Content>
-      )}
+      </Animated.View>
 
       {expanded && (
         <DrawerBottom
@@ -931,5 +964,10 @@ const styles = StyleSheet.create({
   approveButton: {
     flex: 1,
     borderRadius:22
+  },
+
+  // ✅ NUEVO: Estilo para contenedor expandible
+  expandableContent: {
+    // maxHeight y opacity se controlan por Animated.View
   },
 });

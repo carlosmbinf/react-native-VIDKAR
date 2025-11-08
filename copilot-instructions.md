@@ -646,4 +646,316 @@
   - Documentar en README los umbrales de tamaño y razones técnicas.
 
 ---
-````
+
+## Resumen técnico – Integración API de elTOQUE (Tasas de Cambio)
+
+- **Contexto**: Implementación profesional de cliente HTTP para consumir la API de tasas de cambio de elTOQUE en proyecto `react-download`, con manejo de autenticación, caché y rate limiting.
+
+- **Documentación oficial**: https://tasas.eltoque.com - API REST que proporciona tasas de cambio del mercado informal cubano (USD, EUR, MLC, criptomonedas).
+
+- **Arquitectura implementada**:
+  - **Cliente Axios**: Configurado en `server/api/eltoque/eltoque.js` con interceptores profesionales.
+  - **Métodos Meteor**: Wrapper en `server/methods/elToqueMethods.js` para consumo desde cliente.
+  - **Configuración segura**: Token almacenado en `Meteor.settings.private.elToque.apiToken`.
+  - **Caché en memoria**: TTL configurable (default 5 min) para reducir llamadas y respetar rate limit.
+
+- **Endpoint principal**:
+  ```
+  GET https://tasas.eltoque.com/v1/trmi
+  Headers: Authorization: Bearer {token}
+  Query params (opcionales):
+    - date_from: string (formato: "YYYY-MM-DD HH:mm:ss")
+    - date_to: string (formato: "YYYY-MM-DD HH:mm:ss")
+    - ⚠️ Intervalo máximo: 24 horas
+  ```
+
+- **Estructura de respuesta**:
+  ```javascript
+  {
+    "tasas": {
+      "USD": 410.0,
+      "MLC": 205.0,
+      "EUR": 450.0,
+      "TRX": 137.5,
+      "USDT_TRC20": 445.0,
+      "BTC": 437.0,
+      "BNB": 159.0
+    },
+    "date": "2025-11-08",
+    "hour": 5,
+    "minutes": 46,
+    "seconds": 13
+  }
+  ```
+
+- **Configuración en Meteor.settings.json**:
+  ```json
+  {
+    "private": {
+      "elToque": {
+        "apiToken": "eyJhbG...", // Token JWT proporcionado por elTOQUE
+        "baseURL": "https://tasas.eltoque.com",
+        "cacheTTL": 300000 // 5 minutos en ms
+      }
+    }
+  }
+  ```
+
+- **Funciones implementadas**:
+  
+  **1. `getTasasCambio(options)`**: Obtiene tasas sin caché.
+  ```javascript
+  const result = await elToqueAPI.getTasasCambio({
+    date_from: "2022-10-27 00:00:01",
+    date_to: "2022-10-27 23:59:01"
+  });
+  // result.data.tasas.USD → 410.0
+  ```
+
+  **2. `getTasasCambioConCache(options)`**: Obtiene tasas con caché (recomendado).
+  ```javascript
+  const result = await elToqueAPI.getTasasCambioConCache();
+  // Si existe en caché (< 5 min), retorna inmediatamente
+  // result.fromCache === true
+  ```
+
+  **3. `getPrecioUSD()`**: Helper simplificado para obtener solo USD.
+  ```javascript
+  const precio = await elToqueAPI.getPrecioUSD();
+  console.log(`USD: ${precio} CUP`); // USD: 410.0 CUP
+  ```
+
+  **4. `clearCache()`**: Limpia caché manualmente.
+  ```javascript
+  elToqueAPI.clearCache();
+  // Útil tras actualizar configuración o para forzar refresh
+  ```
+
+  **5. `checkApiHealth()`**: Verifica disponibilidad de la API.
+  ```javascript
+  const isHealthy = await elToqueAPI.checkApiHealth();
+  // true si API responde correctamente
+  ```
+
+- **Métodos Meteor para cliente**:
+  ```javascript
+  // Desde componente React/React Native
+  
+  // 1. Obtener todas las tasas
+  const result = await Meteor.callAsync('eltoque.getTasas', { 
+    useCache: true // default: true
+  });
+  
+  // 2. Solo precio USD (más simple)
+  const precioUSD = await Meteor.callAsync('eltoque.getPrecioUSD');
+  console.log(`USD: ${precioUSD} CUP`);
+  
+  // 3. Limpiar caché (solo admins)
+  await Meteor.callAsync('eltoque.clearCache');
+  ```
+
+- **Interceptores implementados**:
+  
+  **Request interceptor**:
+  - Agrega automáticamente header `Authorization: Bearer {token}`.
+  - Valida existencia de token en `Meteor.settings`.
+  - Log de requests salientes para debugging.
+
+  **Response interceptor**:
+  - Manejo de errores HTTP con mensajes específicos:
+    - **400**: Intervalo de tiempo > 24h
+    - **401**: Token incorrecto o expirado
+    - **422**: Token mal formateado
+    - **429**: Rate limit excedido (max 1 req/seg)
+  - Log de respuestas exitosas.
+  - Normalización de errores para retorno consistente.
+
+- **Sistema de caché profesional**:
+  ```javascript
+  const cache = new Map();
+  const CACHE_TTL = 300000; // 5 minutos
+  
+  // Key formato: "tasas_{JSON.stringify(options)}"
+  // Permite cachear diferentes consultas (con/sin fechas)
+  
+  // Validación de frescura
+  if (Date.now() - cached.timestamp < CACHE_TTL) {
+    return { ...cached.data, fromCache: true };
+  }
+  ```
+
+- **Rate limiting y mejores prácticas**:
+  - **Límite de la API**: 1 petición por segundo.
+  - **Estrategia**: Caché agresivo (5 min) para reducir llamadas.
+  - **Recomendación**: Usar `getTasasCambioConCache()` para la mayoría de casos.
+  - **Refresh manual**: Llamar `clearCache()` solo cuando sea crítico tener datos frescos.
+  - **Polling**: Si se requiere actualización periódica, usar intervalos ≥ 5 minutos.
+
+- **Logging profesional implementado**:
+  ```javascript
+  // Ejemplos de logs generados:
+  
+  [ElToque API] 📤 GET /v1/trmi
+  [ElToque API] ✅ Response 200 recibido
+  
+  💵 [ElToque] Precio USD actual: 410.0 CUP
+  
+  [ElToque API] 📦 Retornando tasas desde caché
+  [ElToque API] 🗑️ Caché limpiado
+  
+  // Errores:
+  [ElToque API] ❌ 429: Demasiados intentos (rate limit: 1 req/seg)
+  [ElToque API] ⚠️ Token no configurado en Meteor.settings
+  ```
+
+- **Inicialización en startup**:
+  - Prueba automática de conexión al arrancar servidor.
+  - Imprime todas las tasas disponibles en consola.
+  - Destaca precio del USD con emoji 💵.
+  - Valida configuración del token antes de iniciar.
+
+- **Casos de uso típicos**:
+  
+  **1. Mostrar tasa actual en UI**:
+  ```javascript
+  // Componente React
+  const [precioUSD, setPrecioUSD] = useState(null);
+  
+  useEffect(() => {
+    Meteor.callAsync('eltoque.getPrecioUSD').then(setPrecioUSD);
+  }, []);
+  
+  return <Text>USD: {precioUSD} CUP</Text>;
+  ```
+
+  **2. Calcular conversión USD → CUP**:
+  ```javascript
+  const convertirUSDaCUP = async (cantidadUSD) => {
+    const tasaUSD = await elToqueAPI.getPrecioUSD();
+    return cantidadUSD * tasaUSD;
+  };
+  
+  const cupTotal = await convertirUSDaCUP(10); // 10 USD × 410 = 4100 CUP
+  ```
+
+  **3. Obtener tasas de un día específico**:
+  ```javascript
+  const tasasAyer = await elToqueAPI.getTasasCambio({
+    date_from: "2025-11-07 00:00:01",
+    date_to: "2025-11-07 23:59:59",
+    useCache: false // Forzar consulta fresca
+  });
+  ```
+
+  **4. Dashboard de múltiples divisas**:
+  ```javascript
+  const result = await Meteor.callAsync('eltoque.getTasas');
+  const { USD, EUR, MLC } = result.data.tasas;
+  
+  // Renderizar tabla con todas las tasas
+  ```
+
+- **Manejo de errores robusto**:
+  ```javascript
+  try {
+    const precio = await elToqueAPI.getPrecioUSD();
+    if (precio === null) {
+      // API falló, usar valor por defecto o cache local
+      return PRECIO_USD_DEFAULT;
+    }
+    return precio;
+  } catch (error) {
+    console.error('Error crítico:', error.message);
+    // Enviar alerta a sistema de monitoreo
+    // Retornar fallback seguro
+  }
+  ```
+
+- **Consideraciones de seguridad**:
+  - **Token en settings.json**: NO commitear al repositorio (usar `.gitignore`).
+  - **Entorno de producción**: Usar variables de entorno o secret manager.
+  - **Exposición al cliente**: Métodos Meteor validan permisos antes de exponer datos.
+  - **Rate limiting**: Implementado en API de elTOQUE (1 req/seg), respetar con caché.
+
+- **Testing recomendado**:
+  - **Caso 1**: Servidor arranca → debe imprimir precio USD en consola.
+  - **Caso 2**: Primera llamada → debe consultar API (sin caché).
+  - **Caso 3**: Segunda llamada (< 5 min) → debe retornar desde caché.
+  - **Caso 4**: Token inválido → debe logear error 401/422 y no crashear.
+  - **Caso 5**: Intervalo > 24h → debe logear error 400.
+  - **Caso 6**: clearCache() → tercera llamada debe consultar API nuevamente.
+
+- **Mejoras futuras sugeridas**:
+  - **Persistencia de caché**: Usar MongoDB/Redis en lugar de memoria (sobrevive reinicios).
+  - **Webhooks**: Suscribirse a actualizaciones de elTOQUE si ofrecen (evitar polling).
+  - **Gráficos históricos**: Almacenar tasas en collection para análisis temporal.
+  - **Notificaciones**: Alertar cuando USD > umbral configurable.
+  - **Multi-moneda**: Agregar helpers para EUR, MLC, criptomonedas.
+  - **Fallback**: API secundaria si elTOQUE está caído (ej. CubaExchange).
+
+- **Monitoreo y observabilidad**:
+  - Logs centralizados con timestamp y nivel (info/warn/error).
+  - Métricas de interés:
+    - Tasa de aciertos de caché (cache hit rate).
+    - Latencia de respuesta de API.
+    - Errores 4xx/5xx por día.
+    - Consumo de rate limit (peticiones por minuto).
+  - Dashboard recomendado: Grafana + Prometheus para visualizar métricas.
+
+- **Estructura de archivos**:
+  ```
+  server/
+    ├── api/
+    │   └── eltoque/
+    │       └── eltoque.js (Cliente HTTP + funciones API)
+    ├── methods/
+    │   └── elToqueMethods.js (Wrappers Meteor.methods)
+    └── startup.js (Prueba de conexión en arranque)
+  
+  settings.json (Token y configuración)
+  ```
+
+- **Comandos útiles para desarrollo**:
+  ```bash
+  # Iniciar con settings
+  meteor --settings settings.json
+  
+  # Verificar logs de elTOQUE
+  meteor | grep "ElToque"
+  
+  # Probar método desde consola Meteor
+  meteor shell
+  > await Meteor.callPromise('eltoque.getPrecioUSD')
+  410.0
+  ```
+
+- **Documentación de términos y condiciones de elTOQUE**:
+  - Referenciar a elTOQUE como fuente de datos en la UI.
+  - No compartir token de API con terceros.
+  - Valores de tasas son referenciales (mercado informal).
+  - No usar para actividades ilegales o fraudulentas.
+  - Documentación completa: https://eltoque.com/api-tasas-de-eltoque-terminos-y-condiciones-de-uso
+
+- **Lecciones aprendidas**:
+  - **Caché es crítico**: Sin caché, rate limit se agota rápidamente.
+  - **Interceptores > Middleware**: Más limpio para logging y error handling.
+  - **Token en settings > Hardcoded**: Facilita deployment multi-entorno.
+  - **Helper getPrecioUSD() > getTasas()**: Simplifica 90% de casos de uso.
+  - **Logs descriptivos > Logs genéricos**: Emojis mejoran legibilidad en consola.
+  - **Validación defensiva**: API puede cambiar formato, siempre validar `result.data?.tasas?.USD`.
+
+- **Archivos creados/modificados en esta implementación**:
+  - `server/api/eltoque/eltoque.js`: Cliente HTTP completo con interceptores y caché.
+  - `server/methods/elToqueMethods.js`: Métodos Meteor para consumo desde cliente.
+  - `server/startup.js`: Prueba de conexión automática al arrancar servidor.
+  - `settings.json`: Configuración de token y parámetros de API.
+  - `copilot-instructions.md`: Documentación técnica completa de integración.
+
+- **Próximos pasos**:
+  - Implementar UI en React Native para mostrar tasas en tiempo real.
+  - Crear gráfico de evolución histórica de USD/EUR (react-native-chart-kit).
+  - Agregar notificación push cuando USD cambie > X%.
+  - Integrar con sistema de pagos para conversión automática USD ↔ CUP.
+  - Implementar dashboard de admin para monitorear uso de API.
+
+---
