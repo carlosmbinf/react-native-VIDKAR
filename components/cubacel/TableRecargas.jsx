@@ -216,20 +216,16 @@ const TableRecargas = () => {
                         let t = transaccion(c._id)
                         console.log("t", t)
                         if(t){
-                          t?.status?.message != "COMPLETED" && t?.status?.message != "CANCELLED" ? Meteor.call("dtshop.getStatusTransaccionById", t.id, (error, result) => {
+                         Meteor.call("dtshop.getStatusTransaccionById", t.id, (error, result) => {
                           if (error) {
                             console.log(error);
                             Alert.alert("Info", "Error en la transaccion asociada a la recarga con ID: \n" + c._id)
                           } else {
                             console.log("t?._id", t?._id);
                             console.log("t?.id", t?.id);
-                            console.log("result", result);
-                            
-                            (t?.status?.message != result?.status?.message )
-                            // Alert.alert("Info", `El estado de la transacción sigue como ${t?.status?.message || 'PENDIENTE'}`) 
-                            && Meteor.call("registrarLog", "ACTUALIZACION TRANSACCION MANUAL", Meteor.userId(), "SERVER", `Se actualizo la la recarga con ID:\n${t?._id}`);
+                            // console.log("result", result);
                           }
-                        }) : Alert.alert("Transacción ya completada", "La transacción ya se encuentra completada, no es posible actualizar su estado")
+                        }) 
                         }else{
                           // Meteor.call("registrarLog", "ERROR TRANSACCION", Meteor.userId(), "SERVER", `No se encontró transacción asociada a la recarga con ID:\n${c._id}`);
                           console.log("Info", "No se encontró transacción asociada a la recarga con ID: \n" + c._id)

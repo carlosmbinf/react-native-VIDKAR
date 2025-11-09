@@ -745,7 +745,7 @@ const SubidaArchivos = ({ venta}) => {
                     Monto a pagar
                   </Text>
                   {<Text style={[styles.montoAPagar, { fontSize: 18, fontWeight: 'bold', marginTop: 2 }]}>
-                    ${ventaReact?.cobrado} {ventaReact?.monedaCobrado}
+                    ${Number(ventaReact?.cobrado)?.toFixed(2)} {ventaReact?.monedaCobrado}
                   </Text>}
                 </View>
 
