@@ -109,8 +109,8 @@ export const VideoPlayerIOS = ({navigation, route, ocultarControles}) => {
 
   const onError = ({error}) => {
     // console.log("option",option);
-    Alert.alert('Error', error.errorString);
-    console.log(error.errorString);
+    Alert.alert('Error', error);
+    console.log(error);
   };
 
   const toggleModalAudio = () => {
@@ -188,7 +188,7 @@ export const VideoPlayerIOS = ({navigation, route, ocultarControles}) => {
           height: '100%',
           backgroundColor: 'transparent',
         }}>
-        <VLCPlayer
+        {/* <VLCPlayer
             // showGG={true}
             showTitle={true}
           playInBackground={true}
@@ -249,7 +249,7 @@ export const VideoPlayerIOS = ({navigation, route, ocultarControles}) => {
           onLoad={onLoad}
           onProgress={onProgress}
           style={styles.backgroundVideo}
-        />
+        /> */}
         {/* <VlCPlayerView
         showControls={true}
           key={id}
@@ -304,7 +304,7 @@ export const VideoPlayerIOS = ({navigation, route, ocultarControles}) => {
           style={styles.backgroundVideo}
        /> */}
 
-        {/* <Video
+        <Video
           ref={videoRef}
           // renderToHardwareTextureAndroid={true}
           disableExoPlayer={true}
@@ -354,7 +354,7 @@ export const VideoPlayerIOS = ({navigation, route, ocultarControles}) => {
           onLoad={onLoad}
           onProgress={onProgress}
           style={styles.backgroundVideo}
-        /> */}
+        />
       </TouchableOpacity>
 
       {isControlVisible && !isModalSubtitleVisible && !isModalAudioVisible && (
