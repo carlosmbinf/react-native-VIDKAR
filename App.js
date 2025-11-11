@@ -318,12 +318,11 @@ const App = () => {
   return (
     <PaperProvider>
       <Portal.Host>
-      {/* Dialog de datos obligatorios */}
-      <RequiredDataDialog />
-    <>
-      {/* <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}> */}
+      <>
+        {Platform.OS === 'android' && <RequiredDataDialog />}
+        {/* <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          style={backgroundStyle}> */}
 
       <NavigationContainer linking={linking} fallback={<Text>Cargando...</Text>}>
         <Stack.Navigator
