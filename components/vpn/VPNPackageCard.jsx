@@ -6,6 +6,20 @@ import { megasToGB } from '../shared/MegasConverter';
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
+const isLargeTablet = width >= 1024;
+
+// Sistema de columnas responsive mejorado con orientación
+const getColumnsCount = (screenWidth, screenHeight) => {
+  const isLandscape = screenWidth > screenHeight;
+  
+  // Ajuste solicitado: máximo 3 columnas en landscape para evitar cards muy pequeños
+  if (screenWidth >= 1200) return isLandscape ? 3 : 3; // Desktop: 3 horizontal, 3 vertical
+  if (screenWidth >= 900) return isLandscape ? 3 : 2;   // Tablet grande: 3 horizontal, 2 vertical  
+  if (screenWidth >= 600) return isLandscape ? 3 : 2;   // Tablet: 3 horizontal, 2 vertical
+  // Teléfono: siempre 1 por fila (portrait y landscape)
+  if (screenWidth >= 400) return 1;   // Móvil grande: 1 horizontal, 1 vertical
+  return 1; // Móvil pequeño: siempre 1 columna
+};
 
 class VPNPackageCard extends Component {
   state = {
@@ -15,7 +29,8 @@ class VPNPackageCard extends Component {
     vpnMegasActuales: 0,
     vpnIsIlimitado: false,
     vpnFechaVencimiento: null,
-    descuentoVPN: 0
+    descuentoVPN: 0,
+    containerWidth: Dimensions.get('window').width
   };
 
   fadeAnim = new Animated.Value(0);
@@ -103,6 +118,13 @@ class VPNPackageCard extends Component {
     });
   };
 
+  handlePackagesLayout = (e) => {
+    const { width } = e?.nativeEvent?.layout || {};
+    if (width && Math.abs(width - this.state.containerWidth) > 1) {
+      this.setState({ containerWidth: width });
+    }
+  };
+
   handleComprarPaquete = (paquete, esPorTiempo = false) => {
     const { vpnIsIlimitado } = this.state;
     const user = Meteor.user();
@@ -135,15 +157,39 @@ class VPNPackageCard extends Component {
     const isRecommended = index === 1;
     const vpnColor = theme.dark ? '#66BB6A' : '#4CAF50'; // Verde más claro en modo oscuro
 
+    // Calcular columnas dinámicamente para el dispositivo actual
+    const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+    const columnsCount = getColumnsCount(screenWidth, screenHeight);
+    
+    // Altura fija para uniformidad - ajustada según si es recomendado
+    const cardHeight = isRecommended ? 250 : 250; // Misma altura para todos
+    
+    // Cálculo confiable con ancho medido
+    const gutter = 12;
+    const containerWidth = this.state.containerWidth || screenWidth;
+    const cols = Math.max(1, columnsCount);
+    const totalGutter = gutter * (cols - 1);
+    const cardWidthPx = Math.floor((containerWidth - totalGutter) / cols);
+    const marginRight = (cols > 1 && (index % cols !== cols - 1)) ? gutter : 0;
+
+    const responsiveCardStyle = {
+      width: cardWidthPx,
+      height: cardHeight,
+      marginRight,
+      marginBottom: gutter
+    };
+
+    console.log(`📱 VPN Card ${index}: cols=${cols}, containerWidth=${containerWidth}, cardWidth=${cardWidthPx}, height=${cardHeight}, isRecommended=${isRecommended}`);
+
     return (
-      <Animated.View key={paquete._id} style={[animatedStyle, { marginBottom: 16 }]}>
+      <Animated.View key={paquete._id} style={[animatedStyle, responsiveCardStyle]}>
         <Surface 
           style={[
             styles.packageCard,
-            isTablet && styles.packageCardTablet,
-            isRecommended && styles.recommendedCard
+            isRecommended && styles.recommendedCard,
+            { height: '100%' } // Asegurar que el Surface llene el contenedor de 220px
           ]} 
-          elevation={isRecommended ? 4 : 2}
+          elevation={isRecommended ? 4 : 4}
         >
           {isRecommended && (
             <View style={[styles.recommendedBadge, { backgroundColor: theme.colors.tertiary }]}>
@@ -153,7 +199,7 @@ class VPNPackageCard extends Component {
             </View>
           )}
           
-          <View style={styles.packageContent}>
+          <View style={[styles.packageContent, !isTablet && styles.packageContentMobile]}>
             <View style={styles.packageHeader}>
               <View style={styles.packageTitleContainer}>
                 <IconButton 
@@ -230,12 +276,31 @@ class VPNPackageCard extends Component {
     const vpnColor = theme.dark ? '#66BB6A' : '#4CAF50';
     const goldColor = '#FFD700';
 
+    // Calcular mismo ancho que los cards normales (consistencia de grilla)
+    const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+    const columnsCount = getColumnsCount(screenWidth, screenHeight);
+    const gutter = 12;
+    const containerWidth = this.state.containerWidth || screenWidth;
+    const cols = Math.max(1, columnsCount);
+    const totalGutter = gutter * (cols - 1);
+    const baseCardWidthPx = Math.floor((containerWidth - totalGutter) / cols);
+    const premiumWidthDelta = 100; // unos píxeles más ancho que los normales
+    const cardWidthPx = Math.min(baseCardWidthPx + premiumWidthDelta, containerWidth);
+
+    const unlimitedCardStyle = {
+      width: cardWidthPx,
+      height: 350, // un poquito más alto que 220
+      marginRight: 0, // evitar overflow por delta de ancho
+      marginBottom: gutter,
+      alignSelf: 'flex-start'
+    };
+
     return (
-      <Animated.View style={[animatedStyle, { marginBottom: 24 }]}>
+      <Animated.View style={[animatedStyle, unlimitedCardStyle]}>
         <Surface 
           style={[
             styles.unlimitedCard,
-            isTablet && styles.packageCardTablet
+            { height: '100%' }
           ]} 
           elevation={5}
         >
@@ -247,7 +312,7 @@ class VPNPackageCard extends Component {
             </Paragraph>
           </View>
           
-          <View style={styles.packageContent}>
+          <View style={[styles.packageContent, !isTablet && styles.packageContentMobile]}>
             <View style={styles.packageHeader}>
               <View style={styles.packageTitleContainer}>
                 <IconButton 
@@ -266,6 +331,7 @@ class VPNPackageCard extends Component {
               </View>
               <View style={[
                 styles.priceContainer,
+                styles.priceContainerShadow,
                 { backgroundColor: theme.dark ? 'rgba(255, 215, 0, 0.15)' : '#FFF9E6' }
               ]}>
                 <Paragraph style={[
@@ -325,22 +391,43 @@ class VPNPackageCard extends Component {
     });
 
     return (
-      <View style={styles.packagesContainer}>
-        {[1, 2, 3].map((item) => (
-          <Animated.View key={item} style={{ opacity }}>
-            <Surface 
-              style={styles.skeletonCard} 
-              elevation={1}
+      <View
+        style={[
+          styles.packagesContainer,
+          getColumnsCount(Dimensions.get('window').width, Dimensions.get('window').height) > 1 && styles.packagesContainerGrid
+        ]}
+        onLayout={this.handlePackagesLayout}
+      >
+        {[1, 2, 3].map((item, index) => {
+          const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+          const columnsCount = getColumnsCount(screenWidth, screenHeight);
+          const gutter = 12;
+          const containerWidth = this.state.containerWidth || screenWidth;
+          const cols = Math.max(1, columnsCount);
+          const totalGutter = gutter * (cols - 1);
+          const cardWidthPx = Math.floor((containerWidth - totalGutter) / cols);
+          const marginRight = (cols > 1 && (index % cols !== cols - 1)) ? gutter : 0;
+          const cardHeight = 220;
+
+          return (
+            <Animated.View
+              key={item}
+              style={{ opacity, width: cardWidthPx, height: cardHeight, marginRight, marginBottom: gutter }}
             >
-              <View style={styles.skeletonHeader}>
-                <View style={[styles.skeletonTitle, { backgroundColor: theme.colors.surfaceDisabled }]} />
-                <View style={[styles.skeletonPrice, { backgroundColor: theme.colors.surfaceDisabled }]} />
-              </View>
-              <View style={[styles.skeletonDescription, { backgroundColor: theme.colors.surfaceDisabled }]} />
-              <View style={[styles.skeletonButton, { backgroundColor: theme.colors.surfaceDisabled }]} />
-            </Surface>
-          </Animated.View>
-        ))}
+              <Surface 
+                style={[styles.skeletonCard, { backgroundColor: theme.colors.surfaceVariant, height: '100%' }]}
+                elevation={1}
+              >
+                <View style={styles.skeletonHeader}>
+                  <View style={[styles.skeletonTitle, { backgroundColor: theme.colors.surfaceDisabled }]} />
+                  <View style={[styles.skeletonPrice, { backgroundColor: theme.colors.surfaceDisabled }]} />
+                </View>
+                <View style={[styles.skeletonDescription, { backgroundColor: theme.colors.surfaceDisabled }]} />
+                <View style={[styles.skeletonButton, { backgroundColor: theme.colors.surfaceDisabled }]} />
+              </Surface>
+            </Animated.View>
+          );
+        })}
       </View>
     );
   };
@@ -360,7 +447,11 @@ class VPNPackageCard extends Component {
         showsVerticalScrollIndicator={false}
       >
         {/* <Surface style={[styles.card, isTablet && styles.cardTablet]} elevation={4}> */}
-          <View style={styles.cardContent}>
+          <View style={[
+            styles.cardContent,
+            !isTablet && styles.cardContentMobile,
+            isLargeTablet && styles.cardContentLargeTablet
+          ]}>
             <View style={styles.header}>
               <View style={styles.titleContainer}>
                 <IconButton icon="shield-check" size={isTablet ? 40 : 32} iconColor={vpnColor} />
@@ -419,7 +510,13 @@ class VPNPackageCard extends Component {
                     </Paragraph>
                   </View>
                 ) : (
-                  <View style={[styles.packagesContainer, isTablet && styles.packagesContainerTablet]}>
+                  <View
+                    style={[
+                      styles.packagesContainer,
+                      getColumnsCount(Dimensions.get('window').width, Dimensions.get('window').height) > 1 && styles.packagesContainerGrid
+                    ]}
+                    onLayout={this.handlePackagesLayout}
+                  >
                     {paquetesDisponibles.map((paquete, index) => 
                       this.renderPackageCard(paquete, index)
                     )}
@@ -466,6 +563,12 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     padding: 16
+  },
+  cardContentMobile: {
+    padding: 8
+  },
+  cardContentLargeTablet: {
+    paddingHorizontal: 32 // Más padding en tablets grandes
   },
   header: {
     flexDirection: 'row',
@@ -515,28 +618,26 @@ const styles = StyleSheet.create({
   packagesContainer: {
     marginVertical: 8
   },
-  packagesContainerTablet: {
+  packagesContainerGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginHorizontal: -8
+    justifyContent: 'flex-start',
+    marginVertical: 8
   },
   packageCard: {
-    marginBottom: 16,
     borderLeftWidth: 4,
     borderLeftColor: '#4CAF50', // Color característico VPN
     borderRadius: 12,
-    overflow: 'hidden'
-  },
-  packageCardTablet: {
-    width: '48%',
-    marginHorizontal: 8
+    overflow: 'hidden',
+    flex: 0, // No flex para mantener ancho fijo
+    justifyContent: 'space-between', // Distribuir contenido uniformemente
+    backgroundColor: 'transparent'
   },
   recommendedCard: {
     borderColor: '#FFD700',
     borderWidth: 2,
     borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50'
+    borderLeftColor: '#FFD700' // Borde izquierdo dorado para "MÁS POPULAR"
   },
   recommendedBadge: {
     paddingVertical: 6,
@@ -550,7 +651,13 @@ const styles = StyleSheet.create({
   },
   packageContent: {
     paddingVertical: 16,
-    paddingHorizontal: 16
+    paddingHorizontal: 16,
+    flex: 1,
+    justifyContent: 'space-between' // Distribuir el contenido uniformemente
+  },
+  packageContentMobile: {
+    paddingVertical: 12,
+    paddingHorizontal: 12
   },
   packageHeader: {
     flexDirection: 'row',
@@ -581,12 +688,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline'
   },
+  priceContainerShadow: {
+    // Sombra sutil para destacar el precio del Premium
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2
+  },
   packagePrice: {
     fontSize: 20,
     fontWeight: 'bold'
   },
   packagePriceTablet: {
-    fontSize: 24
+    fontSize: 20
   },
   priceCurrency: {
     fontSize: 12,
@@ -686,7 +801,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#FFD700'
+    borderColor: '#FFD700',
+    height: 220 // ✅ Altura fija igual que los cards normales
   },
   premiumBadge: {
     paddingVertical: 8,

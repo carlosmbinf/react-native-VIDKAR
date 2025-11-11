@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold'
   },
   packagePriceTablet: {
-    fontSize: 24
+    fontSize: 20
   },
   priceCurrency: {
     fontSize: 12,
