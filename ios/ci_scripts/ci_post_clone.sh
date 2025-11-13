@@ -84,7 +84,7 @@ echo "🎉 Listo. Reinicia tu terminal y/o sesión de usuario para aplicar cambi
 
 # Instalar pods
 cd ios
-# rm -rf Pods Podfile.lock
+rm -rf Pods Podfile.lock
 pod install
 
 # 1️⃣ Actualizar el build number (CFBundleVersion)
