@@ -37,3 +37,12 @@ export const EvidenciasVentasEfectivoCollection = new Mongo.Collection("evidenci
 
 export const PushTokens = new Mongo.Collection('push_tokens'); // { userId, token, platform, deviceId?, createdAt, updatedAt }
 
+///COMERCIO
+
+export const VentasComercioCollection = new Mongo.Collection("COMERCIO_ventas");
+export const PedidosAsignadosComercioCollection = new Mongo.Collection("COMERCIO_pedidosAsignados");
+export const ColaCadetesPorTiendasComercioCollection = new Mongo.Collection("COMERCIO_colacadetesxtiendas");
+export const TiendasComercioCollection = new Mongo.Collection("COMERCIO_tiendas");
+export const ProductosComercioCollection = new Mongo.Collection("COMERCIO_productos");
+export const PaypalComercioCollection = new Mongo.Collection("COMERCIO_paypal");
+///FIN DE COMERCIO

@@ -19,7 +19,7 @@ const DrawerOptionsAlls = (opt) => {
   // Construir opciones de servicios dinámicamente según permisos del usuario
   const getOpcionesServicios = () => {
     const opciones = [];
-    console.log("user en drawer", user);
+    
     // Pelis y Series - solo si tiene suscripcionPelis
     if (user?.subscipcionPelis == true) {
       opciones.push({
@@ -53,6 +53,12 @@ const DrawerOptionsAlls = (opt) => {
       icon: "history"
     });
 
+    opciones.push({
+      label: "Pedidos Comercio",
+      url: "PedidosComercio",
+      icon: "history"
+    });
+    
     // Remesas - solo si tiene permiteRemesas
     if (user?.permiteRemesas == true) {
       opciones.push({

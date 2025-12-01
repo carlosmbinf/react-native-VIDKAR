@@ -68,7 +68,7 @@ import VentasStepper from './components/remesas/VentasStepper';       // corregi
 import SubidaArchivos from './components/archivos/SubidaArchivos';
 import ListaArchivos from './components/archivos/ListaArchivos';
 import PropertyTable from './components/property/PropertyTable';
-
+import HomePedidosComercio from './components/comercio/pedidos/HomePedidosComercio';
 
 import messaging from '@react-native-firebase/messaging';
 import VPNPackageCard from './components/vpn/VPNPackageCard';
@@ -319,7 +319,7 @@ const App = () => {
     <PaperProvider>
       <Portal.Host>
       <>
-        {Platform.OS === 'android' && <RequiredDataDialog />}
+        {/* {Platform.OS === 'android' && <RequiredDataDialog />} */}
         {/* <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={backgroundStyle}> */}
@@ -1119,6 +1119,20 @@ const App = () => {
               },
               headerTintColor: '#fff',
               headerTitleStyle: { fontWeight: 'bold' }
+            }}
+          />
+
+          <Stack.Screen
+            name="PedidosComercio"
+            component={HomePedidosComercio}
+            options={{
+              title: 'Mis Pedidos',
+              headerStyle: {
+                backgroundColor: '#FF6F00', // Naranja Material
+                height: 90,
+              },
+              headerTintColor: '#fff',
+              headerTitleStyle: { fontWeight: 'bold' },
             }}
           />
 
