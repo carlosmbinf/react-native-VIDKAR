@@ -93,13 +93,13 @@ const MenuPrincipal = ({ navigation }) => {
                 <Text>Bienvenido al menú principal de la aplicación.</Text>
               {/* </Card.Content> */}
             </View>
+            <Productos />
             {ready && user?.subscipcionPelis &&
               <MainPelis
                 navigation={{ navigationGeneral: navigation }}
                 clasificacion="All"
               />
             }
-            <Productos />
             <ProxyVPNPackagesHorizontal navigation={navigation} />
 
           </ScrollView>
