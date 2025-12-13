@@ -399,7 +399,7 @@ const App = () => {
                 />
               ),
               // headerRight
-              // headerTransparent:false
+              headerTransparent:false
             })}
           />
           <Stack.Screen
@@ -986,27 +986,12 @@ const App = () => {
               );
             }}
           </Stack.Screen>
-          <Stack.Screen
-            name="Remesas"
-            component={TableListRemesa}
-            options={({ navigation, route }) => ({
-              title: <Text style={{ letterSpacing: 2 }}>Remesas</Text>,
-              headerStyle: { backgroundColor: '#3f51b5', height: 90 },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              headerShown: true,
-              headerRight: () => (
-                <MenuHeader navigation={navigation} />
-              ),
-            })}
-          />
-
           {/* nuevo: formulario de remesas */}
           <Stack.Screen
             name="remesas"
             // component={FormularioRemesa} // usar el componente correcto
             options={({ navigation, route }) => ({
-              title: <Text style={{ letterSpacing: 2 }}>Formulario Remesas</Text>,
+              title: <Text style={{ letterSpacing: 2 }}>Remesas</Text>,
               headerStyle: { backgroundColor: '#3f51b5', height: 90 },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',

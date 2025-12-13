@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { TextInput, Button, Card, Text, IconButton, Divider, HelperText, List, Surface } from 'react-native-paper';
+import { TextInput, Button, Card, Text, IconButton, HelperText } from 'react-native-paper';
+import { Dropdown } from 'react-native-element-dropdown';
 import Meteor from '@meteorrn/core';
-import { ScrollView } from 'react-native-gesture-handler';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const FormularioRemesa = () => {
   const [form, setForm] = useState({
@@ -15,19 +16,16 @@ const FormularioRemesa = () => {
     metodoPago: '',
     monedaRecibirEnCuba: '',
   });
-  const [open, setOpen] = useState(false); // abrir por defecto para ver el formulario
+  const [open, setOpen] = useState(false);
   const [properties, setProperties] = useState([]);
   const [precioCUP, setPrecioCUP] = useState(0);
   const [descuento, setDescuento] = useState(0);
 
-  // Eliminamos estados de Menu (Portal) y usamos selects inline
-  // const [monedaMenuVisible, setMonedaMenuVisible] = useState(false);
-  // const [metodoMenuVisible, setMetodoMenuVisible] = useState(false);
-  const [showMonedas, setShowMonedas] = useState(false);
-  const [showMetodos, setShowMetodos] = useState(false);
+  // Estados para focus de los dropdowns
+  const [isFocusMoneda, setIsFocusMoneda] = useState(false);
+  const [isFocusMetodo, setIsFocusMetodo] = useState(false);
 
   useEffect(() => {
-    // ...existing code...
     Meteor.call('property.get', ['REMESA', 'PRECIO', 'DESCUENTOS'], (error, result) => {
       if (error) {
         console.error('Error al obtener propiedades:', error);
@@ -35,7 +33,6 @@ const FormularioRemesa = () => {
         setProperties(result);
       }
     });
-    // ...existing code...
   }, []);
 
   useEffect(() => {
@@ -56,9 +53,10 @@ const FormularioRemesa = () => {
 
   const monedas = useMemo(() => {
     try {
-      return JSON.parse(
+      const parsed = JSON.parse(
         properties?.find((e) => e.clave === 'monedaACobrarEnCuba')?.valor || '[]'
       );
+      return parsed.map(m => ({ label: String(m), value: String(m) }));
     } catch {
       return [];
     }
@@ -69,7 +67,10 @@ const FormularioRemesa = () => {
       const arr = JSON.parse(
         properties?.find((e) => e.clave === 'metodoPagoEnCuba')?.valor || '[]'
       );
-      return (arr || []).map((m) => String(m).toUpperCase());
+      return (arr || []).map((m) => ({ 
+        label: String(m).toUpperCase(), 
+        value: String(m).toUpperCase() 
+      }));
     } catch {
       return [];
     }
@@ -86,7 +87,6 @@ const FormularioRemesa = () => {
         return { ...prev, tarjetaCUP: formatearTarjeta(value) };
       }
       if (name === 'monedaRecibirEnCuba') {
-        // Si es USD, forzar EFECTIVO como en web
         return {
           ...prev,
           monedaRecibirEnCuba: value,
@@ -104,7 +104,6 @@ const FormularioRemesa = () => {
       return;
     }
 
-    // Validaciones alineadas al formulario web
     const errores = [];
     if (!form.nombre?.trim()) errores.push('El nombre del destinatario es obligatorio.');
     if (!form.monedaRecibirEnCuba) errores.push('Debe seleccionar la moneda a cobrar en Cuba.');
@@ -131,7 +130,6 @@ const FormularioRemesa = () => {
       recibirEnCuba: Number(form.cobrarUSD) * Number(precioCUP - descuento),
       precioDolar: precioCUP,
       descuentoAdmin: descuento,
-      // Alinear con web: no condicionamos por moneda aquí
       tarjetaCUP: form.metodoPago === 'TRANSFERENCIA' ? form.tarjetaCUP : '',
       direccionCuba:
         form.metodoPago === 'EFECTIVO' || form.monedaRecibirEnCuba !== 'CUP' ? form.direccionCuba : '',
@@ -142,29 +140,26 @@ const FormularioRemesa = () => {
     };
 
     try {
-        await Meteor.call("insertarCarrito", nuevoCarrito, (error, result) => {
-            if (error) {
-                console.error('Error al insertar en el carrito:', error);
-                Alert.alert("Error", error.reason);
-            } else {
-                console.log('Producto agregado al carrito:', result);
-                alert('✅ Remesa añadida al carrito');
-                setOpen(false);
-            }
-        });
-      alert('✅ Remesa añadida al carrito');
-      // Reset consistente con el estado inicial
-      setForm({
-        nombre: '',
-        cobrarUSD: '',
-        recibirEnCuba: '',
-        tarjetaCUP: '',
-        comentario: '',
-        direccionCuba: '',
-        metodoPago: '',
-        monedaRecibirEnCuba: '',
+      await Meteor.call("insertarCarrito", nuevoCarrito, (error, result) => {
+        if (error) {
+          console.error('Error al insertar en el carrito:', error);
+          alert("Error: " + error.reason);
+        } else {
+          console.log('Producto agregado al carrito:', result);
+          alert('✅ Remesa añadida al carrito');
+          setForm({
+            nombre: '',
+            cobrarUSD: '',
+            recibirEnCuba: '',
+            tarjetaCUP: '',
+            comentario: '',
+            direccionCuba: '',
+            metodoPago: '',
+            monedaRecibirEnCuba: '',
+          });
+          setOpen(false);
+        }
       });
-      setOpen(false);
     } catch (err) {
       console.error('❌ Error al insertar remesa:', err);
       alert('Error al insertar remesa');
@@ -173,10 +168,18 @@ const FormularioRemesa = () => {
 
   const valorEntregar = Number(form.cobrarUSD || 0) * Number(precioCUP - descuento);
 
+  const renderIcon = (iconName, isFocus) => (
+    <MaterialCommunityIcons
+      name={iconName}
+      size={20}
+      color={isFocus ? '#1976D2' : '#666'}
+      style={styles.dropdownIcon}
+    />
+  );
+
   return (
-    // <ScrollView style={styles.container}>
     <View style={styles.container}>
-      <Card style={{ margin: 16, borderRadius: 20, maxWidth:400}} elevation={5} mode="outlined">
+      <Card style={styles.card} elevation={5} mode="outlined">
         <Card.Title
           title={open ? 'Formulario de Remesa' : 'Agregar nueva remesa'}
           right={(props) => (
@@ -194,79 +197,74 @@ const FormularioRemesa = () => {
               value={form.nombre}
               onChangeText={(value) => handleChange('nombre', value)}
               style={styles.input}
-              dense={true}
+              mode="outlined"
+              dense
             />
 
-            {/* Select Moneda a cobrar en Cuba (inline) */}
-            <View>
-              <TextInput
-                label="Moneda a cobrar en Cuba"
-                value={form.monedaRecibirEnCuba || ''}
-                style={styles.input}
-                dense={true}
-                editable={false}
-                right={
-                  <TextInput.Icon
-                    icon={showMonedas ? 'chevron-up' : 'chevron-down'}
-                    onPress={() => setShowMonedas((v) => !v)}
-                  />
-                }
+            {/* Dropdown Moneda a cobrar en Cuba */}
+            <View style={styles.dropdownContainer}>
+              <Text style={styles.dropdownLabel}>Moneda a cobrar en Cuba</Text>
+              <Dropdown
+                style={[
+                  styles.dropdown,
+                  isFocusMoneda && styles.dropdownFocused
+                ]}
+                placeholderStyle={styles.placeholderStyle}
+                selectedTextStyle={styles.selectedTextStyle}
+                inputSearchStyle={styles.inputSearchStyle}
+                keyboardAvoiding={true}
+                containerStyle={styles.containerStyle}
+                iconStyle={styles.iconStyle}
+                data={monedas}
+                search
+                maxHeight={200}
+                labelField="label"
+                valueField="value"
+                placeholder={!isFocusMoneda ? 'Seleccione moneda...' : '...'}
+                searchPlaceholder="Buscar..."
+                value={form.monedaRecibirEnCuba}
+                onFocus={() => setIsFocusMoneda(true)}
+                onBlur={() => setIsFocusMoneda(false)}
+                onChange={item => {
+                  handleChange('monedaRecibirEnCuba', item.value);
+                  setIsFocusMoneda(false);
+                }}
+                renderLeftIcon={() => renderIcon('cash-multiple', isFocusMoneda)}
               />
-              {showMonedas && (
-                <Card mode="outlined" style={styles.selectCard}>
-                  <List.Section>
-                    {(monedas || []).map((m) => (
-                      <List.Item
-                        key={String(m)}
-                        title={String(m)}
-                        onPress={() => {
-                          handleChange('monedaRecibirEnCuba', m);
-                          setShowMonedas(false);
-                        }}
-                      />
-                    ))}
-                  </List.Section>
-                </Card>
-              )}
             </View>
 
-            {/* Método de pago cuando es CUP (inline) */}
+            {/* Dropdown Método de pago cuando es CUP */}
             {form.monedaRecibirEnCuba === 'CUP' && (
-              <>
-                {/* <Divider style={styles.divider} /> */}
-                <View>
-                  <TextInput
-                    label="Método de pago"
-                    value={form.metodoPago || ''}
-                    style={styles.input}
-                    dense={true}
-                    editable={false}
-                    right={
-                      <TextInput.Icon
-                        icon={showMetodos ? 'chevron-up' : 'chevron-down'}
-                        onPress={() => setShowMetodos((v) => !v)}
-                      />
-                    }
-                  />
-                  {showMetodos && (
-                    <Card mode="outlined" style={styles.selectCard}>
-                      <List.Section>
-                        {(metodosPagoCUP || []).map((m) => (
-                          <List.Item
-                            key={String(m)}
-                            title={String(m)}
-                            onPress={() => {
-                              handleChange('metodoPago', m);
-                              setShowMetodos(false);
-                            }}
-                          />
-                        ))}
-                      </List.Section>
-                    </Card>
-                  )}
-                </View>
-
-              </>
+              <View style={styles.dropdownContainer}>
+                <Text style={styles.dropdownLabel}>Método de pago</Text>
+                <Dropdown
+                  style={[
+                    styles.dropdown,
+                    isFocusMetodo && styles.dropdownFocused
+                  ]}
+                  placeholderStyle={styles.placeholderStyle}
+                  selectedTextStyle={styles.selectedTextStyle}
+                  inputSearchStyle={styles.inputSearchStyle}
+                  keyboardAvoiding={true}
+                  containerStyle={styles.containerStyle}
+                  iconStyle={styles.iconStyle}
+                  data={metodosPagoCUP}
+                  search
+                  maxHeight={200}
+                  labelField="label"
+                  valueField="value"
+                  placeholder={!isFocusMetodo ? 'Seleccione método...' : '...'}
+                  searchPlaceholder="Buscar..."
+                  value={form.metodoPago}
+                  onFocus={() => setIsFocusMetodo(true)}
+                  onBlur={() => setIsFocusMetodo(false)}
+                  onChange={item => {
+                    handleChange('metodoPago', item.value);
+                    setIsFocusMetodo(false);
+                  }}
+                  renderLeftIcon={() => renderIcon('credit-card-outline', isFocusMetodo)}
+                />
+              </View>
             )}
 
             {/* Info cuando no es CUP */}
@@ -280,11 +278,13 @@ const FormularioRemesa = () => {
               label="Monto a enviar en USD"
               value={form.cobrarUSD}
               onChangeText={(value) => handleChange('cobrarUSD', value)}
-
-              dense={true}
+              style={styles.input}
+              mode="outlined"
+              dense
               keyboardType="numeric"
             />
-            <HelperText type="error" style={styles.input}>
+            
+            <HelperText type="info" visible={!!valorEntregar}>
               Valor a entregar en Cuba: {Number.isFinite(Number(valorEntregar)) ? valorEntregar.toFixed(2) : 0} {form.monedaRecibirEnCuba}
             </HelperText>
 
@@ -294,8 +294,10 @@ const FormularioRemesa = () => {
                 value={form.tarjetaCUP}
                 onChangeText={(value) => handleChange('tarjetaCUP', value)}
                 style={styles.input}
-                dense={true}
+                mode="outlined"
+                dense
                 keyboardType="numeric"
+                placeholder="0000 0000 0000 0000"
               />
             )}
 
@@ -305,7 +307,10 @@ const FormularioRemesa = () => {
                 value={form.direccionCuba}
                 onChangeText={(value) => handleChange('direccionCuba', value)}
                 style={styles.input}
-                dense={true}
+                mode="outlined"
+                dense
+                multiline
+                numberOfLines={2}
               />
             )}
 
@@ -314,8 +319,10 @@ const FormularioRemesa = () => {
               value={form.comentario}
               onChangeText={(value) => handleChange('comentario', value)}
               style={styles.input}
-              dense={true}
-              multiline={true}
+              mode="outlined"
+              dense
+              multiline
+              numberOfLines={3}
             />
 
             <Button mode="contained" onPress={handleSubmit} style={styles.submitButton}>
@@ -325,50 +332,84 @@ const FormularioRemesa = () => {
         )}
       </Card>
     </View>
-      
-    // </ScrollView>
-
   );
 };
 
 const styles = StyleSheet.create({
+  containerStyle: {
+    flex: 1,
+    borderRadius: 20,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    top: -50,
+  },
   container: {
-    // flex: 1,
-    // alignItems: 'center',       // centrar horizontalmente
-    justifyContent: 'center',   // centrar verticalmente
+    justifyContent: 'center',
     padding: 16,
-    // backgroundColor: "#f5f5f5",
+  },
+  card: {
+    margin: 16,
+    borderRadius: 20,
+    maxWidth: 400,
   },
   input: {
-    zIndex: 0,
-    marginBottom: 16,
-  },
-  label: {
-    marginTop: 16,
-    marginBottom: 8,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  divider: {
-    marginVertical: 16,
+    borderRadius: 20,
+    marginBottom: 12,
   },
   info: {
     marginVertical: 8,
+    marginBottom: 16,
     fontSize: 14,
     color: 'gray',
   },
   submitButton: {
     marginTop: 16,
+    borderRadius: 10,
   },
-  selectCard: {
-    flex: 1,
-    position: 'absolute',
-    top: 50,
-    width: "100%",
-    zIndex: 1,
-    elevation: 5,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+  
+  // Estilos para Dropdown de react-native-element-dropdown
+  dropdownContainer: {
+    marginBottom: 16,
+  },
+  dropdownLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  dropdown: {
+    height: 40,
+    borderColor: '#999',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 12,
+    backgroundColor: 'transparent',
+  },
+  dropdownFocused: {
+    borderColor: '#1976D2',
+    borderWidth: 2,
+  },
+  placeholderStyle: {
+    fontSize: 14,
+    color: '#999',
+  },
+  selectedTextStyle: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '600',
+  },
+  iconStyle: {
+    width: 20,
+    height: 20,
+  },
+  inputSearchStyle: {
+    height: 40,
+    fontSize: 14,
+    borderRadius: 8,
+  },
+  dropdownIcon: {
+    marginRight: 8,
   },
 });
 

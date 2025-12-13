@@ -429,8 +429,34 @@ class MyApp extends React.Component {
     //       </View>
     //     </TouchableHighlight>
 
-    const admins = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user && user.profile && user.profile.role == "admin" && (user.username ? ((user.username).toString().includes(this.state.userName)) : false)).map(element => Item(element))
-    const users = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => user && user.profile && user.profile.role == "user" && (user.username ? ((user.username).toString().includes(this.state.userName)) : false)).map(element => Item(element))
+    const admins = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => {
+      if (!user || !user.profile || user.profile.role !== "admin") return false;
+      
+      const searchTerm = this.state.userName.toLowerCase().trim();
+      if (!searchTerm) return true; // Si no hay término de búsqueda, mostrar todos
+      
+      const username = user.username ? user.username.toLowerCase() : "";
+      const firstName = user.profile?.firstName ? user.profile.firstName.toLowerCase() : "";
+      const lastName = user.profile?.lastName ? user.profile.lastName.toLowerCase() : "";
+      
+      return username.includes(searchTerm) || 
+             firstName.includes(searchTerm) || 
+             lastName.includes(searchTerm);
+    }).map(element => Item(element))
+    const users = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => {
+      if (!user || !user.profile || user.profile.role !== "user") return false;
+      
+      const searchTerm = this.state.userName.toLowerCase().trim();
+      if (!searchTerm) return true; // Si no hay término de búsqueda, mostrar todos
+      
+      const username = user.username ? user.username.toLowerCase() : "";
+      const firstName = user.profile?.firstName ? user.profile.firstName.toLowerCase() : "";
+      const lastName = user.profile?.lastName ? user.profile.lastName.toLowerCase() : "";
+      
+      return username.includes(searchTerm) || 
+             firstName.includes(searchTerm) || 
+             lastName.includes(searchTerm);
+    }).map(element => Item(element))
 
     const drawerStyles = {
       drawer: { shadowColor: 'black', shadowOpacity: 0, shadowRadius: 3, backgroundColor: "black" },

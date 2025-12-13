@@ -22,6 +22,7 @@ import DrawerOptionsAlls from '../drawer/DrawerOptionsAlls';
 import Productos from '../cubacel/Productos';
 import MainPelis from '../pelis/MainPelis';
 import ProxyVPNPackagesHorizontal from '../proxyVPN/ProxyVPNPackagesHorizontal';
+import { BlurView } from '@react-native-community/blur';
 
 const axios = require('axios').default;
 
@@ -45,12 +46,11 @@ const MenuPrincipal = ({ navigation }) => {
   });
 
   const drawerStyles = {
-    drawer: { shadowColor: 'black', shadowOpacity: 0, shadowRadius: 3, backgroundColor: "black" },
+    drawer: { shadowColor: 'black', shadowOpacity: 0, shadowRadius: 3, backgroundColor: "red" },
     main: { paddingLeft: 0 },
   };
 
   return (
-    <>
       <Drawer
         type="overlay"
         open={drawer}
@@ -67,7 +67,14 @@ const MenuPrincipal = ({ navigation }) => {
           main: { opacity: ((2 - ratio) / 2) }
         })}
       >
+       <BlurView
+                  style={StyleSheet.absoluteFill}
+                  blurType={isDarkMode ? 'black' : 'light'}
+                  blurAmount={5}
+                  blurRadius={5}
+                />
         <Appbar style={{ backgroundColor: '#3f51b5' }}>
+       
           <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
             <Appbar.Action icon="menu" color={"white"} onPress={() => setDrawer(!drawer)} />
           </View>
@@ -88,7 +95,7 @@ const MenuPrincipal = ({ navigation }) => {
             // }
           >
 
-            <View style={{ elevation: 0, padding: 10, backgroundColor:'#3f51b5'}} >
+            <View style={{padding: 10, backgroundColor:'#3f51b5'}} >
               {/* <Card.Content> */}
                 <Text>Bienvenido al menú principal de la aplicación.</Text>
               {/* </Card.Content> */}
@@ -105,8 +112,6 @@ const MenuPrincipal = ({ navigation }) => {
           </ScrollView>
         </Surface>
       </Drawer>
-      <View></View>
-    </>
   );
 };
 

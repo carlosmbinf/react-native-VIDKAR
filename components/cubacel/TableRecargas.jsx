@@ -67,7 +67,6 @@ const TableRecargas = () => {
   const isAdminPrincipal = Meteor.user()?.username === 'carlosmbinf' || false;
 
   const listIdSubordinados = useTracker(() => {
-    console.log("idAdmin", Meteor.userId());
     isAdmin && Meteor.subscribe("user", { bloqueadoDesbloqueadoPor: Meteor.userId() }, { fields: { _id: 1, bloqueadoDesbloqueadoPor: 1 } })
     return isAdmin ? Meteor.users.find({ bloqueadoDesbloqueadoPor: Meteor.userId() }).fetch()?.map((element) => element._id) : [];
   }, [Meteor.userId()]);
