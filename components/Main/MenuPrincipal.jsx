@@ -88,11 +88,11 @@ const MenuPrincipal = ({ navigation }) => {
             // }
           >
 
-            <Surface style={{ elevation: 0, padding: 10 }}>
-              <Card.Content>
+            <View style={{ elevation: 0, padding: 10, backgroundColor:'#3f51b5'}} >
+              {/* <Card.Content> */}
                 <Text>Bienvenido al menú principal de la aplicación.</Text>
-              </Card.Content>
-            </Surface>
+              {/* </Card.Content> */}
+            </View>
             {ready && user?.subscipcionPelis &&
               <MainPelis
                 navigation={{ navigationGeneral: navigation }}

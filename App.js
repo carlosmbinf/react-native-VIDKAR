@@ -360,6 +360,7 @@ const App = () => {
             name="Main"
             component={MenuPrincipal}
             options={({ navigation, route }) => ({
+              animationEnabled: true,
               title: (
                 <Text style={{ letterSpacing: 5 }}>
                   <FontAwesome
@@ -383,7 +384,7 @@ const App = () => {
               ),
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 90,
+                // height: 90,
               },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -425,7 +426,7 @@ const App = () => {
                 ),
                 headerStyle: {
                   backgroundColor: '#3f51b5',
-                  height: 90,
+                  // height: 90,
                 },
                 headerTitleAlign: 'left',
                 headerTintColor: '#fff',
@@ -497,7 +498,7 @@ const App = () => {
               ),
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 90,
+                // height: 90,
               },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -522,7 +523,7 @@ const App = () => {
               title: <Text style={{ letterSpacing: 4 }}>Peliculas y Series</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 90,
+                // height: 90,
               },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -586,7 +587,7 @@ const App = () => {
                 ),
                 headerStyle: {
                   backgroundColor: '#3f51b5',
-                  height: 90,
+                  // height: 90,
                 },
                 headerTitleAlign: 'left',
                 headerTintColor: '#fff',
@@ -630,7 +631,7 @@ const App = () => {
               title: <Text style={{ letterSpacing: 2 }}>Servidores</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 90,
+                // height: 90,
               },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -675,7 +676,7 @@ const App = () => {
               ),
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 90,
+                // height: 90,
               },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -700,7 +701,7 @@ const App = () => {
               title: <Text style={{ letterSpacing: 2 }}>Crear Usuario</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 90,
+                // height: 90,
               },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -725,7 +726,7 @@ const App = () => {
               title: <Text style={{ letterSpacing: 2 }}>Logs</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 90,
+                // height: 90,
               },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -750,7 +751,7 @@ const App = () => {
               title: <Text style={{ letterSpacing: 2 }}>Ventas</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 90,
+                // height: 90,
               },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -775,7 +776,7 @@ const App = () => {
               title: <Text style={{ letterSpacing: 2 }}>Upload</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 90,
+                // height: 90,
               },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -800,7 +801,7 @@ const App = () => {
               title: <Text style={{ letterSpacing: 2 }}>Archivos</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 90,
+                // height: 90,
               },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -825,7 +826,7 @@ const App = () => {
               title: <Text style={{ letterSpacing: 2 }}>Propertys</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 90,
+                // height: 90,
               },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -889,7 +890,7 @@ const App = () => {
               ),
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 90,
+                // height: 90,
               },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -918,7 +919,7 @@ const App = () => {
               title: <Text>Mensajes</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 90,
+                // height: 90,
               },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -947,7 +948,7 @@ const App = () => {
               title: <Text>Recargas</Text>,
               headerStyle: {
                 backgroundColor: '#3f51b5',
-                height: 90,
+                // height: 90,
               },
               headerTitleAlign: 'left',
               headerTintColor: '#fff',
@@ -1129,7 +1130,7 @@ const App = () => {
               title: 'Mis Pedidos',
               headerStyle: {
                 backgroundColor: '#FF6F00', // Naranja Material
-                height: 90,
+                // height: 90,
               },
               headerTintColor: '#fff',
               headerTitleStyle: { fontWeight: 'bold' },

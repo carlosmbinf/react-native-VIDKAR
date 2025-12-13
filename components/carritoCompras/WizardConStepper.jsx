@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Meteor, { Accounts, Mongo, withTracker, useTracker } from '@meteorrn/core';
 import { View, ScrollView, StyleSheet, Linking, Alert } from 'react-native';
 import { ProgressSteps, ProgressStep } from 'react-native-progress-steps';
-import { TextInput, Text, Button, Dialog, Portal, Divider, Chip, IconButton, Modal,useTheme, Badge  } from 'react-native-paper';
+import { TextInput, Text, Button, Dialog, Portal, Divider, Chip, IconButton, Modal,useTheme, Badge, ActivityIndicator  } from 'react-native-paper';
 import ListaPedidos from './ListaPedidosRemesa';
 import { BlurView } from '@react-native-community/blur';
 import { Dropdown } from 'react-native-element-dropdown';
@@ -18,6 +18,9 @@ const WizardConStepper = ({ product, navigation }) => {
     const [totalAPagar, setTotalAPagar] = useState(0);
     const userId = Meteor.userId();
     const [cargadoPago, setCargadoPago] = useState(false);
+    const [seEstaPagando, setSeEstaPagando] = useState(false); // para que se dehabilita mientras esta pagandose con efectivo
+    const [procesandoPago, setProcesandoPago] = useState(false); // ✅ NUEVO: Flag específico para prevenir doble clic
+    
     const theme = useTheme();
     const isDarkMode = theme.dark;
 
@@ -324,12 +327,48 @@ const WizardConStepper = ({ product, navigation }) => {
       },[activeStep]);
 
     const handlePagar = async () => {
-        console.log(compra?.link)
-        const supported = await Linking.canOpenURL(compra?.link);
-        await Linking.openURL(compra?.link);
+        // ✅ NUEVO: Prevenir ejecución múltiple
+        if (procesandoPago) {
+          console.log("⚠️ Pago ya en proceso, ignorando clic adicional");
+          return;
+        }
+
+        setProcesandoPago(true);
+        setSeEstaPagando(true);
+
+        try {
+          console.log(compra?.link);
+          const supported = await Linking.canOpenURL(compra?.link);
+          await Linking.openURL(compra?.link);
+          
+          // ✅ Timeout de seguridad: resetear después de 5 segundos
+          setTimeout(() => {
+            setProcesandoPago(false);
+            setSeEstaPagando(false);
+          }, 5000);
+        } catch (error) {
+          console.error("❌ Error al abrir link de pago:", error);
+          Alert.alert(
+            'Error de pago',
+            'No se pudo abrir la pasarela de pago. Intente nuevamente.',
+            [{ text: 'OK', onPress: () => {
+              setProcesandoPago(false);
+              setSeEstaPagando(false);
+            }}]
+          );
+        }
     };
 
     const handleGenerarVenta = async () => {
+      // ✅ NUEVO: Prevenir ejecución múltiple
+      if (procesandoPago) {
+        console.log("⚠️ Venta ya en proceso, ignorando clic adicional");
+        return;
+      }
+
+      setProcesandoPago(true);
+      setSeEstaPagando(true);
+
       if (false) {
         console.log("Es PROXY o VPN - Generando venta con nuevo método");
         
@@ -349,7 +388,10 @@ const WizardConStepper = ({ product, navigation }) => {
             Alert.alert(
               'Error al generar venta',
               error.reason || 'No se pudo procesar la venta. Intente nuevamente.',
-              [{ text: 'OK' }]
+              [{ text: 'OK', onPress: () => {
+                setProcesandoPago(false);
+                setSeEstaPagando(false);
+              }}]
             );
           }
           if (success) {
@@ -360,6 +402,11 @@ const WizardConStepper = ({ product, navigation }) => {
               [
                 {
                   text: 'OK',
+                  onPress: () => {
+                    setProcesandoPago(false);
+                    setSeEstaPagando(false);
+                    setVisible(false);
+                  }
                 }
               ]
             );
@@ -376,15 +423,38 @@ const WizardConStepper = ({ product, navigation }) => {
         Meteor.call('generarVentaEfectivo', ventaData, (error, success) => {
           if (error) {
             console.log("error", error);
+            // Alert.alert(
+            //   'Error',
+            //   error.reason || 'Error al generar venta',
+            //   [{ text: 'OK', onPress: () => {
+            //     setProcesandoPago(false);
+            //     setSeEstaPagando(false);
+            //   }}]
+            // );
           }
           if (success) {
             console.log("success", success);
-
-            setVisible(false);
+            // Alert.alert(
+            //   'Éxito',
+            //   'Venta generada correctamente',
+            //   [{ text: 'OK', onPress: () => {
+            //     setProcesandoPago(false);
+            //     setSeEstaPagando(false);
+            //     setVisible(false);
+            //   }}]
+            // );
           }
         });
       }
     };
+
+    // ✅ NUEVO: Cleanup para resetear flags si se cierra el modal
+    useEffect(() => {
+      if (!visible) {
+        setProcesandoPago(false);
+        setSeEstaPagando(false);
+      }
+    }, [visible]);
 
     return (
         <>
@@ -517,14 +587,27 @@ const WizardConStepper = ({ product, navigation }) => {
                             {/* Paso 4: Pago */}
                             <ProgressStep 
                                 buttonDisabledColor='#aaa' 
-                                buttonFinishDisabled={(activeStep === 3 && metodoPago !== 'efectivo' && !compra?.link) || (metodoPago == 'efectivo' && !cargadoPago) } 
-                                buttonFinishText={metodoPago === 'efectivo' ? 'Generar Venta' : 'Pagar'} 
-                                buttonFillColor='#6200ee' 
+                                buttonFinishDisabled={
+                                  procesandoPago || 
+                                  seEstaPagando || 
+                                  (activeStep === 3 && metodoPago !== 'efectivo' && !compra?.link) || 
+                                  (metodoPago == 'efectivo' && !cargadoPago)
+                                } 
+                                buttonFinishText={
+                                  procesandoPago 
+                                    ? '' // ✅ Vacío para mostrar solo el ActivityIndicator
+                                    : (metodoPago === 'efectivo' ? 'Generar Venta' : 'Pagar')
+                                } 
+                                buttonFillColor={procesandoPago ? '#9E9E9E' : '#6200ee'} 
                                 buttonPreviousText='Atras' 
                                 buttonPreviousTextColor='white' 
                                 onSubmit={metodoPago === 'efectivo' ? handleGenerarVenta : handlePagar}  
                                 label="Pago" 
-                                onPrevious={() => setActiveStep(Number(activeStep)-1)}
+                                onPrevious={() => {
+                                  if (!procesandoPago) {
+                                    setActiveStep(Number(activeStep)-1);
+                                  }
+                                }}
                             >
                             <>
                             <Dialog.ScrollArea>
@@ -532,6 +615,21 @@ const WizardConStepper = ({ product, navigation }) => {
                             </Dialog.ScrollArea>
                               
                               <Chip style={{padding:20, borderRadius:30}}>Total a Pagar: {totalAPagar} {tieneProxyVPN ?  "CUP" : "USD"}</Chip>
+                              
+                              {/* ✅ NUEVO: Indicador de procesamiento visual */}
+                              {procesandoPago && (
+                                <View style={styles.procesandoContainer}>
+                                  <ActivityIndicator size="large" color="#6200ee" />
+                                  <Text style={styles.procesandoTexto}>
+                                    {metodoPago === 'efectivo' 
+                                      ? 'Generando venta...' 
+                                      : 'Abriendo pasarela de pago...'}
+                                  </Text>
+                                  <Text style={styles.procesandoSubtexto}>
+                                    Por favor, no cierre esta ventana
+                                  </Text>
+                                </View>
+                              )}
                             </>
                             </ProgressStep>
                         </ProgressSteps>
@@ -644,6 +742,28 @@ const styles = StyleSheet.create({
       color: '#666',
       textAlign: 'center',
       marginTop: 12,
+    },
+    // ✅ NUEVOS ESTILOS para indicador de procesamiento
+    procesandoContainer: {
+      marginTop: 24,
+      padding: 20,
+      backgroundColor: 'rgba(98, 0, 238, 0.1)',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#6200ee',
+      alignItems: 'center',
+    },
+    procesandoTexto: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#6200ee',
+      marginTop: 12,
+    },
+    procesandoSubtexto: {
+      fontSize: 12,
+      color: '#666',
+      marginTop: 4,
+      fontStyle: 'italic',
     },
 });
 

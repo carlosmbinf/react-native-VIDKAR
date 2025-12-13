@@ -1,9 +1,10 @@
 import React from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { DataTable, Text, Chip, Surface, Portal, Dialog, Button, IconButton, Divider } from 'react-native-paper';
+import { DataTable, Text, Chip, Surface, Portal, Dialog, Button, IconButton, Divider, Modal, useTheme } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 import { TransaccionRecargasCollection, VentasRechargeCollection } from '../collections/collections';
 import SubidaArchivos from '../archivos/SubidaArchivos';
+import { BlurView } from '@react-native-community/blur';
 
 const chipColorEstado = (estado) => {
   switch (estado) {
@@ -52,6 +53,8 @@ const getItemsArray = (venta) =>
 const TableRecargas = () => {
   const { width, height } = useWindowDimensions();
   const isWide = width > height || width >= 768; // apaisado o tablet
+  const theme = useTheme();
+  const isDarkMode = theme.dark;
 
   // nuevo: flex por columna según ancho
   const flexes = React.useMemo(() => {
@@ -201,12 +204,18 @@ const TableRecargas = () => {
 
 
         <Portal>
-          <Dialog visible={visible} onDismiss={closeDialog} style={{ maxHeight: maxDialogHeight }}>
-            <Dialog.Content>
+        <Modal theme={{ colors: { primary: 'green' } }} visible={visible} onDismiss={closeDialog} contentContainerStyle={styles.containerStyle}>
+
+                    <BlurView
+                        style={StyleSheet.absoluteFill}
+                        blurType= {isDarkMode ?"dark":"light"}
+                    />
+          
+            <Dialog.Content style={{ height: "90%" }}>
               <ScrollView
-                style={{ maxHeight: maxScrollHeight }}
-                contentContainerStyle={{ paddingBottom: 8 }}
-                keyboardShouldPersistTaps="handled"
+                style={{ height: "100%" }}
+                // contentContainerStyle={{ paddingBottom: 8 }}
+                // keyboardShouldPersistTaps="handled"
                 refreshControl={
                   <RefreshControl
                     refreshing={false}
@@ -225,7 +234,7 @@ const TableRecargas = () => {
                             console.log("t?.id", t?.id);
                             // console.log("result", result);
                           }
-                        }) : Alert.alert("Transacción ya completada", "La transacción ya se encuentra completada, no es posible actualizar su estado")
+                        }) : Alert.alert("Transacción ya completada", "El estado de la recarga ya se encuentra actualizado.");
                         }else{
                           // Meteor.call("registrarLog", "ERROR TRANSACCION", Meteor.userId(), "SERVER", `No se encontró transacción asociada a la recarga con ID:\n${c._id}`);
                           console.log("Info", "No se encontró transacción asociada a la recarga con ID: \n" + c._id)
@@ -282,9 +291,16 @@ const TableRecargas = () => {
                       getItemsArray(ventaSel).map((it, i) => {
                         const transaccionItem = transacciones?.find(t => t.externalId === it._id);
                         const isCompleted = transaccionItem?.status?.message === "COMPLETED";
+                        const isFailed = it?.status === "FAILED" || transaccionItem?.status?.message === "CANCELLED";
 
+                        // NUEVO: determinar color de borde según estado
+                        const getBorderColor = () => {
+                          if (isFailed) return '#dc3545'; // Rojo para fallos
+                          if (isCompleted) return '#28a745'; // Verde para completados
+                          return '#ffc107'; // Amarillo para pendientes
+                        };
 
-                        return transaccionItem ? (
+                        return (
                           <Surface
                             key={i}
                             style={{
@@ -294,11 +310,42 @@ const TableRecargas = () => {
                               borderRadius: 8,
                               elevation: 2,
                               borderLeftWidth: 4,
-                              borderLeftColor: isCompleted ? '#28a745' : '#ffc107'
+                              borderLeftColor: getBorderColor(),
+                              overflow: 'hidden', // NUEVO: necesario para el ribbon
+                              position: 'relative' // NUEVO: para posicionamiento absoluto del ribbon
                             }}
                           >
+                            {/* NUEVO: Ribbon de promoción en esquina superior derecha */}
+                            {!!it?.producto?.promotions?.length && (
+                              <View style={{
+                                position: 'absolute',
+                                top: 10,
+                                right: -35,
+                                backgroundColor: '#28a745',
+                                paddingVertical: 5,
+                                paddingHorizontal: 40,
+                                transform: [{ rotate: '45deg' }],
+                                zIndex: 10,
+                                elevation: 3,
+                                shadowColor: '#000',
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.25,
+                                shadowRadius: 3.84,
+                              }}>
+                                <Text style={{
+                                  color: 'white',
+                                  fontSize: 10,
+                                  fontWeight: 'bold',
+                                  textAlign: 'center',
+                                  textTransform: 'uppercase'
+                                }}>
+                                  🎁 Promo
+                                </Text>
+                              </View>
+                            )}
+
                             {/* Header del item */}
-                            <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 8, color: '#343a40' }}>
+                            <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 8 }}>
                               📱 Recarga #{i + 1}
                             </Text>
 
@@ -308,41 +355,39 @@ const TableRecargas = () => {
                             <Text style={{ marginBottom: 4 }}>📞 <Text style={{ fontWeight: 'bold' }}>Móvil:</Text> {it?.movilARecargar || 'Sin especificar'}</Text>
                             <Text style={{ marginBottom: 6 }}>💰 <Text style={{ fontWeight: 'bold' }}>Precio:</Text> {money(it.cobrarUSD, "USD")}</Text>
 
-                            {/* Estado de entrega */}
+                            {/* Estado de entrega con soporte para isFailed */}
                             <Surface style={{
                               padding: 8,
                               borderRadius: 6,
-                              backgroundColor: isCompleted ? '#d4edda' : '#fff3cd',
+                              backgroundColor: isFailed ? '#f8d7da' : (isCompleted ? '#d4edda' : '#fff3cd'),
                               marginVertical: 8
                             }}>
                               <Text style={{
                                 fontWeight: 'bold',
-                                color: isCompleted ? '#155724' : '#856404',
+                                color: isFailed ? '#721c24' : (isCompleted ? '#155724' : '#856404'),
                                 marginBottom: 4
                               }}>
-                                {isCompleted ? '✅' : '⏳'} Estado de la Recarga
+                                {isFailed ? '❌' : (isCompleted ? '✅' : '⏳')} Estado de la Recarga
                               </Text>
-                              <Text style={{ color: isCompleted ? '#155724' : '#856404' }}>
+                              <Text style={{ color: isFailed ? '#721c24' : (isCompleted ? '#155724' : '#856404') }}>
                                 Entregado: {isCompleted ? 'Sí' : 'No'}
                               </Text>
-                              <Text style={{ color: isCompleted ? '#155724' : '#856404' }}>
-                                Estado: {transaccionItem?.status?.message || 'No Disponible'}
+                              <Text style={{ color: isFailed ? '#721c24' : (isCompleted ? '#155724' : '#856404') }}>
+                                Estado: {transaccionItem?.status?.message || it?.status || 'No Disponible'}
                               </Text>
+                              
+                              {/* NUEVO: Mostrar mensaje de error si existe */}
+                              {isFailed && transaccionItem?.status?.error && (
+                                <Text style={{ 
+                                  color: '#721c24', 
+                                  marginTop: 6, 
+                                  fontStyle: 'italic',
+                                  fontSize: 12 
+                                }}>
+                                  ⚠️ Error: {transaccionItem.status.error}
+                                </Text>
+                              )}
                             </Surface>
-
-                            {/* Promociones */}
-                            {!!it?.producto?.promotions?.length && (
-                              <Chip
-                                compact
-                                style={{
-                                  backgroundColor: it?.producto?.promotions?.length ? '#28a745' : '#dc3545',
-                                }}
-                                textStyle={{ color: 'white', fontSize: 11 }}
-                                icon={it?.producto?.promotions?.length ? 'gift' : 'close-circle'}
-                              >
-                                {it?.producto?.promotions?.length ? 'CON PROMOCIÓN' : 'SIN PROMOCIÓN'}
-                              </Chip>
-                            )}
 
                             {/* Comentario del item */}
                             {it?.comentario && (
@@ -358,7 +403,7 @@ const TableRecargas = () => {
                               </Surface>
                             )}
                           </Surface>
-                        ):<></>;
+                        );
                       })
                     )}
                     {/* NUEVO: solo para método EFECTIVO */}
@@ -382,7 +427,7 @@ const TableRecargas = () => {
                 )}
               </ScrollView>
             </Dialog.Content>
-            <Dialog.Actions style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+            <Dialog.Actions style={{ paddingHorizontal: 16}}>
               <Button
                 mode="contained"
                 onPress={closeDialog}
@@ -391,7 +436,7 @@ const TableRecargas = () => {
                 Cerrar
               </Button>
             </Dialog.Actions>
-          </Dialog>
+          </Modal>
         </Portal>
       </Surface>
     </ScrollView>
@@ -401,7 +446,12 @@ const TableRecargas = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, },
   title: { marginBottom: 16, textAlign: 'center' },
-  item: { padding: 8, marginTop: 8 }
+  item: { padding: 8, marginTop: 8 },
+  containerStyle: {
+        padding: 0,
+        margin: 0,
+        height: "100%",
+    },
 });
 
 export default TableRecargas;

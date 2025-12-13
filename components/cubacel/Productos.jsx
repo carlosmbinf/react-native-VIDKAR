@@ -4,14 +4,16 @@ import Meteor, { useTracker } from '@meteorrn/core';
 import { ActivityIndicator, Surface, Text } from 'react-native-paper';
 import CubaCelCard from './CubaCelCard'; // usa el componente migrado
 import { DTShopProductosCollection } from '../collections/collections';
+import LinearGradient from 'react-native-linear-gradient';
 
 const Productos = () => {
-  // const [productosActuales, setProductosActuales] = useState([]);
+  const [productos, setProductos] = useState([]);
   const flatListRef = React.createRef();
-  const {productos, ready} = useTracker(() => {
+  const {productosActuales, ready} = useTracker(() => {
     const handler = Meteor.subscribe('productosDtShop');
     if (handler.ready()) {
-      return { productos: DTShopProductosCollection.find({}, { sort: { id: 1 } }).fetch(), ready:handler.ready() };
+      Meteor.status().status == 'connected' && setProductos(DTShopProductosCollection.find({}, { sort: { id: 1 } }).fetch())
+      return { ready:handler.ready() };
     }
     return {};
   });
@@ -46,8 +48,14 @@ const Productos = () => {
 
   return (
           <ScrollView contentContainerStyle={styles.container}>
+          <LinearGradient
+            colors={['#3f51b5', 'transparent']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 0.5 }}
+            style={styles.gradientContainer}
+          >
           
-              {ready && sortedProductos && sortedProductos.length > 0 ? (
+              {Meteor.status().status == 'connected'  || ready && sortedProductos && sortedProductos.length > 0 ? (
                 <FlatList
               ref={flatListRef}
               focusable={true}
@@ -58,6 +66,7 @@ const Productos = () => {
               )}
               style={{minWidth: '100%'}}
               horizontal={true}
+              showsHorizontalScrollIndicator={false}
               scrollEnabled={true}
               keyExtractor={item => item._id} // Asegúrate de tener una key única
               initialNumToRender={5}
@@ -70,6 +79,7 @@ const Productos = () => {
                       <Text>Cargando productos...</Text>
                   </View>
               )}
+              </LinearGradient>
           </ScrollView>
     
   );
@@ -78,13 +88,14 @@ const Productos = () => {
 const styles = StyleSheet.create({
   container: {
     // padding: 8,
-    paddingTop: 8,
+    // paddingTop: 8,
     paddingBottom: 8,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     // minHeight: '100%',
-    // backgroundColor: "red",
+    // backgroundColor: "#3f51b5",
+  // backgroundColor: 'linear-gradient(to bottom, #3f51b5, transparent)'
   },
   loaderContainer: {
     marginTop: 40,

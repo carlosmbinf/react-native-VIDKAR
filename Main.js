@@ -24,16 +24,18 @@ class MyApp extends React.Component {
   //   }
   constructor(props) {
     super(props);
-
-    // console.log(this.props.myTodoTasks);
-    // const isDarkMode = useColorScheme() === 'dark';
-    // const [data, setData] = ;
-    // const [isLoading, setLoading] = useState(true);
-    // const carouselRef = useRef(null);
   }
+
+  componentDidMount() {
+    if (Meteor.userId()) {
+      Meteor.subscribe('userId', Meteor.userId());
+    }
+  }
+
   render() {
     const {user,ready} = this.props;
     //  console.log("DATA:" + JSON.stringify(myTodoTasks));
+
 
     return (
       <PaperProvider>

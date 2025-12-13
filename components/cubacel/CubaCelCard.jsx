@@ -45,7 +45,7 @@ const CubaCelCard = ({ product }) => {
     };
 
     // Memorizar URL de imagen promocional
-    const promoImageUrl =hasPromo && React.useMemo(() => extractPromoImageUrl(promotions), [promotions]);
+    const promoImageUrl = hasPromo && React.useMemo(() => extractPromoImageUrl(promotions), [promotions]);
 
     // Estado: si falla la imagen remota, volver a la imagen local
     const [bgLoadError, setBgLoadError] = useState(false);
@@ -127,7 +127,7 @@ const CubaCelCard = ({ product }) => {
 
     if (precioUSD != "---") {
         return (
-            <Surface>
+            <View>
                 <Card style={styles.card} onPress={() => setOpen(true)}>
                     <ImageBackground
                         source={backgroundSource}
@@ -138,6 +138,13 @@ const CubaCelCard = ({ product }) => {
                         imageStyle={{ borderRadius: 20 }}
                         style={styles.imageBackground}
                     >
+                        {/* Cintillo de promoción en esquina superior derecha */}
+                        {hasPromo && (
+                            <View style={styles.ribbonContainer}>
+                                <Text style={styles.ribbonText}>🎁 PROMO</Text>
+                            </View>
+                        )}
+
                         { !promoImageUrl && <BlurView
                             style={StyleSheet.absoluteFill}
                             blurType={isDarkMode ? "dark" : "light"}
@@ -154,7 +161,6 @@ const CubaCelCard = ({ product }) => {
                                 <Text style={styles.beneficios}>{beneficios()}</Text>
                             )}
                             <View style={styles.chips}>
-                                {hasPromo && !promoImageUrl && <View style={styles.chipsComponentRed}><Text style={{ fontSize: 10 }}>Con promoción</Text></View>}
                                 <View style={styles.chipsComponentGreen}><Text style={{ fontSize: 10 }}>{`${precioUSD} USD`}</Text></View>
                             </View>
                         </View>
@@ -264,7 +270,7 @@ const CubaCelCard = ({ product }) => {
                         </Dialog.Actions>
                     </Dialog>
                 </Portal>
-            </Surface>
+            </View>
         )
     } else return <></>
 };
@@ -280,7 +286,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     card: {
-        margin: 6,
+        margin: 15,
         borderRadius: 20,
         overflow: 'hidden',
         backgroundColor: '#0b3d2e',
@@ -319,16 +325,6 @@ const styles = StyleSheet.create({
         paddingBottom: 8,
         justifyContent: "flex-start",
     },
-    chipsComponentRed: {
-        backgroundColor: 'red',
-        alignContent: "center",
-        justifyContent: "center",
-        paddingBottom: 4,
-        paddingTop: 4,
-        paddingLeft: 8,
-        paddingRight: 8,
-        borderRadius: 25,
-    },
     chipsComponentGreen: {
         backgroundColor: '#4caf50',
         alignContent: "center",
@@ -366,6 +362,30 @@ const styles = StyleSheet.create({
     dialogTitleText: {
         fontSize: 20,
         fontWeight: 'bold',
+    },
+    // Nuevo: Estilos del ribbon profesional
+    ribbonContainer: {
+        position: 'absolute',
+        top: 15,
+        right: -35,
+        backgroundColor: '#f50057',
+        paddingVertical: 6,
+        paddingHorizontal: 40,
+        transform: [{ rotate: '45deg' }],
+        zIndex: 100,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.35,
+        shadowRadius: 4.65,
+    },
+    ribbonText: {
+        color: 'white',
+        fontSize: 9,
+        fontWeight: '800',
+        textAlign: 'center',
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
     },
 });
 

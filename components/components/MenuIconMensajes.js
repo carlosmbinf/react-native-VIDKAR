@@ -117,11 +117,11 @@ class MyApp extends React.Component {
         style={{
           // paddingTop: 50,
           flexDirection: 'row',
-          justifyContent: 'center',
+          justifyContent: 'center'
         }}>
         {users.length > 0 &&
         <Menu
-          style={{ top: 70, width: 270, height: 400, paddingRight: 30 }}
+          style={{ top: 40, width: 270, height: 400, paddingRight: 30}}
           visible={this.state.menuVisible}
           onDismiss={() => this.setState({ menuVisible: false })}
           anchor={
