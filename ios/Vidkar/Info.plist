@@ -54,7 +54,11 @@
 		</dict>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Esta aplicación necesita acceder a tu Localizacion</string>
+	<string>VidKar necesita tu ubicación para rastrear entregas en modo cadete</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>VidKar necesita tu ubicación para rastrear entregas incluso cuando la app está en segundo plano</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>VidKar necesita tu ubicación para rastrear entregas</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>AntDesign.ttf</string>

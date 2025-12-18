@@ -1,87 +1,71 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    
-    <!-- Permisos de ubicación precisa -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <!-- Permiso de ubicación en background (Android 10+) -->
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    <!-- Permisos de cámara -->
-    <uses-permission android:name="android.permission.CAMERA" />
-    
-    <!-- Permisos de galería (Android 13+) -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    
-    
-    <!-- Feature cámara (opcional, marca que la app usa cámara pero no la requiere) -->
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
-    <!-- ESTO VA DENTRO DE APPLICATION -->
-    <!-- android:usesCleartextTraffic="true" -->
-    <application
-      android:usesCleartextTraffic="true"
-      android:name=".MainApplication"
-      android:label="@string/app_name"
-      android:icon="@mipmap/ic_launcher"
-      android:roundIcon="@mipmap/ic_launcher_round"
-      android:allowBackup="false"
-      android:theme="@style/AppTheme">
-      <activity
-        android:name=".MainActivity"
-        android:exported="true"
-        android:label="@string/app_name"
-        android:configChanges="keyboard|keyboardHidden|orientation|screenSize|uiMode"
-        android:launchMode="singleTask"
-        android:windowSoftInputMode="adjustResize">
-        <intent-filter>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent-filter>
+  <!-- Permisos de ubicación precisa -->
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+  <!-- Permiso de ubicación en background (Android 10+) -->
+  <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+  <!-- Permisos de cámara -->
+  <uses-permission android:name="android.permission.CAMERA" />
 
-        <!-- Deep Link (Enlaces externos) -->
-    <intent-filter android:autoVerify="true">
+  <!-- Permisos de galería (Android 13+) -->
+  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+  <!-- Feature cámara (opcional, marca que la app usa cámara pero no la requiere) -->
+  <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+  <!-- ESTO VA DENTRO DE APPLICATION -->
+  <!-- android:usesCleartextTraffic="true" -->
+  <application android:usesCleartextTraffic="true" android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:theme="@style/AppTheme">
+    <activity android:name=".MainActivity" android:exported="true" android:label="@string/app_name" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+
+      <!-- Deep Link (Enlaces externos) -->
+      <intent-filter android:autoVerify="true">
         <action android:name="android.intent.action.VIEW" />
         <category android:name="android.intent.category.DEFAULT" />
         <category android:name="android.intent.category.BROWSABLE" />
         <data android:scheme="http" />
         <data android:scheme="https" />
         <data android:host="www.vidkar.com" />
-    </intent-filter>
-        <intent-filter>
+      </intent-filter>
+      <intent-filter>
         <action android:name="android.intent.action.VIEW" />
         <category android:name="android.intent.category.DEFAULT" />
         <category android:name="android.intent.category.BROWSABLE" />
         <data android:scheme="vidkar" />
-    </intent-filter>
-      </activity>
+      </intent-filter>
+    </activity>
 
-    <meta-data
-    android:name="com.supersami.foregroundservice.notification_channel_name"
-    android:value="Sticky Title"
-  />
-  <meta-data
-    android:name="com.supersami.foregroundservice.notification_channel_description"
-    android:value="Sticky Description."
-  />
-  <meta-data
-    android:name="com.supersami.foregroundservice.notification_color"
-    android:resource="@color/blue"
-  />
-  <meta-data
-    android:name="com.google.android.geo.API_KEY"
-    android:value="AIzaSyD1r5uJ1PBgUaZkqKtlCgInLJtrA-Fem5g"/>
- 
-  <service android:name="com.supersami.foregroundservice.ForegroundService" android:foregroundServiceType="dataSync"></service> // also define android:foregroundServiceType="" according to your use case
-  <service android:name="com.supersami.foregroundservice.ForegroundServiceTask" android:foregroundServiceType="dataSync"></service> // also define android:foregroundServiceType="" according to your use case
+    <meta-data android:name="com.supersami.foregroundservice.notification_channel_name" android:value="Sticky Title" />
+    <meta-data android:name="com.supersami.foregroundservice.notification_channel_description" android:value="Sticky Description." />
+    <meta-data android:name="com.supersami.foregroundservice.notification_color" android:resource="@color/blue" />
+    <meta-data android:name="com.google.android.geo.API_KEY" android:value="AIzaSyD1r5uJ1PBgUaZkqKtlCgInLJtrA-Fem5g"/>
 
-  <service android:name="com.vidkar.MyBackgroundService" android:foregroundServiceType="dataSync"></service>
+    <service android:name="com.supersami.foregroundservice.ForegroundService" android:foregroundServiceType="dataSync"></service>
+    <service android:name="com.supersami.foregroundservice.ForegroundServiceTask" android:foregroundServiceType="dataSync"></service>
 
+    <!-- ✅ SERVICIO DE react-native-background-actions CON TIPO CORRECTO -->
+    <service android:name="com.asterinet.react.bgactions.RNBackgroundActionsTask" android:exported="false" android:foregroundServiceType="dataSync" tools:replace="android:foregroundServiceType" />
 
-    </application>
+    <!-- ✅ SERVICIO DE NOTIFEE CON STOP_WITH_TASK=FALSE -->
+    <service android:name="app.notifee.core.ForegroundService" android:foregroundServiceType="location|dataSync" android:exported="false" android:stopWithTask="false" tools:replace="android:foregroundServiceType,android:stopWithTask">
+
+      <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Seguimiento de ubicación en tiempo real para cadetes" />
+    </service>
+
+    <!-- Notifee declara su propio servicio automáticamente, NO duplicar aquí -->
+    <!-- Si necesitas override del foregroundServiceType, usar tools:replace -->
+  </application>
 </manifest>

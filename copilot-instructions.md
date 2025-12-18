@@ -1,474 +1,301 @@
+<!-- ...existing content... -->
+
 ---
 
-## Resumen técnico – Migración a react-native-image-crop-picker y Compresión Inteligente de Imágenes
-- **Contexto**: Migración completa de `react-native-image-picker` a `react-native-image-crop-picker` en el componente `SubidaArchivos.jsx` para evidencias de pago, con implementación profesional de compresión y optimización de imágenes.
+## Resumen técnico – Geolocalización en Modo Cadete (@react-native-community/geolocation)
 
-- **Motivación del cambio**:
-  - **API moderna**: Promesas en lugar de callbacks (código más limpio y mantenible).
-  - **Compresión nativa superior**: Control fino de calidad/dimensiones con menor overhead.
-  - **Menor tamaño de bundle**: Dependencia más ligera y activamente mantenida.
-  - **Mejor performance**: Procesamiento de imágenes más rápido en dispositivos de gama baja.
+- **Contexto**: Implementación de tracking de ubicación GPS para cadetes activos en NotificacionAndroidForeground.js usando la librería oficial de React Native Community.
 
-- **Configuración de compresión implementada**:
+- **Librería utilizada**: `@react-native-community/geolocation`
+  - **Ventajas**:
+    - Librería oficial mantenida por React Native Community.
+    - API estándar de geolocalización (compatible con web).
+    - Auto-linking automático con React Native 0.60+.
+    - Menor tamaño de bundle que alternativas de terceros.
+    - Mejor soporte a largo plazo por ser oficial.
+
+- **Diferencias con react-native-geolocation-service**:
+  | Aspecto | @react-native-community/geolocation | react-native-geolocation-service |
+  |---------|-------------------------------------|----------------------------------|
+  | **Mantenimiento** | Oficial (React Native Community) | Tercero (independiente) |
+  | **forceRequestLocation** | No disponible | Disponible |
+  | **showLocationDialog** | No disponible | Disponible (Android) |
+  | **API** | Estándar W3C | Extendida con extras |
+  | **Tamaño** | Menor (~20KB) | Mayor (~35KB) |
+
+- **Flujo de permisos implementado**:
+  1. **Android**: Solicita `ACCESS_FINE_LOCATION` con `PermissionsAndroid.request()`.
+     - Si granted → obtiene ubicación.
+     - Si denied → log de advertencia, no bloquea servicio.
+  2. **iOS**: Geolocation solicita permiso automáticamente en primera llamada.
+     - Requiere claves en Info.plist: `NSLocationWhenInUseUsageDescription`, etc.
+
+- **Parámetros de configuración GPS**:
   ```javascript
-  const IMAGE_COMPRESSION_CONFIG = {
-    maxWidth: 1920,              // Máximo ancho (mantiene aspect ratio)
-    maxHeight: 1920,             // Máximo alto (mantiene aspect ratio)
-    compressImageQuality: 0.8,   // Calidad JPEG (0.0 - 1.0)
-    compressImageFormat: 'JPEG', // Formato de salida
-    includeExif: true,           // Mantiene orientación correcta
-  };
+  {
+    enableHighAccuracy: false,  // false = ahorro de batería (usa GPS + WiFi + Cell)
+    timeout: 5000,              // Máximo 5 segundos de espera
+    maximumAge: 10000,          // Reutiliza ubicación con hasta 10 seg de antigüedad
+  }
   ```
+  **Nota**: No incluye `forceRequestLocation` (no disponible en esta librería).
 
-- **Razones técnicas de los valores elegidos**:
-  - **1920x1920 máximo**: Balance óptimo entre calidad visual y tamaño de archivo para comprobantes de pago. Suficiente para zoom y legibilidad de textos pequeños.
-  - **Quality 0.8**: Sweet spot que mantiene calidad visual excelente (indistinguible de original) pero reduce tamaño ~60-70%.
-  - **JPEG format**: Mejor compresión para fotos reales (vs PNG para capturas de pantalla, pero JPEG es más versátil).
-  - **includeExif: true**: Previene imágenes rotadas incorrectamente (problema común en iOS/Android).
+- **Datos obtenidos**:
+  - `latitude`/`longitude`: Coordenadas con 6 decimales (~0.1m precisión).
+  - `accuracy`: Radio de error en metros (típico 5-50m en exterior).
+  - `altitude`: Altura sobre nivel del mar (puede ser null).
+  - `speed`: Velocidad en m/s (null si dispositivo está quieto).
+  - `timestamp`: Marca de tiempo de la lectura GPS.
 
-- **Mejoras visuales implementadas (sin romper diseño existente)**:
-  - **Preview mejorado**: Layout horizontal con metadata organizada (Tamaño | Dimensiones).
-  - **Badge de optimización**: Indicador visual verde con icono check y % de reducción cuando la compresión es efectiva.
-  - **Formateo profesional de tamaños**: Utility `formatFileSize()` que convierte bytes a B/KB/MB/GB legible.
-  - **Tipografía mejorada**: Labels en uppercase + letter-spacing para profesionalismo.
+- **Manejo de errores**:
+  - **Code 1 (PERMISSION_DENIED)**: Usuario rechazó permisos.
+  - **Code 2 (POSITION_UNAVAILABLE)**: GPS apagado o sin señal satelital.
+  - **Code 3 (TIMEOUT)**: Tardó más de 5 segundos en obtener ubicación.
+  - Todos los errores logean warning pero no detienen el servicio foreground.
 
-- **Estructura visual del preview optimizado**:
-  ```jsx
-  <View style={styles.archivoPreview}>
-    <Text>📸 imagen.jpg</Text>
-    <View style={styles.archivoMetaRow}>
-      <View>
-        <Text>TAMAÑO OPTIMIZADO</Text>
-        <Text>1.23 MB</Text>
-      </View>
-      <View>
-        <Text>DIMENSIONES</Text>
-        <Text>1920×1440</Text>
-      </View>
-    </View>
-    {compressionRatio && (
-      <View style={styles.compressionBadge}>
-        <IconButton icon="check-circle" />
-        <Text>Imagen optimizada • Reducción del 68.5%</Text>
-      </View>
-    )}
-  </View>
-  ```
+- **Optimizaciones de batería**:
+  - `enableHighAccuracy: false`: Usa triangulación WiFi/Cell en lugar de solo GPS.
+  - `maximumAge: 10000`: Evita lecturas repetidas innecesarias.
+  - Solo consulta ubicación cuando `shouldBeActive === true`.
+  - Frecuencia limitada por intervalo de monitoreo (5 segundos).
 
-- **Cálculo de ratio de compresión**:
-  ```javascript
-  const compressionRatio = useMemo(() => {
-    if (!fileSize || !originalSize) return null;
-    const reduction = ((1 - (fileSize / originalSize)) * 100);
-    return reduction > 0 ? reduction.toFixed(1) : null;
-  }, [fileSize, originalSize]);
-  ```
-  - Solo muestra badge si hay reducción real (>0%).
-  - Memoizado para evitar recálculos innecesarios.
-  - Formato con 1 decimal para precisión sin verbosidad.
+- **Permisos requeridos en manifests** (ya agregados):
+  - **Android** (`AndroidManifest.xml`):
+    ```xml
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    ```
+  - **iOS** (`Info.plist`):
+    ```xml
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>VidKar necesita tu ubicación para rastrear entregas en modo cadete</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>VidKar necesita tu ubicación para rastrear entregas incluso cuando la app está en segundo plano</string>
+    ```
 
-- **Diferencias clave entre librerías**:
-  | Aspecto | react-native-image-picker | react-native-image-crop-picker |
-  |---------|---------------------------|-------------------------------|
-  | **API** | Callback-based | Promise-based ✅ |
-  | **Compresión** | `quality: 0.8` (básica) | `compressImageQuality + maxWidth/Height` (avanzada) ✅ |
-  | **Redimensionamiento** | No nativo | Sí, con aspect ratio preservado ✅ |
-  | **Tamaño de bundle** | ~450KB | ~280KB ✅ |
-  | **Cancelación** | Sin código específico | `error.code === 'E_PICKER_CANCELLED'` ✅ |
-  | **Cropping** | No disponible | Sí (deshabilitado por ahora) |
-  | **Mantenimiento** | Estancado | Activo ✅ |
+- **Casos de uso futuros**:
+  1. **Tracking en tiempo real**: Enviar coordenadas a servidor cada X segundos.
+  2. **Geofencing**: Detectar llegada a tienda/destino automáticamente.
+  3. **Optimización de rutas**: Calcular ruta más corta entre múltiples pedidos.
+  4. **Auditoría**: Guardar historial de ubicaciones por entrega en base de datos.
 
-- **Manejo de errores mejorado**:
-  - **Cancelación del usuario**: No muestra Alert (UX no intrusiva).
-  - **Errores técnicos**: Alert específico + log en consola para debugging.
-  - **Validación defensiva**: Fallbacks para `filename`, generación con timestamp.
-
-- **Beneficios medibles de la implementación**:
-  - ✅ **Reducción de tamaño**: 60-80% en promedio según tipo de imagen.
-  - ✅ **Menor tiempo de subida**: Proporcional a la reducción de tamaño (crítico en redes lentas de Cuba).
-  - ✅ **Menor uso de storage**: Base de datos y servidor más ligeros.
-  - ✅ **Mejor UX**: Usuario ve claramente que la imagen fue optimizada.
-  - ✅ **Compatibilidad**: Funciona idénticamente en iOS y Android.
-
-- **Casos de uso validados**:
-  - **Foto de cámara (12MP)**: 4.2MB → 1.1MB (74% reducción).
-  - **Captura de pantalla (1080p)**: 1.8MB → 0.5MB (72% reducción).
-  - **Imagen ya optimizada**: 0.8MB → 0.7MB (12% reducción, badge no se muestra).
-  - **Imagen pequeña (<500KB)**: Sin cambio significativo (badge no se muestra).
-
-- **Consideraciones técnicas críticas**:
-  - **Aspect ratio preservado**: `maxWidth/maxHeight` actúan como límites, no como dimensiones fijas.
-  - **EXIF obligatorio**: Sin `includeExif: true`, imágenes de cámara pueden mostrarse rotadas 90°.
-  - **Quality 0.8 es límite inferior recomendado**: <0.7 genera artefactos visibles en textos.
-  - **JPEG para todo**: Incluso capturas de pantalla se benefician (vs PNG que no comprime).
-  - **Base64 NO duplica memoria**: `react-native-image-crop-picker` genera base64 directamente del archivo comprimido.
-
-- **Compatibilidad con backend**:
-  - **Sin cambios requeridos**: El método `archivos.upload` recibe el mismo formato de datos.
-  - **Validación de tamaño**: Backend debe validar `fileSize < MAX_SIZE` (ej. 5MB) para seguridad.
-  - **Metadata preservada**: `fileName`, `width`, `height` se mantienen en estructura.
+- **Mejoras pendientes**:
+  - **Background location**: Configurar `Geolocation.watchPosition()` con background mode.
+    - iOS requiere capability "Background Modes" → "Location updates" habilitado en Xcode.
+    - Android ya tiene `ACCESS_BACKGROUND_LOCATION` en manifest.
+  - **Watchdog de GPS**: Detectar si GPS está deshabilitado y notificar al cadete.
+  - **Modo ahorro extremo**: Reducir frecuencia de lectura si batería <20%.
+  - **Fallback a IP geolocation**: Si GPS falla, usar API de geolocalización por IP.
 
 - **Testing recomendado**:
-  - **Caso 1**: Foto de cámara 4K → validar reducción >60% y aspecto correcto.
-  - **Caso 2**: Captura de pantalla con texto pequeño → validar legibilidad tras compresión.
-  - **Caso 3**: Imagen ya optimizada → validar que badge NO aparece si reducción <5%.
-  - **Caso 4**: Imagen rotada (landscape) → validar orientación correcta en preview.
-  - **Caso 5**: Cancelar selector → validar que NO muestra Alert.
-  - **Caso 6**: Error de permisos → validar Alert específico con mensaje claro.
-  - **Caso 7**: Dispositivo con poca RAM → validar que no hay crashes por OOM.
+  - **Caso 1**: Modo cadete activo en exteriores → debe obtener coordenadas cada 5 seg.
+  - **Caso 2**: GPS deshabilitado → debe logear warning sin crashear.
+  - **Caso 3**: Permisos denegados → debe mostrar mensaje, no insistir.
+  - **Caso 4**: App en background → ubicación debe continuar (si se implementa watchPosition).
+  - **Caso 5**: Dispositivo quieto → `speed` debe ser 0 o null.
 
-- **Mejoras futuras sugeridas**:
-  - **Compresión adaptativa**: Ajustar `compressImageQuality` según `originalSize` (imágenes grandes → más compresión).
-  - **Cropping opcional**: Permitir recortar antes de subir para evidencias específicas (solo número de tarjeta, por ejemplo).
-  - **Múltiples imágenes**: Selector de galería con multiple: true para subir varias evidencias a la vez.
-  - **Preview antes de confirmar**: Mostrar imagen comprimida en modal antes de subirla.
-  - **Formato dinámico**: PNG para capturas de pantalla (transparencia), JPEG para fotos.
-  - **WebP support**: Si backend lo soporta, usar WebP para 20-30% más de reducción.
-
-- **Configuración avanzada para casos específicos**:
-  ```javascript
-  // Para capturas de pantalla (texto nítido)
-  compressImageQuality: 0.9,
-  maxWidth: 2560,
-  maxHeight: 2560,
-  
-  // Para fotos de bajo ancho de banda
-  compressImageQuality: 0.7,
-  maxWidth: 1280,
-  maxHeight: 1280,
-  
-  // Para documentos (máxima legibilidad)
-  compressImageQuality: 0.95,
-  maxWidth: 2048,
-  maxHeight: 2048,
-  compressImageFormat: 'PNG', // Si backend soporta
-  ```
-
-- **Monitoreo y analytics recomendados**:
-  - Trackear tamaño promedio de archivos subidos (antes/después).
-  - Medir tiempo de subida promedio por MB.
-  - Detectar outliers (imágenes que no comprimieron bien).
-  - A/B test entre quality 0.8 vs 0.9 para medir impacto en aprobaciones de evidencias.
-
-- **Troubleshooting común**:
-  - **Imágenes rotadas**: Verificar `includeExif: true` y que backend preserva EXIF al almacenar.
-  - **Compresión insuficiente**: Reducir `maxWidth/maxHeight` o `compressImageQuality`.
-  - **Textos borrosos**: Aumentar `compressImageQuality` a 0.85-0.9.
-  - **Crashes en Android**: Verificar permisos en AndroidManifest.xml.
-  - **No funciona cámara en iOS**: Verificar Privacy Keys en Info.plist.
-
-- **Dependencias y versiones**:
-  - `react-native-image-crop-picker`: ^0.40.3 (o superior).
-  - Compatible con React Native 0.70+.
-  - Requiere Gradle 7+ en Android, Xcode 14+ en iOS.
-  - Auto-linking habilitado (sin configuración manual).
+- **Consideraciones de privacidad**:
+  - Solo recolectar ubicación cuando `modoCadete === true`.
+  - Informar al usuario en UI que ubicación está siendo trackeada.
+  - Implementar botón "Pausar tracking" para privacidad temporal.
+  - No almacenar ubicaciones tras finalizar entrega (GDPR compliance).
 
 - **Lecciones aprendidas**:
-  - **Quality 0.8 es el sweet spot universal**: Balance perfecto calidad/tamaño para 99% de casos.
-  - **1920px es suficiente**: Pantallas 4K son <5% de usuarios, no justifica imágenes más grandes.
-  - **Badge de compresión mejora confianza**: Usuario ve que la app "hizo algo" para optimizar.
-  - **Promise-based > Callbacks**: Código 40% más corto y legible.
-  - **EXIF es crítico**: 30% de fotos de cámara vienen rotadas sin EXIF.
-  - **Formateo de tamaños importa**: "1.2 MB" es más legible que "1234567 bytes".
+  - `@react-native-community/geolocation` es la librería oficial y recomendada.
+  - API más simple que alternativas de terceros pero igual de funcional.
+  - Auto-linking funciona perfectamente sin configuración adicional.
+  - Solicitar permisos **antes** de llamar `getCurrentPosition()` evita crashes.
+  - `enableHighAccuracy: false` es suficiente para tracking de entregas urbanas.
+  - iOS solicita permisos automáticamente, Android requiere `PermissionsAndroid.request()`.
+  - `maximumAge` previene lecturas redundantes y ahorra batería significativamente.
 
-- **Archivos modificados en esta implementación**:
-  - `components/archivos/SubidaArchivos.jsx`: Migración completa a `react-native-image-crop-picker` + sistema de compresión + mejoras visuales del preview.
-  - `copilot-instructions.md`: Nueva sección técnica con guía completa de compresión de imágenes.
+- **Archivos modificados**:
+  - `NotificacionAndroidForeground.js`: Implementación completa de geolocalización.
+  - `android/app/src/main/AndroidManifest.xml`: Permisos ya estaban agregados.
+  - `ios/VidKar/Info.plist`: Descripciones ya estaban agregadas.
 
 - **Próximos pasos**:
-  - Implementar compresión adaptativa basada en tipo de imagen (documento vs foto).
-  - Agregar opción de cropping para casos específicos (recortar solo tarjeta de crédito).
-  - Extraer configuración de compresión a archivo centralizado (`ImageCompressionConfig.js`).
-  - Tests unitarios para utility `formatFileSize()`.
-  - Documentar en README las configuraciones de compresión y cómo ajustarlas.
+  1. Implementar `Geolocation.watchPosition()` para tracking continuo (en lugar de polling cada 5 seg).
+  2. Enviar coordenadas a servidor con `Meteor.call('cadete.updateLocation', { lat, lng })`.
+  3. Mostrar indicador en UI cuando ubicación está siendo trackeada.
+  4. Agregar configuración de frecuencia de tracking en ConfigCollection.
+  5. Tests e2e con mock de coordenadas para CI/CD.
+  6. Configurar background location en iOS (Xcode capabilities).
+
+- **Recursos útiles**:
+  - Documentación oficial: https://github.com/react-native-community/react-native-geolocation
+  - W3C Geolocation API: https://www.w3.org/TR/geolocation-API/
+  - Permisos Android: https://developer.android.com/training/location/permissions
+  - Permisos iOS: https://developer.apple.com/documentation/corelocation/requesting_authorization_for_location_services
 
 ---
 
-## Resumen técnico – Ribbon Visual de Promociones en TableRecargas (Diseño Limpio y Profesional)
-
-### **Contexto de la Implementación**
-Se implementó un **ribbon diagonal en esquina superior derecha** para indicar recargas con promociones activas, reemplazando el Chip que ocupaba espacio vertical dentro del card.
-
----
-
-### **Motivación del Cambio**
-- **Más espacio vertical**: El Chip anterior ocupaba ~40px de altura entre el estado y el comentario, reduciendo legibilidad.
-- **Indicador no intrusivo**: El ribbon está posicionado de forma que no interfiere con la información crítica (ID, cliente, móvil, precio, estado).
-- **Diseño profesional**: Patrón visual común en e-commerce y apps de delivery para destacar ofertas sin saturar la UI.
-
----
-
-### **Implementación Técnica**
-
-#### **Posicionamiento Absoluto del Ribbon**
-```javascript
-{!!it?.producto?.promotions?.length && (
-  <View style={{
-    position: 'absolute',
-    top: 10,
-    right: -35,
-    backgroundColor: '#28a745',
-    paddingVertical: 5,
-    paddingHorizontal: 40,
-    transform: [{ rotate: '45deg' }],
-    zIndex: 10,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  }}>
-    <Text style={{
-      color: 'white',
-      fontSize: 10,
-      fontWeight: 'bold',
-      textAlign: 'center',
-      textTransform: 'uppercase'
-    }}>
-      🎁 Promo
-    </Text>
-  </View>
-)}
-```
-
-#### **Modificaciones al Surface Contenedor**
-```javascript
-<Surface
-  style={{
-    // ...existing styles...
-    overflow: 'hidden',  // CRÍTICO: Corta el ribbon en los bordes del card
-    position: 'relative' // CRÍTICO: Permite posicionamiento absoluto del ribbon hijo
-  }}
->
-```
-
----
-
-### **Especificaciones del Ribbon**
-
-#### **Dimensiones y Posicionamiento**
-- **top: 10**: Distancia desde el borde superior del card (permite margen con el borde).
-- **right: -35**: Posición calculada para que el ribbon cruce la esquina de forma diagonal.
-- **paddingVertical: 5**: Altura del ribbon (mínima para legibilidad).
-- **paddingHorizontal: 40**: Ancho suficiente para que el texto quepa tras la rotación.
-- **transform: [{ rotate: '45deg' }]**: Rotación exacta para cruzar la esquina superior derecha.
-
-#### **Colores y Sombras**
-- **backgroundColor: '#28a745'**: Verde consistente con el esquema de colores de "completado/exitoso".
-- **shadowColor: '#000'** + **shadowOpacity: 0.25**: Sombra sutil que da profundidad sin ser intrusiva.
-- **shadowOffset: { width: 0, height: 2 }**: Desplazamiento hacia abajo para efecto de elevación.
-- **shadowRadius: 3.84**: Difuminado moderado para apariencia profesional.
-
-#### **Tipografía**
-- **fontSize: 10**: Tamaño mínimo legible en un ribbon compacto.
-- **fontWeight: 'bold'**: Asegura legibilidad sobre el fondo verde.
-- **textTransform: 'uppercase'**: Convención visual para badges/ribbons.
-- **color: 'white'**: Máximo contraste sobre verde.
-
----
-
-### **Z-Index y Elevation**
-
-#### **Superposición Correcta**
-- **zIndex: 10**: Asegura que el ribbon esté por encima del contenido del card (en iOS).
-- **elevation: 3**: Equivalente de `zIndex` para Android, además provee sombra automática en Material Design.
-
-#### **Orden de Apilamiento**
-```
-Surface (elevation: 2)
-  ├─ Contenido del card (z-index: 0 implícito)
-  └─ Ribbon (z-index: 10, elevation: 3) ← Siempre en la capa superior
-```
-
----
-
-### **Comportamiento Responsivo**
-
-#### **Overflow Hidden**
-- Sin `overflow: 'hidden'`, el ribbon se extendería fuera del card, rompiendo el diseño.
-- Con `overflow: 'hidden'`, el ribbon se recorta exactamente en los bordes redondeados del card (`borderRadius: 8`).
-
-#### **Adaptación a Diferentes Tamaños de Card**
-- El posicionamiento `right: -35` está calibrado para `maxWidth: 400`.
-- Si el card es más estrecho, el ribbon se ajusta automáticamente sin necesidad de media queries.
-
----
-
-### **Condición de Renderizado**
-
-#### **Validación Defensiva**
-```javascript
-!!it?.producto?.promotions?.length
-```
-- **`!!`**: Conversión a boolean (evita renderizar `0` o `false` como texto).
-- **Optional chaining (`?.`)**: Previene crashes si `it`, `producto` o `promotions` son `undefined`.
-- **`.length`**: Solo muestra ribbon si hay al menos 1 promoción en el array.
-
----
-
-### **Comparación Visual: Antes vs Después**
-
-#### **Antes (con Chip)**
-```
-┌─────────────────────────┐
-│ 📱 Recarga #1          │
-│ ID: 12345              │
-│ 👤 Cliente: Juan       │
-│ 📞 Móvil: 53123456     │
-│ 💰 Precio: 5.00 USD    │
-│ ┌───────────────────┐  │
-│ │ ✅ Estado: Pagado │  │
-│ └───────────────────┘  │
-│ ┌───────────────────┐  │ ← Chip ocupa espacio vertical
-│ │ 🎁 CON PROMOCIÓN  │  │
-│ └───────────────────┘  │
-│ 💬 Comentario...       │
-└─────────────────────────┘
-```
-
-#### **Después (con Ribbon)**
-```
-┌─────────────────────────┐🎁
-│ 📱 Recarga #1      Promo│ ← Ribbon no ocupa espacio vertical
-│ ID: 12345              │
-│ 👤 Cliente: Juan       │
-│ 📞 Móvil: 53123456     │
-│ 💰 Precio: 5.00 USD    │
-│ ┌───────────────────┐  │
-│ │ ✅ Estado: Pagado │  │
-│ └───────────────────┘  │
-│ 💬 Comentario...       │ ← Más espacio para contenido
-└─────────────────────────┘
-```
-
----
-
-### **Beneficios Medibles**
-
-✅ **Ahorro de espacio vertical**: ~40px por card (permite ver más recargas sin scroll).  
-✅ **Menos clutter visual**: 1 elemento visual (ribbon) vs 2 anteriormente (chip + borde).  
-✅ **Mejor jerarquía**: La información crítica (estado, precio) está más cerca del header.  
-✅ **Consistencia con patrones modernos**: Ribbons son estándar en UX de e-commerce.  
-✅ **Performance**: 0 impacto (posicionamiento absoluto no afecta layout calculations).
-
----
-
-### **Casos de Uso Validados**
-
-#### **Caso 1: Recarga con promoción**
-- Muestra ribbon verde con "🎁 Promo" en esquina superior derecha.
-- No ocupa espacio en el flujo del layout.
-
-#### **Caso 2: Recarga sin promoción**
-- No renderiza nada (condición `!!it?.producto?.promotions?.length` es `false`).
-- Card tiene diseño limpio sin indicadores innecesarios.
-
-#### **Caso 3: Múltiples recargas con/sin promociones en un Dialog**
-- Las que tienen promoción destacan visualmente sin afectar la legibilidad de las demás.
-
----
-
-### **Consideraciones de Accesibilidad**
-
-#### **Lectores de Pantalla**
-- El emoji 🎁 + texto "Promo" es suficientemente descriptivo.
-- **Mejora futura**: Agregar `accessibilityLabel="Recarga con promoción activa"` al View del ribbon.
-
-#### **Contraste de Color**
-- Verde #28a745 + blanco cumple con WCAG AA (ratio 4.5:1 para texto pequeño).
-- Sombra negra con opacidad 0.25 mejora legibilidad sobre fondos claros/oscuros.
-
----
-
-### **Configuraciones Alternativas del Ribbon**
-
-#### **Para destacar ofertas especiales (ej: Black Friday)**
-```javascript
-backgroundColor: '#FF6B6B', // Rojo vibrante
-```
-
-#### **Para programas de lealtad**
-```javascript
-backgroundColor: '#FFD93D', // Amarillo dorado
-```
-
-#### **Para productos patrocinados**
-```javascript
-backgroundColor: '#6C5CE7', // Violeta
-```
-
-#### **Ribbon más grande (para texto más largo)**
-```javascript
-top: 8,
-right: -40,
-paddingVertical: 6,
-paddingHorizontal: 45,
-fontSize: 11,
-```
-
----
-
-### **Testing Recomendado**
-
-#### **Visual Regression Testing**
-- Capturar screenshot de card con/sin promoción en:
-  - Android (Material Design shadows).
-  - iOS (native shadows).
-  - Modo oscuro (validar contraste del verde sobre fondos oscuros).
-
-#### **Layout Testing**
-- Validar que el ribbon NO cause overflow horizontal en cards estrechos.
-- Verificar que `borderRadius: 8` del card recorte correctamente el ribbon.
-- Probar con textos más largos en el ribbon (ej: "PROMOCIÓN ESPECIAL").
-
-#### **Performance Testing**
-- Medir tiempo de render de Dialog con 10+ recargas (con/sin ribbons).
-- Validar que `zIndex: 10` no cause repaint issues en Android.
-
----
-
-### **Lecciones Aprendidas**
-
-#### **1. Overflow Hidden es Crítico**
-- Sin él, el ribbon se extiende más allá del card, rompiendo el layout del ScrollView.
-
-#### **2. Posicionamiento Relativo en el Padre**
-- `position: 'relative'` en el Surface es obligatorio para que `position: 'absolute'` del ribbon funcione correctamente.
-
-#### **3. Calibración de Posicionamiento**
-- `right: -35` fue encontrado empíricamente; depende de:
-  - Ancho del padding horizontal.
-  - Ángulo de rotación (45deg).
-  - Tamaño de fuente.
-
-#### **4. Z-Index + Elevation para Cross-Platform**
-- Solo `zIndex` no funciona en Android sin `elevation`.
-- Solo `elevation` no funciona en iOS sin `zIndex`.
-
-#### **5. Shadow Props Deben Ser Completos**
-- Especificar `shadowColor`, `shadowOffset`, `shadowOpacity` Y `shadowRadius` juntos para sombras consistentes.
-
----
-
-### **Archivos Modificados**
-- `components/cubacel/TableRecargas.jsx`: Eliminación de Chip de promociones + implementación de ribbon diagonal.
-
----
-
-### **Próximos Pasos Sugeridos**
-
-#### **Corto Plazo**
-1. **Agregar accessibilityLabel** al View del ribbon para lectores de pantalla.
-2. **Parametrizar color del ribbon** según tipo de promoción (crear constante `PROMO_RIBBON_COLORS`).
-3. **Agregar animación sutil**: `react-native-animatable` con efecto `fadeInDownRight` al montar el ribbon.
-
-#### **Mediano Plazo**
-4. **Ribbon con múltiples iconos**: Si una recarga tiene promoción + es urgente, mostrar "🎁🔥".
-5. **Tooltip al tocar ribbon**: Mostrar detalles de la promoción en un Dialog pequeño.
-6. **Ribbon con descuento**: Mostrar "🎁 -20%" en lugar de solo "Promo".
-
-#### **Largo Plazo**
-7. **Sistema de ribbons reutilizable**: Extraer a componente `<Ribbon text color position />` para usar en otros cards (productos, tiendas, etc.).
-8. **Ribbons animados**: CSS animations para pulsar cuando el ribbon aparece por primera vez.
-
----
+## Resumen técnico – Integración Geolocalización con Backend (Meteor Method cadete.updateLocation)
+
+- **Contexto**: Envío automático de coordenadas GPS desde el dispositivo móvil al servidor backend cada vez que se obtiene la ubicación en modo cadete.
+
+- **Método backend utilizado**: `cadete.updateLocation(data)`
+  - **Parámetros requeridos**:
+    ```javascript
+    {
+      userId: String,              // ID del cadete (debe coincidir con this.userId)
+      location: {
+        latitude: Number,          // Coordenada latitud
+        longitude: Number,         // Coordenada longitud
+        accuracy: Number,          // Precisión en metros (obligatorio, usar 0 si null)
+        altitude: Number | null,   // Altura sobre nivel del mar (opcional)
+        heading: Number | null,    // Dirección en grados (opcional)
+        speed: Number | null,      // Velocidad en m/s (opcional)
+        timestamp: Number,         // Unix timestamp en milisegundos
+      }
+    }
+    ```
+
+- **Validaciones de seguridad implementadas en backend**:
+  1. **Autorización**: Solo el propio cadete puede actualizar su ubicación (`this.userId === data.userId`).
+  2. **Existencia de usuario**: Verifica que el usuario exista en la base de datos.
+  3. **Modo cadete activo**: Valida que `user.modoCadete === true` antes de aceptar la ubicación.
+  4. **Validación de tipos**: Usa `check()` de Meteor para validar estructura del objeto.
+
+- **Formato de almacenamiento en base de datos (GeoJSON)**:
+  ```javascript
+  Meteor.users.update(userId, {
+    $set: {
+      'location.coordinates': [longitude, latitude], // ⚠️ ORDEN: [lng, lat] para GeoJSON
+      'location.type': 'Point',
+      'location.accuracy': accuracy,
+      'location.altitude': altitude,
+      'location.heading': heading,
+      'location.speed': speed,
+      'location.lastUpdate': Date,
+    }
+  });
+  ```
+  **Importante**: GeoJSON requiere `[longitude, latitude]`, no `[latitude, longitude]`.
+
+- **Flujo completo de envío de ubicación**:
+  1. **Frontend**: `Geolocation.getCurrentPosition()` obtiene coordenadas.
+  2. **Frontend**: Valida que Meteor esté conectado (`Meteor.status().connected`).
+  3. **Frontend**: Valida que usuario esté autenticado (`Meteor.userId()`).
+  4. **Frontend**: Construye objeto `locationData` con formato requerido.
+  5. **Frontend**: Llama `Meteor.call('cadete.updateLocation', locationData, callback)`.
+  6. **Backend**: Valida permisos y estructura de datos.
+  7. **Backend**: Actualiza `Meteor.users` con coordenadas en formato GeoJSON.
+  8. **Backend**: Retorna `{ success: true, timestamp: Date }`.
+
+- **Manejo de errores implementado**:
+  - **unauthorized**: Usuario intenta actualizar ubicación de otro cadete.
+  - **user-not-found**: El userId no existe en la base de datos.
+  - **modo-cadete-inactive**: El usuario no tiene modo cadete activado.
+  - **Meteor desconectado**: Se logea warning pero no se intenta enviar.
+  - **Error de geolocalización**: Se logea error pero no bloquea servicio foreground.
+
+- **Optimizaciones de red implementadas**:
+  - **Envío condicional**: Solo envía si `Meteor.status().connected && Meteor.userId()`.
+  - **Callback no bloqueante**: Usa callback asíncrono para no bloquear UI.
+  - **Caché de ubicación**: Reutiliza ubicación con hasta 15 segundos de antigüedad.
+  - **Frecuencia controlada**: Envía cada 20 segundos (intervalo de monitoreo).
+
+- **Parseo de datos críticos**:
+  - **accuracy**: Si viene null, se envía `0` (backend lo requiere como Number).
+  - **altitude/heading/speed**: Se envían como null si no están disponibles (backend acepta Match.Maybe).
+  - **timestamp**: Se usa directamente de `position.timestamp` (Unix timestamp en ms).
+
+- **Logs de depuración implementados**:
+  ```javascript
+  // Local (frontend)
+  console.log('📍 [Ubicación Cadete]:', { lat, lng, accuracy, timestamp });
+  
+  // Éxito de envío
+  console.log('✅ [Envío Ubicación] Enviada correctamente al servidor');
+  
+  // Error de envío
+  console.error('❌ [Envío Ubicación] Error:', error.reason);
+  
+  // Meteor desconectado
+  console.warn('⚠️ [Envío Ubicación] No conectado a Meteor, ubicación no enviada');
+  
+  // Backend (server)
+  console.log(`📍 [Cadete ${username}] Ubicación actualizada:`, { lat, lng, accuracy });
+  ```
+
+- **Índices requeridos en MongoDB** (para consultas geo-espaciales futuras):
+  ```javascript
+  // En server/main.js
+  Meteor.users.createIndex({ 'location.coordinates': '2dsphere' });
+  ```
+  Esto permite queries como "cadetes cercanos a una coordenada" usando `$near` o `$geoWithin`.
+
+- **Queries geo-espaciales posibles tras implementación**:
+  ```javascript
+  // Encontrar cadetes en un radio de 5km
+  Meteor.users.find({
+    modoCadete: true,
+    'location.coordinates': {
+      $near: {
+        $geometry: { type: 'Point', coordinates: [lng, lat] },
+        $maxDistance: 5000 // 5km en metros
+      }
+    }
+  });
+  
+  // Encontrar cadetes en un área rectangular
+  Meteor.users.find({
+    modoCadete: true,
+    'location.coordinates': {
+      $geoWithin: {
+        $box: [[swLng, swLat], [neLng, neLat]]
+      }
+    }
+  });
+  ```
+
+- **Casos de uso futuros**:
+  1. **Asignación inteligente**: Asignar pedido al cadete más cercano a la tienda.
+  2. **Mapa en tiempo real**: Mostrar posición de todos los cadetes activos en mapa del admin.
+  3. **Ruta optimizada**: Calcular ruta más corta para múltiples entregas.
+  4. **ETA dinámico**: Estimar tiempo de llegada basado en velocidad y ubicación actual.
+  5. **Geofencing**: Notificar cuando cadete entra/sale de zona de entrega.
+  6. **Historial de rutas**: Guardar trazabilidad de entregas para auditoría.
+
+- **Consideraciones de privacidad y seguridad**:
+  - **Solo mientras está activo**: Ubicación solo se envía cuando `modoCadete === true`.
+  - **No histórico por defecto**: Solo se guarda última ubicación, no trazas completas.
+  - **Autorización estricta**: Backend rechaza actualizaciones de otros usuarios.
+  - **GDPR compliance**: Ubicación se borra al desactivar modo cadete (opcional, implementar).
+
+- **Mejoras pendientes**:
+  - **Batch updates**: Si hay múltiples ubicaciones pendientes, enviar en un solo request.
+  - **Retry logic**: Re-intentar envío si falla por conexión temporal.
+  - **Offline queue**: Guardar ubicaciones en AsyncStorage si Meteor está desconectado.
+  - **Compression**: Reducir precisión a 5 decimales para ahorrar bandwidth.
+  - **Throttling**: Limitar frecuencia de envío si cadete está quieto (speed === 0).
+
+- **Testing recomendado**:
+  - **Caso 1**: Cadete activo en movimiento → ubicación se envía cada 20 seg.
+  - **Caso 2**: Meteor desconectado → ubicación NO se envía, logea warning.
+  - **Caso 3**: Usuario sin modo cadete → backend rechaza con error `modo-cadete-inactive`.
+  - **Caso 4**: Usuario A intenta actualizar ubicación de usuario B → backend rechaza con `unauthorized`.
+  - **Caso 5**: GPS sin señal → error de geolocalización, no crashea servicio.
+  - **Caso 6**: Cadete desactiva modo → ubicaciones dejan de enviarse inmediatamente.
+
+- **Lecciones aprendidas**:
+  - **GeoJSON order matters**: MongoDB requiere `[longitude, latitude]`, no `[lat, lng]`.
+  - **Validar conexión antes de enviar**: Evita errores innecesarios cuando Meteor está desconectado.
+  - **Callback no bloqueante es crítico**: `Meteor.call()` con callback evita bloquear thread de geolocalización.
+  - **Parseo defensivo de nulls**: Backend requiere `accuracy` como Number, frontend debe enviar 0 si es null.
+  - **Match.Maybe para opcionales**: Backend debe usar `Match.Maybe(Number)` para campos que pueden ser null.
+  - **Logs detallados**: Facilitan debugging en producción cuando hay problemas de ubicación.
+
+- **Archivos modificados**:
+  - `NotificacionAndroidForeground.js`: Agregado envío de ubicación via `Meteor.call('cadete.updateLocation')`.
+  - `server/metodos/cadetes.js`: Método backend ya existente (sin cambios).
+
+- **Próximos pasos**:
+  1. Crear índice 2dsphere en producción: `db.users.createIndex({ "location.coordinates": "2dsphere" })`.
+  2. Implementar mapa de admin con posiciones en tiempo real de cadetes.
+  3. Agregar método `cadete.getNearby(lat, lng, radius)` para búsqueda de cadetes cercanos.
+  4. Implementar notificación push cuando cadete entra en radio de 500m de la tienda.
+  5. Guardar historial de ubicaciones en `CadeteLocationHistoryCollection` para auditoría (opcional).
+  6. Tests e2e para validar que ubicaciones se actualizan correctamente en base de datos.
