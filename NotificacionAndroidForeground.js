@@ -168,7 +168,7 @@ const monitorModoCadete = async () => {
           if (Meteor.status().connected && Meteor.userId()) {
             const locationData = {
               userId: Meteor.userId(),
-              location: {
+              cordenadas: {
                 latitude,
                 longitude,
                 accuracy: accuracy || 0,
