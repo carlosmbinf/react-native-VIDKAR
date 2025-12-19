@@ -94,7 +94,7 @@ const stopForegroundService = async () => {
   }
 
   try {
-    await notifee.cancelNotification(FOREGROUND_NOTIFICATION_ID);
+    await notifee.stopForegroundService();
     isServiceActive = false;
     console.log('🔴 [Servicio Cadete] Detenido correctamente');
   } catch (error) {
