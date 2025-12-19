@@ -5,8 +5,10 @@
 import { AppRegistry, Platform } from 'react-native';
 import { name as appName } from './app.json';
 import AndroidForegroundService from './NotificacionAndroidForeground';
+import IOSLocationService from './NotificacionIOSForeground';
 import Main from './Main';
 import notifee, { EventType } from '@notifee/react-native';
+import Geolocation from 'react-native-geolocation-service';
 
 try {
   notifee.registerForegroundService((notification) => {
@@ -53,6 +55,12 @@ try {
   console.log('Platform.OS', Platform.OS);
   if (Platform.OS === 'android') {
     AndroidForegroundService(); // ✅ Se inicia automáticamente
+  } else if (Platform.OS === 'ios') {
+    // ✅ Solicitar permisos de ubicación para iOS
+    Geolocation.requestAuthorization('always');
+    // ✅ Iniciar servicio de ubicación iOS
+    IOSLocationService();
+    console.log('✅ [Index] Servicio de ubicación iOS iniciado');
   }
 } catch (error) {
   console.error('❌ [Index] Error iniciando app:', error);

@@ -21,6 +21,20 @@ end
 target 'Vidkar' do
   config = use_native_modules!
   
+  require_relative '../node_modules/react-native-permissions/scripts/setup'
+
+  # Permissions for react-native-permissions
+  setup_permissions([
+    'LocationWhenInUse',
+    'LocationAlways',
+    'Camera',
+    'PhotoLibrary',
+    'PhotoLibraryAddOnly',
+    'Microphone',
+    'Notifications',
+    'FaceID',
+  ])
+
   use_frameworks! :linkage => :static
   $RNFirebaseAsStaticFramework = true
   $FirebaseSDKVersion = '12.4.0'

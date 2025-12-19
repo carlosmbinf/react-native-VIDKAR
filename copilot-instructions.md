@@ -299,3 +299,134 @@
   4. Implementar notificación push cuando cadete entra en radio de 500m de la tienda.
   5. Guardar historial de ubicaciones en `CadeteLocationHistoryCollection` para auditoría (opcional).
   6. Tests e2e para validar que ubicaciones se actualizan correctamente en base de datos.
+
+---
+
+## Resumen técnico – Rastreo de Ubicación iOS en Background (react-native-geolocation-service)
+
+- **Contexto**: Implementación de rastreo de ubicación GPS continuo en iOS para cadetes activos. Similar a Android pero más simple, sin notificación foreground, solo rastreo directo.
+
+- **Librería utilizada**: `react-native-geolocation-service` (v5.3.1)
+  - **Ventajas sobre @react-native-community/geolocation**:
+    - ✅ `watchPosition()` con mejor soporte en background.
+    - ✅ `forceRequestLocation: true` para obtener ubicación fresca siempre.
+    - ✅ `distanceFilter: 0` para rastreo continuo sin filtrar cambios.
+    - ✅ Mejor integración nativa con Location Services de iOS.
+    - ✅ `useSignificantChanges: false` para rastreo frecuente.
+  - **Desventajas**:
+    - Requiere librería de terceros (no oficial de React Native).
+    - Menor documentación que la oficial.
+
+- **Implementación en NotificacionIOSForeground.js**:
+  - **watchPosition()**: Rastreo continuo que obtiene ubicación cada cambio.
+  - **Parámetros clave**:
+    ```javascript
+    {
+      enableHighAccuracy: true,        // GPS de máxima precisión
+      timeout: 15000,                  // 15 seg para obtener ubicación
+      maximumAge: 0,                   // Sin caché, siempre fresco
+      distanceFilter: 0,               // Obtener cada cambio (no filtrar)
+      forceRequestLocation: true,      // Forzar nueva lectura
+      useSignificantChanges: false,    // No usar cambios significativos
+    }
+    ```
+  - **Datos enviados al backend**:
+    ```javascript
+    {
+      userId: String,
+      location: {
+        latitude: Number,
+        longitude: Number,
+        accuracy: Number,
+        altitude: Number | null,
+        heading: Number | null,
+        speed: Number | null,
+        timestamp: Number,
+      }
+    }
+    ```
+
+- **Flujo de funcionamiento**:
+  1. **index.js**: Solicita permisos iOS con `Geolocation.requestAuthorization('always')`.
+  2. **IOSLocationService()**: Se inicia automáticamente al abrir la app.
+  3. **monitorLocationService()**: Verifica cada 30 segundos si `modoCadete` está activo.
+  4. **startLocationTracking()**: Si activo, inicia `watchPosition()` que rastrea continuamente.
+  5. **Envío al backend**: Cada ubicación se envía via `Meteor.call('cadete.updateLocation', ...)`.
+  6. **stopLocationTracking()**: Se detiene al desactivar `modoCadete` o cerrar app.
+
+- **Manejo de permisos iOS**:
+  - `requestAuthorization('always')`: Solicita permiso para ubicación siempre (foreground + background).
+  - **Info.plist ya configurado con**:
+    ```xml
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <key>NSLocationAlwaysUsageDescription</key>
+    <key>UIBackgroundModes</key>
+      <string>location</string>
+    ```
+  - ✅ Capacidad "Background Modes → Location Updates" ya habilitada.
+
+- **Estados del servicio**:
+  - **isServiceActive**: Boolean que indica si watchPosition está activo.
+  - **watchId**: ID del reloj para poder detenerlo con `clearWatch()`.
+  - **monitorInterval**: Intervalo que verifica cada 30 seg si debe estar activo.
+
+- **Diferencias con Android (NotificacionAndroidForeground.js)**:
+  | Aspecto | Android | iOS |
+  |---------|---------|-----|
+  | **Librería** | @react-native-community/geolocation | react-native-geolocation-service |
+  | **Notificación** | Foreground persistente (modo cadete visible) | No hay notificación (rastreo silencioso) |
+  | **getCurrentPosition** | Llamadas puntuales cada 5 seg | watchPosition continuo |
+  | **Permisos** | REQUEST_PERMISSIONS dinámico | requestAuthorization 'always' |
+  | **Background** | Servicio foreground obligatorio | Location Services nativo de iOS |
+  | **Intervalo** | ~20 segundos de envío | Cada cambio de ubicación |
+
+- **Manejo de errores**:
+  - **Code 1 (PERMISSION_DENIED)**: Usuario rechazó permisos → solo log warning.
+  - **Code 2 (POSITION_UNAVAILABLE)**: GPS sin señal → continúa intentando.
+  - **Code 3 (TIMEOUT)**: Tardó >15s en obtener ubicación → reintenta en siguiente ciclo.
+  - **Error de Meteor**: No conectado a servidor → log warning, no genera crash.
+  - ✅ **Ningún error detiene el servicio**, solo se logean advertencias.
+
+- **Optimizaciones implementadas**:
+  - ✅ **watchId guardado**: Para poder detener rastreo con `clearWatch()`.
+  - ✅ **monitorInterval cada 30s**: No verifica `modoCadete` constantemente (ahorra batería).
+  - ✅ **AppState listener**: Reacción a cambios de estado de la app (foreground/background).
+  - ✅ **Cleanup en desmontar**: Elimina listeners y detiene rastreo al desinstalar servicio.
+
+- **Archivos modificados**:
+  - ✅ `NotificacionIOSForeground.js`: Nuevo archivo con servicio iOS.
+  - ✅ `index.js`: Importación de IOSLocationService e inicialización condicional por platform.
+
+- **Consideraciones técnicas críticas**:
+  - ✅ **No afecta otras funcionalidades**: Módulo completamente independiente.
+  - ✅ **Same contract con backend**: Usa mismo endpoint `cadete.updateLocation`.
+  - ✅ **Permiso 'always'**: Requiere que usuario otorgue permiso en Settings/Privacy/Location.
+  - ⚠️ **Battery impact**: `enableHighAccuracy: true` + `watchPosition` consume batería. 
+    - **Mitigation**: Limitar a modoCadete=true, considerar reducir frecuencia si speed=0.
+  - ⚠️ **App store**: Apple requiere justificación clara para Background Location (ya en Info.plist).
+
+- **Testing recomendado**:
+  - ✅ **Caso 1**: Activar modoCadete → ubicación debe enviarse inmediatamente.
+  - ✅ **Caso 2**: App en background → ubicación debe continuar (iOS Location Services).
+  - ✅ **Caso 3**: Desactivar modoCadete → watchPosition debe detenerse en ≤30s.
+  - ✅ **Caso 4**: Cambiar permisos en Settings → servicio debe reaccionar.
+  - ✅ **Caso 5**: Cerrar/abrir app → monitor debe reiniciarse sin duplicados.
+  - ✅ **Caso 6**: Sin conexión Meteor → ubicación no se envía, solo se logea warning.
+  - ✅ **Caso 7**: GPS sin señal → reintenta hasta obtener ubicación.
+
+- **Mejoras futuras sugeridas**:
+  - Implementar throttling cuando `speed === 0` (usuario parado).
+  - Reducir `timeout` si ya tenemos ubicación reciente.
+  - Agregar contador de fallos para disminuir frecuencia si GPS inestable.
+  - Sincronizar frecuencia iOS-Android mediante property en ConfigCollection.
+  - Implementar notificación local (no foreground) cuando se inicia rastreo.
+  - Tests e2e para validar rastreo continuo sin crashes en 10+ minutos.
+
+- **Lecciones aprendidas**:
+  - **watchPosition vs getCurrentPosition**: watchPosition es mejor para rastreo continuo en iOS.
+  - **distanceFilter: 0**: CRÍTICO para obtener cada cambio, no filtrar por distancia.
+  - **forceRequestLocation: true**: Asegura que siempre se obtiene ubicación fresca.
+  - **AppState listener**: Esencial para reaccionar a cambios de ciclo de vida.
+  - **clearWatch() imprescindible**: Sin esto, múltiples watchPositions se acumulan y crashean.
+
