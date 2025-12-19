@@ -13,6 +13,7 @@ import {
   formatearPrecio,
 } from '../../../data/comercio/mockData';
 import { TiendasComercioCollection } from '../../collections/collections';
+import MapaPedidos from '../maps/MapaPedidos';
 
 const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
   const [loading, setLoading] = useState(false);
@@ -172,7 +173,7 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
   const total = useMemo(() => calcularTotalPedido(venta), [venta]);
 
   return (
-    <Card style={styles.card} elevation={3}>
+    <Card style={styles.card} elevation={0}>
       <Card.Title
         title={tienda?.title || (tiendaReady ? 'Tienda no encontrada' : 'Cargando tienda...')}
         subtitle={tienda?.descripcion || ''}
@@ -276,7 +277,7 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
             <Divider style={styles.divider} />
           </>
         )}
-
+        <MapaPedidos puntoPartida={tienda} puntoAIr={coordenadas} />
         {/* Mostrar coordenadas (sin mapa por ahora) */}
         <Text variant="titleMedium" style={styles.sectionTitle}>
           📍 Ubicación de entrega:
@@ -287,6 +288,7 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
         <Text variant="bodySmall" style={styles.coordText}>
           Lng: {coordenadas.longitude?.toFixed(6) || 'N/A'}
         </Text>
+        
       </Card.Content>
 
       <Card.Actions style={styles.actions}>

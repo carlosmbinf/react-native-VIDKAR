@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet } from 'react-native';
+import FastImage from 'react-native-fast-image';
 import MapView, { Marker } from 'react-native-maps';
 
-const MapaPedidos = ({ puntoAIr }) => {
+const MapaPedidos = ( {puntoPartida, puntoAIr} ) => {
   const [region, setRegion] = useState(null);
 
+  
   useEffect(() => {
     // Normalizar coordenadas (soportar tanto "coordenadas" como "cordenadas")
-    const coords = puntoAIr?.coordenadas || puntoAIr?.cordenadas;
-    
+    const coords = puntoPartida?.coordenadas || puntoPartida?.cordenadas;
     if (coords?.latitude && coords?.longitude) {
       setRegion({
         latitude: coords.latitude,
@@ -17,7 +18,8 @@ const MapaPedidos = ({ puntoAIr }) => {
         longitudeDelta: 0.01,
       });
     }
-  }, [puntoAIr]);
+    console.log("Region", region);
+  }, [puntoPartida]);
 
   if (!region) {
     return null;
@@ -27,28 +29,48 @@ const MapaPedidos = ({ puntoAIr }) => {
     <MapView
       style={styles.map}
       initialRegion={region}
-      showsUserLocation={true}
-      showsMyLocationButton={true}
+      // showsUserLocation={true}
+      // showsMyLocationButton={true}
+      showsScale={true}
       customMapStyle={[
         {
           featureType: 'poi',
           stylers: [{ visibility: 'off' }],
         },
-      ]}>
-      <Marker
+      ]}
+      showsIndoors={true}
+      // googleMapId={"AIzaSyD1r5uJ1PBgUaZkqKtlCgInLJtrA"}
+      >
+      {puntoPartida && <Marker
         coordinate={{
           latitude: region.latitude,
           longitude: region.longitude,
         }}
-        title={puntoAIr?.title || puntoAIr?.name || 'Destino'}
+        title={`🏪 ${puntoPartida?.title || puntoPartida?.name || 'Tienda'}`}
+        description={puntoPartida?.descripcion || ''}
+        image={require('./pin_shop_50x50.png')}
+        anchor={{ x: 0.5, y: 1 }}
+        
+      />}
+      {puntoAIr && <Marker
+        coordinate={{
+          latitude: puntoAIr.latitude,
+          longitude: puntoAIr.longitude,
+        }}
+        title={`📍 ${puntoAIr?.title || puntoAIr?.name || 'Destino'}`}
         description={puntoAIr?.descripcion || ''}
-        pinColor="red"
-      />
+        pinColor="blue"
+        image={require('./pin_goal_50x50.png')}
+        anchor={{ x: 0.5, y: 1 }}
+      />}
     </MapView>
   );
 };
 
 const styles = StyleSheet.create({
+  iconMap:{
+    height:10
+  },
   map: {
     width: '100%',
     height: 200,
@@ -59,4 +81,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default React.memo(MapaPedidos);
+export default MapaPedidos;

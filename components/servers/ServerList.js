@@ -27,7 +27,8 @@ import {
   TextInput,
   Title,
   Icon,
-  Card
+  Card,
+  Appbar
 } from 'react-native-paper';
 import { SegmentedButtons } from 'react-native-paper';
 // import * as axios from 'axios';
@@ -44,6 +45,8 @@ import { Logs, ServersCollection, VentasCollection } from '../collections/collec
 
 import { DataTable, Dialog } from 'react-native-paper';
 import DialogVenta from './DialogServer';
+import { withSafeAreaInsets } from 'react-native-safe-area-context';
+import MenuHeader from '../Header/MenuHeader';
 
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -75,7 +78,7 @@ class MyApp extends React.Component {
     // const carouselRef = useRef(null);
   }
   render() {
-    const { user, ready, navigation ,myTodoTasks } = this.props;
+    const { user, ready, navigation ,myTodoTasks, insets } = this.props;
     //  console.log("DATA:" + JSON.stringify(myTodoTasks));
 
     const from = this.state.page * this.state.itemsPerPage;
@@ -130,14 +133,30 @@ class MyApp extends React.Component {
             <Surface style={{
                   flex: 1,
                   flexDirection: 'column',
-                  minHeight: screenHeight - 80,
+                  minHeight: screenHeight,
                   // backgroundColor: '#2a323d',
                   // justifyContent: 'center',
                 }}>
+              <Appbar.Header style={{ backgroundColor: '#3f51b5', height: 80, justifyContent: 'center', paddingTop: insets.top }}>
+
+                <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
+                  <Appbar.BackAction
+                    color='red'
+                    onPress={() => {
+                      if (navigation.navigation.canGoBack()) {
+                        navigation.navigation.goBack();
+                      }
+                    }}
+                  />
+                  <MenuHeader
+                    navigation={navigation}
+                  />
+                </View>
+              </Appbar.Header>
               {myTodoTasks.map((element, index) => {
                 console.log(element)
                 return (
-                  <Card style={{margin: 10}} elevation={6}>
+                  <Card style={{margin: 10}} elevation={6} key={element._id}>
                     <Card.Title
                       title={element.details}
                       subtitle={element.domain + ' - ' + element.ip}
@@ -187,6 +206,9 @@ class MyApp extends React.Component {
     );
   }
 }
+
+const ServerListWithInsets = withSafeAreaInsets(MyApp);
+
 const ServerList = withTracker(navigation => {
   //  console.log(user.user)
   const handle2 = Meteor.subscribe('servers').ready();
@@ -197,7 +219,7 @@ const ServerList = withTracker(navigation => {
     myTodoTasks,
     ready: handle2,
   };
-})(MyApp);
+})(ServerListWithInsets);
 
 // var ScreenHeight = Dimensions.get('window').height;
 const styles = StyleSheet.create({

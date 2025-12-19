@@ -78,6 +78,7 @@ import ProxyPurchaseScreen from './components/proxy/ProxyPurchaseScreen';
 import VPNPurchaseScreen from './components/vpn/VPNPurchaseScreen';
 import TableProxyVPNHistory from './components/ventas/TableProxyVPNHistory';
 import RequiredDataDialog from './components/auth/RequiredDataDialog';
+import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 // agregado: notifee opcional para mostrar notificaciones locales (foreground/background)
 let NotifeeLib = null;
 try {
@@ -319,39 +320,39 @@ const App = () => {
   return (
     <PaperProvider>
       <Portal.Host>
-      <>
-        {/* {Platform.OS === 'android' && <RequiredDataDialog />} */}
-        {/* <ScrollView
+        <>
+          {/* {Platform.OS === 'android' && <RequiredDataDialog />} */}
+          {/* <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={backgroundStyle}> */}
 
-      <NavigationContainer 
-        linking={linking} 
-        fallback={
-          <Surface style={styles.loadingContainer}>
-            <ActivityIndicator 
-              animating={true} 
-              size="large" 
-              color="#3f51b5" 
-            />
-            <Text style={styles.loadingText}>Cargando...</Text>
-          </Surface>
-        }
-        
-      >
-        <Stack.Navigator
-          initialRouteName={
-            "Main"
-            // Meteor.user() &&
-            //   Meteor.user().profile &&
-            //   Meteor.user().profile.role == 'admin'
-            //   ? "Users"
-            //   : Meteor.user() && Meteor.user().subscipcionPelis
-            //     ? 'PeliculasVideos'
-            //     : 'User'
-          }
-        >
-          {/* <Stack.Screen
+          <NavigationContainer
+            linking={linking}
+            fallback={
+              <Surface style={styles.loadingContainer}>
+                <ActivityIndicator
+                  animating={true}
+                  size="large"
+                  color="#3f51b5"
+                />
+                <Text style={styles.loadingText}>Cargando...</Text>
+              </Surface>
+            }
+
+          >
+            <Stack.Navigator
+              initialRouteName={
+                "Main"
+                // Meteor.user() &&
+                //   Meteor.user().profile &&
+                //   Meteor.user().profile.role == 'admin'
+                //   ? "Users"
+                //   : Meteor.user() && Meteor.user().subscipcionPelis
+                //     ? 'PeliculasVideos'
+                //     : 'User'
+              }
+            >
+              {/* <Stack.Screen
             name="Loguin"
             component={Loguin}
             options={({navigation, route}) => ({
@@ -370,774 +371,803 @@ const App = () => {
               // headerTransparent:false
             })}
           /> */}
-          <Stack.Screen
-            name="Main"
-            component={MenuPrincipal}
-            options={({ navigation, route }) => ({
-              animationEnabled: true,
-              title: (
-                <Text style={{ letterSpacing: 5 }}>
-                  <FontAwesome
-                    // onPress={() => logOut(navigation)}
-                    name="hand-o-right"
-                    color={'white'}
-                    size={20}
-                    // borderRadius={20}
-                    solid
-                  />
-                  VidKar {route?.params?.id}
-                  <FontAwesome
-                    // onPress={() => logOut(navigation)}
-                    name="hand-o-left"
-                    color={'white'}
-                    size={20}
-                    // borderRadius={20}
-                    solid
-                  />
-                </Text>
-              ),
-              headerStyle: {
-                backgroundColor: '#3f51b5',
-                // height: 90,
-              },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              // headerTitleStyle: {
-              //   fontWeight: 'bold',
-              // },
-              headerLeft: null,
-              headerShown: true,
-              headerRight: () => (
-                <MenuHeader
-                  navigation={navigation}
-                />
-              ),
-              // headerRight
-              headerTransparent:false
-            })}
-          />
-          <Stack.Screen
-            name="Dashboard"
-            options={({ navigation, route }) => {
-              const { params } = route;
-              var item = Meteor.users.findOne(
-                params ? params.item : Meteor.userId(),
-                {
-                  fields: {
-                    _id: 1,
-                    'profile.firstName': 1,
-                    'profile.lastName': 2,
+              <Stack.Screen
+                name="Main"
+                component={MenuPrincipal}
+                options={({ navigation, route }) => ({
+                  animationEnabled: true,
+                  title: (
+                    <Text style={{ letterSpacing: 5 }}>
+                      <FontAwesome
+                        // onPress={() => logOut(navigation)}
+                        name="hand-o-right"
+                        color={'white'}
+                        size={20}
+                        // borderRadius={20}
+                        solid
+                      />
+                      VidKar {route?.params?.id}
+                      <FontAwesome
+                        // onPress={() => logOut(navigation)}
+                        name="hand-o-left"
+                        color={'white'}
+                        size={20}
+                        // borderRadius={20}
+                        solid
+                      />
+                    </Text>
+                  ),
+                  headerStyle: {
+                    backgroundColor: '#3f51b5',
+                    // height: 90,
                   },
-                },
-              );
-              return {
-                title: (
-                  <Text>
-                    {item && item.profile
-                      ? `${item.profile.firstName} ${item.profile.lastName}`
-                      : ''}
-                  </Text>
-                ),
-                headerStyle: {
-                  backgroundColor: '#3f51b5',
-                  // height: 90,
-                },
-                headerTitleAlign: 'left',
-                headerTintColor: '#fff',
-                // headerTitleStyle: {
-                //   fontWeight: 'bold',
-                // },
-                // headerLeft:
-                //   !(
-                //     Meteor.user() &&
-                //     Meteor.user().profile &&
-                //     Meteor.user().profile.role == 'admin'
-                //   ) && null,
-                headerShown: true,
-                // headerLeftContainerStyle: { display: flex },
-                headerRight: () => (
-                  <MenuHeader
-                    navigation={navigation}
-                  />
-                ),
-                // headerRight
-                // headerTransparent:false
-              };
-            }}>
-            {props => {
-              const { navigation, route } = props;
-              const { params } = route;
-              const item = params ? params.item : Meteor.userId();
-              // const {navigation} = route.params;
-              return (<Surface>
-                <ScrollView style={{ width: "100%", height: "100%" }}>
-                  <DashBoardPrincipal type={"HORA"} />
-                  <DashBoardPrincipal type={"DIARIO"} />
-                  <DashBoardPrincipal type={"MENSUAL"} />
-                </ScrollView>
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  // headerTitleStyle: {
+                  //   fontWeight: 'bold',
+                  // },
+                  headerLeft: null,
+                  headerShown: false,
+                  headerRight: () => (
+                    <MenuHeader
+                      navigation={navigation}
+                    />
+                  ),
+                  // headerRight
+                  headerTransparent: false,
+                })}
+              />
+              <Stack.Screen
+                name="Dashboard"
+                options={({ navigation, route }) => {
+                  const { params } = route;
+                  return {
+                    headerShown: false,
+                  };
+                }}>
+                {props => {
+                  const { navigation, route } = props;
+                  const { params } = route;
+                  const item = params ? params.item : Meteor.userId();
+                  // const {navigation} = route.params;
+                  return (<Surface>
+                    <Appbar.Header style={{ backgroundColor: '#3f51b5', height: 80, justifyContent: 'center', paddingTop: useSafeAreaInsets().top }}>
 
-              </Surface>
-
-                // <TasksProvider user={user} projectPartition={projectPartition}>
-                //   <TasksView navigation={navigation} route={route} />
-                // </TasksProvider>
-              );
-            }}
-          </Stack.Screen>
-
-          <Stack.Screen
-            name="Users"
-            component={UserHome}
-            options={({ navigation, route }) => ({
-              title: (
-                <Text style={{ letterSpacing: 5 }}>
-                  <FontAwesome
-                    // onPress={() => logOut(navigation)}
-                    name="hand-o-right"
-                    color={'white'}
-                    size={20}
-                    // borderRadius={20}
-                    solid
-                  />
-                  VidKar {route?.params?.id}
-                  <FontAwesome
-                    // onPress={() => logOut(navigation)}
-                    name="hand-o-left"
-                    color={'white'}
-                    size={20}
-                    // borderRadius={20}
-                    solid
-                  />
-                </Text>
-              ),
-              headerStyle: {
-                backgroundColor: '#3f51b5',
-                // height: 90,
-              },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              // headerTitleStyle: {
-              //   fontWeight: 'bold',
-              // },
-              headerLeft: null,
-              headerShown: true,
-              headerRight: () => (
-                <MenuHeader
-                  navigation={navigation}
-                />
-              ),
-              // headerRight
-              // headerTransparent:false
-            })}
-          />
-          <Stack.Screen
-            name="PeliculasVideos"
-            // component={MyTabs}
-            options={({ navigation, route }) => ({
-              title: <Text style={{ letterSpacing: 4 }}>Peliculas y Series</Text>,
-              headerStyle: {
-                backgroundColor: '#3f51b5',
-                // height: 90,
-              },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              // headerTitleStyle: {
-              //   fontWeight: 'bold',
-              // },
-              // headerLeft:null,
-              headerShown: true,
-              headerRight: () => (
-                <MenuHeader
-                  navigation={navigation}
-                />
-              )
-              // headerRight
-              // headerTransparent:false
-            })}
-          >
-            {props => {
-              const { navigation, route } = props;
-              return (
-                Meteor.user() && Meteor.user().subscipcionPelis ? (
-                  <MyTabs navigation={navigation} route={route} />
-                ) :
-                  (
-                    <Surface style={{ flex: 1, justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                      <View style={{ flex: 1, }}
-                      >
-                        <Text style={{ fontSize: 20, textAlign: 'center', marginTop: 20 }} >No tiene una Subscripcion Activa</Text>
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
+                        <Appbar.BackAction
+                          color='red'
+                          onPress={() => {
+                            if (navigation.canGoBack()) {
+                              navigation.goBack();
+                            }
+                          }}
+                        />
+                        <MenuHeader
+                          navigation={navigation}
+                        />
                       </View>
-                    </Surface>
-                  )
+                    </Appbar.Header>
+                    <ScrollView style={{ width: "100%", height: "100%" }}>
 
-                // <Player id={id} subtitulo={subtitulo} navigation={navigation} urlPeliHTTPS={urlPeliHTTPS} />
-                // <TasksProvider user={user} projectPartition={projectPartition}>
-                //   <TasksView navigation={navigation} route={route} />
-                // </TasksProvider>
-              );
-            }}
-          </Stack.Screen>
-          <Stack.Screen
-            name="User"
-            options={({ navigation, route }) => {
-              const { params } = route;
-              var item = Meteor.users.findOne(
-                params ? params.item : Meteor.userId(),
-                {
-                  fields: {
-                    _id: 1,
-                    'profile.firstName': 1,
-                    'profile.lastName': 2,
-                  },
-                },
-              );
-              return {
-                title: (
-                  <Text>
-                    {item && item.profile
-                      ? `${item.profile.firstName} ${item.profile.lastName}`
-                      : ''}
-                  </Text>
-                ),
-                headerStyle: {
-                  backgroundColor: '#3f51b5',
-                  // height: 90,
-                },
-                headerTitleAlign: 'left',
-                headerTintColor: '#fff',
-                // headerTitleStyle: {
-                //   fontWeight: 'bold',
-                // },
-                headerLeft:
-                  !(
-                    Meteor.user() &&
-                    Meteor.user().profile &&
-                    Meteor.user().profile.role == 'admin'
-                  ) && null,
-                headerShown: true,
-                // headerLeftContainerStyle: { display: flex },
-                headerRight: () => (
-                  <MenuHeader
-                    navigation={navigation}
-                  />
-                ),
-                // headerRight
-                // headerTransparent:false
-              };
-            }}>
-            {props => {
-              const { navigation, route } = props;
-              const { params } = route;
-              const item = params ? params.item : Meteor.userId();
-              // const {navigation} = route.params;
-              return (
-                <UserDetails item={item} navigation={navigation} />
-                // <TasksProvider user={user} projectPartition={projectPartition}>
-                //   <TasksView navigation={navigation} route={route} />
-                // </TasksProvider>
-              );
-            }}
-          </Stack.Screen>
-          <Stack.Screen
-            name="Servidores"
-            component={ServerList}
-            options={({ navigation, route }) => ({
-              title: <Text style={{ letterSpacing: 2 }}>Servidores</Text>,
-              headerStyle: {
-                backgroundColor: '#3f51b5',
-                // height: 90,
-              },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              // headerTitleStyle: {
-              //   fontWeight: 'bold',
-              // },
-              // headerLeft:null,
-              headerShown: true,
-              headerRight: () => (
-                <MenuHeader
-                  navigation={navigation}
-                />
-              ),
-              // headerRight
-              // headerTransparent:false
-            })}
-          />
-          <Stack.Screen
-            name="ConsumoUsers"
-            component={ConsumoUserHome}
-            options={({ navigation, route }) => ({
-              title: (
-                <Text style={{ letterSpacing: 5 }}>
-                  <FontAwesome
-                    // onPress={() => logOut(navigation)}
-                    name="hand-o-right"
-                    color={'white'}
-                    size={20}
-                    // borderRadius={20}
-                    solid
-                  />
-                  VidKar
-                  <FontAwesome
-                    // onPress={() => logOut(navigation)}
-                    name="hand-o-left"
-                    color={'white'}
-                    size={20}
-                    // borderRadius={20}
-                    solid
-                  />
-                </Text>
-              ),
-              headerStyle: {
-                backgroundColor: '#3f51b5',
-                // height: 90,
-              },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              // headerTitleStyle: {
-              //   fontWeight: 'bold',
-              // },
-              // headerLeft:null,
-              headerShown: true,
-              headerRight: () => (
-                <MenuHeader
-                  navigation={navigation}
-                />
-              ),
-              // headerRight
-              // headerTransparent:false
-            })}
-          />
-          <Stack.Screen
-            name="CreateUsers"
-            component={CreateUsers}
-            options={({ navigation, route }) => ({
-              title: <Text style={{ letterSpacing: 2 }}>Crear Usuario</Text>,
-              headerStyle: {
-                backgroundColor: '#3f51b5',
-                // height: 90,
-              },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              // headerTitleStyle: {
-              //   fontWeight: 'bold',
-              // },
-              // headerLeft:null,
-              headerShown: true,
-              headerRight: () => (
-                <MenuHeader
-                  navigation={navigation}
-                />
-              ),
-              // headerRight
-              // headerTransparent:false
-            })}
-          />
-          <Stack.Screen
-            name="Logs"
-            component={LogsList}
-            options={({ navigation, route }) => ({
-              title: <Text style={{ letterSpacing: 2 }}>Logs</Text>,
-              headerStyle: {
-                backgroundColor: '#3f51b5',
-                // height: 90,
-              },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              // headerTitleStyle: {
-              //   fontWeight: 'bold',
-              // },
-              // headerLeft:null,
-              headerShown: true,
-              headerRight: () => (
-                <MenuHeader
-                  navigation={navigation}
-                />
-              ),
-              // headerRight
-              // headerTransparent:false
-            })}
-          />
-          <Stack.Screen
-            name="Ventas"
-            component={VentasList}
-            options={({ navigation, route }) => ({
-              title: <Text style={{ letterSpacing: 2 }}>Ventas</Text>,
-              headerStyle: {
-                backgroundColor: '#3f51b5',
-                // height: 90,
-              },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              // headerTitleStyle: {
-              //   fontWeight: 'bold',
-              // },
-              // headerLeft:null,
-              headerShown: true,
-              headerRight: () => (
-                <MenuHeader
-                  navigation={navigation}
-                />
-              ),
-              // headerRight
-              // headerTransparent:false
-            })}
-          />
-          <Stack.Screen
-            name="SubidaArchivos"
-            component={SubidaArchivos}
-            options={({ navigation, route }) => ({
-              title: <Text style={{ letterSpacing: 2 }}>Upload</Text>,
-              headerStyle: {
-                backgroundColor: '#3f51b5',
-                // height: 90,
-              },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              // headerTitleStyle: {
-              //   fontWeight: 'bold',
-              // },
-              // headerLeft:null,
-              headerShown: true,
-              headerRight: () => (
-                <MenuHeader
-                  navigation={navigation}
-                />
-              ),
-              // headerRight
-              // headerTransparent:false
-            })}
-          />
-          <Stack.Screen
-            name="ListaArchivos"
-            component={ListaArchivos}
-            options={({ navigation, route }) => ({
-              title: <Text style={{ letterSpacing: 2 }}>Archivos</Text>,
-              headerStyle: {
-                backgroundColor: '#3f51b5',
-                // height: 90,
-              },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              // headerTitleStyle: {
-              //   fontWeight: 'bold',
-              // },
-              // headerLeft:null,
-              headerShown: true,
-              headerRight: () => (
-                <MenuHeader
-                  navigation={navigation}
-                />
-              ),
-              // headerRight
-              // headerTransparent:false
-            })}
-          />
-          <Stack.Screen
-            name="ListaPropertys"
-            component={PropertyTable}
-            options={({ navigation, route }) => ({
-              title: <Text style={{ letterSpacing: 2 }}>Propertys</Text>,
-              headerStyle: {
-                backgroundColor: '#3f51b5',
-                // height: 90,
-              },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              // headerTitleStyle: {
-              //   fontWeight: 'bold',
-              // },
-              // headerLeft:null,
-              headerShown: true,
-              headerRight: () => (
-                <MenuHeader
-                  navigation={navigation}
-                />
-              ),
-              // headerRight
-              // headerTransparent:false
-            })}
-          />
+                      <DashBoardPrincipal type={"HORA"} />
+                      <DashBoardPrincipal type={"DIARIO"} />
+                      <DashBoardPrincipal type={"MENSUAL"} />
+                    </ScrollView>
 
-          <Stack.Screen
-            name="Video"
-            options={({ navigation, route }) => ({
-              headerShown: false,
-            })}>
-            {props => {
-              const { navigation, route } = props;
-              const { id, subtitulo } = route.params;
-
-              if (Platform.OS == 'ios') {
-                return (
-                  <VideoPlayerIOS
-                    id={id}
-                    subtitulo={subtitulo}
-                    navigation={navigation}
-                    route={route}
-                  />
-                );
-              }
-              return (
-                <VideoPlayer
-                  id={id}
-                  subtitulo={subtitulo}
-                  navigation={navigation}
-                  route={route}
-                />
-              );
-
-              // <Player id={id} subtitulo={subtitulo} navigation={navigation} urlPeliHTTPS={urlPeliHTTPS} />
-              // <TasksProvider user={user} projectPartition={projectPartition}>
-              //   <TasksView navigation={navigation} route={route} />
-              // </TasksProvider>
-            }}
-          </Stack.Screen>
-          <Stack.Screen
-            name="Mensaje"
-            options={({ navigation, route }) => ({
-              title: (
-                <Text>
-                  {Meteor.users.findOne(route.params.item) &&
-                    Meteor.users.findOne(route.params.item).profile.firstName}
-                </Text>
-              ),
-              headerStyle: {
-                backgroundColor: '#3f51b5',
-                // height: 90,
-              },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              // headerTitleStyle: {
-              //   fontWeight: 'bold',
-              // },
-              headerShown: true,
-              // headerRight
-              // headerTransparent:false
-            })}>
-            {props => {
-              const { navigation, route } = props;
-              // console.log(item)
-              const { item } = route.params;
-              return (
-                <MensajesHome user={item} navigation={navigation} route={route} />
-                // <TasksProvider user={user} projectPartition={projectPartition}>
-                //   <TasksView navigation={navigation} route={route} />
-                // </TasksProvider>
-              );
-            }}
-          </Stack.Screen>
-          <Stack.Screen
-            name="AllMensajesUser"
-            options={({ navigation, route }) => ({
-              title: <Text>Mensajes</Text>,
-              headerStyle: {
-                backgroundColor: '#3f51b5',
-                // height: 90,
-              },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              // headerTitleStyle: {
-              //   fontWeight: 'bold',
-              // },
-              headerShown: true,
-              // headerRight
-              // headerTransparent:false
-            })}>
-            {props => {
-              const { navigation, route } = props;
-              // console.log(item)
-              return (
-                <ChatUsersHome navigation={navigation} />
-                // <TasksProvider user={user} projectPartition={projectPartition}>
-                //   <TasksView navigation={navigation} route={route} />
-                // </TasksProvider>
-              );
-            }}
-          </Stack.Screen>
-          <Stack.Screen
-            name="ProductosCubacelCards"
-            // component={Productos}
-            options={({ navigation, route }) => ({
-              title: <Text>Recargas</Text>,
-              headerStyle: {
-                backgroundColor: '#3f51b5',
-                // height: 90,
-              },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              // headerTitleStyle: {
-              //   fontWeight: 'bold',
-              // },
-              // headerLeft:null,
-              headerShown: true,
-              headerRight: () => (
-                <MenuHeader
-                  navigation={navigation}
-                />
-              ),
-              // headerRight
-              // headerTransparent:false
-            })}
-          >
-            {props => {
-              const { navigation, route } = props;
-              // console.log(item)
-              return (
-                <>
-                  <Surface>
-                    <Productos />
                   </Surface>
 
-                  <TableRecargas />
+                    // <TasksProvider user={user} projectPartition={projectPartition}>
+                    //   <TasksView navigation={navigation} route={route} />
+                    // </TasksProvider>
+                  );
+                }}
+              </Stack.Screen>
 
-                </>
+              <Stack.Screen
+                name="Users"
+                component={UserHome}
+                options={({ navigation, route }) => ({
+                  title: (
+                    <Text style={{ letterSpacing: 5 }}>
+                      <FontAwesome
+                        // onPress={() => logOut(navigation)}
+                        name="hand-o-right"
+                        color={'white'}
+                        size={20}
+                        // borderRadius={20}
+                        solid
+                      />
+                      VidKar {route?.params?.id}
+                      <FontAwesome
+                        // onPress={() => logOut(navigation)}
+                        name="hand-o-left"
+                        color={'white'}
+                        size={20}
+                        // borderRadius={20}
+                        solid
+                      />
+                    </Text>
+                  ),
+                  headerStyle: {
+                    backgroundColor: '#3f51b5',
+                    // height: 90,
+                  },
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  // headerTitleStyle: {
+                  //   fontWeight: 'bold',
+                  // },
+                  headerLeft: null,
+                  headerShown: false,
+                  headerRight: () => (
+                    <MenuHeader
+                      navigation={navigation}
+                    />
+                  ),
+                  // headerRight
+                  // headerTransparent:false
+                })}
+              />
+              <Stack.Screen
+                name="PeliculasVideos"
+                // component={MyTabs}
+                options={({ navigation, route }) => ({
+                  title: <Text style={{ letterSpacing: 4 }}>Peliculas y Series</Text>,
+                  headerStyle: {
+                    backgroundColor: '#3f51b5',
+                    // height: 90,
+                  },
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  // headerTitleStyle: {
+                  //   fontWeight: 'bold',
+                  // },
+                  // headerLeft:null,
+                  headerShown: false,
+                  headerRight: () => (
+                    <MenuHeader
+                      navigation={navigation}
+                    />
+                  )
+                  // headerRight
+                  // headerTransparent:false
+                })}
+              >
+                {props => {
+                  const { navigation, route } = props;
+                  return (
+                    Meteor.user() && Meteor.user().subscipcionPelis ? (
+                      <View>
+                        <Appbar.Header style={{ backgroundColor: '#3f51b5', height: 80, justifyContent: 'center', paddingTop: useSafeAreaInsets().top }}>
 
+                          <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
+                            <Appbar.BackAction
+                              color='red'
+                              onPress={() => {
+                                if (navigation.canGoBack()) {
+                                  navigation.goBack();
+                                }
+                              }}
+                            />
+                            <MenuHeader
+                              navigation={navigation}
+                            />
+                          </View>
+                        </Appbar.Header>
+                        <MyTabs navigation={navigation} route={route} />
+                      </View>
+                    ) :
+                      (
+                        <Surface style={{ flex: 1, justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                          <View style={{ flex: 1, }}
+                          >
+                            <Text style={{ fontSize: 20, textAlign: 'center', marginTop: 20 }} >No tiene una Subscripcion Activa</Text>
+                          </View>
+                        </Surface>
+                      )
 
-                // <TasksProvider user={user} projectPartition={projectPartition}>
-                //   <TasksView navigation={navigation} route={route} />
-                // </TasksProvider>
-              );
-            }}
-          </Stack.Screen>
-          {/* nuevo: formulario de remesas */}
-          <Stack.Screen
-            name="remesas"
-            // component={FormularioRemesa} // usar el componente correcto
-            options={({ navigation, route }) => ({
-              title: <Text style={{ letterSpacing: 2 }}>Remesas</Text>,
-              headerStyle: { backgroundColor: '#3f51b5', height: 90 },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              headerShown: true,
-              headerRight: () => (
-                <MenuHeader navigation={navigation} />
-              ),
-            })}
-          >
-            {props => {
-              const { navigation, route } = props;
-              // console.log(item)
-              return (
-                <Surface style={{ height: "100%" }}>
-                  <ScrollView>
-                    {Meteor.user()?.permiteRemesas ? (
-                      <FormularioRemesa />
-                    ) : (
-                      <Text style={{ textAlign: 'center', margin: 20 }}>
-                        No tiene permiso para realizar remesas.
+                    // <Player id={id} subtitulo={subtitulo} navigation={navigation} urlPeliHTTPS={urlPeliHTTPS} />
+                    // <TasksProvider user={user} projectPartition={projectPartition}>
+                    //   <TasksView navigation={navigation} route={route} />
+                    // </TasksProvider>
+                  );
+                }}
+              </Stack.Screen>
+              <Stack.Screen
+                name="User"
+                options={({ navigation, route }) => {
+                  const { params } = route;
+                  var item = Meteor.users.findOne(
+                    params ? params.item : Meteor.userId(),
+                    {
+                      fields: {
+                        _id: 1,
+                        'profile.firstName': 1,
+                        'profile.lastName': 2,
+                      },
+                    },
+                  );
+                  return {
+                    title: (
+                      <Text>
+                        {item && item.profile
+                          ? `${item.profile.firstName} ${item.profile.lastName}`
+                          : ''}
                       </Text>
-                    )}
-                    <TableListRemesa />
-                  </ScrollView>
+                    ),
+                    headerStyle: {
+                      backgroundColor: '#3f51b5',
+                      // height: 90,
+                    },
+                    headerTitleAlign: 'left',
+                    headerTintColor: '#fff',
+                    // headerTitleStyle: {
+                    //   fontWeight: 'bold',
+                    // },
+                    headerLeft:
+                      !(
+                        Meteor.user() &&
+                        Meteor.user().profile &&
+                        Meteor.user().profile.role == 'admin'
+                      ) && null,
+                    headerShown: false,
+                    // headerLeftContainerStyle: { display: flex },
+                    headerRight: () => (
+                      <MenuHeader
+                        navigation={navigation}
+                      />
+                    ),
+                    // headerRight
+                    // headerTransparent:false
+                  };
+                }}>
+                {props => {
+                  const { navigation, route } = props;
+                  const { params } = route;
+                  const item = params ? params.item : Meteor.userId();
+                  // const {navigation} = route.params;
+                  return (
+                    <View>
+                      <Appbar.Header style={{ backgroundColor: '#3f51b5', height: 80, justifyContent: 'center', paddingTop: useSafeAreaInsets().top }}>
 
-                </Surface>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
+                          <Appbar.BackAction
+                            color='red'
+                            onPress={() => {
+                              if (navigation.canGoBack()) {
+                                navigation.goBack();
+                              }
+                            }}
+                          />
+                          <MenuHeader
+                            navigation={navigation}
+                          />
+                        </View>
+                      </Appbar.Header>
+                      <UserDetails item={item} navigation={navigation} />
+                    </View>
+                    // <TasksProvider user={user} projectPartition={projectPartition}>
+                    //   <TasksView navigation={navigation} route={route} />
+                    // </TasksProvider>
+                  );
+                }}
+              </Stack.Screen>
+              <Stack.Screen
+                name="Servidores"
+                component={ServerList}
+                options={({ navigation, route }) => ({
+                  title: <Text style={{ letterSpacing: 2 }}>Servidores</Text>,
+                  headerStyle: {
+                    backgroundColor: '#3f51b5',
+                    // height: 90,
+                  },
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  // headerTitleStyle: {
+                  //   fontWeight: 'bold',
+                  // },
+                  // headerLeft:null,
+                  headerShown: false,
+                  headerRight: () => (
+                    <MenuHeader
+                      navigation={navigation}
+                    />
+                  ),
+                  // headerRight
+                  // headerTransparent:false
+                })}
+              />
+              <Stack.Screen
+                name="ConsumoUsers"
+                component={ConsumoUserHome}
+                options={({ navigation, route }) => ({
+                  title: (
+                    <Text style={{ letterSpacing: 5 }}>
+                      <FontAwesome
+                        // onPress={() => logOut(navigation)}
+                        name="hand-o-right"
+                        color={'white'}
+                        size={20}
+                        // borderRadius={20}
+                        solid
+                      />
+                      VidKar
+                      <FontAwesome
+                        // onPress={() => logOut(navigation)}
+                        name="hand-o-left"
+                        color={'white'}
+                        size={20}
+                        // borderRadius={20}
+                        solid
+                      />
+                    </Text>
+                  ),
+                  headerStyle: {
+                    backgroundColor: '#3f51b5',
+                    // height: 90,
+                  },
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  // headerTitleStyle: {
+                  //   fontWeight: 'bold',
+                  // },
+                  // headerLeft:null,
+                  headerShown: true,
+                  headerRight: () => (
+                    <MenuHeader
+                      navigation={navigation}
+                    />
+                  ),
+                  // headerRight
+                  // headerTransparent:false
+                })}
+              />
+              <Stack.Screen
+                name="CreateUsers"
+                component={CreateUsers}
+                options={({ navigation, route }) => ({
+                  title: <Text style={{ letterSpacing: 2 }}>Crear Usuario</Text>,
+                  headerStyle: {
+                    backgroundColor: '#3f51b5',
+                    // height: 90,
+                  },
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  // headerTitleStyle: {
+                  //   fontWeight: 'bold',
+                  // },
+                  // headerLeft:null,
+                  headerShown: true,
+                  headerRight: () => (
+                    <MenuHeader
+                      navigation={navigation}
+                    />
+                  ),
+                  // headerRight
+                  // headerTransparent:false
+                })}
+              />
+              <Stack.Screen
+                name="Logs"
+                component={LogsList}
+                options={({ navigation, route }) => ({
+                  title: <Text style={{ letterSpacing: 2 }}>Logs</Text>,
+                  headerStyle: {
+                    backgroundColor: '#3f51b5',
+                    // height: 90,
+                  },
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  // headerTitleStyle: {
+                  //   fontWeight: 'bold',
+                  // },
+                  // headerLeft:null,
+                  headerShown: true,
+                  headerRight: () => (
+                    <MenuHeader
+                      navigation={navigation}
+                    />
+                  ),
+                  // headerRight
+                  // headerTransparent:false
+                })}
+              />
+              <Stack.Screen
+                name="Ventas"
+                component={VentasList}
+                options={({ navigation, route }) => ({
+                  title: <Text style={{ letterSpacing: 2 }}>Ventas</Text>,
+                  headerStyle: {
+                    backgroundColor: '#3f51b5',
+                    // height: 90,
+                  },
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  // headerTitleStyle: {
+                  //   fontWeight: 'bold',
+                  // },
+                  // headerLeft:null,
+                  headerShown: true,
+                  headerRight: () => (
+                    <MenuHeader
+                      navigation={navigation}
+                    />
+                  ),
+                  // headerRight
+                  // headerTransparent:false
+                })}
+              />
+              <Stack.Screen
+                name="SubidaArchivos"
+                component={SubidaArchivos}
+                options={({ navigation, route }) => ({
+                  title: <Text style={{ letterSpacing: 2 }}>Upload</Text>,
+                  headerStyle: {
+                    backgroundColor: '#3f51b5',
+                    // height: 90,
+                  },
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  // headerTitleStyle: {
+                  //   fontWeight: 'bold',
+                  // },
+                  // headerLeft:null,
+                  headerShown: true,
+                  headerRight: () => (
+                    <MenuHeader
+                      navigation={navigation}
+                    />
+                  ),
+                  // headerRight
+                  // headerTransparent:false
+                })}
+              />
+              <Stack.Screen
+                name="ListaArchivos"
+                component={ListaArchivos}
+                options={({ navigation, route }) => ({
+                  title: <Text style={{ letterSpacing: 2 }}>Archivos</Text>,
+                  headerStyle: {
+                    backgroundColor: '#3f51b5',
+                    // height: 90,
+                  },
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  // headerTitleStyle: {
+                  //   fontWeight: 'bold',
+                  // },
+                  // headerLeft:null,
+                  headerShown: true,
+                  headerRight: () => (
+                    <MenuHeader
+                      navigation={navigation}
+                    />
+                  ),
+                  // headerRight
+                  // headerTransparent:false
+                })}
+              />
+              <Stack.Screen
+                name="ListaPropertys"
+                component={PropertyTable}
+                options={({ navigation, route }) => ({
+                  title: <Text style={{ letterSpacing: 2 }}>Propertys</Text>,
+                  headerStyle: {
+                    backgroundColor: '#3f51b5',
+                    // height: 90,
+                  },
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  // headerTitleStyle: {
+                  //   fontWeight: 'bold',
+                  // },
+                  // headerLeft:null,
+                  headerShown: true,
+                  headerRight: () => (
+                    <MenuHeader
+                      navigation={navigation}
+                    />
+                  ),
+                  // headerRight
+                  // headerTransparent:false
+                })}
+              />
+
+              <Stack.Screen
+                name="Video"
+                options={({ navigation, route }) => ({
+                  headerShown: false,
+                })}>
+                {props => {
+                  const { navigation, route } = props;
+                  const { id, subtitulo } = route.params;
+
+                  if (Platform.OS == 'ios') {
+                    return (
+                      <VideoPlayerIOS
+                        id={id}
+                        subtitulo={subtitulo}
+                        navigation={navigation}
+                        route={route}
+                      />
+                    );
+                  }
+                  return (
+                    <VideoPlayer
+                      id={id}
+                      subtitulo={subtitulo}
+                      navigation={navigation}
+                      route={route}
+                    />
+                  );
+
+                  // <Player id={id} subtitulo={subtitulo} navigation={navigation} urlPeliHTTPS={urlPeliHTTPS} />
+                  // <TasksProvider user={user} projectPartition={projectPartition}>
+                  //   <TasksView navigation={navigation} route={route} />
+                  // </TasksProvider>
+                }}
+              </Stack.Screen>
+              <Stack.Screen
+                name="Mensaje"
+                options={({ navigation, route }) => ({
+                  title: (
+                    <Text>
+                      {Meteor.users.findOne(route.params.item) &&
+                        Meteor.users.findOne(route.params.item).profile.firstName}
+                    </Text>
+                  ),
+                  headerStyle: {
+                    backgroundColor: '#3f51b5',
+                    // height: 90,
+                  },
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  // headerTitleStyle: {
+                  //   fontWeight: 'bold',
+                  // },
+                  headerShown: true,
+                  // headerRight
+                  // headerTransparent:false
+                })}>
+                {props => {
+                  const { navigation, route } = props;
+                  // console.log(item)
+                  const { item } = route.params;
+                  return (
+                    <MensajesHome user={item} navigation={navigation} route={route} />
+                    // <TasksProvider user={user} projectPartition={projectPartition}>
+                    //   <TasksView navigation={navigation} route={route} />
+                    // </TasksProvider>
+                  );
+                }}
+              </Stack.Screen>
+              <Stack.Screen
+                name="AllMensajesUser"
+                options={({ navigation, route }) => ({
+                  title: <Text>Mensajes</Text>,
+                  headerStyle: {
+                    backgroundColor: '#3f51b5',
+                    // height: 90,
+                  },
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  // headerTitleStyle: {
+                  //   fontWeight: 'bold',
+                  // },
+                  headerShown: true,
+                  // headerRight
+                  // headerTransparent:false
+                })}>
+                {props => {
+                  const { navigation, route } = props;
+                  // console.log(item)
+                  return (
+                    <ChatUsersHome navigation={navigation} />
+                    // <TasksProvider user={user} projectPartition={projectPartition}>
+                    //   <TasksView navigation={navigation} route={route} />
+                    // </TasksProvider>
+                  );
+                }}
+              </Stack.Screen>
+              <Stack.Screen
+                name="ProductosCubacelCards"
+                // component={Productos}
+                options={({ navigation, route }) => ({
+                  title: <Text>Recargas</Text>,
+                  headerStyle: {
+                    backgroundColor: '#3f51b5',
+                    // height: 90,
+                  },
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  // headerTitleStyle: {
+                  //   fontWeight: 'bold',
+                  // },
+                  // headerLeft:null,
+                  headerShown: false,
+                  headerRight: () => (
+                    <MenuHeader
+                      navigation={navigation}
+                    />
+                  ),
+                  // headerRight
+                  // headerTransparent:false
+                })}
+              >
+                {props => {
+                  const { navigation, route } = props;
+                  // console.log(item)
+                  return (
+                    <>
+                      <Surface>
+                        <Appbar.Header style={{ backgroundColor: '#3f51b5', height: 80, justifyContent: 'center', paddingTop: useSafeAreaInsets().top }}>
+
+                          <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
+                            <Appbar.BackAction
+                              color='red'
+                              onPress={() => {
+                                if (navigation.canGoBack()) {
+                                  navigation.goBack();
+                                }
+                              }}
+                            />
+                            <MenuHeader
+                              navigation={navigation}
+                            />
+                          </View>
+                        </Appbar.Header>
+                        <Productos />
+                      </Surface>
+
+                      <TableRecargas />
+
+                    </>
 
 
-                // <TasksProvider user={user} projectPartition={projectPartition}>
-                //   <TasksView navigation={navigation} route={route} />
-                // </TasksProvider>
-              );
-            }}
-          </Stack.Screen>
+                    // <TasksProvider user={user} projectPartition={projectPartition}>
+                    //   <TasksView navigation={navigation} route={route} />
+                    // </TasksProvider>
+                  );
+                }}
+              </Stack.Screen>
+              {/* nuevo: formulario de remesas */}
+              <Stack.Screen
+                name="remesas"
+                // component={FormularioRemesa} // usar el componente correcto
+                options={({ navigation, route }) => ({
+                  title: <Text style={{ letterSpacing: 2 }}>Remesas</Text>,
+                  headerStyle: { backgroundColor: '#3f51b5', height: 90 },
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  headerShown: true,
+                  headerRight: () => (
+                    <MenuHeader navigation={navigation} />
+                  ),
+                })}
+              >
+                {props => {
+                  const { navigation, route } = props;
+                  // console.log(item)
+                  return (
+                    <Surface style={{ height: "100%" }}>
+                      <ScrollView>
+                        {Meteor.user()?.permiteRemesas ? (
+                          <FormularioRemesa />
+                        ) : (
+                          <Text style={{ textAlign: 'center', margin: 20 }}>
+                            No tiene permiso para realizar remesas.
+                          </Text>
+                        )}
+                        <TableListRemesa />
+                      </ScrollView>
 
-          {/* nuevo: ventas stepper */}
-          <Stack.Screen
-            name="VentasStepper"
-            component={VentasStepper}
-            options={({ navigation, route }) => ({
-              title: <Text style={{ letterSpacing: 2 }}>Ventas (Stepper)</Text>,
-              headerStyle: { backgroundColor: '#3f51b5', height: 90 },
-              headerTitleAlign: 'left',
-              headerTintColor: '#fff',
-              headerShown: true,
-              headerRight: () => (
-                <MenuHeader navigation={navigation} />
-              ),
-            })}
-          />
+                    </Surface>
 
-          <Stack.Screen
-            name="ProxyPackages"
-            component={ProxyPackageCard}
-            options={{
-              title: 'Paquetes Proxy',
-              headerStyle: { backgroundColor: '#2196F3' },
-              headerTintColor: '#fff',
-              headerTitleStyle: { fontWeight: 'bold' }
-            }}
-          />
 
-          <Stack.Screen
-            name="VPNPackages"
-            component={VPNPackageCard}
-            options={{
-              title: 'Paquetes VPN',
-              headerStyle: { backgroundColor: '#4CAF50' },
-              headerTintColor: '#fff',
-              headerTitleStyle: { fontWeight: 'bold' }
-            }}
-          />
+                    // <TasksProvider user={user} projectPartition={projectPartition}>
+                    //   <TasksView navigation={navigation} route={route} />
+                    // </TasksProvider>
+                  );
+                }}
+              </Stack.Screen>
 
-          <Stack.Screen
-            name="ProxyPurchase"
-            component={ProxyPurchaseScreen}
-            options={{
-              title: 'Comprar Paquete Proxy',
-              headerStyle: {
-                backgroundColor: '#2196F3',
-              },
-              headerTintColor: '#fff',
-              headerTitleStyle: {
-                fontWeight: 'bold',
-              },
-            }}
-          />
+              {/* nuevo: ventas stepper */}
+              <Stack.Screen
+                name="VentasStepper"
+                component={VentasStepper}
+                options={({ navigation, route }) => ({
+                  title: <Text style={{ letterSpacing: 2 }}>Ventas (Stepper)</Text>,
+                  headerStyle: { backgroundColor: '#3f51b5', height: 90 },
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  headerShown: true,
+                  headerRight: () => (
+                    <MenuHeader navigation={navigation} />
+                  ),
+                })}
+              />
 
-          <Stack.Screen
-            name="VPNPurchase"
-            component={VPNPurchaseScreen}
-            options={{
-              title: 'Comprar Paquete VPN',
-              headerStyle: {
-                backgroundColor: '#4CAF50',
-              },
-              headerTintColor: '#fff',
-              headerTitleStyle: {
-                fontWeight: 'bold',
-              },
-            }}
-          />
-          <Stack.Screen
-            name="ProxyVPNHistory"
-            component={TableProxyVPNHistory}
-            options={{
-              title: 'Historial Proxy/VPN',
-              headerStyle: {
-                backgroundColor: '#673AB7', // Púrpura para indicar mixto
-                height: 90
-              },
-              headerTintColor: '#fff',
-              headerTitleStyle: { fontWeight: 'bold' }
-            }}
-          />
+              <Stack.Screen
+                name="ProxyPackages"
+                component={ProxyPackageCard}
+                options={{
+                  title: 'Paquetes Proxy',
+                  headerStyle: { backgroundColor: '#2196F3' },
+                  headerTintColor: '#fff',
+                  headerTitleStyle: { fontWeight: 'bold' }
+                }}
+              />
 
-          <Stack.Screen
-            name="PedidosComercio"
-            component={HomePedidosComercio}
-            options={{
-              title: 'Mis Pedidos',
-              headerStyle: {
-                backgroundColor: '#FF6F00', // Naranja Material
-                // height: 90,
-              },
-              headerTintColor: '#fff',
-              headerTitleStyle: { fontWeight: 'bold' },
-            }}
-          />
+              <Stack.Screen
+                name="VPNPackages"
+                component={VPNPackageCard}
+                options={{
+                  title: 'Paquetes VPN',
+                  headerStyle: { backgroundColor: '#4CAF50' },
+                  headerTintColor: '#fff',
+                  headerTitleStyle: { fontWeight: 'bold' }
+                }}
+              />
 
-          {/* <Stack.Screen name="Video" component={VideoPlayer} /> */}
-          {/* <Stack.Screen name="Task List">
+              <Stack.Screen
+                name="ProxyPurchase"
+                component={ProxyPurchaseScreen}
+                options={{
+                  title: 'Comprar Paquete Proxy',
+                  headerStyle: {
+                    backgroundColor: '#2196F3',
+                  },
+                  headerTintColor: '#fff',
+                  headerTitleStyle: {
+                    fontWeight: 'bold',
+                  },
+                }}
+              />
+
+              <Stack.Screen
+                name="VPNPurchase"
+                component={VPNPurchaseScreen}
+                options={{
+                  title: 'Comprar Paquete VPN',
+                  headerStyle: {
+                    backgroundColor: '#4CAF50',
+                  },
+                  headerTintColor: '#fff',
+                  headerTitleStyle: {
+                    fontWeight: 'bold',
+                  },
+                }}
+              />
+              <Stack.Screen
+                name="ProxyVPNHistory"
+                component={TableProxyVPNHistory}
+                options={{
+                  title: 'Historial Proxy/VPN',
+                  headerStyle: {
+                    backgroundColor: '#673AB7', // Púrpura para indicar mixto
+                    height: 90
+                  },
+                  headerTintColor: '#fff',
+                  headerTitleStyle: { fontWeight: 'bold' }
+                }}
+              />
+
+              <Stack.Screen
+                name="PedidosComercio"
+                component={HomePedidosComercio}
+                options={{
+                  title: 'Mis Pedidos',
+                  headerStyle: {
+                    backgroundColor: '#FF6F00', // Naranja Material
+                    // height: 90,
+                  },
+                  headerTintColor: '#fff',
+                  headerTitleStyle: { fontWeight: 'bold' },
+                }}
+              />
+
+              {/* <Stack.Screen name="Video" component={VideoPlayer} /> */}
+              {/* <Stack.Screen name="Task List">
                 {props => {
                   const {navigation, route} = props;
                   const {user, projerctPartition} = route.params;
@@ -1150,13 +1180,13 @@ const App = () => {
                   );
                 }}
               </Stack.Screen> */}
-        </Stack.Navigator>
-      </NavigationContainer>
+            </Stack.Navigator>
+          </NavigationContainer>
 
-      {/* <PelisHome /> */}
-      {/* </ScrollView> */}
-    </>
-    </Portal.Host>
+          {/* <PelisHome /> */}
+          {/* </ScrollView> */}
+        </>
+      </Portal.Host>
     </PaperProvider>
   );
 };

@@ -487,7 +487,7 @@ const WizardConStepper = ({ product, navigation }) => {
                     />
                     <View style={{ flex: 1 }}>
                         <View style={styles.dialogTitleContainer}>
-                            <Text style={styles.dialogTitleText}>Recarga Wizard</Text>
+                            <Text style={styles.dialogTitleText}>Carrito de compras:</Text>
                             <IconButton icon="close" onPress={() => setVisible(false)} />
                         </View>
                         <ProgressSteps activeStep={activeStep}

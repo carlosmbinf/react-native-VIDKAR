@@ -61,6 +61,8 @@ import {
 
 import { Online } from '../collections/collections'
 import DrawerOptionsAlls from '../drawer/DrawerOptionsAlls';
+import { useSafeAreaInsets, withSafeAreaInsets } from 'react-native-safe-area-context';
+import MenuHeader from '../Header/MenuHeader';
 
 // import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 // const Tab = createMaterialBottomTabNavigator();
@@ -101,13 +103,13 @@ class MyApp extends React.Component {
     !Meteor.userId() && navigation.navigation.navigate("Loguin")
   }
   render() {
-    const { loading, navigation, myTodoTasks,isConnectedProxyOrWeb } = this.props;
+    const { loading, navigation, myTodoTasks,isConnectedProxyOrWeb, insets } = this.props;
     // let isDarkMode = {
     //   return (useColorScheme() === 'dark');
     // };
     const backgroundStyle = {
       // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
-      minHeight: (ScreenHeight - 80),
+      minHeight: (ScreenHeight),
     };
 
     // const onRefresh = () => {
@@ -462,7 +464,6 @@ class MyApp extends React.Component {
       drawer: { shadowColor: 'black', shadowOpacity: 0, shadowRadius: 3 },
       main: { paddingLeft: 0 },
     }
-
     return (
       <>
         {/* // <Surface style={{flex: 1}}> */}
@@ -475,7 +476,7 @@ class MyApp extends React.Component {
               onRefresh={onRefresh}
             />
           }> */}
-
+        
         {loading ? (
           <>
             <Surface style={backgroundStyle}>
@@ -483,7 +484,7 @@ class MyApp extends React.Component {
                 style={{
                   flex: 1,
                   flexDirection: 'column',
-                  height: ScreenHeight,
+                  height: '100%',
                   // backgroundColor: '#2a323d',
                   justifyContent: 'center',
                 }}>
@@ -513,17 +514,32 @@ class MyApp extends React.Component {
                   main: { opacity: ((2 - ratio) / 2) }
                 })}
               >
-                <Appbar style={{
-                  backgroundColor: '#3f51b5'
-                }} >
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
-                    <Appbar.Action icon="menu" color={"white"} onPress={() => this.setState({ drawer: !this.state.drawer })} />
-                    <View style={{ flexDirection: "row" }}>
-                      {/* <Appbar.Action icon="account-plus" color={"white"} onPress={() => navigation.navigation.navigate('CreateUsers')} /> */}
-                      <Appbar.Action icon="magnify" color={"white"} disabled={this.state.activeBanner} onPress={() => this.setState({ activeBanner: true })} />
+
+                  <Appbar style={{ backgroundColor: '#3f51b5', height: 80, justifyContent: 'center', paddingTop: insets.top  }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
+
+                      <View style={{ flexDirection: "row" }}>
+                        <Appbar.BackAction
+                          color='red'
+                          onPress={() => {
+                            if (navigation.navigation.canGoBack()) {
+                              navigation.navigation.goBack();
+                            }
+                          }}
+                        />
+                        {/* <Appbar.Action icon="account-plus" color={"white"} onPress={() => navigation.navigation.navigate('CreateUsers')} /> */}
+                        <Appbar.Action icon="menu" color={"white"} onPress={() => this.setState({ drawer: !this.state.drawer })} />
+
+                      </View>
+                      <View style={{ flexDirection: "row" }}>
+                        <Appbar.Action icon="magnify" color={"white"} disabled={this.state.activeBanner} onPress={() => this.setState({ activeBanner: true })} />
+
+                        <MenuHeader
+                          navigation={navigation}
+                        />
+                      </View>
                     </View>
-                  </View>
-                </Appbar>
+                  </Appbar>
                 <Surface>
                   {renderFilter()}
                 </Surface>
@@ -565,7 +581,7 @@ const UserHome = withTracker(navigation => {
     loading: !handle.ready() && !handleOnline.ready(),
     isConnectedProxyOrWeb
   };
-})(MyApp);
+})(withSafeAreaInsets(MyApp));
 
 var ScreenHeight = Dimensions.get('window').height;
 const styles = StyleSheet.create({

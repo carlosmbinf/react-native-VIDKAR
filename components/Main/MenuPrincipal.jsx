@@ -23,6 +23,8 @@ import Productos from '../cubacel/Productos';
 import MainPelis from '../pelis/MainPelis';
 import ProxyVPNPackagesHorizontal from '../proxyVPN/ProxyVPNPackagesHorizontal';
 import { BlurView } from '@react-native-community/blur';
+import MenuHeader from '../Header/MenuHeader';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const axios = require('axios').default;
 
@@ -31,7 +33,7 @@ const { height: screenHeight } = Dimensions.get('window');
 
 const MenuPrincipal = ({ navigation }) => {
   const moment = require('moment');
-
+  const insets = useSafeAreaInsets();
   const [drawer, setDrawer] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -47,7 +49,7 @@ const MenuPrincipal = ({ navigation }) => {
 
   const drawerStyles = {
     drawer: { shadowColor: 'black', shadowOpacity: 0, shadowRadius: 3},
-    main: { paddingLeft: 0 },
+    main: { paddingLeft: 0},
   };
 
   return (
@@ -68,15 +70,18 @@ const MenuPrincipal = ({ navigation }) => {
         })}
       >
        <BlurView
-                  style={StyleSheet.absoluteFill}
+                  style={{ position: 'absolute', width: screenWidth, height: screenHeight }}
                   blurType={isDarkMode ? 'black' : 'light'}
                   blurAmount={5}
                   blurRadius={5}
                 />
-        <Appbar style={{ backgroundColor: '#3f51b5' }}>
+        <Appbar style={{ backgroundColor: '#3f51b5', height:80, justifyContent:'center', paddingTop: insets.top }}>
        
           <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
             <Appbar.Action icon="menu" color={"white"} onPress={() => setDrawer(!drawer)} />
+            <MenuHeader
+                  navigation={navigation}
+                />
           </View>
         </Appbar>
         <Surface style={{ height: "100%" ,paddingBottom:50}}>

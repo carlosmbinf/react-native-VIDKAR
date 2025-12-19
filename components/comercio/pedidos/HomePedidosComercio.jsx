@@ -99,11 +99,13 @@ const HomePedidosComercio = ({ navigation }) => {
   }
 
   return (
+    <Surface style={styles.container}>
     <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }>
+      
+      // refreshControl={
+      //   <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      // }
+      >
       <Text variant="titleLarge" style={styles.header}>
         Mis Pedidos Activos ({pedidosConVentas.length})
       </Text>
@@ -116,6 +118,7 @@ const HomePedidosComercio = ({ navigation }) => {
         />
       ))}
     </ScrollView>
+    </Surface>
   );
 };
 
@@ -123,7 +126,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#f5f5f5',
+    // backgroundColor: '#f5f5f5',
   },
   loadingContainer: {
     flex: 1,
