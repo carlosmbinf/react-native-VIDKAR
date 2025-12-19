@@ -46,7 +46,7 @@ const MenuPrincipal = ({ navigation }) => {
   });
 
   const drawerStyles = {
-    drawer: { shadowColor: 'black', shadowOpacity: 0, shadowRadius: 3, backgroundColor: "red" },
+    drawer: { shadowColor: 'black', shadowOpacity: 0, shadowRadius: 3},
     main: { paddingLeft: 0 },
   };
 

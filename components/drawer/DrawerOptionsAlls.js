@@ -1,6 +1,6 @@
 import Meteor, {useTracker} from '@meteorrn/core';
 import * as React from 'react';
-import { ScrollView, Dimensions } from 'react-native';
+import { ScrollView, Dimensions, Alert } from 'react-native';
 import { Card, Drawer, Surface } from 'react-native-paper';
 
 import img from "./SGN_04_02_2021_1617417653789.png";
@@ -53,11 +53,11 @@ const DrawerOptionsAlls = (opt) => {
       icon: "history"
     });
 
-    opciones.push({
-      label: "Pedidos Comercio",
-      url: "PedidosComercio",
-      icon: "history"
-    });
+    // opciones.push({
+    //   label: "Pedidos Comercio",
+    //   url: "PedidosComercio",
+    //   icon: "history"
+    // });
     
     // Remesas - solo si tiene permiteRemesas
     if (user?.permiteRemesas == true) {
@@ -127,6 +127,44 @@ const DrawerOptionsAlls = (opt) => {
     }
   ];
 
+  // Función para alternar modo cadete con confirmación
+  const toggleModoCadete = () => {
+    const nuevoEstado = !user?.modoCadete;
+    const mensaje = nuevoEstado 
+      ? '¿Deseas activar el modo cadete? Comenzarás a recibir pedidos de delivery.'
+      : '¿Estás seguro que deseas salir del modo cadete? Dejarás de recibir pedidos.';
+    
+    Alert.alert(
+      nuevoEstado ? 'Activar Modo Cadete' : 'Salir del Modo Cadete',
+      mensaje,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Confirmar',
+          style: nuevoEstado ? 'default' : 'destructive',
+          onPress: () => {
+            Meteor.call('users.toggleModoCadete', nuevoEstado, (error) => {
+              if (error) {
+                console.error('Error al cambiar modo cadete:', error);
+                Alert.alert('Error', error.reason || 'No se pudo cambiar el modo cadete');
+              } else {
+                Alert.alert(
+                  'Éxito',
+                  nuevoEstado 
+                    ? 'Modo cadete activado. Ahora puedes recibir pedidos.'
+                    : 'Has salido del modo cadete.'
+                );
+              }
+            });
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <>
       <Surface>
@@ -183,6 +221,26 @@ const DrawerOptionsAlls = (opt) => {
                   />
                 );
               })}
+              
+              {/* Control de Modo Cadete - Solo para Admin General */}
+              <Drawer.Item
+                icon={user?.modoCadete ? "exit-to-app" : "bike"}
+                label={user?.modoCadete ? "Salir del Modo Cadete" : "Activar Modo Cadete"}
+                active={false}
+                style={{
+                  backgroundColor: user?.modoCadete ? '#FFEBEE' : '#E8F5E9',
+                  marginHorizontal: 8,
+                  marginVertical: 4,
+                  borderRadius: 8,
+                  borderLeftWidth: 4,
+                  borderLeftColor: user?.modoCadete ? '#FF5252' : '#4CAF50',
+                }}
+                labelStyle={{
+                  color: user?.modoCadete ? '#FF5252' : '#4CAF50',
+                  fontWeight: '600',
+                }}
+                onPress={toggleModoCadete}
+              />
             </Drawer.Section>
           )}
         </Surface>

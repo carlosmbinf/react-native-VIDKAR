@@ -214,7 +214,6 @@ const AndroidForegroundService = async () => {
     console.log('⚠️ Servicio solo disponible en Android');
     return;
   }
-
   console.log("📡 [Servicio Cadete] iniciando susbscipcion:");
   // Verificación inicial
   await monitorModoCadete();
@@ -223,7 +222,7 @@ const AndroidForegroundService = async () => {
   if (monitorInterval) clearInterval(monitorInterval);
   monitorInterval = setInterval(() => {
     monitorModoCadete();
-  }, 20000);
+  }, 30000);
 
   // Manejar cambios de estado de la app
   const handleAppStateChange = (nextAppState) => {

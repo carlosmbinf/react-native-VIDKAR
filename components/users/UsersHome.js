@@ -459,7 +459,7 @@ class MyApp extends React.Component {
     }).map(element => Item(element))
 
     const drawerStyles = {
-      drawer: { shadowColor: 'black', shadowOpacity: 0, shadowRadius: 3, backgroundColor: "black" },
+      drawer: { shadowColor: 'black', shadowOpacity: 0, shadowRadius: 3 },
       main: { paddingLeft: 0 },
     }
 

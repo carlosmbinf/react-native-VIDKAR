@@ -121,7 +121,7 @@ class MyApp extends React.Component {
         }}>
         {users.length > 0 &&
         <Menu
-          style={{ top: 40, width: 270, height: 400, paddingRight: 30}}
+          style={{ top: 80, width: 270, height: 400, paddingRight: 30}}
           visible={this.state.menuVisible}
           onDismiss={() => this.setState({ menuVisible: false })}
           anchor={

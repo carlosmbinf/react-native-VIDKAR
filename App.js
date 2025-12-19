@@ -14,6 +14,7 @@ import {
   Provider as PaperProvider,
   Portal,
   Surface,
+  ActivityIndicator,
 } from 'react-native-paper';
 
 import {
@@ -324,7 +325,20 @@ const App = () => {
           contentInsetAdjustmentBehavior="automatic"
           style={backgroundStyle}> */}
 
-      <NavigationContainer linking={linking} fallback={<Text>Cargando...</Text>}>
+      <NavigationContainer 
+        linking={linking} 
+        fallback={
+          <Surface style={styles.loadingContainer}>
+            <ActivityIndicator 
+              animating={true} 
+              size="large" 
+              color="#3f51b5" 
+            />
+            <Text style={styles.loadingText}>Cargando...</Text>
+          </Surface>
+        }
+        
+      >
         <Stack.Navigator
           initialRouteName={
             "Main"
@@ -1189,6 +1203,18 @@ const styles = StyleSheet.create({
   },
   highlight: {
     fontWeight: '700',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#3f51b5',
+    fontWeight: '500',
   },
 });
 

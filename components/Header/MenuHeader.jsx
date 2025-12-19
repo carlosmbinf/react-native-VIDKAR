@@ -26,7 +26,7 @@ const MenuHeader = ({ navigation }) => {
             onPress={() => setVisibleMenu(true)}
           />
         }
-        style={{ top: 40, width: 210, paddingRight: 30, zIndex:999 }}
+        style={{ top: 80, width: 210, paddingRight: 30, zIndex:999 }}
       >
           <Menu.Item
             icon="account"

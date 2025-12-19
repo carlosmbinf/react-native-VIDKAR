@@ -12,6 +12,8 @@ import {StatusBar, StyleSheet} from 'react-native';
 import {Text,Provider as PaperProvider,} from 'react-native-paper';
 import App from './App';
 import Loguin from './components/loguin/Loguin';
+import HomePedidosComercio from './components/comercio/pedidos/HomePedidosComercio';
+import CadeteNavigator from './components/cadete/CadeteNavigator';
 
 console.log('Main.js');
 class MyApp extends React.Component {
@@ -27,45 +29,52 @@ class MyApp extends React.Component {
   }
 
   componentDidMount() {
-    if (Meteor.userId()) {
-      Meteor.subscribe('userId', Meteor.userId());
-    }
+    // if (Meteor.userId()) {
+    //   Meteor.subscribe('userId', Meteor.userId());
+    // }
   }
 
   render() {
     const {user,ready} = this.props;
-    //  console.log("DATA:" + JSON.stringify(myTodoTasks));
+     console.log("DATA:" + ready);
+     console.log("DATA:" + JSON.stringify(Meteor.status()));
 
 
     return (
       <PaperProvider>
-        { ready && user ? (
-          <>
-           <StatusBar
-              translucent={true}
-              backgroundColor={'transparent'}
-              barStyle={true ? 'light-content' : 'dark-content'}
-            />
-            <App />
-            </>
-        ) : (
-          <>
-            <StatusBar
-              translucent={true}
-              backgroundColor={'transparent'}
-              barStyle={true ? 'light-content' : 'dark-content'}
-            />
-            <Loguin />
-          </>
-        )}
+      {ready && user?.modoCadete ? (
+        // Modo Cadete activo: mostrar pantalla dedicada
+        <CadeteNavigator />
+      ) : Meteor.userId() ? (
+        // Usuario autenticado: ir a App principal
+        <>
+        <StatusBar
+          translucent={true}
+          backgroundColor={'transparent'}
+          barStyle={'light-content'}
+        />
+        <App />
+        </>
+      ) : (
+        // Sin autenticación: mostrar Login
+        <>
+        <StatusBar
+          translucent={true}
+          backgroundColor={'transparent'}
+          barStyle={'light-content'}
+        />
+        <Loguin />
+        </>
+      )}
       </PaperProvider>
     );
   }
 }
 const ServerList = withTracker(navigation => {
   //  console.log(user.user)
-  user = Meteor.user();
-  const ready = Meteor.userId() && Meteor.subscribe('user', Meteor.userId()).ready();
+  
+  const ready = (Meteor.userId() && Meteor.subscribe('user', {_id:Meteor.userId()}).ready()) || false;
+  let user = Meteor.user();
   //  console.log(myTodoTasks);
   return {
     user,
