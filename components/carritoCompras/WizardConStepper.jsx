@@ -7,6 +7,7 @@ import ListaPedidos from './ListaPedidosRemesa';
 import { BlurView } from '@react-native-community/blur';
 import { Dropdown } from 'react-native-element-dropdown';
 import { CarritoCollection, OrdenesCollection } from '../collections/collections';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const WizardConStepper = ({ product, navigation }) => {
     const [activeStep, setActiveStep] = useState(0);
@@ -485,7 +486,7 @@ const WizardConStepper = ({ product, navigation }) => {
                         style={StyleSheet.absoluteFill}
                         blurType= {isDarkMode ?"dark":"light"}
                     />
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1 , paddingTop: 30}}>
                         <View style={styles.dialogTitleContainer}>
                             <Text style={styles.dialogTitleText}>Carrito de compras:</Text>
                             <IconButton icon="close" onPress={() => setVisible(false)} />
