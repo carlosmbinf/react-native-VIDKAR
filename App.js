@@ -467,110 +467,33 @@ const App = () => {
                 name="Users"
                 component={UserHome}
                 options={({ navigation, route }) => ({
-                  title: (
-                    <Text style={{ letterSpacing: 5 }}>
-                      <FontAwesome
-                        // onPress={() => logOut(navigation)}
-                        name="hand-o-right"
-                        color={'white'}
-                        size={20}
-                        // borderRadius={20}
-                        solid
-                      />
-                      VidKar {route?.params?.id}
-                      <FontAwesome
-                        // onPress={() => logOut(navigation)}
-                        name="hand-o-left"
-                        color={'white'}
-                        size={20}
-                        // borderRadius={20}
-                        solid
-                      />
-                    </Text>
-                  ),
-                  headerStyle: {
-                    backgroundColor: '#3f51b5',
-                    // height: 90,
-                  },
-                  headerTitleAlign: 'left',
-                  headerTintColor: '#fff',
-                  // headerTitleStyle: {
-                  //   fontWeight: 'bold',
-                  // },
-                  headerLeft: null,
                   headerShown: false,
-                  headerRight: () => (
-                    <MenuHeader
-                      navigation={navigation}
-                    />
-                  ),
-                  // headerRight
-                  // headerTransparent:false
                 })}
               />
               <Stack.Screen
                 name="PeliculasVideos"
                 // component={MyTabs}
                 options={({ navigation, route }) => ({
-                  title: <Text style={{ letterSpacing: 4 }}>Peliculas y Series</Text>,
-                  headerStyle: {
-                    backgroundColor: '#3f51b5',
-                    // height: 90,
-                  },
-                  headerTitleAlign: 'left',
-                  headerTintColor: '#fff',
-                  // headerTitleStyle: {
-                  //   fontWeight: 'bold',
-                  // },
-                  // headerLeft:null,
                   headerShown: false,
-                  headerRight: () => (
-                    <MenuHeader
-                      navigation={navigation}
-                    />
-                  )
-                  // headerRight
-                  // headerTransparent:false
+                  headerTransparent: true,
                 })}
               >
                 {props => {
                   const { navigation, route } = props;
-                  return (
+                    return (
                     Meteor.user() && Meteor.user().subscipcionPelis ? (
-                      <View>
-                        <Appbar.Header style={{ backgroundColor: '#3f51b5', height: 80, justifyContent: 'center', paddingTop: useSafeAreaInsets().top }}>
-
-                          <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
-                            <Appbar.BackAction
-                              color='red'
-                              onPress={() => {
-                                if (navigation.canGoBack()) {
-                                  navigation.goBack();
-                                }
-                              }}
-                            />
-                            <MenuHeader
-                              navigation={navigation}
-                            />
-                          </View>
-                        </Appbar.Header>
-                        <MyTabs navigation={navigation} route={route} />
-                      </View>
+                      <>
+                      <MyTabs navigation={navigation} route={route} />
+                      </>
                     ) :
                       (
-                        <Surface style={{ flex: 1, justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                          <View style={{ flex: 1, }}
-                          >
-                            <Text style={{ fontSize: 20, textAlign: 'center', marginTop: 20 }} >No tiene una Subscripcion Activa</Text>
-                          </View>
-                        </Surface>
+                      <Surface style={{ flex: 1, justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 20, textAlign: 'center', marginTop: 20 }}>No tiene una Subscripcion Activa</Text>
+                        </View>
+                      </Surface>
                       )
-
-                    // <Player id={id} subtitulo={subtitulo} navigation={navigation} urlPeliHTTPS={urlPeliHTTPS} />
-                    // <TasksProvider user={user} projectPartition={projectPartition}>
-                    //   <TasksView navigation={navigation} route={route} />
-                    // </TasksProvider>
-                  );
+                    );
                 }}
               </Stack.Screen>
               <Stack.Screen
