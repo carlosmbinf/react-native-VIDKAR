@@ -6,71 +6,42 @@
  * @flow strict-local
  */
 
-import React, { useRef, useEffect, useState } from 'react';
-// import type {Node} from 'react';
+import React, { useState } from 'react';
 import {
   Avatar,
   List,
   Provider as PaperProvider,
   Text,
-  Switch,
-  Title,
   Surface,
   Badge,
   Appbar,
   Banner,
-  Divider,
-  Button,
-  IconButton
+  IconButton,
+  ActivityIndicator
 } from 'react-native-paper';
-// import * as axios from 'axios';
-import Meteor, { Mongo, withTracker } from '@meteorrn/core';
-// import Header from 'react-native-custom-header';
+import Meteor, { withTracker } from '@meteorrn/core';
 
 import Drawer from 'react-native-drawer'
 
 import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
   StyleSheet,
   useColorScheme,
   View,
-  ImageBackground,
-  ActivityIndicator,
-  FlatList,
-  VirtualizedList,
   Dimensions,
   Platform,
-
-  RefreshControl,
-  SectionList,
-  TouchableHighlight,
   Alert,
   TextInput,
+  StatusBar,
 } from 'react-native';
-
-import {
-  Colors,
-  DebugInstructions,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-// import PelisCard from './PelisCard';
-// import Loguin from '../loguin/Loguin';
 
 import { Online } from '../collections/collections'
 import DrawerOptionsAlls from '../drawer/DrawerOptionsAlls';
 import { useSafeAreaInsets, withSafeAreaInsets } from 'react-native-safe-area-context';
 import MenuHeader from '../Header/MenuHeader';
-
-// import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
-// const Tab = createMaterialBottomTabNavigator();
+import { ScrollView } from 'react-native-gesture-handler';
 
 const { width: screenWidth } = Dimensions.get('window');
 const { height: screenHeight } = Dimensions.get('window');
-
-// Meteor.connect('ws://152.206.119.5:3000/websocket'); // Note the /websocket after your URL
 
 class MyApp extends React.Component {
   componentDidMount() {
@@ -79,15 +50,11 @@ class MyApp extends React.Component {
   componentWillUnmount() {
   }
   constructor(props) {
-    // const handle = Meteor.subscribe('pelis');
-    // const myTodoTasks = Online.find({}).fetch();
-    // console.log(props.myTodoTasks);
     super(props);
     this.state = {
       count: 0,
       isDarkMode: useColorScheme == 'dark',
       data: this.props.myTodoTasks,
-      // loading: props.loading,
       carouselRef: null,
       refreshing: false,
       userName: "",
@@ -95,50 +62,16 @@ class MyApp extends React.Component {
       activeBanner: false,
       drawer: false
     };
-    // console.log(this.props.myTodoTasks);
-    // const isDarkMode = useColorScheme() === 'dark';
-    // const [data, setData] = ;
-    // const [textSearch, setTextSearch] = useState("");
-    // const carouselRef = useRef(null);
     !Meteor.userId() && navigation.navigation.navigate("Loguin")
   }
   render() {
     const { loading, navigation, myTodoTasks,isConnectedProxyOrWeb, insets } = this.props;
-    // let isDarkMode = {
-    //   return (useColorScheme() === 'dark');
-    // };
     const backgroundStyle = {
-      // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
       minHeight: (ScreenHeight),
     };
-
-    // const onRefresh = () => {
-    //   this.setState({
-    //     // refreshing: false,
-    //     data: myTodoTasks,
-    //   });
-    // console.log(this.props.myTodoTasks);
-
-    // this.state.navigation.navigate('Home')
-    // this.setState({
-    //   data:
-    // })
-    // };
-    function searchUser(user) {
-      return user.profile.firstName == textSearch;
-      // this.state.textSearch || user.profile.lastName == this.state.textSearch || user.username == this.state.textSearch;
-    }
-
     function filterUsers(user) {
-      // console.log(this.state.userName);
       return user.username == this.state.userName
-      // return user?(user.username.include(this.state.userName) ):true ;
     }
-    // const backgroundStyle = {
-    //   // backgroundColor: this.state.isDarkMode ? Colors.darker : Colors.lighter,
-    //   height: screenHeight,
-    //   // backgroundColor:'red'
-    // };
 
     const renderFilter = () => (
       <Banner
@@ -156,50 +89,10 @@ class MyApp extends React.Component {
           style={{
             flexDirection: 'column',
             backgroundColor: '',
-            // padding: 10,
             alignItems: 'center',
             justifyContent: 'center',
             width: screenWidth - 40,
           }}>
-          {/* <TextInput
-          value={this.state.firstName}
-          autoCapitalize="none"
-          autoCorrect={false}
-          onChangeText={textSearch => {
-            this.setState({
-              userName: '',
-              firstName: textSearch,
-              // data: myTodoTasks
-                // .find(
-                //   textSearch
-                //     ? {
-                //         'profile.firstName': {
-                //           $regex: this.state.firstName,
-                //           $options: 'g',
-                //         },
-                //       }
-                //     : {},
-                //   textSearch
-                //     ? {sort: {'profile.firstName': 1, 'profile.lastName': 1}}
-                //     : {sort: {megasGastadosinBytes: -1}},
-                // )
-                // .fetch()
-            });
-          }}
-          status="info"
-          placeholder="Buscar por Nombre"
-          style={{
-            borderRadius: 30,
-            borderColor: 'black',
-            borderWidth: 1,
-            backgroundColor: '',
-            // width:'100%',
-            padding: 10,
-            marginRight: 10,
-            height: 35,
-          }}
-          textStyle={{color: '#000'}}
-        /> */}
 
           <TextInput
             autoFocus={true}
@@ -211,21 +104,6 @@ class MyApp extends React.Component {
               this.setState({
                 userName: textSearch,
                 firstName: '',
-                // data: myTodoTasks
-                // .find(
-                //   textSearch
-                //     ? {
-                //         username: {
-                //           $regex: this.state.userName,
-                //           $options: 'g',
-                //         },
-                //       }
-                //     : {},
-                //   textSearch
-                //     ? {sort: {'profile.firstName': 1, 'profile.lastName': 1}}
-                //     : {sort: {megasGastadosinBytes: -1}},
-                // )
-                // .fetch()
               });
             }}
             status="info"
@@ -247,10 +125,6 @@ class MyApp extends React.Component {
     );
 
     const Item = item => {
-      // Meteor.subscribe('conexiones', { userId: item._id }, { fields: { userId: 1 } });
-      // let connected = Online.find({ userId: item._id },{ fields: { userId: 1 }, limit: 1 }).count() > 0 ? true : false;
-
-      //concatenar username con vpn megas gastados y megas consumidos
       let descripcion = <View>
       <Text style={{fontWeight:'bold'}}>{item.username}</Text>
       <Text>VPN:     {item.vpnMbGastados ? (item.vpnMbGastados / 1024000000).toFixed(2) : 0}GB = {item.vpnMbGastados ? (item.vpnMbGastados / 1024000).toFixed(2) : 0} MB</Text>
@@ -264,22 +138,9 @@ class MyApp extends React.Component {
             borderless={false}
             key={'Item_' + item._id}
             onPress={() => {
-              // Alert.alert('Holaaa', item);
-              // console.log(navigation);
               navigation.navigation.navigate('User', {item: item._id});
             }}
-            // onLongPress={() => {
-            //   Alert.alert('Holaaa', descripcion);
-            //   // console.log(navigation);
-            //   // navigation.navigation.navigate('User', { item: item._id });
-            // }}
             title={item && item.profile.firstName + ' ' + item.profile.lastName}
-            //  titleStyle={{fontSize: 20}}
-            onMagicTap={() => {
-              Alert.alert('Holaaa', item.username);
-              // console.log(navigation);
-              // navigation.navigation.navigate('User', { item: item._id });
-            }}
             description={descripcion}
             left={props =>
               item && item.picture ? (
@@ -419,18 +280,6 @@ class MyApp extends React.Component {
     };
 
 
-    //     <TouchableHighlight
-    //       onPress={() => {
-    //         // Alert.alert('Holaaa', item.username);
-    //         navigation.navigationGeneral.navigate('User',{item});
-    //       }}>
-    //       <View style={styles.item2}>
-    //         <Text style={styles.title}>Nombre: {item.profile.firstName}</Text>
-    //         <Text style={styles.title}>Apellidos: {item.profile.lastName}</Text>
-    //         <Text style={styles.title}>Nombre de Usuario: {item.username}</Text>
-    //       </View>
-    //     </TouchableHighlight>
-
     const admins = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => {
       if (!user || !user.profile || user.profile.role !== "admin") return false;
       
@@ -466,17 +315,6 @@ class MyApp extends React.Component {
     }
     return (
       <>
-        {/* // <Surface style={{flex: 1}}> */}
-        {/* <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          style={backgroundStyle}
-          refreshControl={
-            <RefreshControl
-              refreshing={this.state.refreshing}
-              onRefresh={onRefresh}
-            />
-          }> */}
-        
         {loading ? (
           <>
             <Surface style={backgroundStyle}>
@@ -515,7 +353,7 @@ class MyApp extends React.Component {
                 })}
               >
 
-                  <Appbar style={{ backgroundColor: '#3f51b5', height: 80, justifyContent: 'center', paddingTop: insets.top  }}>
+                  <Appbar style={{ backgroundColor: '#3f51b5', height: insets.top + 50, justifyContent: 'center', paddingTop: insets.top  }}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
 
                       <View style={{ flexDirection: "row" }}>
@@ -527,7 +365,6 @@ class MyApp extends React.Component {
                             }
                           }}
                         />
-                        {/* <Appbar.Action icon="account-plus" color={"white"} onPress={() => navigation.navigation.navigate('CreateUsers')} /> */}
                         <Appbar.Action icon="menu" color={"white"} onPress={() => this.setState({ drawer: !this.state.drawer })} />
 
                       </View>
@@ -574,7 +411,6 @@ const UserHome = withTracker(navigation => {
 
   let isConnectedProxyOrWeb = Online.find({},{fields:{userId:1,hostname:1}}).fetch()
   
-  // handle.ready() && console.log(Meteor.users.find(Meteor.user().username == "carlosmbinf" ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }, { sort: {  megasGastadosinBytes: -1,'profile.firstName': 1,'profile.lastName': 1 }, fields:{username:1,megasGastadosinBytes:1,profile:1,"services.facebook":1, megas:1} }).fetch());
   return {
     navigation,
     myTodoTasks,

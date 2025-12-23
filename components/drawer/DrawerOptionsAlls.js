@@ -241,6 +241,7 @@ const DrawerOptionsAlls = (opt) => {
                   borderRadius: 8,
                   borderLeftWidth: 4,
                   borderLeftColor: user?.modoCadete ? '#FF5252' : '#4CAF50',
+                  marginBottom: 30
                 }}
                 labelStyle={{
                   color: user?.modoCadete ? '#FF5252' : '#4CAF50',
