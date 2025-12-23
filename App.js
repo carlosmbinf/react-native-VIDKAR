@@ -865,38 +865,34 @@ const App = () => {
                 {props => {
                   const { navigation, route } = props;
                   // console.log(item)
-                  return (
+                    return (
                     <>
-                    <Appbar.Header style={{ backgroundColor: '#3f51b5', maxHeight: useSafeAreaInsets().top + 80, justifyContent: 'center' }}>
-
-                          <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
-                            <Appbar.BackAction
-                              color='red'
-                              onPress={() => {
-                                if (navigation.canGoBack()) {
-                                  navigation.goBack();
-                                }
-                              }}
-                            />
-                            <MenuHeader
-                              navigation={navigation}
-                            />
-                          </View>
-                        </Appbar.Header>
-                      <Surface>
-                        
-                        <Productos />
+                      <Appbar.Header
+                      style={{
+                        backgroundColor: '#3f51b5',
+                        maxHeight: useSafeAreaInsets().top + 50,
+                        justifyContent: 'flex-end',
+                        // paddingTop: useSafeAreaInsets().top,
+                      }}
+                      >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+                        <Appbar.BackAction
+                        color="red"
+                        onPress={() => {
+                          if (navigation.canGoBack()) {
+                          navigation.goBack();
+                          }
+                        }}
+                        />
+                        <MenuHeader navigation={navigation} />
+                      </View>
+                      </Appbar.Header>
+                      <ScrollView style={{ flex: 1 }}>
+                      <Productos />
                       <TableRecargas />
-                      </Surface>
-
-
+                      </ScrollView>
                     </>
-
-
-                    // <TasksProvider user={user} projectPartition={projectPartition}>
-                    //   <TasksView navigation={navigation} route={route} />
-                    // </TasksProvider>
-                  );
+                    );
                 }}
               </Stack.Screen>
               {/* nuevo: formulario de remesas */}
