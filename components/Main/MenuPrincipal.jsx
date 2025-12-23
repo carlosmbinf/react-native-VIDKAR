@@ -69,13 +69,7 @@ const MenuPrincipal = ({ navigation }) => {
           main: { opacity: ((2 - ratio) / 2) }
         })}
       >
-       <BlurView
-                  style={{ position: 'absolute', width: screenWidth, height: screenHeight }}
-                  blurType={isDarkMode ? 'black' : 'light'}
-                  blurAmount={5}
-                  blurRadius={5}
-                />
-        <Appbar style={{ backgroundColor: '#3f51b5', height:80, justifyContent:'center', paddingTop: insets.top }}>
+        <Appbar style={{ backgroundColor: '#3f51b5', height:insets.top + 50, justifyContent:'center', paddingTop: insets.top }}>
        
           <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
             <Appbar.Action icon="menu" color={"white"} onPress={() => setDrawer(!drawer)} />
