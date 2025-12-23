@@ -6,12 +6,12 @@
  * @flow strict-local
  */
 
-import React, {useRef, useEffect, useState} from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 // import type {Node} from 'react';
-import {Provider as PaperProvider, Title, Surface, Banner, Searchbar, Appbar} from 'react-native-paper';
+import { Provider as PaperProvider, Title, Surface, Banner, Searchbar, Appbar } from 'react-native-paper';
 // import Carousel, {ParallaxImage} from 'react-native-snap-carousel';
 // import * as axios from 'axios';
-import Meteor, {Mongo, withTracker} from '@meteorrn/core';
+import Meteor, { Mongo, withTracker } from '@meteorrn/core';
 import Header from 'react-native-custom-header';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -43,12 +43,12 @@ import {
 import PelisCard from './PelisCard';
 import Loguin from '../loguin/Loguin';
 
-import {PelisRegister} from '../collections/collections'
+import { PelisRegister } from '../collections/collections'
 import PelisHomeElementos from './PelisHomeElementos';
 import MainPelis from './MainPelis';
 import MenuHeader from '../Header/MenuHeader';
 
-const {width: screenWidth} = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 
 // Componente funcional que envuelve la lógica
 const MyApp = ({ navigation, loading, myTodoTasks }) => {
@@ -66,7 +66,7 @@ const MyApp = ({ navigation, loading, myTodoTasks }) => {
   });
 
   const ScreenHeight = Dimensions.get('window').height;
-  
+
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -82,7 +82,7 @@ const MyApp = ({ navigation, loading, myTodoTasks }) => {
     },
     imageContainer: {
       flex: 1,
-      marginBottom: Platform.select({ios: 0, android: 1}),
+      marginBottom: Platform.select({ ios: 0, android: 1 }),
       backgroundColor: 'white',
       borderRadius: 8,
     },
@@ -111,16 +111,16 @@ const MyApp = ({ navigation, loading, myTodoTasks }) => {
               }
             }}
           />
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
-<Appbar.Action
-            icon="magnify"
-            color={'white'}
-            disabled={state.activeBanner}
-            onPress={() => setState(prev => ({ ...prev, activeBanner: true }))}
-          />
-          <MenuHeader navigation={navigation}/>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Appbar.Action
+              icon="magnify"
+              color={'white'}
+              disabled={state.activeBanner}
+              onPress={() => setState(prev => ({ ...prev, activeBanner: true }))}
+            />
+            <MenuHeader navigation={navigation} />
           </View>
-          
+
         </View>
       </Appbar>
       <Banner
@@ -132,9 +132,9 @@ const MyApp = ({ navigation, loading, myTodoTasks }) => {
           },
         ]}
       >
-        <View style={{width: screenWidth - 30}}>
+        <View style={{ width: screenWidth - 30 }}>
           <Searchbar
-            style={{borderRadius: 20}}
+            style={{ borderRadius: 20 }}
             placeholder="Nombre, año o extension"
             autoFocus
             onChangeText={text => setState(prev => ({ ...prev, filtro: text }))}
@@ -157,7 +157,7 @@ const MyApp = ({ navigation, loading, myTodoTasks }) => {
             clasificacion="All"
             search={state.filtro}
           />
-          
+
           {!state.refreshing && (
             <MainPelis
               navigation={navigation}
@@ -222,7 +222,7 @@ const MyApp = ({ navigation, loading, myTodoTasks }) => {
             />
           )}
           {!state.refreshing && (
-            <View style={state.activeBanner ? {marginBottom: 150} : {marginBottom: 20}}>
+            <View style={state.activeBanner ? { marginBottom: 150 } : { marginBottom: 20 }}>
               <MainPelis
                 navigation={navigation}
                 clasificacion="Romance"

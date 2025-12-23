@@ -480,20 +480,20 @@ const App = () => {
               >
                 {props => {
                   const { navigation, route } = props;
-                    return (
+                  return (
                     Meteor.user() && Meteor.user().subscipcionPelis ? (
                       <>
-                      <MyTabs navigation={navigation} route={route} />
+                        <MyTabs navigation={navigation} route={route} />
                       </>
                     ) :
                       (
-                      <Surface style={{ flex: 1, justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 20, textAlign: 'center', marginTop: 20 }}>No tiene una Subscripcion Activa</Text>
-                        </View>
-                      </Surface>
+                        <Surface style={{ flex: 1, justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                            <Text style={{ fontSize: 20, textAlign: 'center', marginTop: 20 }}>No tiene una Subscripcion Activa</Text>
+                          </View>
+                        </Surface>
                       )
-                    );
+                  );
                 }}
               </Stack.Screen>
               <Stack.Screen
