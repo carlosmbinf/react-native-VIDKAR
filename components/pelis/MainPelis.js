@@ -81,7 +81,7 @@ class App extends React.Component {
             </View>
             <FlatList
               ref={this.flatListRef}
-              focusable={true}
+              // focusable={true}
               accessible={true}
               data={pelis}
               renderItem={({item}) => (

@@ -8,7 +8,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 // import type {Node} from 'react';
-import { Provider as PaperProvider, Title, Surface, Banner, Searchbar, Appbar } from 'react-native-paper';
+import { Provider as PaperProvider, Title, Surface, Banner, Searchbar, Appbar, TextInput } from 'react-native-paper';
 // import Carousel, {ParallaxImage} from 'react-native-snap-carousel';
 // import * as axios from 'axios';
 import Meteor, { Mongo, withTracker } from '@meteorrn/core';
@@ -64,6 +64,7 @@ const MyApp = ({ navigation, loading, myTodoTasks }) => {
     visibleFilter: false,
     activeBanner: false,
   });
+  const [filtro, setFiltro] = useState("");
 
   const ScreenHeight = Dimensions.get('window').height;
 
@@ -134,12 +135,14 @@ const MyApp = ({ navigation, loading, myTodoTasks }) => {
         ]}
       >
         <View style={{ width: screenWidth - 30 }}>
+
           <Searchbar
             style={{ borderRadius: 20 }}
             placeholder="Nombre, año o extension"
-            autoFocus
-            onChangeText={text => setState(prev => ({ ...prev, filtro: text }))}
-            value={state.filtro}
+            // autoFocus
+            onChangeText={text => setFiltro(text)}
+            value={filtro}
+            elevation={0}
           />
         </View>
       </Banner>
@@ -156,70 +159,70 @@ const MyApp = ({ navigation, loading, myTodoTasks }) => {
           <MainPelis
             navigation={navigation}
             clasificacion="All"
-            search={state.filtro}
+            search={filtro}
           />
 
           {!state.refreshing && (
             <MainPelis
               navigation={navigation}
               clasificacion="Sci-Fi"
-              search={state.filtro}
+              search={filtro}
             />
           )}
           {!state.refreshing && (
             <MainPelis
               navigation={navigation}
               clasificacion="Action"
-              search={state.filtro}
+              search={filtro}
             />
           )}
           {!state.refreshing && (
             <MainPelis
               navigation={navigation}
               clasificacion="Adventure"
-              search={state.filtro}
+              search={filtro}
             />
           )}
           {!state.refreshing && (
             <MainPelis
               navigation={navigation}
               clasificacion="Thriller"
-              search={state.filtro}
+              search={filtro}
             />
           )}
           {!state.refreshing && (
             <MainPelis
               navigation={navigation}
               clasificacion="Crime"
-              search={state.filtro}
+              search={filtro}
             />
           )}
           {!state.refreshing && (
             <MainPelis
               navigation={navigation}
               clasificacion="Mystery"
-              search={state.filtro}
+              search={filtro}
             />
           )}
           {!state.refreshing && (
             <MainPelis
               navigation={navigation}
               clasificacion="Horror"
-              search={state.filtro}
+              search={filtro}
             />
           )}
           {!state.refreshing && (
             <MainPelis
               navigation={navigation}
               clasificacion="Comedy"
-              search={state.filtro}
+              search={filtro}
             />
           )}
           {!state.refreshing && (
             <MainPelis
               navigation={navigation}
               clasificacion="Drama"
-              search={state.filtro}
+              search={filtro}
             />
           )}
           {!state.refreshing && (
@@ -227,7 +230,7 @@ const MyApp = ({ navigation, loading, myTodoTasks }) => {
               <MainPelis
                 navigation={navigation}
                 clasificacion="Romance"
-                search={state.filtro}
+                search={filtro}
               />
             </View>
           )}

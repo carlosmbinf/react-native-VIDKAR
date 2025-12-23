@@ -345,7 +345,7 @@ class ProxyPackageCard extends Component {
 
     const unlimitedCardStyle = {
       width: cardWidthPx,
-      height: 236, // un poquito más alto que 220
+      height: 270, // un poquito más alto que 220
       marginRight: 0, // evitar overflow por delta de ancho
       marginBottom: gutter,
       alignSelf: 'flex-start'
