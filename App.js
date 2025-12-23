@@ -376,45 +376,7 @@ const App = () => {
                 component={MenuPrincipal}
                 options={({ navigation, route }) => ({
                   animationEnabled: true,
-                  title: (
-                    <Text style={{ letterSpacing: 5 }}>
-                      <FontAwesome
-                        // onPress={() => logOut(navigation)}
-                        name="hand-o-right"
-                        color={'white'}
-                        size={20}
-                        // borderRadius={20}
-                        solid
-                      />
-                      VidKar {route?.params?.id}
-                      <FontAwesome
-                        // onPress={() => logOut(navigation)}
-                        name="hand-o-left"
-                        color={'white'}
-                        size={20}
-                        // borderRadius={20}
-                        solid
-                      />
-                    </Text>
-                  ),
-                  headerStyle: {
-                    backgroundColor: '#3f51b5',
-                    // height: 90,
-                  },
-                  headerTitleAlign: 'left',
-                  headerTintColor: '#fff',
-                  // headerTitleStyle: {
-                  //   fontWeight: 'bold',
-                  // },
-                  headerLeft: null,
                   headerShown: false,
-                  headerRight: () => (
-                    <MenuHeader
-                      navigation={navigation}
-                    />
-                  ),
-                  // headerRight
-                  headerTransparent: false,
                 })}
               />
               <Stack.Screen
@@ -896,25 +858,8 @@ const App = () => {
                 name="ProductosCubacelCards"
                 // component={Productos}
                 options={({ navigation, route }) => ({
-                  title: <Text>Recargas</Text>,
-                  headerStyle: {
-                    backgroundColor: '#3f51b5',
-                    // height: 90,
-                  },
-                  headerTitleAlign: 'left',
-                  headerTintColor: '#fff',
-                  // headerTitleStyle: {
-                  //   fontWeight: 'bold',
-                  // },
-                  // headerLeft:null,
+                  animationEnabled: true,
                   headerShown: false,
-                  headerRight: () => (
-                    <MenuHeader
-                      navigation={navigation}
-                    />
-                  ),
-                  // headerRight
-                  // headerTransparent:false
                 })}
               >
                 {props => {
@@ -922,8 +867,7 @@ const App = () => {
                   // console.log(item)
                   return (
                     <>
-                      <Surface>
-                        <Appbar.Header style={{ backgroundColor: '#3f51b5', height: 80, justifyContent: 'center', paddingTop: useSafeAreaInsets().top }}>
+                    <Appbar.Header style={{ backgroundColor: '#3f51b5', maxHeight: useSafeAreaInsets().top + 80, justifyContent: 'center' }}>
 
                           <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
                             <Appbar.BackAction
@@ -939,10 +883,12 @@ const App = () => {
                             />
                           </View>
                         </Appbar.Header>
+                      <Surface>
+                        
                         <Productos />
+                      <TableRecargas />
                       </Surface>
 
-                      <TableRecargas />
 
                     </>
 
