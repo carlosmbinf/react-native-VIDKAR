@@ -870,9 +870,9 @@ const App = () => {
                       <Appbar.Header
                       style={{
                         backgroundColor: '#3f51b5',
-                        maxHeight: useSafeAreaInsets().top + 50,
+                        height: useSafeAreaInsets().top + 50,
                         justifyContent: 'flex-end',
-                        // paddingTop: useSafeAreaInsets().top,
+                        paddingTop: useSafeAreaInsets().top,
                       }}
                       >
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
