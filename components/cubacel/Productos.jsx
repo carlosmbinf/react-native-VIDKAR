@@ -50,8 +50,8 @@ const Productos = () => {
           // <ScrollView contentContainerStyle={styles.container}>
           <LinearGradient
             colors={['#3f51b5', 'transparent']}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 0.5 }}
+            start={{ x: 0.5, y: 0.3 }}
+            end={{ x: 0.5, y: 0.8 }}
             style={styles.gradientContainer}
           >
           
