@@ -430,3 +430,79 @@
   - **AppState listener**: Esencial para reaccionar a cambios de ciclo de vida.
   - **clearWatch() imprescindible**: Sin esto, múltiples watchPositions se acumulan y crashean.
 
+---
+
+## Resumen técnico – Card Colapsable con Animaciones para Carrito COMERCIO
+
+### **Contexto**
+Implementación de card colapsable profesional para items de tipo `COMERCIO` en `ListaPedidosRemesa.jsx`, siguiendo principios de UX modern mobile design con animaciones nativas.
+
+### **Arquitectura del Componente**
+- **Estado local por card**: Cada item maneja su propio `expanded` state (evita re-renders globales).
+- **Dos secciones visuales**:
+  1. **Resumen (siempre visible)**: Nombre producto, cantidad, precio total, indicador de expansión.
+  2. **Detalles (expandible)**: Descripción, precio unitario, tipo de producto, ubicación GPS, dirección, notas, estado.
+
+### **Animaciones Implementadas**
+- **LayoutAnimation**: Expansión/colapso suave del contenido con `easeInEaseOut` preset.
+- **Animated API**: Rotación del icono chevron (0° → 180°) con `useNativeDriver: true` para 60fps.
+- **Platform-specific setup**: Habilitación de `setLayoutAnimationEnabledExperimental` en Android.
+
+### **Estructura del Card COMERCIO**
+```markdown
+---
+
+## Características Implementadas
+
+### ✅ **UX/UI Profesional**
+- **Card resumido por defecto**: Solo muestra nombre del producto, cantidad y precio total.
+- **Expansión suave**: `LayoutAnimation.Presets.easeInEaseOut` para transiciones fluidas.
+- **Icono animado**: Chevron rota 180° al expandir/colapsar.
+- **TouchableOpacity**: Feedback visual al tocar el card.
+
+### ✅ **Animaciones Nativas**
+- **Rotación del chevron**: Animated API con `useNativeDriver: true` para 60fps.
+- **Expansión del contenido**: LayoutAnimation para altura dinámica sin glitches.
+- **Compatible iOS/Android**: Configuración específica para `UIManager` en Android.
+
+### ✅ **Información Jerárquica**
+**Card principal (SIEMPRE visible)**:
+- Nombre del producto (con ellipsis si es muy largo)
+- Subtítulo "Pedido de Tienda"
+- Cantidad de unidades
+- Precio total destacado en color temático
+- Indicador "Ver más detalles" / "Ver menos"
+
+**Detalles expandibles (solo al tocar)**:
+- Descripción completa del producto
+- Precio unitario
+- Tipo de producto (elaboración/stock)
+- Coordenadas GPS de entrega
+- Dirección física (si existe)
+- Notas adicionales del cliente
+- Badge de estado (Entregado/Pendiente)
+
+### ✅ **Accesibilidad**
+- **Stop propagation en botón eliminar**: No expande el card al eliminar.
+- **Contraste adecuado**: Labels en mayúsculas con letter-spacing.
+- **Iconografía clara**: Icons de Material Design para cada campo.
+
+### ✅ **Performance**
+- **Estado local por card**: Cada item maneja su propio estado `expanded`.
+- **Lazy rendering**: Detalles solo se renderizan cuando `expanded === true`.
+- **useNativeDriver**: Animaciones en thread nativo (sin bloquear JS).
+
+---
+
+## Próximos Pasos Recomendados
+
+1. **Aplicar mismo patrón a otros tipos de card** (RECARGA/REMESA/PROXY/VPN).
+2. **Agregar animación de entrada**: `FadeIn` cuando el card aparece por primera vez.
+3. **Botón "Ver en Mapa"**: Abrir coordenadas en Google Maps/Apple Maps.
+4. **Edición de cantidad**: Botones +/- en el card expandido.
+5. **Preview de imagen del producto**: Si existe `producto.imagen`.
+
+---
+
+## Actualización de copilot-instructions.md
+
