@@ -866,12 +866,11 @@ const App = () => {
                   const { navigation, route } = props;
                   // console.log(item)
                     return (
-                    <>
-                      <Appbar.Header
+                      <Surface style={{minHeight: "100%"}}>
+                      <Appbar
                       style={{
                         backgroundColor: '#3f51b5',
                         height: useSafeAreaInsets().top + 50,
-                        justifyContent: 'flex-end',
                         paddingTop: useSafeAreaInsets().top,
                       }}
                       >
@@ -886,12 +885,13 @@ const App = () => {
                         />
                         <MenuHeader navigation={navigation} />
                       </View>
-                      </Appbar.Header>
-                      <ScrollView style={{ flex: 1 }}>
+                      </Appbar>
                       <Productos />
-                      <TableRecargas />
-                      </ScrollView>
-                    </>
+                        <ScrollView style={{ flex: 1 }}>
+                          <TableRecargas />
+                        </ScrollView>
+                      
+                      </Surface>
                     );
                 }}
               </Stack.Screen>

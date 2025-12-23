@@ -47,7 +47,7 @@ const Productos = () => {
   // }, [productos]);
 
   return (
-          <ScrollView contentContainerStyle={styles.container}>
+          // <ScrollView contentContainerStyle={styles.container}>
           <LinearGradient
             colors={['#3f51b5', 'transparent']}
             start={{ x: 0.5, y: 0 }}
@@ -80,7 +80,7 @@ const Productos = () => {
                   </View>
               )}
               </LinearGradient>
-          </ScrollView>
+          // </ScrollView>
     
   );
 };
