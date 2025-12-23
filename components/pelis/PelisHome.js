@@ -106,8 +106,9 @@ const MyApp = ({ navigation, loading, myTodoTasks }) => {
           <Appbar.BackAction
             color='red'
             onPress={() => {
-              if (navigation.canGoBack()) {
-                navigation.goBack();
+              // console.log('navigation', navigation);
+              if (navigation.navigationGeneral.canGoBack()) {
+                navigation.navigationGeneral.goBack();
               }
             }}
           />
