@@ -70,6 +70,7 @@ import SubidaArchivos from './components/archivos/SubidaArchivos';
 import ListaArchivos from './components/archivos/ListaArchivos';
 import PropertyTable from './components/property/PropertyTable';
 import HomePedidosComercio from './components/comercio/pedidos/HomePedidosComercio';
+import MapaUsuariosScreen from './components/comercio/maps/MapaUsuariosScreen';
 
 import messaging from '@react-native-firebase/messaging';
 import VPNPackageCard from './components/vpn/VPNPackageCard';
@@ -1040,6 +1041,14 @@ const App = () => {
                   },
                   headerTintColor: '#fff',
                   headerTitleStyle: { fontWeight: 'bold' },
+                }}
+              />
+
+              <Stack.Screen 
+                name="MapaUsuarios" 
+                component={MapaUsuariosScreen}
+                options={{
+                  headerShown: false // La pantalla tiene su propio Appbar
                 }}
               />
 

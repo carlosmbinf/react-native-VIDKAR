@@ -134,6 +134,12 @@ const DrawerOptionsAlls = (opt) => {
       });
     }
 
+    opcionesAdministradorGeneral.push({
+      label: "MapaUsuarios",
+      url: "MapaUsuarios",
+      icon: "file-document-edit-outline"
+    });
+
   // Función para alternar modo cadete con confirmación
   const toggleModoCadete = () => {
     const nuevoEstado = !user?.modoCadete;

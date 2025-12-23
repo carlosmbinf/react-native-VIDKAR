@@ -131,378 +131,139 @@
 
 ---
 
-## Resumen técnico – Integración Geolocalización con Backend (Meteor Method cadete.updateLocation)
+## Resumen técnico – Mapa de Usuarios con Coordenadas (Sistema de Tracking)
+- **Contexto**: Implementación de visualización en mapa de todos los usuarios que tienen coordenadas registradas, con diferenciación por roles y estados.
 
-- **Contexto**: Envío automático de coordenadas GPS desde el dispositivo móvil al servidor backend cada vez que se obtiene la ubicación en modo cadete.
+- **Componentes creados**:
+  - **MapaUsuarios.jsx**: Componente de mapa reutilizable que consume suscripción de usuarios con coordenadas.
+  - **MapaUsuariosScreen.jsx**: Pantalla completa con estadísticas, filtros y mapa integrado.
 
-- **Método backend utilizado**: `cadete.updateLocation(data)`
-  - **Parámetros requeridos**:
-    ```javascript
-    {
-      userId: String,              // ID del cadete (debe coincidir con this.userId)
-      location: {
-        latitude: Number,          // Coordenada latitud
-        longitude: Number,         // Coordenada longitud
-        accuracy: Number,          // Precisión en metros (obligatorio, usar 0 si null)
-        altitude: Number | null,   // Altura sobre nivel del mar (opcional)
-        heading: Number | null,    // Dirección en grados (opcional)
-        speed: Number | null,      // Velocidad en m/s (opcional)
-        timestamp: Number,         // Unix timestamp en milisegundos
-      }
-    }
-    ```
+- **Características técnicas implementadas**:
+  - **Suscripción reactiva**: `usuarios.conCoordenadas` con fields limitados para optimizar datos.
+  - **Cálculo de región automático**: Algoritmo que calcula latitudeDelta/longitudeDelta para abarcar todos los marcadores.
+  - **Compatibilidad de schemas**: Soporta tanto `cordenadas` como `coordenadas` (typo histórico en DB).
+  - **Marcadores diferenciados**: Por rol (cadete, admin, empresa, usuario) y estado (online/offline).
+  - **Estadísticas en tiempo real**: Contadores reactivos de usuarios por categoría.
 
-- **Validaciones de seguridad implementadas en backend**:
-  1. **Autorización**: Solo el propio cadete puede actualizar su ubicación (`this.userId === data.userId`).
-  2. **Existencia de usuario**: Verifica que el usuario exista en la base de datos.
-  3. **Modo cadete activo**: Valida que `user.modoCadete === true` antes de aceptar la ubicación.
-  4. **Validación de tipos**: Usa `check()` de Meteor para validar estructura del objeto.
+- **Seguridad implementada**:
+  - Publicación `usuarios.conCoordenadas` **solo para admins** (`profile.role === 'admin'`).
+  - Fields limitados: no expone datos sensibles (tokens, passwords, etc.).
+  - Validación de `this.userId` antes de retornar datos.
 
-- **Formato de almacenamiento en base de datos (GeoJSON)**:
+- **Estructura de coordenadas en Users collection**:
   ```javascript
-  Meteor.users.update(userId, {
-    $set: {
-      'location.coordinates': [longitude, latitude], // ⚠️ ORDEN: [lng, lat] para GeoJSON
-      'location.type': 'Point',
-      'location.accuracy': accuracy,
-      'location.altitude': altitude,
-      'location.heading': heading,
-      'location.speed': speed,
-      'location.lastUpdate': Date,
+  {
+    cordenadas: { // o "coordenadas" (normalizar a futuro)
+      latitude: Number,
+      longitude: Number,
+      accuracy: Number,      // Precisión en metros
+      altitude: Number,      // Altitud (puede ser null)
+      heading: Number,       // Dirección (-1 si no disponible)
+      speed: Number,         // Velocidad (-1 si no disponible)
+      timestamp: Number      // Unix timestamp en milisegundos
     }
-  });
-  ```
-  **Importante**: GeoJSON requiere `[longitude, latitude]`, no `[latitude, longitude]`.
-
-- **Flujo completo de envío de ubicación**:
-  1. **Frontend**: `Geolocation.getCurrentPosition()` obtiene coordenadas.
-  2. **Frontend**: Valida que Meteor esté conectado (`Meteor.status().connected`).
-  3. **Frontend**: Valida que usuario esté autenticado (`Meteor.userId()`).
-  4. **Frontend**: Construye objeto `locationData` con formato requerido.
-  5. **Frontend**: Llama `Meteor.call('cadete.updateLocation', locationData, callback)`.
-  6. **Backend**: Valida permisos y estructura de datos.
-  7. **Backend**: Actualiza `Meteor.users` con coordenadas en formato GeoJSON.
-  8. **Backend**: Retorna `{ success: true, timestamp: Date }`.
-
-- **Manejo de errores implementado**:
-  - **unauthorized**: Usuario intenta actualizar ubicación de otro cadete.
-  - **user-not-found**: El userId no existe en la base de datos.
-  - **modo-cadete-inactive**: El usuario no tiene modo cadete activado.
-  - **Meteor desconectado**: Se logea warning pero no se intenta enviar.
-  - **Error de geolocalización**: Se logea error pero no bloquea servicio foreground.
-
-- **Optimizaciones de red implementadas**:
-  - **Envío condicional**: Solo envía si `Meteor.status().connected && Meteor.userId()`.
-  - **Callback no bloqueante**: Usa callback asíncrono para no bloquear UI.
-  - **Caché de ubicación**: Reutiliza ubicación con hasta 15 segundos de antigüedad.
-  - **Frecuencia controlada**: Envía cada 20 segundos (intervalo de monitoreo).
-
-- **Parseo de datos críticos**:
-  - **accuracy**: Si viene null, se envía `0` (backend lo requiere como Number).
-  - **altitude/heading/speed**: Se envían como null si no están disponibles (backend acepta Match.Maybe).
-  - **timestamp**: Se usa directamente de `position.timestamp` (Unix timestamp en ms).
-
-- **Logs de depuración implementados**:
-  ```javascript
-  // Local (frontend)
-  console.log('📍 [Ubicación Cadete]:', { lat, lng, accuracy, timestamp });
-  
-  // Éxito de envío
-  console.log('✅ [Envío Ubicación] Enviada correctamente al servidor');
-  
-  // Error de envío
-  console.error('❌ [Envío Ubicación] Error:', error.reason);
-  
-  // Meteor desconectado
-  console.warn('⚠️ [Envío Ubicación] No conectado a Meteor, ubicación no enviada');
-  
-  // Backend (server)
-  console.log(`📍 [Cadete ${username}] Ubicación actualizada:`, { lat, lng, accuracy });
+  }
   ```
 
-- **Índices requeridos en MongoDB** (para consultas geo-espaciales futuras):
+- **Algoritmo de cálculo de región**:
   ```javascript
-  // En server/main.js
-  Meteor.users.createIndex({ 'location.coordinates': '2dsphere' });
-  ```
-  Esto permite queries como "cadetes cercanos a una coordenada" usando `$near` o `$geoWithin`.
-
-- **Queries geo-espaciales posibles tras implementación**:
-  ```javascript
-  // Encontrar cadetes en un radio de 5km
-  Meteor.users.find({
-    modoCadete: true,
-    'location.coordinates': {
-      $near: {
-        $geometry: { type: 'Point', coordinates: [lng, lat] },
-        $maxDistance: 5000 // 5km en metros
-      }
-    }
-  });
+  // Encuentra min/max de todas las coordenadas
+  const minLat = Math.min(...latitudes);
+  const maxLat = Math.max(...latitudes);
+  const minLng = Math.min(...longitudes);
+  const maxLng = Math.max(...longitudes);
   
-  // Encontrar cadetes en un área rectangular
-  Meteor.users.find({
-    modoCadete: true,
-    'location.coordinates': {
-      $geoWithin: {
-        $box: [[swLng, swLat], [neLng, neLat]]
-      }
-    }
-  });
+  // Centra y aplica padding 50%
+  const centerLat = (minLat + maxLat) / 2;
+  const centerLng = (minLng + maxLng) / 2;
+  const latDelta = (maxLat - minLat) * 1.5 || 0.05;
+  const lngDelta = (maxLng - minLng) * 1.5 || 0.05;
   ```
 
-- **Casos de uso futuros**:
-  1. **Asignación inteligente**: Asignar pedido al cadete más cercano a la tienda.
-  2. **Mapa en tiempo real**: Mostrar posición de todos los cadetes activos en mapa del admin.
-  3. **Ruta optimizada**: Calcular ruta más corta para múltiples entregas.
-  4. **ETA dinámico**: Estimar tiempo de llegada basado en velocidad y ubicación actual.
-  5. **Geofencing**: Notificar cuando cadete entra/sale de zona de entrega.
-  6. **Historial de rutas**: Guardar trazabilidad de entregas para auditoría.
-
-- **Consideraciones de privacidad y seguridad**:
-  - **Solo mientras está activo**: Ubicación solo se envía cuando `modoCadete === true`.
-  - **No histórico por defecto**: Solo se guarda última ubicación, no trazas completas.
-  - **Autorización estricta**: Backend rechaza actualizaciones de otros usuarios.
-  - **GDPR compliance**: Ubicación se borra al desactivar modo cadete (opcional, implementar).
-
-- **Mejoras pendientes**:
-  - **Batch updates**: Si hay múltiples ubicaciones pendientes, enviar en un solo request.
-  - **Retry logic**: Re-intentar envío si falla por conexión temporal.
-  - **Offline queue**: Guardar ubicaciones en AsyncStorage si Meteor está desconectado.
-  - **Compression**: Reducir precisión a 5 decimales para ahorrar bandwidth.
-  - **Throttling**: Limitar frecuencia de envío si cadete está quieto (speed === 0).
-
-- **Testing recomendado**:
-  - **Caso 1**: Cadete activo en movimiento → ubicación se envía cada 20 seg.
-  - **Caso 2**: Meteor desconectado → ubicación NO se envía, logea warning.
-  - **Caso 3**: Usuario sin modo cadete → backend rechaza con error `modo-cadete-inactive`.
-  - **Caso 4**: Usuario A intenta actualizar ubicación de usuario B → backend rechaza con `unauthorized`.
-  - **Caso 5**: GPS sin señal → error de geolocalización, no crashea servicio.
-  - **Caso 6**: Cadete desactiva modo → ubicaciones dejan de enviarse inmediatamente.
-
-- **Lecciones aprendidas**:
-  - **GeoJSON order matters**: MongoDB requiere `[longitude, latitude]`, no `[lat, lng]`.
-  - **Validar conexión antes de enviar**: Evita errores innecesarios cuando Meteor está desconectado.
-  - **Callback no bloqueante es crítico**: `Meteor.call()` con callback evita bloquear thread de geolocalización.
-  - **Parseo defensivo de nulls**: Backend requiere `accuracy` como Number, frontend debe enviar 0 si es null.
-  - **Match.Maybe para opcionales**: Backend debe usar `Match.Maybe(Number)` para campos que pueden ser null.
-  - **Logs detallados**: Facilitan debugging en producción cuando hay problemas de ubicación.
-
-- **Archivos modificados**:
-  - `NotificacionAndroidForeground.js`: Agregado envío de ubicación via `Meteor.call('cadete.updateLocation')`.
-  - `server/metodos/cadetes.js`: Método backend ya existente (sin cambios).
-
-- **Próximos pasos**:
-  1. Crear índice 2dsphere en producción: `db.users.createIndex({ "location.coordinates": "2dsphere" })`.
-  2. Implementar mapa de admin con posiciones en tiempo real de cadetes.
-  3. Agregar método `cadete.getNearby(lat, lng, radius)` para búsqueda de cadetes cercanos.
-  4. Implementar notificación push cuando cadete entra en radio de 500m de la tienda.
-  5. Guardar historial de ubicaciones en `CadeteLocationHistoryCollection` para auditoría (opcional).
-  6. Tests e2e para validar que ubicaciones se actualizan correctamente en base de datos.
-
----
-
-## Resumen técnico – Rastreo de Ubicación iOS en Background (react-native-geolocation-service)
-
-- **Contexto**: Implementación de rastreo de ubicación GPS continuo en iOS para cadetes activos. Similar a Android pero más simple, sin notificación foreground, solo rastreo directo.
-
-- **Librería utilizada**: `react-native-geolocation-service` (v5.3.1)
-  - **Ventajas sobre @react-native-community/geolocation**:
-    - ✅ `watchPosition()` con mejor soporte en background.
-    - ✅ `forceRequestLocation: true` para obtener ubicación fresca siempre.
-    - ✅ `distanceFilter: 0` para rastreo continuo sin filtrar cambios.
-    - ✅ Mejor integración nativa con Location Services de iOS.
-    - ✅ `useSignificantChanges: false` para rastreo frecuente.
-  - **Desventajas**:
-    - Requiere librería de terceros (no oficial de React Native).
-    - Menor documentación que la oficial.
-
-- **Implementación en NotificacionIOSForeground.js**:
-  - **watchPosition()**: Rastreo continuo que obtiene ubicación cada cambio.
-  - **Parámetros clave**:
-    ```javascript
-    {
-      enableHighAccuracy: true,        // GPS de máxima precisión
-      timeout: 15000,                  // 15 seg para obtener ubicación
-      maximumAge: 0,                   // Sin caché, siempre fresco
-      distanceFilter: 0,               // Obtener cada cambio (no filtrar)
-      forceRequestLocation: true,      // Forzar nueva lectura
-      useSignificantChanges: false,    // No usar cambios significativos
-    }
-    ```
-  - **Datos enviados al backend**:
-    ```javascript
-    {
-      userId: String,
-      location: {
-        latitude: Number,
-        longitude: Number,
-        accuracy: Number,
-        altitude: Number | null,
-        heading: Number | null,
-        speed: Number | null,
-        timestamp: Number,
-      }
-    }
-    ```
-
-- **Flujo de funcionamiento**:
-  1. **index.js**: Solicita permisos iOS con `Geolocation.requestAuthorization('always')`.
-  2. **IOSLocationService()**: Se inicia automáticamente al abrir la app.
-  3. **monitorLocationService()**: Verifica cada 30 segundos si `modoCadete` está activo.
-  4. **startLocationTracking()**: Si activo, inicia `watchPosition()` que rastrea continuamente.
-  5. **Envío al backend**: Cada ubicación se envía via `Meteor.call('cadete.updateLocation', ...)`.
-  6. **stopLocationTracking()**: Se detiene al desactivar `modoCadete` o cerrar app.
-
-- **Manejo de permisos iOS**:
-  - `requestAuthorization('always')`: Solicita permiso para ubicación siempre (foreground + background).
-  - **Info.plist ya configurado con**:
-    ```xml
-    <key>NSLocationWhenInUseUsageDescription</key>
-    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <key>NSLocationAlwaysUsageDescription</key>
-    <key>UIBackgroundModes</key>
-      <string>location</string>
-    ```
-  - ✅ Capacidad "Background Modes → Location Updates" ya habilitada.
-
-- **Estados del servicio**:
-  - **isServiceActive**: Boolean que indica si watchPosition está activo.
-  - **watchId**: ID del reloj para poder detenerlo con `clearWatch()`.
-  - **monitorInterval**: Intervalo que verifica cada 30 seg si debe estar activo.
-
-- **Diferencias con Android (NotificacionAndroidForeground.js)**:
-  | Aspecto | Android | iOS |
-  |---------|---------|-----|
-  | **Librería** | @react-native-community/geolocation | react-native-geolocation-service |
-  | **Notificación** | Foreground persistente (modo cadete visible) | No hay notificación (rastreo silencioso) |
-  | **getCurrentPosition** | Llamadas puntuales cada 5 seg | watchPosition continuo |
-  | **Permisos** | REQUEST_PERMISSIONS dinámico | requestAuthorization 'always' |
-  | **Background** | Servicio foreground obligatorio | Location Services nativo de iOS |
-  | **Intervalo** | ~20 segundos de envío | Cada cambio de ubicación |
-
-- **Manejo de errores**:
-  - **Code 1 (PERMISSION_DENIED)**: Usuario rechazó permisos → solo log warning.
-  - **Code 2 (POSITION_UNAVAILABLE)**: GPS sin señal → continúa intentando.
-  - **Code 3 (TIMEOUT)**: Tardó >15s en obtener ubicación → reintenta en siguiente ciclo.
-  - **Error de Meteor**: No conectado a servidor → log warning, no genera crash.
-  - ✅ **Ningún error detiene el servicio**, solo se logean advertencias.
+- **Iconografía de marcadores**:
+  | Rol/Estado | Ícono sugerido | Color pinColor | Emoji |
+  |------------|----------------|----------------|-------|
+  | Cadete activo | pin_cadete_50x50.png | #FF9800 (naranja) | 🚴 |
+  | Admin | pin_admin_50x50.png | #2196F3 (azul) | 👨‍💼 |
+  | Empresa | pin_shop_50x50.png | #4CAF50 (verde) | 🏪 |
+  | Usuario normal | pin_user_50x50.png | #757575 (gris) | 👤 |
+  | Online | - | #4CAF50 (verde) | 🟢 |
+  | Offline | - | #757575 (gris) | ⚪ |
 
 - **Optimizaciones implementadas**:
-  - ✅ **watchId guardado**: Para poder detener rastreo con `clearWatch()`.
-  - ✅ **monitorInterval cada 30s**: No verifica `modoCadete` constantemente (ahorra batería).
-  - ✅ **AppState listener**: Reacción a cambios de estado de la app (foreground/background).
-  - ✅ **Cleanup en desmontar**: Elimina listeners y detiene rastreo al desinstalar servicio.
+  - **useTracker con fields limitados**: Solo campos necesarios para renderizado.
+  - **Memoización implícita**: React Native Maps re-renderiza solo marcadores modificados.
+  - **Cálculo de región una sola vez**: En useEffect con deps `[usuarios, initialRegion]`.
 
-- **Archivos modificados**:
-  - ✅ `NotificacionIOSForeground.js`: Nuevo archivo con servicio iOS.
-  - ✅ `index.js`: Importación de IOSLocationService e inicialización condicional por platform.
+- **Estados manejados**:
+  - **loading**: Mientras carga suscripción (muestra texto "Cargando mapa...").
+  - **empty**: Si no hay usuarios con coordenadas (muestra emoji + mensaje).
+  - **error**: Si falla suscripción (requiere implementar boundary).
 
-- **Consideraciones técnicas críticas**:
-  - ✅ **No afecta otras funcionalidades**: Módulo completamente independiente.
-  - ✅ **Same contract con backend**: Usa mismo endpoint `cadete.updateLocation`.
-  - ✅ **Permiso 'always'**: Requiere que usuario otorgue permiso en Settings/Privacy/Location.
-  - ⚠️ **Battery impact**: `enableHighAccuracy: true` + `watchPosition` consume batería. 
-    - **Mitigation**: Limitar a modoCadete=true, considerar reducir frecuencia si speed=0.
-  - ⚠️ **App store**: Apple requiere justificación clara para Background Location (ya en Info.plist).
+- **Integración con sistema existente**:
+  - Reutiliza `MapView` y `Marker` de `react-native-maps`.
+  - Compatible con `MapaPedidos.jsx` (mismo estilo visual).
+  - Preparado para integrar con sistema de notificaciones (tracking en tiempo real).
+
+- **Mejoras futuras recomendadas**:
+  1. **Clustering**: Usar `react-native-map-clustering` para >50 usuarios.
+  2. **Filtros activos**: Implementar prop `filtroRol` en MapaUsuarios para filtrar marcadores.
+  3. **Detalle de usuario**: Modal/BottomSheet al tocar marcador con datos completos.
+  4. **Tracking en tiempo real**: WebSocket para actualizar coordenadas sin re-suscribir.
+  5. **Heatmap**: Mostrar densidad de usuarios por zona.
+  6. **Rutas**: Dibujar polylines de rutas de cadetes activos.
+  7. **Geofencing**: Alertas cuando usuario entra/sale de zona específica.
 
 - **Testing recomendado**:
-  - ✅ **Caso 1**: Activar modoCadete → ubicación debe enviarse inmediatamente.
-  - ✅ **Caso 2**: App en background → ubicación debe continuar (iOS Location Services).
-  - ✅ **Caso 3**: Desactivar modoCadete → watchPosition debe detenerse en ≤30s.
-  - ✅ **Caso 4**: Cambiar permisos en Settings → servicio debe reaccionar.
-  - ✅ **Caso 5**: Cerrar/abrir app → monitor debe reiniciarse sin duplicados.
-  - ✅ **Caso 6**: Sin conexión Meteor → ubicación no se envía, solo se logea warning.
-  - ✅ **Caso 7**: GPS sin señal → reintenta hasta obtener ubicación.
+  - **Caso 1**: 0 usuarios con coordenadas → debe mostrar empty state.
+  - **Caso 2**: 1 usuario → debe centrar mapa en esa ubicación.
+  - **Caso 3**: >10 usuarios dispersos → debe calcular región que abarque todos.
+  - **Caso 4**: Usuario actualiza coordenadas → marcador debe moverse sin refresh.
+  - **Caso 5**: Usuario no-admin intenta suscribirse → debe retornar empty (seguridad).
+  - **Caso 6**: Tocar marcador → debe mostrar callout con título/descripción.
 
-- **Mejoras futuras sugeridas**:
-  - Implementar throttling cuando `speed === 0` (usuario parado).
-  - Reducir `timeout` si ya tenemos ubicación reciente.
-  - Agregar contador de fallos para disminuir frecuencia si GPS inestable.
-  - Sincronizar frecuencia iOS-Android mediante property en ConfigCollection.
-  - Implementar notificación local (no foreground) cuando se inicia rastreo.
-  - Tests e2e para validar rastreo continuo sin crashes en 10+ minutos.
+- **Consideraciones técnicas críticas**:
+  - **Typo en DB**: Normalizar `cordenadas` → `coordenadas` en migración futura.
+  - **Timestamp actualizado**: Validar que `timestamp` se actualice al mover ubicación.
+  - **Accuracy**: Filtrar marcadores con `accuracy > 100` metros (baja precisión).
+  - **Battery optimization**: Considerar interval de actualización de coordenadas (cada 30s, no en tiempo real).
+  - **Privacy**: Permitir que usuarios oculten su ubicación (campo `compartirUbicacion: boolean`).
+
+- **Seguridad y privacidad**:
+  - Solo admins ven ubicaciones de TODOS los usuarios.
+  - Usuarios normales solo deberían ver:
+    - Su propia ubicación.
+    - Ubicación de cadetes asignados a sus pedidos.
+    - Ubicación de tiendas públicas.
+  - Implementar publicación separada `usuarios.miUbicacion` para usuarios no-admin.
+
+- **Logs de depuración útiles**:
+  ```javascript
+  console.log('📍 Usuarios con coordenadas:', usuarios.length);
+  console.log('🗺️ Región calculada:', region);
+  console.log('⚠️ Usuarios sin coordenadas:', sinCoordenadas.length);
+  ```
 
 - **Lecciones aprendidas**:
-  - **watchPosition vs getCurrentPosition**: watchPosition es mejor para rastreo continuo en iOS.
-  - **distanceFilter: 0**: CRÍTICO para obtener cada cambio, no filtrar por distancia.
-  - **forceRequestLocation: true**: Asegura que siempre se obtiene ubicación fresca.
-  - **AppState listener**: Esencial para reaccionar a cambios de ciclo de vida.
-  - **clearWatch() imprescindible**: Sin esto, múltiples watchPositions se acumulan y crashean.
+  - **Cálculo de región es crítico**: Sin esto, el mapa puede mostrar océano o estar muy alejado.
+  - **Marcadores sin imagen son más rápidos**: `pinColor` renderiza más rápido que custom images.
+  - **Publicaciones de ubicación son sensibles**: SIEMPRE validar roles antes de exponer coordenadas.
+  - **useTracker con fields**: Limitar fields mejora performance (no traer `services`, `emails`, etc.).
+  - **Normalización de datos**: Tener `cordenadas` Y `coordenadas` complica lógica, migrar a uno solo.
+
+- **Archivos creados/modificados**:
+  - `components/comercio/maps/MapaUsuarios.jsx`: Componente principal de mapa.
+  - `components/comercio/maps/MapaUsuariosScreen.jsx`: Pantalla con estadísticas y filtros.
+  - `server/metodos/usuarios.js`: Publicación `usuarios.conCoordenadas` (agregada).
+  - `App.js`: Registro de ruta `MapaUsuarios`.
+
+- **Próximos pasos**:
+  - Crear íconos personalizados de 50x50px para cada rol.
+  - Implementar filtros activos (pasar prop a MapaUsuarios).
+  - Agregar botón de "Centrar en mi ubicación".
+  - Implementar modal de detalle de usuario al tocar marcador.
+  - Migrar `cordenadas` → `coordenadas` en toda la DB.
+  - Tests e2e del flujo completo: login admin → abrir mapa → ver usuarios → tocar marcador.
 
 ---
-
-## Resumen técnico – Card Colapsable con Animaciones para Carrito COMERCIO
-
-### **Contexto**
-Implementación de card colapsable profesional para items de tipo `COMERCIO` en `ListaPedidosRemesa.jsx`, siguiendo principios de UX modern mobile design con animaciones nativas.
-
-### **Arquitectura del Componente**
-- **Estado local por card**: Cada item maneja su propio `expanded` state (evita re-renders globales).
-- **Dos secciones visuales**:
-  1. **Resumen (siempre visible)**: Nombre producto, cantidad, precio total, indicador de expansión.
-  2. **Detalles (expandible)**: Descripción, precio unitario, tipo de producto, ubicación GPS, dirección, notas, estado.
-
-### **Animaciones Implementadas**
-- **LayoutAnimation**: Expansión/colapso suave del contenido con `easeInEaseOut` preset.
-- **Animated API**: Rotación del icono chevron (0° → 180°) con `useNativeDriver: true` para 60fps.
-- **Platform-specific setup**: Habilitación de `setLayoutAnimationEnabledExperimental` en Android.
-
-### **Estructura del Card COMERCIO**
-```markdown
----
-
-## Características Implementadas
-
-### ✅ **UX/UI Profesional**
-- **Card resumido por defecto**: Solo muestra nombre del producto, cantidad y precio total.
-- **Expansión suave**: `LayoutAnimation.Presets.easeInEaseOut` para transiciones fluidas.
-- **Icono animado**: Chevron rota 180° al expandir/colapsar.
-- **TouchableOpacity**: Feedback visual al tocar el card.
-
-### ✅ **Animaciones Nativas**
-- **Rotación del chevron**: Animated API con `useNativeDriver: true` para 60fps.
-- **Expansión del contenido**: LayoutAnimation para altura dinámica sin glitches.
-- **Compatible iOS/Android**: Configuración específica para `UIManager` en Android.
-
-### ✅ **Información Jerárquica**
-**Card principal (SIEMPRE visible)**:
-- Nombre del producto (con ellipsis si es muy largo)
-- Subtítulo "Pedido de Tienda"
-- Cantidad de unidades
-- Precio total destacado en color temático
-- Indicador "Ver más detalles" / "Ver menos"
-
-**Detalles expandibles (solo al tocar)**:
-- Descripción completa del producto
-- Precio unitario
-- Tipo de producto (elaboración/stock)
-- Coordenadas GPS de entrega
-- Dirección física (si existe)
-- Notas adicionales del cliente
-- Badge de estado (Entregado/Pendiente)
-
-### ✅ **Accesibilidad**
-- **Stop propagation en botón eliminar**: No expande el card al eliminar.
-- **Contraste adecuado**: Labels en mayúsculas con letter-spacing.
-- **Iconografía clara**: Icons de Material Design para cada campo.
-
-### ✅ **Performance**
-- **Estado local por card**: Cada item maneja su propio estado `expanded`.
-- **Lazy rendering**: Detalles solo se renderizan cuando `expanded === true`.
-- **useNativeDriver**: Animaciones en thread nativo (sin bloquear JS).
-
----
-
-## Próximos Pasos Recomendados
-
-1. **Aplicar mismo patrón a otros tipos de card** (RECARGA/REMESA/PROXY/VPN).
-2. **Agregar animación de entrada**: `FadeIn` cuando el card aparece por primera vez.
-3. **Botón "Ver en Mapa"**: Abrir coordenadas en Google Maps/Apple Maps.
-4. **Edición de cantidad**: Botones +/- en el card expandido.
-5. **Preview de imagen del producto**: Si existe `producto.imagen`.
-
----
-
-## Actualización de copilot-instructions.md
 
