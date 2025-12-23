@@ -572,7 +572,7 @@ const ListaPedidos = ({ eliminar }) => {
               )}
 
               {/* Badge de estado */}
-              <View style={styles.comercioStatusWrapper}>
+              {/* <View style={styles.comercioStatusWrapper}>
                 <Chip 
                   icon={item.entregado ? 'check-circle' : 'clock-outline'}
                   compact
@@ -586,9 +586,9 @@ const ListaPedidos = ({ eliminar }) => {
                     fontSize: 11
                   }}
                 >
-                  {item.entregado ? 'Entregado' : 'Pendiente de Entrega'}
+                  {item.entregado ? 'Entregado' : 'Pendiente'}
                 </Chip>
-              </View>
+              </View> */}
             </Card.Content>
           )}
         </Card>
@@ -863,7 +863,9 @@ const styles = StyleSheet.create({
   },
   comercioStatusWrapper: {
     marginTop: 8,
-    alignItems: 'flex-start'
+    alignItems: 'flex-start',
+    height: 20,
+    marginBottom: 20
   },
   comercioStatusChip: {
     alignSelf: 'flex-start'
