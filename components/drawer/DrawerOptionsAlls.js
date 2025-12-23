@@ -1,7 +1,7 @@
 import Meteor, {useTracker} from '@meteorrn/core';
 import * as React from 'react';
 import { ScrollView, Dimensions, Alert } from 'react-native';
-import { Card, Drawer, Surface } from 'react-native-paper';
+import { Card, Divider, Drawer, Surface } from 'react-native-paper';
 
 import img from "./SGN_04_02_2021_1617417653789.png";
 const { width: screenWidth } = Dimensions.get('window');
@@ -67,7 +67,6 @@ const DrawerOptionsAlls = (opt) => {
         icon: "file-document-edit-outline"
       });
     }
-
     return opciones;
   };
 
@@ -127,6 +126,14 @@ const DrawerOptionsAlls = (opt) => {
     }
   ];
 
+    if (user?.permiteRemesas == true) {
+      opcionesAdministradorGeneral.push({
+        label: "VentasStepper",
+        url: "VentasStepper",
+        icon: "file-document-edit-outline"
+      });
+    }
+
   // Función para alternar modo cadete con confirmación
   const toggleModoCadete = () => {
     const nuevoEstado = !user?.modoCadete;
@@ -167,11 +174,11 @@ const DrawerOptionsAlls = (opt) => {
 
   return (
     <>
+        <Surface style={{minHeight: screenHeight - 180}}>
+      <ScrollView>
       <Surface>
         <Card.Cover source={img}></Card.Cover>
       </Surface>
-      <ScrollView>
-        <Surface style={{minHeight: screenHeight - 180}}>
             <Drawer.Section title="Servicios VidKar">
               {getOpcionesServicios().map((element, index) => {
                 return (
@@ -221,7 +228,7 @@ const DrawerOptionsAlls = (opt) => {
                   />
                 );
               })}
-              
+              <Divider style={{ marginVertical: 10 }} />
               {/* Control de Modo Cadete - Solo para Admin General */}
               <Drawer.Item
                 icon={user?.modoCadete ? "exit-to-app" : "bike"}
@@ -243,8 +250,8 @@ const DrawerOptionsAlls = (opt) => {
               />
             </Drawer.Section>
           )}
-        </Surface>
       </ScrollView>
+        </Surface>
     </>
   );
 };

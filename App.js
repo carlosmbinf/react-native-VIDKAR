@@ -900,14 +900,7 @@ const App = () => {
                 name="remesas"
                 // component={FormularioRemesa} // usar el componente correcto
                 options={({ navigation, route }) => ({
-                  title: <Text style={{ letterSpacing: 2 }}>Remesas</Text>,
-                  headerStyle: { backgroundColor: '#3f51b5', height: 90 },
-                  headerTitleAlign: 'left',
-                  headerTintColor: '#fff',
-                  headerShown: true,
-                  headerRight: () => (
-                    <MenuHeader navigation={navigation} />
-                  ),
+                  headerShown: false,
                 })}
               >
                 {props => {
@@ -915,12 +908,31 @@ const App = () => {
                   // console.log(item)
                   return (
                     <Surface style={{ height: "100%" }}>
+                      <Appbar
+                      style={{
+                        backgroundColor: '#3f51b5',
+                        height: useSafeAreaInsets().top + 50,
+                        paddingTop: useSafeAreaInsets().top,
+                      }}
+                      >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+                        <Appbar.BackAction
+                        color="red"
+                        onPress={() => {
+                          if (navigation.canGoBack()) {
+                          navigation.goBack();
+                          }
+                        }}
+                        />
+                        <MenuHeader navigation={navigation} />
+                      </View>
+                      </Appbar>
                       <ScrollView>
                         {Meteor.user()?.permiteRemesas ? (
                           <FormularioRemesa />
                         ) : (
                           <Text style={{ textAlign: 'center', margin: 20 }}>
-                            No tiene permiso para realizar remesas.
+                            No se puede realizar remesas por el momento.
                           </Text>
                         )}
                         <TableListRemesa />
