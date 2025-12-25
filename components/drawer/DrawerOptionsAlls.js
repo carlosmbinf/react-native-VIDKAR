@@ -1,6 +1,6 @@
 import Meteor, {useTracker} from '@meteorrn/core';
 import * as React from 'react';
-import { ScrollView, Dimensions, Alert } from 'react-native';
+import { ScrollView, Dimensions, Alert, View } from 'react-native';
 import { Card, Divider, Drawer, Surface } from 'react-native-paper';
 
 import img from "./SGN_04_02_2021_1617417653789.png";
@@ -48,7 +48,7 @@ const DrawerOptionsAlls = (opt) => {
     });
     
     opciones.push({
-      label: "Historial de Compras PROXY/VPN",
+      label: "Compras PROXY/VPN",
       url: "ProxyVPNHistory",
       icon: "history"
     });
@@ -144,11 +144,11 @@ const DrawerOptionsAlls = (opt) => {
   const toggleModoCadete = () => {
     const nuevoEstado = !user?.modoCadete;
     const mensaje = nuevoEstado 
-      ? '¿Deseas activar el modo cadete? Comenzarás a recibir pedidos de delivery.'
-      : '¿Estás seguro que deseas salir del modo cadete? Dejarás de recibir pedidos.';
+      ? 'Al activarlo, comenzarás a aparecer como disponible para entregas y recibirás notificaciones de nuevos pedidos asignados en tiempo real.\n\n✓ Recibirás pedidos automáticamente\n✓ Tu ubicación será visible para el sistema\n✓ Podrás gestionar entregas activas'
+      : 'Al desactivarlo, dejarás de recibir nuevos pedidos y tu disponibilidad quedará en pausa.\n\n• No recibirás más asignaciones\n• Podrás completar pedidos activos\n• Tu ubicación dejará de compartirse\n\nRecuerda: Puedes reactivarlo en cualquier momento.';
     
     Alert.alert(
-      nuevoEstado ? 'Activar Modo Cadete' : 'Salir del Modo Cadete',
+      nuevoEstado ? '🚴 ¿Activar Modo Cadete?' : '⚠️ ¿Salir del Modo Cadete?',
       mensaje,
       [
         {
@@ -180,8 +180,8 @@ const DrawerOptionsAlls = (opt) => {
 
   return (
     <>
-        <Surface style={{minHeight: screenHeight - 180}}>
-      <ScrollView>
+        <Surface style={{height: '100%', flex: 1}}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}>
       <Surface>
         <Card.Cover source={img}></Card.Cover>
       </Surface>
@@ -236,28 +236,46 @@ const DrawerOptionsAlls = (opt) => {
               })}
               <Divider style={{ marginVertical: 10 }} />
               {/* Control de Modo Cadete - Solo para Admin General */}
-              <Drawer.Item
-                icon={user?.modoCadete ? "exit-to-app" : "bike"}
-                label={user?.modoCadete ? "Salir del Modo Cadete" : "Activar Modo Cadete"}
-                active={false}
-                style={{
-                  backgroundColor: user?.modoCadete ? '#FFEBEE' : '#E8F5E9',
-                  marginHorizontal: 8,
-                  marginVertical: 4,
-                  borderRadius: 8,
-                  borderLeftWidth: 4,
-                  borderLeftColor: user?.modoCadete ? '#FF5252' : '#4CAF50',
-                  marginBottom: 30
-                }}
-                labelStyle={{
-                  color: user?.modoCadete ? '#FF5252' : '#4CAF50',
-                  fontWeight: '600',
-                }}
-                onPress={toggleModoCadete}
-              />
+              
             </Drawer.Section>
           )}
+          {/* Spacer para empujar el botón de cadete al final */}
+          <View style={{ flex: 1 }} />
       </ScrollView>
+          {/* Botón anclado al final - Fuera del ScrollView */}
+          <View style={{ 
+            position: 'absolute', 
+            bottom: 0, 
+            left: 0, 
+            right: 0,
+            // backgroundColor: '#fff',
+            paddingVertical: 8,
+            paddingHorizontal: 8,
+            borderTopWidth: 1,
+            borderTopColor: '#E0E0E0',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            // elevation: 8,
+          }}>
+            <Drawer.Item
+              icon={user?.modoCadete ? "exit-to-app" : "bike"}
+              label={user?.modoCadete ? "Salir del Modo Cadete" : "Activar Modo Cadete"}
+              active={true}
+              style={{
+                backgroundColor: user?.modoCadete ? '#FFEBEE' : '#E8F5E9',
+                borderRadius: 8,
+                borderLeftWidth: 4,
+                borderLeftColor: user?.modoCadete ? '#FF5252' : '#4CAF50',
+              }}
+              labelStyle={{
+                color: user?.modoCadete ? '#B71C1C' : '#1B5E20',
+                fontWeight: '600',
+              }}
+              onPress={toggleModoCadete}
+            />
+          </View>
         </Surface>
     </>
   );

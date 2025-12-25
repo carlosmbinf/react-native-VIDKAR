@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import {
   Avatar,
   Title,
@@ -14,14 +14,32 @@ const CadeteDrawerContent = ({ closeDrawer }) => {
   const user = Meteor.user();
 
   const desactivarModoCadete = () => {
-    Meteor.call('users.toggleModoCadete', false, (error) => {
-      if (error) {
-        console.error('Error al desactivar modo cadete:', error);
-        return;
-      }
-      // El cambio en user.modoCadete hará que Main.js redirija automáticamente
-      closeDrawer();
-    });
+    Alert.alert(
+      '⚠️ ¿Salir del Modo Cadete?',
+      'Al desactivarlo, dejarás de recibir nuevos pedidos y tu disponibilidad quedará en pausa.\n\n• No recibirás más asignaciones\n• Podrás completar pedidos activos\n• Tu ubicación dejará de compartirse',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Confirmar',
+          style: 'destructive',
+          onPress: () => {
+            Meteor.call('users.toggleModoCadete', false, (error) => {
+              if (error) {
+                console.error('Error al desactivar modo cadete:', error);
+                Alert.alert('Error', error.reason || 'No se pudo desactivar el modo cadete');
+              } else {
+                Alert.alert('Éxito', 'Has salido del modo cadete.');
+                // El cambio en user.modoCadete hará que Main.js redirija automáticamente
+                closeDrawer();
+              }
+            });
+          }
+        }
+      ]
+    );
   };
 
   return (
