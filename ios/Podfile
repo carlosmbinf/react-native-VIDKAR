@@ -21,6 +21,9 @@ end
 target 'Vidkar' do
   config = use_native_modules!
   
+  pod 'GoogleMaps'
+  pod 'Google-Maps-iOS-Utils'
+
   require_relative '../node_modules/react-native-permissions/scripts/setup'
 
   # Permissions for react-native-permissions

@@ -3,6 +3,8 @@ import { View, StyleSheet } from 'react-native';
 import { Appbar, Card, Title, Paragraph, Chip, Button } from 'react-native-paper';
 import MapaUsuarios from './MapaUsuarios';
 import Meteor, { useTracker } from '@meteorrn/core';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MenuHeader from '../../Header/MenuHeader';
 
 const MapaUsuariosScreen = ({ navigation }) => {
   const [filtroRol, setFiltroRol] = useState('todos');
@@ -33,13 +35,22 @@ const MapaUsuariosScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Appbar style={{ backgroundColor: '#6200ee' }}>
-        <Appbar.BackAction onPress={() => navigation.goBack()} />
-        <Appbar.Content title="Ubicación de Usuarios" />
-        <Appbar.Action icon="refresh" onPress={() => {
-          // Forzar re-render del mapa
-          setFiltroRol(filtroRol);
-        }} />
+      <Appbar style={{
+        backgroundColor: '#3f51b5',
+        height: useSafeAreaInsets().top + 50,
+        paddingTop: useSafeAreaInsets().top,
+      }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+          <Appbar.BackAction
+            color="red"
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              }
+            }}
+          />
+          <MenuHeader navigation={navigation} />
+        </View>
       </Appbar>
 
       <View style={styles.content}>

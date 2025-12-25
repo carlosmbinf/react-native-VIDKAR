@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from 'react-native-maps';
 import Meteor, { useTracker } from '@meteorrn/core';
 
 const MapaUsuarios = ({ initialRegion, filtroRol = 'todos' }) => {
@@ -139,7 +139,7 @@ const MapaUsuarios = ({ initialRegion, filtroRol = 'todos' }) => {
 
   return (
     <MapView
-      provider={PROVIDER_GOOGLE}
+      provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
       style={styles.map}
       initialRegion={region}
     //   showsUserLocation={true}
@@ -169,6 +169,7 @@ const MapaUsuarios = ({ initialRegion, filtroRol = 'todos' }) => {
             description={`Rol: ${usuario.profile?.role || 'usuario'} | Última actualización: ${new Date(coords.timestamp || Date.now()).toLocaleString('es-ES')}`}
             pinColor={getMarkerColor(usuario)}
             // image={getMarkerIcon(usuario)} // Descomentar cuando existan todos los íconos
+            image={require('./pin_goal_50x50.png')}
             anchor={{ x: 0.5, y: 1 }}
           />
         );

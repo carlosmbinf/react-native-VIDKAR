@@ -514,7 +514,7 @@ const App = () => {
                   // const {navigation} = route.params;
                   return (
                     <View>
-                      <Appbar.Header style={{ backgroundColor: '#3f51b5', height: 80, justifyContent: 'center', paddingTop: useSafeAreaInsets().top }}>
+                      <Appbar style={{ backgroundColor: '#3f51b5', height: useSafeAreaInsets().top + 50, justifyContent: 'center', paddingTop: useSafeAreaInsets().top }}>
 
                         <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
                           <Appbar.BackAction
@@ -525,11 +525,12 @@ const App = () => {
                               }
                             }}
                           />
-                          <MenuHeader
+                          <Text style={{ color: 'white', fontSize: 20, marginTop: 10, }}>Detalles del usuario</Text>
+                          {/* <MenuHeader
                             navigation={navigation}
-                          />
+                          /> */}
                         </View>
-                      </Appbar.Header>
+                      </Appbar>
                       <UserDetails item={item} navigation={navigation} />
                     </View>
                     // <TasksProvider user={user} projectPartition={projectPartition}>

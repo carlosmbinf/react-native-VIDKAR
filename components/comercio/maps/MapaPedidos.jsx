@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import FastImage from 'react-native-fast-image';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE , PROVIDER_DEFAULT } from 'react-native-maps';
 
 const MapaPedidos = ( {puntoPartida, puntoAIr} ) => {
   const [region, setRegion] = useState(null);
@@ -26,11 +26,14 @@ const MapaPedidos = ( {puntoPartida, puntoAIr} ) => {
   }
 
   return (
-    <MapView
+    <View style={{ minWidth: 500, minHeight: 200, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#b10303ff' }}>
+<MapView
+      provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
       style={styles.map}
       initialRegion={region}
       // showsUserLocation={true}
-      // showsMyLocationButton={true}
+      showsMyLocationButton={true}
       showsScale={true}
       customMapStyle={[
         {
@@ -64,6 +67,8 @@ const MapaPedidos = ( {puntoPartida, puntoAIr} ) => {
         anchor={{ x: 0.5, y: 1 }}
       />}
     </MapView>
+    </View>
+    
   );
 };
 
