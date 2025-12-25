@@ -999,7 +999,7 @@ const SubidaArchivos = ({ venta}) => {
 export default SubidaArchivos;
 
 const styles = StyleSheet.create({
-  ventaCard: { elevation: 2 },
+  ventaCard: { elevation: 2, borderRadius: 60},
   headerRow: { flexDirection: 'row', alignItems: 'center' },
   labelMonto: { fontSize: 11, color: '#666', fontWeight: '500' },
   montoAPagar: { fontSize: 16, fontWeight: '700', color: '#2E7D32', marginTop: 2 },

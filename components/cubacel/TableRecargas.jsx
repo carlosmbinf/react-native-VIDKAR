@@ -211,7 +211,7 @@ const TableRecargas = () => {
               style={StyleSheet.absoluteFill}
               blurType={isDarkMode ? "dark" : "light"}
             />
-            <View style={[styles.dialogTitleContainer, { paddingTop: insets.top }]}>
+            <View style={[styles.dialogTitleContainer]}>
               <Text style={styles.dialogTitleText}>Detalles de la Venta:</Text>
               <IconButton icon="close" onPress={() => setVisible(false)} />
             </View>
@@ -416,9 +416,9 @@ const TableRecargas = () => {
                     )}
                     {/* NUEVO: solo para método EFECTIVO */}
                     {ventaSel?.metodoPago === 'EFECTIVO' && (
-                      <Surface style={{ marginTop: 5, borderRadius: 6, backgroundColor: '#fff3cd', borderColor: '#ffeaa7', borderWidth: 1 }}>
-                        <Text style={{ textAlign: 'center', color: '#856404', paddingBottom: 5 }}>
-                          ⚠️ Debe subir Evidencia para poder corroborar el pago y Autorizar la recarga
+                      <Surface style={{ marginTop: 5, borderRadius: 60 , backgroundColor: '#fff3cd', borderColor: '#ffeaa7', borderWidth: 1 }}>
+                        <Text style={{ textAlign: 'center', color: '#856404', padding: 5 }}>
+                          ⚠️ Debe subir Evidencia para poder {'\n'}corroborar el pago y Autorizar la recarga
                         </Text>
                         <SubidaArchivos venta={ventaSel} />
                       </Surface>
@@ -465,6 +465,7 @@ const styles = StyleSheet.create({
   title: { marginBottom: 16, textAlign: 'center' },
   item: { padding: 0, marginTop: 8 },
   containerStyle: {
+    paddingVertical: 50,
     padding: 0,
     margin: 0,
     height: "100%",
