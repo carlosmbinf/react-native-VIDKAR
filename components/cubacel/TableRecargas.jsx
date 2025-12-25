@@ -5,14 +5,15 @@ import Meteor, { useTracker } from '@meteorrn/core';
 import { TransaccionRecargasCollection, VentasRechargeCollection } from '../collections/collections';
 import SubidaArchivos from '../archivos/SubidaArchivos';
 import { BlurView } from '@react-native-community/blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const chipColorEstado = (estado) => {
   switch (estado) {
-    case 'ENTREGADO':
+    case 'ENTREGADA':
       return '#28a745';
     case 'PENDIENTE_ENTREGA':
       return '#ffc107';
-    case 'CANCELADO':
+    case 'CANCELADA':
     case 'PENDIENTE_PAGO':
       return '#dc3545';
     default:
@@ -27,9 +28,9 @@ const estadoLabel = (estado) => {
       return 'Pendiente de Pago';
     case 'PENDIENTE_ENTREGA':
       return 'Pendiente';
-    case 'ENTREGADO':
+    case 'ENTREGADA':
       return 'Pagado';
-    case 'CANCELADO':
+    case 'CANCELADA':
       return 'Cancelado';
     default:
       return estado;
@@ -55,6 +56,7 @@ const TableRecargas = () => {
   const isWide = width > height || width >= 768; // apaisado o tablet
   const theme = useTheme();
   const isDarkMode = theme.dark;
+  const insets = useSafeAreaInsets(); // ✅ Llamar el hook dentro del componente
 
   // nuevo: flex por columna según ancho
   const flexes = React.useMemo(() => {
@@ -135,15 +137,15 @@ const TableRecargas = () => {
     const carritos = getItemsArray(venta) || [];
     const isCanceladaVenta = venta.isCancelada;
     const isCobrado = venta.isCobrado;
-    if (isCobrado) return 'ENTREGADO';
-    if (isCanceladaVenta) return 'CANCELADO';
+    if (isCobrado) return 'ENTREGADA';
+    if (isCanceladaVenta) return 'CANCELADA';
     let t = transacciones?.filter(t => carritos?.map(car => car._id)?.includes(t.externalId));
     const allCompleted = t.length > 0 ? t.every(c => c?.status?.message === 'COMPLETED') : false;
     const allCancelled = t.length > 0 ? t.every(c => c?.status?.message === 'CANCELLED') : false;
-    
-    if (allCompleted) return 'ENTREGADO';
+
+    if (allCompleted) return 'ENTREGADA';
     if (allCancelled) return 'CANCELADO';
-    if(venta.isCobrado !== true) return 'PENDIENTE_PAGO';
+    if (venta.isCobrado !== true) return 'PENDIENTE_PAGO';
     if (carritos.length === 0) return 'PENDIENTE_ENTREGA';
     return 'PENDIENTE_ENTREGA';
   };
@@ -199,18 +201,24 @@ const TableRecargas = () => {
             })
           )}
         </DataTable>
-        
+
 
 
         <Portal>
-        <Modal theme={{ colors: { primary: 'green' } }} visible={visible} onDismiss={closeDialog} contentContainerStyle={styles.containerStyle}>
+          <Modal theme={{ colors: { primary: 'green' } }} visible={visible} onDismiss={closeDialog} contentContainerStyle={styles.containerStyle}>
 
-                    <BlurView
-                        style={StyleSheet.absoluteFill}
-                        blurType= {isDarkMode ?"dark":"light"}
-                    />
-          
-            <Dialog.Content style={{ height: "90%" }}>
+            <BlurView
+              style={StyleSheet.absoluteFill}
+              blurType={isDarkMode ? "dark" : "light"}
+            />
+            <View style={[styles.dialogTitleContainer, { paddingTop: insets.top }]}>
+              <Text style={styles.dialogTitleText}>Detalles de la Venta:</Text>
+              <IconButton icon="close" onPress={() => setVisible(false)} />
+            </View>
+            <Divider />
+            <View
+              style={{ paddingHorizontal: 10 }}
+            >
               <ScrollView
                 style={{ height: "100%" }}
                 // contentContainerStyle={{ paddingBottom: 8 }}
@@ -219,31 +227,31 @@ const TableRecargas = () => {
                   <RefreshControl
                     refreshing={false}
                     onRefresh={() => {
-                      try{
-                        ventaSel?.producto?.carritos?.forEach(c => {
-                        let t = transaccion(c._id)
-                        console.log("t", t)
-                        if(t){
-                          t?.status?.message != "COMPLETED" && t?.status?.message != "CANCELLED" ? Meteor.call("dtshop.getStatusTransaccionById", t.id, (error, result) => {
-                          if (error) {
-                            console.log(error);
-                            Alert.alert("Info", "Error en la transaccion asociada a la recarga con ID: \n" + c._id)
+                      try {
+                        ventaSel?.producto?.carritos?.forEach(async c => {
+                          let t = await transaccion(c._id)
+                          console.log("t", t)
+                          if (t) {
+                            t?.status?.message != "COMPLETED" && t?.status?.message != "CANCELLED" && t?.status?.message != "REJECTED-INSUFFICIENT-BALANCE" && t?.status?.message != "FAILED" ? await Meteor.call("dtshop.getStatusTransaccionById", t.id, (error, result) => {
+                              if (error) {
+                                console.log(error);
+                                Alert.alert("Info", "Error en la transaccion asociada a la recarga con ID: \n" + c._id)
+                              } else {
+                                console.log("t?._id", t?._id);
+                                console.log("t?.id", t?.id);
+                                // console.log("result", result);
+                              }
+                            }) : Alert.alert("Transacción " + deriveEstadoVenta(ventaSel)?.toLocaleLowerCase(), "El estado de la recarga ya se encuentra actualizado.");
                           } else {
-                            console.log("t?._id", t?._id);
-                            console.log("t?.id", t?.id);
-                            // console.log("result", result);
+                            // Meteor.call("registrarLog", "ERROR TRANSACCION", Meteor.userId(), "SERVER", `No se encontró transacción asociada a la recarga con ID:\n${c._id}`);
+                            console.log("Info", "No se encontró transacción asociada a la recarga con ID: \n" + c._id)
                           }
-                        }) : Alert.alert("Transacción ya completada", "El estado de la recarga ya se encuentra actualizado.");
-                        }else{
-                          // Meteor.call("registrarLog", "ERROR TRANSACCION", Meteor.userId(), "SERVER", `No se encontró transacción asociada a la recarga con ID:\n${c._id}`);
-                          console.log("Info", "No se encontró transacción asociada a la recarga con ID: \n" + c._id)
-                        }
-                        
-                      });
-                      }catch(error){
+
+                        });
+                      } catch (error) {
                         console.log(error);
                       }
-                      
+
 
                     }}
                   />
@@ -253,9 +261,10 @@ const TableRecargas = () => {
                   <View style={{ borderRadius: 8 }}>
 
 
-                    <View style={{ padding: 0, borderRadius: 6, marginBottom: 0 }}>
+                    <View style={{ padding: 0, borderRadius: 6, marginBottom: 0, paddingTop: 12 }}>
+
                       <Text style={{ marginBottom: 6 }}><Text style={{ fontWeight: 'bold' }}>ID de la Venta: </Text> {ventaSel._id}</Text>
-                      <Divider style={{ marginBottom: 6 }} />
+                      {/* <Divider style={{ marginBottom: 6 }} /> */}
                       <Text style={{ marginBottom: 6 }}>📅 <Text style={{ fontWeight: 'bold' }}>Fecha:</Text> {formatFecha(ventaSel.createdAt)}</Text>
                       <Text style={{ marginBottom: 6 }}>💳 <Text style={{ fontWeight: 'bold' }}>Método de pago:</Text> {ventaSel.metodoPago || '-'}</Text>
                       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
@@ -374,14 +383,14 @@ const TableRecargas = () => {
                               <Text style={{ color: isFailed ? '#721c24' : (isCompleted ? '#155724' : '#856404') }}>
                                 Estado: {transaccionItem?.status?.message || it?.status || 'No Disponible'}
                               </Text>
-                              
+
                               {/* NUEVO: Mostrar mensaje de error si existe */}
                               {isFailed && transaccionItem?.status?.error && (
-                                <Text style={{ 
-                                  color: '#721c24', 
-                                  marginTop: 6, 
+                                <Text style={{
+                                  color: '#721c24',
+                                  marginTop: 6,
                                   fontStyle: 'italic',
-                                  fontSize: 12 
+                                  fontSize: 12
                                 }}>
                                   ⚠️ Error: {transaccionItem.status.error}
                                 </Text>
@@ -407,14 +416,14 @@ const TableRecargas = () => {
                     )}
                     {/* NUEVO: solo para método EFECTIVO */}
                     {ventaSel?.metodoPago === 'EFECTIVO' && (
-                      <Surface style={{ marginTop: 5,  borderRadius: 6, backgroundColor: '#fff3cd', borderColor: '#ffeaa7', borderWidth: 1 }}>
-                        <Text style={{ textAlign: 'center', color: '#856404', paddingBottom: 5 }}> 
+                      <Surface style={{ marginTop: 5, borderRadius: 6, backgroundColor: '#fff3cd', borderColor: '#ffeaa7', borderWidth: 1 }}>
+                        <Text style={{ textAlign: 'center', color: '#856404', paddingBottom: 5 }}>
                           ⚠️ Debe subir Evidencia para poder corroborar el pago y Autorizar la recarga
                         </Text>
                         <SubidaArchivos venta={ventaSel} />
                       </Surface>
                     )}
-                    
+
                   </View>
                 ) : (
                   <Surface style={{ padding: 20, borderRadius: 8, backgroundColor: '#f8d7da' }}>
@@ -425,8 +434,10 @@ const TableRecargas = () => {
                   <Text style={{ marginTop: 8, fontStyle: 'italic' }}>💬 <Text style={{ fontWeight: 'bold' }}></Text>{ventaSel.comentario}</Text>
                 )}
               </ScrollView>
-            </Dialog.Content>
-            <Dialog.Actions style={{ paddingHorizontal: 16}}>
+            </View>
+            {/* <Dialog.Actions style={{
+              // paddingHorizontal: 16 
+            }}>
               <Button
                 mode="contained"
                 onPress={closeDialog}
@@ -434,7 +445,7 @@ const TableRecargas = () => {
               >
                 Cerrar
               </Button>
-            </Dialog.Actions>
+            </Dialog.Actions> */}
           </Modal>
         </Portal>
       </Surface>
@@ -443,14 +454,21 @@ const TableRecargas = () => {
 };
 
 const styles = StyleSheet.create({
+  dialogTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    // paddingLeft: 10,
+  },
   container: { flex: 1, },
   title: { marginBottom: 16, textAlign: 'center' },
-  item: { padding: 8, marginTop: 8 },
+  item: { padding: 0, marginTop: 8 },
   containerStyle: {
-        padding: 0,
-        margin: 0,
-        height: "100%",
-    },
+    padding: 0,
+    margin: 0,
+    height: "100%",
+  },
 });
 
 export default TableRecargas;
