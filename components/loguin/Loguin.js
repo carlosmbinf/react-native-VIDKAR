@@ -26,7 +26,7 @@ import { loginWithGoogle, loginWithApple } from '../../utilesMetodos/metodosUtil
 
 const Loguin = ({ navigation }) => {
   // Estado usando useState
-  const [ipserver, setIpserver] = useState('www.vidkar.com');
+  const [ipserver, setIpserver] = useState('186.50.221.95');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(Appearance.getColorScheme() === 'dark');

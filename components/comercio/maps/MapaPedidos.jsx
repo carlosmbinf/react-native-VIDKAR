@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import MapView, { Marker, PROVIDER_GOOGLE , PROVIDER_DEFAULT } from 'react-native-maps';
 
@@ -26,8 +26,7 @@ const MapaPedidos = ( {puntoPartida, puntoAIr} ) => {
   }
 
   return (
-    <View style={{ minWidth: 500, minHeight: 200, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#b10303ff' }}>
+    <View style={{ minWidth: 500, minHeight: 200, alignItems: 'center', justifyContent: 'center'}}>
 <MapView
       provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
       style={styles.map}

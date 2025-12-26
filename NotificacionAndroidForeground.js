@@ -215,7 +215,9 @@ const ensureLocationPermission = async () => {
 };
 
 const sendCadeteLocationOnce = async () => {
-  if (!isServiceActive) { 
+  if (Meteor.user()?.modoCadete !== true
+    //  && !isServiceActive 
+   ) { 
     // await syncCadeteForegroundFromUI({enabled:true}); // Intentar arrancar si no está activo
     console.log('⚠️ [Ubicación Cadete] Servicio no activo, no se envía ubicación');
     return 
@@ -231,7 +233,7 @@ const sendCadeteLocationOnce = async () => {
     (position) => {
       const { latitude, longitude, accuracy, altitude, speed, heading } = position.coords;
 
-      console.log('📍 [Ubicación Cadete]:', {
+      console.log('📍 [Ubicación Cadete - ' + Meteor.user()?.username + ']:', {
         latitude: latitude.toFixed(6),
         longitude: longitude.toFixed(6),
         accuracy: accuracy ? `±${accuracy.toFixed(0)}m` : 'N/A',
