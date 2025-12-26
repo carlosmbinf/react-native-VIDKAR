@@ -11,7 +11,7 @@ public class MyBackgroundService extends HeadlessJsTaskService {
     @Override
     protected HeadlessJsTaskConfig getTaskConfig(Intent intent) {
         return new HeadlessJsTaskConfig(
-                "BackgroundService",
+                "MyBackgroundService",
                 null,
                 5000, // Tiempo de ejecución antes de ser eliminado
                 true // Permite ejecución con la pantalla apagada

@@ -53,7 +53,7 @@ try {
   );
 
   console.log('Platform.OS', Platform.OS);
-  if (Platform.OS === 'android') {
+  if (Platform.OS === 'android' ) {
     AndroidForegroundService(); // ✅ Se inicia automáticamente
   } else if (Platform.OS === 'ios') {
     // ✅ Solicitar permisos de ubicación para iOS

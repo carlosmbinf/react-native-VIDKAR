@@ -4,6 +4,7 @@ import Drawer from 'react-native-drawer';
 import { Appbar } from 'react-native-paper';
 import HomePedidosComercio from '../comercio/pedidos/HomePedidosComercio';
 import CadeteDrawerContent from './CadeteDrawerContent';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const CadeteNavigator = () => {
   const drawerRef = useRef(null);
@@ -45,7 +46,9 @@ const CadeteNavigator = () => {
         })}
       >
         {/* Header principal con botón de menú */}
-        <Appbar.Header style={{ backgroundColor: '#4CAF50' }}>
+        <Appbar style={{  backgroundColor: '#4CAF50',
+                        height: (StatusBar.currentHeight || 0) + 50,
+                        paddingTop: StatusBar.currentHeight || 0}}>
           <Appbar.Action 
             icon="menu" 
             color="#FFFFFF"
@@ -63,7 +66,7 @@ const CadeteNavigator = () => {
               console.log('Notificaciones');
             }} 
           />
-        </Appbar.Header>
+        </Appbar>
 
         {/* Contenido principal */}
         <HomePedidosComercio />

@@ -9,6 +9,7 @@ import {
   List,
 } from 'react-native-paper';
 import Meteor from '@meteorrn/core';
+import { syncCadeteForegroundFromUI } from '../../NotificacionAndroidForeground';
 
 const CadeteDrawerContent = ({ closeDrawer }) => {
   const user = Meteor.user();
@@ -26,11 +27,12 @@ const CadeteDrawerContent = ({ closeDrawer }) => {
           text: 'Confirmar',
           style: 'destructive',
           onPress: () => {
-            Meteor.call('users.toggleModoCadete', false, (error) => {
+            Meteor.call('users.toggleModoCadete', false,async (error) => {
               if (error) {
                 console.error('Error al desactivar modo cadete:', error);
                 Alert.alert('Error', error.reason || 'No se pudo desactivar el modo cadete');
               } else {
+                await syncCadeteForegroundFromUI({ enabled: false });
                 Alert.alert('Éxito', 'Has salido del modo cadete.');
                 // El cambio en user.modoCadete hará que Main.js redirija automáticamente
                 closeDrawer();
@@ -47,11 +49,16 @@ const CadeteDrawerContent = ({ closeDrawer }) => {
       {/* Header del Drawer con info del cadete */}
       <View style={styles.userInfoSection}>
         <View style={styles.userInfoHeader}>
-          <Avatar.Text
+          {user?.picture ? <Avatar.Image  source={{ uri: user?.picture }}
             size={50}
             label={user?.username?.substring(0, 2).toUpperCase() || 'CD'}
             style={styles.avatar}
-          />
+          /> : <Avatar.Text
+            size={50}
+            label={user?.username?.substring(0, 2).toUpperCase() || 'CD'}
+            style={styles.avatar}
+          />}
+          
           <View style={styles.userDetails}>
             <Title style={styles.title}>{user?.username || 'Cadete'}</Title>
             <Caption style={styles.caption}>Modo Cadete Activo</Caption>
@@ -131,6 +138,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
   userInfoHeader: {
+    paddingTop: 50,
     flexDirection: 'row',
     alignItems: 'center',
   },

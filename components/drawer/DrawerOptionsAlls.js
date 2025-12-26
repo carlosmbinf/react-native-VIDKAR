@@ -4,6 +4,7 @@ import { ScrollView, Dimensions, Alert, View } from 'react-native';
 import { Card, Divider, Drawer, Surface } from 'react-native-paper';
 
 import img from "./SGN_04_02_2021_1617417653789.png";
+import { syncCadeteForegroundFromUI } from '../../NotificacionAndroidForeground';
 const { width: screenWidth } = Dimensions.get('window');
 const { height: screenHeight } = Dimensions.get('window');
 const DrawerOptionsAlls = (opt) => {
@@ -159,11 +160,12 @@ const DrawerOptionsAlls = (opt) => {
           text: 'Confirmar',
           style: nuevoEstado ? 'default' : 'destructive',
           onPress: () => {
-            Meteor.call('users.toggleModoCadete', nuevoEstado, (error) => {
+            Meteor.call('users.toggleModoCadete', nuevoEstado,async (error) => {
               if (error) {
                 console.error('Error al cambiar modo cadete:', error);
                 Alert.alert('Error', error.reason || 'No se pudo cambiar el modo cadete');
               } else {
+                await syncCadeteForegroundFromUI({ enabled: nuevoEstado });
                 Alert.alert(
                   'Éxito',
                   nuevoEstado 

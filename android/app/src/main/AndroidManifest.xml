@@ -11,8 +11,10 @@
   <!-- Permisos de ubicación precisa -->
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+  
   <!-- Permiso de ubicación en background (Android 10+) -->
   <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
   <!-- Permisos de cámara -->
   <uses-permission android:name="android.permission.CAMERA" />
 
@@ -65,6 +67,7 @@
       <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Seguimiento de ubicación en tiempo real para cadetes" />
     </service>
 
+<service android:name="com.vidkar.MyBackgroundService" android:foregroundServiceType="location|dataSync"></service>
     <!-- Notifee declara su propio servicio automáticamente, NO duplicar aquí -->
     <!-- Si necesitas override del foregroundServiceType, usar tools:replace -->
   </application>
