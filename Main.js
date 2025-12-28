@@ -8,7 +8,7 @@
 
 import React, {useEffect, useRef, useState} from 'react';
 import Meteor, {Mongo, withTracker} from '@meteorrn/core';
-import {StatusBar, StyleSheet} from 'react-native';
+import {Platform, StatusBar, StyleSheet} from 'react-native';
 import {Text,Provider as PaperProvider,} from 'react-native-paper';
 import App from './App';
 import Loguin from './components/loguin/Loguin';
@@ -93,18 +93,20 @@ const ServerList = withTracker(navigation => {
       } : null,
       'Meteor.status()': Meteor.status()
         });
-    if (Meteor.status().connected && ready && userId) {
+        if(Platform.OS === 'android'){
+          if (Meteor.status().connected && ready && userId) {
         // MyService.isRunning().then(e => console.log("MyService.isRunning - ready && user: ", e)).catch(error => { })
-        console.log("MyService.start()");
-        MyService.setMeteorUserId(userId);
-        MyService.start();
-      
-    } else if ( Meteor.status().connected && ready) {
-      console.log("MyService.stop()");
+            console.log("MyService.start()");
+            MyService.setMeteorUserId(userId);
+            MyService.start();
+          } else if ( Meteor.status().connected && ready) {
+            console.log("MyService.stop()");
 
-      MyService.setMeteorUserId(null);
-      MyService.stop();
-    }
+            MyService.setMeteorUserId(null);
+            MyService.stop();
+          }
+        }
+    
   //  console.log(myTodoTasks);
   return {
     user,
