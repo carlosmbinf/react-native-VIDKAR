@@ -10,15 +10,216 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+// ✅ NUEVO: Componente separado para card COMERCIO
+const ComercioCard = ({ item, eliminar, isDarkMode, eliminarPedido }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [rotateAnim] = useState(new Animated.Value(0));
+  
+  const color = '#FF5722';
+  const producto = item.producto || {};
+  const precioUnitario = producto.precio || 0;
+  const cantidad = item.cantidad || 1;
+  const total = precioUnitario * cantidad;
+
+  const toggleExpanded = () => {
+    // Animación suave con LayoutAnimation
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    
+    // Rotar icono de chevron
+    Animated.timing(rotateAnim, {
+      toValue: expanded ? 0 : 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    setExpanded(!expanded);
+  };
+
+  const rotate = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '180deg'],
+  });
+  
+  return (
+    <Surface elevation={3} style={[styles.comercioSurface, { borderLeftColor: color }]}>
+      <Card style={styles.comercioCard}>
+        {/* Card principal SIEMPRE visible (resumen) */}
+        <TouchableOpacity 
+          activeOpacity={0.7}
+          onPress={toggleExpanded}
+        >
+          <Card.Content style={styles.comercioMainContent}>
+            {/* Header con icono y título */}
+            <View style={styles.comercioHeaderRow}>
+              <View style={styles.comercioTitleWrapper}>
+                <IconButton 
+                  icon="storefront" 
+                  size={20} 
+                  iconColor={color}
+                  style={styles.comercioIcon}
+                />
+                <View style={styles.comercioTitleTexts}>
+                  <Text style={[styles.comercioProductName, { color }]} numberOfLines={1} ellipsizeMode="tail">
+                    {producto.name || 'Producto'}
+                  </Text>
+                  <Text style={[styles.comercioSubtitle, isDarkMode && { color: '#AAA' }]}>
+                    Pedido de Tienda
+                  </Text>
+                </View>
+              </View>
+
+              {/* Botón eliminar */}
+              {eliminar && (
+                <IconButton 
+                  icon="close" 
+                  size={18} 
+                  iconColor={isDarkMode ? '#ff6b6b' : '#F44336'}
+                  style={styles.comercioCloseButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    eliminarPedido(item._id);
+                  }} 
+                />
+              )}
+            </View>
+
+            {/* Información resumida (cantidad y precio) */}
+            <View style={styles.comercioSummaryRow}>
+              <View style={styles.comercioSummaryItem}>
+                <IconButton icon="counter" size={14} iconColor={isDarkMode ? '#888' : '#666'} style={styles.comercioSummaryIcon} />
+                <Text style={[styles.comercioSummaryLabel, isDarkMode && { color: '#AAA' }]}>Cantidad:</Text>
+                <Text style={[styles.comercioSummaryValue, isDarkMode && { color: '#EEE' }]}>
+                  {cantidad}
+                </Text>
+              </View>
+
+              <View style={styles.comercioSummaryItem}>
+                <IconButton icon="currency-usd" size={14} iconColor={isDarkMode ? '#888' : '#666'} style={styles.comercioSummaryIcon} />
+                <Text style={[styles.comercioSummaryLabel, isDarkMode && { color: '#AAA' }]}>Total:</Text>
+                <Text style={[styles.comercioSummaryValue, styles.comercioPriceHighlight]}>
+                  {total} {item.monedaACobrar || 'CUP'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Indicador de expansión */}
+            <View style={styles.comercioExpandIndicator}>
+              <Text style={[styles.comercioExpandText, isDarkMode && { color: '#AAA' }]}>
+                {expanded ? 'Ver menos' : 'Ver más detalles'}
+              </Text>
+              <Animated.View style={{ transform: [{ rotate }] }}>
+                <IconButton 
+                  icon="chevron-down" 
+                  size={20} 
+                  iconColor={color}
+                  style={styles.comercioChevron}
+                />
+              </Animated.View>
+            </View>
+          </Card.Content>
+        </TouchableOpacity>
+
+        {/* Sección expandible (detalles completos) */}
+        {expanded && (
+          <Card.Content style={styles.comercioExpandedContent}>
+            <Divider style={styles.comercioDivider} />
+
+            {/* Descripción del producto */}
+            {producto.descripcion && (
+              <View style={styles.comercioDetailRow}>
+                <IconButton icon="text" size={16} iconColor={isDarkMode ? '#AAA' : '#666'} style={styles.detailIcon} />
+                <View style={styles.comercioDetailTextWrapper}>
+                  <Text style={[styles.comercioDetailLabel, isDarkMode && { color: '#AAA' }]}>Descripción</Text>
+                  <Text style={[styles.comercioDetailValue, isDarkMode && { color: '#EEE' }]}>
+                    {producto.descripcion}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Precio unitario */}
+            <View style={styles.comercioDetailRow}>
+              <IconButton icon="tag" size={16} iconColor={isDarkMode ? '#AAA' : '#666'} style={styles.detailIcon} />
+              <View style={styles.comercioDetailTextWrapper}>
+                <Text style={[styles.comercioDetailLabel, isDarkMode && { color: '#AAA' }]}>Precio unitario</Text>
+                <Text style={[styles.comercioDetailValue, isDarkMode && { color: '#EEE' }]}>
+                  {precioUnitario} {producto.monedaPrecio || 'CUP'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Tipo de producto */}
+            {producto.productoDeElaboracion !== undefined && (
+              <View style={styles.comercioDetailRow}>
+                <IconButton 
+                  icon={producto.productoDeElaboracion ? 'chef-hat' : 'package-variant'} 
+                  size={16} 
+                  iconColor={isDarkMode ? '#AAA' : '#666'} 
+                  style={styles.detailIcon} 
+                />
+                <View style={styles.comercioDetailTextWrapper}>
+                  <Text style={[styles.comercioDetailLabel, isDarkMode && { color: '#AAA' }]}>Tipo de producto</Text>
+                  <Text style={[styles.comercioDetailValue, isDarkMode && { color: '#EEE' }]}>
+                    {producto.productoDeElaboracion ? 'Elaboración bajo pedido' : 'Stock disponible'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Ubicación de entrega */}
+            {item.coordenadas && (
+              <View style={styles.comercioDetailRow}>
+                <IconButton icon="map-marker" size={16} iconColor={isDarkMode ? '#AAA' : '#666'} style={styles.detailIcon} />
+                <View style={styles.comercioDetailTextWrapper}>
+                  <Text style={[styles.comercioDetailLabel, isDarkMode && { color: '#AAA' }]}>Ubicación GPS</Text>
+                  <Text style={[styles.comercioDetailValue, isDarkMode && { color: '#EEE' }]}>
+                    {item.coordenadas.latitude.toFixed(4)}, {item.coordenadas.longitude.toFixed(4)}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Dirección (si existe) */}
+            {item.direccionCuba && item.direccionCuba.trim() !== '' && (
+              <View style={styles.comercioDetailRow}>
+                <IconButton icon="home-map-marker" size={16} iconColor={isDarkMode ? '#AAA' : '#666'} style={styles.detailIcon} />
+                <View style={styles.comercioDetailTextWrapper}>
+                  <Text style={[styles.comercioDetailLabel, isDarkMode && { color: '#AAA' }]}>Dirección de entrega</Text>
+                  <Text style={[styles.comercioDetailValue, isDarkMode && { color: '#EEE' }]}>
+                    {item.direccionCuba}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Comentario adicional */}
+            {item.comentario && item.comentario.trim() !== '' && (
+              <View style={styles.comercioDetailRow}>
+                <IconButton icon="comment-text" size={16} iconColor={isDarkMode ? '#AAA' : '#666'} style={styles.detailIcon} />
+                <View style={styles.comercioDetailTextWrapper}>
+                  <Text style={[styles.comercioDetailLabel, isDarkMode && { color: '#AAA' }]}>Notas adicionales</Text>
+                  <Text style={[styles.comercioDetailValue, isDarkMode && { color: '#EEE' }]}>
+                    {item.comentario}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </Card.Content>
+        )}
+      </Card>
+    </Surface>
+  );
+};
+
 const ListaPedidos = ({ eliminar }) => {
   const userId = Meteor.userId();
   const theme = useTheme();
   const isDarkMode = theme.dark;
 
-  const { pedidosRemesa = [] } = useTracker(() => {
+  const pedidosRemesa  = useTracker(() => {
     Meteor.subscribe('carrito', { idUser: userId });
     const pedidos = CarritoCollection.find({ idUser: userId }).fetch();
-    return { pedidosRemesa: pedidos };
+    return  pedidos;
   });
 
   const eliminarPedido = (idPedido) => {
@@ -376,223 +577,16 @@ const ListaPedidos = ({ eliminar }) => {
     );
   };
 
-  // ✅ Renderizar card de COMERCIO con Collapse animado
+  // ✅ MODIFICADO: Ahora solo invoca el componente
   const renderComercioCard = (item) => {
-    const [expanded, setExpanded] = useState(false);
-    const [rotateAnim] = useState(new Animated.Value(0));
-    
-    const color = '#FF5722';
-    const producto = item.producto || {};
-    const precioUnitario = producto.precio || 0;
-    const cantidad = item.cantidad || 1;
-    const total = precioUnitario * cantidad;
-
-    const toggleExpanded = () => {
-      // Animación suave con LayoutAnimation
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      
-      // Rotar icono de chevron
-      Animated.timing(rotateAnim, {
-        toValue: expanded ? 0 : 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-
-      setExpanded(!expanded);
-    };
-
-    const rotate = rotateAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: ['0deg', '180deg'],
-    });
-    
     return (
-      <Surface key={item._id} elevation={3} style={[styles.comercioSurface, { borderLeftColor: color }]}>
-        <Card style={styles.comercioCard}>
-          {/* Card principal SIEMPRE visible (resumen) */}
-          <TouchableOpacity 
-            activeOpacity={0.7}
-            onPress={toggleExpanded}
-          >
-            <Card.Content style={styles.comercioMainContent}>
-              {/* Header con icono y título */}
-              <View style={styles.comercioHeaderRow}>
-                <View style={styles.comercioTitleWrapper}>
-                  <IconButton 
-                    icon="storefront" 
-                    size={20} 
-                    iconColor={color}
-                    style={styles.comercioIcon}
-                  />
-                  <View style={styles.comercioTitleTexts}>
-                    <Text style={[styles.comercioProductName, { color }]} numberOfLines={1} ellipsizeMode="tail">
-                      {producto.name || 'Producto'}
-                    </Text>
-                    <Text style={[styles.comercioSubtitle, isDarkMode && { color: '#AAA' }]}>
-                      Pedido de Tienda
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Botón eliminar */}
-                {eliminar && (
-                  <IconButton 
-                    icon="close" 
-                    size={18} 
-                    iconColor={isDarkMode ? '#ff6b6b' : '#F44336'}
-                    style={styles.comercioCloseButton}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      eliminarPedido(item._id);
-                    }} 
-                  />
-                )}
-              </View>
-
-              {/* Información resumida (cantidad y precio) */}
-              <View style={styles.comercioSummaryRow}>
-                <View style={styles.comercioSummaryItem}>
-                  <IconButton icon="counter" size={14} iconColor={isDarkMode ? '#888' : '#666'} style={styles.comercioSummaryIcon} />
-                  <Text style={[styles.comercioSummaryLabel, isDarkMode && { color: '#AAA' }]}>Cantidad:</Text>
-                  <Text style={[styles.comercioSummaryValue, isDarkMode && { color: '#EEE' }]}>
-                    {cantidad}
-                  </Text>
-                </View>
-
-                <View style={styles.comercioSummaryItem}>
-                  <IconButton icon="currency-usd" size={14} iconColor={isDarkMode ? '#888' : '#666'} style={styles.comercioSummaryIcon} />
-                  <Text style={[styles.comercioSummaryLabel, isDarkMode && { color: '#AAA' }]}>Total:</Text>
-                  <Text style={[styles.comercioSummaryValue, styles.comercioPriceHighlight]}>
-                    {total} {item.monedaACobrar || 'CUP'}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Indicador de expansión */}
-              <View style={styles.comercioExpandIndicator}>
-                <Text style={[styles.comercioExpandText, isDarkMode && { color: '#AAA' }]}>
-                  {expanded ? 'Ver menos' : 'Ver más detalles'}
-                </Text>
-                <Animated.View style={{ transform: [{ rotate }] }}>
-                  <IconButton 
-                    icon="chevron-down" 
-                    size={20} 
-                    iconColor={color}
-                    style={styles.comercioChevron}
-                  />
-                </Animated.View>
-              </View>
-            </Card.Content>
-          </TouchableOpacity>
-
-          {/* Sección expandible (detalles completos) */}
-          {expanded && (
-            <Card.Content style={styles.comercioExpandedContent}>
-              <Divider style={styles.comercioDivider} />
-
-              {/* Descripción del producto */}
-              {producto.descripcion && (
-                <View style={styles.comercioDetailRow}>
-                  <IconButton icon="text" size={16} iconColor={isDarkMode ? '#AAA' : '#666'} style={styles.detailIcon} />
-                  <View style={styles.comercioDetailTextWrapper}>
-                    <Text style={[styles.comercioDetailLabel, isDarkMode && { color: '#AAA' }]}>Descripción</Text>
-                    <Text style={[styles.comercioDetailValue, isDarkMode && { color: '#EEE' }]}>
-                      {producto.descripcion}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Precio unitario */}
-              <View style={styles.comercioDetailRow}>
-                <IconButton icon="tag" size={16} iconColor={isDarkMode ? '#AAA' : '#666'} style={styles.detailIcon} />
-                <View style={styles.comercioDetailTextWrapper}>
-                  <Text style={[styles.comercioDetailLabel, isDarkMode && { color: '#AAA' }]}>Precio unitario</Text>
-                  <Text style={[styles.comercioDetailValue, isDarkMode && { color: '#EEE' }]}>
-                    {precioUnitario} {producto.monedaPrecio || 'CUP'}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Tipo de producto */}
-              {producto.productoDeElaboracion !== undefined && (
-                <View style={styles.comercioDetailRow}>
-                  <IconButton 
-                    icon={producto.productoDeElaboracion ? 'chef-hat' : 'package-variant'} 
-                    size={16} 
-                    iconColor={isDarkMode ? '#AAA' : '#666'} 
-                    style={styles.detailIcon} 
-                  />
-                  <View style={styles.comercioDetailTextWrapper}>
-                    <Text style={[styles.comercioDetailLabel, isDarkMode && { color: '#AAA' }]}>Tipo de producto</Text>
-                    <Text style={[styles.comercioDetailValue, isDarkMode && { color: '#EEE' }]}>
-                      {producto.productoDeElaboracion ? 'Elaboración bajo pedido' : 'Stock disponible'}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Ubicación de entrega */}
-              {item.coordenadas && (
-                <View style={styles.comercioDetailRow}>
-                  <IconButton icon="map-marker" size={16} iconColor={isDarkMode ? '#AAA' : '#666'} style={styles.detailIcon} />
-                  <View style={styles.comercioDetailTextWrapper}>
-                    <Text style={[styles.comercioDetailLabel, isDarkMode && { color: '#AAA' }]}>Ubicación GPS</Text>
-                    <Text style={[styles.comercioDetailValue, isDarkMode && { color: '#EEE' }]}>
-                      {item.coordenadas.latitude.toFixed(4)}, {item.coordenadas.longitude.toFixed(4)}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Dirección (si existe) */}
-              {item.direccionCuba && item.direccionCuba.trim() !== '' && (
-                <View style={styles.comercioDetailRow}>
-                  <IconButton icon="home-map-marker" size={16} iconColor={isDarkMode ? '#AAA' : '#666'} style={styles.detailIcon} />
-                  <View style={styles.comercioDetailTextWrapper}>
-                    <Text style={[styles.comercioDetailLabel, isDarkMode && { color: '#AAA' }]}>Dirección de entrega</Text>
-                    <Text style={[styles.comercioDetailValue, isDarkMode && { color: '#EEE' }]}>
-                      {item.direccionCuba}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Comentario adicional */}
-              {item.comentario && item.comentario.trim() !== '' && (
-                <View style={styles.comercioDetailRow}>
-                  <IconButton icon="comment-text" size={16} iconColor={isDarkMode ? '#AAA' : '#666'} style={styles.detailIcon} />
-                  <View style={styles.comercioDetailTextWrapper}>
-                    <Text style={[styles.comercioDetailLabel, isDarkMode && { color: '#AAA' }]}>Notas adicionales</Text>
-                    <Text style={[styles.comercioDetailValue, isDarkMode && { color: '#EEE' }]}>
-                      {item.comentario}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Badge de estado */}
-              {/* <View style={styles.comercioStatusWrapper}>
-                <Chip 
-                  icon={item.entregado ? 'check-circle' : 'clock-outline'}
-                  compact
-                  style={[
-                    styles.comercioStatusChip,
-                    { backgroundColor: item.entregado ? '#4CAF5020' : '#FF980020' }
-                  ]}
-                  textStyle={{ 
-                    color: item.entregado ? '#4CAF50' : '#FF9800',
-                    fontWeight: '600',
-                    fontSize: 11
-                  }}
-                >
-                  {item.entregado ? 'Entregado' : 'Pendiente'}
-                </Chip>
-              </View> */}
-            </Card.Content>
-          )}
-        </Card>
-      </Surface>
+      <ComercioCard 
+        key={item._id}
+        item={item}
+        eliminar={eliminar}
+        isDarkMode={isDarkMode}
+        eliminarPedido={eliminarPedido}
+      />
     );
   };
 
