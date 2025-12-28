@@ -27,11 +27,10 @@ const VPNPackageCardItem = ({
         isRecommended && styles.recommendedCard,
         isIlimitado && styles.unlimitedCard
       ]} 
-      elevation={isRecommended ? 4 : isIlimitado ? 5 : 2}
     >
       {isIlimitado && (
         <View style={[styles.premiumBadge, { backgroundColor: goldColor }]}>
-          <IconButton icon="crown" size={16} iconColor="#000" style={{ margin: 0 }} />
+          <IconButton icon="crown" size={14} iconColor="#000" style={{ margin: 0 }} />
           <Paragraph style={[styles.premiumText, { color: '#000' }]}>
             ⭐ PREMIUM ⭐
           </Paragraph>
@@ -51,7 +50,7 @@ const VPNPackageCardItem = ({
           <View style={styles.packageTitleContainer}>
             <IconButton 
               icon={isIlimitado ? "infinity" : "shield-check"}
-              size={isTablet ? 32 : 24} 
+              size={isTablet ? 28 : 20}
               iconColor={isIlimitado ? goldColor : vpnColor}
               style={styles.packageIcon}
             />
@@ -88,8 +87,8 @@ const VPNPackageCardItem = ({
           <Paragraph style={[
             styles.unlimitedDescription,
             isTablet && styles.packageDescriptionTablet
-          ]}>
-            🔒 Navegación ilimitada y segura durante 30 días
+          ]} numberOfLines={1}>
+            🔒 Navegación ilimitada 30 días
           </Paragraph>
         )}
 
@@ -122,8 +121,9 @@ const VPNPackageCardItem = ({
               isIlimitado && { fontWeight: '900' }
             ]}
             contentStyle={styles.buyButtonContent}
+            compact
           >
-            {isIlimitado ? 'Comprar Premium' : 'Comprar Ahora'}
+            {isIlimitado ? 'Comprar Premium' : 'Comprar'}
           </Button>
         </View>
       </View>
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: '#4CAF50',
     borderRadius: 20,
-    minHeight: 280, // ✅ Altura mínima consistente
+    minHeight: 180, // ✅ Reducido de 280px a 180px
   },
   packageCardHorizontal: {
     marginRight: 16,
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   },
   packageCardTablet: {
     width: 320,
-    minHeight: 320
+    minHeight: 200 // ✅ Reducido de 320px a 200px
   },
   recommendedCard: {
     borderColor: '#FFD700',
@@ -162,39 +162,39 @@ const styles = StyleSheet.create({
     borderColor: '#FFD700'
   },
   premiumBadge: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 5, // ✅ Reducido de 8px a 5px
+    paddingHorizontal: 12, // ✅ Reducido de 16px a 12px
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center'
   },
   premiumText: {
-    fontSize: 12,
+    fontSize: 10, // ✅ Reducido de 12px a 10px
     fontWeight: '900',
     letterSpacing: 2,
     marginLeft: 4
   },
   recommendedBadge: {
-    paddingVertical: 6,
+    paddingVertical: 4, // ✅ Reducido de 6px a 4px
     paddingHorizontal: 12,
     alignItems: 'center'
   },
   recommendedText: {
-    fontSize: 11,
+    fontSize: 10, // ✅ Reducido de 11px a 10px
     fontWeight: 'bold',
     letterSpacing: 1
   },
   packageContent: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    flex: 1, // ✅ Permitir que el contenido se expanda
-    justifyContent: 'space-between' // ✅ Empujar el botón al final
+    paddingVertical: 10, // ✅ Reducido de 16px a 10px
+    paddingHorizontal: 12, // ✅ Reducido de 16px a 12px
+    flex: 1,
+    justifyContent: 'space-between'
   },
   packageHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12
+    marginBottom: 8 // ✅ Reducido de 12px a 8px
   },
   packageTitleContainer: {
     flexDirection: 'row',
@@ -205,52 +205,52 @@ const styles = StyleSheet.create({
     margin: 0
   },
   packageTitle: {
-    fontSize: 18,
+    fontSize: 18, // ✅ Reducido de 18px (se mantiene por legibilidad)
     fontWeight: 'bold',
     marginLeft: 4
   },
   packageTitleTablet: {
-    fontSize: 28
+    fontSize: 24 // ✅ Reducido de 28px a 24px
   },
   priceContainer: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10, // ✅ Reducido de 12px a 10px
+    paddingVertical: 4, // ✅ Reducido de 6px a 4px
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'baseline'
   },
   packagePrice: {
-    fontSize: 20,
+    fontSize: 18, // ✅ Reducido de 20px a 18px
     fontWeight: 'bold'
   },
   packagePriceTablet: {
     fontSize: 20
   },
   priceCurrency: {
-    fontSize: 12,
+    fontSize: 11, // ✅ Reducido de 12px a 11px
     marginLeft: 4,
     fontWeight: '600'
   },
   packageDescription: {
-    fontSize: 13,
-    lineHeight: 20,
-    marginTop: 8
+    fontSize: 12, // ✅ Reducido de 13px a 12px
+    lineHeight: 16, // ✅ Reducido de 20px a 16px
+    marginTop: 4 // ✅ Reducido de 8px a 4px
   },
   packageDescriptionTablet: {
-    fontSize: 15,
-    lineHeight: 22
+    fontSize: 14, // ✅ Reducido de 15px a 14px
+    lineHeight: 18 // ✅ Reducido de 22px a 18px
   },
   unlimitedDescription: {
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 8,
-    marginBottom: 8,
+    fontSize: 13, // ✅ Reducido de 15px a 13px
+    lineHeight: 18, // ✅ Reducido de 22px a 18px
+    marginTop: 4, // ✅ Reducido de 8px a 4px
+    marginBottom: 4, // ✅ Reducido de 8px a 4px
     fontWeight: '600',
     textAlign: 'center'
   },
   packageActions: {
     justifyContent: 'center',
-    marginTop: 'auto' // ✅ Forzar al final del contenedor
+    marginTop: 'auto'
   },
   buyButton: {
     borderRadius: 8
@@ -259,14 +259,14 @@ const styles = StyleSheet.create({
     borderRadius: 10
   },
   buyButtonContent: {
-    paddingVertical: 6
+    paddingVertical: 2 // ✅ Reducido de 6px a 2px
   },
   buyButtonLabel: {
-    fontSize: 14,
+    fontSize: 13, // ✅ Reducido de 14px a 13px
     fontWeight: 'bold'
   },
   buyButtonLabelTablet: {
-    fontSize: 16
+    fontSize: 15 // ✅ Reducido de 16px a 15px
   }
 });
 

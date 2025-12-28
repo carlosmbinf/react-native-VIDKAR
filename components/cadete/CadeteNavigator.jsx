@@ -8,6 +8,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const CadeteNavigator = () => {
   const drawerRef = useRef(null);
+  const insets = useSafeAreaInsets();
+
+  // Fallback seguro si los insets no están disponibles aún
+  const topInset = insets?.top || 0;
 
   const openDrawer = () => {
     drawerRef.current?.open();
@@ -47,8 +51,8 @@ const CadeteNavigator = () => {
       >
         {/* Header principal con botón de menú */}
         <Appbar style={{  backgroundColor: '#4CAF50',
-                        height: (StatusBar.currentHeight || 0) + 50,
-                        paddingTop: StatusBar.currentHeight || 0}}>
+                        height: topInset + 50,
+                        paddingTop: topInset}}>
           <Appbar.Action 
             icon="menu" 
             color="#FFFFFF"

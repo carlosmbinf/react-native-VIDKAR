@@ -32,7 +32,7 @@ const CadeteDrawerContent = ({ closeDrawer }) => {
                 console.error('Error al desactivar modo cadete:', error);
                 Alert.alert('Error', error.reason || 'No se pudo desactivar el modo cadete');
               } else {
-                await syncCadeteForegroundFromUI({ enabled: false });
+                // await syncCadeteForegroundFromUI({ enabled: false });
                 Alert.alert('Éxito', 'Has salido del modo cadete.');
                 // El cambio en user.modoCadete hará que Main.js redirija automáticamente
                 closeDrawer();

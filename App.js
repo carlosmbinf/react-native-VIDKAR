@@ -937,7 +937,7 @@ const App = () => {
                             No se puede realizar remesas por el momento.
                           </Text>
                         )}
-                        <TableListRemesa />
+                        <VentasStepper />
                       </ScrollView>
 
                     </Surface>

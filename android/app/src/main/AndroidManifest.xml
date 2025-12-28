@@ -7,6 +7,7 @@
   <uses-permission android:name="android.permission.WAKE_LOCK" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
   <!-- Permisos de ubicación precisa -->
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -68,6 +69,15 @@
     </service>
 
 <service android:name="com.vidkar.MyBackgroundService" android:foregroundServiceType="location|dataSync"></service>
+<service
+    android:name=".MyTrackingService"
+    android:exported="false" 
+    android:foregroundServiceType="location"/>
+<receiver android:name=".BootReceiver" android:enabled="true" android:exported="false">
+  <intent-filter>
+    <action android:name="android.intent.action.BOOT_COMPLETED" />
+  </intent-filter>
+</receiver>
     <!-- Notifee declara su propio servicio automáticamente, NO duplicar aquí -->
     <!-- Si necesitas override del foregroundServiceType, usar tools:replace -->
   </application>

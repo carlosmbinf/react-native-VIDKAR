@@ -78,7 +78,7 @@ const MenuPrincipal = ({ navigation }) => {
                 />
           </View>
         </Appbar>
-        <Surface style={{ height: "100%" ,paddingBottom:50}}>
+        <Surface style={{ height: "100%" ,paddingBottom:insets.bottom + 80}}>
           <ScrollView
             style={styles.container}
             // refreshControl={

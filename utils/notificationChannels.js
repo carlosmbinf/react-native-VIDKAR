@@ -11,7 +11,7 @@ export async function createNotificationChannels() {
     id: CHANNEL_IDS.FOREGROUND_SERVICE,
     name: 'Modo Cadete',
     description: 'Notificación activa mientras recibes órdenes',
-    importance: AndroidImportance.HIGH,
+    importance: AndroidImportance.LOW,
     visibility: AndroidVisibility.PUBLIC,
     sound: undefined,
     vibration: false,

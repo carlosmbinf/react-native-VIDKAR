@@ -215,6 +215,7 @@ const ensureLocationPermission = async () => {
 };
 
 const sendCadeteLocationOnce = async () => {
+  console.log("🔄 [Ubicación Cadete] Intentando enviar ubicación con user: ",Meteor.user());
   if (Meteor.user()?.modoCadete !== true
     //  && !isServiceActive 
    ) { 

@@ -155,14 +155,14 @@ class VPNPackageCard extends Component {
     };
 
     const isRecommended = index === 1;
-    const vpnColor = theme.dark ? '#66BB6A' : '#4CAF50'; // Verde más claro en modo oscuro
+    const vpnColor = theme.dark ? '#66BB6A' : '#4CAF50';
 
     // Calcular columnas dinámicamente para el dispositivo actual
     const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
     const columnsCount = getColumnsCount(screenWidth, screenHeight);
     
-    // Altura fija para uniformidad - ajustada según si es recomendado
-    const cardHeight = isRecommended ? 250 : 250; // Misma altura para todos
+    // ✅ Altura reducida para mayor densidad - de 250px a 180px
+    const cardHeight = 180; // Misma altura para todos (reducido)
     
     // Cálculo confiable con ancho medido
     const gutter = 12;
@@ -187,9 +187,8 @@ class VPNPackageCard extends Component {
           style={[
             styles.packageCard,
             isRecommended && styles.recommendedCard,
-            { height: '100%' } // Asegurar que el Surface llene el contenedor de 220px
+            { height: '100%' }
           ]} 
-          elevation={isRecommended ? 4 : 4}
         >
           {isRecommended && (
             <View style={[styles.recommendedBadge, { backgroundColor: theme.colors.tertiary }]}>
@@ -204,7 +203,7 @@ class VPNPackageCard extends Component {
               <View style={styles.packageTitleContainer}>
                 <IconButton 
                   icon="shield-check" 
-                  size={isTablet ? 32 : 24} 
+                  size={isTablet ? 28 : 20} 
                   iconColor={vpnColor}
                   style={styles.packageIcon}
                 />
@@ -237,7 +236,7 @@ class VPNPackageCard extends Component {
               <Paragraph style={[
                 styles.packageDescription, 
                 isTablet && styles.packageDescriptionTablet
-              ]}>
+              ]} numberOfLines={2}>
                 {paquete.detalles}
               </Paragraph>
             )}
@@ -252,8 +251,9 @@ class VPNPackageCard extends Component {
                 style={[styles.buyButton, isTablet && styles.buyButtonTablet]}
                 labelStyle={[styles.buyButtonLabel, isTablet && styles.buyButtonLabelTablet]}
                 contentStyle={styles.buyButtonContent}
+                compact
               >
-                Comprar Ahora
+                Comprar
               </Button>
             </View>
           </View>
@@ -284,13 +284,13 @@ class VPNPackageCard extends Component {
     const cols = Math.max(1, columnsCount);
     const totalGutter = gutter * (cols - 1);
     const baseCardWidthPx = Math.floor((containerWidth - totalGutter) / cols);
-    const premiumWidthDelta = 100; // unos píxeles más ancho que los normales
+    const premiumWidthDelta = 100;
     const cardWidthPx = Math.min(baseCardWidthPx + premiumWidthDelta, containerWidth);
 
     const unlimitedCardStyle = {
       width: cardWidthPx,
-      height: 350, // un poquito más alto que 220
-      marginRight: 0, // evitar overflow por delta de ancho
+      height: 220, // ✅ Reducido de 350px a 220px
+      marginRight: 0,
       marginBottom: gutter,
       alignSelf: 'flex-start'
     };
@@ -302,13 +302,12 @@ class VPNPackageCard extends Component {
             styles.unlimitedCard,
             { height: '100%' }
           ]} 
-          elevation={5}
+          // elevation={5}
         >
-          {/* Badge Premium */}
           <View style={[styles.premiumBadge, { backgroundColor: goldColor }]}>
-            <IconButton icon="crown" size={16} iconColor="#000" style={{ margin: 0 }} />
+            <IconButton icon="crown" size={14} iconColor="#000" style={{ margin: 0 }} />
             <Paragraph style={[styles.premiumText, { color: '#000' }]}>
-              ⭐ PAQUETE PREMIUM ⭐
+              ⭐ PREMIUM ⭐
             </Paragraph>
           </View>
           
@@ -317,7 +316,7 @@ class VPNPackageCard extends Component {
               <View style={styles.packageTitleContainer}>
                 <IconButton 
                   icon="infinity" 
-                  size={isTablet ? 40 : 32} 
+                  size={isTablet ? 32 : 24} 
                   iconColor={goldColor}
                   style={styles.packageIcon}
                 />
@@ -350,15 +349,15 @@ class VPNPackageCard extends Component {
             <Paragraph style={[
               styles.unlimitedDescription,
               isTablet && styles.packageDescriptionTablet
-            ]}>
-              🔒 Navegación ilimitada y segura durante 30 días
+            ]} numberOfLines={1}>
+              🔒 Navegación ilimitada 30 días
             </Paragraph>
 
             {!!paquetePorTiempo.detalles && (
               <Paragraph style={[
                 styles.packageDescription, 
                 isTablet && styles.packageDescriptionTablet
-              ]}>
+              ]} numberOfLines={2}>
                 {paquetePorTiempo.detalles}
               </Paragraph>
             )}
@@ -373,6 +372,7 @@ class VPNPackageCard extends Component {
                 style={[styles.buyButton, isTablet && styles.buyButtonTablet]}
                 labelStyle={[styles.buyButtonLabel, isTablet && styles.buyButtonLabelTablet, { fontWeight: '900' }]}
                 contentStyle={styles.buyButtonContent}
+                compact
               >
                 Comprar Premium
               </Button>
@@ -407,7 +407,7 @@ class VPNPackageCard extends Component {
           const totalGutter = gutter * (cols - 1);
           const cardWidthPx = Math.floor((containerWidth - totalGutter) / cols);
           const marginRight = (cols > 1 && (index % cols !== cols - 1)) ? gutter : 0;
-          const cardHeight = 220;
+          const cardHeight = 180; // ✅ Reducido a 180px
 
           return (
             <Animated.View
@@ -416,7 +416,7 @@ class VPNPackageCard extends Component {
             >
               <Surface 
                 style={[styles.skeletonCard, { backgroundColor: theme.colors.surfaceVariant, height: '100%' }]}
-                elevation={1}
+                // elevation={1}
               >
                 <View style={styles.skeletonHeader}>
                   <View style={[styles.skeletonTitle, { backgroundColor: theme.colors.surfaceDisabled }]} />
@@ -640,30 +640,30 @@ const styles = StyleSheet.create({
     borderLeftColor: '#FFD700' // Borde izquierdo dorado para "MÁS POPULAR"
   },
   recommendedBadge: {
-    paddingVertical: 6,
+    paddingVertical: 4, // ✅ Reducido de 6px a 4px
     paddingHorizontal: 12,
     alignItems: 'center'
   },
   recommendedText: {
-    fontSize: 11,
+    fontSize: 10, // ✅ Reducido de 11px a 10px
     fontWeight: 'bold',
     letterSpacing: 1
   },
   packageContent: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingVertical: 10, // ✅ Reducido de 16px a 10px
+    paddingHorizontal: 12, // ✅ Reducido de 16px a 12px
     flex: 1,
-    justifyContent: 'space-between' // Distribuir el contenido uniformemente
+    justifyContent: 'space-between'
   },
   packageContentMobile: {
-    paddingVertical: 12,
-    paddingHorizontal: 12
+    paddingVertical: 8, // ✅ Reducido de 12px a 8px
+    paddingHorizontal: 10 // ✅ Reducido de 12px a 10px
   },
   packageHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12
+    marginBottom: 8 // ✅ Reducido de 12px a 8px
   },
   packageTitleContainer: {
     flexDirection: 'row',
@@ -674,16 +674,16 @@ const styles = StyleSheet.create({
     margin: 0
   },
   packageTitle: {
-    fontSize: 24,
+    fontSize: 20, // ✅ Reducido de 24px a 20px
     fontWeight: 'bold',
     marginLeft: 4
   },
   packageTitleTablet: {
-    fontSize: 28
+    fontSize: 24 // ✅ Reducido de 28px a 24px
   },
   priceContainer: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10, // ✅ Reducido de 12px a 10px
+    paddingVertical: 4, // ✅ Reducido de 6px a 4px
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'baseline'
@@ -697,30 +697,29 @@ const styles = StyleSheet.create({
     elevation: 2
   },
   packagePrice: {
-    fontSize: 20,
+    fontSize: 18, // ✅ Reducido de 20px a 18px
     fontWeight: 'bold'
   },
   packagePriceTablet: {
     fontSize: 20
   },
   priceCurrency: {
-    fontSize: 12,
+    fontSize: 11, // ✅ Reducido de 12px a 11px
     marginLeft: 4,
     fontWeight: '600'
   },
   packageDescription: {
-    fontSize: 13,
-    lineHeight: 20,
-    marginTop: 8
-    // ✅ Removido color hardcodeado - Paper maneja automáticamente
+    fontSize: 12, // ✅ Reducido de 13px a 12px
+    lineHeight: 16, // ✅ Reducido de 20px a 16px
+    marginTop: 4 // ✅ Reducido de 8px a 4px
   },
   packageDescriptionTablet: {
-    fontSize: 15,
-    lineHeight: 22
+    fontSize: 14, // ✅ Reducido de 15px a 14px
+    lineHeight: 18 // ✅ Reducido de 22px a 18px
   },
   packageActions: {
     justifyContent: 'center',
-    marginTop: 16
+    marginTop: 8 // ✅ Reducido de 16px a 8px
   },
   buyButton: {
     borderRadius: 8
@@ -729,14 +728,14 @@ const styles = StyleSheet.create({
     borderRadius: 10
   },
   buyButtonContent: {
-    paddingVertical: 6
+    paddingVertical: 2 // ✅ Reducido de 6px a 2px
   },
   buyButtonLabel: {
-    fontSize: 14,
+    fontSize: 13, // ✅ Reducido de 14px a 13px
     fontWeight: 'bold'
   },
   buyButtonLabelTablet: {
-    fontSize: 16
+    fontSize: 15 // ✅ Reducido de 16px a 15px
   },
   historyButton: {
     marginTop: 24,
@@ -802,32 +801,32 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: '#FFD700',
-    height: 220 // ✅ Altura fija igual que los cards normales
+    height: 220 // ✅ Altura ya reducida arriba
   },
   premiumBadge: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 5, // ✅ Reducido de 8px a 5px
+    paddingHorizontal: 12, // ✅ Reducido de 16px a 12px
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center'
   },
   premiumText: {
-    fontSize: 12,
+    fontSize: 10, // ✅ Reducido de 12px a 10px
     fontWeight: '900',
     letterSpacing: 2,
     marginLeft: 4
   },
   unlimitedTitle: {
-    fontSize: 28,
+    fontSize: 22, // ✅ Reducido de 28px a 22px
     fontWeight: '900',
     marginLeft: 4,
     letterSpacing: 1
   },
   unlimitedDescription: {
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 8,
-    marginBottom: 8,
+    fontSize: 13, // ✅ Reducido de 15px a 13px
+    lineHeight: 18, // ✅ Reducido de 22px a 18px
+    marginTop: 4, // ✅ Reducido de 8px a 4px
+    marginBottom: 4, // ✅ Reducido de 8px a 4px
     fontWeight: '600',
     textAlign: 'center'
   }

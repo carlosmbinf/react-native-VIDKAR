@@ -634,3 +634,17 @@ Resumen técnico – Implementación de Pantallas de Compra Proxy/VPN (ProxyPurc
   - Documentar en guía de usuario cómo funciona el modo cadete.
 
 ---
+
+## Resumen técnico – “Gate” de envío de ubicación por modoCadete (Android Service + endpoint booleano)
+- Se integró el endpoint `POST /api/cadete/isActive` en `MyTrackingService` para decidir si se envía ubicación:
+  - El servicio sigue corriendo con el interval configurado (cada ~20s).
+  - En cada callback de ubicación, primero se consulta el backend y solo si `active === true` se llama a `POST /api/location`.
+- Patrón aplicado: endpoint booleano “simple” (siempre responde `active: true|false`) reduce manejo de errores en cliente y evita lógica compleja.
+- Se centralizaron URLs (`BASE_URL`, `LOCATION_URL`, `CADETE_ACTIVE_URL`) para facilitar futuros cambios de entorno (dev/staging/prod) sin tocar la lógica.
+- Política de seguridad aplicada en cliente: si falla el check de `isActive` (timeout, error de parseo, HTTP != 2xx) → **no** se envía ubicación (fail-closed).
+
+### Mejoras recomendadas
+- Evitar crear `newSingleThreadExecutor()` por evento: idealmente reutilizar un `ExecutorService` singleton del servicio para no generar threads repetidos.
+- Optimizar tráfico: cachear `active` por un TTL corto (ej. 30–60s) para no golpear el servidor en cada tick.
+- Seguridad: autenticar requests (token/HMAC) para que `userId` no sea spoofeable desde clientes externos.
+- Observabilidad: loggear el `code` y body de respuesta solo en debug para evitar ruido en producción.

@@ -165,7 +165,7 @@ const DrawerOptionsAlls = (opt) => {
                 console.error('Error al cambiar modo cadete:', error);
                 Alert.alert('Error', error.reason || 'No se pudo cambiar el modo cadete');
               } else {
-                await syncCadeteForegroundFromUI({ enabled: nuevoEstado });
+                // await syncCadeteForegroundFromUI({ enabled: nuevoEstado });
                 Alert.alert(
                   'Éxito',
                   nuevoEstado 
@@ -245,7 +245,7 @@ const DrawerOptionsAlls = (opt) => {
           <View style={{ flex: 1 }} />
       </ScrollView>
           {/* Botón anclado al final - Fuera del ScrollView */}
-          <View style={{ 
+          <Surface style={{ 
             position: 'absolute', 
             bottom: 0, 
             left: 0, 
@@ -259,7 +259,7 @@ const DrawerOptionsAlls = (opt) => {
             shadowOffset: { width: 0, height: -2 },
             shadowOpacity: 0.1,
             shadowRadius: 4,
-            // elevation: 8,
+            elevation: 12,
           }}>
             <Drawer.Item
               icon={user?.modoCadete ? "exit-to-app" : "bike"}
@@ -277,7 +277,7 @@ const DrawerOptionsAlls = (opt) => {
               }}
               onPress={toggleModoCadete}
             />
-          </View>
+          </Surface>
         </Surface>
     </>
   );
