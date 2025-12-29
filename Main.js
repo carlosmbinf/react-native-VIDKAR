@@ -8,7 +8,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Meteor, { Mongo, withTracker } from '@meteorrn/core';
-import { Platform, StatusBar, StyleSheet } from 'react-native';
+import { Platform, StatusBar, StyleSheet, View } from 'react-native';
 import { Text, Provider as PaperProvider, } from 'react-native-paper';
 import App from './App';
 import Loguin from './components/loguin/Loguin';

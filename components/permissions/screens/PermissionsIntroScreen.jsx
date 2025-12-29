@@ -18,6 +18,7 @@ const PermissionsIntroScreen = ({ onContinue, onSkip, userRole = 'user' }) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <Surface style={{ flex: 1, height: '100%' }}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* ✅ Header con ilustración */}
         <View style={styles.header}>
@@ -132,6 +133,7 @@ const PermissionsIntroScreen = ({ onContinue, onSkip, userRole = 'user' }) => {
           Continuar
         </Button>
       </View>
+      </Surface>
     </SafeAreaView>
   );
 };
@@ -139,7 +141,7 @@ const PermissionsIntroScreen = ({ onContinue, onSkip, userRole = 'user' }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    // backgroundColor: '#fff',
   },
   scrollContent: {
     paddingBottom: 100,
@@ -186,7 +188,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderRadius: 12,
-    backgroundColor: 'rgba(98, 0, 238, 0.03)',
+    // backgroundColor: 'rgba(98, 0, 238, 0.03)',
   },
   permissionIcon: {
     margin: 0,
@@ -208,7 +210,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 16,
     padding: 16,
-    backgroundColor: '#E8F5E9',
+    // backgroundColor: '#E8F5E9',
     borderRadius: 12,
     borderLeftWidth: 4,
     borderLeftColor: '#4CAF50',
@@ -226,7 +228,7 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     padding: 16,
-    backgroundColor: '#fff',
+    // backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
     elevation: 8,

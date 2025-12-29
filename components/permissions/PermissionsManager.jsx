@@ -100,7 +100,7 @@ const PermissionsManager = ({ onComplete, userRole = 'user', initialScreen = 'in
 
       case 'request':
         return (
-          <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+          <Surface style={styles.container} edges={['top', 'bottom']}>
             <View style={styles.header}>
               <Text variant="headlineSmall" style={styles.title}>
                 Configurar Permisos
@@ -195,7 +195,7 @@ const PermissionsManager = ({ onComplete, userRole = 'user', initialScreen = 'in
                 </Button>
               )}
             </View>
-          </SafeAreaView>
+          </Surface>
         );
 
       case 'summary':
@@ -260,7 +260,7 @@ const PermissionsManager = ({ onComplete, userRole = 'user', initialScreen = 'in
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    // backgroundColor: '#fff',
   },
   header: {
     paddingHorizontal: 16,

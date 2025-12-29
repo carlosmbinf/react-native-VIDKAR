@@ -131,120 +131,158 @@
 
 ---
 
-## Resumen técnico – Mejora de UX en Sistema de Seguimiento de Remesas (VentasStepper)
+## Resumen técnico – Configuración de Drawer con Ancho Fijo (react-native-drawer)
 
-- **Contexto**: Refactorización del componente VentasStepper para mejorar la visualización de estados de entrega con preview de items y animaciones suaves.
+- **Contexto**: Limitación de ancho de drawer a 500px con área táctil de cierre apropiada.
 
-- **Problema identificado**: 
-  - El detalle del carrito solo se mostraba tras expandir el accordion, sin preview visual del contenido.
-  - El último paso del stepper (Entregado) no mostraba check visual cuando todos los items estaban entregados.
-  - No había indicadores visuales de progreso (items pendientes vs entregados).
+- **Problema común**: Usar `openDrawerOffset` calculado dinámicamente causa áreas de cierre lejanas e inconsistentes.
 
-- **Mejoras implementadas**:
-
-### 1. **Sistema de Preview de Items (Siempre Visible)**
-  - **Preview compacto**: Muestra automáticamente los primeros 2 items del carrito sin necesidad de expandir accordion.
-  - **Badges de estado**: Chips visuales con contador de items pendientes (naranja 🕐) y entregados (verde ✓).
-  - **Iconografía contextual**: Íconos `check-circle` (verde) para entregados y `clock-outline` (naranja) para pendientes.
-  - **Información condensada**: Cada preview muestra nombre, monto a recibir, moneda y tarjeta/dirección en 3 líneas máximo.
-  - **Indicador de más items**: Si hay >2 items, muestra texto "+X items más..." en color temático.
-
-### 2. **Stepper Visual Mejorado**
-  - **Lógica de estados**:
-    - Paso 0: Pago Confirmado (siempre completado al crear venta).
-    - Paso 1: Pendiente de Entrega (activo si hay items sin entregar).
-    - Paso 2: Entregado (completado cuando TODOS los items tienen `entregado: true`).
-  - **Validación del último paso**: 
-    ```javascript
-    const isLastStepCompleted = pasoActual === 2 && index === 2;
-    ```
-  - **Visualización clara**:
-    - Estados completados: círculo verde (#6200ee) con ícono de check blanco.
-    - Estado actual: círculo verde con número.
-    - Estados futuros: círculo gris con número.
-  - **Conectores animados**: Líneas entre pasos coloreadas según progreso (verde para completados, gris para pendientes).
-  - **Etiquetas diferenciadas**: Labels activos en negrita y color temático (#6200ee), inactivos en gris claro (#999).
-
-### 3. **Gestión de Estado de Accordions**
-  - **Estado independiente por venta**: Cada venta tiene su propio estado de expansión en `expandedAccordions`.
-  - **Toggle controlado**: Función `toggleAccordion(ventaId)` para manejar apertura/cierre.
-  - **Persistencia visual**: Al colapsar card principal, el accordion interno se resetea (no mantiene estado).
-
-### 4. **Diseño Profesional y Escalable**
-  - **Paleta de colores consistente**:
-    - Primario: #6200ee (morado Material Design).
-    - Éxito: #4CAF50 (verde).
-    - Pendiente: #FF9800 (naranja).
-    - Texto secundario: #666.
-  - **Espaciado y márgenes**: Padding de 12-16px, borderRadius de 8-12px para cards y chips.
-  - **Elevation y sombras**: Cards con elevation 3, items internos con elevation 0 para jerarquía visual.
-  - **Responsive design**: `numberOfLines={1}` en textos largos para evitar overflow, chips con `maxWidth: '70%'`.
-
-### 5. **Optimizaciones de Performance**
-  - **Cálculo de datos en render**: Resumen (totalItems, itemsEntregados, itemsPendientes) calculado una vez por venta.
-  - **Slice de arrays**: Solo primeros 2 items en preview para reducir renderizado innecesario.
-  - **Renderizado condicional**: Preview solo se muestra si `isExpanded === true` (evita renderizar datos no visibles).
-
-### 6. **Accesibilidad y UX**
-  - **Feedback visual inmediato**: Preview visible sin interacción adicional reduce clics necesarios.
-  - **Estados claros**: Iconografía universal (check, clock) complementa texto.
-  - **Empty states diferenciados**: Mensajes específicos para "sin pendientes" vs "sin entregadas".
-  - **Animaciones nativas**: React Native Paper maneja transiciones suaves de accordion automáticamente.
-
-- **Estructura de datos requerida**:
+- **Solución profesional**:
   ```javascript
-  venta = {
-    _id: String,
-    createdAt: Date,
-    cobrado: Number,
-    precioOficial: Number,
-    monedaCobrado: String,
-    metodoPago: String,
-    comentario: String,
-    producto: {
-      carritos: [
-        {
-          nombre: String,
-          recibirEnCuba: Number,
-          monedaRecibirEnCuba: String,
-          tarjetaCUP: String,
-          direccionCuba: String,
-          comentario: String,
-          entregado: Boolean // ✅ Flag crítico para cálculo de paso actual
-        }
-      ]
-    }
-  }
+  const maxDrawerWidth = 500;
+  
+  <Drawer
+    openDrawerOffset={0}                  // Sin gap desde borde derecho
+    closedDrawerOffset={-maxDrawerWidth}  // Drawer fuera de pantalla cuando cerrado
+    panCloseMask={0.8}                    // 80% del drawer es área táctil de cierre
+    panOpenMask={0.05}                    // Solo 5% del borde izquierdo abre con gesto
+    styles={{
+      drawer: { 
+        width: maxDrawerWidth,            // Ancho fijo explícito
+        elevation: 16,                    // Elevación Material Design
+        shadowOpacity: 0.3                // Sombra visible
+      }
+    }}
+  />
   ```
 
-- **Casos edge manejados**:
-  - Venta con 0 items: No renderiza preview (evita crashes).
-  - Venta con 1 item: Preview muestra solo 1 card, no aparece "+X más".
-  - Todos los items entregados: Stepper muestra paso 2 con check verde.
-  - Mix de entregados/pendientes: Badges muestran conteo correcto en tiempo real.
+- **Props críticas explicadas**:
+  - `openDrawerOffset`: Gap desde borde **derecho** (NO es el ancho del drawer).
+  - `closedDrawerOffset`: Posición cuando cerrado (negativo = fuera de pantalla).
+  - `panCloseMask`: Fracción del drawer táctil para cerrar (0.8 = 80%).
+  - `panOpenMask`: Fracción del borde izquierdo para abrir con gesto (0.05 = 5%).
+
+- **Cálculo de áreas táctiles**:
+  - **Drawer abierto (500px)**:
+    - Área de cierre táctil: `0.8 * 500 = 400px` (desde px 100 hasta px 500).
+    - Overlay oscuro: Desde px 500 hasta screenWidth (tocar aquí cierra).
+  - **Drawer cerrado**:
+    - Área de apertura con gesto: `0.05 * screenWidth` (solo borde izquierdo).
+
+- **Mejores prácticas**:
+  - **Ancho responsivo** (opcional):
+    ```javascript
+    const maxDrawerWidth = Math.min(500, screenWidth * 0.8);
+    ```
+  - **Evitar `openDrawerOffset` relativo**: Usar valores absolutos para predecibilidad.
+  - **`panCloseMask` alto (0.7-0.8)**: Mejora UX al ampliar área táctil de cierre.
+  - **`panOpenMask` bajo (0.05)**: Evita conflictos con scroll horizontal.
 
 - **Testing recomendado**:
-  - Caso 1: Venta con 5 items (2 entregados, 3 pendientes) → Preview muestra 2 primeros + "+3 más", badges (2 verdes, 3 naranjas).
-  - Caso 2: Venta con 1 item entregado → Stepper en paso 2 con check, sin badges pendientes.
-  - Caso 3: Venta con 10 items sin entregar → Stepper en paso 1, badge naranja con "10".
-  - Caso 4: Tocar card para expandir/colapsar → Animación suave sin saltos visuales.
-  - Caso 5: Scroll con 50+ ventas → Performance fluida (no re-renders innecesarios).
-
-- **Mejoras futuras sugeridas**:
-  - **Filtros avanzados**: Dropdown para filtrar por estado (Todos/Pendientes/Entregados).
-  - **Búsqueda**: TextField para buscar por nombre de remesa o tarjeta.
-  - **Ordenamiento**: Botones para ordenar por fecha (más reciente/antiguo) o monto.
-  - **Pull-to-refresh**: Gesture para recargar lista de ventas.
-  - **Infinite scroll**: Paginación si hay >50 ventas para reducir carga inicial.
-  - **Badges dinámicos**: Mostrar monto total pendiente/entregado en header de sección.
-  - **Notificaciones**: Toast al marcar item como entregado sin dialog de confirmación (UX más rápida).
-  - **Export a PDF**: Botón para generar reporte de remesas por período.
+  - Validar ancho exacto con herramientas de inspección (React DevTools).
+  - Probar cierre con múltiples métodos: tap overlay, tap dentro del drawer, swipe, botón back.
+  - Validar en landscape mode (drawer no debe crecer proporcionalmente).
+  - Testing en phones (<400px), phablets (414px), tablets (768px+).
 
 - **Lecciones aprendidas**:
-  - **Preview + Accordion**: Patrón efectivo para mostrar información crítica sin expandir (reduce clics en 70%).
-  - **Estados visuales claros**: Iconografía + color + texto redundante garantiza accesibilidad.
-  - **Cálculo de paso actual**: Lógica basada en `filter().length` es más confiable que flags adicionales.
-  - **Badges informativos**: Chips con contador son más efectivos que solo texto para datos numéricos.
-  - **Renderizado condicional inteligente**: Mostrar preview solo cuando card está expandido mejora performance en listas largas.
-  - **Animaciones nativas
+  - `openDrawerOffset` es el **gap** desde el borde derecho, NO el ancho del drawer.
+  - Ancho fijo con `closedDrawerOffset={-width}` + `openDrawerOffset={0}` es más predecible.
+  - `panCloseMask` bajo (0.2) frustra a usuarios (deben tocar muy cerca del borde).
+  - Material Design recomienda `elevation: 16` para navigation drawers.
+
+- **Alternativas consideradas**:
+  - **react-native-gesture-handler Drawer**: Mejor soporte para gestos nativos.
+  - **react-navigation DrawerNavigator**: Integración nativa con navegación.
+  - Ambas requieren migración de código existente.
+
+---
+
+## Resumen técnico – Hook de Dimensiones Reactivo (useDimensions)
+
+- **Problema identificado**: Las constantes `Dimensions.get('window')` calculadas al montar el componente NO se actualizan cuando cambian las dimensiones de la ventana (rotación, split screen).
+
+- **Solución implementada**: Hook `useState` + `Dimensions.addEventListener()` para escuchar cambios en tiempo real.
+
+- **Implementación crítica**:
+  ```javascript
+  const [dimensions, setDimensions] = useState({
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  });
+
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setDimensions({ width: window.width, height: window.height });
+    });
+    
+    return () => {
+      if (subscription?.remove) {
+        subscription.remove(); // RN 0.65+
+      } else {
+        Dimensions.removeEventListener('change', subscription); // RN <0.65
+      }
+    };
+  }, []);
+  ```
+
+- **Diferencias entre `window` y `screen`**:
+  - **window**: Área disponible para la app (excluye status bar, navigation bar).
+  - **screen**: Tamaño físico total del dispositivo (incluye barras del sistema).
+  - **Recomendación**: Usar `window` para cálculos de layout (drawer, modals, etc.).
+
+- **Casos de uso cubiertos**:
+  1. **Rotación de pantalla**: Portrait ↔ Landscape.
+  2. **Split screen (tablets)**: App ocupa solo mitad de pantalla.
+  3. **Fold devices**: Plegables como Samsung Galaxy Fold.
+  4. **Picture-in-Picture (Android)**: Modo ventana flotante.
+
+- **Performance consideraciones**:
+  - El listener solo dispara cuando dimensiones **realmente** cambian.
+  - React hace shallow comparison, evita re-renders innecesarios.
+  - Cleanup del listener previene memory leaks (crítico en navegación stack).
+
+- **Hook personalizado reutilizable**:
+  ```javascript
+  // hooks/useDimensions.js
+  export const useDimensions = () => {
+    const [dimensions, setDimensions] = useState({
+      window: Dimensions.get('window'),
+      screen: Dimensions.get('screen'),
+    });
+
+    useEffect(() => {
+      const subscription = Dimensions.addEventListener('change', ({ window, screen }) => {
+        setDimensions({ window, screen });
+      });
+      return () => subscription?.remove();
+    }, []);
+
+    return dimensions;
+  };
+  ```
+
+- **Testing recomendado**:
+  - Rotar dispositivo en emulador (Cmd+Left/Right en iOS, Ctrl+F11/F12 en Android).
+  - Activar split screen en tablet real.
+  - Probar en dispositivos plegables (Android Studio tiene emulador de Fold).
+  - Validar con dev tools que listener se limpia correctamente.
+
+- **Lecciones aprendidas**:
+  - **`Dimensions.get()` NO es reactivo**: Solo retorna snapshot actual.
+  - **Siempre cleanup listeners**: Previene múltiples suscripciones duplicadas.
+  - **Diferencia RN 0.65**: API cambió de `removeEventListener` a `subscription.remove()`.
+  - **Evitar cálculos en render**: Calcular `drawerStartOffset` fuera de JSX para legibilidad.
+  - **Safe area insets son separados**: `useSafeAreaInsets()` NO se actualiza con dimensiones, solo con notch/home indicator.
+
+- **Archivos modificados**:
+  - `components/Main/MenuPrincipal.jsx`: Implementación de hook de dimensiones.
+  - `hooks/useDimensions.js`: Hook reutilizable (recomendado crear).
+
+- **Próximos pasos**:
+  - Extraer hook a archivo separado para reutilización.
+  - Aplicar pattern en otras pantallas con drawers/modals responsivos.
+  - Agregar logs en dev mode para debugging de cambios de dimensiones.
+  - Tests unitarios para validar re-cálculos en diferentes orientaciones.
+
+---
 
