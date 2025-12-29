@@ -36,6 +36,9 @@ const PropertyTable = () => {
   const openEdit = (conf) => { setSelected(conf); setVisible(true); };
   const closeDialog = () => { setVisible(false); setSelected(null); };
 
+  const formatFecha = (d) => (d ? new Date(d).toLocaleDateString() : '-');
+  const formatFechaHora = (d) => (d ? new Date(d).toLocaleString() : '-');
+
   return (
     <Surface style={{ height: "100%" }}>
       <ScrollView style={{ flex: 1 }}>
@@ -66,18 +69,32 @@ const PropertyTable = () => {
                 <DataTable.Title>Tipo</DataTable.Title>
                 <DataTable.Title>Clave</DataTable.Title>
                 <DataTable.Title>Valor</DataTable.Title>
+                {!isSmall && <DataTable.Title>Comentario</DataTable.Title>}
+                {!isSmall && <DataTable.Title>Admin</DataTable.Title>}
                 <DataTable.Title>Activo</DataTable.Title>
                 <DataTable.Title numeric>Acc.</DataTable.Title>
               </DataTable.Header>
 
-              {configs.map((row, idx) => (
+              {filtered.map((row, idx) => (
                 <DataTable.Row key={row?._id || idx}>
                   {!isSmall && (
-                    <DataTable.Cell>{row?.createdAt ? new Date(row.createdAt).toLocaleDateString() : '-'}</DataTable.Cell>
+                    <DataTable.Cell>{formatFecha(row?.createdAt)}</DataTable.Cell>
                   )}
                   <DataTable.Cell>{row?.type || '-'}</DataTable.Cell>
                   <DataTable.Cell>{row?.clave || '-'}</DataTable.Cell>
                   <DataTable.Cell>{row?.valor || '-'}</DataTable.Cell>
+                  {!isSmall && (
+                    <DataTable.Cell>{row?.comentario || '-'}</DataTable.Cell>
+                  )}
+                  {!isSmall && (
+                    <DataTable.Cell>
+                      {row?.idAdminConfigurado ? (
+                        <Text style={{ fontSize: 11 }}>
+                          {row.idAdminConfigurado.substring(0, 8)}...
+                        </Text>
+                      ) : '-'}
+                    </DataTable.Cell>
+                  )}
                   <DataTable.Cell>
                     <Chip compact style={{ backgroundColor: chipColorActivo(!!row?.active) }} textStyle={{ color: 'white' }}>
                       {row?.active ? 'Activo' : 'Inactivo'}

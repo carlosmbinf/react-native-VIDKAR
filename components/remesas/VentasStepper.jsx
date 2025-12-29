@@ -2,16 +2,44 @@ import React, { useEffect, useState } from 'react';
 import { View, ScrollView, StyleSheet, ImageBackground, Alert } from 'react-native';
 import { 
   Text, Card, Chip, Divider, Button, List, IconButton, 
-  ActivityIndicator, Surface, Portal, Dialog 
+  ActivityIndicator, Surface, Portal, Dialog, Snackbar
 } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 import { VentasRechargeCollection } from '../collections/collections';
+import SubidaArchivos from '../archivos/SubidaArchivos'; // ✅ NUEVO: Importar componente
+// import Clipboard from '@react-native-clipboard/clipboard'; // ✅ NUEVO: Importar Clipboard
+const Clipboard = require('react-native').Clipboard;
+// ✅ MODIFICADO: Función para generar estados dinámicos según método de pago
+const obtenerEstados = (metodoPago) => {
+  if (metodoPago === 'EFECTIVO') {
+    return ['Evidencia de Pago', 'Pago Confirmado', 'Pendiente de Entrega', 'Entregado'];
+  }
+  return ['Pago Confirmado', 'Pendiente de Entrega', 'Entregado'];
+};
 
-const estados = ['Pago Confirmado', 'Pendiente de Entrega', 'Entregado'];
-
+// ✅ MODIFICADO: Lógica de pasos considerando método EFECTIVO + evidencias
 const obtenerPasoDesdeEstado = (venta) => {
-  const total = venta?.producto?.carritos?.filter(carrito => !carrito.entregado)?.length;
-  return total > 0 ? 1 : 2; // 1 = Pendiente, 2 = Entregado
+  const esEfectivo = venta.metodoPago === 'EFECTIVO';
+  const offset = esEfectivo ? 1 : 0; // Offset de 1 paso si es EFECTIVO
+
+  // Paso 0 (solo EFECTIVO): Evidencia de Pago pendiente
+  if (esEfectivo && venta.isCobrado === false) {
+    return 0; // Esperando evidencia
+  }
+
+  // Paso 1 (EFECTIVO) / Paso 0 (otros): Pago Confirmado
+  if (venta.isCobrado === false) {
+    return offset; // Esperando confirmación de pago
+  }
+
+  // Calcular paso según entregas
+  const itemsPendientes = venta?.producto?.carritos?.filter(carrito => !carrito.entregado)?.length || 0;
+  
+  if (itemsPendientes > 0) {
+    return offset + 1; // Pendiente de Entrega
+  }
+  
+  return offset + 2; // Entregado
 };
 
 const VentasStepper = ({ navigation }) => {
@@ -20,6 +48,8 @@ const VentasStepper = ({ navigation }) => {
   const [expandedAccordions, setExpandedAccordions] = useState({}); // ✅ NUEVO: Estado para accordions
   const [dialogVisible, setDialogVisible] = useState(false);
   const [selectedAction, setSelectedAction] = useState(null);
+  const [snackbarVisible, setSnackbarVisible] = useState(false); // ✅ NUEVO: Estado para Snackbar
+  const [snackbarMessage, setSnackbarMessage] = useState(''); // ✅ NUEVO: Mensaje del Snackbar
 
   const idAdmin = useTracker(() => {
     return Meteor.userId();
@@ -120,127 +150,78 @@ const VentasStepper = ({ navigation }) => {
     });
   };
 
-  // ✅ MODIFICADO: Renderizado de progreso (Stepper visual) con último paso checked
-  const renderStepper = (pasoActual) => {
+  // ✅ NUEVO: Función para copiar al portapapeles
+  const copiarAlPortapapeles = (texto, tipo) => {
+    if (!texto || texto === 'N/A') {
+      setSnackbarMessage(`⚠️ No hay ${tipo} para copiar`);
+      setSnackbarVisible(true);
+      return;
+    }
+
+    Clipboard.setString(texto);
+    setSnackbarMessage(`✅ ${tipo} copiado al portapapeles`);
+    setSnackbarVisible(true);
+  };
+
+  // ✅ MODIFICADO: Renderizado de progreso con pasos dinámicos y conectores responsivos
+  const renderStepper = (pasoActual, metodoPago) => {
+    const estados = obtenerEstados(metodoPago);
+    
     return (
       <View style={styles.stepperContainer}>
         {estados.map((estado, index) => {
           const isCompleted = index < pasoActual;
           const isActive = index === pasoActual;
-          const isLastStepCompleted = pasoActual === 2 && index === 2; // ✅ Último paso entregado
+          const isLastStepCompleted = pasoActual === estados.length - 1 && index === estados.length - 1;
+          const isLastStep = index === estados.length - 1;
           
           return (
-            <View key={index} style={styles.stepItem}>
-              <View style={[
-                styles.stepCircle, 
-                (isCompleted || isActive || isLastStepCompleted) ? styles.stepActive : styles.stepInactive
-              ]}>
-                {(isCompleted || isLastStepCompleted) ? (
-                  <IconButton icon="check" size={16} iconColor="#fff" />
-                ) : (
-                  <Text style={styles.stepNumber}>{index + 1}</Text>
-                )}
+            <React.Fragment key={index}>
+              <View style={styles.stepItem}>
+                <View style={[
+                  styles.stepCircle, 
+                  (isCompleted || isActive || isLastStepCompleted) ? styles.stepActive : styles.stepInactive
+                ]}>
+                  {(isCompleted || isLastStepCompleted) ? (
+                    <IconButton icon="check" size={16} iconColor="#fff" />
+                  ) : (
+                    <Text style={styles.stepNumber}>{index + 1}</Text>
+                  )}
+                </View>
+                <Text style={[
+                  styles.stepLabel,
+                  (isCompleted || isActive || isLastStepCompleted) && styles.stepLabelActive
+                ]}>
+                  {estado}
+                </Text>
               </View>
-              <Text style={[
-                styles.stepLabel,
-                (isCompleted || isActive || isLastStepCompleted) && styles.stepLabelActive
-              ]}>
-                {estado}
-              </Text>
-              {index < estados.length - 1 && (
-                <Divider 
-                  style={[
-                    styles.stepConnector, 
-                    (isCompleted || isLastStepCompleted) ? styles.connectorActive : styles.connectorInactive
-                  ]} 
-                />
+              
+              {/* ✅ MODIFICADO: Conector con flex para ocupar espacio disponible */}
+              {!isLastStep && (
+                <View style={styles.stepConnectorContainer}>
+                  <Divider 
+                    style={[
+                      styles.stepConnector, 
+                      (isCompleted || isLastStepCompleted) ? styles.connectorActive : styles.connectorInactive
+                    ]} 
+                  />
+                </View>
               )}
-            </View>
+            </React.Fragment>
           );
         })}
       </View>
     );
   };
 
-  // ✅ Renderizado de item del carrito
-  const renderCarritoItem = (item, index, ventaId, isAdmin) => {
-    const entregado = item.entregado;
-
-    return (
-      <Surface key={index} style={styles.itemCard} elevation={0}>
-        {entregado && (
-          <ImageBackground
-            source={require('../files/ok.png')} // ✅ Crear este asset
-            style={styles.entregadoBackground}
-            imageStyle={styles.entregadoImage}
-            resizeMode="contain"
-          />
-        )}
-        
-        <View style={styles.itemContent}>
-          <View style={styles.itemRow}>
-            <Text style={styles.itemLabel}>Nombre:</Text>
-            <Chip mode="flat" style={styles.chip}>{item.nombre || 'N/A'}</Chip>
-          </View>
-
-          <View style={styles.itemRow}>
-            <Text style={styles.itemLabel}>Entregar:</Text>
-            <Chip mode="flat" style={styles.chip}>
-              {item.recibirEnCuba || '0'} {item.monedaRecibirEnCuba}
-            </Chip>
-          </View>
-
-          <View style={styles.itemRow}>
-            <Text style={styles.itemLabel}>Tarjeta CUP:</Text>
-            <Chip mode="flat" style={styles.chip}>{item.tarjetaCUP || 'N/A'}</Chip>
-          </View>
-
-          <View style={styles.itemRow}>
-            <Text style={styles.itemLabel}>Dirección:</Text>
-            <Text style={styles.itemValue}>{item.direccionCuba || 'N/A'}</Text>
-          </View>
-
-          {item.comentario && (
-            <View style={styles.comentarioContainer}>
-              <Text style={styles.comentarioLabel}>🗒️ Nota:</Text>
-              <Text style={styles.comentarioText}>{item.comentario}</Text>
-            </View>
-          )}
-
-          {isAdmin && (
-            <View style={styles.actionButtons}>
-              {entregado ? (
-                <Button 
-                  mode="outlined" 
-                  onPress={() => marcarItemNoEntregado(ventaId, index)}
-                  color="#F44336"
-                  icon="undo"
-                >
-                  No Entregado
-                </Button>
-              ) : (
-                <Button 
-                  mode="outlined" 
-                  onPress={() => marcarItemEntregado(ventaId, index)}
-                  color="#4CAF50"
-                  icon="check-circle"
-                >
-                  Entregado
-                </Button>
-              )}
-            </View>
-          )}
-        </View>
-      </Surface>
-    );
-  };
-
-  // ✅ Renderizado de tarjeta de venta con preview y animación
+  // ✅ MODIFICADO: Renderizado de tarjeta con botones de acción para items
   const renderVentaCard = (venta, index, sectionTitle, esEntregada = false) => {
     const isExpanded = expandedVentas[venta._id];
-    const isAccordionExpanded = expandedAccordions[venta._id];
     const pasoActual = obtenerPasoDesdeEstado(venta);
     const isAdmin = Meteor.user()?.profile?.role === 'admin';
+    const esEfectivo = venta.metodoPago === 'EFECTIVO';
+    const isPendientePago = venta.isCobrado === false;
+    const necesitaEvidencia = esEfectivo && isPendientePago;
 
     // ✅ Calcular resumen de items
     const totalItems = venta?.producto?.carritos?.length || 0;
@@ -267,95 +248,211 @@ const VentasStepper = ({ navigation }) => {
         <Divider />
 
         <Card.Content>
-          {renderStepper(pasoActual)}
-          {/* ✅ MODIFICADO: Accordion con animación y controlado por estado */}
-        {isExpanded && (
-          <>
-          <View style={styles.chipContainer}>
-            <Chip icon="cash" style={styles.infoChip}>
-              Cobrado: {venta.cobrado} {venta.monedaCobrado || 'USD'}
-            </Chip>
-            <Chip icon="send" style={styles.infoChip}>
-              Enviado: {venta.precioOficial || 'N/A'} {venta.monedaCobrado || 'USD'}
-            </Chip>
-            <Chip icon="credit-card" style={styles.infoChip}>
-              {venta.metodoPago || 'N/A'}
-            </Chip>
-          </View>
-
-          {venta.comentario && (
-            <Text style={styles.comentarioGeneral}>📝 {venta.comentario}</Text>
-          )}
-
-          {/* ✅ NUEVO: Preview de items (siempre visible) */}
-          <View style={styles.previewContainer}>
-            <View style={styles.previewHeader}>
-              <Text style={styles.previewTitle}>📦 Carrito ({totalItems} items)</Text>
-              <View style={styles.badgeContainer}>
-                {itemsPendientes > 0 && (
-                  <Chip 
-                    icon="clock-outline" 
-                    mode="flat" 
-                    style={styles.badgePendiente}
-                    textStyle={styles.badgeText}
-                  >
-                    {itemsPendientes}
-                  </Chip>
-                )}
-                {itemsEntregados > 0 && (
-                  <Chip 
-                    icon="check-circle" 
-                    mode="flat" 
-                    style={styles.badgeEntregado}
-                    textStyle={styles.badgeText}
-                  >
-                    {itemsEntregados}
-                  </Chip>
-                )}
-              </View>
-            </View>
-
-            {/* ✅ Preview compacto de primeros 2 items */}
-            {previewItems.map((item, i) => (
-              <Surface key={i} style={styles.previewItem} elevation={0}>
-                <View style={styles.previewItemContent}>
-                  <IconButton 
-                    icon={item.entregado ? "check-circle" : "clock-outline"} 
-                    size={20}
-                    iconColor={item.entregado ? "#4CAF50" : "#FF9800"}
-                  />
-                  <View style={styles.previewItemText}>
-                    <Text style={styles.previewItemName} numberOfLines={1}>
-                      {item.nombre || 'Remesa'}
-                    </Text>
-                    <Text style={styles.previewItemDetail} numberOfLines={1}>
-                      {item.recibirEnCuba} {item.monedaRecibirEnCuba}
-                    </Text>
-                    <Text style={styles.previewItemDetail} >
-                    {item.tarjetaCUP || item.direccionCuba}
-                    </Text>
-                    <Text style={styles.previewItemDetail} >
-                    📝 {item.comentario}
+          {renderStepper(pasoActual, venta.metodoPago)}
+          
+          {isExpanded && (
+            <>
+              {/* ✅ NUEVO: Card de evidencia si es EFECTIVO y no cobrado */}
+              {necesitaEvidencia && (
+                <Surface style={styles.evidenciaCard} elevation={2}>
+                  <View style={styles.evidenciaHeader}>
+                    <IconButton 
+                      icon="file-upload" 
+                      size={24} 
+                      iconColor="#FF9800"
+                    />
+                    <Text style={styles.evidenciaTitle}>
+                      📤 Subir Evidencia de Pago
                     </Text>
                   </View>
-                  {/* <Chip mode="flat" style={[styles.previewItemChip,item.entregado ? styles.badgeEntregado : styles.badgePendiente]}>
-                    {item.entregado ? '✓' : '⏳'}
-                  </Chip> */}
+                  
+                  <Text style={styles.evidenciaSubtitle}>
+                    Debe subir el comprobante de pago en efectivo para que el administrador 
+                    confirme la transacción y proceda con la entrega de la remesa.
+                  </Text>
+                  
+                  <Divider style={{ marginVertical: 12 }} />
+                  
+                  <SubidaArchivos venta={venta} />
+                </Surface>
+              )}
+
+              {/* ✅ MODIFICADO: Alerta de pago pendiente solo si NO es EFECTIVO */}
+              {isPendientePago && !esEfectivo && (
+                <Surface style={styles.alertPendientePago} elevation={1}>
+                  <IconButton 
+                    icon="alert-circle" 
+                    size={20} 
+                    iconColor="#FF9800"
+                    style={{ margin: 0, marginRight: 8 }}
+                  />
+                  <Text style={styles.alertPendientePagoText}>
+                    ⏳ Esperando confirmación de pago
+                  </Text>
+                </Surface>
+              )}
+
+              <View style={styles.chipContainer}>
+                <Chip icon="cash" style={styles.infoChip}>
+                  Cobrado: {venta.cobrado} {venta.monedaCobrado || 'USD'}
+                </Chip>
+                <Chip icon="send" style={styles.infoChip}>
+                  Enviado: {venta.precioOficial || 'N/A'} {venta.monedaCobrado || 'USD'}
+                </Chip>
+                <Chip icon="credit-card" style={styles.infoChip}>
+                  {venta.metodoPago || 'N/A'}
+                </Chip>
+              </View>
+
+              {venta.comentario && (
+                <Text style={styles.comentarioGeneral}>📝 {venta.comentario}</Text>
+              )}
+
+              {/* ✅ Lista detallada de items con botones de acción (solo si está cobrado) */}
+              {!isPendientePago && (
+                <View style={styles.itemsDetailContainer}>
+                  <View style={styles.itemsDetailHeader}>
+                    <Text style={styles.itemsDetailTitle}>
+                      📦 Remesas del Pedido ({totalItems})
+                    </Text>
+                    <View style={styles.badgeContainer}>
+                      {itemsPendientes > 0 && (
+                        <Chip 
+                          icon="clock-outline" 
+                          mode="flat" 
+                          compact
+                          style={styles.badgePendiente}
+                          textStyle={styles.badgeText}
+                        >
+                          {itemsPendientes}
+                        </Chip>
+                      )}
+                      {itemsEntregados > 0 && (
+                        <Chip 
+                          icon="check-circle" 
+                          mode="flat" 
+                          compact
+                          style={styles.badgeEntregado}
+                          textStyle={styles.badgeText}
+                        >
+                          {itemsEntregados}
+                        </Chip>
+                      )}
+                    </View>
+                  </View>
+
+                  {venta?.producto?.carritos?.map((item, itemIndex) => (
+                    <Surface key={itemIndex} style={[
+                      styles.itemDetailCard,
+                      item.entregado && styles.itemDetailCardEntregado
+                    ]} elevation={1}>
+                      {/* ✅ Badge de estado en esquina */}
+                      <View style={[
+                        styles.estadoBadge,
+                        item.entregado ? styles.estadoBadgeEntregado : styles.estadoBadgePendiente
+                      ]}>
+                        <IconButton 
+                          icon={item.entregado ? "check-circle" : "clock-outline"} 
+                          size={16}
+                          iconColor="#fff"
+                          style={{ margin: 0 }}
+                        />
+                      </View>
+
+                      {/* ✅ Contenido del item */}
+                      <View style={styles.itemDetailContent}>
+                        <Text style={styles.itemDetailTitle}>
+                          {item.entregado ? '✅' : '⏳'} Remesa #{itemIndex + 1}
+                        </Text>
+
+                        <View style={styles.itemDetailRow}>
+                          <Text style={styles.itemDetailLabel}>👤 Destinatario:</Text>
+                          <Text style={styles.itemDetailValue}>{item.nombre || 'N/A'}</Text>
+                        </View>
+
+                        <View style={styles.itemDetailRow}>
+                          <Text style={styles.itemDetailLabel}>💰 Monto:</Text>
+                          <Text style={styles.itemDetailValue}>
+                            {item.recibirEnCuba || '0'} {item.monedaRecibirEnCuba}
+                          </Text>
+                        </View>
+
+                        {/* ✅ MODIFICADO: Tarjeta CUP con botón de copiar */}
+                        <View style={styles.itemDetailRow}>
+                          <Text style={styles.itemDetailLabel}>💳 Tarjeta CUP:</Text>
+                          <Text style={[styles.itemDetailValue, { flex: 0.8 }]} numberOfLines={1}>
+                            {item.tarjetaCUP || 'N/A'}
+                          </Text>
+                          <IconButton
+                            icon="content-copy"
+                            size={18}
+                            onPress={() => copiarAlPortapapeles(item.tarjetaCUP, 'Tarjeta CUP')}
+                            style={styles.copyButton}
+                            iconColor="#6200ee"
+                          />
+                        </View>
+
+                        {/* ✅ MODIFICADO: Dirección con botón de copiar */}
+                        {item.direccionCuba && (
+                          <View style={styles.itemDetailRow}>
+                            <Text style={styles.itemDetailLabel}>📍 Dirección:</Text>
+                            <Text style={[styles.itemDetailValue, { flex: 0.8 }]} numberOfLines={2}>
+                              {item.direccionCuba}
+                            </Text>
+                            <IconButton
+                              icon="content-copy"
+                              size={18}
+                              onPress={() => copiarAlPortapapeles(item.direccionCuba, 'Dirección')}
+                              style={styles.copyButton}
+                              iconColor="#6200ee"
+                            />
+                          </View>
+                        )}
+
+                        {item.comentario && (
+                          <Surface style={styles.itemComentarioBox} elevation={0}>
+                            <Text style={styles.itemComentarioText}>
+                              💬 {item.comentario}
+                            </Text>
+                          </Surface>
+                        )}
+
+                        {/* ✅ NUEVO: Botones de acción solo para admins */}
+                        {isAdmin && (
+                          <View style={styles.itemActionButtons}>
+                            {item.entregado ? (
+                              <Button
+                                mode="outlined"
+                                icon="undo-variant"
+                                onPress={() => marcarItemNoEntregado(venta._id, itemIndex)}
+                                style={styles.actionButtonRevertir}
+                                labelStyle={styles.actionButtonLabel}
+                                compact
+                              >
+                                Marcar No Entregado
+                              </Button>
+                            ) : (
+                              <Button
+                                mode="contained"
+                                icon="check-bold"
+                                onPress={() => marcarItemEntregado(venta._id, itemIndex)}
+                                style={styles.actionButtonEntregar}
+                                labelStyle={styles.actionButtonLabel}
+                                compact
+                              >
+                                Marcar Entregado
+                              </Button>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    </Surface>
+                  ))}
                 </View>
-              </Surface>
-            ))}
-
-            {totalItems > 2 && (
-              <Text style={styles.moreItemsText}>
-                +{totalItems - 2} items más...
-              </Text>
-            )}
-          </View>
-          </>
-        )}
-          
+              )}
+            </>
+          )}
         </Card.Content>
-
       </Surface>
     );
   };
@@ -424,6 +521,16 @@ const VentasStepper = ({ navigation }) => {
           </Dialog.Actions>
         </Dialog>
       </Portal>
+
+      {/* ✅ NUEVO: Snackbar para feedback de copia */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={2000}
+        style={styles.snackbar}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </Surface>
   );
 };
@@ -543,13 +650,24 @@ const styles = StyleSheet.create({
   // ✅ Stepper personalizado
   stepperContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between', // ✅ MODIFICADO: space-between para distribuir uniformemente
     alignItems: 'center',
     marginVertical: 16,
   },
   stepItem: {
     alignItems: 'center',
-    flex: 1,
+    minWidth: 60, // ✅ NUEVO: ancho mínimo para que no se comprima demasiado
+  },
+  // ✅ NUEVO: Contenedor para el conector que crece dinámicamente
+  stepConnectorContainer: {
+    flex: 1, // ✅ Ocupa el espacio disponible entre pasos
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 4, // Margen pequeño para separación
+  },
+  stepConnector: {
+    width: '100%', // ✅ MODIFICADO: 100% del contenedor en lugar de width fijo
+    height: 2,
   },
   stepCircle: {
     width: 40,
@@ -581,19 +699,7 @@ const styles = StyleSheet.create({
     color: '#6200ee', // ✅ NUEVO: Color para estados activos/completados
     fontWeight: '600',
   },
-  stepConnector: {
-    position: 'absolute',
-    top: 20,
-    left: '50%',
-    width: 100,
-    height: 2,
-  },
-  connectorActive: {
-    backgroundColor: '#6200ee',
-  },
-  connectorInactive: {
-    backgroundColor: '#ccc',
-  },
+  // ...existing code...
   // ✅ NUEVOS: Estilos para preview de items
   previewContainer: {
     marginTop: 16,
@@ -667,6 +773,159 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 4,
   },
+  // ✅ NUEVOS: Estilos para alerta de pago pendiente
+  alertPendientePago: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3E0',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
+  },
+  alertPendientePagoText: {
+    fontSize: 13,
+    color: '#E65100',
+    fontWeight: '600',
+    flex: 1,
+  },
+  // ✅ NUEVOS: Estilos para card de evidencia
+  evidenciaCard: {
+    marginVertical: 16,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFF3E0',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
+  },
+  evidenciaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  evidenciaTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#E65100',
+    flex: 1,
+  },
+  evidenciaSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  // ✅ NUEVOS: Estilos para lista detallada de items con botones
+  itemsDetailContainer: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: 'rgba(98, 0, 238, 0.03)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(98, 0, 238, 0.1)',
+  },
+  itemsDetailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  itemsDetailTitle: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    flex: 1,
+  },
+  itemDetailCard: {
+    padding: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  itemDetailCardEntregado: {
+    borderLeftColor: '#4CAF50',
+    opacity: 0.85,
+  },
+  estadoBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    borderRadius: 20,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  estadoBadgePendiente: {
+    backgroundColor: '#FF9800',
+  },
+  estadoBadgeEntregado: {
+    backgroundColor: '#4CAF50',
+  },
+  itemDetailContent: {
+    paddingRight: 40,
+  },
+  itemDetailTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  itemDetailRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    alignItems: 'center', // ✅ MODIFICADO: center para alinear botón de copiar
+  },
+  itemDetailLabel: {
+    fontWeight: '600',
+    minWidth: 120,
+    fontSize: 13,
+  },
+  itemDetailValue: {
+    flex: 1,
+    fontSize: 13,
+  },
+  itemComentarioBox: {
+    marginTop: 8,
+    padding: 10,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 8,
+  },
+  itemComentarioText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: '#666',
+  },
+  itemActionButtons: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  actionButtonEntregar: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+  },
+  actionButtonRevertir: {
+    borderColor: '#F44336',
+    borderRadius: 8,
+  },
+  actionButtonLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  // ✅ NUEVO: Estilo para botón de copiar
+  copyButton: {
+    margin: 0,
+    marginLeft: 4,
+  },
+  // ✅ NUEVO: Estilo para Snackbar
+  snackbar: {
+    backgroundColor: '#6200ee',
+  },
 });
 
 export default VentasStepper;
+

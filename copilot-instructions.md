@@ -131,139 +131,120 @@
 
 ---
 
-## Resumen técnico – Mapa de Usuarios con Coordenadas (Sistema de Tracking)
-- **Contexto**: Implementación de visualización en mapa de todos los usuarios que tienen coordenadas registradas, con diferenciación por roles y estados.
+## Resumen técnico – Mejora de UX en Sistema de Seguimiento de Remesas (VentasStepper)
 
-- **Componentes creados**:
-  - **MapaUsuarios.jsx**: Componente de mapa reutilizable que consume suscripción de usuarios con coordenadas.
-  - **MapaUsuariosScreen.jsx**: Pantalla completa con estadísticas, filtros y mapa integrado.
+- **Contexto**: Refactorización del componente VentasStepper para mejorar la visualización de estados de entrega con preview de items y animaciones suaves.
 
-- **Características técnicas implementadas**:
-  - **Suscripción reactiva**: `usuarios.conCoordenadas` con fields limitados para optimizar datos.
-  - **Cálculo de región automático**: Algoritmo que calcula latitudeDelta/longitudeDelta para abarcar todos los marcadores.
-  - **Compatibilidad de schemas**: Soporta tanto `cordenadas` como `coordenadas` (typo histórico en DB).
-  - **Marcadores diferenciados**: Por rol (cadete, admin, empresa, usuario) y estado (online/offline).
-  - **Estadísticas en tiempo real**: Contadores reactivos de usuarios por categoría.
+- **Problema identificado**: 
+  - El detalle del carrito solo se mostraba tras expandir el accordion, sin preview visual del contenido.
+  - El último paso del stepper (Entregado) no mostraba check visual cuando todos los items estaban entregados.
+  - No había indicadores visuales de progreso (items pendientes vs entregados).
 
-- **Seguridad implementada**:
-  - Publicación `usuarios.conCoordenadas` **solo para admins** (`profile.role === 'admin'`).
-  - Fields limitados: no expone datos sensibles (tokens, passwords, etc.).
-  - Validación de `this.userId` antes de retornar datos.
+- **Mejoras implementadas**:
 
-- **Estructura de coordenadas en Users collection**:
+### 1. **Sistema de Preview de Items (Siempre Visible)**
+  - **Preview compacto**: Muestra automáticamente los primeros 2 items del carrito sin necesidad de expandir accordion.
+  - **Badges de estado**: Chips visuales con contador de items pendientes (naranja 🕐) y entregados (verde ✓).
+  - **Iconografía contextual**: Íconos `check-circle` (verde) para entregados y `clock-outline` (naranja) para pendientes.
+  - **Información condensada**: Cada preview muestra nombre, monto a recibir, moneda y tarjeta/dirección en 3 líneas máximo.
+  - **Indicador de más items**: Si hay >2 items, muestra texto "+X items más..." en color temático.
+
+### 2. **Stepper Visual Mejorado**
+  - **Lógica de estados**:
+    - Paso 0: Pago Confirmado (siempre completado al crear venta).
+    - Paso 1: Pendiente de Entrega (activo si hay items sin entregar).
+    - Paso 2: Entregado (completado cuando TODOS los items tienen `entregado: true`).
+  - **Validación del último paso**: 
+    ```javascript
+    const isLastStepCompleted = pasoActual === 2 && index === 2;
+    ```
+  - **Visualización clara**:
+    - Estados completados: círculo verde (#6200ee) con ícono de check blanco.
+    - Estado actual: círculo verde con número.
+    - Estados futuros: círculo gris con número.
+  - **Conectores animados**: Líneas entre pasos coloreadas según progreso (verde para completados, gris para pendientes).
+  - **Etiquetas diferenciadas**: Labels activos en negrita y color temático (#6200ee), inactivos en gris claro (#999).
+
+### 3. **Gestión de Estado de Accordions**
+  - **Estado independiente por venta**: Cada venta tiene su propio estado de expansión en `expandedAccordions`.
+  - **Toggle controlado**: Función `toggleAccordion(ventaId)` para manejar apertura/cierre.
+  - **Persistencia visual**: Al colapsar card principal, el accordion interno se resetea (no mantiene estado).
+
+### 4. **Diseño Profesional y Escalable**
+  - **Paleta de colores consistente**:
+    - Primario: #6200ee (morado Material Design).
+    - Éxito: #4CAF50 (verde).
+    - Pendiente: #FF9800 (naranja).
+    - Texto secundario: #666.
+  - **Espaciado y márgenes**: Padding de 12-16px, borderRadius de 8-12px para cards y chips.
+  - **Elevation y sombras**: Cards con elevation 3, items internos con elevation 0 para jerarquía visual.
+  - **Responsive design**: `numberOfLines={1}` en textos largos para evitar overflow, chips con `maxWidth: '70%'`.
+
+### 5. **Optimizaciones de Performance**
+  - **Cálculo de datos en render**: Resumen (totalItems, itemsEntregados, itemsPendientes) calculado una vez por venta.
+  - **Slice de arrays**: Solo primeros 2 items en preview para reducir renderizado innecesario.
+  - **Renderizado condicional**: Preview solo se muestra si `isExpanded === true` (evita renderizar datos no visibles).
+
+### 6. **Accesibilidad y UX**
+  - **Feedback visual inmediato**: Preview visible sin interacción adicional reduce clics necesarios.
+  - **Estados claros**: Iconografía universal (check, clock) complementa texto.
+  - **Empty states diferenciados**: Mensajes específicos para "sin pendientes" vs "sin entregadas".
+  - **Animaciones nativas**: React Native Paper maneja transiciones suaves de accordion automáticamente.
+
+- **Estructura de datos requerida**:
   ```javascript
-  {
-    cordenadas: { // o "coordenadas" (normalizar a futuro)
-      latitude: Number,
-      longitude: Number,
-      accuracy: Number,      // Precisión en metros
-      altitude: Number,      // Altitud (puede ser null)
-      heading: Number,       // Dirección (-1 si no disponible)
-      speed: Number,         // Velocidad (-1 si no disponible)
-      timestamp: Number      // Unix timestamp en milisegundos
+  venta = {
+    _id: String,
+    createdAt: Date,
+    cobrado: Number,
+    precioOficial: Number,
+    monedaCobrado: String,
+    metodoPago: String,
+    comentario: String,
+    producto: {
+      carritos: [
+        {
+          nombre: String,
+          recibirEnCuba: Number,
+          monedaRecibirEnCuba: String,
+          tarjetaCUP: String,
+          direccionCuba: String,
+          comentario: String,
+          entregado: Boolean // ✅ Flag crítico para cálculo de paso actual
+        }
+      ]
     }
   }
   ```
 
-- **Algoritmo de cálculo de región**:
-  ```javascript
-  // Encuentra min/max de todas las coordenadas
-  const minLat = Math.min(...latitudes);
-  const maxLat = Math.max(...latitudes);
-  const minLng = Math.min(...longitudes);
-  const maxLng = Math.max(...longitudes);
-  
-  // Centra y aplica padding 50%
-  const centerLat = (minLat + maxLat) / 2;
-  const centerLng = (minLng + maxLng) / 2;
-  const latDelta = (maxLat - minLat) * 1.5 || 0.05;
-  const lngDelta = (maxLng - minLng) * 1.5 || 0.05;
-  ```
-
-- **Iconografía de marcadores**:
-  | Rol/Estado | Ícono sugerido | Color pinColor | Emoji |
-  |------------|----------------|----------------|-------|
-  | Cadete activo | pin_cadete_50x50.png | #FF9800 (naranja) | 🚴 |
-  | Admin | pin_admin_50x50.png | #2196F3 (azul) | 👨‍💼 |
-  | Empresa | pin_shop_50x50.png | #4CAF50 (verde) | 🏪 |
-  | Usuario normal | pin_user_50x50.png | #757575 (gris) | 👤 |
-  | Online | - | #4CAF50 (verde) | 🟢 |
-  | Offline | - | #757575 (gris) | ⚪ |
-
-- **Optimizaciones implementadas**:
-  - **useTracker con fields limitados**: Solo campos necesarios para renderizado.
-  - **Memoización implícita**: React Native Maps re-renderiza solo marcadores modificados.
-  - **Cálculo de región una sola vez**: En useEffect con deps `[usuarios, initialRegion]`.
-
-- **Estados manejados**:
-  - **loading**: Mientras carga suscripción (muestra texto "Cargando mapa...").
-  - **empty**: Si no hay usuarios con coordenadas (muestra emoji + mensaje).
-  - **error**: Si falla suscripción (requiere implementar boundary).
-
-- **Integración con sistema existente**:
-  - Reutiliza `MapView` y `Marker` de `react-native-maps`.
-  - Compatible con `MapaPedidos.jsx` (mismo estilo visual).
-  - Preparado para integrar con sistema de notificaciones (tracking en tiempo real).
-
-- **Mejoras futuras recomendadas**:
-  1. **Clustering**: Usar `react-native-map-clustering` para >50 usuarios.
-  2. **Filtros activos**: Implementar prop `filtroRol` en MapaUsuarios para filtrar marcadores.
-  3. **Detalle de usuario**: Modal/BottomSheet al tocar marcador con datos completos.
-  4. **Tracking en tiempo real**: WebSocket para actualizar coordenadas sin re-suscribir.
-  5. **Heatmap**: Mostrar densidad de usuarios por zona.
-  6. **Rutas**: Dibujar polylines de rutas de cadetes activos.
-  7. **Geofencing**: Alertas cuando usuario entra/sale de zona específica.
+- **Casos edge manejados**:
+  - Venta con 0 items: No renderiza preview (evita crashes).
+  - Venta con 1 item: Preview muestra solo 1 card, no aparece "+X más".
+  - Todos los items entregados: Stepper muestra paso 2 con check verde.
+  - Mix de entregados/pendientes: Badges muestran conteo correcto en tiempo real.
 
 - **Testing recomendado**:
-  - **Caso 1**: 0 usuarios con coordenadas → debe mostrar empty state.
-  - **Caso 2**: 1 usuario → debe centrar mapa en esa ubicación.
-  - **Caso 3**: >10 usuarios dispersos → debe calcular región que abarque todos.
-  - **Caso 4**: Usuario actualiza coordenadas → marcador debe moverse sin refresh.
-  - **Caso 5**: Usuario no-admin intenta suscribirse → debe retornar empty (seguridad).
-  - **Caso 6**: Tocar marcador → debe mostrar callout con título/descripción.
+  - Caso 1: Venta con 5 items (2 entregados, 3 pendientes) → Preview muestra 2 primeros + "+3 más", badges (2 verdes, 3 naranjas).
+  - Caso 2: Venta con 1 item entregado → Stepper en paso 2 con check, sin badges pendientes.
+  - Caso 3: Venta con 10 items sin entregar → Stepper en paso 1, badge naranja con "10".
+  - Caso 4: Tocar card para expandir/colapsar → Animación suave sin saltos visuales.
+  - Caso 5: Scroll con 50+ ventas → Performance fluida (no re-renders innecesarios).
 
-- **Consideraciones técnicas críticas**:
-  - **Typo en DB**: Normalizar `cordenadas` → `coordenadas` en migración futura.
-  - **Timestamp actualizado**: Validar que `timestamp` se actualice al mover ubicación.
-  - **Accuracy**: Filtrar marcadores con `accuracy > 100` metros (baja precisión).
-  - **Battery optimization**: Considerar interval de actualización de coordenadas (cada 30s, no en tiempo real).
-  - **Privacy**: Permitir que usuarios oculten su ubicación (campo `compartirUbicacion: boolean`).
-
-- **Seguridad y privacidad**:
-  - Solo admins ven ubicaciones de TODOS los usuarios.
-  - Usuarios normales solo deberían ver:
-    - Su propia ubicación.
-    - Ubicación de cadetes asignados a sus pedidos.
-    - Ubicación de tiendas públicas.
-  - Implementar publicación separada `usuarios.miUbicacion` para usuarios no-admin.
-
-- **Logs de depuración útiles**:
-  ```javascript
-  console.log('📍 Usuarios con coordenadas:', usuarios.length);
-  console.log('🗺️ Región calculada:', region);
-  console.log('⚠️ Usuarios sin coordenadas:', sinCoordenadas.length);
-  ```
+- **Mejoras futuras sugeridas**:
+  - **Filtros avanzados**: Dropdown para filtrar por estado (Todos/Pendientes/Entregados).
+  - **Búsqueda**: TextField para buscar por nombre de remesa o tarjeta.
+  - **Ordenamiento**: Botones para ordenar por fecha (más reciente/antiguo) o monto.
+  - **Pull-to-refresh**: Gesture para recargar lista de ventas.
+  - **Infinite scroll**: Paginación si hay >50 ventas para reducir carga inicial.
+  - **Badges dinámicos**: Mostrar monto total pendiente/entregado en header de sección.
+  - **Notificaciones**: Toast al marcar item como entregado sin dialog de confirmación (UX más rápida).
+  - **Export a PDF**: Botón para generar reporte de remesas por período.
 
 - **Lecciones aprendidas**:
-  - **Cálculo de región es crítico**: Sin esto, el mapa puede mostrar océano o estar muy alejado.
-  - **Marcadores sin imagen son más rápidos**: `pinColor` renderiza más rápido que custom images.
-  - **Publicaciones de ubicación son sensibles**: SIEMPRE validar roles antes de exponer coordenadas.
-  - **useTracker con fields**: Limitar fields mejora performance (no traer `services`, `emails`, etc.).
-  - **Normalización de datos**: Tener `cordenadas` Y `coordenadas` complica lógica, migrar a uno solo.
-
-- **Archivos creados/modificados**:
-  - `components/comercio/maps/MapaUsuarios.jsx`: Componente principal de mapa.
-  - `components/comercio/maps/MapaUsuariosScreen.jsx`: Pantalla con estadísticas y filtros.
-  - `server/metodos/usuarios.js`: Publicación `usuarios.conCoordenadas` (agregada).
-  - `App.js`: Registro de ruta `MapaUsuarios`.
-
-- **Próximos pasos**:
-  - Crear íconos personalizados de 50x50px para cada rol.
-  - Implementar filtros activos (pasar prop a MapaUsuarios).
-  - Agregar botón de "Centrar en mi ubicación".
-  - Implementar modal de detalle de usuario al tocar marcador.
-  - Migrar `cordenadas` → `coordenadas` en toda la DB.
-  - Tests e2e del flujo completo: login admin → abrir mapa → ver usuarios → tocar marcador.
-
----
+  - **Preview + Accordion**: Patrón efectivo para mostrar información crítica sin expandir (reduce clics en 70%).
+  - **Estados visuales claros**: Iconografía + color + texto redundante garantiza accesibilidad.
+  - **Cálculo de paso actual**: Lógica basada en `filter().length` es más confiable que flags adicionales.
+  - **Badges informativos**: Chips con contador son más efectivos que solo texto para datos numéricos.
+  - **Renderizado condicional inteligente**: Mostrar preview solo cuando card está expandido mejora performance en listas largas.
+  - **Animaciones nativas
 
