@@ -2,14 +2,17 @@ import { useState, useCallback, useEffect } from 'react';
 import { Platform, Alert } from 'react-native';
 import { 
   PERMISSIONS_CONFIG, 
-  NATIVE_PERMISSIONS, // ✅ AGREGAR esta importación
+  NATIVE_PERMISSIONS,
+  PERMISSION_TYPES, // ✅ Agregar para identificar NOTIFICATIONS
   getRequiredPermissions, 
   isPermissionGranted,
   isPermissionsLibraryAvailable,
   check,
   request,
   openSettings,
-  RESULTS
+  RESULTS,
+  checkNotificationPermission, // ✅ Funciones especiales para iOS
+  requestNotificationPermission
 } from '../utils/permissionsConfig';
 
 const usePermissions = () => {
@@ -73,7 +76,21 @@ const usePermissions = () => {
       const statuses = {};
 
       for (const permission of requiredPermissions) {
-        // ✅ CORRECCIÓN: Obtener permission nativa de NATIVE_PERMISSIONS
+        // ✅ SPECIAL CASE: Notificaciones en iOS usan API diferente
+        if (permission.id === PERMISSION_TYPES.NOTIFICATIONS && Platform.OS === 'ios') {
+          try {
+            const result = await checkNotificationPermission();
+            statuses[permission.id] = mapPermissionResult(result);
+            console.log(`  ✓ ${permission.id} (iOS special): ${statuses[permission.id]}`);
+          } catch (error) {
+            console.error(`❌ [Permissions] Error checking ${permission.id}:`, error.message);
+            statuses[permission.id] = 'unavailable';
+          }
+          continue;
+        }
+
+
+        // ✅ Resto de permisos: flujo normal
         const nativePermission = NATIVE_PERMISSIONS[permission.id];
         
         if (!nativePermission) {
@@ -114,7 +131,29 @@ const usePermissions = () => {
     try {
       console.log(`📦 [Permissions] Solicitando: ${permissionType}`);
       
-      // ✅ CORRECCIÓN: Obtener permission nativa de NATIVE_PERMISSIONS
+      // ✅ SPECIAL CASE: Notificaciones en iOS usan API diferente
+      if (permissionType === PERMISSION_TYPES.NOTIFICATIONS) {
+        setLoading(true);
+        const result = await requestNotificationPermission();
+        const status = mapPermissionResult(result);
+
+        console.log(`  ${permissionType} (iOS special): ${status}`);
+
+        setPermissionsStatus((prev) => ({
+          ...prev,
+          [permissionType]: status,
+        }));
+
+        setLoading(false);
+
+        if (autoCheck) {
+          setTimeout(() => checkAllPermissions(), 500);
+        }
+
+        return status;
+      }
+
+      // ✅ Resto de permisos: flujo normal
       const nativePermission = NATIVE_PERMISSIONS[permissionType];
       
       if (!nativePermission) {
@@ -166,7 +205,21 @@ const usePermissions = () => {
       const results = {};
 
       for (const type of permissionTypes) {
-        // ✅ CORRECCIÓN: Obtener permission nativa de NATIVE_PERMISSIONS
+        // ✅ SPECIAL CASE: Notificaciones en iOS usan API diferente
+        if (type === PERMISSION_TYPES.NOTIFICATIONS) {
+          try {
+            const result = await requestNotificationPermission();
+            results[type] = mapPermissionResult(result);
+            console.log(`  ${type} (iOS special): ${results[type]}`);
+            await new Promise(resolve => setTimeout(resolve, 300));
+          } catch (error) {
+            console.error(`❌ [Permissions] Error ${type}:`, error.message);
+            results[type] = 'unavailable';
+          }
+          continue;
+        }
+
+        // ✅ Resto de permisos: flujo normal
         const nativePermission = NATIVE_PERMISSIONS[type];
         
         if (!nativePermission) {

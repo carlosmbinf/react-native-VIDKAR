@@ -25,7 +25,8 @@ import {
   PERMISSION_TYPES,
   getRequiredPermissions,
   isPermissionGranted,
-  isPermissionsLibraryAvailable // ✅ Usar nuestra función custom
+  isPermissionsLibraryAvailable,
+  checkNotificationPermission // ✅ Función especial para notificaciones iOS
 } from './components/permissions/utils/permissionsConfig';
 
 console.log('Main.js');
@@ -63,6 +64,21 @@ class MyApp extends React.Component {
       const permissionsStatus = {};
 
       for (const permission of requiredPermissions) {
+        // ✅ SPECIAL CASE: Notificaciones en iOS usan API diferente
+        if (permission.id === PERMISSION_TYPES.NOTIFICATIONS) {
+          try {
+            const status = await checkNotificationPermission();
+            permissionsStatus[permission.id] = status;
+            console.log(`  ✓ ${permission.id} (iOS special): ${status}`);
+          } catch (error) {
+            console.error(`❌ [Permissions Check] Error checking ${permission.id}:`, error.message);
+            permissionsStatus[permission.id] = 'unavailable';
+          }
+          continue;
+        }
+
+
+        // ✅ Resto de permisos: flujo normal
         const nativePermission = NATIVE_PERMISSIONS[permission?.id];
         
         if (!nativePermission) {

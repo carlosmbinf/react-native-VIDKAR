@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 
 // ✅ Intentar importar funciones de forma segura
 let PERMISSIONS, check, request, openSettings, RESULTS;
@@ -29,6 +29,18 @@ try {
     UNAVAILABLE: 'unavailable',
     LIMITED: 'limited',
   };
+}
+
+// ✅ Funciones especiales para notificaciones iOS
+let checkNotifications, requestNotifications;
+try {
+  const permissionsModule = require('react-native-permissions');
+  checkNotifications = permissionsModule?.checkNotifications;
+  requestNotifications = permissionsModule?.requestNotifications;
+} catch (error) {
+  console.warn('⚠️ [permissionsConfig] checkNotifications/requestNotifications no disponibles');
+  checkNotifications = async () => ({ status: 'unavailable', settings: {} });
+  requestNotifications = async () => ({ status: 'unavailable', settings: {} });
 }
 
 // ✅ NUEVO: Función de validación manual (reemplaza isPermissionsLibraryAvailable)
@@ -84,7 +96,7 @@ export const NATIVE_PERMISSIONS = {
     android: parseInt(Platform.Version, 10) >= 33
       ? PERMISSIONS.ANDROID.POST_NOTIFICATIONS
       : null, // No requerido en Android < 13
-    ios: PERMISSIONS.IOS.NOTIFICATIONS,
+    ios: null, // ✅ Permiso nativo válido en iOS
   }),
 };
 
@@ -229,4 +241,49 @@ export const canRequestPermission = (status) => {
   return status === RESULTS.DENIED || status === RESULTS.UNAVAILABLE;
 };
 
-export { PERMISSIONS, check, request, openSettings, RESULTS };
+// ✅ Funciones especiales para notificaciones (iOS usa API diferente)
+export const checkNotificationPermission = async () => {
+  if (Platform.OS === 'ios') {
+    try {
+      const result = await checkNotifications();
+      return result.status; // 'granted' | 'denied' | 'blocked' | 'unavailable'
+    } catch (error) {
+      console.error('❌ [Notifications iOS] Error checking:', error);
+      return 'unavailable';
+    }
+  } else {
+    // Android usa el flujo normal con NATIVE_PERMISSIONS
+    const nativePermission = NATIVE_PERMISSIONS[PERMISSION_TYPES.NOTIFICATIONS];
+    if (!nativePermission) return 'granted'; // Android < 13 no requiere permiso
+    try {
+      return await check(nativePermission);
+    } catch (error) {
+      console.error('❌ [Notifications Android] Error checking:', error);
+      return 'unavailable';
+    }
+  }
+};
+
+export const requestNotificationPermission = async () => {
+  if (Platform.OS === 'ios') {
+    try {
+      const result = await requestNotifications(['alert', 'badge', 'sound']);
+      return result.status; // 'granted' | 'denied' | 'blocked' | 'unavailable'
+    } catch (error) {
+      console.error('❌ [Notifications iOS] Error requesting:', error);
+      return 'unavailable';
+    }
+  } else {
+    // Android usa el flujo normal con NATIVE_PERMISSIONS
+    const nativePermission = NATIVE_PERMISSIONS[PERMISSION_TYPES.NOTIFICATIONS];
+    if (!nativePermission) return 'granted'; // Android < 13 no requiere permiso
+    try {
+      return await request(nativePermission);
+    } catch (error) {
+      console.error('❌ [Notifications Android] Error requesting:', error);
+      return 'unavailable';
+    }
+  }
+};
+
+export { PERMISSIONS, check, request, openSettings, RESULTS, checkNotifications, requestNotifications };
