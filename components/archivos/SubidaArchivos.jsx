@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { View, Alert, StyleSheet, Image, Pressable, ScrollView, Platform, Linking } from 'react-native';
-import { Button, TextInput, ActivityIndicator, Text, Card, Chip, Divider, useTheme, IconButton } from 'react-native-paper';
+import { Button, TextInput, ActivityIndicator, Text, Card, Chip, Divider, useTheme, IconButton, Snackbar } from 'react-native-paper';
 import ImagePicker from 'react-native-image-crop-picker';
 import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
 import Meteor, {useTracker} from '@meteorrn/core';
@@ -270,6 +270,35 @@ const requestGalleryPermission = async () => {
   }
 };
 
+/**
+ * Extrae números de cuenta del texto usando regex
+ * Detecta patrones como "Cuenta: 1234567890" o "cuenta 1234567890"
+ * @param {string} texto - Texto con información bancaria
+ * @returns {Array<{label: string, numero: string}>} Array de objetos con label descriptivo y número
+ */
+const extraerCuentas = (texto) => {
+  if (!texto) return [];
+  
+  // Regex que detecta "Cuenta:" seguido de dígitos (con espacios/guiones opcionales)
+  const regex = /Cuenta:\s*([0-9\s\-]+)/gi;
+  const matches = [...texto.matchAll(regex)];
+  
+  return matches.map((match, index) => {
+    // Limpiar el número (quitar espacios y guiones)
+    const numeroLimpio = match[1].replace(/[\s\-]/g, '');
+    
+    // Detectar contexto (Santander, otros bancos, etc.)
+    const contexto = texto.substring(Math.max(0, match.index - 50), match.index);
+    const label = contexto.toLowerCase().includes('otros bancos') 
+      ? 'Otros bancos' 
+      : contexto.toLowerCase().includes('santander')
+      ? 'Santander'
+      : `Cuenta ${index + 1}`;
+    
+    return { label, numero: numeroLimpio };
+  }).filter(c => c.numero.length >= 8); // Filtrar números muy cortos (probablemente falsos positivos)
+};
+
 const SubidaArchivos = ({ venta}) => {
   if (!venta) return null;
   const ventaId = venta._id;
@@ -284,51 +313,11 @@ const SubidaArchivos = ({ venta}) => {
   const [eliminando, setEliminando] = useState(false);
   const categoria = 'general';
   const [tarjetaCUP, setTarjetaCUP] = useState("0000-0000-0000-0000");
+  const [cuentaBancaria, setCuentaBancaria] = useState(null);
+  const [loadingCuentaInfo, setLoadingCuentaInfo] = useState(false);
   const [archivoOriginalSize, setArchivoOriginalSize] = useState(null);
-
-  useEffect(() => {
-    const fetchTarjetaCUP = async () => {
-      try {
-        const userId = Meteor.user()?.bloqueadoDesbloqueadoPor;
-        if (userId) {
-          const result = await new Promise((resolve, reject) => {
-            Meteor.call("property.getValor", "CONFIG",`TARJETA_CUP_${userId}`, (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            });
-          });
-          setTarjetaCUP(result || "0000 0000 0000 0000");
-        }
-      } catch (error) {
-        console.error("Error al obtener tarjeta CUP:", error);
-        setTarjetaCUP("0000 0000 0000 0000");
-      }
-    };
-
-    if (Meteor.user()) {
-      fetchTarjetaCUP();
-    }
-  }, [Meteor.user()?.bloqueadoDesbloqueadoPor]);
-
-  const copyTarjeta = async () => {
-    if (!tarjetaCUP) {
-      Alert.alert('Aviso', 'No hay tarjeta para copiar.');
-      return;
-    }
-    try {
-      if (ClipboardModule?.setString) {
-        ClipboardModule.setString(tarjetaCUP);
-      } else if (ClipboardModule?.setStringAsync) {
-        await ClipboardModule.setStringAsync(tarjetaCUP);
-      } else {
-        throw new Error('Clipboard no disponible');
-      }
-      Alert.alert('Copiado', 'La tarjeta de destino fue copiada al portapapeles.');
-    } catch (e) {
-      Alert.alert('Error', 'No se pudo copiar la tarjeta.');
-    }
-  };
-
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
   const ventaReact  = useTracker(() => {
 
@@ -340,6 +329,119 @@ const SubidaArchivos = ({ venta}) => {
     return vent?.length > 0 ? vent[0] : null;
   });
 
+  
+  useEffect(() => {
+    const fetchCuentaInfo = async () => {
+      try {
+        const moneda = ventaReact?.monedaCobrado;
+        if (!moneda) return;
+
+        if (moneda === "CUP") {
+          // Lógica existente para CUP
+          const userId = Meteor.user()?.bloqueadoDesbloqueadoPor;
+          if (userId) {
+            const result = await new Promise((resolve, reject) => {
+              Meteor.call("property.getValor", "CONFIG",`TARJETA_CUP_${userId}`, (error, result) => {
+                if (error) reject(error);
+                else resolve(result);
+              });
+            });
+            console.log("result: ", result);
+            setTarjetaCUP(result || "0000 0000 0000 0000");
+          }
+        } else {
+          // Lógica nueva para otras monedas (USD, UYU, etc.)
+          setLoadingCuentaInfo(true);
+          const userId = Meteor.user()?.bloqueadoDesbloqueadoPor || Meteor.userId();
+          const claveCuenta = `CUENTA_${moneda}_${userId}`;
+          
+          const result = await new Promise((resolve, reject) => {
+            Meteor.call("property.getValor", "CONFIG", claveCuenta, (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            });
+          });
+          
+          setCuentaBancaria(result || null);
+        }
+      } catch (error) {
+        console.error("Error al obtener información de cuenta:", error);
+        if (ventaReact?.monedaCobrado === "CUP") {
+          setTarjetaCUP("0000 0000 0000 0000");
+        } else {
+          setCuentaBancaria(null);
+        }
+      } finally {
+        setLoadingCuentaInfo(false);
+      }
+    };
+
+    console.log("ventaReact", ventaReact);
+
+    if (Meteor.user() && ventaReact?.monedaCobrado) {
+      fetchCuentaInfo();
+    }
+  }, [ventaReact, Meteor.user()?.bloqueadoDesbloqueadoPor]);
+
+  // Extraer cuentas automáticamente cuando cambia cuentaBancaria
+  const cuentasExtraidas = useMemo(() => {
+    if (!cuentaBancaria) return [];
+    return extraerCuentas(cuentaBancaria);
+  }, [cuentaBancaria]);
+
+  const copyDatosPago = async () => {
+    const moneda = ventaReact?.monedaCobrado;
+    let textToCopy = '';
+    
+    if (moneda === "CUP") {
+      if (!tarjetaCUP) {
+        Alert.alert('Aviso', 'No hay tarjeta para copiar.');
+        return;
+      }
+      textToCopy = tarjetaCUP;
+    } else {
+      if (!cuentaBancaria) {
+        Alert.alert('Aviso', 'No hay datos de cuenta para copiar.');
+        return;
+      }
+      textToCopy = cuentaBancaria;
+    }
+
+    try {
+      if (ClipboardModule?.setString) {
+        ClipboardModule.setString(textToCopy);
+      } else if (ClipboardModule?.setStringAsync) {
+        await ClipboardModule.setStringAsync(textToCopy);
+      } else {
+        throw new Error('Clipboard no disponible');
+      }
+      Alert.alert('Copiado', `Los datos de pago fueron copiados al portapapeles.`);
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo copiar la información.');
+    }
+  };
+
+  /**
+   * Copia un número de cuenta específico al portapapeles
+   * @param {string} numero - Número de cuenta a copiar
+   * @param {string} label - Etiqueta descriptiva para el Snackbar
+   */
+  const copiarCuenta = async (numero, label) => {
+    try {
+      if (ClipboardModule?.setString) {
+        ClipboardModule.setString(numero);
+      } else if (ClipboardModule?.setStringAsync) {
+        await ClipboardModule.setStringAsync(numero);
+      } else {
+        throw new Error('Clipboard no disponible');
+      }
+      
+      setSnackbarMessage(`${label} copiada: ${numero}`);
+      setSnackbarVisible(true);
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo copiar el número de cuenta.');
+    }
+  };
 
   const evidenciasSubsc  = useTracker(() => {
 
@@ -724,6 +826,84 @@ const SubidaArchivos = ({ venta}) => {
     return reduction > 0 ? reduction.toFixed(1) : null;
   }, [archivoSeleccionado?.fileSize, archivoOriginalSize]);
 
+  const renderInfoPago = () => {
+    console.log("Renderizando info de pago para moneda:", ventaReact?.monedaCobrado);
+    const moneda = ventaReact?.monedaCobrado;
+
+    if (moneda === "CUP") {
+      // Renderizado existente para CUP
+      return (
+        <View style={styles.tarjetaRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.tarjetaLabel}>Tarjeta destino (CUP)</Text>
+            <Text style={styles.tarjetaNumero}>{tarjetaCUP || '—'}</Text>
+          </View>
+          <IconButton
+            icon="content-copy"
+            size={20}
+            onPress={copyDatosPago}
+            disabled={!tarjetaCUP}
+            accessibilityLabel="Copiar tarjeta"
+          />
+        </View>
+      );
+    } else {
+      // Renderizado nuevo para otras monedas con chips de cuentas
+      return (
+        <View style={styles.cuentaBancariaContainer}>
+          <View style={{ flex: 1 }}>
+            <View style={styles.cuentaHeaderRow}>
+              <Text style={styles.tarjetaLabel}>Datos de cuenta ({moneda})</Text>
+              <IconButton
+                icon="content-copy"
+                size={18}
+                onPress={copyDatosPago}
+                disabled={!cuentaBancaria || loadingCuentaInfo}
+                accessibilityLabel="Copiar texto completo"
+                style={{ margin: 0 }}
+              />
+            </View>
+            
+            {loadingCuentaInfo ? (
+              <ActivityIndicator size="small" style={{ marginTop: 8 }} />
+            ) : cuentaBancaria ? (
+              <>
+                <Text style={styles.cuentaBancariaTexto}>
+                  {cuentaBancaria}
+                </Text>
+                
+                {/* Chips de cuentas extraídas */}
+                {cuentasExtraidas.length > 0 && (
+                  <View style={styles.chipsContainer}>
+                    <Text style={styles.chipsLabel}>Cuentas detectadas:</Text>
+                    <View style={styles.chipsRow}>
+                      {cuentasExtraidas.map((cuenta, index) => (
+                        <Chip
+                          key={index}
+                          mode="outlined"
+                          onPress={() => copiarCuenta(cuenta.numero, cuenta.label)}
+                          icon="content-copy"
+                          style={styles.cuentaChip}
+                          textStyle={styles.cuentaChipText}
+                        >
+                          {cuenta.label}: {cuenta.numero}
+                        </Chip>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </>
+            ) : (
+              <Text style={styles.cuentaBancariaSinDatos}>
+                No hay datos de cuenta configurados para {moneda}
+              </Text>
+            )}
+          </View>
+        </View>
+      );
+    }
+  };
+
   return (
     <>
       <Card style={styles.ventaCard}>
@@ -759,19 +939,7 @@ const SubidaArchivos = ({ venta}) => {
                 </Chip>
               </View>
               {/* NUEVO: Tarjeta destino */}
-              <View style={styles.tarjetaRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.tarjetaLabel}>Tarjeta destino (CUP)</Text>
-                  <Text style={styles.tarjetaNumero}>{tarjetaCUP || '—'}</Text>
-                </View>
-                <IconButton
-                  icon="content-copy"
-                  size={20}
-                  onPress={copyTarjeta}
-                  disabled={!tarjetaCUP}
-                  accessibilityLabel="Copiar tarjeta"
-                />
-              </View>
+              {renderInfoPago()}
             </View>
             
           </View>
@@ -992,6 +1160,20 @@ const SubidaArchivos = ({ venta}) => {
           </View>
         )}
       </DrawerBottom>
+
+      {/* Snackbar para feedback de copia */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={2000}
+        action={{
+          label: 'OK',
+          onPress: () => setSnackbarVisible(false),
+        }}
+        style={styles.snackbar}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </>
   );
 };
@@ -1139,5 +1321,65 @@ const styles = StyleSheet.create({
     marginTop: 2,
     letterSpacing: 0.5,
     // color: '#1d3557'
+  },
+  cuentaBancariaContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 10,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderColor: '#eeeeee'
+  },
+  cuentaHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4
+  },
+  cuentaBancariaTexto: {
+    fontSize: 11,
+    fontWeight: '400',
+    lineHeight: 16,
+    marginTop: 4,
+    opacity: 0.7,
+    // color: '#495057' - comentado para theme support
+  },
+  chipsContainer: {
+    marginTop: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef'
+  },
+  chipsLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    opacity: 0.6
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8
+  },
+  cuentaChip: {
+    height: 32,
+    borderColor: '#0066cc',
+    // backgroundColor: '#e3f2fd'
+  },
+  cuentaChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#0066cc'
+  },
+  cuentaBancariaSinDatos: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    marginTop: 4,
+    color: '#999'
+  },
+  snackbar: {
+    marginBottom: 16
   },
 });

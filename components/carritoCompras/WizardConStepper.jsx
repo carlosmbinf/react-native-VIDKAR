@@ -22,6 +22,151 @@ const WizardConStepper = ({ product, navigation }) => {
     const [seEstaPagando, setSeEstaPagando] = useState(false); // para que se dehabilita mientras esta pagandose con efectivo
     const [procesandoPago, setProcesandoPago] = useState(false); // ✅ NUEVO: Flag específico para prevenir doble clic
     
+    // ✅ NUEVO: País/moneda para pagos en efectivo/transferencia (UX: explícito y extensible)
+    const [paisPago, setPaisPago] = useState(null);
+    const monedaPago = paisPago || null;
+
+    // ✅ NUEVO: Estado para países dinámicos desde properties
+    const [paisesPagoData, setPaisesPagoData] = useState([]);
+    const [cargandoPaises, setCargandoPaises] = useState(false);
+
+    // ✅ NUEVO: Cargar países dinámicamente desde properties al montar o cambiar metodoPago
+    useEffect(() => {
+      console.log('[WizardConStepper][PaisesPago] useEffect start', {
+        metodoPago,
+        tieneProxyVPN,
+      });
+
+      // Solo cargar si requiere selector de país
+      const requiere = metodoPago === 'efectivo' || metodoPago === 'transferencia';
+      console.log('[WizardConStepper][PaisesPago] requiere selector?', { requiere });
+
+      if (!requiere) {
+        console.log('[WizardConStepper][PaisesPago] No requiere selector. Limpio lista y salgo.');
+        setPaisesPagoData([]);
+        return;
+      }
+
+      if (tieneProxyVPN) {
+        console.log('[WizardConStepper][PaisesPago] Carrito contiene Proxy/VPN. No se carga selector. Limpio y salgo.');
+        setPaisesPagoData([]);
+        return;
+      }
+
+      console.log('[WizardConStepper][PaisesPago] Iniciando carga de países desde properties...');
+      setCargandoPaises(true);
+
+      const startedAt = Date.now();
+      const type = 'METODO_PAGO';
+      const clave = 'REMESA';
+
+      console.log('[WizardConStepper][PaisesPago] Meteor.call property.getValor', { type, clave });
+
+      Meteor.call('property.getVariasPropertys', type, clave, (err, properties) => {
+        const ms = Date.now() - startedAt;
+        console.log('[WizardConStepper][PaisesPago] property.getValor callback', {
+          tookMs: ms,
+          hasError: !!err,
+          count: Array.isArray(properties) ? properties.length : null,
+        });
+
+        setCargandoPaises(false);
+
+        if (err) {
+          console.warn('[WizardConStepper][PaisesPago] Error cargando países desde properties:', err);
+          // Fallback a lista hardcoded
+          const fallback = [{ label: 'Cuba', value: 'CUP' }];
+          console.log('[WizardConStepper][PaisesPago] Usando fallback:', fallback);
+          setPaisesPagoData(fallback);
+          return;
+        }
+
+        if (!Array.isArray(properties) || properties.length === 0) {
+          console.warn('[WizardConStepper][PaisesPago] No se encontraron properties para países', { properties });
+          const fallback = [{ label: 'Cuba', value: 'CUP' }];
+          console.log('[WizardConStepper][PaisesPago] Usando fallback:', fallback);
+          setPaisesPagoData(fallback);
+          return;
+        }
+
+        console.log(
+          '[WizardConStepper][PaisesPago] Properties recibidas (raw):',
+          properties.map((p) => ({
+            _id: p?._id,
+            active: p?.active,
+            valor: p?.valor,
+            clave: p?.clave,
+            type: p?.type,
+          }))
+        );
+
+        // Parsear formato "PAIS-MONEDA" de cada property
+        const paisesParseados = properties
+          .filter((prop) => {
+            const ok = !!(prop?.active && prop?.valor);
+            if (!ok) {
+              console.log('[WizardConStepper][PaisesPago] Property omitida (inactiva o sin valor):', {
+                _id: prop?._id,
+                active: prop?.active,
+                valor: prop?.valor,
+              });
+            }
+            return ok;
+          })
+          .map((prop) => {
+            const partes = String(prop.valor).split('-'); // Ej: "URUGUAY-UYU" → ["URUGUAY", "UYU"]
+            console.log('[WizardConStepper][PaisesPago] Parseando property:', { valor: prop.valor, partes });
+
+            if (partes.length !== 2) {
+              console.warn(`[WizardConStepper][PaisesPago] Formato inválido en property: ${prop.valor}`);
+              return null;
+            }
+
+            const [paisRaw, moneda] = partes.map((s) => String(s).trim());
+
+            if (!paisRaw || !moneda) {
+              console.warn('[WizardConStepper][PaisesPago] Formato inválido (pais/moneda vacío):', { valor: prop.valor });
+              return null;
+            }
+
+            const paisCapitalizado =
+              paisRaw.length > 0 ? paisRaw.charAt(0).toUpperCase() + paisRaw.slice(1).toLowerCase() : paisRaw;
+
+            const parsed = {
+              label: paisCapitalizado,
+              value: moneda.toUpperCase(), // Asegurar mayúsculas (UYU, CUP)
+              raw: prop.valor, // Mantener valor original por si se necesita
+            };
+
+            console.log('[WizardConStepper][PaisesPago] Parsed:', parsed);
+            return parsed;
+          })
+          .filter(Boolean); // Eliminar nulls de formatos inválidos
+
+        console.log('[WizardConStepper][PaisesPago] paisesParseados result:', paisesParseados);
+
+        if (paisesParseados.length === 0) {
+          console.warn('[WizardConStepper][PaisesPago] No se pudieron parsear países');
+          const fallback = [{ label: 'Cuba', value: 'CUP' }];
+          console.log('[WizardConStepper][PaisesPago] Usando fallback:', fallback);
+          setPaisesPagoData(fallback);
+          return;
+        }
+
+        console.log('[WizardConStepper][PaisesPago] ✅ Países cargados OK:', paisesParseados);
+        setPaisesPagoData(paisesParseados);
+      });
+    }, [metodoPago, tieneProxyVPN]);
+
+    // ✅ NUEVO: Validación sencilla para habilitar el "Siguiente" del paso de pago
+    const requierePaisPago = metodoPago === 'efectivo' || metodoPago === 'transferencia';
+    const metodoPagoValido = !!metodoPago;
+
+    // ✅ Ajuste: si tieneProxyVPN, el país/moneda es fijo (CUP) y no se solicita
+    const paisPagoValido = !requierePaisPago || tieneProxyVPN || !!paisPago;
+
+    const puedeAvanzarMetodoPago = metodoPagoValido && paisPagoValido;
+
     const theme = useTheme();
     const isDarkMode = theme.dark;
 
@@ -252,6 +397,22 @@ const WizardConStepper = ({ product, navigation }) => {
         }
       },[metodoPago,pedidosRemesa, tieneProxyVPN])
 
+      useEffect(() => {
+        // ✅ Regla negocio: Proxy/VPN solo se paga en Cuba => no pedir selector y fijar moneda
+        if (tieneProxyVPN) {
+          if (paisPago !== 'CUP') setPaisPago('CUP');
+          return;
+        }
+
+        if (!metodoPago) {
+          setPaisPago(null);
+          return;
+        }
+
+        const requiere = metodoPago === 'efectivo' || metodoPago === 'transferencia';
+        if (!requiere) setPaisPago(null);
+      }, [metodoPago, tieneProxyVPN]); // intencional: reacciona al cambio de carrito o método
+
       const crearOrdenPaypal = () => {
         Meteor.call(
           "creandoOrden",
@@ -421,7 +582,7 @@ const WizardConStepper = ({ product, navigation }) => {
           precioOficial: totalAPagar
         };
         
-        Meteor.call('generarVentaEfectivo', ventaData, (error, success) => {
+        Meteor.call('generarVentaEfectivo', ventaData, monedaPago || "CUP", (error, success) => {
           if (error) {
             console.log("error", error);
             // Alert.alert(
@@ -484,7 +645,7 @@ const WizardConStepper = ({ product, navigation }) => {
 
                     <BlurView
                         style={StyleSheet.absoluteFill}
-                        blurType= {isDarkMode ?"dark":"light"}
+                        // blurType= {isDarkMode ?"dark":"light"}
                     />
                     <View style={{ flex: 1 , paddingTop: 30}}>
                         <View style={styles.dialogTitleContainer}>
@@ -519,7 +680,7 @@ const WizardConStepper = ({ product, navigation }) => {
                             </ProgressStep>
 
                             {/* Paso 2: Metodo de Pago */}
-                            <ProgressStep buttonNextDisabled={(!metodoPago || metodoPago == '')} buttonPreviousText='Atras' buttonNextText='Siguiente' buttonPreviousTextColor='white' label="Metodo de Pago" onNext={() => setActiveStep(Number(activeStep)+1)} onPrevious={() => setActiveStep(Number(activeStep)-1)} >
+                            <ProgressStep buttonNextDisabled={!puedeAvanzarMetodoPago} buttonPreviousText='Atras' buttonNextText='Siguiente' buttonPreviousTextColor='white' label="Metodo de Pago" onNext={() => setActiveStep(Number(activeStep)+1)} onPrevious={() => setActiveStep(Number(activeStep)-1)} >
                             <Dialog.Title>Seleccione el Metodo de Pago</Dialog.Title>
 
                             {tieneProxyVPN && (
@@ -549,6 +710,58 @@ const WizardConStepper = ({ product, navigation }) => {
                                 setMetodoPago(item.value);
                                 }}
                             />
+
+                            {/* ✅ País de pago: solo aplica si NO es Proxy/VPN */}
+                            {!tieneProxyVPN && (metodoPago === 'efectivo' || metodoPago === 'transferencia') && (
+                              <View style={{ marginTop: 8 }}>
+                                <Text style={{ marginLeft: 18, marginBottom: 6, fontSize: 13, opacity: 0.85 }}>
+                                  País donde realizará el pago
+                                </Text>
+
+                                {cargandoPaises ? (
+                                  <View style={{ padding: 20, alignItems: 'center' }}>
+                                    <ActivityIndicator size="small" color="#6200ee" />
+                                    <Text style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
+                                      Cargando países disponibles...
+                                    </Text>
+                                  </View>
+                                ) : (
+                                  <Dropdown
+                                    style={styles.dropdown}
+                                    placeholderStyle={styles.placeholderStyle}
+                                    selectedTextStyle={styles.selectedTextStyle}
+                                    inputSearchStyle={styles.inputSearchStyle}
+                                    iconStyle={styles.iconStyle}
+                                    data={paisesPagoData}
+                                    search={paisesPagoData.length > 3} // Solo habilitar búsqueda si hay muchos países
+                                    maxHeight={240}
+                                    labelField="label"
+                                    valueField="value"
+                                    placeholder="Seleccione un país"
+                                    searchPlaceholder="Buscar país..."
+                                    value={paisPago}
+                                    onChange={item => setPaisPago(item.value)}
+                                    disable={paisesPagoData.length === 0}
+                                  />
+                                )}
+
+                                {!!monedaPago && (
+                                  <Text style={{ marginLeft: 18, marginTop: 4, fontSize: 12, opacity: 0.75 }}>
+                                    Moneda seleccionada: {monedaPago}
+                                  </Text>
+                                )}
+
+                                {/* ✅ NUEVO: Mensaje si no hay países disponibles */}
+                                {!cargandoPaises && paisesPagoData.length === 0 && (
+                                  <View style={{ padding: 16, backgroundColor: '#FFEBEE', borderRadius: 8, margin: 16 }}>
+                                    <Text style={{ color: '#C62828', fontSize: 13 }}>
+                                      ⚠️ No hay países configurados para este método de pago. 
+                                      Contacte al administrador.
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
+                            )}
                             </ProgressStep>
 
                             {/* ✅ Paso 3: Términos y Condiciones (ACTUALIZADO) */}

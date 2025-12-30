@@ -131,169 +131,160 @@
 
 ---
 
-## Resumen técnico – UX PermissionsGate: mantener pasos concedidos + navegación bidireccional
-
-- **Requisito UX**: En el slider de permisos, los permisos ya concedidos **no deben desaparecer**; deben mostrarse como “Aprobado” (estado elegante) y sin botón de solicitar.
-- **Cambio de enfoque**:
-  - Antes: `steps` representaba solo “pendientes”.
-  - Ahora: `steps` representa **todos los permisos requeridos** en orden, y cada slide recibe `status` para renderizar su estado.
-- **UI profesional aplicada**:
-  - Si `status === 'granted'`: mostrar indicador “Aprobado” + CTA “Siguiente/Finalizar”; ocultar “Conceder permiso”.
-  - Si `status === 'blocked'`: enfatizar “Abrir ajustes” como acción principal.
-- **Navegación**:
-  - Se habilitó swipe **izquierda/derecha** (adelante/atrás).
-  - Se agregaron botones “Atrás” y “Siguiente/Finalizar” para accesibilidad y control explícito.
-- **Lección técnica**:
-  - En wizards de onboarding con estados reactivos, separar “estado del paso” (status) de “existencia del paso” (lista fija) mantiene consistencia visual y reduce jumps inesperados en UI.
-
----
-
-## Resumen técnico – UX PermissionsGate: no auto-avanzar al conceder un permiso
-
-- **Requisito UX**: Cuando un permiso se concede, **no** avanzar automáticamente al siguiente slide.
-- **Motivo**:
-  - Da tiempo al usuario a validar visualmente el estado “Aprobado”, aumenta confianza.
-  - Evita sensación de “saltos” o pérdida de control, especialmente si el sistema muestra dialogs nativos.
+## Resumen técnico – Validación obligatoria de país para pagos en efectivo/transferencia (WizardConStepper)
+- **Requisito UX/Negocio**: Si el usuario selecciona pago por **Efectivo/Transferencia**, el **país de pago** pasa a ser un dato obligatorio (para derivar moneda y evitar ambigüedad).
 - **Implementación**:
-  - En `handleRequest`, si `res.ok === true`, solo limpiar error/loading y mantener el `index`.
-  - La navegación queda a cargo del usuario (swipe o botón “Siguiente/Finalizar”).
-- **Nota de arquitectura**:
-  - Para que el slide muestre “Aprobado”, el manager debe refrescar `status` (ej. `checkAllPermissions()` tras request) y pasar el `status` actualizado al gate.
-
----
-
-## Resumen técnico – UX polish: evitar Cards vacíos en wizard de permisos
-
-- **Problema UX**: `PermissionsGate` mostraba un `Card` sin contenido cuando el permiso no estaba `granted` ni `blocked` y además no había `detail` ni `error`.
-- **Causa raíz**: El `Card` se renderizaba siempre, pero la mayoría de sus secciones eran condicionales; en estados intermedios (`denied`, `unavailable`, `undefined`) quedaba vacío.
-- **Solución aplicada**:
-  - Crear flags `hasDetail`, `hasStatusInfo`, `shouldRenderInfoCard`.
-  - Renderizar el `Card` solo si hay contenido real: detalle, estado relevante (aprobado/bloqueado) o error.
-- **Lección**: En UI orientada a clientes, evitar contenedores “vacíos” mejora percepción de calidad; preferir render condicional basado en “hay contenido visible” en vez de “hay contenedor”.
-
----
-
-## Resumen técnico – Slider/Carousel: renderizar slides adyacentes para transiciones reales
-
-- **Problema UX**: Cuando el slider renderiza solo el step activo, al hacer swipe el slide siguiente/anterior no existe en el árbol; la transición se percibe “cortada” o incompleta.
-- **Solución aplicada**: Implementar un “track” horizontal (`flexDirection: 'row'`) con `translateX` animado:
-  - `translateX = -index * width + gestureDx`
-  - Esto garantiza que los slides anterior/siguiente estén renderizados durante el gesto.
+  - Se introdujo una validación explícita en el Step 2:
+    - `requierePaisPago = metodoPago === 'efectivo' || metodoPago === 'transferencia'`
+    - `puedeAvanzarMetodoPago = metodoPagoValido && (!requierePaisPago || !!paisPago)`
+  - Se conectó la validación a `buttonNextDisabled` del `ProgressStep` “Metodo de Pago”, evitando que el usuario avance sin seleccionar país cuando aplique.
 - **Buenas prácticas**:
-  - Mantener el render cost bajo: si el número de pasos crece, optimizar a “windowed rendering” (solo `index-1..index+1`) pero manteniendo layout con placeholders del mismo ancho.
-  - Mantener `clamp` del índice cuando `steps.length` cambia y reset defensivo si `current` queda `undefined`.
-  - Restringir interacciones (botones, request) al slide activo para evitar side effects desde slides no enfocados.
+  - Mantener la validación cerca del Step que captura el dato mejora mantenibilidad.
+  - Mantener la lógica en booleanos legibles ayuda a futuras ampliaciones (más países, métodos separados, monedas adicionales).
+- **Mejora futura sugerida**:
+  - Mostrar texto de ayuda/error (“Seleccione un país para continuar”) si se desea feedback más explícito además del botón deshabilitado.
 
 ---
 
-## Resumen técnico – PermissionsGate: navegación solo por gesto (sin botones) + affordance clara
-
-- **Objetivo UX**: Simplificar el wizard eliminando botones “Atrás/Siguiente” y reforzar que la navegación es por swipe (gesto).
-- **Cambios aplicados**:
-  - Se eliminaron CTAs redundantes de navegación para reducir ruido visual.
-  - Se agregó un hint explícito con texto + chevrons “Desliza hacia los lados para navegar”.
-  - Se movieron los “dots” al fondo, y el hint queda visualmente por encima de los dots para guiar la acción.
-- **Consideración técnica**:
-  - Mantener interacciones (request/settings) solo en el slide activo evita side effects desde slides no enfocados.
-  - Si en el futuro se detecta baja descubribilidad del gesto, considerar añadir una animación sutil (micro-interacción) en el primer render (ej. bounce horizontal leve) sin afectar accesibilidad.
-
----
-
-## Resumen técnico – PermissionsGate: hint de swipe “sticky” (footer) para evitar jitter visual
-
-- **Problema UX**: El hint “Desliza…” dentro del slide se mueve con el contenido y puede percibirse como ruido/jitter durante el swipe.
-- **Mejora aplicada**:
-  - Mover el hint a un footer fijo (sticky) y ubicarlo **justo encima** de los dots.
-  - Esto refuerza el patrón de navegación por gesto sin competir con el contenido del slide.
-- **Regla general**:
-  - Elementos de “instrucción de navegación” deben ser persistentes y estables en pantalla (footer/header) cuando el contenido es animado.
+## Resumen técnico – País/moneda fija para Proxy/VPN en WizardConStepper
+- **Regla de negocio**: Si el carrito contiene servicios `PROXY`/`VPN` (`tieneProxyVPN === true`), el pago se procesa únicamente en **Cuba**, por lo que la moneda queda fija en **CUP**.
+- **Implementación UX**:
+  - Se ocultó el selector de país para evitar fricción e inputs innecesarios en el flujo Proxy/VPN.
+  - Se fuerza `paisPago = 'CUP'` cuando `tieneProxyVPN` es verdadero, manteniendo consistencia del estado interno.
+- **Validación**:
+  - El botón “Siguiente” del step “Método de Pago” sigue siendo estricto para efectivo/transferencia, pero se considera `paisPagoValido` automáticamente cuando `tieneProxyVPN` es true (ya que el país no se selecciona).
+- **Notas para futuro**:
+  - Si más adelante Proxy/VPN se habilita fuera de Cuba, reactivar selector condicionado por configuración (ej. `ConfigCollection: PROXY_VPN_PAISES_HABILITADOS`) para evitar hardcodear reglas de país.
 
 ---
 
-## Resumen técnico – Animación de transición (fade) al cambiar slides en PermissionsGate
+## Resumen técnico – Sistema Dinámico de Países de Pago desde Properties (WizardConStepper)
+- **Contexto**: Reemplazo de lista hardcoded de países por carga dinámica desde `ConfigCollection` para escalabilidad y mantenimiento centralizado.
 
-- **Problema UX**: al cambiar de step (swipe) en `PermissionsGate`, el contenido cambiaba de forma brusca (texto/ícono/card/botones), dando una impresión poco profesional.
-- **Solución aplicada (React Native Animated)**:
-  - Se añadió un `Animated.Value` (`contentOpacity`) para controlar la opacidad del contenido del slide activo.
-  - Se ejecuta una animación `fade-out -> fade-in` en cada cambio de `index` usando `Animated.sequence`:
-    - 500ms hacia opacidad 0 + 500ms hacia opacidad 1 (≈ 1s total).
-  - Se envolvió el contenido variable del slide en un `Animated.View` con `opacity`.
-- **Buenas prácticas técnicas**:
-  - `useNativeDriver: true` para mejorar rendimiento (opacidad es compatible).
-  - La animación se ata al cambio de `index` (fuente única de verdad de navegación) evitando depender de eventos de swipe específicos, lo que mejora mantenibilidad si en el futuro se agrega navegación por botones/dots.
-  - Remover `console.log` de render para evitar ruido y drops de performance en producción.
-- **Mejoras futuras recomendadas**:
-  - Si se desea sincronizar con el gesto (swipe), considerar interpolar opacidad en base a `gestureX` (más complejo pero aún más fluido).
-  - Parametrizar duración (`fadeDurationMs`) vía props si se reutiliza el componente en otros flujos.
+- **Estructura de Properties para Países**:
+  ```javascript
+  {
+    type: "METODO_PAGO",
+    clave: "REMESA", // o tipo de servicio (RECARGA, PROXY, VPN)
+    valor: "PAIS-MONEDA", // Formato: "CUBA-CUP", "URUGUAY-UYU"
+    comentario: "Nombre legible (opcional)",
+    active: true // Solo se cargan las activas
+  }
+  ```
+
+- **Formato Estándar `PAIS-MONEDA`**:
+  - **PAIS**: Nombre en MAYÚSCULAS (ej: CUBA, URUGUAY, ARGENTINA).
+  - **MONEDA**: Código ISO 4217 en MAYÚSCULAS (ej: CUP, UYU, ARS, USD).
+  - **Separador**: Guion medio (`-`), sin espacios ni caracteres especiales.
+  - **Ejemplos válidos**: `CUBA-CUP`, `URUGUAY-UYU`, `ARGENTINA-ARS`.
+  - **Ejemplos inválidos**: `Cuba - CUP` (espacios), `CUBA_CUP` (guion bajo), `CubaCUP` (sin separador).
+
+- **Método Backend `property.getAllByTypeClave`**:
+  - **Propósito**: Retornar array de properties que coincidan con `type` y `clave` específicos.
+  - **Validaciones**:
+    - `type` y `clave` son obligatorios (String no vacío).
+    - Retorna solo campos necesarios (`_id`, `type`, `clave`, `valor`, `comentario`, `active`).
+    - Ordena por `comentario` alfabéticamente para mejor UX.
+  - **Uso típico**:
+    ```javascript
+    Meteor.call('property.getAllByTypeClave', 'METODO_PAGO', 'REMESA', (err, properties) => {
+      // properties = [{ valor: "CUBA-CUP", ... }, { valor: "URUGUAY-UYU", ... }]
+    });
+    ```
+
+- **Parseo de Formato `PAIS-MONEDA` en Frontend**:
+  ```javascript
+  const partes = valor.split('-'); // "URUGUAY-UYU" → ["URUGUAY", "UYU"]
+  const [paisRaw, moneda] = partes;
+  
+  // Capitalizar país: URUGUAY → Uruguay
+  const label = paisRaw.charAt(0).toUpperCase() + paisRaw.slice(1).toLowerCase();
+  
+  // Resultado: { label: "Uruguay", value: "UYU" }
+  ```
+
+- **Manejo de Errores Defensivo**:
+  - **Formato inválido**: Si `valor` no contiene exactamente 1 guion, se descarta con `console.warn`.
+  - **Sin properties**: Fallback a lista mínima `[{ label: 'Cuba', value: 'CUP' }]`.
+  - **Error de red**: Muestra ActivityIndicator durante carga, mensaje de error si falla.
+
+- **UX/UI Implementada**:
+  - **Loading state**: ActivityIndicator + mensaje "Cargando países disponibles..." mientras se consulta backend.
+  - **Búsqueda en dropdown**: Habilitada solo si hay >3 países (para listas largas).
+  - **Mensaje de error**: Card rojo con "No hay países configurados" si la lista está vacía.
+  - **Dropdown deshabilitado**: Si `paisesPagoData.length === 0`, el Dropdown se deshabilita automáticamente.
+
+- **Reglas de Negocio Específicas**:
+  - **Proxy/VPN**: País siempre es Cuba (CUP), NO se muestra selector (fijo en backend).
+  - **Recargas/Remesas**: Se cargan países dinámicamente solo si `metodoPago === 'efectivo' || 'transferencia'`.
+  - **PayPal/MercadoPago**: NO requieren selector de país (procesamiento internacional).
+
+- **Flujo de Carga de Países**:
+  1. Usuario selecciona método de pago Efectivo/Transferencia.
+  2. Frontend detecta que requiere selector de país (`!tieneProxyVPN`).
+  3. Se invoca `property.getAllByTypeClave('METODO_PAGO', 'REMESA')`.
+  4. Backend retorna array de properties activas.
+  5. Frontend parsea formato `PAIS-MONEDA` y construye array `[{ label, value }]`.
+  6. Dropdown se llena con países parseados.
+  7. Usuario selecciona país → `paisPago` se setea con el código de moneda (`value`).
+
+- **Extensibilidad del Sistema**:
+  - **Agregar nuevo país**: Crear nueva property con formato `PAIS-MONEDA` y `active: true`.
+  - **Deshabilitar país**: Cambiar `active: false` en la property (no se mostrará en selector).
+  - **Múltiples tipos de servicio**: Usar diferentes valores de `clave` (ej: `REMESA`, `RECARGA`, `PROXY`).
+  - **Personalización por usuario**: Filtrar properties por `idUser` si se requiere disponibilidad regional.
+
+- **Validaciones Frontend Críticas**:
+  - `paisesPagoData.length === 0`: Bloquear avance al siguiente paso (botón "Siguiente" deshabilitado).
+  - `paisPago === null`: No permitir confirmar compra sin país seleccionado.
+  - `monedaPago`: Siempre usar `paisPago` como moneda de pago (no confundir con moneda de producto).
+
+- **Testing Recomendado**:
+  - **Caso 1**: Sin properties en BD → debe mostrar fallback "Cuba - CUP".
+  - **Caso 2**: Property con formato inválido `CUBA_CUP` → debe descartarse y logear warning.
+  - **Caso 3**: Carrito con Proxy/VPN + Remesa → país fijo CUP para Proxy, dinámico para Remesa.
+  - **Caso 4**: Usuario deshabilita property (`active: false`) → país desaparece del selector en tiempo real.
+  - **Caso 5**: Network timeout en `property.getAllByTypeClave` → debe mostrar error y fallback.
+
+- **Consideraciones de Rendimiento**:
+  - Cargar países solo cuando se necesita (no al montar el wizard).
+  - No re-cargar países si ya están en estado (evitar llamadas duplicadas).
+  - Usar `useEffect` con dependencias `[metodoPago, tieneProxyVPN]` para optimizar.
+
+- **Mejoras Futuras Sugeridas**:
+  - **Cache de países**: Almacenar en AsyncStorage para evitar llamadas repetidas.
+  - **Banderas de países**: Agregar campo `flagEmoji` en property (ej: `🇨🇺`, `🇺🇾`).
+  - **Filtrado por zona horaria**: Ordenar países por UTC offset para mejor UX internacional.
+  - **Validación de moneda en backend**: Verificar que `monedaPago` enviado coincida con property activa.
+
+- **Logs de Auditoría Recomendados**:
+  ```javascript
+  // Al seleccionar país
+  LogsCollection.insert({
+    type: 'SELECCION_PAIS_PAGO',
+    userId: Meteor.userId(),
+    pais: paisPago,
+    metodoPago,
+    timestamp: new Date()
+  });
+  ```
+
+- **Archivos Modificados**:
+  - `components/carritoCompras/WizardConStepper.jsx`: Lógica de carga dinámica de países.
+  - `server/metodos/property.js`: Nuevo método `property.getAllByTypeClave`.
+  - `copilot-instructions.md`: Documentación técnica del sistema.
+
+- **Lecciones Aprendidas**:
+  - **Properties como fuente de verdad**: Centralizar listas dinámicas en BD facilita mantenimiento.
+  - **Formato estandarizado**: `PAIS-MONEDA` permite parseo consistente y extensible.
+  - **Fallbacks defensivos**: Siempre tener lista mínima hardcoded por si falla carga dinámica.
+  - **Loading states**: Mostrar feedback visual durante queries async mejora percepción de velocidad.
+  - **Capitalización en frontend**: Transformar `URUGUAY` → `Uruguay` en cliente evita sobrecarga de BD.
+
+- **Próximos Pasos**:
+  - Crear properties para países de prueba en entorno de desarrollo.
+  - Tests unitarios para parseo de formatos `PAIS-MONEDA`.
+  - Validar UX en dispositivos Android/iOS con listas largas (>10 países).
+  - Documentar convención de nomenclatura de properties en wiki del proyecto.
 
 ---
-
-## Resumen técnico – PermissionsGate: flechas laterales “ghost” visibles solo durante el swipe
-
-- **Objetivo UX**: reforzar la direccionalidad del gesto (anterior/siguiente) sin agregar botones ni ensuciar la interfaz; las flechas deben aparecer únicamente mientras el usuario desliza.
-- **Implementación**:
-  - Se añadieron `Animated.Value` para `arrowLeftOpacity` y `arrowRightOpacity`.
-  - En `onPanResponderMove`, se calcula opacidad proporcional a `dx` (con umbral) y se muestra solo la flecha correspondiente:
-    - `dx > 0` → flecha izquierda (volver) si `index > 0`.
-    - `dx < 0` → flecha derecha (siguiente) si `index < steps.length - 1`.
-  - En `onPanResponderRelease`, se ocultan ambas flechas con un `timing` corto para evitar que queden “pegadas”.
-  - Las flechas se renderizan como **overlay absoluto** dentro de `viewport` con `pointerEvents="none"` para no interceptar taps ni afectar layout.
-- **Buenas prácticas**:
-  - No meter affordances de navegación dentro del slide (evita jitter y reflow); usar overlay estable.
-  - Respetar bordes: no mostrar flecha “anterior” en el primer slide ni “siguiente” en el último.
-  - Mantener colores y estilo “ghost” (`rgba`) para no competir con el contenido principal.
-
----
-
-## Resumen técnico – PermissionsGate: “windowed rendering” (solo slide activo) manteniendo swipe con placeholders
-
-- **Requisito UX/Performance**: evitar renderizar contenido de slides anterior/siguiente; solo debe existir el slide activo, manteniendo flechas “ghost” durante el gesto.
-- **Estrategia aplicada**:
-  - Se mantiene el `track` con `width: width * steps.length` y `translateX` para no romper el comportamiento del carrusel/gesto.
-  - En el `.map()` del track se renderiza:
-    - **Slide activo**: `renderSlide(step, index)`.
-    - **Slides no activos**: placeholders `<View style={{ width }} />` (vacíos), para conservar el espacio y el cálculo de desplazamiento.
-- **Beneficios**:
-  - Reduce costo de render (especialmente si cada step tiene Card, iconos, lógica condicional).
-  - Mantiene intacta la interacción del swipe y el layout del carrusel sin reescribir la navegación.
-- **Nota importante**:
-  - Esta técnica preserva el “espaciado” del carrusel, pero ya no permite previsualizar contenido de slides adyacentes (por diseño). Si en el futuro se requiere “peek”, usar ventana `index-1..index+1` en lugar de solo `index`.
-
----
-
-## Resumen técnico – UX PermissionsGate: Ribbon “APROBADO” (overlay) para estado granted
-
-- **Objetivo UX**: reforzar visualmente el estado “concedido” con un indicador premium y de alta legibilidad, sin agregar ruido en el contenido principal del slide.
-- **Implementación (patrón ribbon)**:
-  - Se renderiza un contenedor `ribbonWrapper` con `position: 'absolute'` en la esquina superior derecha del slide.
-  - Dentro, un `View` rotado (`transform: rotate(45deg)`) crea el efecto de “cinta”.
-  - `pointerEvents="none"` evita que el ribbon afecte el swipe o taps.
-  - Se agregan `elevation` (Android) y `shadow*` (iOS) para un acabado profesional.
-- **Buenas prácticas**:
-  - Mantener el ribbon como overlay independiente del layout del contenido (no reflow).
-  - Usar texto en mayúsculas + `letterSpacing` para legibilidad.
-  - Ajustar `zIndex` y `overflow: 'hidden'` para recortar correctamente la cinta dentro de la esquina.
-
----
-
-## Resumen técnico – Consistencia de borderRadius (“pill design”) en Cards Proxy/VPN
-
-- Se estandarizó el lenguaje visual de los cards para Proxy/VPN basándose en `ProxyPackageCardItem`:
-  - `borderRadius` principal de card en **30** para un look más moderno, consistente y “premium”.
-  - `priceContainer.borderRadius` en **30** (chips/price pills coherentes).
-  - `buyButton.borderRadius` en **30** para mantener continuidad visual en CTAs.
-- Se aplicó en:
-  - `ProxyPackageCard.jsx`: cards del grid, recommended y premium/unlimited + skeleton.
-  - `VPNPackageCard.jsx`: cards del grid, recommended y premium/unlimited + skeleton.
-  - `VPNPackageCardItem.jsx`: creado/normalizado para espejar a `ProxyPackageCardItem` (mismos radios, jerarquía visual y estados recommended/premium).
-- Recomendación para futuros cambios:
-  - Extraer constantes de UI (ej. `UI_RADII = { card: 30, pill: 30 }`) en un módulo compartido para evitar divergencias entre pantallas.
-  - Mantener “recommended” y “premium” cambiando solo bordes/colores, no geometría (radio), para consistencia de marca.
-
----
-
-## Resumen técnico – Ajuste fino de estilo Premium/Unlimited (borde izquierdo)
-- Se refinó el estilo visual de los cards “ILIMITADO/PREMIUM” en `ProxyPackageCardItem` y `VPNPackageCardItem`:
-  - Cambio: `unlimitedCard.borderLeftWidth` de **6** a **2**.
-- Motivo: reducir “peso visual” del acento dorado para que el premium se perciba más elegante y consistente con el borde del estado “recommended”, manteniendo `borderWidth: 2` y `borderColor: #FFD700` como indicador principal.
-- Recomendación: si en el futuro se necesita diferenciar más el premium, priorizar cambios de `elevation/shadow` o `badge` antes que aumentar grosores de bordes (evita look “pesado” en UI).
