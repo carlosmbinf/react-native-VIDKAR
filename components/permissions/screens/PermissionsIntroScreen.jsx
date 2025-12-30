@@ -1,139 +1,98 @@
 import React from 'react';
-import { View, ScrollView, StyleSheet, Image } from 'react-native';
-import { Surface, Text, Button, IconButton, Divider } from 'react-native-paper';
+import { View, StyleSheet, Image } from 'react-native';
+import { Surface, Text, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  PERMISSIONS_CONFIG,
-  getRequiredPermissions,
-  getOptionalPermissions,
-} from '../utils/permissionsConfig';
 
-/**
- * Pantalla de introducción antes de solicitar permisos
- * Cumple con mejores prácticas de Google Play y App Store
- */
-const PermissionsIntroScreen = ({ onContinue, onSkip, userRole = 'user' }) => {
-  const requiredPermissions = getRequiredPermissions(userRole);
-  const optionalPermissions = getOptionalPermissions(userRole);
-
+const PermissionsIntroScreen = ({ onContinue, userRole }) => {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <Surface style={{ flex: 1, height: '100%' }}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* ✅ Header con ilustración */}
-        <View style={styles.header}>
-          {/* <Image
-            source={require('../../../assets/permissions-intro.png')} // ⚠️ Agregar ilustración
-            style={styles.illustration}
-            resizeMode="contain"
-          /> */}
-          <Text variant="headlineMedium" style={styles.title}>
-            Permisos Necesarios
-          </Text>
-          <Text variant="bodyLarge" style={styles.subtitle}>
-            Para brindarte la mejor experiencia, VidKar necesita acceso a algunas funciones de tu
-            dispositivo
-          </Text>
+      <View style={styles.content}>
+        {/* Icono principal */}
+        <View style={styles.iconContainer}>
+          <Text style={styles.iconEmoji}>🔒</Text>
         </View>
 
-        <Divider style={styles.divider} />
+        {/* Título */}
+        <Text variant="headlineMedium" style={styles.title}>
+          Permisos Requeridos
+        </Text>
 
-        {/* ✅ Permisos obligatorios */}
-        {requiredPermissions.length > 0 && (
-          <View style={styles.section}>
-            <Text variant="titleLarge" style={styles.sectionTitle}>
-              📋 Permisos Obligatorios
-            </Text>
-            <Text variant="bodyMedium" style={styles.sectionSubtitle}>
-              Estos permisos son esenciales para que la app funcione correctamente
-            </Text>
+        {/* Descripción */}
+        <Text variant="bodyLarge" style={styles.description}>
+          Para funcionar correctamente, VidKar necesita acceso a:
+        </Text>
 
-            {requiredPermissions.map((permission, index) => (
-              <Surface key={index} style={styles.permissionItem} elevation={1}>
-                <IconButton
-                  icon={permission.icon}
-                  size={28}
-                  iconColor="#6200ee"
-                  style={styles.permissionIcon}
-                />
-                <View style={styles.permissionContent}>
-                  <Text variant="titleMedium" style={styles.permissionTitle}>
-                    {permission.title}
-                  </Text>
-                  <Text variant="bodySmall" style={styles.permissionDescription}>
-                    {permission.description}
-                  </Text>
-                </View>
-              </Surface>
-            ))}
+        {/* ✅ Lista de permisos TODOS obligatorios */}
+        <View style={styles.permissionsList}>
+          <View style={styles.permissionItem}>
+            <Text style={styles.permissionIcon}>📸</Text>
+            <View style={styles.permissionTextContainer}>
+              <Text variant="titleMedium" style={styles.permissionTitle}>
+                Cámara
+              </Text>
+              <Text variant="bodySmall" style={styles.permissionDescription}>
+                Para capturar evidencias de pago
+              </Text>
+            </View>
           </View>
-        )}
 
-        {/* ✅ Permisos opcionales */}
-        {optionalPermissions.length > 0 && (
-          <View style={styles.section}>
-            <Text variant="titleLarge" style={styles.sectionTitle}>
-              ⭐ Permisos Opcionales
-            </Text>
-            <Text variant="bodyMedium" style={styles.sectionSubtitle}>
-              Estos permisos mejoran tu experiencia pero no son obligatorios
-            </Text>
-
-            {optionalPermissions.map((permission, index) => (
-              <Surface key={index} style={styles.permissionItem} elevation={1}>
-                <IconButton
-                  icon={permission.icon}
-                  size={28}
-                  iconColor="#FF9800"
-                  style={styles.permissionIcon}
-                />
-                <View style={styles.permissionContent}>
-                  <Text variant="titleMedium" style={styles.permissionTitle}>
-                    {permission.title}
-                  </Text>
-                  <Text variant="bodySmall" style={styles.permissionDescription}>
-                    {permission.description}
-                  </Text>
-                </View>
-              </Surface>
-            ))}
+          <View style={styles.permissionItem}>
+            <Text style={styles.permissionIcon}>🖼️</Text>
+            <View style={styles.permissionTextContainer}>
+              <Text variant="titleMedium" style={styles.permissionTitle}>
+                Galería de Fotos
+              </Text>
+              <Text variant="bodySmall" style={styles.permissionDescription}>
+                Para seleccionar imágenes existentes
+              </Text>
+            </View>
           </View>
-        )}
 
-        {/* ✅ Nota de privacidad */}
-        <Surface style={styles.privacyNote} elevation={0}>
-          <IconButton icon="shield-check" size={24} iconColor="#4CAF50" style={{ margin: 0 }} />
-          <Text variant="bodySmall" style={styles.privacyText}>
-            Tu privacidad es importante para nosotros. Solo usamos estos permisos para las
-            funciones descritas y nunca compartimos tu información con terceros.
+          <View style={styles.permissionItem}>
+            <Text style={styles.permissionIcon}>📍</Text>
+            <View style={styles.permissionTextContainer}>
+              <Text variant="titleMedium" style={styles.permissionTitle}>
+                Ubicación
+              </Text>
+              <Text variant="bodySmall" style={styles.permissionDescription}>
+                Para modo cadete y tracking de entregas
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.permissionItem}>
+            <Text style={styles.permissionIcon}>🔔</Text>
+            <View style={styles.permissionTextContainer}>
+              <Text variant="titleMedium" style={styles.permissionTitle}>
+                Notificaciones
+              </Text>
+              <Text variant="bodySmall" style={styles.permissionDescription}>
+                Para alertas de pedidos y actualizaciones
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ✅ Advertencia clara */}
+        <View style={styles.warningBox}>
+          <Text variant="bodyMedium" style={styles.warningText}>
+            ⚠️ Todos estos permisos son necesarios para el correcto funcionamiento de la app.
           </Text>
-        </Surface>
-      </ScrollView>
+        </View>
+      </View>
 
-      {/* ✅ Botones de acción */}
+      {/* Footer con botón */}
       <View style={styles.footer}>
-        {optionalPermissions.length > 0 && (
-          <Button
-            mode="outlined"
-            onPress={onSkip}
-            style={styles.skipButton}
-            labelStyle={styles.skipButtonLabel}
-          >
-            Saltar Opcionales
-          </Button>
-        )}
         <Button
           mode="contained"
           onPress={onContinue}
+          icon="shield-check"
           style={styles.continueButton}
           labelStyle={styles.continueButtonLabel}
-          icon="arrow-right"
-          contentStyle={{ flexDirection: 'row-reverse' }}
         >
-          Continuar
+          Configurar Permisos
         </Button>
       </View>
-      </Surface>
     </SafeAreaView>
   );
 };
@@ -143,58 +102,42 @@ const styles = StyleSheet.create({
     flex: 1,
     // backgroundColor: '#fff',
   },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  header: {
-    alignItems: 'center',
+  content: {
+    flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingTop: 32,
   },
-  illustration: {
-    width: 200,
-    height: 200,
+  iconContainer: {
+    alignItems: 'center',
     marginBottom: 24,
+  },
+  iconEmoji: {
+    fontSize: 80,
   },
   title: {
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  subtitle: {
+  description: {
     textAlign: 'center',
     color: '#666',
+    marginBottom: 32,
     lineHeight: 24,
   },
-  divider: {
-    marginVertical: 24,
-  },
-  section: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  sectionSubtitle: {
-    color: '#666',
-    marginBottom: 16,
-    lineHeight: 20,
+  permissionsList: {
+    gap: 20,
   },
   permissionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    marginBottom: 12,
-    borderRadius: 12,
-    // backgroundColor: 'rgba(98, 0, 238, 0.03)',
+    paddingVertical: 8,
   },
   permissionIcon: {
-    margin: 0,
-    marginRight: 12,
+    fontSize: 32,
+    marginRight: 16,
   },
-  permissionContent: {
+  permissionTextContainer: {
     flex: 1,
   },
   permissionTitle: {
@@ -203,57 +146,32 @@ const styles = StyleSheet.create({
   },
   permissionDescription: {
     color: '#666',
-    // lineHeight: 18,
-  },
-  privacyNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    padding: 16,
-    // backgroundColor: '#E8F5E9',
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50',
-  },
-  privacyText: {
-    flex: 1,
-    marginLeft: 12,
-    color: '#1B5E20',
     lineHeight: 18,
   },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
+  warningBox: {
+    backgroundColor: '#FFF3E0',
     padding: 16,
-    // backgroundColor: '#fff',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
+    marginTop: 24,
+  },
+  warningText: {
+    color: '#E65100',
+    lineHeight: 20,
+  },
+  footer: {
+    padding: 24,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  skipButton: {
-    flex: 1,
-    marginRight: 8,
-    borderRadius: 8,
-  },
-  skipButtonLabel: {
-    fontSize: 14,
-    fontWeight: '600',
   },
   continueButton: {
-    flex: 1,
-    marginLeft: 8,
     borderRadius: 8,
   },
   continueButtonLabel: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
+    paddingVertical: 8,
   },
 });
 

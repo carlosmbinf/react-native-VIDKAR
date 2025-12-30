@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderLeftWidth: 4,
     borderLeftColor: '#2196F3',
-    borderRadius: 12,
+    borderRadius: 30,
     minHeight: 180, // ✅ Reducido de 280px a 180px
   },
   packageCardHorizontal: {
@@ -152,22 +152,24 @@ const styles = StyleSheet.create({
   recommendedCard: {
     borderColor: '#FFD700',
     borderWidth: 2,
-    borderLeftWidth: 4,
+    borderLeftWidth: 2, // ✅ mantener en 2
     borderLeftColor: '#2196F3'
   },
   unlimitedCard: {
-    borderLeftWidth: 6,
+    borderLeftWidth: 2, // ✅ antes 6
     borderLeftColor: '#FFD700',
-    borderRadius: 16,
+    borderRadius: 30,
     borderWidth: 2,
     borderColor: '#FFD700'
   },
   premiumBadge: {
-    paddingVertical: 5, // ✅ Reducido de 8px a 5px
+    // paddingVertical: 5, // ✅ Reducido de 8px a 5px
     paddingHorizontal: 12, // ✅ Reducido de 16px a 12px
     alignItems: 'center',
     flexDirection: 'row',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    borderTopRightRadius: 30,
+    borderTopLeftRadius: 30,
   },
   premiumText: {
     fontSize: 10, // ✅ Reducido de 12px a 10px
@@ -216,7 +218,7 @@ const styles = StyleSheet.create({
   priceContainer: {
     paddingHorizontal: 10, // ✅ Reducido de 12px a 10px
     paddingVertical: 4, // ✅ Reducido de 6px a 4px
-    borderRadius: 8,
+    borderRadius: 30,
     flexDirection: 'row',
     alignItems: 'baseline'
   },
@@ -254,10 +256,10 @@ const styles = StyleSheet.create({
     marginTop: 'auto' // ✅ Forzar al final del contenedor
   },
   buyButton: {
-    borderRadius: 8
+    borderRadius: 30
   },
   buyButtonTablet: {
-    borderRadius: 10
+    borderRadius: 30
   },
   buyButtonContent: {
     paddingVertical: 2 // ✅ Reducido de 6px a 2px

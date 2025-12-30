@@ -1,5 +1,51 @@
 import { Platform } from 'react-native';
-import { PERMISSIONS, RESULTS } from 'react-native-permissions';
+
+// ✅ Intentar importar funciones de forma segura
+let PERMISSIONS, check, request, openSettings, RESULTS;
+
+try {
+  const permissionsModule = require('react-native-permissions');
+  PERMISSIONS = permissionsModule?.PERMISSIONS;
+  check = permissionsModule?.check;
+  request = permissionsModule?.request;
+  openSettings = permissionsModule?.openSettings;
+  RESULTS = permissionsModule?.RESULTS;
+  
+  if (!PERMISSIONS || !check || !request || !RESULTS) {
+    throw new Error('Módulo react-native-permissions incompleto');
+  }
+} catch (error) {
+  console.error('❌ [permissionsConfig] Error cargando react-native-permissions:', error.message);
+  
+  // ✅ FALLBACK: Valores mock para evitar crashes
+  PERMISSIONS = { ANDROID: {}, IOS: {} };
+  check = async () => 'unavailable';
+  request = async () => 'unavailable';
+  openSettings = async () => console.warn('openSettings no disponible');
+  RESULTS = {
+    GRANTED: 'granted',
+    DENIED: 'denied',
+    BLOCKED: 'blocked',
+    UNAVAILABLE: 'unavailable',
+    LIMITED: 'limited',
+  };
+}
+
+// ✅ NUEVO: Función de validación manual (reemplaza isPermissionsLibraryAvailable)
+export const isPermissionsLibraryAvailable = () => {
+  try {
+    // Verificar que las funciones críticas existan y sean funciones
+    return (
+      typeof PERMISSIONS === 'object' &&
+      typeof check === 'function' &&
+      typeof request === 'function' &&
+      typeof RESULTS === 'object'
+    );
+  } catch (error) {
+    console.error('❌ [permissionsConfig] Error validando librería:', error);
+    return false;
+  }
+};
 
 /**
  * Configuración centralizada de permisos por plataforma
@@ -48,9 +94,8 @@ export const PERMISSIONS_CONFIG = {
     id: PERMISSION_TYPES.LOCATION,
     title: 'Ubicación en Primer Plano',
     icon: 'map-marker',
-    required: true,
+    required: true, // ✅ Obligatorio para todos
     description: 'Necesitamos acceder a tu ubicación para mostrarte servicios y tiendas cercanas',
-    // ✅ Textos para diálogo de justificación (pre-request)
     rationale: {
       title: '¿Por qué necesitamos tu ubicación?',
       message:
@@ -62,7 +107,6 @@ export const PERMISSIONS_CONFIG = {
       buttonPositive: 'Entiendo, continuar',
       buttonNegative: 'Ahora no',
     },
-    // ✅ Textos para cuando el usuario deniega permanentemente
     blockedMessage:
       'Has denegado el permiso de ubicación. Para usar VidKar, por favor habilítalo en Configuración de la aplicación.',
   },
@@ -71,29 +115,30 @@ export const PERMISSIONS_CONFIG = {
     id: PERMISSION_TYPES.LOCATION_BACKGROUND,
     title: 'Ubicación en Segundo Plano',
     icon: 'map-marker-radius',
-    required: false, // Solo para cadetes
-    requiresRole: 'cadete',
-    description: 'Los cadetes necesitan compartir su ubicación para coordinar entregas',
+    required: true, // ✅ CAMBIO: Ahora es OBLIGATORIO para todos
+    // ✅ ELIMINADO: requiresRole (ya no es solo para cadetes)
+    description: 'Para rastrear entregas y mejorar la experiencia del servicio',
     rationale: {
       title: 'Ubicación en Segundo Plano',
       message:
-        'Como cadete, necesitamos acceder a tu ubicación incluso cuando la app está en segundo plano para:\n\n' +
-        '• Coordinar entregas en tiempo real\n' +
+        'VidKar necesita acceder a tu ubicación en segundo plano para:\n\n' +
+        '• Rastrear entregas en tiempo real\n' +
+        '• Notificarte cuando tu pedido esté cerca\n' +
         '• Optimizar rutas de entrega\n' +
-        '• Mejorar la experiencia del cliente\n\n' +
-        'Tu ubicación solo se comparte cuando estás en "Modo Cadete".',
+        '• Coordinar con cadetes disponibles\n\n' +
+        'Tu ubicación solo se comparte cuando esta el modoCadete activo.',
       buttonPositive: 'Permitir siempre',
       buttonNegative: 'Solo al usar la app',
     },
     blockedMessage:
-      'La ubicación en segundo plano está deshabilitada. Para trabajar como cadete, habilítala en Configuración.',
+      'La ubicación en segundo plano está deshabilitada. VidKar necesita este permiso para coordinar entregas. Por favor, habilítalo en Configuración.',
   },
 
   [PERMISSION_TYPES.CAMERA]: {
     id: PERMISSION_TYPES.CAMERA,
     title: 'Cámara',
     icon: 'camera',
-    required: false,
+    required: true, // ✅ CAMBIO: Ahora es OBLIGATORIO
     description: 'Para tomar fotos de comprobantes de pago y evidencias',
     rationale: {
       title: '¿Por qué necesitamos la cámara?',
@@ -114,16 +159,16 @@ export const PERMISSIONS_CONFIG = {
     id: PERMISSION_TYPES.GALLERY,
     title: 'Galería de Fotos',
     icon: 'image-multiple',
-    required: false,
+    required: true, // ✅ CAMBIO: Ahora es OBLIGATORIO
     description: 'Para seleccionar comprobantes de pago desde tu galería',
     rationale: {
       title: 'Acceso a la Galería',
       message:
-        'Necesitamos acceso a tu galería para:\n\n' +
+        'La App requiere acceso a tu galería para:\n\n' +
         '• Seleccionar comprobantes guardados\n' +
         '• Subir evidencias de pago\n' +
         '• Facilitar el proceso de validación\n\n' +
-        'Solo accedemos a las fotos que tú selecciones.',
+        'Solo la app tiene acceso a las fotos que selecciones.',
       buttonPositive: 'Permitir acceso',
       buttonNegative: 'Ahora no',
     },
@@ -157,22 +202,15 @@ export const PERMISSIONS_CONFIG = {
 // ✅ Obtener permisos requeridos según rol del usuario
 export const getRequiredPermissions = (userRole = 'user') => {
   return Object.values(PERMISSIONS_CONFIG).filter((permission) => {
-    // Si no tiene requiresRole, es para todos
-    if (!permission.requiresRole) {
-      return permission.required;
-    }
-    // Si tiene requiresRole, verificar si el usuario tiene ese rol
-    return permission.required && permission.requiresRole === userRole;
+    // ✅ Solo filtrar por required, sin importar el rol
+    return permission.required === true;
   });
 };
 
 // ✅ Obtener permisos opcionales según rol
 export const getOptionalPermissions = (userRole = 'user') => {
   return Object.values(PERMISSIONS_CONFIG).filter((permission) => {
-    if (!permission.requiresRole) {
-      return !permission.required;
-    }
-    return !permission.required && permission.requiresRole === userRole;
+    return permission.required === false || !permission.required;
   });
 };
 
@@ -190,3 +228,5 @@ export const isPermissionGranted = (status) => {
 export const canRequestPermission = (status) => {
   return status === RESULTS.DENIED || status === RESULTS.UNAVAILABLE;
 };
+
+export { PERMISSIONS, check, request, openSettings, RESULTS };

@@ -1,16 +1,15 @@
 import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
-import { Card, Title, Paragraph, Button, Chip, IconButton, Surface, withTheme } from 'react-native-paper';
+import { Paragraph, Button, IconButton, Surface, Title, withTheme } from 'react-native-paper';
 import { megasToGB } from '../shared/MegasConverter';
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
 
-const VPNPackageCardItem = ({ 
-  paquete, 
-  index, 
-  isRecommended, 
-  onPress, 
+const VPNPackageCardItem = ({
+  paquete,
+  isRecommended,
+  onPress,
   theme,
   isHorizontal = false
 }) => {
@@ -19,84 +18,74 @@ const VPNPackageCardItem = ({
   const goldColor = '#FFD700';
 
   return (
-    <Surface 
+    <Surface
       style={[
         styles.packageCard,
         isHorizontal && styles.packageCardHorizontal,
         isTablet && styles.packageCardTablet,
-        isRecommended && styles.recommendedCard,
+        isRecommended && !isIlimitado && styles.recommendedCard,
         isIlimitado && styles.unlimitedCard
-      ]} 
+      ]}
+      elevation={isRecommended ? 4 : isIlimitado ? 5 : 2}
     >
       {isIlimitado && (
         <View style={[styles.premiumBadge, { backgroundColor: goldColor }]}>
           <IconButton icon="crown" size={14} iconColor="#000" style={{ margin: 0 }} />
-          <Paragraph style={[styles.premiumText, { color: '#000' }]}>
-            ⭐ PREMIUM ⭐
-          </Paragraph>
+          <Paragraph style={[styles.premiumText, { color: '#000' }]}>⭐ PREMIUM ⭐</Paragraph>
         </View>
       )}
 
       {!isIlimitado && isRecommended && (
         <View style={[styles.recommendedBadge, { backgroundColor: theme.colors.tertiary }]}>
-          <Paragraph style={styles.recommendedText}>
-            ⭐ MÁS POPULAR
-          </Paragraph>
+          <Paragraph style={styles.recommendedText}>⭐ MÁS POPULAR</Paragraph>
         </View>
       )}
-      
+
       <View style={styles.packageContent}>
         <View style={styles.packageHeader}>
           <View style={styles.packageTitleContainer}>
-            <IconButton 
-              icon={isIlimitado ? "infinity" : "shield-check"}
+            <IconButton
+              icon={isIlimitado ? 'infinity' : 'shield-check'}
               size={isTablet ? 28 : 20}
               iconColor={isIlimitado ? goldColor : vpnColor}
               style={styles.packageIcon}
             />
-            <Title style={[
-              styles.packageTitle, 
-              isTablet && styles.packageTitleTablet,
-              { color: isIlimitado ? goldColor : vpnColor }
-            ]}>
+            <Title
+              style={[
+                styles.packageTitle,
+                isTablet && styles.packageTitleTablet,
+                { color: isIlimitado ? goldColor : vpnColor }
+              ]}
+            >
               {isIlimitado ? 'ILIMITADO' : megasToGB(paquete.megas)}
             </Title>
           </View>
-          <View style={[
-            styles.priceContainer,
-            { 
-              backgroundColor: isIlimitado 
-                ? (theme.dark ? 'rgba(255, 215, 0, 0.15)' : '#FFF9E6')
-                : (theme.dark ? 'rgba(102, 187, 106, 0.15)' : '#E8F5E9')
-            }
-          ]}>
-            <Paragraph style={[
-              styles.packagePrice, 
-              isTablet && styles.packagePriceTablet,
-              { color: isIlimitado ? goldColor : vpnColor }
-            ]}>
+
+          <View
+            style={[
+              styles.priceContainer,
+              {
+                backgroundColor: isIlimitado
+                  ? (theme.dark ? 'rgba(255, 215, 0, 0.15)' : '#FFF9E6')
+                  : (theme.dark ? 'rgba(102, 187, 106, 0.15)' : '#E8F5E9')
+              }
+            ]}
+          >
+            <Paragraph style={[styles.packagePrice, isTablet && styles.packagePriceTablet, { color: isIlimitado ? goldColor : vpnColor }]}>
               ${paquete.precio}
             </Paragraph>
-            <Paragraph style={[styles.priceCurrency, { color: isIlimitado ? goldColor : vpnColor }]}>
-              CUP
-            </Paragraph>
+            <Paragraph style={[styles.priceCurrency, { color: isIlimitado ? goldColor : vpnColor }]}>CUP</Paragraph>
           </View>
         </View>
-        
+
         {isIlimitado && (
-          <Paragraph style={[
-            styles.unlimitedDescription,
-            isTablet && styles.packageDescriptionTablet
-          ]} numberOfLines={1}>
+          <Paragraph style={[styles.unlimitedDescription, isTablet && styles.packageDescriptionTablet]} numberOfLines={1}>
             🔒 Navegación ilimitada 30 días
           </Paragraph>
         )}
 
         {!!paquete.detalles && (
-          <Paragraph style={[
-            styles.packageDescription, 
-            isTablet && styles.packageDescriptionTablet
-          ]} numberOfLines={2} ellipsizeMode="tail">
+          <Paragraph style={[styles.packageDescription, isTablet && styles.packageDescriptionTablet]} numberOfLines={2} ellipsizeMode="tail">
             {paquete.detalles}
           </Paragraph>
         )}
@@ -105,21 +94,17 @@ const VPNPackageCardItem = ({
           <Button
             mode="contained"
             onPress={onPress}
-            icon={isIlimitado ? "lightning-bolt" : "cart-plus"}
+            icon={isIlimitado ? 'lightning-bolt' : 'cart-plus'}
             buttonColor={
-              isIlimitado 
-                ? goldColor 
-                : isRecommended 
-                  ? (theme.dark ? '#388E3C' : '#2E7D32') 
+              isIlimitado
+                ? goldColor
+                : isRecommended
+                  ? (theme.dark ? '#388E3C' : '#2E7D32')
                   : vpnColor
             }
-            textColor={isIlimitado ? "#000" : "#FFFFFF"}
+            textColor={isIlimitado ? '#000' : '#FFFFFF'}
             style={[styles.buyButton, isTablet && styles.buyButtonTablet]}
-            labelStyle={[
-              styles.buyButtonLabel, 
-              isTablet && styles.buyButtonLabelTablet,
-              isIlimitado && { fontWeight: '900' }
-            ]}
+            labelStyle={[styles.buyButtonLabel, isTablet && styles.buyButtonLabelTablet, isIlimitado && { fontWeight: '900' }]}
             contentStyle={styles.buyButtonContent}
             compact
           >
@@ -137,8 +122,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderLeftWidth: 4,
     borderLeftColor: '#4CAF50',
-    borderRadius: 20,
-    minHeight: 180, // ✅ Reducido de 280px a 180px
+    borderRadius: 30, // ✅ igual que ProxyPackageCardItem
+    minHeight: 180
   },
   packageCardHorizontal: {
     marginRight: 16,
@@ -146,47 +131,49 @@ const styles = StyleSheet.create({
   },
   packageCardTablet: {
     width: 320,
-    minHeight: 200 // ✅ Reducido de 320px a 200px
+    minHeight: 200
   },
   recommendedCard: {
     borderColor: '#FFD700',
     borderWidth: 2,
-    borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50'
+    borderLeftWidth: 2, // ✅ antes 4
+    borderLeftColor: '#4CAF50',
+    borderRadius: 30
   },
   unlimitedCard: {
-    borderLeftWidth: 6,
+    borderLeftWidth: 2, // ✅ antes 6
     borderLeftColor: '#FFD700',
-    borderRadius: 16,
+    borderRadius: 30,
     borderWidth: 2,
     borderColor: '#FFD700'
   },
   premiumBadge: {
-    paddingVertical: 5, // ✅ Reducido de 8px a 5px
-    paddingHorizontal: 12, // ✅ Reducido de 16px a 12px
+    paddingHorizontal: 12,
     alignItems: 'center',
     flexDirection: 'row',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    borderTopRightRadius: 30,
+    borderTopLeftRadius: 30
   },
   premiumText: {
-    fontSize: 10, // ✅ Reducido de 12px a 10px
+    fontSize: 10,
     fontWeight: '900',
     letterSpacing: 2,
     marginLeft: 4
   },
   recommendedBadge: {
-    paddingVertical: 4, // ✅ Reducido de 6px a 4px
+    paddingVertical: 4,
     paddingHorizontal: 12,
     alignItems: 'center'
   },
   recommendedText: {
-    fontSize: 10, // ✅ Reducido de 11px a 10px
+    fontSize: 10,
     fontWeight: 'bold',
     letterSpacing: 1
   },
   packageContent: {
-    paddingVertical: 10, // ✅ Reducido de 16px a 10px
-    paddingHorizontal: 12, // ✅ Reducido de 16px a 12px
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     flex: 1,
     justifyContent: 'space-between'
   },
@@ -194,7 +181,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8 // ✅ Reducido de 12px a 8px
+    marginBottom: 8
   },
   packageTitleContainer: {
     flexDirection: 'row',
@@ -205,46 +192,46 @@ const styles = StyleSheet.create({
     margin: 0
   },
   packageTitle: {
-    fontSize: 18, // ✅ Reducido de 18px (se mantiene por legibilidad)
+    fontSize: 18,
     fontWeight: 'bold',
     marginLeft: 4
   },
   packageTitleTablet: {
-    fontSize: 24 // ✅ Reducido de 28px a 24px
+    fontSize: 24
   },
   priceContainer: {
-    paddingHorizontal: 10, // ✅ Reducido de 12px a 10px
-    paddingVertical: 4, // ✅ Reducido de 6px a 4px
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 30, // ✅ clave del “pill”
     flexDirection: 'row',
     alignItems: 'baseline'
   },
   packagePrice: {
-    fontSize: 18, // ✅ Reducido de 20px a 18px
+    fontSize: 18,
     fontWeight: 'bold'
   },
   packagePriceTablet: {
     fontSize: 20
   },
   priceCurrency: {
-    fontSize: 11, // ✅ Reducido de 12px a 11px
+    fontSize: 11,
     marginLeft: 4,
     fontWeight: '600'
   },
   packageDescription: {
-    fontSize: 12, // ✅ Reducido de 13px a 12px
-    lineHeight: 16, // ✅ Reducido de 20px a 16px
-    marginTop: 4 // ✅ Reducido de 8px a 4px
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 4
   },
   packageDescriptionTablet: {
-    fontSize: 14, // ✅ Reducido de 15px a 14px
-    lineHeight: 18 // ✅ Reducido de 22px a 18px
+    fontSize: 14,
+    lineHeight: 18
   },
   unlimitedDescription: {
-    fontSize: 13, // ✅ Reducido de 15px a 13px
-    lineHeight: 18, // ✅ Reducido de 22px a 18px
-    marginTop: 4, // ✅ Reducido de 8px a 4px
-    marginBottom: 4, // ✅ Reducido de 8px a 4px
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
+    marginBottom: 4,
     fontWeight: '600',
     textAlign: 'center'
   },
@@ -253,20 +240,20 @@ const styles = StyleSheet.create({
     marginTop: 'auto'
   },
   buyButton: {
-    borderRadius: 8
+    borderRadius: 30
   },
   buyButtonTablet: {
-    borderRadius: 10
+    borderRadius: 30
   },
   buyButtonContent: {
-    paddingVertical: 2 // ✅ Reducido de 6px a 2px
+    paddingVertical: 2
   },
   buyButtonLabel: {
-    fontSize: 13, // ✅ Reducido de 14px a 13px
+    fontSize: 13,
     fontWeight: 'bold'
   },
   buyButtonLabelTablet: {
-    fontSize: 15 // ✅ Reducido de 16px a 15px
+    fontSize: 15
   }
 });
 

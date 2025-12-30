@@ -157,7 +157,7 @@ class ProxyVPNPackagesHorizontal extends Component {
             <ProxyPackageCardItem
               paquete={item}
               index={index}
-              isRecommended={index === 1 && !item.esPorTiempo}
+              isRecommended={index === 2 && !item.esPorTiempo}
               onPress={() => this.handleComprarProxy(item, item.esPorTiempo)}
               isHorizontal={true}
             />
@@ -213,7 +213,7 @@ class ProxyVPNPackagesHorizontal extends Component {
             <VPNPackageCardItem
               paquete={item}
               index={index}
-              isRecommended={index === 1 && !item.esPorTiempo}
+              isRecommended={index === 2 && !item.esPorTiempo}
               onPress={() => this.handleComprarVPN(item, item.esPorTiempo)}
               isHorizontal={true}
             />

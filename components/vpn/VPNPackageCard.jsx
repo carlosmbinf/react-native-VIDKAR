@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
   packageCard: {
     borderLeftWidth: 4,
     borderLeftColor: '#4CAF50', // Color característico VPN
-    borderRadius: 12,
+    borderRadius: 30, // ✅ antes 12
     overflow: 'hidden',
     flex: 0, // No flex para mantener ancho fijo
     justifyContent: 'space-between', // Distribuir contenido uniformemente
@@ -636,8 +636,9 @@ const styles = StyleSheet.create({
   recommendedCard: {
     borderColor: '#FFD700',
     borderWidth: 2,
-    borderLeftWidth: 4,
-    borderLeftColor: '#FFD700' // Borde izquierdo dorado para "MÁS POPULAR"
+    borderLeftWidth: 2,
+    borderLeftColor: '#FFD700', // Borde izquierdo dorado para "MÁS POPULAR"
+    borderRadius: 30 // ✅ consistencia
   },
   recommendedBadge: {
     paddingVertical: 4, // ✅ Reducido de 6px a 4px
@@ -684,7 +685,7 @@ const styles = StyleSheet.create({
   priceContainer: {
     paddingHorizontal: 10, // ✅ Reducido de 12px a 10px
     paddingVertical: 4, // ✅ Reducido de 6px a 4px
-    borderRadius: 8,
+    borderRadius: 30, // ✅ antes 8
     flexDirection: 'row',
     alignItems: 'baseline'
   },
@@ -722,10 +723,10 @@ const styles = StyleSheet.create({
     marginTop: 8 // ✅ Reducido de 16px a 8px
   },
   buyButton: {
-    borderRadius: 8
+    borderRadius: 30 // ✅ antes 8
   },
   buyButtonTablet: {
-    borderRadius: 10
+    borderRadius: 30 // ✅ antes 10
   },
   buyButtonContent: {
     paddingVertical: 2 // ✅ Reducido de 6px a 2px
@@ -760,7 +761,7 @@ const styles = StyleSheet.create({
     // ✅ Removido color hardcodeado - Paper maneja automáticamente
   },
   skeletonCard: {
-    borderRadius: 12,
+    borderRadius: 30, // ✅ antes 12
     padding: 16,
     marginBottom: 16,
     borderLeftWidth: 4,
@@ -795,9 +796,9 @@ const styles = StyleSheet.create({
   },
   unlimitedCard: {
     marginBottom: 16,
-    borderLeftWidth: 6,
+    borderLeftWidth: 2,
     borderLeftColor: '#FFD700',
-    borderRadius: 16,
+    borderRadius: 30, // ✅ antes 16
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: '#FFD700',

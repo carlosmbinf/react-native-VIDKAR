@@ -131,158 +131,169 @@
 
 ---
 
-## Resumen técnico – Configuración de Drawer con Ancho Fijo (react-native-drawer)
+## Resumen técnico – UX PermissionsGate: mantener pasos concedidos + navegación bidireccional
 
-- **Contexto**: Limitación de ancho de drawer a 500px con área táctil de cierre apropiada.
-
-- **Problema común**: Usar `openDrawerOffset` calculado dinámicamente causa áreas de cierre lejanas e inconsistentes.
-
-- **Solución profesional**:
-  ```javascript
-  const maxDrawerWidth = 500;
-  
-  <Drawer
-    openDrawerOffset={0}                  // Sin gap desde borde derecho
-    closedDrawerOffset={-maxDrawerWidth}  // Drawer fuera de pantalla cuando cerrado
-    panCloseMask={0.8}                    // 80% del drawer es área táctil de cierre
-    panOpenMask={0.05}                    // Solo 5% del borde izquierdo abre con gesto
-    styles={{
-      drawer: { 
-        width: maxDrawerWidth,            // Ancho fijo explícito
-        elevation: 16,                    // Elevación Material Design
-        shadowOpacity: 0.3                // Sombra visible
-      }
-    }}
-  />
-  ```
-
-- **Props críticas explicadas**:
-  - `openDrawerOffset`: Gap desde borde **derecho** (NO es el ancho del drawer).
-  - `closedDrawerOffset`: Posición cuando cerrado (negativo = fuera de pantalla).
-  - `panCloseMask`: Fracción del drawer táctil para cerrar (0.8 = 80%).
-  - `panOpenMask`: Fracción del borde izquierdo para abrir con gesto (0.05 = 5%).
-
-- **Cálculo de áreas táctiles**:
-  - **Drawer abierto (500px)**:
-    - Área de cierre táctil: `0.8 * 500 = 400px` (desde px 100 hasta px 500).
-    - Overlay oscuro: Desde px 500 hasta screenWidth (tocar aquí cierra).
-  - **Drawer cerrado**:
-    - Área de apertura con gesto: `0.05 * screenWidth` (solo borde izquierdo).
-
-- **Mejores prácticas**:
-  - **Ancho responsivo** (opcional):
-    ```javascript
-    const maxDrawerWidth = Math.min(500, screenWidth * 0.8);
-    ```
-  - **Evitar `openDrawerOffset` relativo**: Usar valores absolutos para predecibilidad.
-  - **`panCloseMask` alto (0.7-0.8)**: Mejora UX al ampliar área táctil de cierre.
-  - **`panOpenMask` bajo (0.05)**: Evita conflictos con scroll horizontal.
-
-- **Testing recomendado**:
-  - Validar ancho exacto con herramientas de inspección (React DevTools).
-  - Probar cierre con múltiples métodos: tap overlay, tap dentro del drawer, swipe, botón back.
-  - Validar en landscape mode (drawer no debe crecer proporcionalmente).
-  - Testing en phones (<400px), phablets (414px), tablets (768px+).
-
-- **Lecciones aprendidas**:
-  - `openDrawerOffset` es el **gap** desde el borde derecho, NO el ancho del drawer.
-  - Ancho fijo con `closedDrawerOffset={-width}` + `openDrawerOffset={0}` es más predecible.
-  - `panCloseMask` bajo (0.2) frustra a usuarios (deben tocar muy cerca del borde).
-  - Material Design recomienda `elevation: 16` para navigation drawers.
-
-- **Alternativas consideradas**:
-  - **react-native-gesture-handler Drawer**: Mejor soporte para gestos nativos.
-  - **react-navigation DrawerNavigator**: Integración nativa con navegación.
-  - Ambas requieren migración de código existente.
+- **Requisito UX**: En el slider de permisos, los permisos ya concedidos **no deben desaparecer**; deben mostrarse como “Aprobado” (estado elegante) y sin botón de solicitar.
+- **Cambio de enfoque**:
+  - Antes: `steps` representaba solo “pendientes”.
+  - Ahora: `steps` representa **todos los permisos requeridos** en orden, y cada slide recibe `status` para renderizar su estado.
+- **UI profesional aplicada**:
+  - Si `status === 'granted'`: mostrar indicador “Aprobado” + CTA “Siguiente/Finalizar”; ocultar “Conceder permiso”.
+  - Si `status === 'blocked'`: enfatizar “Abrir ajustes” como acción principal.
+- **Navegación**:
+  - Se habilitó swipe **izquierda/derecha** (adelante/atrás).
+  - Se agregaron botones “Atrás” y “Siguiente/Finalizar” para accesibilidad y control explícito.
+- **Lección técnica**:
+  - En wizards de onboarding con estados reactivos, separar “estado del paso” (status) de “existencia del paso” (lista fija) mantiene consistencia visual y reduce jumps inesperados en UI.
 
 ---
 
-## Resumen técnico – Hook de Dimensiones Reactivo (useDimensions)
+## Resumen técnico – UX PermissionsGate: no auto-avanzar al conceder un permiso
 
-- **Problema identificado**: Las constantes `Dimensions.get('window')` calculadas al montar el componente NO se actualizan cuando cambian las dimensiones de la ventana (rotación, split screen).
-
-- **Solución implementada**: Hook `useState` + `Dimensions.addEventListener()` para escuchar cambios en tiempo real.
-
-- **Implementación crítica**:
-  ```javascript
-  const [dimensions, setDimensions] = useState({
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').height,
-  });
-
-  useEffect(() => {
-    const subscription = Dimensions.addEventListener('change', ({ window }) => {
-      setDimensions({ width: window.width, height: window.height });
-    });
-    
-    return () => {
-      if (subscription?.remove) {
-        subscription.remove(); // RN 0.65+
-      } else {
-        Dimensions.removeEventListener('change', subscription); // RN <0.65
-      }
-    };
-  }, []);
-  ```
-
-- **Diferencias entre `window` y `screen`**:
-  - **window**: Área disponible para la app (excluye status bar, navigation bar).
-  - **screen**: Tamaño físico total del dispositivo (incluye barras del sistema).
-  - **Recomendación**: Usar `window` para cálculos de layout (drawer, modals, etc.).
-
-- **Casos de uso cubiertos**:
-  1. **Rotación de pantalla**: Portrait ↔ Landscape.
-  2. **Split screen (tablets)**: App ocupa solo mitad de pantalla.
-  3. **Fold devices**: Plegables como Samsung Galaxy Fold.
-  4. **Picture-in-Picture (Android)**: Modo ventana flotante.
-
-- **Performance consideraciones**:
-  - El listener solo dispara cuando dimensiones **realmente** cambian.
-  - React hace shallow comparison, evita re-renders innecesarios.
-  - Cleanup del listener previene memory leaks (crítico en navegación stack).
-
-- **Hook personalizado reutilizable**:
-  ```javascript
-  // hooks/useDimensions.js
-  export const useDimensions = () => {
-    const [dimensions, setDimensions] = useState({
-      window: Dimensions.get('window'),
-      screen: Dimensions.get('screen'),
-    });
-
-    useEffect(() => {
-      const subscription = Dimensions.addEventListener('change', ({ window, screen }) => {
-        setDimensions({ window, screen });
-      });
-      return () => subscription?.remove();
-    }, []);
-
-    return dimensions;
-  };
-  ```
-
-- **Testing recomendado**:
-  - Rotar dispositivo en emulador (Cmd+Left/Right en iOS, Ctrl+F11/F12 en Android).
-  - Activar split screen en tablet real.
-  - Probar en dispositivos plegables (Android Studio tiene emulador de Fold).
-  - Validar con dev tools que listener se limpia correctamente.
-
-- **Lecciones aprendidas**:
-  - **`Dimensions.get()` NO es reactivo**: Solo retorna snapshot actual.
-  - **Siempre cleanup listeners**: Previene múltiples suscripciones duplicadas.
-  - **Diferencia RN 0.65**: API cambió de `removeEventListener` a `subscription.remove()`.
-  - **Evitar cálculos en render**: Calcular `drawerStartOffset` fuera de JSX para legibilidad.
-  - **Safe area insets son separados**: `useSafeAreaInsets()` NO se actualiza con dimensiones, solo con notch/home indicator.
-
-- **Archivos modificados**:
-  - `components/Main/MenuPrincipal.jsx`: Implementación de hook de dimensiones.
-  - `hooks/useDimensions.js`: Hook reutilizable (recomendado crear).
-
-- **Próximos pasos**:
-  - Extraer hook a archivo separado para reutilización.
-  - Aplicar pattern en otras pantallas con drawers/modals responsivos.
-  - Agregar logs en dev mode para debugging de cambios de dimensiones.
-  - Tests unitarios para validar re-cálculos en diferentes orientaciones.
+- **Requisito UX**: Cuando un permiso se concede, **no** avanzar automáticamente al siguiente slide.
+- **Motivo**:
+  - Da tiempo al usuario a validar visualmente el estado “Aprobado”, aumenta confianza.
+  - Evita sensación de “saltos” o pérdida de control, especialmente si el sistema muestra dialogs nativos.
+- **Implementación**:
+  - En `handleRequest`, si `res.ok === true`, solo limpiar error/loading y mantener el `index`.
+  - La navegación queda a cargo del usuario (swipe o botón “Siguiente/Finalizar”).
+- **Nota de arquitectura**:
+  - Para que el slide muestre “Aprobado”, el manager debe refrescar `status` (ej. `checkAllPermissions()` tras request) y pasar el `status` actualizado al gate.
 
 ---
 
+## Resumen técnico – UX polish: evitar Cards vacíos en wizard de permisos
+
+- **Problema UX**: `PermissionsGate` mostraba un `Card` sin contenido cuando el permiso no estaba `granted` ni `blocked` y además no había `detail` ni `error`.
+- **Causa raíz**: El `Card` se renderizaba siempre, pero la mayoría de sus secciones eran condicionales; en estados intermedios (`denied`, `unavailable`, `undefined`) quedaba vacío.
+- **Solución aplicada**:
+  - Crear flags `hasDetail`, `hasStatusInfo`, `shouldRenderInfoCard`.
+  - Renderizar el `Card` solo si hay contenido real: detalle, estado relevante (aprobado/bloqueado) o error.
+- **Lección**: En UI orientada a clientes, evitar contenedores “vacíos” mejora percepción de calidad; preferir render condicional basado en “hay contenido visible” en vez de “hay contenedor”.
+
+---
+
+## Resumen técnico – Slider/Carousel: renderizar slides adyacentes para transiciones reales
+
+- **Problema UX**: Cuando el slider renderiza solo el step activo, al hacer swipe el slide siguiente/anterior no existe en el árbol; la transición se percibe “cortada” o incompleta.
+- **Solución aplicada**: Implementar un “track” horizontal (`flexDirection: 'row'`) con `translateX` animado:
+  - `translateX = -index * width + gestureDx`
+  - Esto garantiza que los slides anterior/siguiente estén renderizados durante el gesto.
+- **Buenas prácticas**:
+  - Mantener el render cost bajo: si el número de pasos crece, optimizar a “windowed rendering” (solo `index-1..index+1`) pero manteniendo layout con placeholders del mismo ancho.
+  - Mantener `clamp` del índice cuando `steps.length` cambia y reset defensivo si `current` queda `undefined`.
+  - Restringir interacciones (botones, request) al slide activo para evitar side effects desde slides no enfocados.
+
+---
+
+## Resumen técnico – PermissionsGate: navegación solo por gesto (sin botones) + affordance clara
+
+- **Objetivo UX**: Simplificar el wizard eliminando botones “Atrás/Siguiente” y reforzar que la navegación es por swipe (gesto).
+- **Cambios aplicados**:
+  - Se eliminaron CTAs redundantes de navegación para reducir ruido visual.
+  - Se agregó un hint explícito con texto + chevrons “Desliza hacia los lados para navegar”.
+  - Se movieron los “dots” al fondo, y el hint queda visualmente por encima de los dots para guiar la acción.
+- **Consideración técnica**:
+  - Mantener interacciones (request/settings) solo en el slide activo evita side effects desde slides no enfocados.
+  - Si en el futuro se detecta baja descubribilidad del gesto, considerar añadir una animación sutil (micro-interacción) en el primer render (ej. bounce horizontal leve) sin afectar accesibilidad.
+
+---
+
+## Resumen técnico – PermissionsGate: hint de swipe “sticky” (footer) para evitar jitter visual
+
+- **Problema UX**: El hint “Desliza…” dentro del slide se mueve con el contenido y puede percibirse como ruido/jitter durante el swipe.
+- **Mejora aplicada**:
+  - Mover el hint a un footer fijo (sticky) y ubicarlo **justo encima** de los dots.
+  - Esto refuerza el patrón de navegación por gesto sin competir con el contenido del slide.
+- **Regla general**:
+  - Elementos de “instrucción de navegación” deben ser persistentes y estables en pantalla (footer/header) cuando el contenido es animado.
+
+---
+
+## Resumen técnico – Animación de transición (fade) al cambiar slides en PermissionsGate
+
+- **Problema UX**: al cambiar de step (swipe) en `PermissionsGate`, el contenido cambiaba de forma brusca (texto/ícono/card/botones), dando una impresión poco profesional.
+- **Solución aplicada (React Native Animated)**:
+  - Se añadió un `Animated.Value` (`contentOpacity`) para controlar la opacidad del contenido del slide activo.
+  - Se ejecuta una animación `fade-out -> fade-in` en cada cambio de `index` usando `Animated.sequence`:
+    - 500ms hacia opacidad 0 + 500ms hacia opacidad 1 (≈ 1s total).
+  - Se envolvió el contenido variable del slide en un `Animated.View` con `opacity`.
+- **Buenas prácticas técnicas**:
+  - `useNativeDriver: true` para mejorar rendimiento (opacidad es compatible).
+  - La animación se ata al cambio de `index` (fuente única de verdad de navegación) evitando depender de eventos de swipe específicos, lo que mejora mantenibilidad si en el futuro se agrega navegación por botones/dots.
+  - Remover `console.log` de render para evitar ruido y drops de performance en producción.
+- **Mejoras futuras recomendadas**:
+  - Si se desea sincronizar con el gesto (swipe), considerar interpolar opacidad en base a `gestureX` (más complejo pero aún más fluido).
+  - Parametrizar duración (`fadeDurationMs`) vía props si se reutiliza el componente en otros flujos.
+
+---
+
+## Resumen técnico – PermissionsGate: flechas laterales “ghost” visibles solo durante el swipe
+
+- **Objetivo UX**: reforzar la direccionalidad del gesto (anterior/siguiente) sin agregar botones ni ensuciar la interfaz; las flechas deben aparecer únicamente mientras el usuario desliza.
+- **Implementación**:
+  - Se añadieron `Animated.Value` para `arrowLeftOpacity` y `arrowRightOpacity`.
+  - En `onPanResponderMove`, se calcula opacidad proporcional a `dx` (con umbral) y se muestra solo la flecha correspondiente:
+    - `dx > 0` → flecha izquierda (volver) si `index > 0`.
+    - `dx < 0` → flecha derecha (siguiente) si `index < steps.length - 1`.
+  - En `onPanResponderRelease`, se ocultan ambas flechas con un `timing` corto para evitar que queden “pegadas”.
+  - Las flechas se renderizan como **overlay absoluto** dentro de `viewport` con `pointerEvents="none"` para no interceptar taps ni afectar layout.
+- **Buenas prácticas**:
+  - No meter affordances de navegación dentro del slide (evita jitter y reflow); usar overlay estable.
+  - Respetar bordes: no mostrar flecha “anterior” en el primer slide ni “siguiente” en el último.
+  - Mantener colores y estilo “ghost” (`rgba`) para no competir con el contenido principal.
+
+---
+
+## Resumen técnico – PermissionsGate: “windowed rendering” (solo slide activo) manteniendo swipe con placeholders
+
+- **Requisito UX/Performance**: evitar renderizar contenido de slides anterior/siguiente; solo debe existir el slide activo, manteniendo flechas “ghost” durante el gesto.
+- **Estrategia aplicada**:
+  - Se mantiene el `track` con `width: width * steps.length` y `translateX` para no romper el comportamiento del carrusel/gesto.
+  - En el `.map()` del track se renderiza:
+    - **Slide activo**: `renderSlide(step, index)`.
+    - **Slides no activos**: placeholders `<View style={{ width }} />` (vacíos), para conservar el espacio y el cálculo de desplazamiento.
+- **Beneficios**:
+  - Reduce costo de render (especialmente si cada step tiene Card, iconos, lógica condicional).
+  - Mantiene intacta la interacción del swipe y el layout del carrusel sin reescribir la navegación.
+- **Nota importante**:
+  - Esta técnica preserva el “espaciado” del carrusel, pero ya no permite previsualizar contenido de slides adyacentes (por diseño). Si en el futuro se requiere “peek”, usar ventana `index-1..index+1` en lugar de solo `index`.
+
+---
+
+## Resumen técnico – UX PermissionsGate: Ribbon “APROBADO” (overlay) para estado granted
+
+- **Objetivo UX**: reforzar visualmente el estado “concedido” con un indicador premium y de alta legibilidad, sin agregar ruido en el contenido principal del slide.
+- **Implementación (patrón ribbon)**:
+  - Se renderiza un contenedor `ribbonWrapper` con `position: 'absolute'` en la esquina superior derecha del slide.
+  - Dentro, un `View` rotado (`transform: rotate(45deg)`) crea el efecto de “cinta”.
+  - `pointerEvents="none"` evita que el ribbon afecte el swipe o taps.
+  - Se agregan `elevation` (Android) y `shadow*` (iOS) para un acabado profesional.
+- **Buenas prácticas**:
+  - Mantener el ribbon como overlay independiente del layout del contenido (no reflow).
+  - Usar texto en mayúsculas + `letterSpacing` para legibilidad.
+  - Ajustar `zIndex` y `overflow: 'hidden'` para recortar correctamente la cinta dentro de la esquina.
+
+---
+
+## Resumen técnico – Consistencia de borderRadius (“pill design”) en Cards Proxy/VPN
+
+- Se estandarizó el lenguaje visual de los cards para Proxy/VPN basándose en `ProxyPackageCardItem`:
+  - `borderRadius` principal de card en **30** para un look más moderno, consistente y “premium”.
+  - `priceContainer.borderRadius` en **30** (chips/price pills coherentes).
+  - `buyButton.borderRadius` en **30** para mantener continuidad visual en CTAs.
+- Se aplicó en:
+  - `ProxyPackageCard.jsx`: cards del grid, recommended y premium/unlimited + skeleton.
+  - `VPNPackageCard.jsx`: cards del grid, recommended y premium/unlimited + skeleton.
+  - `VPNPackageCardItem.jsx`: creado/normalizado para espejar a `ProxyPackageCardItem` (mismos radios, jerarquía visual y estados recommended/premium).
+- Recomendación para futuros cambios:
+  - Extraer constantes de UI (ej. `UI_RADII = { card: 30, pill: 30 }`) en un módulo compartido para evitar divergencias entre pantallas.
+  - Mantener “recommended” y “premium” cambiando solo bordes/colores, no geometría (radio), para consistencia de marca.
+
+---
+
+## Resumen técnico – Ajuste fino de estilo Premium/Unlimited (borde izquierdo)
+- Se refinó el estilo visual de los cards “ILIMITADO/PREMIUM” en `ProxyPackageCardItem` y `VPNPackageCardItem`:
+  - Cambio: `unlimitedCard.borderLeftWidth` de **6** a **2**.
+- Motivo: reducir “peso visual” del acento dorado para que el premium se perciba más elegante y consistente con el borde del estado “recommended”, manteniendo `borderWidth: 2` y `borderColor: #FFD700` como indicador principal.
+- Recomendación: si en el futuro se necesita diferenciar más el premium, priorizar cambios de `elevation/shadow` o `badge` antes que aumentar grosores de bordes (evita look “pesado” en UI).

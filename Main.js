@@ -24,7 +24,8 @@ import {
   NATIVE_PERMISSIONS, 
   PERMISSION_TYPES,
   getRequiredPermissions,
-  isPermissionGranted 
+  isPermissionGranted,
+  isPermissionsLibraryAvailable // ✅ Usar nuestra función custom
 } from './components/permissions/utils/permissionsConfig';
 
 console.log('Main.js');
@@ -39,27 +40,52 @@ class MyApp extends React.Component {
     };
   }
 
-  // ✅ NUEVO: Método para verificar estado real de permisos obligatorios
+  // ✅ MODIFICADO: Validar disponibilidad de librería ANTES de usar
   checkRequiredPermissions = async (userRole = 'user') => {
+    // ✅ Validación defensiva: verificar si la librería está disponible
+    if (!isPermissionsLibraryAvailable()) {
+      console.error('❌ [Permissions Check] Librería react-native-permissions no disponible');
+      console.error('   La app continuará pero sin verificación de permisos.');
+      console.error('   Solución: Reinstalar librería y rebuild.');
+      return false; // ✅ Asumir que faltan permisos si la librería no está
+    }
+
     try {
+      console.log('🔍 [Permissions Check] Iniciando verificación...');
+      
       const requiredPermissions = getRequiredPermissions(userRole);
-      const permissionsStatus = {};
-
-      // Verificar cada permiso requerido
-      for (const permission of requiredPermissions) {
-        const nativePermission = NATIVE_PERMISSIONS[permission.id];
-        if (!nativePermission) continue;
-
-        const status = await check(nativePermission);
-        permissionsStatus[permission.id] = status;
+      
+      if (!requiredPermissions || requiredPermissions.length === 0) {
+        console.warn('⚠️ [Permissions Check] No hay permisos requeridos definidos');
+        return true; // ✅ Si no hay permisos definidos, permitir acceso
       }
 
-      // Verificar si TODOS los permisos requeridos están otorgados
+      const permissionsStatus = {};
+
+      for (const permission of requiredPermissions) {
+        const nativePermission = NATIVE_PERMISSIONS[permission?.id];
+        
+        if (!nativePermission) {
+          console.warn('⚠️ [Permissions Check] Permiso nativo no encontrado:', permission?.id);
+          continue;
+        }
+
+        try {
+          const status = await check(nativePermission);
+          permissionsStatus[permission.id] = status;
+        } catch (error) {
+          console.error(`❌ [Permissions Check] Error checking ${permission.id}:`, error.message);
+          permissionsStatus[permission.id] = 'unavailable';
+        }
+      }
+
+      console.log('🔍 [Permissions Check] Estados obtenidos:', permissionsStatus);
+
       const allGranted = requiredPermissions.every((permission) =>
         isPermissionGranted(permissionsStatus[permission.id])
       );
-
-      console.log('🔐 [Permissions Check] Estado de permisos:', {
+      
+      console.log('🔐 [Permissions Check] Resultado:', {
         allGranted,
         statuses: permissionsStatus,
         requiredCount: requiredPermissions.length,
@@ -67,8 +93,8 @@ class MyApp extends React.Component {
 
       return allGranted;
     } catch (error) {
-      console.error('❌ [Permissions Check] Error verificando permisos:', error);
-      return false; // En caso de error, asumir que faltan permisos
+      console.error('❌ [Permissions Check] Error general:', error);
+      return false;
     }
   };
 
@@ -172,7 +198,7 @@ class MyApp extends React.Component {
             <PermissionsManager
               onComplete={this.handlePermissionsComplete}
               userRole={user?.profile?.role || 'user'}
-              initialScreen="request" // ✅ Ir directo a pantalla de solicitud
+              initialScreen="intro" // ✅ Ir directo a pantalla de solicitud
             />
           </PaperProvider>
         </SafeAreaProvider>

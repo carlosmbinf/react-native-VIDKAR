@@ -1,271 +1,258 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Platform, Linking, Alert } from 'react-native';
-import {
+import { useState, useCallback, useEffect } from 'react';
+import { Platform, Alert } from 'react-native';
+import { 
+  PERMISSIONS_CONFIG, 
+  NATIVE_PERMISSIONS, // ✅ AGREGAR esta importación
+  getRequiredPermissions, 
+  isPermissionGranted,
+  isPermissionsLibraryAvailable,
   check,
   request,
-  requestMultiple,
   openSettings,
-  RESULTS,
-} from 'react-native-permissions';
-import {
-  NATIVE_PERMISSIONS,
-  PERMISSIONS_CONFIG,
-  isPermissionBlocked,
-  isPermissionGranted,
-  canRequestPermission,
+  RESULTS
 } from '../utils/permissionsConfig';
 
-/**
- * Hook centralizado para gestión de permisos
- * Cumple con mejores prácticas de UX de Android y iOS
- */
-export const usePermissions = () => {
+const usePermissions = () => {
   const [permissionsStatus, setPermissionsStatus] = useState({});
   const [loading, setLoading] = useState(false);
-  const [allGranted, setAllGranted] = useState(false);
+  
+  // ✅ Validar disponibilidad de la librería al inicializar
+  const [libraryError, setLibraryError] = useState(!isPermissionsLibraryAvailable());
 
-  // ✅ Verificar estado actual de todos los permisos
-  const checkAllPermissions = useCallback(async () => {
-    setLoading(true);
-    const statuses = {};
-
-    try {
-      for (const [key, nativePermission] of Object.entries(NATIVE_PERMISSIONS)) {
-        // ✅ NUEVO: Manejo especial para notificaciones en Android < 13
-        if (key === 'NOTIFICATIONS' && !nativePermission) {
-          // Android < 13 no requiere permiso explícito, considerarlo otorgado
-          statuses[key] = RESULTS.GRANTED;
-          console.log('📱 [Permissions] Android < 13 detectado, notificaciones consideradas otorgadas');
-          continue;
-        }
-
-        if (!nativePermission) continue; // Skip si no aplica en esta plataforma/versión
-
-        const status = await check(nativePermission);
-        statuses[key] = status;
-        
-        console.log(`🔐 [Permissions] ${key}: ${status}`);
-      }
-
-      setPermissionsStatus(statuses);
-
-      // Verificar si todos los permisos obligatorios están otorgados
-      const requiredPermissions = Object.keys(PERMISSIONS_CONFIG).filter(
-        (key) => PERMISSIONS_CONFIG[key].required
-      );
-
-      const allRequiredGranted = requiredPermissions.every((key) =>
-        isPermissionGranted(statuses[key])
-      );
-
-      console.log('✅ [Permissions] Todos los permisos requeridos otorgados:', allRequiredGranted);
-      setAllGranted(allRequiredGranted);
-    } catch (error) {
-      console.error('❌ [usePermissions] Error checking permissions:', error);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    // ✅ Re-validar disponibilidad al montar
+    const isAvailable = isPermissionsLibraryAvailable();
+    setLibraryError(!isAvailable);
+    
+    if (!isAvailable) {
+      console.error('❌ [usePermissions] Librería react-native-permissions no disponible');
+      console.error('   Verifica que esté instalada: npm install react-native-permissions');
+      console.error('   Y que auto-linking haya funcionado: npx pod-install (iOS)');
     }
   }, []);
 
-  // ✅ Solicitar un permiso individual con rationale
-  const requestSinglePermission = useCallback(
-    async (permissionType, showRationale = true) => {
+  // ✅ Mapear resultado de react-native-permissions a estado legible
+  const mapPermissionResult = (result) => {
+    switch (result) {
+      case RESULTS.GRANTED:
+      case 'granted':
+        return 'granted';
+      case RESULTS.LIMITED:
+      case 'limited':
+        return 'limited';
+      case RESULTS.DENIED:
+      case 'denied':
+        return 'denied';
+      case RESULTS.BLOCKED:
+      case 'blocked':
+        return 'blocked';
+      case RESULTS.UNAVAILABLE:
+      case 'unavailable':
+      default:
+        return 'unavailable';
+    }
+  };
+
+  // ✅ MODIFICADO: Agregar validación en todas las funciones
+  const checkAllPermissions = useCallback(async () => {
+    if (libraryError) {
+      console.error('❌ [Permissions] Librería no disponible, no se pueden verificar permisos');
+      return {};
+    }
+
+    try {
+      console.log('🔄 [Permissions] Verificando estado de permisos...');
+      
+      const requiredPermissions = getRequiredPermissions();
+      
+      if (requiredPermissions.length === 0) {
+        console.error('❌ [Permissions] No hay permisos válidos para verificar');
+        return {};
+      }
+
+      const statuses = {};
+
+      for (const permission of requiredPermissions) {
+        // ✅ CORRECCIÓN: Obtener permission nativa de NATIVE_PERMISSIONS
+        const nativePermission = NATIVE_PERMISSIONS[permission.id];
+        
+        if (!nativePermission) {
+          console.warn(`⚠️ [Permissions] ${permission.id} no tiene permission nativa válida (puede ser Android <13 para NOTIFICATIONS)`);
+          statuses[permission.id] = 'granted'; // ✅ Si no existe, asumir granted (ej. Android <13 sin POST_NOTIFICATIONS)
+          continue;
+        }
+
+        try {
+          const result = await check(nativePermission);
+          statuses[permission.id] = mapPermissionResult(result);
+          console.log(`  ✓ ${permission.id}: ${statuses[permission.id]}`);
+        } catch (error) {
+          console.error(`❌ [Permissions] Error checking ${permission.id}:`, error.message);
+          statuses[permission.id] = 'unavailable';
+        }
+      }
+
+      setPermissionsStatus(statuses);
+      console.log('✅ [Permissions] Verificación completada');
+      return statuses;
+    } catch (error) {
+      console.error('❌ [usePermissions] Error general:', error.message || error);
+      return {};
+    }
+  }, [libraryError]);
+
+  // ✅ Solicitar un permiso individual
+  const requestSinglePermission = useCallback(async (permissionType, autoCheck = true) => {
+    if (libraryError) {
+      Alert.alert(
+        'Permisos no disponibles',
+        'No se pueden solicitar permisos porque la librería no está configurada correctamente.\n\nVerifica:\n1. npm install react-native-permissions\n2. npx pod-install (iOS)\n3. Rebuild de la app'
+      );
+      return 'unavailable';
+    }
+
+    try {
+      console.log(`📦 [Permissions] Solicitando: ${permissionType}`);
+      
+      // ✅ CORRECCIÓN: Obtener permission nativa de NATIVE_PERMISSIONS
       const nativePermission = NATIVE_PERMISSIONS[permissionType];
-      const config = PERMISSIONS_CONFIG[permissionType];
-
-      if (!config) {
-        console.warn(`[usePermissions] Unknown permission type: ${permissionType}`);
-        return RESULTS.UNAVAILABLE;
-      }
-
-      // ✅ NUEVO: Manejo especial para notificaciones en Android < 13
-      if (permissionType === 'NOTIFICATIONS' && !nativePermission) {
-        console.log('📱 [Permissions] Android < 13: notificaciones no requieren permiso explícito');
-        setPermissionsStatus((prev) => ({ ...prev, [permissionType]: RESULTS.GRANTED }));
-        return RESULTS.GRANTED;
-      }
-
+      
       if (!nativePermission) {
-        console.warn(`[usePermissions] Permission ${permissionType} not available on this platform`);
-        return RESULTS.UNAVAILABLE;
+        console.warn(`⚠️ [Permissions] ${permissionType} no tiene permission nativa válida`);
+        // ✅ Si no existe (ej. NOTIFICATIONS en Android <13), asumir granted
+        return 'granted';
       }
 
       setLoading(true);
 
-      try {
-        const currentStatus = await check(nativePermission);
-        console.log(`🔍 [Permissions] Checking ${permissionType}: ${currentStatus}`);
+      const result = await request(nativePermission);
+      const status = mapPermissionResult(result);
 
-        // Si ya está otorgado, no hacer nada
-        if (isPermissionGranted(currentStatus)) {
-          console.log(`✅ [Permissions] ${permissionType} ya otorgado`);
-          setPermissionsStatus((prev) => ({ ...prev, [permissionType]: currentStatus }));
-          setLoading(false);
-          return currentStatus;
-        }
+      console.log(`  ${permissionType}: ${status}`);
 
-        // Si está bloqueado, mostrar diálogo para ir a Settings
-        if (isPermissionBlocked(currentStatus)) {
-          console.log(`🚫 [Permissions] ${permissionType} está bloqueado`);
-          setLoading(false);
-          Alert.alert(
-            config.title,
-            config.blockedMessage,
-            [
-              { text: 'Cancelar', style: 'cancel' },
-              {
-                text: 'Abrir Configuración',
-                onPress: () => {
-                  console.log('⚙️ [Permissions] Abriendo Settings...');
-                  openSettings();
-                },
-              },
-            ],
-            { cancelable: true }
-          );
-          return currentStatus;
-        }
+      setPermissionsStatus((prev) => ({
+        ...prev,
+        [permissionType]: status,
+      }));
 
-        // ✅ MODIFICADO: Mostrar rationale SIEMPRE para permisos críticos
-        if (showRationale && config.rationale) {
-          console.log(`💬 [Permissions] Mostrando rationale para ${permissionType}`);
-          return new Promise((resolve) => {
-            Alert.alert(
-              config.rationale.title,
-              config.rationale.message,
-              [
-                {
-                  text: config.rationale.buttonNegative,
-                  style: 'cancel',
-                  onPress: () => {
-                    console.log(`❌ [Permissions] Usuario canceló ${permissionType}`);
-                    setLoading(false);
-                    resolve(RESULTS.DENIED);
-                  },
-                },
-                {
-                  text: config.rationale.buttonPositive,
-                  onPress: async () => {
-                    console.log(`✅ [Permissions] Solicitando ${permissionType}...`);
-                    try {
-                      const result = await request(nativePermission);
-                      console.log(`📋 [Permissions] Resultado de ${permissionType}: ${result}`);
-                      setPermissionsStatus((prev) => ({ ...prev, [permissionType]: result }));
-                      setLoading(false);
-                      resolve(result);
-                    } catch (error) {
-                      console.error(`❌ [Permissions] Error al solicitar ${permissionType}:`, error);
-                      setLoading(false);
-                      resolve(RESULTS.UNAVAILABLE);
-                    }
-                  },
-                },
-              ],
-              { cancelable: false }
-            );
-          });
-        }
+      setLoading(false);
 
-        // Solicitar permiso directamente (sin rationale)
-        console.log(`🔔 [Permissions] Solicitando ${permissionType} directamente...`);
-        const result = await request(nativePermission);
-        console.log(`📋 [Permissions] Resultado de ${permissionType}: ${result}`);
-        setPermissionsStatus((prev) => ({ ...prev, [permissionType]: result }));
-        setLoading(false);
-        return result;
-      } catch (error) {
-        console.error(`❌ [usePermissions] Error requesting ${permissionType}:`, error);
-        setLoading(false);
-        return RESULTS.UNAVAILABLE;
+      if (autoCheck) {
+        setTimeout(() => checkAllPermissions(), 500);
       }
-    },
-    []
-  );
 
-  // ✅ Solicitar múltiples permisos en batch (optimizado para iOS)
+      return status;
+    } catch (error) {
+      console.error(`❌ [usePermissions] Error requesting ${permissionType}:`, error.message);
+      setLoading(false);
+      return 'unavailable';
+    }
+  }, [checkAllPermissions, libraryError]);
+
+  // ✅ Solicitar múltiples permisos
   const requestMultiplePermissions = useCallback(async (permissionTypes) => {
-    setLoading(true);
+    if (libraryError) {
+      Alert.alert(
+        'Permisos no disponibles',
+        'No se pueden solicitar permisos porque la librería no está configurada correctamente.'
+      );
+      return {};
+    }
 
     try {
-      console.log('📦 [Permissions] Solicitando múltiples permisos:', permissionTypes);
+      console.log(`📦 [Permissions] Solicitando múltiples:`, permissionTypes);
       
-      // ✅ NUEVO: Filtrar notificaciones si no aplican en Android < 13
-      const validPermissionTypes = permissionTypes.filter((type) => {
-        const nativePermission = NATIVE_PERMISSIONS[type];
-        if (type === 'NOTIFICATIONS' && !nativePermission) {
-          console.log('📱 [Permissions] Omitiendo NOTIFICATIONS en Android < 13');
-          // Marcar como otorgado automáticamente
-          setPermissionsStatus((prev) => ({ ...prev, [type]: RESULTS.GRANTED }));
-          return false;
-        }
-        return nativePermission !== null && nativePermission !== undefined;
-      });
+      setLoading(true);
+      const results = {};
 
-      if (validPermissionTypes.length === 0) {
-        console.log('⚠️ [Permissions] No hay permisos válidos para solicitar');
-        setLoading(false);
-        return {};
+      for (const type of permissionTypes) {
+        // ✅ CORRECCIÓN: Obtener permission nativa de NATIVE_PERMISSIONS
+        const nativePermission = NATIVE_PERMISSIONS[type];
+        
+        if (!nativePermission) {
+          console.warn(`⚠️ [Permissions] Omitiendo ${type} (no requerido en esta plataforma/versión)`);
+          results[type] = 'granted'; // ✅ Asumir granted si no aplica
+          continue;
+        }
+
+        try {
+          const result = await request(nativePermission);
+          results[type] = mapPermissionResult(result);
+          console.log(`  ${type}: ${results[type]}`);
+
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (error) {
+          console.error(`❌ [Permissions] Error ${type}:`, error.message);
+          results[type] = 'unavailable';
+        }
       }
 
-      const nativePermissionsToRequest = validPermissionTypes
-        .map((type) => NATIVE_PERMISSIONS[type])
-        .filter((p) => p !== null && p !== undefined);
-
-      console.log('🔐 [Permissions] Permisos nativos a solicitar:', nativePermissionsToRequest);
-
-      const results = await requestMultiple(nativePermissionsToRequest);
-      console.log('📋 [Permissions] Resultados:', results);
-
-      // Mapear resultados de vuelta a los tipos originales
-      const mappedResults = {};
-      validPermissionTypes.forEach((type) => {
-        const nativePermission = NATIVE_PERMISSIONS[type];
-        if (nativePermission && results[nativePermission]) {
-          mappedResults[type] = results[nativePermission];
-        }
-      });
-
-      console.log('🗺️ [Permissions] Resultados mapeados:', mappedResults);
-      setPermissionsStatus((prev) => ({ ...prev, ...mappedResults }));
+      setPermissionsStatus((prev) => ({ ...prev, ...results }));
       setLoading(false);
-      return mappedResults;
+
+      setTimeout(() => checkAllPermissions(), 1000);
+
+      return results;
     } catch (error) {
-      console.error('❌ [usePermissions] Error requesting multiple permissions:', error);
+      console.error('❌ [usePermissions] Error múltiple:', error.message);
       setLoading(false);
       return {};
     }
-  }, []);
+  }, [checkAllPermissions, libraryError]);
 
-  // ✅ Verificar si se deben solicitar permisos al iniciar la app
-  const shouldRequestPermissions = useCallback(() => {
-    const requiredPermissions = Object.keys(PERMISSIONS_CONFIG).filter(
-      (key) => PERMISSIONS_CONFIG[key].required
+  // ✅ Abrir configuración
+  const openSystemSettings = useCallback(async () => {
+    if (libraryError) {
+      Alert.alert(
+        'Configuración no disponible',
+        'No se puede abrir la configuración del sistema porque la librería de permisos no está disponible.'
+      );
+      return;
+    }
+
+    try {
+      console.log('⚙️ [Permissions] Abriendo configuración del sistema...');
+      await openSettings();
+    } catch (error) {
+      console.error('❌ [Permissions] Error abriendo settings:', error.message);
+      Alert.alert(
+        'Error',
+        'No se pudo abrir la configuración del sistema. Por favor, hazlo manualmente:\n\nAjustes > Apps > VidKar > Permisos'
+      );
+    }
+  }, [libraryError]);
+
+  // ✅ Verificar si todos granted
+  const allGranted = useCallback(() => {
+    if (libraryError) return false;
+
+    const requiredPermissions = getRequiredPermissions();
+    
+    if (requiredPermissions.length === 0) {
+      return false;
+    }
+
+    return requiredPermissions.every((permission) =>
+      isPermissionGranted(permissionsStatus[permission.id])
     );
+  }, [permissionsStatus, libraryError]);
 
-    const needsPermissions = requiredPermissions.some((key) => {
-      const status = permissionsStatus[key];
-      return !isPermissionGranted(status);
-    });
-
-    console.log('❓ [Permissions] ¿Necesita solicitar permisos?:', needsPermissions);
-    return needsPermissions;
-  }, [permissionsStatus]);
-
-  // Verificar permisos al montar el hook
+  // ✅ Check inicial
   useEffect(() => {
-    console.log('🚀 [usePermissions] Inicializando verificación de permisos...');
-    checkAllPermissions();
-  }, [checkAllPermissions]);
+    if (!libraryError) {
+      checkAllPermissions();
+    }
+  }, [checkAllPermissions, libraryError]);
 
   return {
     permissionsStatus,
     loading,
-    allGranted,
+    allGranted: allGranted(),
+    libraryError, // ✅ Exponer estado de error para UI
     checkAllPermissions,
     requestSinglePermission,
     requestMultiplePermissions,
-    shouldRequestPermissions,
-    openSettings,
+    openSettings: openSystemSettings,
   };
 };
 
