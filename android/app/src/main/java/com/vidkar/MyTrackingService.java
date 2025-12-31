@@ -28,7 +28,7 @@ public class MyTrackingService extends Service {
     private static final String TAG = "MyTrackingService";
     private static final String CHANNEL_ID = "vidkar_tracking";
 
-    private static final String BASE_URL = "https://ht7cpzhf-3000.brs.devtunnels.ms";
+    private static final String BASE_URL = "https://www.vidkar.com";
     private static final String LOCATION_URL = BASE_URL + "/api/location";
     private static final String CADETE_ACTIVE_URL = BASE_URL + "/api/cadete/isActive";
 
