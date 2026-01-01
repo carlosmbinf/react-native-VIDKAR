@@ -222,6 +222,7 @@ const VentasStepper = ({ navigation }) => {
     const esEfectivo = venta.metodoPago === 'EFECTIVO';
     const isPendientePago = venta.isCobrado === false;
     const necesitaEvidencia = esEfectivo && isPendientePago;
+    const isCancelada = venta.isCancelada === true; // ✅ NUEVO: Flag de cancelación
 
     // ✅ Calcular resumen de items
     const totalItems = venta?.producto?.carritos?.length || 0;
@@ -233,6 +234,15 @@ const VentasStepper = ({ navigation }) => {
 
     return (
       <Surface key={venta._id} style={styles.card} elevation={3}>
+        {/* ✅ NUEVO: Ribbon de cancelada */}
+        {isCancelada && (
+          <View style={styles.ribbonContainer}>
+            <View style={styles.ribbon}>
+              <Text style={styles.ribbonText}>CANCELADA</Text>
+            </View>
+          </View>
+        )}
+
         <Card.Title 
           title={`${sectionTitle} #${index + 1}`}
           subtitle={venta.createdAt?.toLocaleString()}
@@ -241,6 +251,7 @@ const VentasStepper = ({ navigation }) => {
               {...props} 
               icon={isExpanded ? "chevron-up" : "chevron-down"}
               onPress={() => toggleExpanded(venta._id)}
+              style={{zIndex:100}}
             />
           )}
         />
@@ -252,8 +263,23 @@ const VentasStepper = ({ navigation }) => {
           
           {isExpanded && (
             <>
-              {/* ✅ NUEVO: Card de evidencia si es EFECTIVO y no cobrado */}
-              {necesitaEvidencia && (
+              {/* ✅ MODIFICADO: Alert de cancelación (prioridad sobre evidencia) */}
+              {isCancelada && (
+                <Surface style={styles.alertCancelada} elevation={1}>
+                  <IconButton 
+                    icon="close-circle" 
+                    size={20} 
+                    iconColor="#D32F2F"
+                    style={{ margin: 0, marginRight: 8 }}
+                  />
+                  <Text style={styles.alertCanceladaText}>
+                    ❌ Esta venta ha sido cancelada y no se procesará
+                  </Text>
+                </Surface>
+              )}
+
+              {/* ✅ Evidencia solo si NO está cancelada */}
+              {necesitaEvidencia && !isCancelada && (
                 <Surface style={styles.evidenciaCard} elevation={2}>
                   <View style={styles.evidenciaHeader}>
                     <IconButton 
@@ -277,8 +303,8 @@ const VentasStepper = ({ navigation }) => {
                 </Surface>
               )}
 
-              {/* ✅ MODIFICADO: Alerta de pago pendiente solo si NO es EFECTIVO */}
-              {isPendientePago && !esEfectivo && (
+              {/* ✅ Alerta de pago pendiente solo si NO es EFECTIVO y NO cancelada */}
+              {isPendientePago && !esEfectivo && !isCancelada && (
                 <Surface style={styles.alertPendientePago} elevation={1}>
                   <IconButton 
                     icon="alert-circle" 
@@ -557,6 +583,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 16,
     borderRadius: 30,
+    overflow: 'hidden',
+    position: 'relative',
   },
   chipContainer: {
     flexDirection: 'row',
@@ -924,6 +952,57 @@ const styles = StyleSheet.create({
   // ✅ NUEVO: Estilo para Snackbar
   snackbar: {
     backgroundColor: '#6200ee',
+  },
+  // ✅ MODIFICADO: Estilos para ribbon en esquina superior DERECHA
+  ribbonContainer: {
+    position: 'absolute',
+    top: 0,
+    right: 0, // ✅ CAMBIADO: left → right
+    zIndex: 10,
+    width: 150,
+    height: 150,
+    overflow: 'hidden',
+  },
+  ribbon: {
+    position: 'absolute',
+    top: 40,
+    right: -40, // ✅ CAMBIADO: left → right con offset negativo
+    width: 200,
+    backgroundColor: '#D32F2F',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    transform: [{ rotate: '45deg' }], // ✅ CAMBIADO: -45deg → 45deg para esquina derecha
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  ribbonText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  // ✅ NUEVO: Estilos para alerta de cancelación
+  alertCancelada: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEBEE',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#D32F2F',
+  },
+  alertCanceladaText: {
+    fontSize: 13,
+    color: '#B71C1C',
+    fontWeight: '600',
+    flex: 1,
   },
 });
 
