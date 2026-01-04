@@ -1,17 +1,21 @@
 import React, { useState, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, RefreshControl, Animated } from 'react-native';
 import { 
-  Text, Searchbar, FAB, ActivityIndicator, Surface, Chip, Divider 
+  Text, Searchbar, FAB, ActivityIndicator, Surface, Chip, Divider, 
+  Appbar
 } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 import { TiendasComercioCollection, ProductosComercioCollection } from '../collections/collections';
 import TiendaCard from './TiendaCard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MenuHeader from '../Header/MenuHeader';
 
 const ProductosScreen = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [showSearchbar, setShowSearchbar] = useState(false);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
-
+  const insets = useSafeAreaInsets();
   React.useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -73,40 +77,78 @@ const ProductosScreen = ({ navigation }) => {
 
   if (loading && !refreshing) {
     return (
-      <View style={styles.loadingContainer}>
+      <Surface style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#6200ee" />
         <Text style={styles.loadingText}>Cargando comercios...</Text>
-      </View>
+      </Surface>
     );
   }
 
   return (
     <Surface style={styles.container}>
-      {/* Header con búsqueda */}
-      <Surface style={styles.header} elevation={2}>
-        <Text variant="headlineSmall" style={styles.headerTitle}>
-          🏪 Comercios ({tiendasConProductos.length})
-        </Text>
-        
-        <Searchbar
-          placeholder="Buscar tiendas o productos..."
-          onChangeText={setSearchQuery}
-          value={searchQuery}
-          style={styles.searchbar}
-          blurOnSubmit="on"
-        //   elevation={1}
-          icon="magnify"
-          clearIcon="close"
-        />
-
-        {searchQuery.trim() && (
-          <View style={styles.resultsInfo}>
-            <Chip icon="filter-variant" mode="outlined" compact>
-              {tiendasFiltradas.length} resultado{tiendasFiltradas.length !== 1 ? 's' : ''}
-            </Chip>
+      <Appbar style={{ backgroundColor: '#3f51b5', height: insets.top + 50, justifyContent: 'center', paddingTop: insets.top }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%", alignItems: 'center' }}>
+          <View style={{ flexDirection: "row" }}>
+            <Appbar.BackAction
+              color='white'
+              onPress={() => {
+                if (navigation?.navigation?.canGoBack()) {
+                  navigation.navigation.goBack();
+                }
+              }}
+            />
           </View>
-        )}
-      </Surface>
+          <View style={{ flexDirection: "row", alignItems: 'center' }}>
+            <Appbar.Action 
+              icon="magnify" 
+              color={"white"} 
+              onPress={() => {
+                setShowSearchbar(!showSearchbar);
+                if (!showSearchbar) {
+                  setSearchQuery(''); // Limpiar búsqueda al cerrar
+                }
+              }} 
+            />
+            <MenuHeader navigation={navigation} />
+          </View>
+        </View>
+      </Appbar>
+
+      {/* Header con búsqueda */}
+      {showSearchbar && (
+        <View style={styles.header}>
+          <Searchbar
+            placeholder="Buscar tiendas o productos..."
+            onChangeText={setSearchQuery}
+            value={searchQuery}
+            style={styles.searchbar}
+            autoFocus
+            blurOnSubmit={false}
+            icon="magnify"
+            clearIcon="close"
+            onIconPress={() => {
+              setShowSearchbar(false);
+              setSearchQuery('');
+            }}
+          />
+
+          {searchQuery.trim() && (
+            <View style={styles.resultsInfo}>
+              <Chip icon="filter-variant" mode="outlined" compact>
+                {tiendasFiltradas.length} resultado{tiendasFiltradas.length !== 1 ? 's' : ''}
+              </Chip>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* {!showSearchbar && (
+        <View style={styles.header}>
+          <Text variant="headlineSmall" style={styles.headerTitle}>
+            🏪 Comercios ({tiendasConProductos.length})
+          </Text>
+        </View>
+      )} */}
 
       {/* Lista de tiendas */}
       <ScrollView
@@ -167,7 +209,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    // padding: 20,
+    width: '100%',
+    height: '100%',
   },
   loadingText: {
     marginTop: 16,

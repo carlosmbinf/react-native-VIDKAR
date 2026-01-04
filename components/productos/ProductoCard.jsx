@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Image, Pressable } from 'react-native';
+import { View, StyleSheet, Image, Pressable, Platform } from 'react-native';
 import { 
   Surface, Text, Chip, IconButton 
 } from 'react-native-paper';
@@ -35,15 +35,22 @@ const ProductoCard = ({ producto, tienda, searchQuery }) => {
 
   return (
     <>
-      <Pressable onPress={() => estaDisponible && setDialogVisible(true)}>
-        <Surface 
-          style={[
-            styles.card, 
-            !estaDisponible && styles.cardDisabled
-          ]} 
-          elevation={2}
-        >
-          {/* Imagen del producto */}
+      <Pressable 
+        onPress={() => estaDisponible && setDialogVisible(true)}
+        android_ripple={{ color: 'rgba(0, 0, 0, 0.1)' }}
+        style={({ pressed }) => [
+          styles.cardContainer
+        ]}
+      >
+        <View style={styles.cardInner}>
+          <Surface 
+            style={[
+              styles.card, 
+              !estaDisponible && styles.cardDisabled
+            ]} 
+            elevation={4}
+          >
+            {/* Imagen del producto */}
           <View style={styles.imageContainer}>
             {imageUrl ? (
               <Image 
@@ -95,7 +102,7 @@ const ProductoCard = ({ producto, tienda, searchQuery }) => {
             <Text 
               variant="titleSmall" 
               style={styles.nombre}
-              numberOfLines={2}
+              numberOfLines={1}
             >
               {highlightText(producto.name)}
             </Text>
@@ -118,6 +125,7 @@ const ProductoCard = ({ producto, tienda, searchQuery }) => {
             </View>
           </View>
         </Surface>
+        </View>
       </Pressable>
 
       {/* Dialog para agregar al carrito */}
@@ -132,11 +140,32 @@ const ProductoCard = ({ producto, tienda, searchQuery }) => {
 };
 
 const styles = StyleSheet.create({
+  cardContainer: {
+    marginRight: 16, // ✅ Mayor espacio horizontal entre cards (antes 12)
+    marginVertical: 8, // ✅ Espacio vertical para que se vea la sombra
+  },
+  pressedIOS: {
+    opacity: 0.7, // ✅ Efecto nativo de iOS al tocar
+  },
+  cardInner: {
+    width: 180,
+    // ✅ Sombras para iOS en el contenedor (sin overflow)
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 0, // elevation se maneja en Surface
+      },
+    }),
+  },
   card: {
-    width: 180, // ✅ Ancho fijo para cards verticales
-    marginRight: 12,
+    width: '100%',
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: 'hidden', // ✅ overflow solo en el card interno
   },
   cardDisabled: {
     opacity: 0.6,
@@ -190,7 +219,8 @@ const styles = StyleSheet.create({
   nombre: {
     fontWeight: '700',
     marginBottom: 4,
-    lineHeight: 18,
+    lineHeight: 16,
+    fontSize: 13, // ✅ Letra más pequeña para que quepa en una línea
   },
   descripcion: {
     opacity: 0.7,

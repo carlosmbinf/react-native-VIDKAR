@@ -50,7 +50,7 @@ const TiendaCard = ({ tienda, index, searchQuery }) => {
   );
 
   return (
-    <Surface style={[styles.card, { marginTop: index === 0 ? 0 : 16 }]} >
+    <View style={[styles.card, { marginTop: 16}]} >
       {/* Header de la tienda */}
       <Card.Content>
         <View style={styles.headerRow}>
@@ -164,14 +164,14 @@ const TiendaCard = ({ tienda, index, searchQuery }) => {
           <View style={{ height: 12 }} />
         </>
       )}
-    </Surface>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
     borderRadius: 20,
-    overflow: 'hidden',
+    
     width: "100%",
   },
   headerRow: {
