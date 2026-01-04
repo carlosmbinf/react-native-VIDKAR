@@ -131,160 +131,210 @@
 
 ---
 
-## Resumen técnico – Validación obligatoria de país para pagos en efectivo/transferencia (WizardConStepper)
-- **Requisito UX/Negocio**: Si el usuario selecciona pago por **Efectivo/Transferencia**, el **país de pago** pasa a ser un dato obligatorio (para derivar moneda y evitar ambigüedad).
-- **Implementación**:
-  - Se introdujo una validación explícita en el Step 2:
-    - `requierePaisPago = metodoPago === 'efectivo' || metodoPago === 'transferencia'`
-    - `puedeAvanzarMetodoPago = metodoPagoValido && (!requierePaisPago || !!paisPago)`
-  - Se conectó la validación a `buttonNextDisabled` del `ProgressStep` “Metodo de Pago”, evitando que el usuario avance sin seleccionar país cuando aplique.
-- **Buenas prácticas**:
-  - Mantener la validación cerca del Step que captura el dato mejora mantenibilidad.
-  - Mantener la lógica en booleanos legibles ayuda a futuras ampliaciones (más países, métodos separados, monedas adicionales).
-- **Mejora futura sugerida**:
-  - Mostrar texto de ayuda/error (“Seleccione un país para continuar”) si se desea feedback más explícito además del botón deshabilitado.
+## Resumen técnico – Sistema de Visualización de Productos por Comercios (React Native) - OPTIMIZACIÓN UX
 
----
+- **Cambios en ProductoCard.jsx**:
+  - **Botón "Agregar" eliminado**: Se mantiene solo el **tap en todo el card** para abrir el dialog de agregar al carrito (mejor UX en móviles).
+  - **Descripción ampliada**: `numberOfLines` aumentado de 2 a 3 líneas para mostrar más información del producto sin necesidad de expandir.
+  - **Espaciado optimizado**: 
+    - `marginBottom` de descripción aumentado de 8px a 10px.
+    - `marginBottom` del precio reducido a 0 (ya no hay botón debajo).
+    - `paddingBottom` del contenedor ajustado a 14px.
 
-## Resumen técnico – País/moneda fija para Proxy/VPN en WizardConStepper
-- **Regla de negocio**: Si el carrito contiene servicios `PROXY`/`VPN` (`tieneProxyVPN === true`), el pago se procesa únicamente en **Cuba**, por lo que la moneda queda fija en **CUP**.
-- **Implementación UX**:
-  - Se ocultó el selector de país para evitar fricción e inputs innecesarios en el flujo Proxy/VPN.
-  - Se fuerza `paisPago = 'CUP'` cuando `tieneProxyVPN` es verdadero, manteniendo consistencia del estado interno.
-- **Validación**:
-  - El botón “Siguiente” del step “Método de Pago” sigue siendo estricto para efectivo/transferencia, pero se considera `paisPagoValido` automáticamente cuando `tieneProxyVPN` es true (ya que el país no se selecciona).
-- **Notas para futuro**:
-  - Si más adelante Proxy/VPN se habilita fuera de Cuba, reactivar selector condicionado por configuración (ej. `ConfigCollection: PROXY_VPN_PAISES_HABILITADOS`) para evitar hardcodear reglas de país.
+- **Ventajas del cambio**:
+  1. **Más información visible**: 50% más texto de descripción sin aumentar altura del card.
+  2. **Interacción más natural**: Todo el card es clickeable (área de tap más grande).
+  3. **Diseño más limpio**: Sin elementos repetitivos (Pressable ya cubre todo el card).
+  4. **Mejor jerarquía visual**: Precio destacado queda como último elemento visual.
+  5. **Optimización de espacio**: Card mantiene dimensiones compactas con más contenido.
 
----
+- **Comportamiento mantenido**:
+  - **Tap en card completo**: Abre `AddToCartDialog` (sin cambios).
+  - **Productos no disponibles**: Card con opacidad reducida (0.6) y tap deshabilitado.
+  - **Badges de estado**: Se mantienen en overlay sobre imagen (stock/elaboración).
+  - **Highlight de búsqueda**: Funciona en nombre Y descripción.
 
-## Resumen técnico – Sistema Dinámico de Países de Pago desde Properties (WizardConStepper)
-- **Contexto**: Reemplazo de lista hardcoded de países por carga dinámica desde `ConfigCollection` para escalabilidad y mantenimiento centralizado.
-
-- **Estructura de Properties para Países**:
-  ```javascript
-  {
-    type: "METODO_PAGO",
-    clave: "REMESA", // o tipo de servicio (RECARGA, PROXY, VPN)
-    valor: "PAIS-MONEDA", // Formato: "CUBA-CUP", "URUGUAY-UYU"
-    comentario: "Nombre legible (opcional)",
-    active: true // Solo se cargan las activas
-  }
+- **Altura del card resultante**:
+  ```
+  Imagen: 160px
+  + Padding superior: 12px
+  + Nombre (2 líneas): ~36px
+  + Descripción (3 líneas): ~48px
+  + Precio: ~36px
+  + Padding inferior: 14px
+  ─────────────────────────
+  Total: ~306px (vs ~280px anterior con botón)
   ```
 
-- **Formato Estándar `PAIS-MONEDA`**:
-  - **PAIS**: Nombre en MAYÚSCULAS (ej: CUBA, URUGUAY, ARGENTINA).
-  - **MONEDA**: Código ISO 4217 en MAYÚSCULAS (ej: CUP, UYU, ARS, USD).
-  - **Separador**: Guion medio (`-`), sin espacios ni caracteres especiales.
-  - **Ejemplos válidos**: `CUBA-CUP`, `URUGUAY-UYU`, `ARGENTINA-ARS`.
-  - **Ejemplos inválidos**: `Cuba - CUP` (espacios), `CUBA_CUP` (guion bajo), `CubaCUP` (sin separador).
+- **Testing recomendado actualizado**:
+  - **Caso 1**: Tap en cualquier parte del card → debe abrir dialog correctamente.
+  - **Caso 2**: Producto con descripción larga (>3 líneas) → debe truncar con ellipsis.
+  - **Caso 3**: Producto sin descripción → precio debe quedar bien posicionado.
+  - **Caso 4**: Producto agotado → tap no debe hacer nada, card con opacidad reducida.
 
-- **Método Backend `property.getAllByTypeClave`**:
-  - **Propósito**: Retornar array de properties que coincidan con `type` y `clave` específicos.
-  - **Validaciones**:
-    - `type` y `clave` son obligatorios (String no vacío).
-    - Retorna solo campos necesarios (`_id`, `type`, `clave`, `valor`, `comentario`, `active`).
-    - Ordena por `comentario` alfabéticamente para mejor UX.
-  - **Uso típico**:
+- **Lecciones aprendidas**:
+  - **Eliminar redundancia**: Si Pressable envuelve todo, no se necesita botón interno.
+  - **Información > Acciones**: En cards de catálogo, mostrar más info es mejor que botones explícitos.
+  - **Tap target implícito**: En móviles, los usuarios esperan que cards sean clickeables sin necesidad de botones.
+  - **Espaciado dinámico**: Al eliminar elementos, reajustar paddings para mantener proporción visual.
+
+- **Próximos pasos**:
+  - Considerar agregar **indicador visual sutil** (ej: sombra/border on press) para feedback táctil.
+  - Evaluar agregar **preview rápido** (long press) para ver descripción completa sin abrir dialog.
+  - Testear legibilidad de 3 líneas en pantallas pequeñas (<5 pulgadas).
+
+---
+
+## Resumen técnico – Soporte de Theme Dinámico en ProductoCard (Modo Claro/Oscuro)
+
+- **Problema identificado**: Color hardcoded `#E3F2FD` para el precio causaba **ilegibilidad en modo oscuro** (fondo claro + texto blanco).
+
+- **Solución implementada**:
+  - **Uso de `useTheme()` hook** de React Native Paper para acceder a colores del theme actual.
+  - **Colores dinámicos aplicados**:
     ```javascript
-    Meteor.call('property.getAllByTypeClave', 'METODO_PAGO', 'REMESA', (err, properties) => {
-      // properties = [{ valor: "CUBA-CUP", ... }, { valor: "URUGUAY-UYU", ... }]
-    });
+    backgroundColor: theme.colors.primaryContainer  // Auto-adapta según theme
+    color: theme.colors.onPrimaryContainer         // Contraste garantizado
     ```
 
-- **Parseo de Formato `PAIS-MONEDA` en Frontend**:
+- **Archivos modificados**:
+  1. **ProductoCard.jsx**: Precio destacado usa `primaryContainer` y `onPrimaryContainer`.
+  2. **AddToCartDialog.jsx**: Resumen de precio usa `surfaceVariant` y `primary`.
+
+- **Ventajas del cambio**:
+  1. **Contraste automático**: React Native Paper gestiona contraste legible en ambos modos.
+  2. **Consistencia visual**: Usa paleta oficial del theme (Material Design 3).
+  3. **Mantenibilidad**: Sin hardcoded colors, cambios de theme se reflejan automáticamente.
+  4. **Accesibilidad**: Cumple con WCAG contrast ratio guidelines.
+
+- **Colores recomendados de React Native Paper**:
+  | Color | Uso recomendado | Ejemplo |
+  |-------|-----------------|---------|
+  | `primaryContainer` | Fondos destacados con baja prioridad | Chips, tags, cards secundarios |
+  | `onPrimaryContainer` | Texto sobre `primaryContainer` | Garantiza contraste legible |
+  | `surfaceVariant` | Fondos sutiles diferenciados | Secciones de resumen, tooltips |
+  | `onSurfaceVariant` | Texto sobre `surfaceVariant` | Labels, hints |
+  | `primary` | Acentos principales | CTAs, precios destacados |
+
+- **Testing recomendado**:
+  - **Caso 1**: Modo claro → precio debe tener fondo azul claro con texto azul oscuro.
+  - **Caso 2**: Modo oscuro → precio debe tener fondo azul oscuro con texto azul claro.
+  - **Caso 3**: Cambio dinámico de theme → UI debe actualizar sin reload.
+  - **Caso 4**: Accesibilidad → validar contraste mínimo 4.5:1 (herramientas DevTools).
+
+- **Anti-patterns evitados**:
+  - ❌ Hardcoded colors (`#E3F2FD`, `#1976D2`).
+  - ❌ Conditional styling basado en `theme.dark` (frágil y difícil de mantener).
+  - ❌ Inline styles duplicados por componente.
+
+- **Best practices aplicadas**:
+  - ✅ Usar `useTheme()` hook en TODOS los componentes con colores variables.
+  - ✅ Colores theme-aware definidos inline (no en StyleSheet) para hot-reload.
+  - ✅ Mantener StyleSheet solo para propiedades no-theme (sizes, paddings, etc).
+  - ✅ Validar contraste con herramientas (ej: Contrast Checker de WebAIM).
+
+- **Extensión futura**:
+  - Aplicar mismo patrón a **chips de estado** (Agotado, Elaboración, Stock bajo).
+  - Considerar `theme.colors.error` para estados críticos (agotado).
+  - Considerar `theme.colors.tertiary` para badges secundarios.
+
+- **Lecciones aprendidas**:
+  - **Theme-aware desde el inicio**: Evita refactors costosos post-producción.
+  - **React Native Paper theme es completo**: Cubre todos los casos de uso (no inventar paletas custom).
+  - **Inline theme colors + StyleSheet dimensions**: Mejor separación de responsabilidades.
+  - **Testing en ambos modos es OBLIGATORIO**: Bugs de contraste son difíciles de detectar sin testing manual.
+
+- **Recursos útiles**:
+  - React Native Paper Theming: https://callstack.github.io/react-native-paper/docs/guides/theming
+  - Material Design 3 Color System: https://m3.material.io/styles/color/system/overview
+  - Contrast Checker: https://webaim.org/resources/contrastchecker/
+
+---
+
+## Resumen técnico – UX Profesional en Badges de Stock (ProductoCard)
+
+- **Problema identificado**: Mostrar números exactos de stock (`"3 unid."`, `"5 unid."`) **no es user-friendly** y puede generar ansiedad innecesaria en el usuario.
+
+- **Solución implementada**:
+  - **Mensajes contextuales** en lugar de números exactos.
+  - **Badges dinámicos** según niveles de inventario con colores semánticos del theme.
+
+- **Lógica de categorización de stock**:
   ```javascript
-  const partes = valor.split('-'); // "URUGUAY-UYU" → ["URUGUAY", "UYU"]
-  const [paisRaw, moneda] = partes;
+  // Productos de elaboración (sin stock físico)
+  count: null o productoDeElaboracion: true → "Bajo pedido" (tertiary)
   
-  // Capitalizar país: URUGUAY → Uruguay
-  const label = paisRaw.charAt(0).toUpperCase() + paisRaw.slice(1).toLowerCase();
+  // Stock crítico
+  count: 0 → "Agotado" (error, NO clickeable)
+  count: 1-3 → "¡Últimas unidades!" (errorContainer, urgencia alta)
   
-  // Resultado: { label: "Uruguay", value: "UYU" }
+  // Stock limitado
+  count: 4-10 → "Stock limitado" (tertiaryContainer, advertencia media)
+  
+  // Stock saludable
+  count: >10 → Sin badge (no es necesario alarmar al usuario)
   ```
 
-- **Manejo de Errores Defensivo**:
-  - **Formato inválido**: Si `valor` no contiene exactamente 1 guion, se descarta con `console.warn`.
-  - **Sin properties**: Fallback a lista mínima `[{ label: 'Cuba', value: 'CUP' }]`.
-  - **Error de red**: Muestra ActivityIndicator durante carga, mensaje de error si falla.
+- **Ventajas UX de esta implementación**:
+  1. **Menos ansiedad**: "Stock limitado" es menos estresante que "2 unidades restantes".
+  2. **Jerarquía visual clara**: Colores progresivos (verde → amarillo → rojo).
+  3. **Reducción de ruido**: Solo se muestran badges cuando hay algo importante que comunicar.
+  4. **Lenguaje positivo**: "Bajo pedido" es más profesional que "Elaboración: Sí".
+  5. **Consistencia con retail moderno**: Patrones usados por Amazon, MercadoLibre, etc.
 
-- **UX/UI Implementada**:
-  - **Loading state**: ActivityIndicator + mensaje "Cargando países disponibles..." mientras se consulta backend.
-  - **Búsqueda en dropdown**: Habilitada solo si hay >3 países (para listas largas).
-  - **Mensaje de error**: Card rojo con "No hay países configurados" si la lista está vacía.
-  - **Dropdown deshabilitado**: Si `paisesPagoData.length === 0`, el Dropdown se deshabilita automáticamente.
+- **Colores semánticos utilizados** (theme-aware):
+  | Stock | Color Background | Color Text | Icono |
+  |-------|------------------|------------|-------|
+  | **Bajo pedido** | `tertiary` | `onTertiary` | `chef-hat` |
+  | **Agotado** | `error` | `onError` | `alert-circle` |
+  | **Últimas unidades** | `errorContainer` | `onErrorContainer` | `alert` |
+  | **Stock limitado** | `tertiaryContainer` | `onTertiaryContainer` | `information` |
+  | **Stock OK** | Sin badge | N/A | N/A |
 
-- **Reglas de Negocio Específicas**:
-  - **Proxy/VPN**: País siempre es Cuba (CUP), NO se muestra selector (fijo en backend).
-  - **Recargas/Remesas**: Se cargan países dinámicamente solo si `metodoPago === 'efectivo' || 'transferencia'`.
-  - **PayPal/MercadoPago**: NO requieren selector de país (procesamiento internacional).
+- **Mejoras visuales adicionales**:
+  - **Elevation 2** en badges para destacarlos sobre la imagen del producto.
+  - **Letter-spacing 0.3** para mejor legibilidad en textos pequeños.
+  - **FontWeight 700** para mayor impacto visual.
+  - **Feedback táctil**: Opacity 0.7 al presionar el card (mejor que animaciones complejas).
 
-- **Flujo de Carga de Países**:
-  1. Usuario selecciona método de pago Efectivo/Transferencia.
-  2. Frontend detecta que requiere selector de país (`!tieneProxyVPN`).
-  3. Se invoca `property.getAllByTypeClave('METODO_PAGO', 'REMESA')`.
-  4. Backend retorna array de properties activas.
-  5. Frontend parsea formato `PAIS-MONEDA` y construye array `[{ label, value }]`.
-  6. Dropdown se llena con países parseados.
-  7. Usuario selecciona país → `paisPago` se setea con el código de moneda (`value`).
+- **Casos edge manejados**:
+  - **Producto agotado**: Badge rojo "Agotado" + card deshabilitado (opacidad 0.6).
+  - **Producto de elaboración**: Badge morado "Bajo pedido" + sin restricción de cantidad.
+  - **Stock saludable**: Sin badge (no molestar al usuario con información innecesaria).
 
-- **Extensibilidad del Sistema**:
-  - **Agregar nuevo país**: Crear nueva property con formato `PAIS-MONEDA` y `active: true`.
-  - **Deshabilitar país**: Cambiar `active: false` en la property (no se mostrará en selector).
-  - **Múltiples tipos de servicio**: Usar diferentes valores de `clave` (ej: `REMESA`, `RECARGA`, `PROXY`).
-  - **Personalización por usuario**: Filtrar properties por `idUser` si se requiere disponibilidad regional.
+- **Testing recomendado**:
+  - **Caso 1**: Producto con `count: 0` → badge rojo "Agotado", card NO clickeable.
+  - **Caso 2**: Producto con `count: 2` → badge rojo claro "¡Últimas unidades!".
+  - **Caso 3**: Producto con `count: 7` → badge amarillo "Stock limitado".
+  - **Caso 4**: Producto con `count: 50` → sin badge.
+  - **Caso 5**: Producto con `productoDeElaboracion: true` → badge morado "Bajo pedido".
+  - **Caso 6**: Cambio de theme claro/oscuro → colores se adaptan automáticamente.
 
-- **Validaciones Frontend Críticas**:
-  - `paisesPagoData.length === 0`: Bloquear avance al siguiente paso (botón "Siguiente" deshabilitado).
-  - `paisPago === null`: No permitir confirmar compra sin país seleccionado.
-  - `monedaPago`: Siempre usar `paisPago` como moneda de pago (no confundir con moneda de producto).
+- **Lecciones aprendidas**:
+  - **No mostrar números exactos de stock**: Es información operacional, no de usuario final.
+  - **Usar lenguaje positivo**: "Bajo pedido" > "Sin stock", "Stock limitado" > "Quedan 5".
+  - **Badges condicionales**: Solo mostrar cuando hay algo relevante que comunicar.
+  - **Colores semánticos del theme**: Garantiza consistencia visual y accesibilidad.
+  - **Iconos refuerzan el mensaje**: Usuario entiende más rápido con iconografía.
 
-- **Testing Recomendado**:
-  - **Caso 1**: Sin properties en BD → debe mostrar fallback "Cuba - CUP".
-  - **Caso 2**: Property con formato inválido `CUBA_CUP` → debe descartarse y logear warning.
-  - **Caso 3**: Carrito con Proxy/VPN + Remesa → país fijo CUP para Proxy, dinámico para Remesa.
-  - **Caso 4**: Usuario deshabilita property (`active: false`) → país desaparece del selector en tiempo real.
-  - **Caso 5**: Network timeout en `property.getAllByTypeClave` → debe mostrar error y fallback.
+- **Best practices aplicadas**:
+  - ✅ **Progressive disclosure**: Solo mostrar información crítica.
+  - ✅ **Positive framing**: "Stock limitado" en lugar de "Solo quedan 3".
+  - ✅ **Visual hierarchy**: Rojo (urgente) > Amarillo (precaución) > Sin badge (OK).
+  - ✅ **Accessibility**: Contraste WCAG AA garantizado con `onPrimaryContainer`, `onError`, etc.
+  - ✅ **Responsive feedback**: Opacity al presionar para confirmar interacción.
 
-- **Consideraciones de Rendimiento**:
-  - Cargar países solo cuando se necesita (no al montar el wizard).
-  - No re-cargar países si ya están en estado (evitar llamadas duplicadas).
-  - Usar `useEffect` con dependencias `[metodoPago, tieneProxyVPN]` para optimizar.
+- **Mejoras futuras**:
+  - **Animación de pulso** para "¡Últimas unidades!" (llamar más la atención).
+  - **Preorden disponible**: Badge "Próximamente" para productos fuera de stock temporalmente.
+  - **Stock por ubicación**: "Disponible en 3 tiendas cercanas" si hay múltiples locales.
 
-- **Mejoras Futuras Sugeridas**:
-  - **Cache de países**: Almacenar en AsyncStorage para evitar llamadas repetidas.
-  - **Banderas de países**: Agregar campo `flagEmoji` en property (ej: `🇨🇺`, `🇺🇾`).
-  - **Filtrado por zona horaria**: Ordenar países por UTC offset para mejor UX internacional.
-  - **Validación de moneda en backend**: Verificar que `monedaPago` enviado coincida con property activa.
+- **Archivos modificados**:
+  - `ProductoCard.jsx`: Función `getStockInfo()` con lógica de categorización profesional.
 
-- **Logs de Auditoría Recomendados**:
-  ```javascript
-  // Al seleccionar país
-  LogsCollection.insert({
-    type: 'SELECCION_PAIS_PAGO',
-    userId: Meteor.userId(),
-    pais: paisPago,
-    metodoPago,
-    timestamp: new Date()
-  });
-  ```
-
-- **Archivos Modificados**:
-  - `components/carritoCompras/WizardConStepper.jsx`: Lógica de carga dinámica de países.
-  - `server/metodos/property.js`: Nuevo método `property.getAllByTypeClave`.
-  - `copilot-instructions.md`: Documentación técnica del sistema.
-
-- **Lecciones Aprendidas**:
-  - **Properties como fuente de verdad**: Centralizar listas dinámicas en BD facilita mantenimiento.
-  - **Formato estandarizado**: `PAIS-MONEDA` permite parseo consistente y extensible.
-  - **Fallbacks defensivos**: Siempre tener lista mínima hardcoded por si falla carga dinámica.
-  - **Loading states**: Mostrar feedback visual durante queries async mejora percepción de velocidad.
-  - **Capitalización en frontend**: Transformar `URUGUAY` → `Uruguay` en cliente evita sobrecarga de BD.
-
-- **Próximos Pasos**:
-  - Crear properties para países de prueba en entorno de desarrollo.
-  - Tests unitarios para parseo de formatos `PAIS-MONEDA`.
-  - Validar UX en dispositivos Android/iOS con listas largas (>10 países).
-  - Documentar convención de nomenclatura de properties en wiki del proyecto.
+- **Recursos de referencia**:
+  - Nielsen Norman Group: [Reducing Cognitive Load](https://www.nngroup.com/articles/minimize-cognitive-load/)
+  - Material Design 3: [Semantic Color System](https://m3.material.io/styles/color/roles)
+  - Best practices de e-commerce: Amazon, Shopify, MercadoLibre
 
 ---

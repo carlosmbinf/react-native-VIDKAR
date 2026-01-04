@@ -53,6 +53,11 @@ const DrawerOptionsAlls = (opt) => {
       url: "ProxyVPNHistory",
       icon: "history"
     });
+    opciones.push({
+      label: "Comercios",
+      url: "ComerciosList",
+      icon: "storefront"
+    });
 
     // opciones.push({
     //   label: "Pedidos Comercio",

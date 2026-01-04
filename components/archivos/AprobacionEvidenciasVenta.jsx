@@ -65,7 +65,8 @@ const PRODUCT_COLORS = {
   PROXY: { primary: '#2196F3', bg: '#E3F2FD', icon: 'wifi' },
   VPN: { primary: '#4CAF50', bg: '#E8F5E9', icon: 'shield-check' },
   RECARGA: { primary: '#FF6F00', bg: 'rgba(255, 111, 0, 0.12)', icon: 'cellphone' },
-  REMESA: { primary: '#9C27B0', bg: 'rgba(156, 39, 176, 0.12)', icon: 'cash' }
+  REMESA: { primary: '#9C27B0', bg: 'rgba(156, 39, 176, 0.12)', icon: 'cash' },
+  COMERCIO: { primary: '#9C27B0', bg: 'rgba(156, 39, 176, 0.12)', icon: 'cash' }
 };
 
 // ✅ CORREGIDO: Zoom gradual + Pan simultáneo con gestión correcta de offsets
@@ -301,7 +302,8 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
       proxy: lista.filter(c => c?.type === 'PROXY'),
       vpn: lista.filter(c => c?.type === 'VPN'),
       recarga: lista.filter(c => c?.type === 'RECARGA'),
-      remesa: lista.filter(c => c?.type === 'REMESA')
+      remesa: lista.filter(c => c?.type === 'REMESA'),
+      comercio: lista.filter(c => c?.type === 'COMERCIO'),
     };
   }, [venta]);
 
@@ -315,6 +317,7 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
     if (carritosAgrupados.vpn.length) items.push(`${carritosAgrupados.vpn.length} VPN`);
     if (carritosAgrupados.recarga.length) items.push(`${carritosAgrupados.recarga.length} Recarga${carritosAgrupados.recarga.length > 1 ? 's' : ''}`);
     if (carritosAgrupados.remesa.length) items.push(`${carritosAgrupados.remesa.length} Remesa${carritosAgrupados.remesa.length > 1 ? 's' : ''}`);
+    if (carritosAgrupados.comercio.length) items.push(`${carritosAgrupados.comercio.length} Remesa${carritosAgrupados.comercio.length > 1 ? 's' : ''}`);
     return items.join(' • ') || 'Sin productos';
   }, [carritosAgrupados]);
 
@@ -524,6 +527,62 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
         </Surface>
       );
     }
+    if (type === 'COMERCIO') {
+      // ✅ Extraer datos robustamente desde la estructura anidada
+      const productoInfo = carrito.producto || {};
+      const nombreProducto = productoInfo.name || carrito.nombre || 'Producto N/D';
+      const cantidad = carrito.cantidad || carrito.count || 1;
+      const precioUnitario = productoInfo.precio || carrito.precio || 0;
+      const moneda = carrito.monedaACobrar || productoInfo.monedaPrecio || 'CUP';
+      
+      // ✅ Calcular precio total (priorizar cobrarUSD si existe)
+      const precioTotal = carrito.cobrarUSD 
+      ? parseFloat(carrito.cobrarUSD) 
+      : (precioUnitario * cantidad);
+      
+      return (
+      <Surface key={carrito._id} style={[styles.miniCard, { borderLeftColor: config.primary }]} elevation={1}>
+        <View style={styles.miniCardHeader}>
+        <IconButton icon={config.icon} iconColor={config.primary} size={18} style={styles.miniIcon} />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.miniCardTitle, { color: config.primary }]}>COMERCIO</Text>
+          <Text style={styles.miniCardUser}>{carrito.nombre || 'Usuario'}</Text>
+        </View>
+        <Chip icon="package-variant" compact textStyle={{ fontSize: 11, fontWeight: '700' }} style={{ backgroundColor: config.bg }}>
+          x{cantidad}
+        </Chip>
+        </View>
+        <View style={styles.miniCardRow}>
+        <IconButton icon="tag" size={14} iconColor="#666" style={styles.miniRowIcon} />
+        <Text style={styles.miniCardLabel}>Producto:</Text>
+        <Text style={styles.miniCardValue} numberOfLines={1} ellipsizeMode="tail">
+          {nombreProducto}
+        </Text>
+        </View>
+        <View style={styles.miniCardRow}>
+        <IconButton icon="currency-usd" size={14} iconColor="#666" style={styles.miniRowIcon} />
+        <Text style={styles.miniCardLabel}>Precio Unit.:</Text>
+        <Text style={styles.miniCardValue}>{formatCurrency(precioUnitario, moneda)}</Text>
+        </View>
+        <View style={styles.miniCardRow}>
+        <IconButton icon="calculator" size={14} iconColor="#666" style={styles.miniRowIcon} />
+        <Text style={styles.miniCardLabel}>Total:</Text>
+        <Text style={[styles.miniCardValue, { fontWeight: '700', color: config.primary }]}>
+          {formatCurrency(precioTotal, moneda)}
+        </Text>
+        </View>
+        {carrito.comentario && (
+        <View style={styles.miniCardRow}>
+          <IconButton icon="comment-text-outline" size={14} iconColor="#666" style={styles.miniRowIcon} />
+          <Text style={styles.miniCardLabel}>Nota:</Text>
+          <Text style={styles.miniCardValue} numberOfLines={1} ellipsizeMode="tail">
+          {carrito.comentario}
+          </Text>
+        </View>
+        )}
+      </Surface>
+      );
+    }
 
     return null;
   };
@@ -621,6 +680,7 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
             {carritosAgrupados.vpn.map((c, i) => renderProductCard(c, i, 'VPN'))}
             {carritosAgrupados.recarga.map((c, i) => renderProductCard(c, i, 'RECARGA'))}
             {carritosAgrupados.remesa.map((c, i) => renderProductCard(c, i, 'REMESA'))}
+            {carritosAgrupados.comercio.map((c, i) => renderProductCard(c, i, 'COMERCIO'))}
           </ScrollView>
 
           <Divider style={styles.divider} />

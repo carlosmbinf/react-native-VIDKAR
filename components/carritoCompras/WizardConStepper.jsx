@@ -390,6 +390,7 @@ const WizardConStepper = ({ product, navigation }) => {
               console.error('Error al calcular total a pagar:', err);
             } else {
               console.log("efectivo.totalAPagar",totalAPagar);
+              // console.log("Tipo de dato de totalAPagar:", typeof res, "Valor:", res);
               setTotalAPagar(res);
               setCargadoPago(true);
             }

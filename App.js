@@ -80,6 +80,7 @@ import VPNPurchaseScreen from './components/vpn/VPNPurchaseScreen';
 import TableProxyVPNHistory from './components/ventas/TableProxyVPNHistory';
 import RequiredDataDialog from './components/auth/RequiredDataDialog';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
+import ProductosScreen from './components/productos/ProductosScreen';
 // agregado: notifee opcional para mostrar notificaciones locales (foreground/background)
 let NotifeeLib = null;
 try {
@@ -429,6 +430,13 @@ const App = () => {
               <Stack.Screen
                 name="Users"
                 component={UserHome}
+                options={({ navigation, route }) => ({
+                  headerShown: false,
+                })}
+              />
+              <Stack.Screen
+                name="ComerciosList"
+                component={ProductosScreen}
                 options={({ navigation, route }) => ({
                   headerShown: false,
                 })}

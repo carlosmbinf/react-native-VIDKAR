@@ -12,7 +12,7 @@ import {
   isPermissionBlocked,
   PERMISSION_TYPES,
 } from './utils/permissionsConfig';
-import PermissionsGate from '../PermissionsGate';
+import PermissionsGate from './PermissionsGate';
 import { openSettings as openNativeSettings } from 'react-native-permissions';
 
 /**
