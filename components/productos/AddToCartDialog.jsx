@@ -104,8 +104,8 @@ const AddToCartDialog = ({ visible, onDismiss, producto, tienda }) => {
     } catch (error) {
       console.error('Error al agregar al carrito:', error);
       Alert.alert(
-        'Error',
-        error.reason || 'No se pudo agregar el producto al carrito. Intenta nuevamente.'
+        'Información',
+        error.reason || 'No se pudo agregar el producto al carrito. Intenta nuevamente mas tarde.'
       );
     } finally {
       setLoading(false);
