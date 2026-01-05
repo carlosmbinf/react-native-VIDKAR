@@ -200,6 +200,16 @@ export const sendMessage = async (payload: SendMessagePayload) => {
 
 // Inicializar listeners de push en la app
 export const setupPushListeners = async (options?: SetupOptions) => {
+  // ✅ Resetear badge al abrir la app (iOS)
+  if (Platform.OS === 'ios' && NotifeeLib?.default) {
+    try {
+      await NotifeeLib.default.setBadgeCount(0);
+      console.log('[PushMessaging] Badge reseteado a 0');
+    } catch (e) {
+      console.warn('[PushMessaging] Error reseteando badge:', e);
+    }
+  }
+
   // Permisos y token inicial
   const granted = await requestPermissionsIfNeeded();
   if (granted) {
@@ -233,6 +243,10 @@ export const setupPushListeners = async (options?: SetupOptions) => {
 
   // App abierta desde background por notificación
   const unsubOnOpened = messaging().onNotificationOpenedApp(remoteMessage => {
+    // ✅ Resetear badge cuando se abre desde notificación (iOS)
+    if (Platform.OS === 'ios' && NotifeeLib?.default) {
+      NotifeeLib.default.setBadgeCount(0).catch(() => {});
+    }
     options?.onNotificationOpenedApp?.(remoteMessage);
   });
 
@@ -288,4 +302,30 @@ const isForCurrentUser = (m?: FirebaseMessagingTypes.RemoteMessage) => {
   } catch {
     return true;
   }
+};
+
+// ✅ Resetear badge del ícono de la app (iOS)
+export const resetBadge = async () => {
+  if (Platform.OS === 'ios' && NotifeeLib?.default) {
+    try {
+      await NotifeeLib.default.setBadgeCount(0);
+      console.log('[PushMessaging] Badge reseteado manualmente a 0');
+    } catch (e) {
+      console.warn('[PushMessaging] Error reseteando badge:', e);
+    }
+  }
+};
+
+// ✅ Obtener el badge actual (iOS)
+export const getBadgeCount = async (): Promise<number> => {
+  if (Platform.OS === 'ios' && NotifeeLib?.default) {
+    try {
+      const count = await NotifeeLib.default.getBadgeCount();
+      return count || 0;
+    } catch (e) {
+      console.warn('[PushMessaging] Error obteniendo badge:', e);
+      return 0;
+    }
+  }
+  return 0;
 };

@@ -256,6 +256,13 @@ const App = () => {
 
   useEffect(() => {
 
+    // ✅ Resetear badge al iniciar la app (iOS)
+    if (Platform.OS === 'ios' && NotifeeLib?.default) {
+      NotifeeLib.default.setBadgeCount(0)
+        .then(() => console.log('[App] Badge reseteado a 0'))
+        .catch(e => console.warn('[App] Error reseteando badge:', e));
+    }
+
     if (Platform.OS === 'ios') {
       requestUserPermission();
     } else {
@@ -290,6 +297,10 @@ const App = () => {
     // app abierta desde una notificación (background -> foreground)
     const unsubscribeOpened = messaging().onNotificationOpenedApp(remoteMessage => {
       console.log('Notificación abrió la app desde background:', remoteMessage);
+      // ✅ Resetear badge cuando se abre desde notificación (iOS)
+      if (Platform.OS === 'ios' && NotifeeLib?.default) {
+        NotifeeLib.default.setBadgeCount(0).catch(() => {});
+      }
       // aquí se podría navegar según data del mensaje
     });
 
