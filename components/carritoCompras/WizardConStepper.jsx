@@ -8,6 +8,7 @@ import { BlurView } from '@react-native-community/blur';
 import { Dropdown } from 'react-native-element-dropdown';
 import { CarritoCollection, OrdenesCollection } from '../collections/collections';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MapLocationPicker from './MapLocationPicker';
 
 const WizardConStepper = ({ product, navigation }) => {
     const [activeStep, setActiveStep] = useState(0);
@@ -29,6 +30,9 @@ const WizardConStepper = ({ product, navigation }) => {
     // ✅ NUEVO: Estado para países dinámicos desde properties
     const [paisesPagoData, setPaisesPagoData] = useState([]);
     const [cargandoPaises, setCargandoPaises] = useState(false);
+
+    // ✅ NUEVO: Estado para ubicación de entrega
+    const [ubicacionEntrega, setUbicacionEntrega] = useState(null);
 
     // ✅ NUEVO: Cargar países dinámicamente desde properties al montar o cambiar metodoPago
     useEffect(() => {
@@ -200,6 +204,12 @@ const WizardConStepper = ({ product, navigation }) => {
   const tieneProxyVPN = pedidosRemesa?.some(item => 
     item.type === 'PROXY' || item.type === 'VPN'
   );
+
+  // ✅ NUEVO: Detectar si hay items COMERCIO en el carrito
+  const tieneComercio = pedidosRemesa?.some(item => item.type === 'COMERCIO');
+
+  // ✅ NUEVO: Validación de ubicación para items COMERCIO
+  const ubicacionValida = !tieneComercio || !!ubicacionEntrega;
 
   // ✅ ADAPTACIÓN: Filtrar métodos de pago según contenido del carrito
   const data = React.useMemo(() => {
@@ -611,6 +621,53 @@ const WizardConStepper = ({ product, navigation }) => {
       }
     };
 
+    // ✅ NUEVO: Handler para actualizar coordenadas en todos los items COMERCIO
+    const handleLocationSelect = async (coordenadas) => {
+      try {
+        console.log('[WizardConStepper] Actualizando coordenadas en carrito:', coordenadas);
+        
+        // ✅ Usar callAsync en lugar de call con await
+        const resultado = await Meteor.call('carrito.actualizarUbicacion', userId, coordenadas,(error,result) => {
+          if (error) {
+            console.error('❌ [WizardConStepper] Error en callback de actualizarUbicacion:', error);
+          } else {
+            console.log('✅ [WizardConStepper] Callback de actualizarUbicacion result:', result);
+
+            console.log("[WizardConStepper] Resultado actualización ubicación:", result);
+        
+            if (result?.success) {
+              console.log(`✅ [WizardConStepper] ${result.itemsActualizados} items actualizados con ubicación`);
+              setUbicacionEntrega(coordenadas);
+              
+              // Avanzar al siguiente paso automáticamente
+              setActiveStep(Number(activeStep) + 1);
+            } else {
+              throw new Error('No se pudo actualizar la ubicación');
+            }
+          }
+        });
+        
+      } catch (error) {
+        console.error('❌ [WizardConStepper] Error actualizando ubicación:', error);
+        Alert.alert(
+          'Error',
+          'No se pudo guardar la ubicación. Por favor, intenta de nuevo.',
+          [{ text: 'OK' }]
+        );
+      }
+    };
+
+    // ✅ ADAPTACIÓN: Validar ubicación antes de avanzar desde Método de Pago
+    const handleNextMetodoPago = () => {
+      if (tieneComercio && !ubicacionValida) {
+        // Si tiene items COMERCIO, el siguiente paso es Ubicación
+        setActiveStep(Number(activeStep) + 1);
+      } else {
+        // Si NO tiene items COMERCIO, saltar directo a Términos
+        setActiveStep(Number(activeStep) + (tieneComercio ? 1 : 2));
+      }
+    };
+
     // ✅ NUEVO: Cleanup para resetear flags si se cierra el modal
     useEffect(() => {
       if (!visible) {
@@ -618,6 +675,25 @@ const WizardConStepper = ({ product, navigation }) => {
         setSeEstaPagando(false);
       }
     }, [visible]);
+
+    // ✅ Key dinámica para forzar re-mount cuando cambia estructura de pasos
+    const progressStepsKey = React.useMemo(() => {
+      return `wizard-${tieneComercio ? 'con-comercio' : 'sin-comercio'}-${pedidosRemesa?.length || 0}`;
+    }, [tieneComercio, pedidosRemesa?.length]);
+
+    // ✅ Reset activeStep si cambia tieneComercio y estamos en paso inválido
+    useEffect(() => {
+      const maxStepSinComercio = 3; // Confirmar, Pago, Términos, Pago (índices 0-3)
+      const maxStepConComercio = 4; // + Ubicación (índices 0-4)
+
+      if (!tieneComercio && activeStep > maxStepSinComercio) {
+        console.warn('[WizardConStepper] Retrocediendo activeStep por cambio en tieneComercio');
+        setActiveStep(1); // Volver a Método de Pago
+      } else if (tieneComercio && activeStep === 2 && !ubicacionValida) {
+        // Si agregó items comercio y está en paso 2, asegurar que es el paso correcto
+        console.log('[WizardConStepper] Items comercio agregados, paso Ubicación disponible');
+      }
+    }, [tieneComercio]);
 
     return (
         <>
@@ -642,6 +718,8 @@ const WizardConStepper = ({ product, navigation }) => {
         </View>
             
             <Portal>
+                {/* ✅ CRÍTICO: Solo renderizar Modal si hay datos válidos */}
+                {visible && pedidosRemesa && (
                 <Modal theme={{ colors: { primary: 'green' } }} visible={visible} onDismiss={hideModal} contentContainerStyle={styles.containerStyle}>
 
                     <BlurView
@@ -653,7 +731,9 @@ const WizardConStepper = ({ product, navigation }) => {
                             <Text style={styles.dialogTitleText}>Carrito de compras:</Text>
                             <IconButton icon="close" onPress={() => setVisible(false)} />
                         </View>
-                        <ProgressSteps activeStep={activeStep}
+                        <ProgressSteps 
+                            key={progressStepsKey} // ✅ CRÍTICO: fuerza re-mount
+                            activeStep={activeStep}
                             activeStepNumColor='#f1f8ff'
                             activeStepIconColor='#111'
                             activeStepIconBorderColor='#6200ee'
@@ -681,7 +761,7 @@ const WizardConStepper = ({ product, navigation }) => {
                             </ProgressStep>
 
                             {/* Paso 2: Metodo de Pago */}
-                            <ProgressStep buttonNextDisabled={!puedeAvanzarMetodoPago} buttonPreviousText='Atras' buttonNextText='Siguiente' buttonPreviousTextColor='white' label="Metodo de Pago" onNext={() => setActiveStep(Number(activeStep)+1)} onPrevious={() => setActiveStep(Number(activeStep)-1)} >
+                            <ProgressStep buttonNextDisabled={!puedeAvanzarMetodoPago} buttonPreviousText='Atras' buttonNextText='Siguiente' buttonPreviousTextColor='white' label="Metodo de Pago" onNext={handleNextMetodoPago} onPrevious={() => setActiveStep(Number(activeStep)-1)} >
                             <Dialog.Title>Seleccione el Metodo de Pago</Dialog.Title>
 
                             {tieneProxyVPN && (
@@ -708,7 +788,7 @@ const WizardConStepper = ({ product, navigation }) => {
                                 searchPlaceholder="Buscar..."
                                 value={metodoPago}
                                 onChange={item => {
-                                setMetodoPago(item.value);
+                                  setMetodoPago(item.value);
                                 }}
                             />
 
@@ -765,8 +845,31 @@ const WizardConStepper = ({ product, navigation }) => {
                             )}
                             </ProgressStep>
 
-                            {/* ✅ Paso 3: Términos y Condiciones (ACTUALIZADO) */}
-                            <ProgressStep buttonPreviousText='Atras' buttonNextText='Aceptar' buttonPreviousTextColor='white' label="Términos y Condiciones"  onNext={() => setActiveStep(Number(activeStep)+1)} onPrevious={() => setActiveStep(Number(activeStep)-1)}>
+                            {/* ✅ NUEVO: Paso 3: Ubicación de Entrega (solo si tieneComercio) */}
+                            
+                              <ProgressStep
+                                buttonPreviousText='Atras'
+                                buttonNextText='Siguiente'
+                                buttonNextDisabled={!ubicacionValida}
+                                buttonPreviousTextColor='white'
+                                label="Ubicación"
+                                onNext={() => setActiveStep(Number(activeStep) + 1)}
+                                onPrevious={() => setActiveStep(Number(activeStep) - 1)}
+                              >
+                                <View style={{ height: '100%', paddingBottom: 80 }}>
+                                  <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' }}>
+                                    Selecciona dónde recibirás tu pedido
+                                  </Text>
+                                  
+                                  <MapLocationPicker
+                                    onLocationSelect={handleLocationSelect}
+                                    currentLocation={ubicacionEntrega}
+                                  />
+                                </View>
+                              </ProgressStep>
+
+                            {/* ✅ ADAPTADO: Paso 3/4: Términos y Condiciones */}
+                            <ProgressStep buttonPreviousText='Atras' buttonNextText='Aceptar' buttonPreviousTextColor='white' label="Términos y Condiciones"  onNext={() => setActiveStep(Number(activeStep)+1)} onPrevious={() => {tieneComercio ? setActiveStep(Number(activeStep)-1) : setActiveStep(Number(activeStep)-2)}}>
                                 <ScrollView style={styles.terminosContainer}>
                                   {getTerminos() ? (
                                     <>
@@ -850,6 +953,7 @@ const WizardConStepper = ({ product, navigation }) => {
                         </ProgressSteps>
                     </View>
                 </Modal>
+                )}
             </Portal>
         </>
     );
@@ -906,7 +1010,6 @@ const styles = StyleSheet.create({
     terminosTitulo: {
       fontSize: 18,
       fontWeight: 'bold',
-      // color: '#1976D2',
       textAlign: 'center',
       marginBottom: 8,
     },
@@ -921,12 +1024,10 @@ const styles = StyleSheet.create({
     terminosSubtitulo: {
       fontSize: 14,
       fontWeight: 'bold',
-      // color: '#333',
       marginBottom: 6,
     },
     terminosTexto: {
       fontSize: 13,
-      // color: '#555',
       lineHeight: 20,
       textAlign: 'justify',
     },
