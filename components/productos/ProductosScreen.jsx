@@ -420,7 +420,7 @@ const ProductosScreen = ({ navigation }) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <Animated.View style={{ opacity: fadeAnim }}>
+        <Animated.View >
           {tiendasFiltradas.length === 0 ? (
             <Surface style={styles.emptyState} elevation={1}>
               <Text style={styles.emptyIcon}>
