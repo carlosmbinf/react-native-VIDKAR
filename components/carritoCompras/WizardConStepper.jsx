@@ -640,7 +640,7 @@ const WizardConStepper = ({ product, navigation }) => {
               setUbicacionEntrega(coordenadas);
               
               // Avanzar al siguiente paso automáticamente
-              setActiveStep(Number(activeStep) + 1);
+              // setActiveStep(Number(activeStep) + 1);
             } else {
               throw new Error('No se pudo actualizar la ubicación');
             }

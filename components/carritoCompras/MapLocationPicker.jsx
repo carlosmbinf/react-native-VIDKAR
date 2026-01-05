@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Platform, Alert, PermissionsAndroid } from 'react-native';
 import { Text, Button, Surface, ActivityIndicator, Chip } from 'react-native-paper';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from 'react-native-maps';
 import Geolocation from '@react-native-community/geolocation';
 
 const MapLocationPicker = ({ onLocationSelect, currentLocation }) => {
@@ -91,6 +91,7 @@ const MapLocationPicker = ({ onLocationSelect, currentLocation }) => {
   const handleMapPress = (event) => {
     const { latitude, longitude } = event.nativeEvent.coordinate;
     setSelectedLocation({ latitude, longitude });
+    handleConfirm();
   };
 
   const handleConfirm = () => {
@@ -124,7 +125,7 @@ return (
         </Surface>
 
         <MapView
-            provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : null}
+            provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
             style={styles.map}
             region={region}
             onPress={handleMapPress}
@@ -140,34 +141,6 @@ return (
                 />
             )}
         </MapView>
-
-        {selectedLocation && (
-            <Surface style={styles.selectedLocationCard} elevation={4}>
-                <View style={styles.coordsContainer}>
-                    <Chip icon="map-marker" mode="flat" style={styles.chip}>
-                        Lat: {selectedLocation.latitude.toFixed(6)}
-                    </Chip>
-                    <Chip icon="map-marker" mode="flat" style={styles.chip}>
-                        Lng: {selectedLocation.longitude.toFixed(6)}
-                    </Chip>
-                </View>
-                <Text style={styles.selectedLocationText}>
-                    ✓ Ubicación seleccionada. Toca el mapa para ajustar.
-                </Text>
-            </Surface>
-        )}
-
-        <View style={styles.buttonContainer}>
-            <Button
-                mode="contained"
-                onPress={handleConfirm}
-                disabled={!selectedLocation}
-                style={styles.confirmButton}
-                icon="check"
-            >
-                Confirmar Ubicación
-            </Button>
-        </View>
     </View>
 );
 };
