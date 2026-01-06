@@ -14,6 +14,7 @@ import App from './App';
 import Loguin from './components/loguin/Loguin';
 import HomePedidosComercio from './components/comercio/pedidos/HomePedidosComercio';
 import CadeteNavigator from './components/cadete/CadeteNavigator';
+import EmpresaNavigator from './components/empresa/EmpresaNavigator'; // ✅ NUEVO
 import MyService from './src/native/MyService';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import PermissionsManager from './components/permissions/PermissionsManager';
@@ -228,6 +229,9 @@ class MyApp extends React.Component {
           {ready && user?.modoCadete ? (
             // Modo Cadete activo: mostrar pantalla dedicada
             <CadeteNavigator />
+          ) : ready && user?.profile?.roleComercio?.includes('EMPRESA') && user?.modoEmpresa ? ( 
+            // ✅ NUEVO: Modo Empresa activo
+            <EmpresaNavigator />
           ) : Meteor.userId() ? (
             // Usuario autenticado: ir a App principal
             <>

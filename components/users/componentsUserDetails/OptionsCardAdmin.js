@@ -104,6 +104,16 @@ const OptionsCardAdmin = ({item, styles}) => {
               ? 'Desactivar Suscripción Pelis'
               : 'Activar Suscripción Pelis'}
           </Button>
+          {/* Botón Modo Empresa */}
+          <Button
+            mode="contained"
+            color={u?.modoEmpresa ? 'red' : undefined}
+            onPress={() => toggleFlag('modoEmpresa', u?.modoEmpresa)}
+            style={btnStyles.action}>
+            {u?.modoEmpresa
+              ? 'Desactivar Modo Empresa'
+              : 'Activar Modo Empresa'}
+          </Button>
         </>}
       </Card.Content>
     </Card>
