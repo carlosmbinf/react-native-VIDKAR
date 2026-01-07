@@ -648,3 +648,164 @@ Resumen técnico – Implementación de Pantallas de Compra Proxy/VPN (ProxyPurc
 - Optimizar tráfico: cachear `active` por un TTL corto (ej. 30–60s) para no golpear el servidor en cada tick.
 - Seguridad: autenticar requests (token/HMAC) para que `userId` no sea spoofeable desde clientes externos.
 - Observabilidad: loggear el `code` y body de respuesta solo en debug para evitar ruido en producción.
+
+---
+
+## Resumen técnico – Sistema de Notificaciones Push Unificado (Main.js Architecture)
+- **Problema Identificado**: El sistema de notificaciones estaba implementado en App.js, pero este componente NO se renderiza cuando el usuario está en modo cadete (`modoCadete: true`) o modo empresa (`modoEmpresa: true`), causando que las notificaciones no funcionaran en esos flujos.
+
+- **Solución Arquitectural**:
+  - **Relocalización a Main.js**: Se movió toda la lógica de notificaciones push desde App.js a Main.js, que es el componente raíz que SIEMPRE se renderiza independientemente del estado del usuario.
+  - **Cobertura Universal**: Main.js renderiza condicionalmente App, CadeteNavigator, EmpresaNavigator o Loguin, garantizando que los listeners de notificaciones estén activos en cualquier flujo de navegación.
+
+- **Componentes del Sistema de Notificaciones**:
+  1. **registerPushTokenForUser(userId, token)**: Registra el token FCM del usuario en el backend via Meteor.call('push.registerToken').
+  2. **displayLocalNotification(remoteMessage, options)**: Muestra notificación local con Notifee, incrementa badge automáticamente y opcionalmente muestra Alert.
+  3. **requestPermissionsIfNeeded()**: Solicita permisos de notificaciones según plataforma (iOS: messaging().requestPermission, Android: POST_NOTIFICATIONS).
+
+- **Listeners de Firebase Messaging Implementados**:
+  ```javascript
+  // 1. Token inicial y registro
+  messaging().getToken() → registerPushTokenForUser()
+  
+  // 2. Refresh de token
+  messaging().onTokenRefresh() → registerPushTokenForUser()
+  
+  // 3. Notificaciones en foreground
+  messaging().onMessage() → displayLocalNotification()
+  
+  // 4. App abierto desde notificación (background)
+  messaging().onNotificationOpenedApp() → badgeManager.reset()
+  
+  // 5. App abierto desde notificación (cerrada)
+  messaging().getInitialNotification() → badgeManager.reset()
+  ```
+
+- **Sistema de Badge Profesional Integrado**:
+  - **Reset automático**: Badge se resetea en 3 momentos clave:
+    1. `componentDidMount` de Main.js (app abierta).
+    2. AppState cambia a 'active' (app vuelve de background).
+    3. Usuario abre app desde notificación (tap en notificación).
+  - **Incremento automático**: Badge se incrementa en `displayLocalNotification` para todas las notificaciones recibidas.
+  - **Gestión centralizada**: Uso del singleton `badgeManager` de PushMessaging.tsx para evitar inconsistencias.
+
+- **Lifecycle Management**:
+  - **componentDidMount**:
+    - Verificación de permisos del sistema.
+    - Reset inicial de badge.
+    - Solicitud de permisos de notificaciones.
+    - Registro de token FCM.
+    - Setup de todos los listeners de Firebase Messaging.
+    - Setup del listener de AppState.
+  
+  - **componentWillUnmount**:
+    - Limpieza de `appStateSubscription`.
+    - Limpieza de `unsubscribeTokenRefresh`.
+    - Limpieza de `unsubscribeForeground`.
+    - Limpieza de `unsubscribeNotificationOpened`.
+    - Log de confirmación de limpieza exitosa.
+
+- **Manejo de Notificaciones con Notifee**:
+  - **Carga segura**: `require('@notifee/react-native')` con try-catch para evitar crashes si la librería no está instalada.
+  - **Canal de notificación**: Se crea canal 'default' con nombre 'General' e importancia HIGH (4).
+  - **Configuración Android**: `channelId`, `smallIcon: 'ic_launcher'`, `pressAction: { id: 'default' }`.
+  - **Configuración iOS**: `foregroundPresentationOptions` con alert/badge/sound activados.
+
+- **Integración con AppState API**:
+  ```javascript
+  AppState.addEventListener('change', (nextAppState) => {
+    if (nextAppState === 'active') {
+      badgeManager.reset(); // Reset badge cuando app vuelve a foreground
+    }
+  });
+  ```
+
+- **Estructura de Dependencias**:
+  ```javascript
+  import messaging from '@react-native-firebase/messaging';
+  import { badgeManager } from './services/notifications/PushMessaging';
+  import { AppState, Alert, PermissionsAndroid } from 'react-native';
+  
+  let NotifeeLib = null; // Carga segura con try-catch
+  ```
+
+- **Casos Edge Manejados**:
+  - **Usuario no autenticado**: No se registra token hasta que exista `Meteor.userId()`.
+  - **Token FCM no disponible**: Se loggea warning pero no bloquea el flujo.
+  - **Notifee no instalado**: Se detecta con try-catch y se loggea warning.
+  - **Permisos denegados**: Se solicitan pero no se bloquea el acceso a la app.
+  - **Listeners duplicados**: Se guardan referencias en `this.unsubscribe*` para limpieza correcta.
+
+- **Ventajas de la Arquitectura en Main.js**:
+  ✅ **Cobertura universal**: Funciona en App, CadeteNavigator, EmpresaNavigator y Loguin.
+  ✅ **Single source of truth**: Un solo lugar para toda la lógica de notificaciones.
+  ✅ **Lifecycle garantizado**: Main.js se monta una sola vez y persiste toda la sesión.
+  ✅ **Badge consistente**: Reset y update funcionan en todos los flujos.
+  ✅ **Listeners activos**: No se pierden notificaciones por cambios de navegación.
+
+- **Testing Recomendado**:
+  ```bash
+  # 1. Usuario normal (App.js renderizado)
+  - Recibir notificación en foreground → debe mostrar Alert y notificación local
+  - Tocar notificación → debe abrir app y resetear badge
+  - Abrir app → badge debe resetearse a 0
+  
+  # 2. Usuario cadete (CadeteNavigator renderizado)
+  - Verificar que listeners de notificaciones estén activos
+  - Recibir notificación mientras está en modo cadete
+  - Validar que badge se incremente correctamente
+  
+  # 3. Usuario empresa (EmpresaNavigator renderizado)
+  - Validar que token FCM se registre correctamente
+  - Verificar que AppState listener funcione
+  - Tocar notificación y verificar navegación
+  
+  # 4. App en background
+  - Recibir múltiples notificaciones → badge debe acumular
+  - Volver a app → badge debe resetearse
+  - Tocar notificación específica → debe resetear badge
+  
+  # 5. App cerrada (killed)
+  - Recibir notificación → debe aparecer en system tray
+  - Tocar notificación → debe abrir app y resetear badge
+  - Verificar que getInitialNotification detecte la notificación
+  ```
+
+- **Consideraciones de Seguridad**:
+  - **Token FCM sensible**: Se envía a backend via Meteor.call (canal seguro con DDP).
+  - **Validación de userId**: Backend debe validar que el token se registre solo para el usuario autenticado.
+  - **Permisos POST_NOTIFICATIONS**: Solo se solicitan en Android 13+ (API 33+).
+  - **Data payload**: Notificaciones pueden contener data sensible, validar en backend antes de enviar.
+
+- **Troubleshooting Común**:
+  - **Notificaciones no llegan**: Verificar que token FCM esté registrado en backend y que Firebase Console tenga configuración correcta.
+  - **Badge no se actualiza**: Confirmar que badgeManager.increment() se llama en displayLocalNotification y que badgeManager.reset() se ejecuta en AppState active.
+  - **App crashea al recibir notificación**: Verificar que Notifee esté instalado correctamente y que el canal de notificación exista.
+  - **Listeners no se ejecutan**: Confirmar que Main.js se esté montando correctamente y que los listeners se estén registrando en componentDidMount.
+
+- **Mejoras Futuras**:
+  - **Notificaciones personalizadas por tipo**: Diferentes canales/íconos según tipo de notificación (mensaje, pedido, sistema).
+  - **Deep linking**: Navegar a pantalla específica según data de la notificación.
+  - **Action buttons**: Botones de acción rápida en notificaciones (Responder, Ver, Ignorar).
+  - **Scheduled notifications**: Programar notificaciones locales para recordatorios.
+  - **Analytics**: Trackear tasa de apertura de notificaciones y engagement.
+  - **A/B testing**: Probar diferentes formatos de notificaciones para maximizar engagement.
+
+- **Lecciones Aprendidas**:
+  - **Arquitectura de componentes**: Servicios globales (notificaciones, analytics) deben vivir en el componente raíz más alto, no en componentes condicionales.
+  - **Navegación condicional**: En apps con múltiples flujos de navegación (normal/cadete/empresa), identificar el componente que se renderiza en TODOS los casos.
+  - **Lifecycle hooks**: componentDidMount y componentWillUnmount son críticos para setup/cleanup de listeners.
+  - **Badge management**: Resetear badge en múltiples puntos (app open, foreground, notification tap) garantiza experiencia consistente.
+  - **Defensive programming**: Try-catch al cargar librerías opcionales (Notifee) evita crashes en entornos sin la dependencia instalada.
+  - **Prevención de listeners duplicados**: Usar banderas (`notificationListenersRegistered`) para evitar registros múltiples cuando el componente se monta más de una vez.
+
+- **Archivos Modificados**:
+  - **Main.js**: Agregadas 3 funciones helper (registerPushTokenForUser, displayLocalNotification, requestPermissionsIfNeeded) y modificados componentDidMount/componentWillUnmount con lógica completa de notificaciones.
+  - **App.js**: Eliminada toda la lógica de notificaciones (imports, funciones helper, listeners y useEffect) - ahora Main.js maneja todo el sistema de notificaciones de forma centralizada.
+
+- **Próximos Pasos**:
+  - Validar que las notificaciones funcionen correctamente en los 3 modos (App, Cadete, Empresa).
+  - Implementar deep linking para navegar a pantallas específicas desde notificaciones.
+  - Agregar analytics para trackear engagement con notificaciones.
+  - Documentar en README.md el flujo completo de notificaciones push.
+  - Tests e2e del sistema completo de notificaciones en diferentes estados de app.

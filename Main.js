@@ -8,7 +8,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Meteor, { Mongo, withTracker } from '@meteorrn/core';
-import { Platform, StatusBar, StyleSheet, View } from 'react-native';
+import { Platform, StatusBar, StyleSheet, View, AppState, Alert, PermissionsAndroid } from 'react-native';
 import { Text, Provider as PaperProvider, } from 'react-native-paper';
 import App from './App';
 import Loguin from './components/loguin/Loguin';
@@ -19,6 +19,8 @@ import MyService from './src/native/MyService';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import PermissionsManager from './components/permissions/PermissionsManager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import messaging from '@react-native-firebase/messaging';
+import { badgeManager } from './services/notifications/PushMessaging';
 // ✅ NUEVO: Importar hook de permisos y utilidades
 import { check, RESULTS } from 'react-native-permissions';
 import { 
@@ -30,6 +32,92 @@ import {
   checkNotificationPermission // ✅ Función especial para notificaciones iOS
 } from './components/permissions/utils/permissionsConfig';
 
+// ✅ Cargar Notifee de forma segura
+let NotifeeLib = null;
+try {
+  NotifeeLib = require('@notifee/react-native');
+} catch (e) {
+  console.warn('[Main] @notifee/react-native no instalado');
+}
+
+// ✅ Función para registrar token de push
+const registerPushTokenForUser = async (userId, token) => {
+  try {
+    await Meteor.call('push.registerToken', {
+      userId,
+      token,
+      platform: Platform.OS
+    });
+  } catch (e) {
+    console.error('[Main] Error en push.registerToken', e);
+  }
+};
+
+// ✅ Función para mostrar notificación local
+const displayLocalNotification = async (remoteMessage, { allowAlert = true } = {}) => {
+  console.log('[Main] Mostrar notificación local para mensaje:', remoteMessage);
+  const title =
+    remoteMessage?.notification?.title ||
+    remoteMessage?.data?.title ||
+    'Nueva notificación';
+  const body =
+    remoteMessage?.notification?.body ||
+    remoteMessage?.data?.body ||
+    (remoteMessage?.data ? JSON.stringify(remoteMessage.data) : 'Tienes un nuevo mensaje');
+
+  // ✅ Incrementar badge de forma profesional
+
+  if (allowAlert) {
+    Alert.alert(title, body);
+  }
+
+  if (NotifeeLib?.default && !allowAlert) {
+    const notifee = NotifeeLib.default;
+    try {
+      const channelId = await notifee.createChannel({
+        id: 'default',
+        name: 'General',
+        importance: 4, // HIGH
+      });
+
+      await notifee.displayNotification({
+        title,
+        body,
+        android: {
+          channelId,
+          smallIcon: 'ic_launcher',
+          pressAction: { id: 'default' },
+        },
+        ios: {
+          foregroundPresentationOptions: {
+            alert: true,
+            badge: true,
+            sound: true,
+          },
+        },
+      });
+    } catch (err) {
+      console.warn('[Main] Error mostrando notificación con Notifee:', err);
+    }
+  }
+};
+
+// ✅ Función para solicitar permisos de notificaciones
+const requestPermissionsIfNeeded = async () => {
+  if (Platform.OS === 'ios') {
+    const authStatus = await messaging().requestPermission();
+    const enabled =
+      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+    return !!enabled;
+  } else {
+    try {
+      await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+    } catch {}
+    return true;
+  }
+};
+
 console.log('Main.js');
 class MyApp extends React.Component {
 
@@ -40,6 +128,9 @@ class MyApp extends React.Component {
       showPermissionsScreen: false,
       checkingPermissions: true, // ✅ NUEVO: Estado de verificación inicial
     };
+    
+    // ✅ Bandera para prevenir registros duplicados de listeners
+    this.notificationListenersRegistered = false;
   }
 
   // ✅ MODIFICADO: Validar disponibilidad de librería ANTES de usar
@@ -116,7 +207,79 @@ class MyApp extends React.Component {
   };
 
   async componentDidMount() {
+    // ✅ Verificar permisos
     await this.verifyPermissionsStatus();
+
+    // ✅ PREVENIR REGISTROS DUPLICADOS
+    if (this.notificationListenersRegistered) {
+      console.log('[Main] ⚠️ Listeners ya registrados, omitiendo...');
+      return;
+    }
+
+    console.log('[Main] 🔔 Registrando listeners de notificaciones...');
+    this.notificationListenersRegistered = true;
+
+    // ✅ Resetear badge al abrir la app
+    await badgeManager.reset();
+
+    // ✅ Solicitar permisos de notificaciones push
+    await requestPermissionsIfNeeded();
+
+    // ✅ Listener para AppState: resetear badge cuando la app pasa a activo
+    this.appStateSubscription = AppState.addEventListener('change', async (nextAppState) => {
+      if (nextAppState === 'active') {
+        console.log('[Main] App activa, reseteando badge...');
+        await badgeManager.reset();
+      }
+    });
+
+    // ✅ Obtener token de FCM y registrarlo
+    try {
+      const token = await messaging().getToken();
+      const userId = Meteor.userId();
+      if (userId && token) {
+        await registerPushTokenForUser(userId, token);
+      }
+    } catch (e) {
+      console.warn('[Main] No se pudo obtener token FCM', e);
+    }
+
+    // ✅ Listener para refresh de token
+    this.unsubscribeTokenRefresh = messaging().onTokenRefresh(async (token) => {
+      const userId = Meteor.userId();
+      if (userId && token) {
+        await registerPushTokenForUser(userId, token);
+      }
+    });
+
+    // ✅ Listener para notificaciones en foreground
+    this.unsubscribeForeground = messaging().onMessage(async (remoteMessage) => {
+      console.log('[Main] Notificación en foreground:', remoteMessage);
+      badgeManager.increment(); // Incrementar badge aunque estemos en foreground
+      await displayLocalNotification(remoteMessage);
+    });
+
+    // ✅ Listener para app abierto desde notificación
+    this.unsubscribeNotificationOpened = messaging().onNotificationOpenedApp(async (remoteMessage) => {
+      console.log('[Main] App abierto desde notificación:', remoteMessage);
+      Alert.alert(remoteMessage?.notification?.title, remoteMessage?.notification?.body);
+      await badgeManager.reset();
+    });
+
+    // Register background handler
+    this.unsubscribeNotificationOnBackground = messaging().setBackgroundMessageHandler(async (remoteMessage) => {
+      console.log('Message handled in the background!', remoteMessage);
+    });
+
+    // ✅ Verificar si la app fue abierta desde una notificación (app cerrada)
+    messaging()
+      .getInitialNotification()
+      .then(async (remoteMessage) => {
+        if (remoteMessage) {
+          console.log('[Main] App abierto desde estado cerrado con notificación:', remoteMessage);
+          await badgeManager.reset();
+        }
+      });
   }
 
   // ✅ NUEVO: Método que se ejecuta en cada mount y cuando cambia el usuario
@@ -169,6 +332,35 @@ class MyApp extends React.Component {
     }
   }
 
+  // ✅ Limpiar listeners al desmontar el componente
+  componentWillUnmount() {
+    console.log('[Main] 🧹 Limpiando listeners de notificaciones...');
+    
+    // ✅ Resetear bandera
+    this.notificationListenersRegistered = false;
+
+    // Remover listener de AppState
+    if (this.appStateSubscription) {
+      this.appStateSubscription.remove();
+    }
+
+    // Remover listeners de Firebase Messaging
+    if (this.unsubscribeTokenRefresh) {
+      this.unsubscribeTokenRefresh();
+    }
+    if (this.unsubscribeForeground) {
+      this.unsubscribeForeground();
+    }
+    if (this.unsubscribeNotificationOpened) {
+      this.unsubscribeNotificationOpened();
+    }
+    if (this.unsubscribeNotificationOnBackground) {
+      this.unsubscribeNotificationOnBackground();
+    }
+
+    console.log('[Main] ✅ Listeners de notificaciones removidos correctamente');
+  }
+
   handlePermissionsComplete = async (permissionsStatus) => {
     console.log('✅ [Main] Permisos configurados:', permissionsStatus);
     
@@ -193,7 +385,7 @@ class MyApp extends React.Component {
     });
 
     // ✅ NUEVO: Mostrar loading mientras se verifican permisos
-    if (checkingPermissions && ready && Meteor.userId()) {
+    if (Platform.OS === 'android' && checkingPermissions && ready && Meteor.userId()) {
       return (
         <SafeAreaProvider>
           <PaperProvider>
@@ -208,7 +400,7 @@ class MyApp extends React.Component {
     }
 
     // ✅ MODIFICADO: Mostrar pantalla de permisos si faltan permisos (sin importar AsyncStorage)
-    if (ready && Meteor.userId() && showPermissionsScreen) {
+    if (ready && Meteor.userId() && (Platform.OS === 'android' || user?.modoCadete) && showPermissionsScreen) {
       return (
         <SafeAreaProvider>
           <PaperProvider>
@@ -277,13 +469,21 @@ const ServerList = withTracker(navigation => {
     'Meteor.status()': Meteor.status()
   });
 
+  // ✅ Gestión del servicio de tracking con validación de modo cadete
   if (Platform.OS === 'android') {
     if (Meteor.status().connected && ready && userId) {
-      console.log("MyService.start()");
-      MyService.setMeteorUserId(userId);
-      MyService.start();
+      // ✅ Solo iniciar servicio si el usuario tiene modo cadete activo
+      if (user?.modoCadete) {
+        console.log("✅ [MyService] Usuario en modo cadete, iniciando servicio de tracking");
+        MyService.setMeteorUserId(userId);
+        MyService.start();
+      } else {
+        console.log("⚠️ [MyService] Usuario NO está en modo cadete, deteniendo servicio");
+        MyService.setMeteorUserId(null);
+        MyService.stop();
+      }
     } else if (Meteor.status().connected && ready) {
-      console.log("MyService.stop()");
+      console.log("🛑 [MyService] Usuario desconectado o no ready, deteniendo servicio");
       MyService.setMeteorUserId(null);
       MyService.stop();
     }

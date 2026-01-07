@@ -72,7 +72,6 @@ import PropertyTable from './components/property/PropertyTable';
 import HomePedidosComercio from './components/comercio/pedidos/HomePedidosComercio';
 import MapaUsuariosScreen from './components/comercio/maps/MapaUsuariosScreen';
 
-import messaging from '@react-native-firebase/messaging';
 import VPNPackageCard from './components/vpn/VPNPackageCard';
 import ProxyPackageCard from './components/proxy/ProxyPackageCard';
 import ProxyPurchaseScreen from './components/proxy/ProxyPurchaseScreen';
@@ -81,82 +80,6 @@ import TableProxyVPNHistory from './components/ventas/TableProxyVPNHistory';
 import RequiredDataDialog from './components/auth/RequiredDataDialog';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import ProductosScreen from './components/productos/ProductosScreen';
-// agregado: notifee opcional para mostrar notificaciones locales (foreground/background)
-let NotifeeLib = null;
-try {
-  // carga condicional para no romper si @notifee/react-native no está instalado
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  NotifeeLib = require('@notifee/react-native');
-} catch (e) {
-  console.warn('[Notifications] @notifee/react-native no instalado; se usará Alert en primer plano.');
-}
-
-const registerPushTokenForUser = async (userId, token) => {
-  try {
-    await Meteor.call('push.registerToken', {
-      userId,
-      token,
-      platform: Platform.OS
-    });
-  } catch (e) {
-    console.error("error en push.registerToken", e);
-  }
-
-};
-
-// util: mostrar notificación local (usa Notifee si está, si no Alert en foreground)
-const displayLocalNotification = async (remoteMessage, { allowAlert = true } = {}) => {
-  console.log("[Notifications] Mostrar notificación local para mensaje:", remoteMessage);
-  const title =
-    remoteMessage?.notification?.title ||
-    remoteMessage?.data?.title ||
-    'Nueva notificación';
-  const body =
-    remoteMessage?.notification?.body ||
-    remoteMessage?.data?.body ||
-    (remoteMessage?.data ? JSON.stringify(remoteMessage.data) : 'Tienes un nuevo mensaje');
-
-  Alert.alert(title, body);
-  if (NotifeeLib?.default) {
-    const notifee = NotifeeLib.default;
-    try {
-      // canal Android (necesario para mostrar notificaciones)
-      const channelId = await notifee.createChannel({
-        id: 'default',
-        name: 'General',
-        // Importance alta para heads-up
-        importance: 4, // AndroidImportance.HIGH
-      });
-
-      await notifee.displayNotification({
-        title,
-        body,
-        android: {
-          channelId,
-          smallIcon: 'ic_launcher', // asegúrate de tener el recurso
-          pressAction: { id: 'default' },
-        },
-        ios: {
-          foregroundPresentationOptions: {
-            alert: true,
-            badge: true,
-            sound: true,
-          },
-        },
-      });
-    } catch (err) {
-      console.warn('[Notifications] Error mostrando notificación con Notifee:', err);
-      if (allowAlert) {
-        Alert.alert(title, body);
-      }
-    }
-  } else {
-    // Fallback simple en primer plano
-    if (allowAlert) {
-      Alert.alert(title, body);
-    }
-  }
-};
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -216,119 +139,16 @@ const App = () => {
   };
 
   function logOut(navigation) {
-    unsubscribeTokenRefresh();
     Meteor.logout(error => {
       error && Alert.alert('Error Cerrando Session');
     });
   }
 
-  async function requestUserPermission() {
-    const authStatus = await messaging().requestPermission();
-    const enabled =
-      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-
-    if (enabled) {
-      console.log('Authorization status:', authStatus);
-      // opcional: obtener FCM token si necesitas registrarlo en backend
-      try {
-        let a = await messaging().registerDeviceForRemoteMessages();
-        console.log('FCM messaging().registerDeviceForRemoteMessages():', a);
-        console.log('FCM messaging():', messaging().isDeviceRegisteredForRemoteMessages);
-        // await messaging().registerForRemoteNotifications();
-
-
-        if (Platform.OS === 'ios') {
-          let tokenApns = await messaging().getAPNSToken();
-          !tokenApns && await messaging().setAPNSToken(Meteor.userId());
-          tokenApns = await messaging().getAPNSToken();
-          console.log('FCM getAPNSToken (iOS):', tokenApns);
-        }
-        const token = await messaging().getToken();
-        console.log('FCM token:', token);
-        // registrar token con el usuario actual en backend (push.registerToken)
-        await registerPushTokenForUser(Meteor.userId(), token);
-      } catch (e) {
-        console.warn('No se pudo obtener el FCM token:', e);
-      }
-    }
-  }
-
   useEffect(() => {
-
-    // ✅ Resetear badge al iniciar la app (iOS)
-    if (Platform.OS === 'ios' && NotifeeLib?.default) {
-      NotifeeLib.default.setBadgeCount(0)
-        .then(() => console.log('[App] Badge reseteado a 0'))
-        .catch(e => console.warn('[App] Error reseteando badge:', e));
-    }
-
-    if (Platform.OS === 'ios') {
-      requestUserPermission();
-    } else {
-      (async () => {
-        await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
-
-        try {
-          const token = await messaging().getToken();
-          console.log('FCM token:', token);
-          // registrar token con el usuario actual en backend (push.registerToken)
-          token && await registerPushTokenForUser(Meteor.userId(), token);
-        } catch (e) {
-          console.warn('No se pudo obtener el FCM token:', e);
-        }
-
-      })()
-
-    }
-
-    // listener de refresh de token -> re-registrar en backend
-    const unsubscribeTokenRefresh = messaging().onTokenRefresh(async (newToken) => {
-      console.log('FCM token refreshed:', newToken);
-      await registerPushTokenForUser(Meteor.userId(), newToken);
-    });
-
-    // listener de mensajes en primer plano
-    const unsubscribeOnMessage = messaging().onMessage(async remoteMessage => {
-      // Mostrar notificación sencilla con el contenido recibido
-      await displayLocalNotification(remoteMessage, { allowAlert: true });
-    });
-
-    // app abierta desde una notificación (background -> foreground)
-    const unsubscribeOpened = messaging().onNotificationOpenedApp(remoteMessage => {
-      console.log('Notificación abrió la app desde background:', remoteMessage);
-      // ✅ Resetear badge cuando se abre desde notificación (iOS)
-      if (Platform.OS === 'ios' && NotifeeLib?.default) {
-        NotifeeLib.default.setBadgeCount(0).catch(() => {});
-      }
-      // aquí se podría navegar según data del mensaje
-    });
-
-    // app abierta desde estado "quit"
-    messaging()
-      .getInitialNotification()
-      .then(remoteMessage => {
-        if (remoteMessage) {
-          Alert.alert(remoteMessage?.notification?.title
-            , remoteMessage?.notification?.body, [{ text: 'OK', onPress: () => console.log('OK Pressed') }]);
-          console.log('Se abrio desde la Notificacion:', remoteMessage);
-
-          // aquí se podría navegar según data del mensaje
-        }
-      })
-      .catch(err => console.warn('getInitialNotification error:', err));
-
     return () => {
-      unsubscribeOnMessage();
-      unsubscribeOpened();
+      // Cleanup si es necesario
     };
   }, []);
-
-
-
-
-
-
 
   return (
     <PaperProvider>

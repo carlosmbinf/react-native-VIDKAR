@@ -1,6 +1,8 @@
 import {Alert, Platform, PermissionsAndroid} from 'react-native';
 import messaging, {FirebaseMessagingTypes} from '@react-native-firebase/messaging';
 import Meteor from '@meteorrn/core';
+import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import Geolocation from '@react-native-community/geolocation';
 
 // Carga condicional de notifee (opcional)
 let NotifeeLib: any = null;
@@ -10,6 +12,104 @@ try {
 } catch (e) {
   console.warn('[PushMessaging] @notifee/react-native no instalado; se usará Alert en primer plano.');
 }
+
+
+
+// ✅ Sistema profesional de gestión de badge
+class BadgeManager {
+  private static instance: BadgeManager;
+
+  private constructor() {}
+
+  static getInstance(): BadgeManager {
+    if (!BadgeManager.instance) {
+      BadgeManager.instance = new BadgeManager();
+    }
+    return BadgeManager.instance;
+  }
+
+  /**
+   * Incrementa el badge en iOS de forma segura
+   * Se llama automáticamente cuando llega cualquier notificación
+   */
+  async increment(): Promise<void> {
+    if (Platform.OS !== 'ios' || !NotifeeLib?.default) {
+      console.log('[BadgeManager] Incrementar badge: no soportado en esta plataforma o sin Notifee.');
+      return;}
+
+    try {
+      const currentBadge = await NotifeeLib.default.getBadgeCount();
+      const newBadge = currentBadge + 1;
+      await NotifeeLib.default.setBadgeCount(newBadge);
+      console.log(`[BadgeManager] 🔔 Badge: ${currentBadge} → ${newBadge}`);
+    } catch (error) {
+      console.warn('[BadgeManager] Error incrementando badge:', error);
+    }
+  }
+
+  /**
+   * Resetea el badge a 0 en iOS
+   * Se llama cuando el usuario abre la app
+   */
+  async reset(): Promise<void> {
+    if (Platform.OS !== 'ios' || !NotifeeLib?.default) return;
+
+    try {
+      await NotifeeLib.default.setBadgeCount(0);
+      console.log('[BadgeManager] ✅ Badge reseteado a 0');
+    } catch (error) {
+      console.warn('[BadgeManager] Error reseteando badge:', error);
+    }
+  }
+
+  /**
+   * Obtiene el badge actual
+   */
+  async getCount(): Promise<number> {
+    if (Platform.OS !== 'ios' || !NotifeeLib?.default) return 0;
+
+    try {
+      return await NotifeeLib.default.getBadgeCount();
+    } catch (error) {
+      console.warn('[BadgeManager] Error obteniendo badge:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Decrementa el badge (útil para marcar notificaciones como leídas)
+   */
+  async decrement(amount: number = 1): Promise<void> {
+    if (Platform.OS !== 'ios' || !NotifeeLib?.default) return;
+
+    try {
+      const currentBadge = await NotifeeLib.default.getBadgeCount();
+      const newBadge = Math.max(0, currentBadge - amount);
+      await NotifeeLib.default.setBadgeCount(newBadge);
+      console.log(`[BadgeManager] 🔽 Badge: ${currentBadge} → ${newBadge}`);
+    } catch (error) {
+      console.warn('[BadgeManager] Error decrementando badge:', error);
+    }
+  }
+
+  /**
+   * Establece un valor específico de badge
+   */
+  async setCount(count: number): Promise<void> {
+    if (Platform.OS !== 'ios' || !NotifeeLib?.default) return;
+
+    try {
+      const safeCount = Math.max(0, Math.floor(count));
+      await NotifeeLib.default.setBadgeCount(safeCount);
+      console.log(`[BadgeManager] 🎯 Badge establecido a: ${safeCount}`);
+    } catch (error) {
+      console.warn('[BadgeManager] Error estableciendo badge:', error);
+    }
+  }
+}
+
+// Exportar instancia singleton
+export const badgeManager = BadgeManager.getInstance();
 
 // Tipos
 export type PushData = Record<string, string | number | boolean | null | undefined>;
@@ -39,6 +139,9 @@ const getBody = (m?: FirebaseMessagingTypes.RemoteMessage) =>
 const displayLocalNotification = async (remoteMessage?: FirebaseMessagingTypes.RemoteMessage, allowAlert = true) => {
   const title = getTitle(remoteMessage);
   const body = getBody(remoteMessage);
+
+  // ✅ Incrementar badge de forma profesional
+  // await badgeManager.increment();
 
   if (NotifeeLib?.default) {
     const notifee = NotifeeLib.default;
@@ -200,15 +303,8 @@ export const sendMessage = async (payload: SendMessagePayload) => {
 
 // Inicializar listeners de push en la app
 export const setupPushListeners = async (options?: SetupOptions) => {
-  // ✅ Resetear badge al abrir la app (iOS)
-  if (Platform.OS === 'ios' && NotifeeLib?.default) {
-    try {
-      await NotifeeLib.default.setBadgeCount(0);
-      console.log('[PushMessaging] Badge reseteado a 0');
-    } catch (e) {
-      console.warn('[PushMessaging] Error reseteando badge:', e);
-    }
-  }
+  // ✅ Resetear badge al abrir la app de forma profesional
+  await badgeManager.reset();
 
   // Permisos y token inicial
   const granted = await requestPermissionsIfNeeded();
@@ -243,10 +339,8 @@ export const setupPushListeners = async (options?: SetupOptions) => {
 
   // App abierta desde background por notificación
   const unsubOnOpened = messaging().onNotificationOpenedApp(remoteMessage => {
-    // ✅ Resetear badge cuando se abre desde notificación (iOS)
-    if (Platform.OS === 'ios' && NotifeeLib?.default) {
-      NotifeeLib.default.setBadgeCount(0).catch(() => {});
-    }
+    // ✅ Resetear badge cuando se abre desde notificación
+    badgeManager.reset();
     options?.onNotificationOpenedApp?.(remoteMessage);
   });
 
@@ -304,28 +398,77 @@ const isForCurrentUser = (m?: FirebaseMessagingTypes.RemoteMessage) => {
   }
 };
 
-// ✅ Resetear badge del ícono de la app (iOS)
+// ✅ DEPRECATED: Usar badgeManager.reset() en su lugar
 export const resetBadge = async () => {
-  if (Platform.OS === 'ios' && NotifeeLib?.default) {
-    try {
-      await NotifeeLib.default.setBadgeCount(0);
-      console.log('[PushMessaging] Badge reseteado manualmente a 0');
-    } catch (e) {
-      console.warn('[PushMessaging] Error reseteando badge:', e);
+  console.warn('[PushMessaging] resetBadge() está deprecated. Usa badgeManager.reset()');
+  await badgeManager.reset();
+};
+
+// ✅ DEPRECATED: Usar badgeManager.getCount() en su lugar
+export const getBadgeCount = async (): Promise<number> => {
+  console.warn('[PushMessaging] getBadgeCount() está deprecated. Usa badgeManager.getCount()');
+  return await badgeManager.getCount();
+};
+
+/**
+ * Verificar y solicitar permisos de ubicación "siempre activa" para iOS
+ * Retorna true si tiene los permisos necesarios, false si no
+ */
+export const ensureLocationPermissions = async (): Promise<boolean> => {
+  if (Platform.OS !== 'ios') return true;
+
+  try {
+    // Verificar si ya tiene permiso "siempre"
+    const alwaysStatus = await check(PERMISSIONS.IOS.LOCATION_ALWAYS);
+    console.log('🔐 [Location Permissions] Estado "siempre":', alwaysStatus);
+    
+    if (alwaysStatus === RESULTS.GRANTED) {
+      return true;
     }
+
+    // Primero verificar/solicitar "cuando está en uso"
+    const whenInUseStatus = await check(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
+    
+    if (whenInUseStatus !== RESULTS.GRANTED) {
+      console.log('📍 [Location Permissions] Solicitando "cuando está en uso"...');
+      const whenInUseResult = await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
+      Geolocation.requestAuthorization();
+      
+      if (whenInUseResult !== RESULTS.GRANTED) {
+        console.warn('⚠️ [Location Permissions] "Cuando está en uso" denegado');
+        return false;
+      }
+    }
+
+    // Ahora solicitar "siempre"
+    console.log('📍 [Location Permissions] Solicitando "siempre"...');
+    const alwaysResult = await request(PERMISSIONS.IOS.LOCATION_ALWAYS);
+    
+    if (alwaysResult === RESULTS.GRANTED) {
+      console.log('✅ [Location Permissions] Permiso "siempre" concedido');
+      return true;
+    }
+
+    console.warn('⚠️ [Location Permissions] Permiso "siempre" denegado:', alwaysResult);
+    return false;
+  } catch (error) {
+    console.error('❌ [Location Permissions] Error:', error);
+    return false;
   }
 };
 
-// ✅ Obtener el badge actual (iOS)
-export const getBadgeCount = async (): Promise<number> => {
-  if (Platform.OS === 'ios' && NotifeeLib?.default) {
-    try {
-      const count = await NotifeeLib.default.getBadgeCount();
-      return count || 0;
-    } catch (e) {
-      console.warn('[PushMessaging] Error obteniendo badge:', e);
-      return 0;
-    }
+/**
+ * Verificar el estado actual del permiso de ubicación "siempre"
+ * Sin solicitar, solo verificar
+ */
+export const checkLocationAlwaysPermission = async (): Promise<boolean> => {
+  if (Platform.OS !== 'ios') return true;
+
+  try {
+    const alwaysStatus = await check(PERMISSIONS.IOS.LOCATION_ALWAYS);
+    return alwaysStatus === RESULTS.GRANTED;
+  } catch (error) {
+    console.error('❌ [Location Permissions] Error verificando:', error);
+    return false;
   }
-  return 0;
 };

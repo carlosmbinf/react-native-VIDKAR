@@ -1,22 +1,31 @@
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import {
   Animated,
-  Dimensions,
   Linking,
   PanResponder,
   StyleSheet,
   View,
+  useWindowDimensions,
+  ScrollView,
+  Platform,
 } from 'react-native';
 import { Button, Card, Chip, Surface, Text } from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
-const { width } = Dimensions.get('window');
-const SWIPE_THRESHOLD = width * 0.25;
-// ✅ Flechas: cuando el swipe supera ~5% del ancho, empiezan a aparecer
-const ARROW_VISIBILITY_THRESHOLD = width * 0.05;
-
 async function safeOpenSettings() {
-  Linking.openSettings?.();
+  try {
+    if (Platform.OS === 'ios') {
+      // iOS: Abre directamente la configuración de la app
+      await Linking.openSettings();
+    } else {
+      // Android: Abre la configuración de la app
+      await Linking.openSettings();
+    }
+  } catch (error) {
+    console.warn('⚠️ No se pudo abrir la configuración:', error);
+    // Fallback: intentar abrir ajustes generales
+    Linking.openSettings?.();
+  }
 }
 
 export default function PermissionsGate({
@@ -27,8 +36,20 @@ export default function PermissionsGate({
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [lastError, setLastError] = useState('');
+  
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const isLandscape = screenWidth > screenHeight;
+
+  // ✅ Calcular thresholds dinámicamente basados en el ancho actual
+  const SWIPE_THRESHOLD = screenWidth * 0.25;
+  const ARROW_VISIBILITY_THRESHOLD = screenWidth * 0.05;
 
   const gestureX = useRef(new Animated.Value(0)).current;
+
+  // ✅ Resetear gestureX cuando cambia el ancho de pantalla (rotación)
+  useEffect(() => {
+    gestureX.setValue(0);
+  }, [screenWidth, gestureX]);
 
   // ✅ Fade del contenido al cambiar de slide:
   // - salida instantánea
@@ -103,7 +124,7 @@ export default function PermissionsGate({
       arrowLeftOpacity.setValue(wantsPrev ? nextOpacity : 0);
       arrowRightOpacity.setValue(wantsNext ? nextOpacity : 0);
     },
-    [arrowLeftOpacity, arrowRightOpacity, index, steps.length]
+    [arrowLeftOpacity, arrowRightOpacity, index, steps.length, ARROW_VISIBILITY_THRESHOLD, SWIPE_THRESHOLD]
   );
 
   const panResponder = useMemo(
@@ -138,7 +159,7 @@ export default function PermissionsGate({
           }).start();
         },
       }),
-    [gestureX, hideArrows, index, settleToIndex, showArrowForDx, steps.length]
+    [gestureX, hideArrows, index, settleToIndex, showArrowForDx, steps.length, SWIPE_THRESHOLD]
   );
 
   const handleRequest = useCallback(async () => {
@@ -167,7 +188,7 @@ export default function PermissionsGate({
   if (!current) return null;
 
   const trackTranslateX = Animated.add(
-    new Animated.Value(-index * width),
+    new Animated.Value(-index * screenWidth),
     gestureX
   );
 
@@ -181,13 +202,13 @@ export default function PermissionsGate({
     const shouldRenderInfoCard =
       stepIndex === index && (hasDetail || hasStatusInfo || !!lastError);
 
-    const showPrimary = stepIndex === index && !isGranted;
-    const showSettings = stepIndex === index && (step?.canOpenSettings ?? true);
+    const showPrimary = stepIndex === index && !isGranted && !isBlocked;
+    const showSettings = stepIndex === index && isBlocked && !isGranted && (step?.canOpenSettings ?? true);
 
     const isActiveSlide = stepIndex === index;
 
     return (
-      <View key={String(step?.id || stepIndex)} style={[styles.slide, { width }]}>
+      <View key={String(step?.id || stepIndex)} style={[styles.slide, { width: screenWidth }]}>
         {/* ✅ Ribbon "APROBADO" */}
         {isGranted && (
           <View pointerEvents="none" style={styles.ribbonWrapper}>
@@ -197,66 +218,156 @@ export default function PermissionsGate({
           </View>
         )}
 
-        <Animated.View style={{ width: '100%', alignItems: 'center', opacity: isActiveSlide ? contentOpacity : 1 }}>
-          <MaterialCommunityIcons
-            name={step?.icon || 'shield-check'}
-            size={110}
-            color={isGranted ? '#4CAF50' : step?.iconColor || '#FF9800'}
-          />
+        <Animated.View style={{ 
+          width: '100%',
+          maxWidth: isLandscape ? screenWidth * 0.85 : '100%',
+          opacity: isActiveSlide ? contentOpacity : 1,
+          flexDirection: isLandscape ? 'row' : 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: isLandscape ? 32 : 0,
+          paddingHorizontal: isLandscape ? 20 : 0,
+          paddingVertical: isLandscape ? 10 : 0,
+          // height: '100%',
+        }}>
+          {/* ✅ Modo Landscape: Icono + Título + Descripción a la izquierda */}
+          {isLandscape ? (
+            <>
+              <ScrollView 
+                style={styles.leftSectionLandscape}
+                contentContainerStyle={styles.leftSectionScrollContent}
+                showsVerticalScrollIndicator={true}
+                bounces={true}
+              >
+                <MaterialCommunityIcons
+                  name={step?.icon || 'shield-check'}
+                  size={70}
+                  color={isGranted ? '#4CAF50' : step?.iconColor || '#FF9800'}
+                  style={{ alignSelf: 'center' }}
+                />
+                <Text style={[styles.title, styles.titleLandscape]}>
+                  {step?.title || 'Permiso'}
+                </Text>
+                {!!step?.rationale?.message && (
+                  <Text style={[styles.subtitle, styles.subtitleLandscape]}>
+                    {step?.rationale?.message}
+                  </Text>
+                )}
+              </ScrollView>
 
-          <Text style={styles.title}>{step?.title || 'Permiso'}</Text>
-          {/* {!!step?.description && <Text style={styles.subtitle}>{step.description}</Text>} */}
-          {!!step?.rationale?.message && <Text style={[styles.subtitle, {justifyContent:'flex-start'}]}>{step?.rationale?.message}</Text>}
-          
-          {shouldRenderInfoCard && !isGranted && (
-            <Chip style={styles.card}>
-              <Card.Content >
-                {hasDetail && <Text style={styles.detailText}>{step.detail}</Text>}
+              {/* ✅ Lado derecho: Botones + Estado */}
+              <View style={styles.rightSectionLandscape}>
+                {shouldRenderInfoCard && !isGranted && (
+                  <Chip style={styles.cardLandscape}>
+                    <Card.Content>
+                      {hasDetail && <Text style={styles.detailText}>{step.detail}</Text>}
 
-                {/* {isGranted && (
-                  <View style={styles.statusRow}>
-                    <MaterialCommunityIcons name="check-circle" size={18} color="#4CAF50" />
-                    <Text style={styles.statusGrantedText}>Aprobado</Text>
-                  </View>
-                )} */}
+                      {!isGranted && isBlocked && (
+                        <View style={styles.statusRow}>
+                          <MaterialCommunityIcons name="alert-circle" size={18} color="#F57C00" />
+                          <Text style={styles.statusBlockedText}>
+                            Bloqueado: {'\n'}habilítalo manualmente desde Ajustes
+                          </Text>
+                        </View>
+                      )}
 
-                {!isGranted && isBlocked && (
-                  <View style={styles.statusRow}>
-                    <MaterialCommunityIcons name="alert-circle" size={18} color="#F57C00" />
-                    <Text style={styles.statusBlockedText}>
-                      Bloqueado: habilítalo desde Ajustes
-                    </Text>
-                  </View>
+                      {!!lastError && <Text style={styles.errorText}>{lastError}</Text>}
+                    </Card.Content>
+                  </Chip>
                 )}
 
-                {!!lastError && <Text style={styles.errorText}>{lastError}</Text>}
-              </Card.Content>
-            </Chip>
-          )}
+                {showPrimary && (
+                  <Button
+                    mode="outlined"
+                    onPress={handleRequest}
+                    loading={loading}
+                    disabled={loading}
+                    style={styles.primaryBtnLandscape}
+                    contentStyle={styles.primaryBtnContent}
+                    labelStyle={styles.primaryBtnLabel}
+                  >
+                    {step?.primaryText || 'Continuar'}
+                  </Button>
+                )}
 
-          {showPrimary && (
-            <Button
-              mode="outlined"
-              onPress={handleRequest}
-              loading={loading}
-              disabled={loading}
-              style={styles.primaryBtn}
-              contentStyle={styles.primaryBtnContent}
-              labelStyle={styles.primaryBtnLabel}
-            >
-              {step?.primaryText || 'Conceder permiso'}
-            </Button>
-          )}
+                {showSettings && (
+                  <Button
+                    mode={isBlocked ? 'contained' : 'outlined'}
+                    onPress={onOpenSettings}
+                    disabled={loading}
+                    style={styles.secondaryBtnLandscape}
+                  >
+                    Abrir ajustes
+                  </Button>
+                )}
+              </View>
+            </>
+          ) : (
+            <>
+              {/* ✅ Modo Portrait: Layout original */}
+              <View style={styles.iconTitleSection}>
+                <MaterialCommunityIcons
+                  name={step?.icon || 'shield-check'}
+                  size={110}
+                  color={isGranted ? '#4CAF50' : step?.iconColor || '#FF9800'}
+                />
+                <Text style={styles.title}>
+                  {step?.title || 'Permiso'}
+                </Text>
+              </View>
 
-          {showSettings && (
-            <Button
-              mode={isBlocked ? 'contained' : 'outlined'}
-              onPress={onOpenSettings}
-              disabled={loading}
-              style={styles.secondaryBtn}
-            >
-              Abrir ajustes
-            </Button>
+              <View style={styles.contentSection}>
+                {!!step?.rationale?.message && (
+                  <Text style={styles.subtitle}>
+                    {step?.rationale?.message}
+                  </Text>
+                )}
+                
+                {shouldRenderInfoCard && !isGranted && (
+                  <Chip style={styles.card}>
+                    <Card.Content>
+                      {hasDetail && <Text style={styles.detailText}>{step.detail}</Text>}
+
+                      {!isGranted && isBlocked && (
+                        <View style={styles.statusRow}>
+                          <MaterialCommunityIcons name="alert-circle" size={18} color="#F57C00" />
+                          <Text style={styles.statusBlockedText}>
+                            Bloqueado: {'\n'}habilítalo manualmente desde Ajustes
+                          </Text>
+                        </View>
+                      )}
+
+                      {!!lastError && <Text style={styles.errorText}>{lastError}</Text>}
+                    </Card.Content>
+                  </Chip>
+                )}
+
+                {showPrimary && (
+                  <Button
+                    mode="outlined"
+                    onPress={handleRequest}
+                    loading={loading}
+                    disabled={loading}
+                    style={styles.primaryBtn}
+                    contentStyle={styles.primaryBtnContent}
+                    labelStyle={styles.primaryBtnLabel}
+                  >
+                    {step?.primaryText || 'Continuar'}
+                  </Button>
+                )}
+
+                {showSettings && (
+                  <Button
+                    mode={isBlocked ? 'contained' : 'outlined'}
+                    onPress={onOpenSettings}
+                    disabled={loading}
+                    style={styles.secondaryBtn}
+                  >
+                    Abrir ajustes
+                  </Button>
+                )}
+              </View>
+            </>
           )}
         </Animated.View>
       </View>
@@ -271,7 +382,7 @@ export default function PermissionsGate({
           style={[
             styles.track,
             {
-              width: width * steps.length,
+              width: screenWidth * steps.length,
               transform: [{ translateX: trackTranslateX }],
             },
           ]}
@@ -280,7 +391,7 @@ export default function PermissionsGate({
             // ✅ Performance/UX: solo renderizar el slide activo.
             // Los demás son placeholders del mismo ancho para mantener el desplazamiento y el layout.
             if (stepIndex !== index) {
-              return <View key={String(step?.id || stepIndex)} style={{ width }} />;
+              return <View key={String(step?.id || stepIndex)} style={{ width: screenWidth }} />;
             }
             return renderSlide(step, stepIndex);
           })}
@@ -331,10 +442,16 @@ const styles = StyleSheet.create({
 
   viewport: { flex: 1, overflow: 'hidden' },
   track: { flex: 1, flexDirection: 'row' },
-  slide: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 22 },
+  slide: { 
+    flex: 1,
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    paddingHorizontal: 22,
+    paddingVertical: 8,
+  },
 
   swipeHintRow: {
-    marginBottom: 10,
+    marginBottom: 6,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -344,8 +461,8 @@ const styles = StyleSheet.create({
   hintText: { color: '#9E9E9E', fontSize: 12 },
 
   bottomArea: {
-    paddingBottom: 14,
-    paddingTop: 10,
+    paddingBottom: 8,
+    paddingTop: 6,
   },
 
   dotsContainer: {
@@ -359,10 +476,78 @@ const styles = StyleSheet.create({
   progressDotActive: { width: 24, backgroundColor: '#2196F3' },
   progressDotGranted: { backgroundColor: '#4CAF50' },
 
+  // ✅ Sección de icono y título
+  iconTitleSection: {
+    alignItems: 'center',
+  },
+  iconTitleSectionLandscape: {
+    flex: 0.35,
+    justifyContent: 'center',
+    minWidth: 120,
+  },
+
   title: { fontSize: 24, fontWeight: '800', marginTop: 16, marginBottom: 10, textAlign: 'center' },
-  subtitle: { fontSize: 15, textAlign: 'center', lineHeight: 22, marginBottom: 18 },
+  titleLandscape: {
+    fontSize: 18,
+    marginTop: 8,
+    marginBottom: 6,
+  },
+
+  // ✅ Sección de contenido (descripción, info, botones)
+  contentSection: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  
+  // ✅ Landscape: lado izquierdo con scroll (icono, título, descripción)
+  leftSectionLandscape: {
+    flex: 0.55,
+    maxWidth: 500,
+    maxHeight: '100%',
+  },
+  leftSectionScrollContent: {
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  
+  // ✅ Landscape: lado derecho (botones y estado)
+  rightSectionLandscape: {
+    flex: 0.45,
+    maxWidth: 350,
+    justifyContent: 'center',
+    alignItems: 'stretch',
+    paddingVertical: 4,
+  },
+  
+  contentSectionLandscape: {
+    flex: 0.65,
+    maxWidth: 450,
+    maxHeight: '80%',
+  },
+  contentSectionScrollContent: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    alignItems: 'stretch',
+  },
+
+  subtitle: { 
+    fontSize: 15, 
+    textAlign: 'center', 
+    lineHeight: 22, 
+    marginBottom: 18,
+  },
+  subtitleLandscape: {
+    fontSize: 13,
+    textAlign: 'left',
+    marginBottom: 8,
+    lineHeight: 18,
+  },
 
   card: { width: '100%', borderRadius: 14, marginTop: 10 },
+  cardLandscape: {
+    marginTop: 6,
+    marginBottom: 6,
+  },
   detailText: { color: '#424242', fontSize: 14, lineHeight: 20 },
 
   statusRow: { flexDirection: 'row', alignItems: 'center',  gap: 8 },
@@ -372,10 +557,16 @@ const styles = StyleSheet.create({
   errorText: { marginTop: 12, color: '#D32F2F', fontSize: 13, lineHeight: 18 },
 
   primaryBtn: { width: '100%', marginTop: 16, borderRadius: 30 },
+  primaryBtnLandscape: {
+    marginTop: 8,
+  },
   primaryBtnContent: { paddingVertical: 8 },
   primaryBtnLabel: { fontSize: 15, fontWeight: '700' },
 
   secondaryBtn: { width: '100%', marginTop: 10, borderRadius: 30 },
+  secondaryBtnLandscape: {
+    marginTop: 6,
+  },
 
   // ✅ Flechas overlay
   arrowsOverlay: {

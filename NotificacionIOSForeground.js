@@ -1,6 +1,8 @@
 import { Platform, AppState, Alert } from 'react-native';
 import Meteor from '@meteorrn/core';
 import RNGeolocation from 'react-native-geolocation-service';
+import { badgeManager, ensureLocationPermissions } from './services/notifications/PushMessaging';
+import Geolocation from 'react-native-geolocation-service';
 
 let monitorInterval = null;
 let watchId = null;
@@ -17,6 +19,7 @@ const startLocationTracking = () => {
   }
 
   try {
+    // Geolocation.requestAuthorization('always');
     // Usar watchPosition para rastreo continuo
     watchId = RNGeolocation.watchPosition(
       (position) => {
@@ -115,6 +118,9 @@ const shouldActivateService = () => {
 const monitorLocationService = async () => {
   try {
     const shouldBeActive = await shouldActivateService();
+    console.log(`📡 [iOS Location Monitor] Modo cadete: ${shouldBeActive ? 'ACTIVO' : 'INACTIVO'}`);
+    
+
 
     if (shouldBeActive && !isServiceActive) {
       console.log('🚀 [iOS Location Monitor] Activando rastreo...');
@@ -155,6 +161,9 @@ const IOSLocationService = async () => {
   // Manejar cambios de estado de la app
   const handleAppStateChange = (nextAppState) => {
     console.log(`📱 [iOS App State] Cambió a: ${nextAppState}`);
+    if (nextAppState === 'active') {
+      badgeManager.reset();
+    }
     monitorLocationService();
   };
 

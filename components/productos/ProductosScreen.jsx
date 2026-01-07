@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl, Animated, Platform, PermissionsAndroid, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl, Animated, Platform, PermissionsAndroid, Alert, Linking } from 'react-native';
 import { 
   Text, Searchbar, FAB, ActivityIndicator, Surface, Chip, Divider, 
-  Appbar, Menu, Button
+  Appbar, Portal, Button
 } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 import { TiendasComercioCollection, ProductosComercioCollection } from '../collections/collections';
@@ -20,7 +20,7 @@ const ProductosScreen = ({ navigation }) => {
   const [tiendasCercanas, setTiendasCercanas] = useState([]);
   const [loadingTiendas, setLoadingTiendas] = useState(false);
   const [radioKm, setRadioKm] = useState(3); // Radio por defecto: 3km
-  const [menuVisible, setMenuVisible] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
 
@@ -124,6 +124,38 @@ const ProductosScreen = ({ navigation }) => {
     if (!hasPermission) {
       console.log('❌ [Ubicación] Permiso denegado por el usuario');
       setLocationError('Permiso de ubicación denegado');
+      
+      // ✅ Mostrar diálogo para guiar al usuario a configuración
+      Alert.alert(
+        '📍 Permiso de Ubicación Requerido',
+        'Para mostrarte comercios cercanos, necesitamos acceso a tu ubicación. Por favor, activa el permiso de ubicación en la configuración de tu dispositivo.',
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel',
+            onPress: () => console.log('Usuario canceló permisos de ubicación')
+          },
+          {
+            text: 'Ir a Configuración',
+            onPress: () => {
+              if (Platform.OS === 'ios') {
+                // iOS: Abrir configuración de la app
+                Linking.openURL('app-settings:');
+              } else {
+                // Android: Abrir configuración de la app
+                Linking.openSettings();
+              }
+            }
+          },
+          {
+            text: 'Reintentar',
+            onPress: () => {
+              // Volver a solicitar permisos
+              setTimeout(() => obtenerUbicacion(), 500);
+            }
+          }
+        ]
+      );
       return;
     }
 
@@ -168,11 +200,32 @@ const ProductosScreen = ({ navigation }) => {
         const errorMsg = errorMessages[error.code] || 'Error desconocido';
         setLocationError(errorMsg);
         
-        Alert.alert(
-          'Error de Ubicación',
-          `${errorMsg}. Las tiendas se mostrarán sin ordenar por distancia.`,
-          [{ text: 'OK' }]
-        );
+        // ✅ Si el error es por permisos, ofrecer ir a configuración
+        if (error.code === 1) {
+          Alert.alert(
+            'Permiso de Ubicación Denegado',
+            'Los permisos de ubicación están desactivados. Para ver comercios cercanos, necesitas activarlos en la configuración.',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              {
+                text: 'Abrir Configuración',
+                onPress: () => {
+                  if (Platform.OS === 'ios') {
+                    Linking.openURL('app-settings:');
+                  } else {
+                    Linking.openSettings();
+                  }
+                }
+              }
+            ]
+          );
+        } else {
+          Alert.alert(
+            'Error de Ubicación',
+            `${errorMsg}. Las tiendas se mostrarán sin ordenar por distancia.`,
+            [{ text: 'OK' }]
+          );
+        }
       },
       {
         enableHighAccuracy: true, // Usar GPS (más preciso pero consume más batería)
@@ -185,7 +238,7 @@ const ProductosScreen = ({ navigation }) => {
   // Cambiar radio de búsqueda
   const cambiarRadio = (nuevoRadio) => {
     setRadioKm(nuevoRadio);
-    setMenuVisible(false);
+    // setMenuVisible(false);
     
     if (userLocation) {
       buscarTiendasCercanas(userLocation, nuevoRadio);
@@ -454,16 +507,6 @@ const ProductosScreen = ({ navigation }) => {
                         ? 'Intenta aumentar el radio de búsqueda o muévete a otra zona'
                         : 'Obteniendo tu ubicación...'}
               </Text>
-              {(locationError || (userLocation && !loadingTiendas && tiendasFiltradas.length === 0)) && (
-                <Button 
-                  mode="contained" 
-                  onPress={obtenerUbicacion}
-                  style={{ marginTop: 16 }}
-                  icon="refresh"
-                >
-                  {locationError ? 'Reintentar Ubicación' : 'Actualizar Ubicación'}
-                </Button>
-              )}
             </Surface>
           ) : (
             tiendasFiltradas.map((tienda, index) => (
@@ -481,40 +524,31 @@ const ProductosScreen = ({ navigation }) => {
         <View style={{ height: 80 }} />
       </ScrollView>
 
-      {/* FAB con menú de radio */}
-      <Menu
-        visible={menuVisible}
-        onDismiss={() => setMenuVisible(false)}
-        anchor={
-          <FAB
-            icon={userLocation ? "map-marker-radius" : "map-marker-off"}
-            style={styles.fab}
-            label={userLocation ? `${radioKm} km` : 'Radio'}
-            onPress={() => setMenuVisible(true)}
-            color={userLocation ? '#fff' : '#999'}
-            disabled={!userLocation}
-          />
-        }
-        anchorPosition="top"
-      >
-        <Menu.Item 
-          leadingIcon="information" 
-          title="Selecciona radio de búsqueda" 
-          disabled 
-          titleStyle={{ fontWeight: 'bold', fontSize: 12 }}
+      {/* FAB Group con opciones de radio */}
+      <Portal>
+        <FAB.Group
+          open={fabOpen}
+          visible
+          icon={userLocation ? "map-marker-radius" : "map-marker-off"}
+          label={userLocation ? `${radioKm} km` : ''}
+          actions={radioOptions.map((option) => ({
+            icon: option.icon,
+            label: option.label,
+            onPress: () => cambiarRadio(option.value),
+            style: radioKm === option.value ? { backgroundColor: '#e3f2fd' } : undefined,
+            labelStyle: radioKm === option.value ? { color: '#3f51b5', fontWeight: 'bold' } : undefined,
+            small: false,
+          }))}
+          onStateChange={({ open }) => setFabOpen(open)}
+          onPress={() => {
+            if (fabOpen) {
+              // Cerrar el FAB si está abierto
+            }
+          }}
+          fabStyle={styles.fab}
+          color={userLocation ? '#fff' : '#999'}
         />
-        <Divider />
-        {radioOptions.map((option) => (
-          <Menu.Item
-            key={option.value}
-            leadingIcon={option.icon}
-            title={option.label}
-            onPress={() => cambiarRadio(option.value)}
-            style={radioKm === option.value ? styles.selectedMenuItem : null}
-            titleStyle={radioKm === option.value ? styles.selectedMenuText : null}
-          />
-        ))}
-      </Menu>
+      </Portal>
     </Surface>
   );
 };
@@ -557,10 +591,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    // backgroundColor: '#f5f5f5',
   },
   locationChip: {
-    backgroundColor: '#e3f2fd',
+    // backgroundColor: '#e3f2fd',
   },
   countChip: {
     borderColor: '#3f51b5',
@@ -604,9 +638,9 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,    bottom: 0,    borderRadius: 16,
+    // position: 'absolute',
+    // margin: 16,
+    // right: 0,    bottom: 0,    borderRadius: 30,
     backgroundColor: '#3f51b5',
   },
   selectedMenuItem: {

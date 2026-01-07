@@ -21,6 +21,7 @@ try {
   // });
 
   // // ✅ HANDLER DE EVENTOS EN BACKGROUND
+  
   // notifee.onBackgroundEvent(async ({ type, detail }) => {
   //   const { notification, pressAction } = detail;
 
@@ -33,6 +34,7 @@ try {
   //   switch (type) {
   //     case EventType.DISMISSED:
   //       console.log('[Notifee] Notificación descartada (background)');
+  //       notifee.incrementBadgeCount()
   //       break;
 
   //     case EventType.PRESS:
@@ -60,8 +62,9 @@ try {
     // AndroidForegroundService(); // ✅ Se inicia automáticamente
   } else if (Platform.OS === 'ios') {
     // ✅ Solicitar permisos de ubicación para iOS
-    Geolocation.requestAuthorization('always');
+    
     // ✅ Iniciar servicio de ubicación iOS
+    notifee.incrementBadgeCount();
     IOSLocationService();
     console.log('✅ [Index] Servicio de ubicación iOS iniciado');
   }

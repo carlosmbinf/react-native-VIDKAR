@@ -138,14 +138,15 @@ const PermissionsManager = ({ onComplete, userRole = 'user', initialScreen = 'in
 
       case 'request':
         return (
-          <Surface style={styles.container} edges={['top', 'bottom']}>
-            <View style={styles.header}>
-              <Text variant="headlineSmall" style={styles.title}>
-                Permisos Requeridos
-              </Text>
-              <Text variant="bodyMedium" style={styles.subtitle}>
-                VidKar necesita estos permisos para funcionar correctamente
-              </Text>
+          <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+            <Surface style={styles.surfaceContainer}>
+              <View style={styles.header}>
+                <Text variant="headlineSmall" style={styles.title}>
+                  Permisos Requeridos
+                </Text>
+                <Text variant="bodyMedium" style={styles.subtitle}>
+                  VidKar necesita estos permisos para funcionar correctamente
+                </Text>
 
               {/* ✅ Barra de progreso */}
               <View style={styles.progressContainer}>
@@ -233,7 +234,8 @@ const PermissionsManager = ({ onComplete, userRole = 'user', initialScreen = 'in
                 </Button>
               )}
             </View>
-          </Surface>
+            </Surface>
+          </SafeAreaView>
         );
 
       case 'summary':
@@ -452,7 +454,9 @@ const PermissionsManager = ({ onComplete, userRole = 'user', initialScreen = 'in
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // backgroundColor: '#fff',
+  },
+  surfaceContainer: {
+    flex: 1,
   },
   header: {
     paddingHorizontal: 16,

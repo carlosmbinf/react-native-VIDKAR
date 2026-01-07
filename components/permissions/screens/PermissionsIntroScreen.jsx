@@ -1,12 +1,17 @@
 import React from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet, Image, ScrollView } from 'react-native';
 import { Surface, Text, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const PermissionsIntroScreen = ({ onContinue, userRole }) => {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+      >
+        <View style={styles.content}>
         {/* Icono principal */}
         <View style={styles.iconContainer}>
           <Text style={styles.iconEmoji}>🔒</Text>
@@ -80,6 +85,7 @@ const PermissionsIntroScreen = ({ onContinue, userRole }) => {
           </Text>
         </View>
       </View>
+      </ScrollView>
 
       {/* Footer con botón */}
       <View style={styles.footer}>
@@ -102,10 +108,17 @@ const styles = StyleSheet.create({
     flex: 1,
     // backgroundColor: '#fff',
   },
-  content: {
+  scrollView: {
+    paddingHorizontal:'5%',
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  content: {
     paddingHorizontal: 24,
     paddingTop: 32,
+    paddingBottom: 16,
   },
   iconContainer: {
     alignItems: 'center',
@@ -162,6 +175,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 24,
+    paddingVertical:5,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
   },
