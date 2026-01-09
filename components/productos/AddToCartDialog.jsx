@@ -88,19 +88,11 @@ const AddToCartDialog = ({ visible, onDismiss, producto, tienda }) => {
         '¡Éxito!',
         `${cantidadNum} unidad${cantidadNum > 1 ? 'es' : ''} de "${producto.name}" ${cantidadNum > 1 ? 'fueron agregadas' : 'fue agregada'} al carrito.`,
         [
-          { text: 'Seguir comprando', onPress: onDismiss },
-          { 
-            text: 'Ver carrito', 
-            onPress: () => {
-              onDismiss();
-              // TODO: Navegar al carrito
-              console.log('Navegar al carrito');
-            }
-          }
+          { text: 'ok', onPress: onDismiss }
         ]
       );
 
-      onDismiss();
+      // onDismiss();
     } catch (error) {
       console.error('Error al agregar al carrito:', error);
       Alert.alert(
