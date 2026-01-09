@@ -309,7 +309,7 @@ const PermissionsManager = ({ onComplete, userRole = 'user', initialScreen = 'in
               : id === 'NOTIFICATIONS'
                 ? '#FF9800'
                 : '#4CAF50',
-          primaryText: 'Conceder permiso',
+          primaryText: 'Continuar',
           onRequest: async () => {
             const result = await requestSinglePermission(id, true);
 

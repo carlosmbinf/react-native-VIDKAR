@@ -12,6 +12,27 @@ import {
 import { Button, Card, Chip, Surface, Text } from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
+const PERMISSION_ICON_PALETTE = [
+  '#2563EB', // azul
+  '#7C3AED', // violeta
+  '#0EA5E9', // celeste
+  '#10B981', // verde
+  '#F59E0B', // ámbar
+  '#EF4444', // rojo
+  '#EC4899', // rosa
+  '#14B8A6', // teal
+];
+
+function getStepThemeColor(step, stepIndex) {
+  const explicit = step?.iconColor;
+  if (typeof explicit === 'string' && explicit.trim().length) return explicit;
+
+  const idSeed = step?.id ? String(step.id).length : 0;
+  const safeIndex = Number.isFinite(stepIndex) ? stepIndex : 0;
+  const paletteIndex = (safeIndex + idSeed) % PERMISSION_ICON_PALETTE.length;
+  return PERMISSION_ICON_PALETTE[paletteIndex];
+}
+
 async function safeOpenSettings() {
   try {
     if (Platform.OS === 'ios') {
@@ -62,12 +83,26 @@ export default function PermissionsGate({
     ]).start();
   }, [contentOpacity, index]);
 
+  // ✅ Fade del ribbon al cambiar de slide
+  const ribbonOpacity = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     if (!steps.length) return;
     setIndex((prev) => Math.min(prev, Math.max(steps.length - 1, 0)));
   }, [steps.length]);
 
   const current = steps[index];
+
+  const currentThemeColor = useMemo(() => getStepThemeColor(current, index), [current, index]);
+  
+  useEffect(() => {
+    const isCurrentGranted = current?.status === 'granted';
+    Animated.timing(ribbonOpacity, {
+      toValue: isCurrentGranted ? 1 : 0,
+      duration: isCurrentGranted ? 300 : 200,
+      useNativeDriver: true,
+    }).start();
+  }, [index, current?.status, ribbonOpacity]);
 
   useEffect(() => {
     if (!steps.length) return;
@@ -197,27 +232,20 @@ export default function PermissionsGate({
     const isGranted = status === 'granted';
     const isBlocked = status === 'blocked';
 
+    const themeColor = getStepThemeColor(step, stepIndex);
+
     const hasDetail = !!step?.detail;
     const hasStatusInfo = isGranted || isBlocked;
     const shouldRenderInfoCard =
       stepIndex === index && (hasDetail || hasStatusInfo || !!lastError);
 
-    const showPrimary = stepIndex === index && !isGranted && !isBlocked;
+    const showPrimary = stepIndex === index && !isGranted && typeof step?.onRequest === 'function';
     const showSettings = stepIndex === index && isBlocked && !isGranted && (step?.canOpenSettings ?? true);
 
     const isActiveSlide = stepIndex === index;
 
     return (
       <View key={String(step?.id || stepIndex)} style={[styles.slide, { width: screenWidth }]}>
-        {/* ✅ Ribbon "APROBADO" */}
-        {isGranted && (
-          <View pointerEvents="none" style={styles.ribbonWrapper}>
-            <View style={styles.ribbon}>
-              <Text style={styles.ribbonText}>APROBADO</Text>
-            </View>
-          </View>
-        )}
-
         <Animated.View style={{ 
           width: '100%',
           maxWidth: isLandscape ? screenWidth * 0.85 : '100%',
@@ -242,7 +270,7 @@ export default function PermissionsGate({
                 <MaterialCommunityIcons
                   name={step?.icon || 'shield-check'}
                   size={70}
-                  color={isGranted ? '#4CAF50' : step?.iconColor || '#FF9800'}
+                  color={themeColor}
                   style={{ alignSelf: 'center' }}
                 />
                 <Text style={[styles.title, styles.titleLandscape]}>
@@ -286,7 +314,7 @@ export default function PermissionsGate({
                     contentStyle={styles.primaryBtnContent}
                     labelStyle={styles.primaryBtnLabel}
                   >
-                    {step?.primaryText || 'Continuar'}
+                    {(!isGranted && isBlocked) ? "Actualizar estado" : (step?.primaryText || 'Continuar')}
                   </Button>
                 )}
 
@@ -309,7 +337,7 @@ export default function PermissionsGate({
                 <MaterialCommunityIcons
                   name={step?.icon || 'shield-check'}
                   size={110}
-                  color={isGranted ? '#4CAF50' : step?.iconColor || '#FF9800'}
+                  color={themeColor}
                 />
                 <Text style={styles.title}>
                   {step?.title || 'Permiso'}
@@ -352,7 +380,7 @@ export default function PermissionsGate({
                     contentStyle={styles.primaryBtnContent}
                     labelStyle={styles.primaryBtnLabel}
                   >
-                    {step?.primaryText || 'Continuar'}
+                    {(!isGranted && isBlocked) ? "Actualizar estado" : (step?.primaryText || 'Continuar')}
                   </Button>
                 )}
 
@@ -378,6 +406,16 @@ export default function PermissionsGate({
     <Surface style={styles.container}>
       {/* ✅ Track primero (contenido) */}
       <View style={styles.viewport} {...panResponder.panHandlers}>
+        {/* ✅ Ribbon "APROBADO" estático (overlay) */}
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.ribbonWrapper, { opacity: ribbonOpacity }]}
+        >
+          <View style={[styles.ribbon, { backgroundColor: currentThemeColor }]}>
+            <Text style={styles.ribbonText}>APROBADO</Text>
+          </View>
+        </Animated.View>
+
         <Animated.View
           style={[
             styles.track,
@@ -582,22 +620,23 @@ const styles = StyleSheet.create({
   arrowLeft: { left: 12 },
   arrowRight: { right: 12 },
 
-  // ✅ Ribbon "APROBADO" (esquina superior derecha)
+  // ✅ Ribbon "APROBADO" (esquina superior derecha, estático en viewport)
   ribbonWrapper: {
     position: 'absolute',
     top: 0,
     right: 0,
-    width: 140,
-    height: 140,
+    width: 176,
+    height: 176,
     overflow: 'hidden',
-    zIndex: 10,
+    zIndex: 15, // Por encima de las flechas (z-index 10)
+    elevation: 12, // Android: asegurar overlay por encima de siblings
   },
   ribbon: {
     position: 'absolute',
-    top: 28,
-    right: -42,
-    width: 180,
-    paddingVertical: 10,
+    top: 34,
+    right: -56,
+    width: 236,
+    paddingVertical: 12,
     backgroundColor: '#2E7D32',
     transform: [{ rotate: '45deg' }],
     alignItems: 'center',
@@ -611,6 +650,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '900',
     letterSpacing: 1,
-    fontSize: 12,
+    fontSize: 14,
   },
 });

@@ -78,9 +78,12 @@ const MenuPrincipal = ({ navigation }) => {
                 />
           </View>
         </Appbar>
-        <Surface style={{ height: "100%" ,paddingBottom:insets.bottom + 80}}>
+        <Surface style={{ height: "100%" ,paddingBottom:insets.bottom + 80, elevation: 0}}>
           <ScrollView
             style={styles.container}
+            bounces={false}
+            alwaysBounceVertical={false}
+            overScrollMode="never"
             // refreshControl={
             //   <RefreshControl
             //     refreshing={loading}

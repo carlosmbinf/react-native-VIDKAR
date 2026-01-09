@@ -241,12 +241,16 @@ class ProxyVPNPackagesHorizontal extends Component {
     }
 
     return (
-      <Surface style={[styles.container
-    //   , { backgroundColor: theme.colors.background }
-      ]}>
+      <View
+        elevation={0}
+        style={[
+          styles.container,
+          // { backgroundColor: theme?.colors?.background },
+        ]}
+      >
         {this.renderProxySection()}
         {this.renderVPNSection()}
-      </Surface>
+      </View>
     );
   }
 }
@@ -280,7 +284,9 @@ const styles = StyleSheet.create({
     // backgroundColor dinámico en render
   },
   flatListContent: {
-    paddingHorizontal: 16
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 14
   },
   loaderContainer: {
     flex: 1,

@@ -809,3 +809,51 @@ Resumen técnico – Implementación de Pantallas de Compra Proxy/VPN (ProxyPurc
   - Agregar analytics para trackear engagement con notificaciones.
   - Documentar en README.md el flujo completo de notificaciones push.
   - Tests e2e del sistema completo de notificaciones en diferentes estados de app.
+
+  ---
+
+  Resumen técnico – PermissionsGate (Ribbon "APROBADO" estático + overlay)
+  - Problema: el ribbon no se veía tras moverlo, porque quedó renderizado dentro del `track` (contenedor horizontal con ancho `screenWidth * steps.length`). Al estar `position: 'absolute'` relativo al `track`, el `right: 0` lo ubicaba al extremo derecho del carrusel (fuera del viewport) y parecía “desaparecido”.
+  - Solución aplicada en [components/permissions/PermissionsGate.jsx](components/permissions/PermissionsGate.jsx):
+    - Se movió el ribbon fuera del `track` y se renderiza como overlay directo dentro del `viewport` (hermano del `track`). Así queda estático y no se desplaza con el swipe.
+    - Se mantuvo la lógica de visibilidad por estado del step usando `ribbonOpacity` animada (fade in/out) según `current?.status === 'granted'`.
+    - Se reforzó stacking en Android agregando `elevation` en `ribbonWrapper` además de `zIndex`, para evitar que el track u otros overlays lo tapen.
+  - Lección: en carruseles/track horizontales, cualquier elemento `absolute` dentro del track se posiciona respecto al ancho total, no del viewport. Overlays (badges/ribbons/flechas) deben ser hijos del viewport (contenedor visible) para quedar fijos.
+
+  Notas adicionales – Ajuste de tamaño del Ribbon
+  - Para agrandar el ribbon sin afectar el layout del slide: ajustar únicamente estilos de `ribbonWrapper` (área de recorte), `ribbon` (ancho/offsets/padding) y `ribbonText` (fontSize), manteniéndolo como overlay con `pointerEvents="none"`.
+  - Mantener `zIndex` + `elevation` en el wrapper para evitar que el `track` o overlays (flechas) lo tapen en Android.
+
+  Resumen técnico – PermissionsGate (Paleta de colores + ribbon sincronizado)
+  - Se añadió una paleta de colores “elegante” y determinística para iconos de permisos, evitando que todos caigan en el mismo color por defecto.
+  - Se centralizó la decisión del color por step en una función (`getStepThemeColor(step, stepIndex)`):
+    - Respeta `step.iconColor` si viene definido desde el origen de datos.
+    - Si no existe, asigna un color estable desde una paleta en base a `stepIndex` y un pequeño seed por `step.id`.
+  - El ribbon “APROBADO” ahora usa exactamente el mismo color del icono del permiso actual (`currentThemeColor`), manteniendo la lógica de visibilidad por `status === 'granted'`.
+
+  Resumen técnico – PermissionsGate (Botón de solicitar permiso)
+  - Bug: el botón principal no aparecía cuando el permiso estaba `denied`/`unavailable` porque `showPrimary` solo se activaba para `blocked`.
+  - Solución: `showPrimary` ahora depende de `stepIndex === index && !isGranted` (y que exista `step.onRequest`), manteniendo:
+    - Label: `"Actualizar estado"` si está `blocked`, si no `step.primaryText || 'Continuar'`.
+    - Botón de Ajustes solo para `blocked`.
+  - Lección: en flujos de permisos, `blocked` es un caso especial (requiere ajustes), pero `denied` también debe mostrar CTA de solicitud.
+
+  Resumen técnico – ProxyVPNPackagesHorizontal (Eliminar “elevación” entre secciones)
+  - Problema: se notaba una separación/sombra antes y después del bloque de paquetes Proxy/VPN por usar `Surface` con elevación por defecto.
+  - Solución en [components/proxyVPN/ProxyVPNPackagesHorizontal.jsx](components/proxyVPN/ProxyVPNPackagesHorizontal.jsx):
+    - Se forzó `elevation={0}`.
+    - Se alinea el `backgroundColor` con `theme.colors.background` para evitar bordes/contrastes.
+  - Lección: en React Native Paper, `Surface` puede introducir sombra/elevación visual; si se necesita un contenedor “plano”, usar `elevation={0}` o reemplazar por `View`.
+
+  Resumen técnico – ScrollView (Eliminar “pull-down gap” / overscroll)
+  - Problema: al deslizar hacia abajo en la parte superior del contenido se veía una separación/hueco entre el componente superior y el scroll (efecto bounce/overscroll).
+  - Solución en [components/Main/MenuPrincipal.jsx](components/Main/MenuPrincipal.jsx):
+    - iOS: `bounces={false}` y `alwaysBounceVertical={false}`.
+    - Android: `overScrollMode="never"`.
+  - Lección: si se quiere evitar el “rubber band” visual sin deshabilitar el scroll normal, hay que desactivar el overscroll por plataforma (no necesariamente `scrollEnabled={false}`).
+
+  Resumen técnico – FlatList horizontal (Sombras recortadas)
+  - Problema: en listas horizontales, las cards con `elevation` pueden verse “cortadas” por abajo si no hay padding vertical en el `contentContainerStyle` (especialmente cuando los items tienen `marginBottom: 0`).
+  - Solución en [components/proxyVPN/ProxyVPNPackagesHorizontal.jsx](components/proxyVPN/ProxyVPNPackagesHorizontal.jsx):
+    - Añadir `paddingTop/paddingBottom` en `flatListContent` para dar “aire” a la sombra inferior.
+  - Lección: cuando una card tiene sombra, el contenedor debe reservar espacio extra; preferir padding del `FlatList` antes que alterar el layout interno de la card.
