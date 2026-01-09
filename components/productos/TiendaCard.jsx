@@ -1,17 +1,82 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Animated, LayoutAnimation, Platform, UIManager, FlatList } from 'react-native';
-import { 
-  Card, Text, Chip, IconButton, Divider, Surface 
-} from 'react-native-paper';
+import { Card, Text, Chip, IconButton, Divider } from 'react-native-paper';
+import Meteor from '@meteorrn/core';
 import ProductoCard from './ProductoCard';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const TiendaCard = ({ tienda, index, searchQuery }) => {
+const TiendaCard = ({ tienda, index, searchQuery, userLocation }) => {
   const [expanded, setExpanded] = useState(true);
   const rotateAnim = React.useRef(new Animated.Value(0)).current;
+
+  // ✅ NUEVO: estado de distancia (cálculo en el card)
+  const [distanciaKm, setDistanciaKm] = useState(
+    typeof tienda?.distancia === 'number' ? tienda.distancia : null
+  );
+  const [loadingDistancia, setLoadingDistancia] = useState(false);
+
+  const formatearDistancia = (distKm) => {
+    if (typeof distKm !== 'number' || !Number.isFinite(distKm)) return null;
+    return distKm < 1 ? `${Math.round(distKm * 1000)}m` : `${distKm.toFixed(1)}km`;
+  };
+
+  // ✅ NUEVO: calcular distancia desde BE (source of truth)
+  useEffect(() => {
+    let cancelled = false;
+
+    const lat1 = userLocation?.latitude;
+    const lon1 = userLocation?.longitude;
+    const lat2 = tienda?.coordenadas?.latitude;
+    const lon2 = tienda?.coordenadas?.longitude;
+
+    const faltanDatos =
+      typeof lat1 !== 'number' ||
+      typeof lon1 !== 'number' ||
+      typeof lat2 !== 'number' ||
+      typeof lon2 !== 'number';
+
+    if (faltanDatos) {
+      setDistanciaKm(null);
+      return;
+    }
+
+    // Evitar recalcular si ya la tenemos (por props o estado)
+    if (typeof distanciaKm === 'number') return;
+
+    setLoadingDistancia(true);
+
+    Meteor.call('calcularDistancia', lat1, lon1, lat2, lon2, (error, result) => {
+      if (cancelled) return;
+
+      setLoadingDistancia(false);
+
+      if (error) {
+        console.warn('[TiendaCard] Error calculando distancia:', error?.reason || error?.message);
+        setDistanciaKm(null);
+        return;
+      }
+
+      if (typeof result === 'number' && Number.isFinite(result)) {
+        setDistanciaKm(result);
+      } else {
+        setDistanciaKm(null);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    userLocation?.latitude,
+    userLocation?.longitude,
+    tienda?._id,
+    tienda?.coordenadas?.latitude,
+    tienda?.coordenadas?.longitude,
+    distanciaKm,
+  ]);
 
   const toggleExpand = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -29,8 +94,13 @@ const TiendaCard = ({ tienda, index, searchQuery }) => {
     outputRange: ['0deg', '180deg'],
   });
 
-  // Calcular distancia (placeholder - requeriría geolocalización del usuario)
-  const distancia = tienda.coordenadas ? '~2.5 km' : 'N/A';
+  // ✅ Reemplazo del placeholder
+  const distanciaLabel = (() => {
+    if (!tienda?.coordenadas) return 'N/A';
+    if (loadingDistancia) return 'Calculando...';
+    const formatted = formatearDistancia(distanciaKm);
+    return formatted || 'N/A';
+  })();
 
   const renderProductoItem = ({ item, index }) => (
     <ProductoCard 
@@ -50,7 +120,7 @@ const TiendaCard = ({ tienda, index, searchQuery }) => {
   );
 
   return (
-    <View style={[styles.card, { marginTop: 16}]} >
+    <View style={[styles.card, { marginTop: 16 }]}>
       {/* Header de la tienda */}
       <Card.Content>
         <View style={styles.headerRow}>
@@ -101,14 +171,13 @@ const TiendaCard = ({ tienda, index, searchQuery }) => {
               )}
 
               {tienda.coordenadas && (
-                <Chip 
-                  icon="map-marker" 
-                  mode="flat" 
-                  compact 
-                //   style={styles.chip}
+                <Chip
+                  icon="map-marker"
+                  mode="flat"
+                  compact
                   textStyle={styles.chipText}
                 >
-                  {distancia}
+                  {distanciaLabel}
                 </Chip>
               )}
             </View>

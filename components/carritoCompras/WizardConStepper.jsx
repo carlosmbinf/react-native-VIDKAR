@@ -263,7 +263,7 @@ const WizardConStepper = ({ product, navigation }) => {
         contenido: [
           {
             subtitulo: "1. Comisiones y Tarifas",
-            texto: "MercadoPago aplica una tarifa de procesamiento del 4-6% (variable según país y método de pago), asumida por el usuario. Los costos de procesamiento bancario internacional están incluidos en el total mostrado."
+            texto: "MercadoPago aplica una tarifa de procesamiento del 4-10% (variable según país y método de pago), asumida por el usuario. Los costos de procesamiento bancario internacional están incluidos en el total mostrado."
           },
           {
             subtitulo: "2. Medios de Pago Aceptados",
@@ -355,12 +355,20 @@ const WizardConStepper = ({ product, navigation }) => {
         };
       }, []);
 
+      // ✅ NUEVO: Reset del stepper si el carrito queda vacío
       useEffect(() => {
-        if( (!pedidosRemesa || pedidosRemesa.length === 0) && activeStep !== 0){
-            setActiveStep(0);
-            setCargadoPago(false);
-            return;
+        if ((!pedidosRemesa || pedidosRemesa.length === 0) && activeStep !== 0) {
+          console.log('⚠️ [WizardConStepper] Carrito vacío detectado. Retrocediendo al paso 0.');
+          setActiveStep(0);
+          setCargadoPago(false);
+          // Mantener reset defensivo de estados de pago para evitar UI inconsistente
+          setMetodoPago(null);
+          setPaisPago(null);
+          setUbicacionEntrega(null);
         }
+      }, [pedidosRemesa, activeStep]);
+
+      useEffect(() => {
         console.log(`Método de pago seleccionado: ${metodoPago}`);
         if (!metodoPago) return;
 
@@ -487,12 +495,15 @@ const WizardConStepper = ({ product, navigation }) => {
     
           switch (metodoPago) {
             case "paypal":
+              console.log("creando orden paypal");
               crearOrdenPaypal();
               break;
             case "mercadopago":
+              console.log("creando orden mercadopago");
               crearOrdenMercadoPago();
               break;
             case "efectivo":
+              console.log(message);
               crearOrdenEfectivo();
               break;
           }
@@ -724,9 +735,9 @@ const WizardConStepper = ({ product, navigation }) => {
 
                     <BlurView
                         style={StyleSheet.absoluteFill}
-                        // blurType= {isDarkMode ?"dark":"light"}
+                        blurType= {isDarkMode ?"dark":"light"}
                     />
-                    <View style={{ flex: 1 , paddingTop: 30}}>
+                    <View style={{ flex: 1 , paddingTop: 30,zIndex:999}}>
                         <View style={styles.dialogTitleContainer}>
                             <Text style={styles.dialogTitleText}>Carrito de compras:</Text>
                             <IconButton icon="close" onPress={() => setVisible(false)} />
@@ -884,7 +895,7 @@ const WizardConStepper = ({ product, navigation }) => {
                                       ))}
 
                                       <View style={styles.advertenciaFinal}>
-                                        <IconButton icon="alert-circle" iconColor="#FF6F00" size={20} />
+                                        <IconButton icon="alert-circle" color="#FF6F00" size={20} />
                                         <Text style={styles.advertenciaTexto}>
                                           Al presionar "Aceptar", confirma que ha leído y acepta todos los términos y condiciones descritos. 
                                           Esta acción constituye un acuerdo legalmente vinculante.
@@ -1015,7 +1026,7 @@ const styles = StyleSheet.create({
     },
     seccionTermino: {
       marginBottom: 16,
-      backgroundColor: 'rgba(0,0,0,0.20)',
+      // backgroundColor: 'rgba(0,0,0,0.20)',
       padding: 12,
       borderRadius: 8,
       borderLeftWidth: 3,

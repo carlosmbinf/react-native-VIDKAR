@@ -300,9 +300,6 @@ const ProductosScreen = ({ navigation }) => {
         { sort: { name: 1 } }
       ).fetch();
 
-      // ✅ Buscar distancia si existe en tiendasCercanas
-      const tiendaCercana = tiendasCercanas.find(tc => tc._id === tienda._id);
-
       return {
         ...tienda,
         productos,
@@ -310,9 +307,7 @@ const ProductosScreen = ({ navigation }) => {
         productosDisponibles: productos.filter(p => 
           !p.productoDeElaboracion ? p.count > 0 : true
         ).length,
-        // ✅ Agregar distancia si está disponible
-        distancia: tiendaCercana?.distancia,
-        distanciaFormateada: tiendaCercana?.distanciaFormateada
+        // ✅ distancia ahora la calcula TiendaCard, no el screen
       };
     }).filter(t => t.totalProductos > 0); // Solo mostrar tiendas con productos
 
@@ -525,7 +520,7 @@ const ProductosScreen = ({ navigation }) => {
       </ScrollView>
 
       {/* FAB Group con opciones de radio */}
-      <Portal>
+      {/* <Portal> */}
         <FAB.Group
           open={fabOpen}
           visible
@@ -548,7 +543,7 @@ const ProductosScreen = ({ navigation }) => {
           fabStyle={styles.fab}
           color={userLocation ? '#fff' : '#999'}
         />
-      </Portal>
+      {/* </Portal> */}
     </Surface>
   );
 };
