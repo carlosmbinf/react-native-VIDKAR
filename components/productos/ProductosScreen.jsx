@@ -19,7 +19,7 @@ const ProductosScreen = ({ navigation }) => {
   const [locationError, setLocationError] = useState(null);
   const [tiendasCercanas, setTiendasCercanas] = useState([]);
   const [loadingTiendas, setLoadingTiendas] = useState(false);
-  const [radioKm, setRadioKm] = useState(3); // Radio por defecto: 3km
+  const [radioKm, setRadioKm] = useState(5); // Radio por defecto: 3km
   const [fabOpen, setFabOpen] = useState(false);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
@@ -29,8 +29,9 @@ const ProductosScreen = ({ navigation }) => {
     { label: '1 km', value: 1, icon: 'map-marker-radius' },
     { label: '3 km', value: 3, icon: 'map-marker-radius' },
     { label: '5 km', value: 5, icon: 'map-marker-radius' },
-    { label: '10 km', value: 10, icon: 'map-marker-radius' },
-    { label: '20 km', value: 20, icon: 'map-marker-radius' },
+    { label: '5 km', value: 7, icon: 'map-marker-radius' },
+    // { label: '10 km', value: 10, icon: 'map-marker-radius' },
+    // { label: '20 km', value: 20, icon: 'map-marker-radius' },
   ];
 
   // Solicitar permisos de ubicación (Android)
