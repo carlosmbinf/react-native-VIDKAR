@@ -857,7 +857,7 @@ const WizardConStepper = ({ product, navigation }) => {
                             </ProgressStep>
 
                             {/* ✅ NUEVO: Paso 3: Ubicación de Entrega (solo si tieneComercio) */}
-                            
+                            {tieneComercio ? (
                               <ProgressStep
                                 buttonPreviousText='Atras'
                                 buttonNextText='Siguiente'
@@ -878,6 +878,22 @@ const WizardConStepper = ({ product, navigation }) => {
                                   />
                                 </View>
                               </ProgressStep>
+                            ) : (
+                              <ProgressStep
+                                buttonPreviousText='Atras'
+                                buttonNextText='Siguiente'
+                                buttonPreviousTextColor='white'
+                                label="Ubicación"
+                                onNext={() => setActiveStep(Number(activeStep) + 1)}
+                                onPrevious={() => setActiveStep(Number(activeStep) - 1)}
+                              >
+                                <View style={{ height: '100%', paddingBottom: 80, justifyContent: 'center', alignItems: 'center' }}>
+                                  <Text style={{ fontSize: 14, color: '#666', textAlign: 'center' }}>
+                                    Este paso no es necesario para tu pedido
+                                  </Text>
+                                </View>
+                              </ProgressStep>
+                            )}
 
                             {/* ✅ ADAPTADO: Paso 3/4: Términos y Condiciones */}
                             <ProgressStep buttonPreviousText='Atras' buttonNextText='Aceptar' buttonPreviousTextColor='white' label="Términos y Condiciones"  onNext={() => setActiveStep(Number(activeStep)+1)} onPrevious={() => {tieneComercio ? setActiveStep(Number(activeStep)-1) : setActiveStep(Number(activeStep)-2)}}>
