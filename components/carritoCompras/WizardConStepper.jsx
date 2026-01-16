@@ -503,7 +503,7 @@ const WizardConStepper = ({ product, navigation }) => {
               crearOrdenMercadoPago();
               break;
             case "efectivo":
-              console.log(message);
+              // console.log(message);
               crearOrdenEfectivo();
               break;
           }
