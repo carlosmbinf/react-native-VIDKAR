@@ -196,8 +196,8 @@ class MyAppUserDetails extends React.Component {
       }
     };
     const backgroundStyle = {
-      // minHeight: screenHeight,
-      paddingBottom: 200,
+      height: screenHeight,
+      paddingBottom: 20,
     };
 
     const {isTablet, currentWidth} = this.state;
@@ -340,7 +340,9 @@ class MyAppUserDetails extends React.Component {
               refreshing={this.state.refreshing} // MODIFICADO
               onRefresh={this.onRefresh}         // MODIFICADO
             />
-          }>
+          }
+          // style={{height:'100%'}}
+          >
           {!ready.ready() ? (
             <View
               style={{

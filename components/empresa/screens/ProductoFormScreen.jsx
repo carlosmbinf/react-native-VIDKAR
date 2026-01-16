@@ -20,9 +20,11 @@ import {
   Chip,
   IconButton,
   Divider,
+  Surface,
 } from 'react-native-paper';
 import Meteor from '@meteorrn/core';
 import { launchImageLibrary } from 'react-native-image-picker';
+const RNFS = require('react-native-fs');
 
 const ProductoFormScreen = ({ producto, tienda, onBack }) => {
   const isEditing = !!producto?._id;
@@ -39,6 +41,7 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
 
   const [imagen, setImagen] = useState(null);
   const [imagenPreview, setImagenPreview] = useState(null);
+  const [loadingImage, setLoadingImage] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -62,13 +65,16 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
   }, [producto, isEditing]);
 
   const loadExistingImage = async (productoId) => {
+    setLoadingImage(true);
     try {
       Meteor.call('findImgbyProduct', productoId, (error, imageUrl) => {
+        setLoadingImage(false);
         if (!error && imageUrl) {
           setImagenPreview(imageUrl);
         }
       });
     } catch (error) {
+      setLoadingImage(false);
       console.warn('[ProductoForm] Error cargando imagen:', error);
     }
   };
@@ -181,22 +187,41 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
   };
 
   const uploadImage = async (productoId) => {
-    if (!imagen) return null;
-
+    if (!imagen || !imagen.uri) return null;
+  
     setUploadingImage(true);
-
-    try {
-      console.log('[ProductoForm] Upload de imagen pendiente de implementación');
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setUploadingImage(false);
-      return null;
-    } catch (error) {
-      setUploadingImage(false);
-      console.error('[ProductoForm] Error subiendo imagen:', error);
-      throw error;
-    }
+  
+    return new Promise(async (resolve, reject) => {
+      try {
+        const uri = imagen.uri;
+        const base64Content = await RNFS.readFile(uri, 'base64');
+        const fullBase64 = `data:${imagen.type};base64,${base64Content}`;
+  
+        Meteor.call('comercio.uploadProductImage', productoId, {
+          name: imagen.fileName || `foto_${Date.now()}.jpg`,
+          type: imagen.type || 'image/jpeg',
+          size: imagen.fileSize,
+          base64: fullBase64
+        }, (error, result) => {
+          setUploadingImage(false);
+  
+          if (error) {
+            console.error('[ProductoForm] Error en comercio.uploadProductImage:', error);
+            Alert.alert('Error', error.reason || 'No se pudo subir la imagen');
+            reject(error);
+          } else {
+            console.log('[ProductoForm] Imagen subida exitosamente:', result);
+            resolve(result);
+          }
+        });
+  
+      } catch (error) {
+        setUploadingImage(false);
+        console.error('[ProductoForm] Error leyendo archivo local:', error);
+        Alert.alert('Error', 'No se pudo procesar el archivo en el dispositivo');
+        reject(error);
+      }
+    });
   };
 
   const handleSubmit = async () => {
@@ -209,7 +234,6 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
 
     try {
       const productoData = {
-        idTienda: producto?.idTienda || tienda._id,
         name: formData.name.trim(),
         descripcion: formData.descripcion.trim(),
         precio: parseFloat(formData.precio),
@@ -220,15 +244,51 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
       };
 
       if (isEditing) {
-        Alert.alert('Info', 'La edición de productos aún no está implementada en el backend');
-        setLoading(false);
+        // ✅ MODO EDICIÓN
+        Meteor.call('comercio.editProducto', producto._id, productoData, async (error, result) => {
+          if (error) {
+            setLoading(false);
+            console.error('[ProductoForm] Error editando producto:', error);
+            Alert.alert('Error', error.reason || 'No se pudo actualizar el producto');
+          } else {
+            // ✅ CORRECCIÓN: Subir imagen si existe objeto imagen (nueva selección)
+            // No comparar URIs porque imagenPreview es URL del servidor e imagen.uri es local
+            if (imagen?.uri) {
+              console.log('[ProductoForm] Nueva imagen detectada, iniciando upload...');
+              try {
+                await uploadImage(producto._id);
+                console.log('[ProductoForm] Imagen actualizada tras edición');
+              } catch (uploadError) {
+                console.warn('[ProductoForm] Error subiendo imagen:', uploadError);
+                // No bloquear el flujo si falla la imagen
+              }
+            } else {
+              console.log('[ProductoForm] No hay nueva imagen para subir');
+            }
+
+            setLoading(false);
+            Alert.alert(
+              'Éxito',
+              result.message || 'Producto actualizado correctamente',
+              [{ text: 'OK', onPress: onBack }]
+            );
+          }
+        });
       } else {
-        Meteor.call('addProducto', productoData, async (error, productoId) => {
+        // ✅ MODO CREACIÓN (existente)
+        const nuevoProducto = {
+          ...productoData,
+          idTienda: tienda._id,
+        };
+
+        Meteor.call('addProducto', nuevoProducto, async (error, productoId) => {
           if (error) {
             setLoading(false);
             Alert.alert('Error', error.reason || 'No se pudo crear el producto');
           } else {
-            if (imagen) {
+            // Subir imagen si existe
+            if (imagen?.uri) {
+              console.log('[ProductoForm] Imagen detectada, iniciando upload...');
               try {
                 await uploadImage(productoId);
               } catch (uploadError) {
@@ -258,6 +318,87 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Card style={styles.imageCard}>
+          <Card.Content style={styles.imageCardContent}>
+            <View style={styles.imageHeaderRow}>
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                📸 Imagen del Producto
+              </Text>
+              {(imagenPreview || loadingImage) && (
+                <View style={styles.imageActions}>
+                  {!loadingImage && (
+                    <>
+                      <IconButton
+                        icon="camera-flip"
+                        size={20}
+                        onPress={handleSelectImage}
+                        iconColor="#673AB7"
+                        style={styles.actionButton}
+                      />
+                      <IconButton
+                        icon="delete"
+                        size={20}
+                        onPress={handleRemoveImage}
+                        iconColor="#FF5252"
+                        style={styles.actionButton}
+                      />
+                    </>
+                  )}
+                </View>
+              )}
+            </View>
+
+            {loadingImage ? (
+              <Surface style={styles.imageSkeletonContainer}>
+                <ActivityIndicator size="large" color="#673AB7" />
+                <Text variant="bodySmall" style={styles.loadingText}>
+                  Cargando imagen...
+                </Text>
+              </Surface>
+            ) : imagenPreview ? (
+              <Surface style={styles.imagePreviewContainer} elevation={2}>
+                <Image 
+                  source={{ uri: imagenPreview }} 
+                  style={styles.imagePreview}
+                  resizeMode="cover"
+                />
+                {imagen && (
+                  <View style={styles.imageInfoOverlay}>
+                    <Chip
+                      mode="flat"
+                      compact
+                      icon="file-image"
+                      style={styles.imageInfoChip}
+                      textStyle={styles.imageInfoText}
+                    >
+                      {(imagen.fileSize / 1024).toFixed(0)} KB
+                    </Chip>
+                  </View>
+                )}
+              </Surface>
+            ) : (
+              <TouchableOpacity
+                style={styles.imagePickerPlaceholder}
+                onPress={handleSelectImage}
+              >
+                <Surface style={styles.placeholderContent} elevation={1}>
+                  <IconButton 
+                    icon="camera-plus" 
+                    size={48} 
+                    iconColor="#673AB7"
+                  />
+                  <Text variant="titleMedium" style={styles.imagePickerText}>
+                    Toca para agregar imagen
+                  </Text>
+                  <Text variant="bodySmall" style={styles.imagePickerHint}>
+                    Máximo 5MB • JPG, PNG
+                  </Text>
+                </Surface>
+              </TouchableOpacity>
+            )}
+          </Card.Content>
+        </Card>
+
         <Card style={styles.formCard}>
           <Card.Content>
             <Text variant="titleLarge" style={styles.sectionTitle}>
@@ -275,6 +416,7 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
               maxLength={50}
               left={<TextInput.Icon icon="package-variant" />}
               right={<TextInput.Affix text={`${formData.name.length}/50`} />}
+              dense
             />
             <HelperText type="error" visible={!!errors.name}>
               {errors.name}
@@ -292,6 +434,7 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
               maxLength={200}
               left={<TextInput.Icon icon="text" />}
               right={<TextInput.Affix text={`${formData.descripcion.length}/200`} />}
+              dense
             />
             <HelperText type="error" visible={!!errors.descripcion}>
               {errors.descripcion}
@@ -315,6 +458,7 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
               style={styles.input}
               error={!!errors.precio}
               left={<TextInput.Icon icon="currency-usd" />}
+              dense
             />
             <HelperText type="error" visible={!!errors.precio}>
               {errors.precio}
@@ -394,53 +538,12 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
                   style={styles.input}
                   error={!!errors.count}
                   left={<TextInput.Icon icon="package-variant-closed" />}
+                  dense
                 />
                 <HelperText type="error" visible={!!errors.count}>
                   {errors.count}
                 </HelperText>
               </>
-            )}
-          </Card.Content>
-        </Card>
-
-        <Card style={styles.formCard}>
-          <Card.Content>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
-              📸 Imagen del Producto
-            </Text>
-            <Divider style={styles.divider} />
-
-            {imagenPreview ? (
-              <View style={styles.imageContainer}>
-                <Image source={{ uri: imagenPreview }} style={styles.imagePreview} />
-                <View style={styles.imageOverlay}>
-                  <IconButton
-                    icon="close-circle"
-                    iconColor="#FF5252"
-                    size={32}
-                    onPress={handleRemoveImage}
-                    style={styles.removeImageButton}
-                  />
-                </View>
-                {imagen && (
-                  <Text variant="bodySmall" style={styles.imageInfo}>
-                    {imagen.fileName} ({(imagen.fileSize / 1024).toFixed(2)} KB)
-                  </Text>
-                )}
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={styles.imagePickerPlaceholder}
-                onPress={handleSelectImage}
-              >
-                <IconButton icon="camera-plus" size={48} iconColor="#673AB7" />
-                <Text variant="bodyLarge" style={styles.imagePickerText}>
-                  Seleccionar imagen
-                </Text>
-                <Text variant="bodySmall" style={styles.imagePickerHint}>
-                  Máximo 5MB (JPG, PNG)
-                </Text>
-              </TouchableOpacity>
             )}
           </Card.Content>
         </Card>
@@ -464,6 +567,7 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
               maxLength={500}
               left={<TextInput.Icon icon="note-text" />}
               right={<TextInput.Affix text={`${formData.comentario.length}/500`} />}
+              dense
             />
             <HelperText type="info">
               Información extra para clientes o personal
@@ -504,6 +608,88 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
   },
+  
+  imageCard: {
+    elevation: 3,
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  imageCardContent: {
+    padding: 16,
+  },
+  imageHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  imageActions: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  actionButton: {
+    margin: 0,
+  },
+  imageSkeletonContainer: {
+    height: 240,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FAFAFA',
+  },
+  loadingText: {
+    marginTop: 12,
+    color: '#757575',
+  },
+  imagePreviewContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  imagePreview: {
+    width: '100%',
+    height: 240,
+  },
+  imageInfoOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+  },
+  imageInfoChip: {
+    // backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    // height: 28,
+  },
+  imageInfoText: {
+    fontSize: 11,
+    fontWeight: '600',
+    // color: '#424242',
+  },
+  imagePickerPlaceholder: {
+    height: 240,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  placeholderContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    // backgroundColor: '#FAFAFA',
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+  },
+  imagePickerText: {
+    color: '#673AB7',
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  imagePickerHint: {
+    color: '#757575',
+    marginTop: 4,
+  },
+
   formCard: {
     elevation: 2,
     borderRadius: 12,
@@ -512,7 +698,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontWeight: 'bold',
     marginBottom: 8,
-    color: '#673AB7',
   },
   divider: {
     marginBottom: 16,
@@ -563,54 +748,12 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
     padding: 12,
-    // backgroundColor: '#F3E5F5',
     borderRadius: 8,
   },
   switchInfo: {
     flex: 1,
   },
   switchDescription: {
-    color: '#757575',
-    marginTop: 4,
-  },
-  imageContainer: {
-    alignItems: 'center',
-    position: 'relative',
-  },
-  imagePreview: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    resizeMode: 'cover',
-  },
-  imageOverlay: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-  },
-  removeImageButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-  },
-  imageInfo: {
-    marginTop: 8,
-    color: '#757575',
-  },
-  imagePickerPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    borderStyle: 'dashed',
-    borderRadius: 8,
-    // backgroundColor: '#FAFAFA',
-  },
-  imagePickerText: {
-    color: '#673AB7',
-    fontWeight: '600',
-    marginTop: 8,
-  },
-  imagePickerHint: {
     color: '#757575',
     marginTop: 4,
   },

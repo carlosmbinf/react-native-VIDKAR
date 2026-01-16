@@ -245,14 +245,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   coordChip: {
-    backgroundColor: '#F3E5F5',
+    // backgroundColor: '#F3E5F5',
   },
   hint: {
     color: '#757575',
     marginBottom: 12,
   },
   buttonRow: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     gap: 8,
   },
   button: {

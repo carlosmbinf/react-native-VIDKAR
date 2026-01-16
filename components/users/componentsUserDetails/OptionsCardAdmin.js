@@ -18,7 +18,8 @@ const OptionsCardAdmin = ({item, styles}) => {
         permitirPagoEfectivoCUP: 1,
         permiteRemesas: 1,
         subscipcionPelis: 1,
-        permitirAprobacionEfectivoCUP:1
+        permitirAprobacionEfectivoCUP:1,
+        modoEmpresa:1,
       },
     });
     return { ready: sub.ready(), userDoc: doc };
