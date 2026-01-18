@@ -53,12 +53,24 @@
 			<string>www.vidkar.com</string>
 		</dict>
 	</dict>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>VidKar necesita tu ubicación para rastrear entregas en modo cadete</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Necesitamos acceso a tu cámara para capturar comprobantes de pago y evidencias de transferencias.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Esta aplicación usa Face ID para iniciar sesión de forma segura.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>VidKar necesita tu ubicación para rastrear entregas incluso cuando la app está en segundo plano</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>VidKar necesita tu ubicación para rastrear entregas</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>VidKar necesita tu ubicación para saber las tiendas cercanas</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Esta aplicación necesita acceso al micrófono para grabar audios, reproducir videos con sonido o realizar llamadas.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Necesitamos permiso para guardar las evidencias capturadas en tu galería.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Necesitamos acceso a tu galería para seleccionar comprobantes de pago y evidencias de transferencias.</string>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>Esta aplicación usa notificaciones para informarte sobre mensajes y eventos importantes.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>AntDesign.ttf</string>
@@ -81,6 +93,12 @@
 		<string>Zocial.ttf</string>
 		<string>Fontisto.ttf</string>
 	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+		<string>location</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
@@ -102,33 +120,5 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-		<string>remote-notification</string>
-		<string>location</string>
-	</array>
-	    <!-- Permiso de cámara -->
-    <key>NSCameraUsageDescription</key>
-    <string>Necesitamos acceso a tu cámara para capturar comprobantes de pago y evidencias de transferencias.</string>
-    
-    <!-- Permiso de galería -->
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>Necesitamos acceso a tu galería para seleccionar comprobantes de pago y evidencias de transferencias.</string>
-    
-    <!-- Permiso de agregar a galería (opcional, si permites guardar fotos) -->
-    <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>Necesitamos permiso para guardar las evidencias capturadas en tu galería.</string>
-    
-
-<key>NSMicrophoneUsageDescription</key>
-<string>Esta aplicación necesita acceso al micrófono para grabar audios, reproducir videos con sonido o realizar llamadas.</string>
-
-<key>NSUserNotificationUsageDescription</key>
-<string>Esta aplicación usa notificaciones para informarte sobre mensajes y eventos importantes.</string>
-
-<key>NSFaceIDUsageDescription</key>
-<string>Esta aplicación usa Face ID para iniciar sesión de forma segura.</string>
-
 </dict>
 </plist>
