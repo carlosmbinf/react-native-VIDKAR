@@ -59,6 +59,17 @@ export const obtenerSiguienteEstado = (estadoActual) => {
   return transiciones[estadoActual] || null;
 };
 
+export const obtenerTextoEstado = (estado) => {
+  const transiciones = {
+    PREPARANDO: 'Preparando',
+    CADETEENLOCAL: 'Cadete en Local',
+    ENCAMINO: 'En camino',
+    CADETEENDESTINO: 'Cadete en Destino',
+    ENTREGADO: 'Entregado',
+  };
+  return transiciones[estado] || null;
+};
+
 // Helper: Calcular total del pedido
 export const calcularTotalPedido = (venta) => {
   if (!venta?.comprasEnCarrito) return 0;

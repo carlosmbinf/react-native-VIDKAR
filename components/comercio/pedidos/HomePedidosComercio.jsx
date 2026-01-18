@@ -6,6 +6,7 @@ import CardPedidoComercio from './CardPedidoComercio';
 import {
   PedidosAsignadosComercioCollection,
   VentasComercioCollection,
+  VentasRechargeCollection,
 } from '../../collections/collections';
 
 const HomePedidosComercio = ({ navigation }) => {
@@ -22,10 +23,8 @@ const HomePedidosComercio = ({ navigation }) => {
       entregado: false,
     });
 
-    // Suscribirse a ventas de comercio
-    const ventasHandle = Meteor.subscribe('ventasComercio');
 
-    const isReady = pedidosHandle.ready() && ventasHandle.ready();
+    const isReady = pedidosHandle.ready() ;
 
     if (!isReady) {
       return { pedidosConVentas: [], ready: false };
@@ -40,11 +39,13 @@ const HomePedidosComercio = ({ navigation }) => {
     // Enriquecer cada pedido con su venta correspondiente
     const pedidosConVentas = pedidos
       .map((pedido) => {
-        const venta = VentasComercioCollection.findOne(pedido.idVentas);
+        // Suscribirse a ventas de comercio
+        Meteor.subscribe('ventasRecharge',{_id:pedido.idVentas});
+        const venta = VentasRechargeCollection.findOne({_id:pedido.idVentas});
         return venta ? { ...pedido, venta } : null;
       })
       .filter(Boolean); // Filtrar pedidos sin venta (datos inconsistentes)
-
+      console.log('[HomePedidosComercio] Pedidos con ventas cargados:', pedidosConVentas);
     return { pedidosConVentas, ready: true };
   });
 
@@ -81,6 +82,7 @@ const HomePedidosComercio = ({ navigation }) => {
   // Empty state cuando no hay pedidos
   if (pedidosConVentas.length === 0) {
     return (
+      <Surface style={{height:'100%'}}>
       <ScrollView
         contentContainerStyle={styles.emptyContainer}
         refreshControl={
@@ -95,6 +97,7 @@ const HomePedidosComercio = ({ navigation }) => {
           </Text>
         </Surface>
       </ScrollView>
+      </Surface>
     );
   }
 
@@ -142,13 +145,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    // padding: 32,
   },
   emptyCard: {
     padding: 32,
     borderRadius: 16,
     alignItems: 'center',
-    backgroundColor: '#fff',
+    // backgroundColor: '#fff',
+    elevation: 2,
   },
   emptyTitle: {
     marginBottom: 8,

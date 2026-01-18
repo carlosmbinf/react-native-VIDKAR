@@ -431,6 +431,24 @@ const ProductosScreen = ({ navigation }) => {
         </View>
       )}
 
+      {loadingTiendas && (
+        <View style={styles.loadingTiendasContainer}>
+          <ActivityIndicator size="small" color="#3f51b5" />
+          <Text style={styles.loadingTiendasText}>Buscando tiendas cercanas...</Text>
+        </View>
+      )}
+
+
+      {/* Lista de tiendas */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+    
       {/* Indicador de ubicación y radio */}
       {userLocation && (
         <View style={styles.locationInfo}>
@@ -453,22 +471,21 @@ const ProductosScreen = ({ navigation }) => {
         </View>
       )}
 
-      {loadingTiendas && (
-        <View style={styles.loadingTiendasContainer}>
-          <ActivityIndicator size="small" color="#3f51b5" />
-          <Text style={styles.loadingTiendasText}>Buscando tiendas cercanas...</Text>
+        {/* Vamos a agregar Aqui los componentes en estado de productosComercios procesandose */}
+    {/* Banner de navegación a Pedidos en Proceso */}
+    <View style={styles.pedidosBannerContent}>
+          <Button
+            mode="outlined"
+            icon="arrow-right"
+            onPress={() => navigation.navigate('PedidosComerciosList')}
+            style={styles.pedidosBannerButton}
+            contentStyle={styles.pedidosBannerButtonContent}
+            labelStyle={styles.pedidosBannerButtonLabel}
+          >
+            Ver listado de compras
+          </Button>
         </View>
-      )}
 
-      {/* Lista de tiendas */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
         <Animated.View >
           {tiendasFiltradas.length === 0 ? (
             <Surface style={styles.emptyState} elevation={1}>
@@ -550,6 +567,12 @@ const ProductosScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  pedidosBannerContent: {
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding:20
+  },
   container: {
     flex: 1,
   },
@@ -600,7 +623,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    backgroundColor: '#fff9c4',
+    // backgroundColor: '#fff9c4',
   },
   loadingTiendasText: {
     marginLeft: 8,

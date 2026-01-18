@@ -40,10 +40,10 @@ const ListaVentasEfectivo = ({ userId }) => {
 
   if (cargando) {
     return (
-      <View style={styles.centrado}>
+      <Surface style={styles.centrado}>
         <ActivityIndicator size="large" />
         <Text style={styles.textoCargando}>Cargando ventas...</Text>
-      </View>
+      </Surface>
     );
   }
 

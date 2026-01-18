@@ -3,14 +3,12 @@ import { View, StyleSheet, Linking, Alert } from 'react-native';
 import { Card, Button, IconButton, Text, Chip, Divider } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 
-// Importar collections (ajustar path según tu estructura)
-
 import {
   COLORES_ESTADO,
   LABELS_BOTON_ESTADO,
   obtenerSiguienteEstado,
-  calcularTotalPedido,
   formatearPrecio,
+  obtenerTextoEstado,
 } from '../../../data/comercio/mockData';
 import { TiendasComercioCollection } from '../../collections/collections';
 import MapaPedidos from '../maps/MapaPedidos';
@@ -24,36 +22,58 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
     return null;
   }
 
-  if (!ventaProp.coordenadas || typeof ventaProp.coordenadas.latitude !== 'number') {
-    console.warn('[CardPedidoComercio] coordenadas inválidas', ventaProp.coordenadas);
+  const venta = ventaProp;
+
+  // Extraer datos de la estructura real de venta
+  const {
+    estado = 'PREPARANDO', // Cambiado de 'status' a 'estado'
+    isCobrado = false, // Cambiado de 'pagado' a 'isCobrado'
+    cobrado = 0,
+    monedaCobrado = 'CUP',
+    precioOficial = 0,
+    monedaPrecioOficial = 'CUP',
+    producto = {},
+  } = venta;
+
+  // Extraer carritos del objeto producto
+  const comprasEnCarrito = useMemo(
+    () => producto?.carritos || [],
+    [producto?.carritos]
+  );
+
+  // Extraer coordenadas del primer item del carrito
+  const coordenadas = useMemo(() => {
+    const primerItem = comprasEnCarrito[0];
+    if (!primerItem?.coordenadas) {
+      console.warn('[CardPedidoComercio] coordenadas no encontradas');
+      return null;
+    }
+    return primerItem.coordenadas;
+  }, [comprasEnCarrito]);
+
+  // Validar coordenadas
+  if (!coordenadas || typeof coordenadas.latitude !== 'number') {
+    console.warn('[CardPedidoComercio] coordenadas inválidas', coordenadas);
     return null;
   }
 
-  const venta = ventaProp;
-
-  const {
-    pagado = false,
-    status = 'PREPARANDO',
-    comprasEnCarrito = [],
-    comentario = '',
-    cobroEntrega = 0,
-    coordenadas = { latitude: 0, longitude: 0 }
-  } = venta;
-
-  // Extraer idTienda del primer producto (asumiendo todos de la misma tienda)
+  // Extraer idTienda del primer producto
   const idTienda = useMemo(
-    () => comprasEnCarrito?.[0]?.idTienda || null,
+    () => comprasEnCarrito[0]?.idTienda || null,
+    [comprasEnCarrito]
+  );
+
+  // Extraer comentario del primer item
+  const comentario = useMemo(
+    () => comprasEnCarrito[0]?.comentario || '',
     [comprasEnCarrito]
   );
 
   // Suscripción reactiva a la tienda
   const { tienda, tiendaReady } = useTracker(() => {
-    console.log("[CardPedidoComercio] Suscribiéndose a tienda con id:", idTienda);
     if (!idTienda) return { tienda: null, tiendaReady: false };
     
-    const handler = Meteor.subscribe('tiendas', {_id: idTienda });
-    
-
+    const handler = Meteor.subscribe('tiendas', { _id: idTienda });
     const tiendaDoc = TiendasComercioCollection.findOne({ _id: idTienda });
     
     return {
@@ -67,10 +87,29 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
     user: Meteor.user(),
   }));
 
+  // Calcular total de productos
+  const subtotalProductos = useMemo(() => {
+    return comprasEnCarrito.reduce((acc, item) => {
+      const precio = item.producto?.precio || 0;
+      const cantidad = item.cantidad || 1;
+      return acc + (precio * cantidad);
+    }, 0);
+  }, [comprasEnCarrito]);
+
+  // Calcular costo de entrega (diferencia entre cobrado y subtotal)
+  const cobroEntrega = useMemo(() => {
+    // Si hay precioOficial, usar la diferencia con subtotalProductos
+    // Si no, asumir que cobrado incluye todo
+    if (precioOficial > subtotalProductos) {
+      return precioOficial - subtotalProductos;
+    }
+    return 0;
+  }, [precioOficial, subtotalProductos]);
+
   // Determinar label del botón según estado
   const buttonLabel = useMemo(() => {
-    return LABELS_BOTON_ESTADO[status] || 'AVANZAR';
-  }, [status]);
+    return LABELS_BOTON_ESTADO[estado] || 'AVANZAR';
+  }, [estado]);
 
   // Handlers
   const handleGoToLocation = useCallback(() => {
@@ -84,7 +123,7 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
   }, [coordenadas]);
 
   const handleAvanzar = useCallback(() => {
-    const nuevoEstado = obtenerSiguienteEstado(status);
+    const nuevoEstado = obtenerSiguienteEstado(estado);
     
     if (!nuevoEstado) {
       Alert.alert('Error', 'No se puede avanzar más este pedido');
@@ -93,7 +132,7 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
 
     Alert.alert(
       'Confirmar Acción',
-      `¿Cambiar estado a ${nuevoEstado}?`,
+      `¿Cambiar estado a (${obtenerTextoEstado(nuevoEstado)})?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -103,7 +142,7 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
             
             Meteor.call(
               'comercio.pedidos.avanzar',
-              { idPedido: pedido._id, idCadete: user?._id },
+              { idPedido: venta._id, idCadete: user?._id },
               (error, result) => {
                 setLoading(false);
                 
@@ -127,10 +166,10 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
         },
       ]
     );
-  }, [status, pedido._id, user?._id]);
+  }, [estado, venta._id, user?._id]);
 
   const handleCancelar = useCallback(() => {
-    if (status !== 'PREPARANDO') {
+    if (estado !== 'PREPARANDO') {
       Alert.alert('Error', 'Solo se puede cancelar en estado PREPARANDO');
       return;
     }
@@ -148,7 +187,7 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
             
             Meteor.call(
               'comercio.pedidos.cancelar',
-              { idPedido: pedido._id, idCadete: user?._id, motivo: 'Cancelado por cadete' },
+              { idPedido: venta._id, idCadete: user?._id, motivo: 'Cancelado por cadete' },
               (error, result) => {
                 setLoading(false);
                 
@@ -168,9 +207,7 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
         },
       ]
     );
-  }, [status, pedido._id, user?._id]);
-
-  const total = useMemo(() => calcularTotalPedido(venta), [venta]);
+  }, [estado, venta._id, user?._id]);
 
   return (
     <Card style={styles.card} elevation={0}>
@@ -185,9 +222,9 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
             textStyle={styles.estadoText}
             style={[
               styles.estadoChip,
-              { backgroundColor: COLORES_ESTADO[status] },
+              { backgroundColor: COLORES_ESTADO[estado] },
             ]}>
-            {status}
+            {estado}
           </Chip>
         )}
       />
@@ -225,7 +262,7 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
           <Text variant="labelSmall" style={styles.idLabel}>
             Estado de pago:
           </Text>
-          {pagado ? (
+          {isCobrado ? (
             <Chip
               mode="flat"
               textStyle={styles.chipPagadoText}
@@ -247,23 +284,38 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
         <Divider style={styles.divider} />
 
         {/* Desglose de costos: SOLO si NO está pagado */}
-        {!pagado && (
+        {!isCobrado && (
           <>
             <View style={styles.totalRow}>
               <Text variant="titleMedium" style={styles.totalLabel}>Subtotal:</Text>
-              <Text variant="titleMedium">{formatearPrecio(total - cobroEntrega)}</Text>
+              <Text variant="titleMedium">{formatearPrecio(subtotalProductos, monedaPrecioOficial)}</Text>
             </View>
-            <View style={styles.totalRow}>
-              <Text variant="bodyMedium">Costo de entrega:</Text>
-              <Text variant="bodyMedium">{formatearPrecio(cobroEntrega)}</Text>
-            </View>
+            {cobroEntrega > 0 && (
+              <View style={styles.totalRow}>
+                <Text variant="bodyMedium">Costo de entrega:</Text>
+                <Text variant="bodyMedium">{formatearPrecio(cobroEntrega, monedaPrecioOficial)}</Text>
+              </View>
+            )}
             <View style={styles.totalRow}>
               <Text variant="titleLarge" style={styles.totalLabel}>TOTAL A PAGAR:</Text>
               <Text variant="titleLarge" style={{ color: '#FF9800', fontWeight: 'bold' }}>
-                {formatearPrecio(total)}
+                {formatearPrecio(precioOficial, monedaPrecioOficial)}
               </Text>
             </View>
 
+            <Divider style={styles.divider} />
+          </>
+        )}
+
+        {/* Si ya está cobrado, mostrar monto pagado */}
+        {isCobrado && (
+          <>
+            <View style={styles.totalRow}>
+              <Text variant="titleLarge" style={styles.totalLabel}>Monto pagado:</Text>
+              <Text variant="titleLarge" style={{ color: '#4CAF50', fontWeight: 'bold' }}>
+                {formatearPrecio(cobrado, monedaCobrado)}
+              </Text>
+            </View>
             <Divider style={styles.divider} />
           </>
         )}
@@ -277,8 +329,10 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
             <Divider style={styles.divider} />
           </>
         )}
+
         <MapaPedidos puntoPartida={tienda} puntoAIr={coordenadas} />
-        {/* Mostrar coordenadas (sin mapa por ahora) */}
+
+        {/* Mostrar coordenadas */}
         <Text variant="titleMedium" style={styles.sectionTitle}>
           📍 Ubicación de entrega:
         </Text>
@@ -296,12 +350,12 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
           icon="map-marker-radius"
           mode="contained"
           onPress={handleGoToLocation}
-          containerColor={COLORES_ESTADO[status]}
+          containerColor={COLORES_ESTADO[estado]}
           iconColor="#fff"
         />
         <Button
           mode="outlined"
-          disabled={status !== 'PREPARANDO' || loading}
+          disabled={estado !== 'PREPARANDO' || loading}
           onPress={handleCancelar}
           textColor="#F44336">
           Cancelar
@@ -309,9 +363,9 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
         <Button
           mode="contained"
           loading={loading}
-          disabled={loading || status === 'ENTREGADO'}
+          disabled={loading || estado === 'ENTREGADO'}
           onPress={handleAvanzar}
-          buttonColor={COLORES_ESTADO[status]}>
+          buttonColor={COLORES_ESTADO[estado]}>
           {buttonLabel}
         </Button>
       </Card.Actions>

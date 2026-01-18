@@ -552,52 +552,6 @@ const WizardConStepper = ({ product, navigation }) => {
 
       setProcesandoPago(true);
       setSeEstaPagando(true);
-
-      if (false) {
-        console.log("Es PROXY o VPN - Generando venta con nuevo método");
-        
-        const ventaData = {
-          carritos: compra?.carritos || pedidosRemesa,
-          userId: userId,
-          type: metodoPago === 'efectivo' ? 'EFECTIVO' : 'TRANSFERENCIA',
-          idOrder: compra?.idOrder || null,
-          precioOficial: totalAPagar
-        };
-
-        console.log("ventaData a enviar:", ventaData);
-
-        Meteor.call('generarVentaEfectivoPROXYVPN', ventaData, (error, success) => {
-          if (error) {
-            console.error("❌ Error generando venta Proxy/VPN:", error);
-            Alert.alert(
-              'Error al generar venta',
-              error.reason || 'No se pudo procesar la venta. Intente nuevamente.',
-              [{ text: 'OK', onPress: () => {
-                setProcesandoPago(false);
-                setSeEstaPagando(false);
-              }}]
-            );
-          }
-          if (success) {
-            console.log("✅ Venta Proxy/VPN generada exitosamente:", success);
-            Alert.alert(
-              'Venta generada',
-              success.message || `${success.ventasGeneradas} venta(s) generada(s) exitosamente`,
-              [
-                {
-                  text: 'OK',
-                  onPress: () => {
-                    setProcesandoPago(false);
-                    setSeEstaPagando(false);
-                    setVisible(false);
-                  }
-                }
-              ]
-            );
-          }
-        });
-
-      } else {
         console.log("compra:",compra)
         const ventaData = {
           producto: compra,
@@ -629,7 +583,7 @@ const WizardConStepper = ({ product, navigation }) => {
             // );
           }
         });
-      }
+      
     };
 
     // ✅ NUEVO: Handler para actualizar coordenadas en todos los items COMERCIO

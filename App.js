@@ -80,6 +80,7 @@ import TableProxyVPNHistory from './components/ventas/TableProxyVPNHistory';
 import RequiredDataDialog from './components/auth/RequiredDataDialog';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import ProductosScreen from './components/productos/ProductosScreen';
+import PedidosComerciosList from './components/comercio/pedidos/PedidosComerciosList';
 
 // const Section = ({children, title}): Node => {
 //   const isDarkMode = useColorScheme() === 'dark';
@@ -268,6 +269,13 @@ const App = () => {
               <Stack.Screen
                 name="ComerciosList"
                 component={ProductosScreen}
+                options={({ navigation, route }) => ({
+                  headerShown: false,
+                })}
+              />
+              <Stack.Screen
+                name="PedidosComerciosList"
+                component={PedidosComerciosList}
                 options={({ navigation, route }) => ({
                   headerShown: false,
                 })}
