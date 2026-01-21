@@ -124,20 +124,7 @@ const App = () => {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
   };
 
-  const linking = {
-    prefixes: ['https://www.vidkar.com', 'http://www.vidkar.com', 'vidkar://'],  // URLs válidas para la app
-    config: {
-      screens: {
-        // Recargas: 'recargas',          // Ruta para pantalla Recargas
-        // Users: 'users/:id',   
-        ProductosCubacelCards: 'productos',       // Ruta para pantalla los productos
-        Remesas: 'remesas', // nueva URL para Remesas
-        RemesasForm: 'remesas/form',        // nueva URL
-        VentasStepper: 'ventas/stepper',    // nueva URL
-        // Otras pantallas si las hay...
-      },
-    },
-  };
+
 
   function logOut(navigation) {
     Meteor.logout(error => {
@@ -152,28 +139,14 @@ const App = () => {
   }, []);
 
   return (
-    <PaperProvider>
-      <Portal.Host>
+
         <>
           {/* {Platform.OS === 'android' && <RequiredDataDialog />} */}
           {/* <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={backgroundStyle}> */}
 
-          <NavigationContainer
-            linking={linking}
-            fallback={
-              <Surface style={styles.loadingContainer}>
-                <ActivityIndicator
-                  animating={true}
-                  size="large"
-                  color="#3f51b5"
-                />
-                <Text style={styles.loadingText}>Cargando...</Text>
-              </Surface>
-            }
 
-          >
             <Stack.Navigator
               initialRouteName={
                 "Main"
@@ -213,99 +186,6 @@ const App = () => {
                   headerShown: false,
                 })}
               />
-              <Stack.Screen
-                name="Dashboard"
-                options={({ navigation, route }) => {
-                  const { params } = route;
-                  return {
-                    headerShown: false,
-                  };
-                }}>
-                {props => {
-                  const { navigation, route } = props;
-                  const { params } = route;
-                  const item = params ? params.item : Meteor.userId();
-                  // const {navigation} = route.params;
-                  return (<Surface>
-                    <Appbar.Header style={{ backgroundColor: '#3f51b5', height: 80, justifyContent: 'center', paddingTop: useSafeAreaInsets().top }}>
-
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
-                        <Appbar.BackAction
-                          color='red'
-                          onPress={() => {
-                            if (navigation.canGoBack()) {
-                              navigation.goBack();
-                            }
-                          }}
-                        />
-                        <MenuHeader
-                          navigation={navigation}
-                        />
-                      </View>
-                    </Appbar.Header>
-                    <ScrollView style={{ width: "100%", height: "100%" }}>
-
-                      <DashBoardPrincipal type={"HORA"} />
-                      <DashBoardPrincipal type={"DIARIO"} />
-                      <DashBoardPrincipal type={"MENSUAL"} />
-                    </ScrollView>
-
-                  </Surface>
-
-                    // <TasksProvider user={user} projectPartition={projectPartition}>
-                    //   <TasksView navigation={navigation} route={route} />
-                    // </TasksProvider>
-                  );
-                }}
-              </Stack.Screen>
-
-              <Stack.Screen
-                name="Users"
-                component={UserHome}
-                options={({ navigation, route }) => ({
-                  headerShown: false,
-                })}
-              />
-              <Stack.Screen
-                name="ComerciosList"
-                component={ProductosScreen}
-                options={({ navigation, route }) => ({
-                  headerShown: false,
-                })}
-              />
-              <Stack.Screen
-                name="PedidosComerciosList"
-                component={PedidosComerciosList}
-                options={({ navigation, route }) => ({
-                  headerShown: false,
-                })}
-              />
-              <Stack.Screen
-                name="PeliculasVideos"
-                // component={MyTabs}
-                options={({ navigation, route }) => ({
-                  headerShown: false,
-                  headerTransparent: true,
-                })}
-              >
-                {props => {
-                  const { navigation, route } = props;
-                  return (
-                    Meteor.user() && Meteor.user().subscipcionPelis ? (
-                      <>
-                        <MyTabs navigation={navigation} route={route} />
-                      </>
-                    ) :
-                      (
-                        <Surface style={{ flex: 1, justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                            <Text style={{ fontSize: 20, textAlign: 'center', marginTop: 20 }}>No tiene una Subscripcion Activa</Text>
-                          </View>
-                        </Surface>
-                      )
-                  );
-                }}
-              </Stack.Screen>
               <Stack.Screen
                 name="User"
                 options={({ navigation, route }) => {
@@ -386,6 +266,101 @@ const App = () => {
                   );
                 }}
               </Stack.Screen>
+              <Stack.Screen
+                name="Dashboard"
+                options={({ navigation, route }) => {
+                  const { params } = route;
+                  return {
+                    headerShown: false,
+                  };
+                }}>
+                {props => {
+                  const { navigation, route } = props;
+                  const { params } = route;
+                  const item = params ? params.item : Meteor.userId();
+                  // const {navigation} = route.params;
+                  return (<Surface>
+                    <Appbar style={{
+                      backgroundColor: '#3f51b5',
+                      height: useSafeAreaInsets().top + 50,
+                      paddingTop: useSafeAreaInsets().top,
+                    }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+                        <Appbar.BackAction
+                          color="red"
+                          onPress={() => {
+                            if (navigation.canGoBack()) {
+                              navigation.goBack();
+                            }
+                          }}
+                        />
+                        <MenuHeader navigation={navigation} />
+                      </View>
+                    </Appbar>
+                    <ScrollView style={{ width: "100%", height: "100%" }}>
+
+                      <DashBoardPrincipal type={"HORA"} />
+                      <DashBoardPrincipal type={"DIARIO"} />
+                      <DashBoardPrincipal type={"MENSUAL"} />
+                    </ScrollView>
+
+                  </Surface>
+
+                    // <TasksProvider user={user} projectPartition={projectPartition}>
+                    //   <TasksView navigation={navigation} route={route} />
+                    // </TasksProvider>
+                  );
+                }}
+              </Stack.Screen>
+
+              <Stack.Screen
+                name="Users"
+                component={UserHome}
+                options={({ navigation, route }) => ({
+                  headerShown: false,
+                })}
+              />
+              <Stack.Screen
+                name="ComerciosList"
+                component={ProductosScreen}
+                options={({ navigation, route }) => ({
+                  headerShown: false,
+                })}
+              />
+              <Stack.Screen
+                name="PedidosComerciosList"
+                component={PedidosComerciosList}
+                options={({ navigation, route }) => ({
+                  headerShown: false,
+                })}
+              />
+              <Stack.Screen
+                name="PeliculasVideos"
+                // component={MyTabs}
+                options={({ navigation, route }) => ({
+                  headerShown: false,
+                  headerTransparent: true,
+                })}
+              >
+                {props => {
+                  const { navigation, route } = props;
+                  return (
+                    Meteor.user() && Meteor.user().subscipcionPelis ? (
+                      <>
+                        <MyTabs navigation={navigation} route={route} />
+                      </>
+                    ) :
+                      (
+                        <Surface style={{ flex: 1, justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                            <Text style={{ fontSize: 20, textAlign: 'center', marginTop: 20 }}>No tiene una Subscripcion Activa</Text>
+                          </View>
+                        </Surface>
+                      )
+                  );
+                }}
+              </Stack.Screen>
+              
               <Stack.Screen
                 name="Servidores"
                 component={ServerList}
@@ -915,13 +890,10 @@ const App = () => {
                 }}
               </Stack.Screen> */}
             </Stack.Navigator>
-          </NavigationContainer>
 
           {/* <PelisHome /> */}
           {/* </ScrollView> */}
         </>
-      </Portal.Host>
-    </PaperProvider>
   );
 };
 // const MensajesHome = withTracker(user => {

@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
   // Nuevos estilos para filtros
   searchContainer: {
     padding: 12,
-    backgroundColor: '#fff',
+    // backgroundColor: '#fff',
   },
   searchbar: {
     elevation: 2,
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
   filtersContainer: {
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#f5f5f5',
+    // backgroundColor: '#f5f5f5',
   },
   filterGroup: {
     marginRight: 16,
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#E8EAF6',
+    // backgroundColor: '#E8EAF6',
   },
   activeFiltersChip: {
     backgroundColor: '#3f51b5',
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
   resultsCounter: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#fff',
+    // backgroundColor: '#fff',
   },
   resultsText: {
     fontSize: 12,

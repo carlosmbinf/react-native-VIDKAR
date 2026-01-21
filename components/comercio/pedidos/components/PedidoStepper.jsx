@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingVertical: 16,
-    zIndex: 1000,
+    // zIndex: 1000,
   },
   stepWrapper: {
     flex: 1,

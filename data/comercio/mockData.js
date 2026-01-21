@@ -51,7 +51,7 @@ export const puedeAvanzarEstado = (estadoActual, nuevoEstado) => {
 // Helper: Obtener siguiente estado en el flujo
 export const obtenerSiguienteEstado = (estadoActual) => {
   const transiciones = {
-    PREPARANDO: 'CADETEENLOCAL',
+    PREPARACION_LISTO: 'CADETEENLOCAL',
     CADETEENLOCAL: 'ENCAMINO',
     ENCAMINO: 'CADETEENDESTINO',
     CADETEENDESTINO: 'ENTREGADO',
@@ -61,7 +61,7 @@ export const obtenerSiguienteEstado = (estadoActual) => {
 
 export const obtenerTextoEstado = (estado) => {
   const transiciones = {
-    PREPARANDO: 'Preparando',
+    PREPARACION_LISTO: 'Listo para recoger',
     CADETEENLOCAL: 'Cadete en Local',
     ENCAMINO: 'En camino',
     CADETEENDESTINO: 'Cadete en Destino',

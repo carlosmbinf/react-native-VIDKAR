@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
-import { FAB, ActivityIndicator, Surface } from 'react-native-paper';
+import { View, StyleSheet, FlatList, RefreshControl, ScrollView } from 'react-native';
+import { FAB, ActivityIndicator, Surface, Appbar, Button, Text } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 import { ProductosComercioCollection } from '../../collections/collections';
 
@@ -8,8 +8,11 @@ import { ProductosComercioCollection } from '../../collections/collections';
 import TiendaHeader from '../components/TiendaHeader';
 import ProductoCard from '../components/ProductoCard';
 import EmptyProductos from '../components/EmptyProductos';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MenuHeader from '../../Header/MenuHeader';
 
-const TiendaDetailScreen = ({ tienda, onNavigateToProductoForm, onBack }) => {
+const TiendaDetailScreen = ({ navigation, route }) => {
+  const { tienda } = route.params;
   const [refreshing, setRefreshing] = useState(false);
 
   // Suscripción a productos de esta tienda
@@ -30,7 +33,18 @@ const TiendaDetailScreen = ({ tienda, onNavigateToProductoForm, onBack }) => {
   };
 
   const handleEditProducto = (producto) => {
-    onNavigateToProductoForm(producto, tienda._id);
+    handleNavigateToProductoForm(producto);
+  };
+
+  const handleNavigateToProductoForm = (producto = null) => {
+    navigation.navigate('ProductoForm', {
+      producto: producto || { idTienda: tienda._id },
+      tienda,
+    });
+  };
+
+  const handleGoBack = () => {
+    navigation.goBack();
   };
 
   const renderProductoCard = ({ item }) => (
@@ -39,44 +53,76 @@ const TiendaDetailScreen = ({ tienda, onNavigateToProductoForm, onBack }) => {
 
   if (!ready) {
     return (
-      <View style={styles.loadingContainer}>
+      <Surface style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#673AB7" />
-      </View>
+      </Surface>
     );
   }
 
   return (
-    <Surface style={styles.container}>
-      {/* Header de tienda */}
-      <TiendaHeader tienda={tienda} productosCount={productos.length} />
+    <View style={styles.container}>
+      {/* Header con botón de retroceso */}
 
-      {/* Listado de productos o estado vacío */}
-      {productos.length === 0 ? (
-        <EmptyProductos />
-      ) : (
-        <FlatList
-          data={productos}
-          renderItem={renderProductoCard}
-          keyExtractor={(item) => item._id}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={['#673AB7']}
+      <Appbar style={{
+        // backgroundColor: '#3f51b5',
+        height: useSafeAreaInsets().top + 50,
+        paddingTop: useSafeAreaInsets().top,
+      }}>
+        <View>
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+
+            <Appbar.BackAction
+              color="red"
+              onPress={() => {
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                }
+              }}
             />
-          }
-        />
-      )}
+            <Text style={{fontSize:22, alignSelf:'center'}}>{tienda?.title || 'Tienda'}</Text>
+          </View>
+        
 
-      {/* FAB para agregar producto */}
+          <MenuHeader navigation={navigation} />
+        </View>
+      </Appbar>
+      
+        <Surface style={styles.container}>
+      <ScrollView>
+          {/* Header de tienda */}
+          <TiendaHeader tienda={tienda} productosCount={productos.length} />
+
+          {/* Listado de productos o estado vacío */}
+          {productos.length === 0 ? (
+            <EmptyProductos />
+          ) : (
+            <FlatList
+              data={productos}
+              renderItem={renderProductoCard}
+              keyExtractor={(item) => item._id}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  colors={['#673AB7']}
+                />
+              }
+            />
+          )}
+      </ScrollView>
+        </Surface>
+
+      {/* ✅ CORREGIDO: FAB flotante para agregar producto */}
       <FAB
         style={styles.fab}
         icon="plus"
         label="Agregar Producto"
-        onPress={() => onNavigateToProductoForm(null, tienda._id)}
+        onPress={() => handleNavigateToProductoForm()}
       />
-    </Surface>
+    </View>
   );
 };
 

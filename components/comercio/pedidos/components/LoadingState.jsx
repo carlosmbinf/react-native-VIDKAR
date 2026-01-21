@@ -1,15 +1,15 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { ActivityIndicator, Text } from 'react-native-paper';
+import { ActivityIndicator, Surface, Text } from 'react-native-paper';
 
 const LoadingState = () => {
   return (
-    <View style={styles.loadingContainer}>
+    <Surface style={styles.loadingContainer}>
       <ActivityIndicator size="large" color="#FF6F00" />
       <Text variant="bodyMedium" style={styles.loadingText}>
         Cargando pedidos...
       </Text>
-    </View>
+    </Surface>
   );
 };
 
@@ -18,7 +18,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    // backgroundColor: '#F5F5F5',
   },
   loadingText: {
     marginTop: 16,

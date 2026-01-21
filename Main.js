@@ -9,28 +9,31 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Meteor, { Mongo, withTracker } from '@meteorrn/core';
 import { Platform, StatusBar, StyleSheet, View, AppState, Alert, PermissionsAndroid } from 'react-native';
-import { Text, Provider as PaperProvider, } from 'react-native-paper';
+import { Text, Provider as PaperProvider, Surface, ActivityIndicator, Portal, } from 'react-native-paper';
 import App from './App';
 import Loguin from './components/loguin/Loguin';
 import HomePedidosComercio from './components/comercio/pedidos/HomePedidosComercio';
 import CadeteNavigator from './components/cadete/CadeteNavigator';
 import EmpresaNavigator from './components/empresa/EmpresaNavigator'; // ✅ NUEVO
 import MyService from './src/native/MyService';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import PermissionsManager from './components/permissions/PermissionsManager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import messaging from '@react-native-firebase/messaging';
 import { badgeManager } from './services/notifications/PushMessaging';
 // ✅ NUEVO: Importar hook de permisos y utilidades
 import { check, RESULTS } from 'react-native-permissions';
-import { 
-  NATIVE_PERMISSIONS, 
+import {
+  NATIVE_PERMISSIONS,
   PERMISSION_TYPES,
   getRequiredPermissions,
   isPermissionGranted,
   isPermissionsLibraryAvailable,
   checkNotificationPermission // ✅ Función especial para notificaciones iOS
 } from './components/permissions/utils/permissionsConfig';
+import { NavigationContainer } from '@react-navigation/native';
+import UserDetails from './components/users/UserDetails';
+import { createStackNavigator } from '@react-navigation/stack';
 
 // ✅ Cargar Notifee de forma segura
 let NotifeeLib = null;
@@ -113,7 +116,7 @@ const requestPermissionsIfNeeded = async () => {
   } else {
     try {
       await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
-    } catch {}
+    } catch { }
     return true;
   }
 };
@@ -128,10 +131,11 @@ class MyApp extends React.Component {
       showPermissionsScreen: false,
       checkingPermissions: true, // ✅ NUEVO: Estado de verificación inicial
     };
-    
+
     // ✅ Bandera para prevenir registros duplicados de listeners
     this.notificationListenersRegistered = false;
   }
+
 
   // ✅ MODIFICADO: Validar disponibilidad de librería ANTES de usar
   checkRequiredPermissions = async (userRole = 'user') => {
@@ -145,9 +149,9 @@ class MyApp extends React.Component {
 
     try {
       console.log('🔍 [Permissions Check] Iniciando verificación...');
-      
+
       const requiredPermissions = getRequiredPermissions(userRole);
-      
+
       if (!requiredPermissions || requiredPermissions.length === 0) {
         console.warn('⚠️ [Permissions Check] No hay permisos requeridos definidos');
         return true; // ✅ Si no hay permisos definidos, permitir acceso
@@ -172,7 +176,7 @@ class MyApp extends React.Component {
 
         // ✅ Resto de permisos: flujo normal
         const nativePermission = NATIVE_PERMISSIONS[permission?.id];
-        
+
         if (!nativePermission) {
           console.warn('⚠️ [Permissions Check] Permiso nativo no encontrado:', permission?.id);
           continue;
@@ -192,7 +196,7 @@ class MyApp extends React.Component {
       const allGranted = requiredPermissions.every((permission) =>
         isPermissionGranted(permissionsStatus[permission.id])
       );
-      
+
       console.log('🔐 [Permissions Check] Resultado:', {
         allGranted,
         statuses: permissionsStatus,
@@ -289,9 +293,9 @@ class MyApp extends React.Component {
 
     if (!userId) {
       // Si no hay usuario, no verificar permisos
-      this.setState({ 
+      this.setState({
         checkingPermissions: false,
-        showPermissionsScreen: false 
+        showPermissionsScreen: false
       });
       return;
     }
@@ -303,17 +307,17 @@ class MyApp extends React.Component {
 
     if (allPermissionsGranted) {
       console.log('✅ [Main] Todos los permisos otorgados, permitir acceso a la app');
-      this.setState({ 
+      this.setState({
         showPermissionsScreen: false,
         permissionsChecked: true,
-        checkingPermissions: false 
+        checkingPermissions: false
       });
     } else {
       console.log('⚠️ [Main] Faltan permisos, mostrar pantalla de configuración');
-      this.setState({ 
+      this.setState({
         showPermissionsScreen: true,
         permissionsChecked: false,
-        checkingPermissions: false 
+        checkingPermissions: false
       });
     }
   };
@@ -335,7 +339,7 @@ class MyApp extends React.Component {
   // ✅ Limpiar listeners al desmontar el componente
   componentWillUnmount() {
     console.log('[Main] 🧹 Limpiando listeners de notificaciones...');
-    
+
     // ✅ Resetear bandera
     this.notificationListenersRegistered = false;
 
@@ -363,18 +367,34 @@ class MyApp extends React.Component {
 
   handlePermissionsComplete = async (permissionsStatus) => {
     console.log('✅ [Main] Permisos configurados:', permissionsStatus);
-    
+
     // Marcar que se completó la configuración
     await AsyncStorage.setItem('permissions_configured', 'true');
-    
+
     // Re-verificar permisos para asegurar que están otorgados
     await this.verifyPermissionsStatus();
   };
 
-  
+
   render() {
     const { user, ready } = this.props;
     const { showPermissionsScreen, checkingPermissions } = this.state;
+    const Stack = createStackNavigator();
+
+    const linking = {
+      prefixes: ['https://www.vidkar.com', 'http://www.vidkar.com', 'vidkar://'],  // URLs válidas para la app
+      config: {
+        screens: {
+          // Recargas: 'recargas',          // Ruta para pantalla Recargas
+          // Users: 'users/:id',   
+          ProductosCubacelCards: 'productos',       // Ruta para pantalla los productos
+          Remesas: 'remesas', // nueva URL para Remesas
+          RemesasForm: 'remesas/form',        // nueva URL
+          VentasStepper: 'ventas/stepper',    // nueva URL
+          // Otras pantallas si las hay...
+        },
+      },
+    };
 
     console.log('🎨 [Main] Render state:', {
       ready,
@@ -418,33 +438,50 @@ class MyApp extends React.Component {
     return (
       <SafeAreaProvider>
         <PaperProvider>
-          {ready && user?.modoCadete ? (
-            // Modo Cadete activo: mostrar pantalla dedicada
-            <CadeteNavigator />
-          ) : ready && user?.profile?.roleComercio?.includes('EMPRESA') && user?.modoEmpresa ? ( 
-            // ✅ NUEVO: Modo Empresa activo
-            <EmpresaNavigator />
-          ) : Meteor.userId() ? (
-            // Usuario autenticado: ir a App principal
-            <>
-              <StatusBar
-                translucent={true}
-                backgroundColor={'transparent'}
-                barStyle={'light-content'}
-              />
-              <App />
-            </>
-          ) : (
-            // Sin autenticación: mostrar Login
-            <>
-              <StatusBar
-                translucent={true}
-                backgroundColor={'transparent'}
-                barStyle={'light-content'}
-              />
-              <Loguin />
-            </>
-          )}
+          <Portal.Host>
+            <NavigationContainer
+              linking={linking}
+              fallback={
+                <Surface style={styles.loadingContainer}>
+                  <ActivityIndicator
+                    animating={true}
+                    size="large"
+                    color="#3f51b5"
+                  />
+                  <Text style={styles.loadingText}>Cargando...</Text>
+                </Surface>
+              }
+
+            >
+              {ready && user?.modoCadete ? (
+                // Modo Cadete activo: mostrar pantalla dedicada
+                <CadeteNavigator />
+              ) : ready && user?.profile?.roleComercio?.includes('EMPRESA') && user?.modoEmpresa ? (
+                // ✅ NUEVO: Modo Empresa activo
+                <EmpresaNavigator />
+              ) : Meteor.userId() ? (
+                // Usuario autenticado: ir a App principal
+                <>
+                  <StatusBar
+                    translucent={true}
+                    backgroundColor={'transparent'}
+                    barStyle={'light-content'}
+                  />
+                  <App />
+                </>
+              ) : (
+                // Sin autenticación: mostrar Login
+                <>
+                  <StatusBar
+                    translucent={true}
+                    backgroundColor={'transparent'}
+                    barStyle={'light-content'}
+                  />
+                  <Loguin />
+                </>
+              )}
+            </NavigationContainer>
+          </Portal.Host>
         </PaperProvider>
       </SafeAreaProvider>
     );

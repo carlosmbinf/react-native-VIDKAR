@@ -110,6 +110,7 @@ const PedidoCard = ({ venta, currentStep, isExpanded, onToggleExpand }) => {
         right={(props) => (
           <IconButton 
             {...props} 
+            style={{zIndex: 11}}
             icon={isExpanded ? "chevron-up" : "chevron-down"}
             onPress={onToggleExpand}
           />

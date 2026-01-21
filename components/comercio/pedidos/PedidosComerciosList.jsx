@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, RefreshControl } from 'react-native';
-import { Text, Surface } from 'react-native-paper';
+import { ScrollView, StyleSheet, RefreshControl, View } from 'react-native';
+import { Text, Surface, Appbar } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 import { VentasRechargeCollection } from '../../collections/collections';
 
@@ -8,11 +8,13 @@ import { VentasRechargeCollection } from '../../collections/collections';
 import PedidoCard from './components/PedidoCard';
 import LoadingState from './components/LoadingState';
 import EmptyState from './components/EmptyState';
+import MenuHeader from '../../Header/MenuHeader';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /**
  * Componente principal: Lista de pedidos de comercios del usuario
  */
-const PedidosComerciosList = () => {
+const PedidosComerciosList = ({navigation}) => {
   const [refreshing, setRefreshing] = useState(false);
   const [expandedVentas, setExpandedVentas] = useState({});
 
@@ -66,7 +68,23 @@ const PedidosComerciosList = () => {
   // ✅ Render principal simplificado
   return (
     <Surface style={{height:'100%'}}>
-
+      <Appbar style={{
+        backgroundColor: '#3f51b5',
+        height: useSafeAreaInsets().top + 50,
+        paddingTop: useSafeAreaInsets().top,
+      }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+          <Appbar.BackAction
+            color="red"
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              }
+            }}
+          />
+          <MenuHeader navigation={navigation} />
+        </View>
+      </Appbar>
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.scrollContent}

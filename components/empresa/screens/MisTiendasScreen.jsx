@@ -24,15 +24,19 @@ import {
   Divider,
   IconButton,
   Surface, // ✅ NUEVO
+  Appbar, // ✅ AGREGADO
 } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Meteor, { useTracker } from '@meteorrn/core';
 import { TiendasComercioCollection, ProductosComercioCollection } from '../../collections/collections';
 import LocationPicker from '../components/LocationPicker';
 import MapaTiendaCardBackground from '../maps/MapaTiendaCardBackground'; // ✅ NUEVO
+import MenuHeader from '../../Header/MenuHeader';
 
 const CARD_HEIGHT = 200; // ✅ single source of truth para mapa/overlay
 
-const MisTiendasScreen = ({ onNavigateToTiendaDetail }) => {
+const MisTiendasScreen = ({ navigation, openDrawer }) => {
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingTiendaId, setEditingTiendaId] = useState(null); // ✅ NUEVO (null = crear)
@@ -179,6 +183,13 @@ const MisTiendasScreen = ({ onNavigateToTiendaDetail }) => {
     }
   };
 
+  const handleNavigateToTiendaDetail = (tienda) => {
+    navigation.navigate('TiendaDetail', {
+      tienda,
+      tiendaId: tienda._id
+    });
+  };
+
   const renderTiendaCard = ({ item: tienda }) => {
     const scaleAnim = new Animated.Value(1);
 
@@ -205,38 +216,38 @@ const MisTiendasScreen = ({ onNavigateToTiendaDetail }) => {
     return (
       <Animated.View style={[styles.cardContainer, { transform: [{ scale: scaleAnim }] }]}>
         <Card
-          style={[styles.tiendaCard, {height: CARD_HEIGHT }]}
-          onPress={() => onNavigateToTiendaDetail(tienda)}
+          style={[styles.tiendaCard, { height: CARD_HEIGHT }]}
+          onPress={() => handleNavigateToTiendaDetail(tienda)}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
         >
-          <View style={[{position:'absolute', height: CARD_HEIGHT, top:0,left:0, right:0}]}>
+          <View style={[{ position: 'absolute', height: CARD_HEIGHT, top: 0, left: 0, right: 0 }]}>
             <MapaTiendaCardBackground tienda={tienda} height='100%' />
           </View>
 
           {/* ✅ Overlay encima del mapa */}
           <Card.Content style={[styles.cardContentOverlay, { height: CARD_HEIGHT }]}>
-            
-                  <Surface style={styles.overlayHeader}>
-                    <View style={styles.infoChipContent}>
-                    <Text variant="titleSmall" style={styles.tiendaTitleChip} numberOfLines={1}>
-                      {tienda.title}
-                    </Text>
-                    {!!tienda.descripcion && (
-                      <Text variant="bodySmall" style={styles.tiendaSubtitleChip} numberOfLines={1}>
-                      {tienda.descripcion}
-                      </Text>
-                    )}
-                    </View>
-                    <IconButton
-                    icon="pencil"
-                    size={18}
-                    onPress={() => openEditDialog(tienda)}
-                    accessibilityLabel="Editar tienda"
-                    iconColor="#FFFFFF"
-                    style={styles.editButton}
-                    />
-                  </Surface>
+
+            <Surface style={styles.overlayHeader}>
+              <View style={styles.infoChipContent}>
+                <Text variant="titleSmall" style={styles.tiendaTitleChip} numberOfLines={1}>
+                  {tienda.title}
+                </Text>
+                {!!tienda.descripcion && (
+                  <Text variant="bodySmall" style={styles.tiendaSubtitleChip} numberOfLines={1}>
+                    {tienda.descripcion}
+                  </Text>
+                )}
+              </View>
+              <IconButton
+                icon="pencil"
+                size={18}
+                onPress={() => openEditDialog(tienda)}
+                accessibilityLabel="Editar tienda"
+                iconColor="#FFFFFF"
+                style={styles.editButton}
+              />
+            </Surface>
 
             <View style={styles.chipsRow}>
               <Chip
@@ -262,7 +273,7 @@ const MisTiendasScreen = ({ onNavigateToTiendaDetail }) => {
           </Card.Content>
 
           <Card.Actions style={styles.cardActions}>
-            <Button mode="text" onPress={() => onNavigateToTiendaDetail(tienda)} textColor="#673AB7">
+            <Button mode="text" onPress={() => handleNavigateToTiendaDetail(tienda)} textColor="#673AB7">
               Ver Detalles
             </Button>
           </Card.Actions>
@@ -282,6 +293,26 @@ const MisTiendasScreen = ({ onNavigateToTiendaDetail }) => {
 
   return (
     <Surface style={styles.container}>
+      {/* ✅ AGREGADO: Appbar con drawer */}
+      <Appbar style={{
+        backgroundColor: '#3f51b5',
+        height: insets.top + 50,
+        paddingTop: insets.top,
+      }}>
+        <View>
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Appbar.Action
+              icon="menu"
+              color="#FFFFFF"
+              onPress={openDrawer}
+            />
+          </View>
+          <MenuHeader navigation={navigation} />
+        </View>
+      </Appbar>
+
       {tiendas.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Avatar.Icon size={100} icon="store-off-outline" style={styles.emptyIcon} />
@@ -326,14 +357,14 @@ const MisTiendasScreen = ({ onNavigateToTiendaDetail }) => {
       )}
 
       <Portal>
-        <Dialog 
-          visible={showCreateDialog} 
+        <Dialog
+          visible={showCreateDialog}
           onDismiss={resetDialogState}
           style={styles.dialog}
         >
           <Dialog.Title>{isEditing ? 'Editar Tienda' : 'Crear Nueva Tienda'}</Dialog.Title>
           <Dialog.ScrollArea>
-            <ScrollView 
+            <ScrollView
               contentContainerStyle={styles.dialogContent}
               keyboardShouldPersistTaps="handled"
             >
@@ -391,7 +422,7 @@ const MisTiendasScreen = ({ onNavigateToTiendaDetail }) => {
             <Button onPress={resetDialogState}>
               Cancelar
             </Button>
-            <Button 
+            <Button
               onPress={isEditing ? handleUpdateTienda : handleCreateTienda}
               disabled={!newTienda.coordenadas}
             >
@@ -465,9 +496,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignContent: "center",
     gap: 10,
-    padding:5,
+    padding: 5,
     borderRadius: 12,
-    paddingLeft:15
+    paddingLeft: 15
   },
 
   infoChip: {

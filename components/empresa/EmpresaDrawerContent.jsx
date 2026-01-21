@@ -10,13 +10,27 @@ import {
   Badge,
 } from 'react-native-paper';
 import Meteor from '@meteorrn/core';
+import { useNavigation } from '@react-navigation/native';
 
-const EmpresaDrawerContent = ({ closeDrawer, onNavigate }) => {
+const EmpresaDrawerContent = ({ closeDrawer, navigationReady }) => {
   const user = Meteor.user();
+  
+  // ✅ useNavigation con try-catch por seguridad
+  let navigation = null;
+  try {
+    navigation = useNavigation();
+  } catch (error) {
+    console.warn('[EmpresaDrawer] Navigation no disponible aún');
+  }
 
   const handleNavigate = (screen) => {
-    onNavigate(screen);
+    if (!navigation) {
+      console.warn('[EmpresaDrawer] Navigation no disponible');
+      return;
+    }
+    
     closeDrawer();
+    navigation.navigate(screen);
   };
 
   // ✅ NUEVO: Handler para salir del modo empresa
@@ -113,6 +127,7 @@ const EmpresaDrawerContent = ({ closeDrawer, onNavigate }) => {
             titleStyle={styles.activeItem}
             style={styles.listItem}
             onPress={() => handleNavigate('tiendas')}
+            disabled={!navigationReady}
           />
         </View>
 

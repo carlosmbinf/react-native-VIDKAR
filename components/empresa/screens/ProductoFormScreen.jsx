@@ -21,13 +21,15 @@ import {
   IconButton,
   Divider,
   Surface,
+  Appbar,
 } from 'react-native-paper';
 import Meteor from '@meteorrn/core';
 import { launchImageLibrary } from 'react-native-image-picker';
 const RNFS = require('react-native-fs');
 
-const ProductoFormScreen = ({ producto, tienda, onBack }) => {
-  const isEditing = !!producto?._id;
+const ProductoFormScreen = ({ navigation, route }) => {
+  const { producto, tienda } = route.params;
+  const isEditMode = !!producto?._id;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -47,7 +49,7 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
   const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
-    if (isEditing && producto) {
+    if (isEditMode && producto) {
       setFormData({
         name: producto.name || '',
         descripcion: producto.descripcion || '',
@@ -62,7 +64,7 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
         loadExistingImage(producto._id);
       }
     }
-  }, [producto, isEditing]);
+  }, [producto, isEditMode]);
 
   const loadExistingImage = async (productoId) => {
     setLoadingImage(true);
@@ -224,7 +226,11 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
     });
   };
 
-  const handleSubmit = async () => {
+  const handleGoBack = () => {
+    navigation.goBack();
+  };
+
+  const handleSaveProducto = async () => {
     if (!validateForm()) {
       Alert.alert('Errores de validación', 'Por favor corrige los errores antes de continuar');
       return;
@@ -243,7 +249,7 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
         comentario: formData.comentario.trim(),
       };
 
-      if (isEditing) {
+      if (isEditMode) {
         // ✅ MODO EDICIÓN
         Meteor.call('comercio.editProducto', producto._id, productoData, async (error, result) => {
           if (error) {
@@ -270,7 +276,7 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
             Alert.alert(
               'Éxito',
               result.message || 'Producto actualizado correctamente',
-              [{ text: 'OK', onPress: onBack }]
+              [{ text: 'OK', onPress: handleGoBack }]
             );
           }
         });
@@ -300,23 +306,25 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
             Alert.alert(
               'Éxito',
               'Producto creado correctamente',
-              [{ text: 'OK', onPress: onBack }]
+              [{ text: 'OK', onPress: handleGoBack }]
             );
           }
         });
       }
     } catch (error) {
       setLoading(false);
-      console.error('[ProductoForm] Error en handleSubmit:', error);
+      console.error('[ProductoForm] Error en handleSaveProducto:', error);
       Alert.alert('Error', 'Ocurrió un error inesperado');
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <View style={styles.container}>
+      <Appbar.Header style={styles.header}>
+        <Appbar.BackAction onPress={handleGoBack} />
+        <Appbar.Content title={isEditMode ? 'Editar Producto' : 'Nuevo Producto'} />
+      </Appbar.Header>
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Card style={styles.imageCard}>
           <Card.Content style={styles.imageCardContent}>
@@ -402,7 +410,7 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
         <Card style={styles.formCard}>
           <Card.Content>
             <Text variant="titleLarge" style={styles.sectionTitle}>
-              {isEditing ? '✏️ Editar Producto' : '➕ Nuevo Producto'}
+              {isEditMode ? '✏️ Editar Producto' : '➕ Nuevo Producto'}
             </Text>
             <Divider style={styles.divider} />
 
@@ -578,7 +586,7 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
         <View style={styles.buttonContainer}>
           <Button
             mode="outlined"
-            onPress={onBack}
+            onPress={handleGoBack}
             style={styles.button}
             disabled={loading || uploadingImage}
           >
@@ -586,16 +594,16 @@ const ProductoFormScreen = ({ producto, tienda, onBack }) => {
           </Button>
           <Button
             mode="contained"
-            onPress={handleSubmit}
+            onPress={handleSaveProducto}
             style={[styles.button, styles.submitButton]}
             disabled={loading || uploadingImage}
             loading={loading || uploadingImage}
           >
-            {uploadingImage ? 'Subiendo imagen...' : isEditing ? 'Guardar Cambios' : 'Crear Producto'}
+            {uploadingImage ? 'Subiendo imagen...' : isEditMode ? 'Guardar Cambios' : 'Crear Producto'}
           </Button>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 
