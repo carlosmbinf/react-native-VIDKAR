@@ -64,7 +64,7 @@ try {
     // ✅ Solicitar permisos de ubicación para iOS
     
     // ✅ Iniciar servicio de ubicación iOS
-    notifee.incrementBadgeCount();
+    // notifee.incrementBadgeCount();
     IOSLocationService();
     console.log('✅ [Index] Servicio de ubicación iOS iniciado');
   }

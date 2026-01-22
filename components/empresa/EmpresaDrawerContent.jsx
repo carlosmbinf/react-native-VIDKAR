@@ -12,7 +12,7 @@ import {
 import Meteor from '@meteorrn/core';
 import { useNavigation } from '@react-navigation/native';
 
-const EmpresaDrawerContent = ({ closeDrawer, navigationReady }) => {
+const EmpresaDrawerContent = ({ closeDrawer, navigationReady,mavigation }) => {
   const user = Meteor.user();
   
   // ✅ useNavigation con try-catch por seguridad
@@ -126,8 +126,8 @@ const EmpresaDrawerContent = ({ closeDrawer, navigationReady }) => {
             left={props => <List.Icon {...props} icon="store" color="#673AB7" />}
             titleStyle={styles.activeItem}
             style={styles.listItem}
-            onPress={() => handleNavigate('tiendas')}
-            disabled={!navigationReady}
+            onPress={() => handleNavigate('MisTiendas')}
+            disabled={false}
           />
         </View>
 

@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontWeight: 'bold',
-    color: '#212121',
+    // color: '#212121',
     marginBottom: 8,
     textAlign: 'center',
   },

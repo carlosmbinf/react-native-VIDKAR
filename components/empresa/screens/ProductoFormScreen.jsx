@@ -319,7 +319,7 @@ const ProductoFormScreen = ({ navigation, route }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <Surface style={styles.container}>
       <Appbar.Header style={styles.header}>
         <Appbar.BackAction onPress={handleGoBack} />
         <Appbar.Content title={isEditMode ? 'Editar Producto' : 'Nuevo Producto'} />
@@ -603,14 +603,14 @@ const ProductoFormScreen = ({ navigation, route }) => {
           </Button>
         </View>
       </ScrollView>
-    </View>
+    </Surface>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    // backgroundColor: '#F5F5F5',
   },
   scrollContent: {
     padding: 16,

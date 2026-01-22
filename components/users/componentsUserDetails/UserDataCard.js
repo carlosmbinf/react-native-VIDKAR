@@ -194,7 +194,6 @@ const UserDataCard = ({item, styles, edit, setEdit, navigation}) => {
     }
   };
 
-  console.log("item",item);
   return (
     <>
       <Card elevation={12} style={styles.cards} testID="user-data-card">
