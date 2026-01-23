@@ -56,93 +56,93 @@ const EmpresaNavigator = () => {
             headerShown: false, // Cada screen maneja su header
           }}
         >
-<Stack.Screen
-                name="PedidosPreparacion"
-                options={({ navigation, route }) => {
-                  const { params } = route;
-                  var item = Meteor.users.findOne(
-                    params ? params.item : Meteor.userId(),
-                    {
-                      fields: {
-                        _id: 1,
-                        'profile.firstName': 1,
-                        'profile.lastName': 2,
-                      },
-                    },
-                  );
-                  return {
-                    title: (
-                      <Text>
-                        {item && item.profile
-                          ? `${item.profile.firstName} ${item.profile.lastName}`
-                          : ''}
-                      </Text>
-                    ),
-                    headerStyle: {
-                      backgroundColor: '#3f51b5',
-                      // height: 90,
-                    },
-                    headerTitleAlign: 'left',
-                    headerTintColor: '#fff',
-                    // headerTitleStyle: {
-                    //   fontWeight: 'bold',
-                    // },
-                    headerLeft:
-                      !(
-                        Meteor.user() &&
-                        Meteor.user().profile &&
-                        Meteor.user().profile.role == 'admin'
-                      ) && null,
-                    headerShown: false,
-                    // headerLeftContainerStyle: { display: flex },
-                    headerRight: () => (
-                      <MenuHeader
-                        navigation={navigation}
-                      />
-                    ),
-                    // headerRight
-                    // headerTransparent:false
-                  };
-                }}>
-                {props => {
-                  const { navigation, route } = props;
-                  const { params } = route;
-                  const item = params ? params.item : Meteor.userId();
-                  // const {navigation} = route.params;
-                  return (
-                    <Drawer
-                ref={drawerRef}
-                type="overlay"    
-                content={
-                  <EmpresaDrawerContent
-                    closeDrawer={closeDrawer}
-                    navigationReady={navigationReady}
-                    mavigation={navigation}
-                  />
-                }
-                tapToClose={true}
-                openDrawerOffset={0.3}
-                panCloseMask={0.3}
-                closedDrawerOffset={0}
-                styles={{
-                  drawer: {
-                    shadowColor: '#000000',
-                    shadowOpacity: 0.8,
-                    shadowRadius: 3,
-                    backgroundColor: '#FFFFFF',
+          <Stack.Screen
+            name="PedidosPreparacion"
+            options={({ navigation, route }) => {
+              const { params } = route;
+              var item = Meteor.users.findOne(
+                params ? params.item : Meteor.userId(),
+                {
+                  fields: {
+                    _id: 1,
+                    'profile.firstName': 1,
+                    'profile.lastName': 2,
                   },
-                  main: { paddingLeft: 0 },
-                }}
-                tweenHandler={(ratio) => ({
-                  main: { opacity: Math.max(0.54, 1 - ratio) },
-                })}
-              >
-                <PedidosPreparacionScreen {...props} openDrawer={openDrawer} />
-              </Drawer>
-                  );
-                }}
-              </Stack.Screen>
-         
+                },
+              );
+              return {
+                title: (
+                  <Text>
+                    {item && item.profile
+                      ? `${item.profile.firstName} ${item.profile.lastName}`
+                      : ''}
+                  </Text>
+                ),
+                headerStyle: {
+                  backgroundColor: '#3f51b5',
+                  // height: 90,
+                },
+                headerTitleAlign: 'left',
+                headerTintColor: '#fff',
+                // headerTitleStyle: {
+                //   fontWeight: 'bold',
+                // },
+                headerLeft:
+                  !(
+                    Meteor.user() &&
+                    Meteor.user().profile &&
+                    Meteor.user().profile.role == 'admin'
+                  ) && null,
+                headerShown: false,
+                // headerLeftContainerStyle: { display: flex },
+                headerRight: () => (
+                  <MenuHeader
+                    navigation={navigation}
+                  />
+                ),
+                // headerRight
+                // headerTransparent:false
+              };
+            }}>
+            {props => {
+              const { navigation, route } = props;
+              const { params } = route;
+              const item = params ? params.item : Meteor.userId();
+              // const {navigation} = route.params;
+              return (
+                <Drawer
+                  ref={drawerRef}
+                  type="overlay"
+                  content={
+                    <EmpresaDrawerContent
+                      closeDrawer={closeDrawer}
+                      navigationReady={navigationReady}
+                      mavigation={navigation}
+                    />
+                  }
+                  tapToClose={true}
+                  openDrawerOffset={0.3}
+                  panCloseMask={0.3}
+                  closedDrawerOffset={0}
+                  styles={{
+                    drawer: {
+                      shadowColor: '#000000',
+                      shadowOpacity: 0.8,
+                      shadowRadius: 3,
+                      backgroundColor: '#FFFFFF',
+                    },
+                    main: { paddingLeft: 0 },
+                  }}
+                  tweenHandler={(ratio) => ({
+                    main: { opacity: Math.max(0.54, 1 - ratio) },
+                  })}
+                >
+                  <PedidosPreparacionScreen {...props} openDrawer={openDrawer} />
+                </Drawer>
+              );
+            }}
+          </Stack.Screen>
+
 
           <Stack.Screen name="MisTiendas">
             {(props) => <MisTiendasScreen {...props} openDrawer={openDrawer} />}

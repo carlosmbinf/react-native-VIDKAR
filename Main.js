@@ -46,7 +46,6 @@ try {
 // ✅ Función para registrar token de push
 const registerPushTokenForUser = async (userId, token) => {
   try {
-    console.log('[Main] Registrando token de push para usuario:', { userId, token });
     await Meteor.call('push.registerToken', {
       userId,
       token,
@@ -486,7 +485,7 @@ class MyApp extends React.Component {
   }
 }
 
-const ServerList = withTracker(async navigation => {
+const ServerList = withTracker( navigation => {
   const ready = (Meteor.userId() && Meteor.subscribe('user', { _id: Meteor.userId() }).ready()) || false;
   let user = Meteor.user();
 
@@ -494,11 +493,17 @@ const ServerList = withTracker(async navigation => {
 
       // ✅ Obtener token de FCM y registrarlo
     try {
-      const token = await messaging().getToken();
-      console.log("[Main] Token FCM", token);
+      const token =  messaging().getToken().then(token => {
+        console.log("[Main] Token FCM", token);
       if (userId && token) {
-        await registerPushTokenForUser(userId, token);
+        console.log('[Main] Registrando token de push para usuario:', { userId, token });
+         registerPushTokenForUser(userId, token);
+      }else{
+        console.log("[Main] No se registrará token FCM, falta userId o token");
       }
+        
+        });
+      
     } catch (e) {
       console.warn('[Main] No se pudo obtener token FCM', e);
     }
