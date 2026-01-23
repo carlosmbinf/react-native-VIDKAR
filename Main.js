@@ -238,22 +238,11 @@ class MyApp extends React.Component {
       }
     });
 
-    // ✅ Obtener token de FCM y registrarlo
-    try {
-      const token = await messaging().getToken();
-      console.log("[Main] Token FCM", token);
-      const userId = Meteor.userId();
-      if (userId && token) {
-        await registerPushTokenForUser(userId, token);
-      }
-    } catch (e) {
-      console.warn('[Main] No se pudo obtener token FCM', e);
-    }
-
     // ✅ Listener para refresh de token
     this.unsubscribeTokenRefresh = messaging().onTokenRefresh(async (token) => {
       const userId = Meteor.userId();
       if (userId && token) {
+        console.log('[Main] Token FCM refrescado:', token);
         await registerPushTokenForUser(userId, token);
       }
     });
@@ -347,20 +336,27 @@ class MyApp extends React.Component {
 
     // Remover listener de AppState
     if (this.appStateSubscription) {
+      console.log("cerrando subscripcion appStateSubscription");
+      
       this.appStateSubscription.remove();
     }
 
     // Remover listeners de Firebase Messaging
     if (this.unsubscribeTokenRefresh) {
+      console.log("cerrando subscripcion unsubscribeTokenRefresh");
+
       this.unsubscribeTokenRefresh();
     }
     if (this.unsubscribeForeground) {
+      console.log("cerrando subscripcion unsubscribeForeground"); 
       this.unsubscribeForeground();
     }
     if (this.unsubscribeNotificationOpened) {
+      console.log("cerrando subscripcion unsubscribeNotificationOpened");
       this.unsubscribeNotificationOpened();
     }
     if (this.unsubscribeNotificationOnBackground) {
+      console.log("cerrando subscripcion unsubscribeNotificationOnBackground");
       this.unsubscribeNotificationOnBackground();
     }
 
@@ -490,11 +486,23 @@ class MyApp extends React.Component {
   }
 }
 
-const ServerList = withTracker(navigation => {
+const ServerList = withTracker(async navigation => {
   const ready = (Meteor.userId() && Meteor.subscribe('user', { _id: Meteor.userId() }).ready()) || false;
   let user = Meteor.user();
 
   const userId = Meteor.userId();
+
+      // ✅ Obtener token de FCM y registrarlo
+    try {
+      const token = await messaging().getToken();
+      console.log("[Main] Token FCM", token);
+      if (userId && token) {
+        await registerPushTokenForUser(userId, token);
+      }
+    } catch (e) {
+      console.warn('[Main] No se pudo obtener token FCM', e);
+    }
+
   console.log('🔍 [Main.js Debug] Variables de estado:', {
     'Meteor.userId()': userId,
     'Meteor.status().connected': Meteor.status().connected,
