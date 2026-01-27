@@ -10,6 +10,11 @@ import Main from './Main';
 import notifee, { EventType } from '@notifee/react-native';
 import Geolocation from 'react-native-geolocation-service';
 import MyService from './src/native/MyService';
+import moment from 'moment';
+import 'moment/locale/es'; // Importar locale español
+
+// Configurar moment globalmente en español
+moment.locale('es');
 
 MyService.start();
 

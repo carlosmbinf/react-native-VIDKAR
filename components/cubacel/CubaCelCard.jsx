@@ -6,6 +6,7 @@ import { useWindowDimensions, Button as BotonReact } from 'react-native';
 import Meteor from '@meteorrn/core';
 import { BlurView } from '@react-native-community/blur';
 import moment from 'moment';
+import 'moment/locale/es';
 
 const CubaCelCard = ({ product }) => {
     const {
@@ -22,6 +23,12 @@ const CubaCelCard = ({ product }) => {
     const [nombre, setNombre] = useState('');
     const [extraFields, setExtraFields] = useState({});
     const [keyboardHeight, setKeyboardHeight] = useState(0);
+    
+    // Nuevo: Estados para precios convertidos
+    const [precioCUP, setPrecioCUP] = useState(null);
+    const [precioUYU, setPrecioUYU] = useState(null);
+    const [loadingPrecios, setLoadingPrecios] = useState(true);
+    
     const theme = useTheme();
     const { width, height } = useWindowDimensions();
     const isDarkMode = theme.dark;
@@ -87,6 +94,50 @@ const CubaCelCard = ({ product }) => {
         };
     }, []);
 
+    // Nuevo: Cargar precios convertidos al montar el componente
+    React.useEffect(() => {
+        const cargarPreciosConvertidos = async () => {
+            if (precioUSD === '---' || typeof precioUSD !== 'number') {
+                setLoadingPrecios(false);
+                return;
+            }
+
+            try {
+                setLoadingPrecios(true);
+                
+                // Convertir de USD a CUP
+                const precioConvertidoCUP = await new Promise((resolve, reject) => {
+                    Meteor.call('moneda.convertir', precioUSD, 'USD', 'CUP', null, (error, result) => {
+                        if (error) reject(error);
+                        else resolve(result);
+                    });
+                });
+
+                // Convertir de USD a UYU
+                const precioConvertidoUYU = await new Promise((resolve, reject) => {
+                    Meteor.call('moneda.convertir', precioUSD, 'USD', 'UYU', null, (error, result) => {
+                        if (error) reject(error);
+                        else resolve(result);
+                    });
+                });
+
+                setPrecioCUP(precioConvertidoCUP);
+                setPrecioUYU(precioConvertidoUYU);
+            } catch (error) {
+                console.error('Error al convertir precios:', error);
+                // Mantener valores null en caso de error
+            } finally {
+                setLoadingPrecios(false);
+            }
+        };
+
+        cargarPreciosConvertidos();
+    }, [precioUSD]);
+
+    React.useEffect(() => {
+        moment.locale('es');
+    }, []);
+
     const beneficios = () => {
         return description || benefits?.reduce((acc, benefit) => {
             if (benefit.amount?.totalIncludingTax === -1) return acc;
@@ -125,6 +176,35 @@ const CubaCelCard = ({ product }) => {
         setExtraFields(prev => ({ ...prev, [field]: numericValue }));
     };
 
+    // Nueva: extraer fechas de la primera promoción
+    const promo = hasPromo ? promotions[0] : null;
+    const promoStartDate = promo?.startDate ? moment(promo.startDate).format("DD MMM") : null;
+    const promoEndDate = promo?.endDate ? moment(promo.endDate).format("DD MMM") : null;
+
+    // Nuevo: determinar si la promoción está activa o es adelantada
+    const getPromoStatus = () => {
+        if (!promo?.startDate) return null;
+        
+        const now = moment();
+        const startDate = moment(promo.startDate);
+        const endDate = promo.endDate ? moment(promo.endDate) : null;
+        
+        // Si la fecha de inicio es futura, es adelantada
+        if (startDate.isAfter(now)) {
+            return 'ADELANTADA';
+        }
+        
+        // Si ya comenzó y no ha terminado (o no tiene fecha fin), está activa
+        if (startDate.isSameOrBefore(now) && (!endDate || endDate.isAfter(now))) {
+            return 'ACTIVA';
+        }
+        
+        // Si ya terminó, no mostrar ribbon
+        return null;
+    };
+
+    const promoStatus = getPromoStatus();
+
     if (precioUSD != "---") {
         return (
             <View>
@@ -138,10 +218,15 @@ const CubaCelCard = ({ product }) => {
                         imageStyle={{ borderRadius: 20 }}
                         style={styles.imageBackground}
                     >
-                        {/* Cintillo de promoción en esquina superior derecha */}
-                        {hasPromo && (
-                            <View style={styles.ribbonContainer}>
-                                <Text style={styles.ribbonText}>🎁 PROMO</Text>
+                        {/* Cintillo de promoción dinámico según estado */}
+                        {hasPromo && promoStatus && (
+                            <View style={[
+                                styles.ribbonContainer,
+                                promoStatus === 'ADELANTADA' && styles.ribbonContainerAdelantada
+                            ]}>
+                                <Text style={styles.ribbonText}>
+                                    {promoStatus === 'ACTIVA' ? '🎁 PROMOCIÓN ACTIVA' : '⏰ ADELANTA PROMO'}
+                                </Text>
                             </View>
                         )}
 
@@ -158,12 +243,54 @@ const CubaCelCard = ({ product }) => {
                             </View>
 
                             {beneficios() !== '' && !promoImageUrl && (
-                                <Text style={styles.beneficios}>{beneficios()}</Text>
+                                <Text style={styles.beneficios}>Beneficios: {"\n" + beneficios()}</Text>
                             )}
+                            {/* Modificado: Chips con 3 monedas */}
                             <View style={styles.chips}>
-                                <View style={styles.chipsComponentGreen}><Text style={{ fontSize: 10 }}>{`${precioUSD} USD`}</Text></View>
+                                {/* USD (principal) */}
+                                <View style={styles.chipsComponentGreen}>
+                                    <Text style={styles.chipText}>{`${precioUSD} USD`}</Text>
+                                </View>
+
+                                {/* CUP */}
+                                {!loadingPrecios && precioCUP !== null && (
+                                    <View style={styles.chipsComponentBlue}>
+                                        <Text style={styles.chipText}>{`${precioCUP} CUP`}</Text>
+                                    </View>
+                                )}
+
+                                {/* UYU */}
+                                {!loadingPrecios && precioUYU !== null && (
+                                    <View style={styles.chipsComponentOrange}>
+                                        <Text style={styles.chipText}>{`${precioUYU} UYU`}</Text>
+                                    </View>
+                                )}
+
+                                {/* Loading indicator */}
+                                {loadingPrecios && (
+                                    <View style={styles.chipsComponentGray}>
+                                        <Text style={styles.chipText}>Cargando Precios...</Text>
+                                    </View>
+                                )}
                             </View>
                         </View>
+
+                        {/* Nuevo: Footer de promoción */}
+                        {hasPromo && promoStartDate && promoEndDate && (
+                            <View style={styles.promoFooter}>
+                                <View style={styles.promoFooterContent}>
+                                    <IconButton 
+                                        icon="calendar-clock" 
+                                        iconColor="#fff" 
+                                        size={14} 
+                                        style={styles.promoFooterIcon}
+                                    />
+                                    <Text style={styles.promoFooterText}>
+                                        {promoStartDate} - {promoEndDate}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
                     </ImageBackground>
                 </Card>
 
@@ -191,9 +318,9 @@ const CubaCelCard = ({ product }) => {
                             >
                                 <View style={{ paddingHorizontal: 24, paddingVertical: 8 }}>
                                     <Text style={{ marginTop: 6, fontWeight: 'bold', fontSize: 16 }}>{name}</Text>
-                                    {description ? (
+                                    {/* {description ? (
                                         <Text style={{ paddingLeft: 10, marginTop: 6, fontWeight: 'bold' }}>{description}</Text>
-                                    ) : null}
+                                    ) : null} */}
 
                                     {hasPromo && promotions?.length > 0 && (
                                         <View>
@@ -294,14 +421,19 @@ const styles = StyleSheet.create({
         width: 280,
     },
     imageBackground: {
-        padding: 12,
-        borderRadius: 20
+        paddingTop: 12,
+        // paddingHorizontal: 12,
+        paddingBottom: 0, // Nuevo: eliminar padding bottom para que footer quede pegado al borde
+        borderRadius: 20,
+        flex: 1,
+        justifyContent: 'space-between',
     },
     cardContent: {
         justifyContent: 'space-between',
-        height: '100%',
         minHeight: 120,
-        overflow: 'hidden'
+        overflow: 'hidden',
+        flex: 1,
+        paddingBottom: 8, // Nuevo: compensar el padding que quitamos del ImageBackground
     },
     row: {
         flexDirection: 'row',
@@ -315,15 +447,18 @@ const styles = StyleSheet.create({
         maxWidth: 200
     },
     beneficios: {
-        marginTop: 1,
-        fontSize: 14
+        marginTop: -35,
+        marginLeft:8,
+        fontSize: 12
     },
     chips: {
         flexDirection: 'row',
         gap: 6,
         marginTop: 8,
-        paddingBottom: 8,
+        paddingLeft:8,
+        paddingBottom: 0,
         justifyContent: "flex-start",
+        flexWrap: 'wrap', // Nuevo: permitir que los chips se envuelvan si no caben
     },
     chipsComponentGreen: {
         backgroundColor: '#4caf50',
@@ -334,6 +469,45 @@ const styles = StyleSheet.create({
         paddingLeft: 8,
         paddingRight: 8,
         borderRadius: 25,
+    },
+    // Nuevo: Chip azul para CUP
+    chipsComponentBlue: {
+        backgroundColor: '#2196f3',
+        alignContent: "center",
+        justifyContent: "center",
+        paddingBottom: 4,
+        paddingTop: 4,
+        paddingLeft: 8,
+        paddingRight: 8,
+        borderRadius: 25,
+    },
+    // Nuevo: Chip naranja para UYU
+    chipsComponentOrange: {
+        backgroundColor: '#ff9800',
+        alignContent: "center",
+        justifyContent: "center",
+        paddingBottom: 4,
+        paddingTop: 4,
+        paddingLeft: 8,
+        paddingRight: 8,
+        borderRadius: 25,
+    },
+    // Nuevo: Chip gris para loading
+    chipsComponentGray: {
+        backgroundColor: '#9e9e9e',
+        alignContent: "center",
+        justifyContent: "center",
+        paddingBottom: 4,
+        paddingTop: 4,
+        paddingLeft: 8,
+        paddingRight: 8,
+        borderRadius: 25,
+    },
+    // Nuevo: Estilo de texto para chips
+    chipText: {
+        fontSize: 10,
+        color: '#fff',
+        fontWeight: '600',
     },
     formContainer: {
         paddingHorizontal: 24,
@@ -366,11 +540,11 @@ const styles = StyleSheet.create({
     // Nuevo: Estilos del ribbon profesional
     ribbonContainer: {
         position: 'absolute',
-        top: 15,
-        right: -35,
-        backgroundColor: '#f50057',
+        top: 25,
+        right: -55,
+        backgroundColor: '#4caf50',
         paddingVertical: 6,
-        paddingHorizontal: 40,
+        paddingHorizontal: 45,
         transform: [{ rotate: '45deg' }],
         zIndex: 100,
         elevation: 5,
@@ -378,6 +552,14 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.35,
         shadowRadius: 4.65,
+        // Nuevo: asegurar centrado del contenido
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    // Nuevo: Ribbon para promoción adelantada (naranja/ámbar)
+    ribbonContainerAdelantada: {
+        backgroundColor: '#FF6F00', // Naranja oscuro profesional
+        // Opcional: animación sutil de pulso para llamar la atención
     },
     ribbonText: {
         color: 'white',
@@ -385,7 +567,35 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         textAlign: 'center',
         textTransform: 'uppercase',
-        letterSpacing: 0.8,
+        // letterSpacing: 0.8,
+        // Nuevo: asegurar que el texto ocupe el ancho necesario
+        // width: '100%',
+    },
+    // Nuevo: Estilos del footer de promoción
+    promoFooter: {
+        backgroundColor: 'rgba(0, 0, 102, 0.80)', // Rosa semi-transparente para coherencia con ribbon
+        // borderBottomLeftRadius: 20,
+        // borderBottomRightRadius: 20,
+        // paddingVertical: 6, // Restaurado: padding vertical para el footer
+        // paddingHorizontal: 12,
+        // marginTop: 'auto', // Empuja el footer al final
+        width: '',
+    },
+    promoFooterContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    promoFooterIcon: {
+        margin: 0,
+        padding: 0,
+    },
+    promoFooterText: {
+        color: '#fff',
+        fontSize: 11,
+        fontWeight: '700',
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
     },
 });
 
