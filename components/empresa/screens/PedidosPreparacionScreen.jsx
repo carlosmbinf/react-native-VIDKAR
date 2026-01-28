@@ -22,6 +22,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Meteor, { useTracker } from '@meteorrn/core'; // ✅ Importar useTracker
 import { VentasRechargeCollection } from '../../collections/collections'; // ✅ Importar collection
+import MenuHeader from '../../Header/MenuHeader';
 
 // ✅ Helper: Formatear tiempo transcurrido
 const formatearTiempo = (fecha) => {
@@ -311,7 +312,9 @@ const PedidosPreparacionScreen = ({ navigation, openDrawer }) => {
           <Appbar.Content
             title="Pedidos Pendientes"
             titleStyle={{ color: '#FFFFFF', fontWeight: 'bold' }}
-          />
+          >
+          <MenuHeader navigation={navigation} />
+          </Appbar.Content>
         </Appbar>
         
         <View style={styles.loadingContainer}>
@@ -323,32 +326,39 @@ const PedidosPreparacionScreen = ({ navigation, openDrawer }) => {
   }
 
   // ✅ NUEVO: Empty state cuando no hay pedidos en preparación
-  if (pedidos.length === 0) {
+  // ✅ REFACTOR: Extraer Appbar común para evitar duplicación
+  const renderAppbar = () => (
+    <Appbar
+      style={{
+        backgroundColor: headerConfig.backgroundColor,
+        height: insets.top + 56,
+        paddingTop: insets.top,
+        elevation: 4,
+      }}
+    >
+      <Appbar.Action icon="menu" color="#FFFFFF" onPress={openDrawer} />
+      <Appbar.Content
+        title="Pedidos"
+        titleStyle={{ color: '#FFFFFF', fontWeight: 'bold' }}
+      />
+      <View style={styles.badgeContainer}>
+        <Badge
+          size={24}
+          style={[styles.headerBadge, { backgroundColor: headerConfig.badgeColor }]}
+        >
+          {pedidos.length}
+        </Badge>
+      </View>
+      <MenuHeader navigation={navigation} />
+    </Appbar>
+  );
+
+  // ✅ Empty state cuando no hay pedidos
+ 
     return (
       <Surface style={styles.container}>
-        <Appbar
-          style={{
-            backgroundColor: headerConfig.backgroundColor,
-            height: insets.top + 56,
-            paddingTop: insets.top,
-            elevation: 4,
-          }}
-        >
-          <Appbar.Action icon="menu" color="#FFFFFF" onPress={openDrawer} />
-          <Appbar.Content
-            title="Pedidos en Preparación"
-            titleStyle={{ color: '#FFFFFF', fontWeight: 'bold' }}
-          />
-          <View style={styles.badgeContainer}>
-            <Badge
-              size={24}
-              style={[styles.headerBadge, { backgroundColor: headerConfig.badgeColor }]}
-            >
-              0
-            </Badge>
-          </View>
-        </Appbar>
-
+        {renderAppbar()}
+{        pedidos.length === 0 ?
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>🍽️</Text>
           <Text variant="headlineSmall" style={styles.emptyTitle}>
@@ -358,42 +368,7 @@ const PedidosPreparacionScreen = ({ navigation, openDrawer }) => {
             Los nuevos pedidos aparecerán aquí automáticamente
           </Text>
         </View>
-      </Surface>
-    );
-  }
-
-  return (
-    <Surface style={styles.container}>
-      {/* Header con color dinámico */}
-      <Appbar
-        style={{
-          backgroundColor: headerConfig.backgroundColor, // 🎨 Dinámico
-          height: insets.top + 56,
-          paddingTop: insets.top,
-          elevation: 4,
-        }}
-      >
-         <Appbar.Action
-                      icon="menu"
-                      color="#FFFFFF"
-                      onPress={openDrawer}
-                    />
-        <Appbar.Content
-          title="Pedidos Pendientes"
-          titleStyle={{ color: '#FFFFFF', fontWeight: 'bold' }}
-        />
-        <View style={styles.badgeContainer}>
-          <Badge
-            size={24}
-            style={[styles.headerBadge, { backgroundColor: headerConfig.badgeColor }]}
-          >
-            {pedidos.length}
-          </Badge>
-        </View>
-      </Appbar>
-
-      {/* ✅ CORREGIDO: Lista de pedidos con columKey para forzar re-render */}
-      <FlatList
+    :<FlatList
         data={pedidos}
         renderItem={renderPedidoCard}
         keyExtractor={(item) => item._id}
@@ -402,13 +377,13 @@ const PedidosPreparacionScreen = ({ navigation, openDrawer }) => {
           isTablet && styles.listContentTablet,
         ]}
         numColumns={isTablet ? 2 : 1}
-        key={isTablet ? 'tablet-2col' : 'mobile-1col'} // ✅ Más descriptivo
-        columnWrapperStyle={isTablet ? styles.columnWrapper : null} // ✅ NUEVO
+        key={isTablet ? 'tablet-2col' : 'mobile-1col'}
+        columnWrapperStyle={isTablet ? styles.columnWrapper : null}
       />
-    </Surface>
-  );
-};
-
+  }
+      </Surface>
+    )
+  }
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -468,6 +443,7 @@ const styles = StyleSheet.create({
   pedidoCard: {
     borderRadius: 16,
     marginBottom: 16,
+    paddingTop: 16,
     overflow: 'hidden',
     flex: 1, // ✅ Mantiene flex para ocupar espacio disponible
     minWidth: 0, // ✅ Permite que flex shrink funcione correctamente

@@ -21,7 +21,7 @@ const MenuHeader = ({ navigation }) => {
         onDismiss={() => setVisibleMenu(false)}
         anchor={
           <Appbar.Action
-            icon="menu"
+            icon="dots-vertical"
             color="white"
             onPress={() => setVisibleMenu(true)}
           />

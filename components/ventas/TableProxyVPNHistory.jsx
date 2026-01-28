@@ -402,7 +402,7 @@ const TableProxyVPNHistory = () => {
                     {ventaSel?.metodoPago === 'EFECTIVO' && (
                       <Surface style={styles.uploadBox}>
                         <Text style={styles.uploadText}>
-                          ⚠️ Debe subir evidencia para corroborar el pago y autorizar la activación
+                          {`⚠️ Debe subir evidencia para corroborar\nel pago y autorizar la activación`}
                         </Text>
                         <SubidaArchivos venta={ventaSel} />
                       </Surface>
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
   },
   uploadBox: {
     marginTop: 5,
-    borderRadius: 6,
+    borderRadius: 60,
     backgroundColor: '#fff3cd',
     borderColor: '#ffeaa7',
     borderWidth: 1,

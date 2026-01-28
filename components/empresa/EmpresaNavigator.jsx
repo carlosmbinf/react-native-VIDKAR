@@ -12,6 +12,7 @@ import { Appbar, Text } from 'react-native-paper';
 import Meteor from '@meteorrn/core';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PedidosPreparacionScreen from './screens/PedidosPreparacionScreen';
+import MensajesHomeWithTracker from '../mensajes/MensajesHome';
 
 const Stack = createStackNavigator();
 
@@ -163,6 +164,40 @@ const EmpresaNavigator = () => {
             })}
           />
 
+              <Stack.Screen
+                name="Mensaje"
+                options={({ navigation, route }) => ({
+                  title: (
+                    <Text>
+                      {Meteor.users.findOne(route.params.item) &&
+                        Meteor.users.findOne(route.params.item).profile.firstName}
+                    </Text>
+                  ),
+                  headerStyle: {
+                    backgroundColor: '#3f51b5',
+                    // height: 90,
+                  },
+                  headerTitleAlign: 'left',
+                  headerTintColor: '#fff',
+                  // headerTitleStyle: {
+                  //   fontWeight: 'bold',
+                  // },
+                  headerShown: true,
+                  // headerRight
+                  // headerTransparent:false
+                })}>
+                {props => {
+                  const { navigation, route } = props;
+                  // console.log(item)
+                  const { item } = route.params;
+                  return (
+                    <MensajesHomeWithTracker user={item} navigation={navigation} route={route} />
+                    // <TasksProvider user={user} projectPartition={projectPartition}>
+                    //   <TasksView navigation={navigation} route={route} />
+                    // </TasksProvider>
+                  );
+                }}
+              </Stack.Screen>
           <Stack.Screen
             name="User"
             options={({ navigation, route }) => {

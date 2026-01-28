@@ -402,7 +402,7 @@ class MyApp extends React.Component {
     });
 
     // ✅ NUEVO: Mostrar loading mientras se verifican permisos
-    if (Platform.OS === 'android' && checkingPermissions && ready && Meteor.userId()) {
+    if (false && Platform.OS === 'android' && checkingPermissions && ready && Meteor.userId()) {
       return (
         <SafeAreaProvider>
           <PaperProvider>
@@ -417,7 +417,7 @@ class MyApp extends React.Component {
     }
 
     // ✅ MODIFICADO: Mostrar pantalla de permisos si faltan permisos (sin importar AsyncStorage)
-    if (ready && Meteor.userId() && (Platform.OS === 'android' || user?.modoCadete) && showPermissionsScreen) {
+    if (ready && Meteor.userId() && ( user?.modoCadete) && showPermissionsScreen) {
       return (
         <SafeAreaProvider>
           <PaperProvider>

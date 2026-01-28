@@ -295,19 +295,21 @@ const MisTiendasScreen = ({ navigation, openDrawer }) => {
     <Surface style={styles.container}>
       {/* ✅ AGREGADO: Appbar con drawer */}
       <Appbar style={{
-        backgroundColor: '#3f51b5',
+        // backgroundColor: '#3f51b5',
         height: insets.top + 50,
         paddingTop: insets.top,
       }}>
-        <View>
-        </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Appbar.Action
-              icon="menu"
-              color="#FFFFFF"
-              onPress={openDrawer}
+             <Appbar.BackAction
+              color='red'
+              onPress={() => {
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                }
+              }}
             />
+            <Text style={{fontSize:20, alignSelf:'center'}}>Tiendas</Text>
           </View>
           <MenuHeader navigation={navigation} />
         </View>
