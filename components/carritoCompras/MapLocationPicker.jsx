@@ -91,10 +91,11 @@ const MapLocationPicker = ({ onLocationSelect, currentLocation }) => {
   const handleMapPress = (event) => {
     const { latitude, longitude } = event.nativeEvent.coordinate;
     setSelectedLocation({ latitude, longitude });
-    handleConfirm();
+    handleConfirm({ latitude, longitude });
+    console.log("[handleMapPress] selectedLocation:", { latitude, longitude });
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = ({ latitude, longitude }) => {
     if (!selectedLocation) {
       Alert.alert(
         'Ubicación Requerida',
@@ -103,7 +104,7 @@ const MapLocationPicker = ({ onLocationSelect, currentLocation }) => {
       );
       return;
     }
-    onLocationSelect(selectedLocation);
+    onLocationSelect({ latitude, longitude });
   };
 
   if (loading) {
@@ -129,6 +130,7 @@ return (
             style={styles.map}
             region={region}
             onPress={handleMapPress}
+            // onLocationSelect={handleMapPress}
             // showsUserLocation
             showsMyLocationButton
         >

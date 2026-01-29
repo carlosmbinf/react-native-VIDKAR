@@ -444,6 +444,7 @@ const WizardConStepper = ({ product, navigation }) => {
           totalAPagar,
           "Compras Online a travez de VidKar",
           pedidosRemesa,
+          comisionesComercio,
           function (error, success) {
             if (error) {
               console.log("error", error);
@@ -461,6 +462,7 @@ const WizardConStepper = ({ product, navigation }) => {
           "efectivo.createOrder",
           userId,
           pedidosRemesa,
+          comisionesComercio,
           function (error, success) {
             if (error) {
               console.log("error", error);
@@ -561,32 +563,35 @@ const WizardConStepper = ({ product, navigation }) => {
       
     };
 
-    // ✅ NUEVO: Handler para actualizar coordenadas y calcular costos
-    const handleLocationSelect = async (coordenadas) => {
-      try {
-        console.log('[WizardConStepper] Actualizando coordenadas en carrito:', coordenadas);
+    // ✅ CORREGIDO: Handler para actualizar coordenadas con Promise correcta
+    const handleLocationSelect = (coordenadas) => {
+      console.log('[WizardConStepper] Coordenadas recibidas:', coordenadas);
+      
+      
+      // ✅ CRÍTICO: Actualizar estado DESPUÉS de confirmar guardado
+      setUbicacionEntrega(coordenadas);
+      
+      // ✅ Llamar al método con callback (patrón Meteor correcto)
+      Meteor.call('carrito.actualizarUbicacion', userId, coordenadas, (error) => {
+        if (error) {
+          console.error('❌ [WizardConStepper] Error actualizando ubicación:', error);
+          Alert.alert(
+            'Error',
+            'No se pudo guardar la ubicación. Por favor, intenta de nuevo.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
         
-        // ✅ Primero actualizar ubicación en carrito
-        await Meteor.call('carrito.actualizarUbicacion', userId, coordenadas);
+        console.log('✅ [WizardConStepper] Coordenadas guardadas en backend');
         
-        console.log('✅ [WizardConStepper] Coordenadas actualizadas en carrito');
-        setUbicacionEntrega(coordenadas);
-        
-        // ✅ NUEVO: Calcular costos de entrega inmediatamente
-        await calcularCostosEntrega();
-        
-      } catch (error) {
-        console.error('❌ [WizardConStepper] Error actualizando ubicación:', error);
-        Alert.alert(
-          'Error',
-          'No se pudo guardar la ubicación. Por favor, intenta de nuevo.',
-          [{ text: 'OK' }]
-        );
-      }
+      //   // ✅ Calcular costos inmediatamente después
+        calcularCostosEntrega();
+      });
     };
 
     // ✅ NUEVO: Función dedicada para calcular costos de entrega
-    const calcularCostosEntrega = async () => {
+    const calcularCostosEntrega = () => {
       if (!pedidosRemesa || pedidosRemesa.length === 0) {
         console.warn('[WizardConStepper] No hay items en carrito para calcular costos');
         return;
@@ -596,25 +601,25 @@ const WizardConStepper = ({ product, navigation }) => {
       setCargandoComisiones(true);
       setErrorComisiones(null);
 
-        // ✅ Llamar al método con los items del carrito
-      Meteor.call('comercio.calcularCostosEntrega', pedidosRemesa,(error,costos) =>{
-          if (error) {
-            console.error('[WizardConStepper][Comisiones] Error:', error);
-            setErrorComisiones(error.reason || error.message || 'Error al calcular costos');
-            
-            Alert.alert(
-              'Error de Cálculo',
-              'No se pudieron calcular los costos de entrega. Verifica las configuraciones.',
-              [{ text: 'OK' }]
-            );
-          setCargandoComisiones(false);
-            return;
-          }
-          console.log('[WizardConStepper][Comisiones] Costos calculados:', costos);
-          setComisionesComercio(costos);
-          setCargandoComisiones(false);
-
-        });
+      // ✅ Llamar al método con callback
+      Meteor.call('comercio.calcularCostosEntrega', pedidosRemesa, (error, costos) => {
+        setCargandoComisiones(false);
+        
+        if (error) {
+          console.error('[WizardConStepper][Comisiones] Error:', error);
+          setErrorComisiones(error.reason || error.message || 'Error al calcular costos');
+          
+          Alert.alert(
+            'Error de Cálculo',
+            'No se pudieron calcular los costos de entrega. Verifica las configuraciones.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+        
+        console.log('[WizardConStepper][Comisiones] Costos calculados:', costos);
+        setComisionesComercio(costos);
+      });
     };
 
     // ✅ ADAPTACIÓN: Validar ubicación antes de avanzar desde Método de Pago
