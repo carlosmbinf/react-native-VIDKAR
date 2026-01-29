@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Meteor, { Accounts, Mongo, withTracker, useTracker } from '@meteorrn/core';
 import { View, ScrollView, StyleSheet, Linking, Alert } from 'react-native';
 import { ProgressSteps, ProgressStep } from 'react-native-progress-steps';
-import { TextInput, Text, Button, Dialog, Portal, Divider, Chip, IconButton, Modal,useTheme, Badge, ActivityIndicator  } from 'react-native-paper';
+import { TextInput, Text, Button, Dialog, Portal, Divider, Chip, IconButton, Modal,useTheme, Badge, ActivityIndicator, Card } from 'react-native-paper';
 import ListaPedidos from './ListaPedidosRemesa';
 import { BlurView } from '@react-native-community/blur';
 import { Dropdown } from 'react-native-element-dropdown';
@@ -33,6 +33,11 @@ const WizardConStepper = ({ product, navigation }) => {
 
     // ✅ NUEVO: Estado para ubicación de entrega
     const [ubicacionEntrega, setUbicacionEntrega] = useState(null);
+
+    // ✅ NUEVO: Estado para comisiones de comercio
+    const [comisionesComercio, setComisionesComercio] = useState(null);
+    const [cargandoComisiones, setCargandoComisiones] = useState(false);
+    const [errorComisiones, setErrorComisiones] = useState(null); // ✅ NUEVO: Estado para errores
 
     // ✅ NUEVO: Cargar países dinámicamente desde properties al montar o cambiar metodoPago
     useEffect(() => {
@@ -360,7 +365,7 @@ const WizardConStepper = ({ product, navigation }) => {
         if ((!pedidosRemesa || pedidosRemesa.length === 0) && activeStep !== 0) {
           console.log('⚠️ [WizardConStepper] Carrito vacío detectado. Retrocediendo al paso 0.');
           setActiveStep(0);
-          setCargadoPago(false);
+          // Mantener reset defensivo de estados de pago para evitar UI inconsistente
           // Mantener reset defensivo de estados de pago para evitar UI inconsistente
           setMetodoPago(null);
           setPaisPago(null);
@@ -520,7 +525,6 @@ const WizardConStepper = ({ product, navigation }) => {
         setProcesandoPago(true);
         setSeEstaPagando(true);
 
-        try {
           console.log(compra?.link);
           const supported = await Linking.canOpenURL(compra?.link);
           await Linking.openURL(compra?.link);
@@ -530,17 +534,6 @@ const WizardConStepper = ({ product, navigation }) => {
             setProcesandoPago(false);
             setSeEstaPagando(false);
           }, 5000);
-        } catch (error) {
-          console.error("❌ Error al abrir link de pago:", error);
-          Alert.alert(
-            'Error de pago',
-            'No se pudo abrir la pasarela de pago. Intente nuevamente.',
-            [{ text: 'OK', onPress: () => {
-              setProcesandoPago(false);
-              setSeEstaPagando(false);
-            }}]
-          );
-        }
     };
 
     const handleGenerarVenta = async () => {
@@ -551,7 +544,6 @@ const WizardConStepper = ({ product, navigation }) => {
       }
 
       setProcesandoPago(true);
-      setSeEstaPagando(true);
         console.log("compra:",compra)
         const ventaData = {
           producto: compra,
@@ -561,56 +553,27 @@ const WizardConStepper = ({ product, navigation }) => {
         Meteor.call('generarVentaEfectivo', ventaData, monedaPago || "CUP", (error, success) => {
           if (error) {
             console.log("error", error);
-            // Alert.alert(
-            //   'Error',
-            //   error.reason || 'Error al generar venta',
-            //   [{ text: 'OK', onPress: () => {
-            //     setProcesandoPago(false);
-            //     setSeEstaPagando(false);
-            //   }}]
-            // );
           }
           if (success) {
             console.log("success", success);
-            // Alert.alert(
-            //   'Éxito',
-            //   'Venta generada correctamente',
-            //   [{ text: 'OK', onPress: () => {
-            //     setProcesandoPago(false);
-            //     setSeEstaPagando(false);
-            //     setVisible(false);
-            //   }}]
-            // );
           }
         });
       
     };
 
-    // ✅ NUEVO: Handler para actualizar coordenadas en todos los items COMERCIO
+    // ✅ NUEVO: Handler para actualizar coordenadas y calcular costos
     const handleLocationSelect = async (coordenadas) => {
       try {
         console.log('[WizardConStepper] Actualizando coordenadas en carrito:', coordenadas);
         
-        // ✅ Usar callAsync en lugar de call con await
-        const resultado = await Meteor.call('carrito.actualizarUbicacion', userId, coordenadas,(error,result) => {
-          if (error) {
-            console.error('❌ [WizardConStepper] Error en callback de actualizarUbicacion:', error);
-          } else {
-            console.log('✅ [WizardConStepper] Callback de actualizarUbicacion result:', result);
-
-            console.log("[WizardConStepper] Resultado actualización ubicación:", result);
+        // ✅ Primero actualizar ubicación en carrito
+        await Meteor.call('carrito.actualizarUbicacion', userId, coordenadas);
         
-            if (result?.success) {
-              console.log(`✅ [WizardConStepper] ${result.itemsActualizados} items actualizados con ubicación`);
-              setUbicacionEntrega(coordenadas);
-              
-              // Avanzar al siguiente paso automáticamente
-              // setActiveStep(Number(activeStep) + 1);
-            } else {
-              throw new Error('No se pudo actualizar la ubicación');
-            }
-          }
-        });
+        console.log('✅ [WizardConStepper] Coordenadas actualizadas en carrito');
+        setUbicacionEntrega(coordenadas);
+        
+        // ✅ NUEVO: Calcular costos de entrega inmediatamente
+        await calcularCostosEntrega();
         
       } catch (error) {
         console.error('❌ [WizardConStepper] Error actualizando ubicación:', error);
@@ -620,6 +583,38 @@ const WizardConStepper = ({ product, navigation }) => {
           [{ text: 'OK' }]
         );
       }
+    };
+
+    // ✅ NUEVO: Función dedicada para calcular costos de entrega
+    const calcularCostosEntrega = async () => {
+      if (!pedidosRemesa || pedidosRemesa.length === 0) {
+        console.warn('[WizardConStepper] No hay items en carrito para calcular costos');
+        return;
+      }
+
+      console.log('[WizardConStepper][Comisiones] Calculando costos de entrega...');
+      setCargandoComisiones(true);
+      setErrorComisiones(null);
+
+        // ✅ Llamar al método con los items del carrito
+      Meteor.call('comercio.calcularCostosEntrega', pedidosRemesa,(error,costos) =>{
+          if (error) {
+            console.error('[WizardConStepper][Comisiones] Error:', error);
+            setErrorComisiones(error.reason || error.message || 'Error al calcular costos');
+            
+            Alert.alert(
+              'Error de Cálculo',
+              'No se pudieron calcular los costos de entrega. Verifica las configuraciones.',
+              [{ text: 'OK' }]
+            );
+          setCargandoComisiones(false);
+            return;
+          }
+          console.log('[WizardConStepper][Comisiones] Costos calculados:', costos);
+          setComisionesComercio(costos);
+          setCargandoComisiones(false);
+
+        });
     };
 
     // ✅ ADAPTACIÓN: Validar ubicación antes de avanzar desde Método de Pago
@@ -659,6 +654,157 @@ const WizardConStepper = ({ product, navigation }) => {
         console.log('[WizardConStepper] Items comercio agregados, paso Ubicación disponible');
       }
     }, [tieneComercio]);
+
+    // ✅ NUEVO: Componente mejorado para renderizar el Card de Comisiones con datos reales
+    const renderComisionesCard = () => {
+      if (!tieneComercio) return null;
+
+      return (
+        <View style={styles.comisionesContainer}>
+          <Card style={styles.comisionesCard} elevation={2}>
+            <Card.Title
+              title="Costos de Entrega"
+              titleStyle={styles.comisionesTitulo}
+              left={(props) => <IconButton {...props} icon="truck-delivery" color="#6200ee" size={20} />}
+              style={{ paddingVertical: 8 }}
+            />
+            
+            <Divider />
+
+            <Card.Content style={styles.comisionesContent}>
+              {cargandoComisiones ? (
+                <View style={styles.comisionesLoading}>
+                  <ActivityIndicator size="small" color="#6200ee" />
+                  <Text style={styles.comisionesLoadingText}>Calculando...</Text>
+                </View>
+              ) : errorComisiones ? (
+                <View style={styles.comisionesError}>
+                  <IconButton icon="alert-circle-outline" size={28} color="#D32F2F" style={{ margin: 0 }} />
+                  <Text style={styles.comisionesErrorText}>{errorComisiones}</Text>
+                </View>
+              ) : comisionesComercio ? (
+                <>
+                  {/* ✅ SECCIÓN 1: COSTOS DE ENVÍO */}
+                  <View style={styles.seccionEnvio}>
+                    <View style={styles.seccionHeader}>
+                      <IconButton icon="truck-fast" size={18} color="#2196F3" style={{ margin: 0, marginRight: 4 }} />
+                      <Text style={styles.seccionTitulo}>Costos de Envío</Text>
+                    </View>
+
+                    {/* Desglose por Tienda */}
+                    {comisionesComercio.desglosePorTienda?.length > 0 && (
+                      <>
+                        {comisionesComercio.desglosePorTienda.map((tienda, index) => (
+                          <View key={tienda.idTienda} style={styles.tiendaItem}>
+                            <View style={styles.tiendaHeader}>
+                              <IconButton icon="storefront" size={16} color="#2196F3" style={{ margin: 0, marginRight: 4 }} />
+                              <View style={styles.tiendaInfo}>
+                                <Text style={styles.tiendaNombre}>{tienda.nombreTienda}</Text>
+                                <Text style={styles.tiendaDetalle}>
+                                  {tienda.productosCount} {tienda.productosCount > 1 ? 'items' : 'item'} • {tienda.distanciaKm} km
+                                </Text>
+                              </View>
+                              <Chip 
+                                mode="flat" 
+                                style={[styles.comisionChip, { backgroundColor: '#2196F320' }]}
+                                textStyle={{ color: '#2196F3', fontWeight: 'bold', fontSize: 12 }}
+                              >
+                                {tienda.costoEntrega} {tienda.moneda}
+                              </Chip>
+                            </View>
+                          </View>
+                        ))}
+                      </>
+                    )}
+
+                    {/* Subtotal de Envío */}
+                    <View style={[styles.comisionItem, styles.subtotalEnvio]}>
+                      <View style={styles.comisionRowHorizontal}>
+                        <View style={styles.comisionLeft}>
+                          <IconButton icon="map-marker-distance" size={18} color="#2196F3" style={{ margin: 0, marginRight: 4 }} />
+                          <View>
+                            <Text style={styles.subtotalLabel}>Subtotal Envío</Text>
+                            <Text style={styles.comisionDescripcion}>
+                              {comisionesComercio.tiendasProcesadas} {comisionesComercio.tiendasProcesadas > 1 ? 'tiendas' : 'tienda'}
+                            </Text>
+                          </View>
+                        </View>
+                        <Chip 
+                          mode="flat" 
+                          style={[styles.comisionChip, { backgroundColor: '#2196F3' }]}
+                          textStyle={{ color: '#FFF', fontWeight: 'bold', fontSize: 13 }}
+                        >
+                          {comisionesComercio.costoTotalEntrega} {comisionesComercio.moneda}
+                        </Chip>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* ✅ SECCIÓN 2: COMISIONES ADICIONALES */}
+                  {comisionesComercio.comisiones && Object.keys(comisionesComercio.comisiones).length > 0 && (
+                    <>
+                      <Divider style={styles.seccionDivider} />
+                      
+                      <View style={styles.seccionComisiones}>
+                        <View style={styles.seccionHeader}>
+                          <IconButton icon="receipt" size={18} color="#FF6F00" style={{ margin: 0, marginRight: 4 }} />
+                          <Text style={styles.seccionTitulo}>Comisiones Adicionales</Text>
+                        </View>
+
+                        {Object.entries(comisionesComercio.comisiones).map(([clave, comision]) => (
+                          <View key={clave} style={styles.comisionItem}>
+                            <View style={styles.comisionRowHorizontal}>
+                              <View style={styles.comisionLeft}>
+                                <IconButton icon="cash-multiple" size={16} color="#FF6F00" style={{ margin: 0, marginRight: 4 }} />
+                                <Text style={styles.comisionLabel}>
+                                  {comision.comentario || 'Comisión'}
+                                </Text>
+                              </View>
+                              <Chip 
+                                mode="flat" 
+                                style={[styles.comisionChip, { backgroundColor: '#FF6F0020' }]}
+                                textStyle={{ color: '#FF6F00', fontWeight: 'bold', fontSize: 12 }}
+                              >
+                                {comision.valor} {comision.moneda}
+                              </Chip>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    </>
+                  )}
+
+                  {/* ✅ TOTAL FINAL */}
+                  <Divider style={styles.totalDivider} />
+                  <View style={[styles.comisionItem, styles.totalFinalContainer]}>
+                    <View style={styles.comisionRowHorizontal}>
+                      <View style={styles.comisionLeft}>
+                        <IconButton icon="cash-check" size={20}  style={{ margin: 0, marginRight: 4 }} />
+                        <Text style={styles.totalFinalLabel}>TOTAL A PAGAR</Text>
+                      </View>
+                      <Chip 
+                        mode="flat" 
+                        style={styles.totalFinalChip}
+                        textStyle={{ color: '#FFF', fontWeight: 'bold', fontSize: 15 }}
+                      >
+                        {comisionesComercio.totalFinal} {comisionesComercio.moneda}
+                      </Chip>
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <View style={styles.comisionesSinDatos}>
+                  <IconButton icon="map-marker-question" size={28} color="#999" style={{ margin: 0 }} />
+                  <Text style={styles.comisionesSinDatosText}>
+                    Selecciona tu ubicación para calcular costos
+                  </Text>
+                </View>
+              )}
+            </Card.Content>
+          </Card>
+        </View>
+      );
+    };
 
     return (
         <>
@@ -757,7 +903,6 @@ const WizardConStepper = ({ product, navigation }) => {
                                 }}
                             />
 
-                            {/* ✅ País de pago: solo aplica si NO es Proxy/VPN */}
                             {!tieneProxyVPN && (metodoPago === 'efectivo' || metodoPago === 'transferencia') && (
                               <View style={{ marginTop: 8 }}>
                                 <Text style={{ marginLeft: 18, marginBottom: 6, fontSize: 13, opacity: 0.85 }}>
@@ -779,7 +924,7 @@ const WizardConStepper = ({ product, navigation }) => {
                                     inputSearchStyle={styles.inputSearchStyle}
                                     iconStyle={styles.iconStyle}
                                     data={paisesPagoData}
-                                    search={paisesPagoData.length > 3} // Solo habilitar búsqueda si hay muchos países
+                                    search={paisesPagoData.length > 3}
                                     maxHeight={240}
                                     labelField="label"
                                     valueField="value"
@@ -797,7 +942,6 @@ const WizardConStepper = ({ product, navigation }) => {
                                   </Text>
                                 )}
 
-                                {/* ✅ NUEVO: Mensaje si no hay países disponibles */}
                                 {!cargandoPaises && paisesPagoData.length === 0 && (
                                   <View style={{ padding: 16, backgroundColor: '#FFEBEE', borderRadius: 8, margin: 16 }}>
                                     <Text style={{ color: '#C62828', fontSize: 13 }}>
@@ -810,7 +954,7 @@ const WizardConStepper = ({ product, navigation }) => {
                             )}
                             </ProgressStep>
 
-                            {/* ✅ NUEVO: Paso 3: Ubicación de Entrega (solo si tieneComercio) */}
+                            {/* ✅ Paso 3: Ubicación de Entrega (solo si tieneComercio) */}
                             {tieneComercio ? (
                               <ProgressStep
                                 buttonPreviousText='Atras'
@@ -913,7 +1057,13 @@ const WizardConStepper = ({ product, navigation }) => {
                                 <ListaPedidos eliminar={false} />
                             </Dialog.ScrollArea>
                               
-                              <Chip style={{padding:20, borderRadius:30}}>Total a Pagar: {totalAPagar} {tieneProxyVPN ?  "CUP" : "USD"}</Chip>
+
+                              {/* ✅ NUEVO: Card de Comisiones */}
+                              {renderComisionesCard()}
+                              
+                              <Chip style={{padding:20, borderRadius:30, marginTop: 12}}>
+                                Total a Pagar: {totalAPagar} {tieneProxyVPN ?  "CUP" : "USD"}
+                              </Chip>
                               
                               {/* ✅ NUEVO: Indicador de procesamiento visual */}
                               {procesandoPago && (
@@ -1059,8 +1209,202 @@ const styles = StyleSheet.create({
     procesandoSubtexto: {
       fontSize: 12,
       color: '#666',
+      fontWeight: 'bold',
       marginTop: 4,
       fontStyle: 'italic',
+    },
+    // ✅ NUEVOS ESTILOS para Card de Comisiones
+    comisionesContainer: {
+      marginTop: 12,
+      marginHorizontal: 16,
+      marginBottom: 8,
+    },
+    comisionesCard: {
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    comisionesTitulo: {
+      fontSize: 15,
+      fontWeight: 'bold',
+    },
+    comisionesContent: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+    },
+    comisionesLoading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 16,
+    },
+    comisionesLoadingText: {
+      marginLeft: 8,
+      fontSize: 13,
+      color: '#666',
+    },
+    comisionesError: {
+      alignItems: 'center',
+      paddingVertical: 16,
+    },
+    comisionesErrorText: {
+      fontSize: 12,
+      color: '#D32F2F',
+      textAlign: 'center',
+      marginTop: 6,
+      paddingHorizontal: 12,
+    },
+    comisionesSeccionTitulo: {
+      fontSize: 13,
+      fontWeight: 'bold',
+      marginBottom: 6,
+      marginTop: 2,
+      color: '#333',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    comisionItem: {
+      paddingVertical: 6,
+    },
+    comisionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    // ✅ NUEVO: Row horizontal para label + chip en la misma línea
+    comisionRowHorizontal: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    // ✅ NUEVO: Container para ícono + texto a la izquierda
+    comisionLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      marginRight: 8,
+    },
+    comisionLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      flex: 1,
+    },
+    comisionDescripcion: {
+      fontSize: 11,
+      color: '#666',
+      marginTop: 2,
+    },
+    comisionChip: {
+      height: 32,
+      paddingHorizontal: 8,
+    },
+    comisionDivider: {
+      marginVertical: 8,
+      backgroundColor: '#E0E0E0',
+    },
+    tiendaItem: {
+      paddingVertical: 4,
+      marginBottom: 4,
+    },
+    tiendaHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    tiendaInfo: {
+      flex: 1,
+      marginLeft: 2,
+    },
+    tiendaNombre: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    tiendaDetalle: {
+      fontSize: 11,
+      color: '#666',
+      marginTop: 1,
+    },
+    totalFinalContainer: {
+      backgroundColor: '#6200ee15',
+      padding: 10,
+      borderRadius: 8,
+      marginVertical: 4,
+    },
+    totalFinalLabel: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      flex: 1,
+      // color: '#6200ee',
+    },
+    totalFinalChip: {
+      backgroundColor: '#6200ee',
+      height: 38,
+      alignSelf: 'flex-end',
+    },
+    // ✅ NUEVOS ESTILOS para secciones diferenciadas
+    seccionEnvio: {
+      marginBottom: 4,
+    },
+    seccionComisiones: {
+      marginTop: 4,
+    },
+    seccionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 8,
+      paddingBottom: 4,
+    },
+    seccionTitulo: {
+      fontSize: 13,
+      fontWeight: 'bold',
+      // color: '#333',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      flex: 1,
+    },
+    seccionDivider: {
+      marginVertical: 12,
+      backgroundColor: '#BDBDBD',
+      height: 2,
+    },
+    totalDivider: {
+      marginVertical: 10,
+      backgroundColor: '#9E9E9E',
+      height: 2,
+    },
+    subtotalEnvio: {
+      backgroundColor: '#E3F2FD',
+      padding: 8,
+      borderRadius: 6,
+      marginTop: 6,
+    },
+    subtotalLabel: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#1976D2',
+    },
+    comisionFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 8,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: '#E0E0E0',
+    },
+    comisionFooterText: {
+      flex: 1,
+      fontSize: 10,
+      color: '#666',
+      fontStyle: 'italic',
+      lineHeight: 14,
+    },
+    comisionesSinDatos: {
+      alignItems: 'center',
+      paddingVertical: 20,
+    },
+    comisionesSinDatosText: {
+      fontSize: 12,
+      color: '#999',
+      marginTop: 6,
+      textAlign: 'center',
+      paddingHorizontal: 16,
     },
 });
 
