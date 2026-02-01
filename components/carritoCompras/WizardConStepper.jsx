@@ -39,6 +39,252 @@ const WizardConStepper = ({ product, navigation }) => {
     const [cargandoComisiones, setCargandoComisiones] = useState(false);
     const [errorComisiones, setErrorComisiones] = useState(null); // ✅ NUEVO: Estado para errores
 
+    // ✅ NUEVO: valores convertidos a la moneda final del pago (para el Card Resumen)
+    const [subtotalProductosConvertido, setSubtotalProductosConvertido] = useState(0);
+    const [comisionesConvertidas, setComisionesConvertidas] = useState(0);
+    const [cargandoConversionResumen, setCargandoConversionResumen] = useState(false);
+    const [errorConversionResumen, setErrorConversionResumen] = useState(null);
+
+    //CARRITO
+    const { pedidosRemesa,subCarrito } = useTracker(() => {
+        const subCarrito = Meteor.subscribe('carrito', { idUser: Meteor.userId()});
+        const pedidos = CarritoCollection.find({ idUser: userId }).fetch();
+        return { pedidosRemesa: pedidos,subCarrito };
+    });
+
+    const calcularComisiones = () =>
+      new Promise((resolve, reject) => {
+          Meteor.call('comercio.calcularCostosEntrega', pedidosRemesa, monedaFinalUI, (error, costos) => {
+              if (error) return reject(error);
+              resolve(costos);
+          });
+      });
+
+
+  useEffect(() => {
+    // ✅ Solo recalcular si hay items COMERCIO en el carrito
+    if (!tieneComercio) {
+      console.log("[WizardConStepper] No hay items COMERCIO, limpiando comisiones");
+      setComisionesComercio(null);
+      setErrorComisiones(null);
+      return;
+    }
+
+    // ✅ Validar que todos los items COMERCIO tengan coordenadas
+    const todosConCoordenadas = pedidosRemesa
+      .filter(item => item.type === 'COMERCIO')
+      .every(item => item?.coordenadas?.latitude && item?.coordenadas?.longitude);
+
+    if (!todosConCoordenadas) {
+      console.log("[WizardConStepper] Algunos items COMERCIO aún no tienen coordenadas, esperando...");
+      return;
+    }
+
+    console.log("[WizardConStepper] Recalculando comisiones tras actualización de coordenadas en carrito...");
+    
+    setCargandoComisiones(true);
+    setErrorComisiones(null);
+
+    calcularComisiones()
+      .then((costos) => {
+        console.log("[WizardConStepper] Comisiones calculadas exitosamente:", costos);
+        setComisionesComercio(costos);
+        setCargandoComisiones(false);
+      })
+      .catch((error) => {
+        console.error("[WizardConStepper] Error al calcular comisiones:", error);
+        const msg = error?.reason || error?.message || 'No se pudo calcular los costos de entrega';
+        setErrorComisiones(msg);
+        setCargandoComisiones(false);
+      });
+  }, [
+    // ✅ CRÍTICO: Reaccionar a cambios en coordenadas de los items del carrito
+    JSON.stringify(
+      pedidosRemesa
+        ?.filter(item => item.type === 'COMERCIO')
+        ?.map(item => ({
+          _id: item._id,
+          coordenadas: item.coordenadas
+        }))
+    ),
+    tieneComercio,
+    monedaPago
+  ]);
+
+    // ✅ NUEVO: helper para aplicar ubicación a todos los items COMERCIO (idempotente)
+    const aplicarUbicacionAlCarritoSiNecesario = React.useCallback(async () => {
+        if (!tieneComercio) return true;
+        if (!ubicacionEntrega) return false;
+       
+        // Guardar ubicación en backend (actualiza todos los items COMERCIO)
+        const guardarUbicacion = () =>
+            new Promise((resolve, reject) => {
+                Meteor.call('carrito.actualizarUbicacion', userId, ubicacionEntrega,async (error, res) => {
+                    if (error) return reject(error);
+                    resolve(res);
+                });
+            });
+
+
+        try {
+            setCargandoComisiones(true);
+            setErrorComisiones(null);
+
+            await guardarUbicacion();
+            
+            return true;
+        } catch (e) {
+            const msg = e?.reason || e?.message || 'No se pudo actualizar la ubicación del carrito';
+            setErrorComisiones(msg);
+            Alert.alert('Error', msg, [{ text: 'OK' }]);
+            return false;
+        } finally {
+            setCargandoComisiones(false);
+        }
+    }, [
+        tieneComercio,
+        ubicacionEntrega,
+        userId,
+        pedidosRemesa,
+    ]);
+
+    // ✅ NUEVO: onNext del step Ubicación (garantiza sync si se avanza)
+    const handleNextUbicacion = async () => {
+        if (!tieneComercio) {
+          console.log("[WizardConStepper] No hay items COMERCIO, no se requiere ubicación.");
+            setActiveStep(Number(activeStep) + 1);
+            return;
+        }
+
+        if (!ubicacionEntrega) {
+          console.log("[WizardConStepper] Hay items COMERCIO pero no hay ubicaciónEntrega.");
+            Alert.alert('Ubicación requerida', 'Selecciona tu ubicación para continuar.', [{ text: 'OK' }]);
+            return;
+        }
+
+        console.log("[WizardConStepper] Aplicando ubicación al carrito antes de avanzar...");
+        const ok = await aplicarUbicacionAlCarritoSiNecesario();
+        if (ok) setActiveStep(Number(activeStep) + 1);
+    };
+
+    // ✅ NUEVO: Detectar si hay items Proxy/VPN en el carrito
+    const tieneProxyVPN = pedidosRemesa?.some(item => 
+        item.type === 'PROXY' || item.type === 'VPN'
+    );
+
+    // ✅ NUEVO: Detectar si hay items COMERCIO en el carrito
+    const tieneComercio = pedidosRemesa?.some(item => item.type === 'COMERCIO');
+
+    // ✅ FIX: mover aquí los cálculos del Card para que "tieneComercio" exista y los números sean consistentes
+    const monedaFinalUI = React.useMemo(() => {
+        if (metodoPago === 'paypal' || metodoPago === 'mercadopago') return 'USD';
+        return monedaPago || paisPago || 'CUP';
+    }, [metodoPago, monedaPago, paisPago]);
+
+    // ✅ FIX: calcular comisiones para el card usando el mismo contrato que renderComisionesCard
+    const totalComisionesUI = React.useMemo(() => {
+        if (!tieneComercio || !comisionesComercio) return 0;
+
+        const envio = Number(comisionesComercio?.costoTotalEntrega) || 0;
+
+        const adicionales = comisionesComercio?.comisiones && typeof comisionesComercio.comisiones === 'object'
+        ? Object.values(comisionesComercio.comisiones).reduce((acc, c) => acc + (Number(c?.valor) || 0), 0)
+        : 0;
+
+        return envio + adicionales;
+    }, [tieneComercio, comisionesComercio]);
+
+    const totalAPagarUI = React.useMemo(() => {
+        const amount = Number(totalAPagar) || 0;
+        return { amount, currency: monedaFinalUI };
+    }, [totalAPagar, monedaFinalUI]);
+
+    // ✅ FIX: subtotal del card solo tiene sentido si hay comisiones calculadas
+    const subtotalUI = React.useMemo(() => {
+        const total = Number(totalAPagar) || 0;
+        const comisiones = Number(totalComisionesUI) || 0;
+
+        if (!tieneComercio || !comisionesComercio) return total;
+
+        return Math.max(0, total - comisiones);
+    }, [totalAPagar, totalComisionesUI, tieneComercio, comisionesComercio]);
+
+    // ✅ NUEVO: Calcular subtotal de productos (sin comisiones) y convertirlo a monedaFinalUI
+    // ✅ NUEVO: Convertir comisiones a monedaFinalUI si aplica
+    useEffect(() => {
+        let cancelled = false;
+
+        const hayCarrito = Array.isArray(pedidosRemesa) && pedidosRemesa.length > 0;
+        const hayMetodo = !!metodoPago;
+        const monedaFinal = monedaFinalUI;
+
+        if (!hayCarrito || !hayMetodo || !monedaFinal) {
+            setSubtotalProductosConvertido(0);
+            setComisionesConvertidas(0);
+            setErrorConversionResumen(null);
+            return () => { cancelled = true; };
+        }
+
+        setCargandoConversionResumen(true);
+        setErrorConversionResumen(null);
+
+        const convertir = (monto, monedaOrigen) =>
+            new Promise((resolve, reject) => {
+                if (!monto || Number(monto) === 0 || monedaOrigen === monedaFinal) return resolve(Number(monto) || 0);
+                Meteor.call('moneda.convertir', Number(monto), monedaOrigen, monedaFinal, (err, res) => {
+                    if (err) reject(err);
+                    else resolve(Number(res) || 0);
+                });
+            });
+
+        (async () => {
+            try {
+                // 1) Subtotal productos: sumar cada item convertido a moneda final
+                let subtotal = 0;
+
+                for (const item of pedidosRemesa) {
+                    // Para COMERCIO: cobrarUSD representa el precio del item en monedaACobrar
+                    const montoItem = Number((item?.cantidad || 1) * Number(item?.cobrarUSD || 0)) || 0;
+                    const monedaItem = item?.monedaACobrar || 'CUP';
+
+                    if (montoItem > 0) {
+                        subtotal += await convertir(montoItem, monedaItem);
+                    }
+                }
+
+                // 2) Comisiones: total ya viene como número, con moneda en comisionesComercio.moneda
+                //    (si no hay comisiones aún, se mantiene 0)
+                const comisionesRaw = Number(totalComisionesUI) || 0;
+                const monedaComisiones = comisionesComercio?.moneda || monedaFinal; // defensivo
+
+                const comisiones = await convertir(comisionesRaw, monedaComisiones);
+
+                if (cancelled) return;
+
+                setSubtotalProductosConvertido(subtotal);
+                setComisionesConvertidas(comisiones);
+                setCargandoConversionResumen(false);
+            } catch (e) {
+                if (cancelled) return;
+                setCargandoConversionResumen(false);
+                setErrorConversionResumen(e?.reason || e?.message || 'No se pudo convertir montos a la moneda seleccionada');
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [
+        metodoPago,
+        monedaFinalUI,
+        pedidosRemesa,
+        totalComisionesUI,
+        comisionesComercio?.moneda,
+    ]);
+
+    // ✅ NUEVO: total final del card (subtotal productos + comisiones) ya convertido
+    const totalResumenConvertido = React.useMemo(() => {
+        return (Number(subtotalProductosConvertido) || 0) + (Number(comisionesConvertidas) || 0);
+    }, [subtotalProductosConvertido, comisionesConvertidas]);
+
     // ✅ NUEVO: Cargar países dinámicamente desde properties al montar o cambiar metodoPago
     useEffect(() => {
       console.log('[WizardConStepper][PaisesPago] useEffect start', {
@@ -197,21 +443,6 @@ const WizardConStepper = ({ product, navigation }) => {
 
     return { readyCompra, compra };
   });
-
-  //CARRITO
-  const { pedidosRemesa,subCarrito } = useTracker(() => {
-    const subCarrito = Meteor.subscribe('carrito', { idUser: Meteor.userId()});
-    const pedidos = CarritoCollection.find({ idUser: userId }).fetch();
-    return { pedidosRemesa: pedidos,subCarrito };
-  });
-
-  // ✅ NUEVO: Detectar si hay items Proxy/VPN en el carrito
-  const tieneProxyVPN = pedidosRemesa?.some(item => 
-    item.type === 'PROXY' || item.type === 'VPN'
-  );
-
-  // ✅ NUEVO: Detectar si hay items COMERCIO en el carrito
-  const tieneComercio = pedidosRemesa?.some(item => item.type === 'COMERCIO');
 
   // ✅ NUEVO: Validación de ubicación para items COMERCIO
   const ubicacionValida = !tieneComercio || !!ubicacionEntrega;
@@ -374,11 +605,11 @@ const WizardConStepper = ({ product, navigation }) => {
       }, [pedidosRemesa, activeStep]);
 
       useEffect(() => {
-        console.log(`Método de pago seleccionado: ${metodoPago}`);
+          console.log(`Método de pago seleccionado: ${metodoPago}`);
         if (!metodoPago) return;
 
         if (tieneProxyVPN && (metodoPago === 'efectivo' || metodoPago === 'transferencia')) {
-          Meteor.call("efectivo.totalAPagar", pedidosRemesa, (err, res) => {
+          Meteor.call("efectivo.totalAPagar", pedidosRemesa,comisionesComercio, (err, res) => {
             if (err) {
               console.error('Error al calcular total a pagar:', err);
             } else {
@@ -390,7 +621,8 @@ const WizardConStepper = ({ product, navigation }) => {
         }
 
         if (metodoPago == 'paypal') {
-         Meteor.call("paypal.totalAPagar", pedidosRemesa,(err, res) => {
+          
+         Meteor.call("paypal.totalAPagar", pedidosRemesa,comisionesComercio,(err, res) => {
             if (err) {
               console.error('Error al calcular total a pagar:', err);
             } else {
@@ -399,7 +631,7 @@ const WizardConStepper = ({ product, navigation }) => {
             }
           });
         }else if (metodoPago == 'mercadopago') {
-          Meteor.call("mercadopago.totalAPagar", pedidosRemesa,(err, res) => {
+          Meteor.call("mercadopago.totalAPagar", pedidosRemesa,comisionesComercio,(err, res) => {
             if (err) {
               console.error('Error al calcular total a pagar:', err);
             } else {
@@ -408,7 +640,7 @@ const WizardConStepper = ({ product, navigation }) => {
             }
           });
         }else if (metodoPago == 'efectivo') {
-          Meteor.call("efectivo.totalAPagar", pedidosRemesa,(err, res) => {
+          Meteor.call("efectivo.totalAPagar", pedidosRemesa,comisionesComercio,(err, res) => {
             if (err) {
               console.error('Error al calcular total a pagar:', err);
             } else {
@@ -419,7 +651,9 @@ const WizardConStepper = ({ product, navigation }) => {
             }
           });
         }
-      },[metodoPago,pedidosRemesa, tieneProxyVPN])
+        
+        
+      },[metodoPago,pedidosRemesa, tieneProxyVPN,comisionesComercio])
 
       useEffect(() => {
         // ✅ Regla negocio: Proxy/VPN solo se paga en Cuba => no pedir selector y fijar moneda
@@ -457,7 +691,7 @@ const WizardConStepper = ({ product, navigation }) => {
       };
 
       const crearOrdenEfectivo = () => {
-        totalAPagar > 0 && 
+        // totalAPagar > 0 && 
         Meteor.call(
           "efectivo.createOrder",
           userId,
@@ -549,10 +783,11 @@ const WizardConStepper = ({ product, navigation }) => {
         console.log("compra:",compra)
         const ventaData = {
           producto: compra,
-          precioOficial: totalAPagar
+          precioOficial: totalAPagar,
+          comisionesComercio: comisionesComercio
         };
         
-        Meteor.call('generarVentaEfectivo', ventaData, monedaPago || "CUP", (error, success) => {
+        Meteor.call('generarVentaEfectivo', ventaData, monedaFinalUI || "CUP", (error, success) => {
           if (error) {
             console.log("error", error);
           }
@@ -563,63 +798,16 @@ const WizardConStepper = ({ product, navigation }) => {
       
     };
 
-    // ✅ CORREGIDO: Handler para actualizar coordenadas con Promise correcta
+    // ✅ CORRECCIÓN: al seleccionar ubicación NO recalcular comisiones aquí.
+    // El recálculo debe ocurrir al confirmar el step (Siguiente) porque ahí se aplica la ubicación al carrito.
     const handleLocationSelect = (coordenadas) => {
       console.log('[WizardConStepper] Coordenadas recibidas:', coordenadas);
-      
-      
-      // ✅ CRÍTICO: Actualizar estado DESPUÉS de confirmar guardado
+
       setUbicacionEntrega(coordenadas);
-      
-      // ✅ Llamar al método con callback (patrón Meteor correcto)
-      Meteor.call('carrito.actualizarUbicacion', userId, coordenadas, (error) => {
-        if (error) {
-          console.error('❌ [WizardConStepper] Error actualizando ubicación:', error);
-          Alert.alert(
-            'Error',
-            'No se pudo guardar la ubicación. Por favor, intenta de nuevo.',
-            [{ text: 'OK' }]
-          );
-          return;
-        }
-        
-        console.log('✅ [WizardConStepper] Coordenadas guardadas en backend');
-        
-      //   // ✅ Calcular costos inmediatamente después
-        calcularCostosEntrega();
-      });
-    };
 
-    // ✅ NUEVO: Función dedicada para calcular costos de entrega
-    const calcularCostosEntrega = () => {
-      if (!pedidosRemesa || pedidosRemesa.length === 0) {
-        console.warn('[WizardConStepper] No hay items en carrito para calcular costos');
-        return;
-      }
-
-      console.log('[WizardConStepper][Comisiones] Calculando costos de entrega...');
-      setCargandoComisiones(true);
-      setErrorComisiones(null);
-
-      // ✅ Llamar al método con callback
-      Meteor.call('comercio.calcularCostosEntrega', pedidosRemesa, (error, costos) => {
-        setCargandoComisiones(false);
-        
-        if (error) {
-          console.error('[WizardConStepper][Comisiones] Error:', error);
-          setErrorComisiones(error.reason || error.message || 'Error al calcular costos');
-          
-          Alert.alert(
-            'Error de Cálculo',
-            'No se pudieron calcular los costos de entrega. Verifica las configuraciones.',
-            [{ text: 'OK' }]
-          );
-          return;
-        }
-        
-        console.log('[WizardConStepper][Comisiones] Costos calculados:', costos);
-        setComisionesComercio(costos);
-      });
+      // ❌ ELIMINAR: no llamar aquí a carrito.actualizarUbicacion ni a calcularCostosEntrega
+      // Meteor.call('carrito.actualizarUbicacion', ...)
+      // calcularCostosEntrega()
     };
 
     // ✅ ADAPTACIÓN: Validar ubicación antes de avanzar desde Método de Pago
@@ -660,6 +848,15 @@ const WizardConStepper = ({ product, navigation }) => {
       }
     }, [tieneComercio]);
 
+    // ✅ NUEVO: gate para evitar generar ventas con comisiones en error (COMERCIO)
+    const bloquearPagoPorComisiones = React.useMemo(() => {
+      if (!tieneComercio) return false;
+      // Si el cálculo falló o aún no hay comisiones calculadas, bloquear submit en Pago
+      if (errorComisiones) return true;
+      if (!comisionesComercio) return true;
+      return false;
+    }, [tieneComercio, errorComisiones, comisionesComercio]);
+
     // ✅ NUEVO: Componente mejorado para renderizar el Card de Comisiones con datos reales
     const renderComisionesCard = () => {
       if (!tieneComercio) return null;
@@ -667,15 +864,6 @@ const WizardConStepper = ({ product, navigation }) => {
       return (
         <View style={styles.comisionesContainer}>
           <Card style={styles.comisionesCard} elevation={2}>
-            <Card.Title
-              title="Costos de Entrega"
-              titleStyle={styles.comisionesTitulo}
-              left={(props) => <IconButton {...props} icon="truck-delivery" color="#6200ee" size={20} />}
-              style={{ paddingVertical: 8 }}
-            />
-            
-            <Divider />
-
             <Card.Content style={styles.comisionesContent}>
               {cargandoComisiones ? (
                 <View style={styles.comisionesLoading}>
@@ -941,9 +1129,9 @@ const WizardConStepper = ({ product, navigation }) => {
                                   />
                                 )}
 
-                                {!!monedaPago && (
+                                {!!monedaFinalUI && (
                                   <Text style={{ marginLeft: 18, marginTop: 4, fontSize: 12, opacity: 0.75 }}>
-                                    Moneda seleccionada: {monedaPago}
+                                    Moneda seleccionada: {monedaFinalUI}
                                   </Text>
                                 )}
 
@@ -967,7 +1155,7 @@ const WizardConStepper = ({ product, navigation }) => {
                                 buttonNextDisabled={!ubicacionValida}
                                 buttonPreviousTextColor='white'
                                 label="Ubicación"
-                                onNext={() => setActiveStep(Number(activeStep) + 1)}
+                                onNext={handleNextUbicacion} // ✅ CAMBIO: sincroniza ubicación antes de avanzar
                                 onPrevious={() => setActiveStep(Number(activeStep) - 1)}
                               >
                                 <View style={{ height: '100%', paddingBottom: 80 }}>
@@ -1038,6 +1226,7 @@ const WizardConStepper = ({ product, navigation }) => {
                                 buttonFinishDisabled={
                                   procesandoPago || 
                                   seEstaPagando || 
+                                  bloquearPagoPorComisiones || // ✅ NUEVO: no permitir generar venta con error de comisiones
                                   (activeStep === 3 && metodoPago !== 'efectivo' && !compra?.link) || 
                                   (metodoPago == 'efectivo' && !cargadoPago)
                                 } 
@@ -1066,21 +1255,98 @@ const WizardConStepper = ({ product, navigation }) => {
                               {/* ✅ NUEVO: Card de Comisiones */}
                               {renderComisionesCard()}
                               
-                              <Chip style={{padding:20, borderRadius:30, marginTop: 12}}>
-                                Total a Pagar: {totalAPagar} {tieneProxyVPN ?  "CUP" : "USD"}
-                              </Chip>
-                              
+                              {/* ✅ NUEVO: Card de Total a Pagar (corregido) */}
+                              <Card style={styles.totalCard} elevation={3}>
+                                <Card.Title
+                                  title="Resumen de pago"
+                                  subtitle={`Método: ${metodoPago || 'N/D'} • Moneda: ${monedaFinalUI}`}
+                                  left={(props) => (
+                                    <IconButton
+                                      {...props}
+                                      icon="cash-multiple"
+                                      size={20}
+                                      style={{ margin: 0 }}
+                                    />
+                                  )}
+                                />
+                                <Divider />
+                                <Card.Content style={styles.totalCardContent}>
+                                  {(cargandoComisiones || cargandoConversionResumen) ? (
+                                    <View style={styles.totalRowCenter}>
+                                      <ActivityIndicator size="small" color="#6200ee" />
+                                      <Text style={styles.totalHintText}>Calculando total…</Text>
+                                    </View>
+                                  ) : (errorComisiones || errorConversionResumen) ? (
+                                    <View style={styles.totalRowCenter}>
+                                      <IconButton icon="alert-circle-outline" size={18} color="#D32F2F" style={{ margin: 0 }} />
+                                      <Text style={[styles.totalHintText, { color: '#D32F2F' }]}>
+                                        {errorComisiones || errorConversionResumen}
+                                      </Text>
+                                    </View>
+                                  ) : (
+                                    <>
+                                      <View style={styles.totalRow}>
+                                        <Text style={styles.totalLabel}>Subtotal (productos)</Text>
+                                        <Text style={styles.totalValue}>
+                                          {Number(subtotalProductosConvertido || 0).toFixed(2)} {monedaFinalUI}
+                                        </Text>
+                                      </View>
+
+                                      {tieneComercio && (
+                                        <View style={styles.totalRow}>
+                                          <Text style={styles.totalLabel}>Comisiones (envío + adicionales)</Text>
+                                          <Text style={styles.totalValue}>
+                                            {Number(comisionesConvertidas || 0).toFixed(2)} {monedaFinalUI}
+                                          </Text>
+                                        </View>
+                                      )}
+
+                                      <Divider style={{ marginVertical: 10 }} />
+
+                                      <View style={styles.totalRow}>
+                                        <Text style={styles.totalTotalLabel}>TOTAL A PAGAR</Text>
+                                        <View style={styles.totalPill}>
+                                          <Text style={styles.totalPillText}>
+                                            {Number(totalResumenConvertido || 0).toFixed(2)} {monedaFinalUI}
+                                          </Text>
+                                        </View>
+                                      </View>
+
+                                      {(metodoPago === 'efectivo' || metodoPago === 'transferencia') && (
+                                        <Text style={styles.totalFootnote}>
+                                          Importante: asegúrate de enviar el monto exacto. Si tu banco aplica comisiones externas, la diferencia deberá cubrirse.
+                                        </Text>
+                                      )}
+                                    </>
+                                  )}
+                                </Card.Content>
+                              </Card>
+
                               {/* ✅ NUEVO: Indicador de procesamiento visual */}
                               {procesandoPago && (
                                 <View style={styles.procesandoContainer}>
                                   <ActivityIndicator size="large" color="#6200ee" />
                                   <Text style={styles.procesandoTexto}>
-                                    {metodoPago === 'efectivo' 
-                                      ? 'Generando venta...' 
+                                    {metodoPago === 'efectivo'
+                                      ? 'Generando venta...'
                                       : 'Abriendo pasarela de pago...'}
                                   </Text>
                                   <Text style={styles.procesandoSubtexto}>
                                     Por favor, no cierre esta ventana
+                                  </Text>
+                                </View>
+                              )}
+
+                              {/* ✅ NUEVO: Mensaje UX si está bloqueado por comisiones */}
+                              {tieneComercio && bloquearPagoPorComisiones && (
+                                <View style={{ marginTop: 12, marginHorizontal: 16, padding: 12, borderRadius: 10, backgroundColor: '#FFEBEE' }}>
+                                  <Text style={{ color: '#C62828', fontSize: 12, fontWeight: '700' }}>
+                                    No se puede generar la venta
+                                  </Text>
+                                  <Text style={{ color: '#C62828', fontSize: 12, marginTop: 4 }}>
+                                    {errorComisiones
+                                      ? `Error en comisiones: \n${errorComisiones}`
+                                      : 'Las comisiones de envío aún no están calculadas. Verifica la ubicación y vuelve a intentar.'}
                                   </Text>
                                 </View>
                               )}
@@ -1410,6 +1676,67 @@ const styles = StyleSheet.create({
       marginTop: 6,
       textAlign: 'center',
       paddingHorizontal: 16,
+    },
+    // ✅ NUEVO: estilos para Card de total mejorado
+    totalCard: {
+      marginTop: 12,
+      marginHorizontal: 16,
+      borderRadius: 14,
+      overflow: 'hidden',
+    },
+    totalCardContent: {
+      paddingVertical: 12,
+    },
+    totalRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 6,
+    },
+    totalRowCenter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 10,
+    },
+    totalLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      opacity: 0.8,
+      flex: 1,
+      paddingRight: 10,
+    },
+    totalValue: {
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    totalTotalLabel: {
+      fontSize: 14,
+      fontWeight: '900',
+      letterSpacing: 0.4,
+    },
+    totalPill: {
+      backgroundColor: '#6200ee',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 999,
+    },
+    totalPillText: {
+      color: '#fff',
+      fontSize: 14,
+      fontWeight: '900',
+    },
+    totalHintText: {
+      marginLeft: 8,
+      fontSize: 12,
+      opacity: 0.75,
+      fontWeight: '600',
+    },
+    totalFootnote: {
+      marginTop: 10,
+      fontSize: 11,
+      opacity: 0.7,
+      lineHeight: 15,
     },
 });
 

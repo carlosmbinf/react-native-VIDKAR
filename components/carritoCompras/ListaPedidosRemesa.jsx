@@ -361,15 +361,6 @@ const ListaPedidos = ({ eliminar }) => {
               )}
             </View>
             
-            {/* Chip con monto de remesa */}
-            <Chip 
-              icon={icon}
-              compact
-              style={[styles.proxyVpnChip, { backgroundColor: `${color}20` }]}
-              textStyle={{ color, fontWeight: 'bold', fontSize: 12 }}
-            >
-              {item.recibirEnCuba} {item.monedaRecibirEnCuba}
-            </Chip>
             
             <Divider style={styles.divider} />
 
@@ -430,21 +421,15 @@ const ListaPedidos = ({ eliminar }) => {
 
             {/* Badge de estado */}
             <View style={styles.statusContainer}>
-              <Chip 
-                icon={item.entregado ? 'check-circle' : 'clock-outline'}
-                compact
-                style={[
-                  styles.statusChip,
-                  { backgroundColor: item.entregado ? '#4CAF5020' : '#FF980020' }
-                ]}
-                textStyle={{ 
-                  color: item.entregado ? '#4CAF50' : '#FF9800',
-                  fontWeight: '600',
-                  fontSize: 11
-                }}
-              >
-                {item.entregado ? 'Entregado' : 'Pendiente de Pago'}
-              </Chip>
+              {/* Chip con monto de remesa */}
+            <Chip 
+              icon={icon}
+              compact
+              style={[styles.proxyVpnChip, { backgroundColor: `${color}20` }]}
+              textStyle={{ color, fontWeight: 'bold', fontSize: 12 }}
+            >
+              {item.recibirEnCuba} {item.monedaRecibirEnCuba}
+            </Chip>
             </View>
           </Card.Content>
         </Card>

@@ -318,6 +318,7 @@ const SubidaArchivos = ({ venta}) => {
   const [archivoOriginalSize, setArchivoOriginalSize] = useState(null);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [comisionesInfo, setComisionesInfo] = useState({ loading: false, data: null, error: null });
 
   const ventaReact  = useTracker(() => {
 
@@ -329,7 +330,63 @@ const SubidaArchivos = ({ venta}) => {
     return vent?.length > 0 ? vent[0] : null;
   });
 
-  
+  const tiendaIdParaComisiones = useMemo(() => {
+    const carritos = ventaReact?.producto?.carritos || [];
+    const itemComercio = carritos.find(c => c?.type === 'COMERCIO');
+    return itemComercio?.idTienda || itemComercio?.producto?.idTienda || null;
+  }, [ventaReact]);
+
+  const monedaFinalParaComisiones = useMemo(() => {
+    return ventaReact?.monedaCobrado || 'CUP';
+  }, [ventaReact]);
+
+  const subtotalVenta = useMemo(() => {
+    return parseFloat(ventaReact?.cobrado) || 0;
+  }, [ventaReact]);
+
+  const montoComisiones = useMemo(() => {
+    return parseFloat(comisionesInfo?.data?.montoTotal) || 0;
+  }, [comisionesInfo]);
+
+  const totalConComisiones = useMemo(() => {
+    return subtotalVenta + montoComisiones;
+  }, [subtotalVenta, montoComisiones]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const debeCalcular = !!ventaId && !!tiendaIdParaComisiones && !!monedaFinalParaComisiones;
+    if (!debeCalcular) {
+      setComisionesInfo({ loading: false, data: null, error: null });
+      return () => { cancelled = true; };
+    }
+
+    setComisionesInfo(prev => ({ ...prev, loading: true, error: null }));
+
+    Meteor.call(
+      'calculoDeComisionesPorTiendaFinanl',
+      ventaId,
+      tiendaIdParaComisiones,
+      monedaFinalParaComisiones,
+      (err, res) => {
+        if (cancelled) return;
+
+        if (err) {
+          setComisionesInfo({ loading: false, data: null, error: err?.reason || err?.message || 'Error obteniendo comisiones' });
+          return;
+        }
+        if (!res?.success) {
+          setComisionesInfo({ loading: false, data: null, error: res?.message || 'No se pudo calcular comisiones' });
+          return;
+        }
+
+        setComisionesInfo({ loading: false, data: res, error: null });
+      }
+    );
+
+    return () => { cancelled = true; };
+  }, [ventaId, tiendaIdParaComisiones, monedaFinalParaComisiones]);
+
   useEffect(() => {
     const fetchCuentaInfo = async () => {
       try {
@@ -916,32 +973,42 @@ const SubidaArchivos = ({ venta}) => {
                 alignItems: 'center',
                 paddingVertical: 8,
                 paddingHorizontal: 12,
-                // backgroundColor: '#fff',
                 borderRadius: 8,
-                // elevation: 2 // sombra en Android
               }}>
                 <View>
                   <Text style={[styles.labelMonto, { fontSize: 14 }]}>
                     Monto a pagar
                   </Text>
-                  {<Text style={[styles.montoAPagar, { fontSize: 18, fontWeight: 'bold', marginTop: 2 }]}>
-                    ${Number(ventaReact?.cobrado)?.toFixed(2)} {ventaReact?.monedaCobrado}
-                  </Text>}
+
+                  <Text style={[styles.montoAPagar, { fontSize: 18, fontWeight: 'bold', marginTop: 2 }]}>
+                    ${Number(tiendaIdParaComisiones ? totalConComisiones : subtotalVenta).toFixed(2)} {ventaReact?.monedaCobrado}
+                  </Text>
+
+                  {!!tiendaIdParaComisiones && (
+                    <>
+                    <Text style={{ fontSize: 11, marginTop: 2, opacity: 0.7 }}>
+                      • Subtotal: {subtotalVenta.toFixed(2)} {ventaReact?.monedaCobrado}
+                    </Text>
+                    <Text style={{ fontSize: 11, marginTop: 2, opacity: 0.7 }}>
+                      • Comisiones: {comisionesInfo.loading ? 'N/A' : montoComisiones.toFixed(2)} {ventaReact?.monedaCobrado}
+                    </Text>
+                    </>
+                    
+                  )}
                 </View>
 
                 <Chip
                   compact
                   mode="contained"
-                  // style={[styles.metodoChip]}
+                  style={[styles.metodoChip]}
                   textStyle={{ fontSize: 12 }}
                 >
                   TRANSFERENCIA
                 </Chip>
               </View>
-              {/* NUEVO: Tarjeta destino */}
+
               {renderInfoPago()}
             </View>
-            
           </View>
 
           {miniBase64 && (
@@ -1181,6 +1248,20 @@ const SubidaArchivos = ({ venta}) => {
 export default SubidaArchivos;
 
 const styles = StyleSheet.create({
+  metodoChip: {
+    height: 30,
+    flex: 1,
+    // alignSelf: 'flex-start',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: '#E3F2FD',
+    borderColor: '#90CAF9',
+    borderWidth: 1,
+    borderRadius: 16,
+    maxWidth: 150,
+    // paddingHorizontal: 8,
+    // paddingVertical: 8,
+  },
   ventaCard: { elevation: 2, borderRadius: 60},
   headerRow: { flexDirection: 'row', alignItems: 'center' },
   labelMonto: { fontSize: 11, color: '#666', fontWeight: '500' },

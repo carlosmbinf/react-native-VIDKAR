@@ -284,6 +284,9 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
     outputRange: [0, 0.5, 1], // Fade in progresivo
   });
 
+  // ✅ NUEVO: comisiones por tienda (solo COMERCIO)
+  const [comisionesInfo, setComisionesInfo] = useState({ loading: false, data: null, error: null });
+
   const evidenciasSubsc = useTracker(() => {
     Meteor.subscribe('evidenciasVentasEfectivoRecharge', { ventaId });
     return EvidenciasVentasEfectivoCollection.find({ ventaId }, { sort: { createdAt: -1 } }).fetch();
@@ -320,6 +323,67 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
     if (carritosAgrupados.comercio.length) items.push(`${carritosAgrupados.comercio.length} Remesa${carritosAgrupados.comercio.length > 1 ? 's' : ''}`);
     return items.join(' • ') || 'Sin productos';
   }, [carritosAgrupados]);
+
+  // ✅ NUEVO: derivar tienda/moneda para cálculo de comisiones
+  const tiendaIdParaComisiones = useMemo(() => {
+    const item = carritosAgrupados?.comercio?.[0];
+    return item?.idTienda || item?.producto?.idTienda || null;
+  }, [carritosAgrupados]);
+console.log("tiendaIdParaComisiones",tiendaIdParaComisiones);
+  const monedaFinalParaComisiones = useMemo(() => {
+    return venta?.monedaCobrado || 'CUP';
+  }, [venta]);
+  console.log("monedaFinalParaComisiones",monedaFinalParaComisiones);
+
+  const subtotalVenta = useMemo(() => {
+    return parseFloat(venta?.cobrado) || 0;
+  }, [venta]);
+
+  // ✅ NUEVO: fetch comisiones (de forma defensiva; no rompe si no aplica)
+  useEffect(() => {
+    let cancelled = false;
+
+    const debeCalcular = !!ventaId && !!tiendaIdParaComisiones;
+    if (!debeCalcular) {
+      setComisionesInfo({ loading: false, data: null, error: null });
+      return () => { cancelled = true; };
+    }
+
+    setComisionesInfo(prev => ({ ...prev, loading: true, error: null }));
+
+    Meteor.call(
+      'calculoDeComisionesPorTiendaFinanl',
+      ventaId,
+      tiendaIdParaComisiones,
+      monedaFinalParaComisiones,
+      (err, res) => {
+        console.log("calculoDeComisionesPorTiendaFinanl",res);
+        if (cancelled) return;
+
+        if (err) {
+          setComisionesInfo({ loading: false, data: null, error: err?.reason || err?.message || 'Error obteniendo comisiones' });
+          return;
+        }
+
+        if (!res?.success) {
+          setComisionesInfo({ loading: false, data: null, error: res?.message || 'No se pudo calcular comisiones' });
+          return;
+        }
+
+        setComisionesInfo({ loading: false, data: res, error: null });
+        return () => { cancelled = true; };
+      }
+    );
+
+  }, [ventaId, tiendaIdParaComisiones, monedaFinalParaComisiones]);
+
+  const montoComisiones = useMemo(() => {
+    return parseFloat(comisionesInfo?.data?.montoTotal) || 0;
+  }, [comisionesInfo]);
+
+  const totalConComisiones = useMemo(() => {
+    return subtotalVenta + montoComisiones;
+  }, [subtotalVenta, montoComisiones]);
 
   const existeAprobada = evidencias.some(ev => !!ev.aprobado);
   const ventaYaEntregada = venta?.estado === 'ENTREGADO' || venta?.estado === 'PAGADA' || venta?.estado === 'COMPLETADA';
@@ -622,13 +686,41 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
           <IconButton icon="package-variant" size={16} iconColor="#666" style={styles.summaryIcon} />
           <Text style={styles.summaryText}>{resumenVenta}</Text>
         </View>
+
+        {/* ✅ MODIFICADO: ahora muestra Total a pagar (incluye comisiones cuando aplica) */}
         <View style={styles.summaryItem}>
           <IconButton icon="currency-usd" size={16} iconColor="#1976D2" style={styles.summaryIcon} />
           <Text style={[styles.summaryText, { fontWeight: '700', color: '#1976D2' }]}>
-            {formatCurrency(venta.cobrado, venta.monedaCobrado)}
+            {formatCurrency(
+              tiendaIdParaComisiones ? totalConComisiones : subtotalVenta,
+              venta.monedaCobrado
+            )}
           </Text>
         </View>
       </View>
+
+      {/* ✅ NUEVO: desglose de comisiones (solo si aplica a COMERCIO) */}
+      {!!tiendaIdParaComisiones && (
+        <View style={styles.summaryBar}>
+          <View style={styles.summaryItem}>
+            <IconButton icon="receipt" size={16} iconColor="#666" style={styles.summaryIcon} />
+            <Text style={styles.summaryText}>Subtotal:</Text>
+            <Text style={[styles.summaryText, { fontWeight: '700' }]}>
+              {formatCurrency(subtotalVenta, venta.monedaCobrado)}
+            </Text>
+          </View>
+
+          <View style={styles.summaryItem}>
+            <IconButton icon="truck-delivery-outline" size={16} iconColor="#666" style={styles.summaryIcon} />
+            <Text style={styles.summaryText}>Comisiones:</Text>
+            <Text style={[styles.summaryText, { fontWeight: '700' }]}>
+              {comisionesInfo.loading
+                ? '...'
+                : formatCurrency(montoComisiones, monedaFinalParaComisiones)}
+            </Text>
+          </View>
+        </View>
+      )}
 
       <View style={styles.summaryBar}>
         <View style={styles.summaryItem}>

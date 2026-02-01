@@ -535,7 +535,7 @@ const App = () => {
                 name="ListaArchivos"
                 component={ListaArchivos}
                 options={({ navigation, route }) => ({
-                  title: <Text style={{ letterSpacing: 2 }}>Archivos</Text>,
+                  title: <Text style={{ letterSpacing: 2 }}>Aprobaciones</Text>,
                   headerStyle: {
                     backgroundColor: '#3f51b5',
                     // height: 90,
