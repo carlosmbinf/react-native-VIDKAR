@@ -643,7 +643,8 @@ const WizardConStepper = ({ product, navigation }) => {
             }
           });
         }else if (metodoPago == 'efectivo') {
-          Meteor.call("efectivo.totalAPagar", pedidosRemesa,monedaPago,comisionesComercio,(err, res) => {
+          console.log("Calculando total a pagar para Efectivo...", monedaFinalUI);
+          Meteor.call("efectivo.totalAPagar", pedidosRemesa,monedaFinalUI,comisionesComercio,(err, res) => {
             if (err) {
               console.error('Error al calcular total a pagar:', err);
             } else {
@@ -656,7 +657,7 @@ const WizardConStepper = ({ product, navigation }) => {
         }
         
         
-      },[comisionesComercio,metodoPago,pedidosRemesa, tieneProxyVPN])
+      },[comisionesComercio,metodoPago,pedidosRemesa, tieneProxyVPN, monedaFinalUI])
 
       useEffect(() => {
         // ✅ Regla negocio: Proxy/VPN solo se paga en Cuba => no pedir selector y fijar moneda
