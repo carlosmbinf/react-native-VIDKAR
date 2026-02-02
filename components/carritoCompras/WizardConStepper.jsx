@@ -609,10 +609,11 @@ const WizardConStepper = ({ product, navigation }) => {
         if (!metodoPago) return;
 
         if (tieneProxyVPN && (metodoPago === 'efectivo' || metodoPago === 'transferencia')) {
-          Meteor.call("efectivo.totalAPagar", pedidosRemesa,comisionesComercio, (err, res) => {
+          Meteor.call("efectivo.totalAPagar", pedidosRemesa,monedaPago,comisionesComercio, (err, res) => {
             if (err) {
               console.error('Error al calcular total a pagar:', err);
             } else {
+              console.log("[WizardConStepper] Total a pagar calculado para Proxy/VPN con Efectivo:", res);
               setTotalAPagar(res);
               setCargadoPago(true);
             }
@@ -626,6 +627,7 @@ const WizardConStepper = ({ product, navigation }) => {
             if (err) {
               console.error('Error al calcular total a pagar:', err);
             } else {
+              console.log("[WizardConStepper] Total a pagar calculado para PayPal:", res);
               setTotalAPagar(res);
               setCargadoPago(true);
             }
@@ -635,16 +637,17 @@ const WizardConStepper = ({ product, navigation }) => {
             if (err) {
               console.error('Error al calcular total a pagar:', err);
             } else {
+              console.log("[WizardConStepper] Total a pagar calculado para MercadoPago:", res);
               setTotalAPagar(res);
               setCargadoPago(true);
             }
           });
         }else if (metodoPago == 'efectivo') {
-          Meteor.call("efectivo.totalAPagar", pedidosRemesa,comisionesComercio,(err, res) => {
+          Meteor.call("efectivo.totalAPagar", pedidosRemesa,monedaPago,comisionesComercio,(err, res) => {
             if (err) {
               console.error('Error al calcular total a pagar:', err);
             } else {
-              console.log("efectivo.totalAPagar",totalAPagar);
+              console.log("[WizardConStepper] Total a pagar calculado para Efectivo:", res);
               // console.log("Tipo de dato de totalAPagar:", typeof res, "Valor:", res);
               setTotalAPagar(res);
               setCargadoPago(true);
@@ -653,7 +656,7 @@ const WizardConStepper = ({ product, navigation }) => {
         }
         
         
-      },[metodoPago,pedidosRemesa, tieneProxyVPN,comisionesComercio])
+      },[comisionesComercio,metodoPago,pedidosRemesa, tieneProxyVPN])
 
       useEffect(() => {
         // ✅ Regla negocio: Proxy/VPN solo se paga en Cuba => no pedir selector y fijar moneda
@@ -713,6 +716,9 @@ const WizardConStepper = ({ product, navigation }) => {
           "mercadopago.createOrder",
           userId,
           pedidosRemesa,
+          comisionesComercio,
+          totalAPagar,
+          "Servicios Online a travez de VidKar",
           function (error, success) {
             if (error) {
               console.log("error", error);
@@ -725,7 +731,7 @@ const WizardConStepper = ({ product, navigation }) => {
       };
 
       useEffect(() => {
-        if(activeStep === 3){
+        if(activeStep === 4){
           Meteor.call("cancelarOrdenesPaypalIncompletas", userId, (error) => {
             if (error) {
               console.error("Error cancelando órdenes PayPal:", error);
@@ -751,25 +757,73 @@ const WizardConStepper = ({ product, navigation }) => {
         }    
       },[activeStep]);
 
+    // ✅ NUEVO: helper centralizado para validar si la pasarela tiene URL lista
+    const requiereCheckoutUrl = React.useMemo(
+      () => metodoPago === 'paypal' || metodoPago === 'mercadopago',
+      [metodoPago]
+    );
+
+    // ✅ FIX: algunos flujos (p.ej. RECARGA) pueden guardar la URL con otra key distinta a `link`
+    const checkoutUrl = React.useMemo(() => {
+      const candidates = [
+        compra?.link,          // actual
+        compra?.linkPago,      // posibles legacy
+        compra?.approvalUrl,   // paypal-like
+        compra?.init_point,    // mercadopago-like
+        compra?.url,           // genérico
+      ];
+
+      const url = candidates.find((u) => typeof u === 'string' && u.trim().length > 0);
+      return url ? url.trim() : null;
+    }, [compra?.link, compra?.linkPago, compra?.approvalUrl, compra?.init_point, compra?.url]);
+
+    const urlPagoDisponible = React.useMemo(() => {
+      return typeof checkoutUrl === 'string' && checkoutUrl.length > 0;
+    }, [checkoutUrl]);
+
     const handlePagar = async () => {
-        // ✅ NUEVO: Prevenir ejecución múltiple
-        if (procesandoPago) {
-          console.log("⚠️ Pago ya en proceso, ignorando clic adicional");
+      // ✅ DEFENSIVO: si es pasarela y no hay link, nunca abrir
+      if (requiereCheckoutUrl && !urlPagoDisponible) {
+        Alert.alert(
+          'Pago no disponible',
+          'Aún no se generó el enlace de pago. Espera unos segundos y vuelve a intentar.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // ✅ NUEVO: Prevenir ejecución múltiple
+      if (procesandoPago) {
+        console.log("⚠️ Pago ya en proceso, ignorando clic adicional");
+        return;
+      }
+
+      setProcesandoPago(true);
+      setSeEstaPagando(true);
+
+      try {
+        // ✅ FIX: usar el mismo link “real” que habilita el botón
+        const targetUrl = checkoutUrl;
+
+        if (!targetUrl) {
+          Alert.alert('Pago no disponible', 'No se encontró el enlace de pago generado.', [{ text: 'OK' }]);
           return;
         }
 
-        setProcesandoPago(true);
-        setSeEstaPagando(true);
+        const supported = await Linking.canOpenURL(targetUrl);
+        if (!supported) {
+          Alert.alert('Pago no disponible', 'El dispositivo no puede abrir el enlace de pago.', [{ text: 'OK' }]);
+          return;
+        }
 
-          console.log(compra?.link);
-          const supported = await Linking.canOpenURL(compra?.link);
-          await Linking.openURL(compra?.link);
-          
-          // ✅ Timeout de seguridad: resetear después de 5 segundos
-          setTimeout(() => {
-            setProcesandoPago(false);
-            setSeEstaPagando(false);
-          }, 5000);
+        await Linking.openURL(targetUrl);
+      } finally {
+        // ✅ Timeout de seguridad: resetear después de 5 segundos
+        setTimeout(() => {
+          setProcesandoPago(false);
+          setSeEstaPagando(false);
+        }, 5000);
+      }
     };
 
     const handleGenerarVenta = async () => {
@@ -1227,7 +1281,7 @@ const WizardConStepper = ({ product, navigation }) => {
                                   procesandoPago || 
                                   seEstaPagando || 
                                   bloquearPagoPorComisiones || // ✅ NUEVO: no permitir generar venta con error de comisiones
-                                  (activeStep === 3 && metodoPago !== 'efectivo' && !compra?.link) || 
+                                  (requiereCheckoutUrl && !urlPagoDisponible) || 
                                   (metodoPago == 'efectivo' && !cargadoPago)
                                 } 
                                 buttonFinishText={
@@ -1301,13 +1355,29 @@ const WizardConStepper = ({ product, navigation }) => {
                                         </View>
                                       )}
 
+                                      {/* ✅ NUEVO: comisión de pasarela (PayPal/MercadoPago) calculada por diferencia */}
+                                      {(metodoPago === 'paypal' || metodoPago === 'mercadopago') && (
+                                        <View style={styles.totalRow}>
+                                          <Text style={styles.totalLabel}>
+                                            Comisión {metodoPago === 'paypal' ? 'PayPal' : 'MercadoPago'}
+                                          </Text>
+                                          <Text style={styles.totalValue}>
+                                            {Math.max(
+                                              0,
+                                              (Number(totalAPagar || 0) - Number(totalResumenConvertido || 0))
+                                            ).toFixed(2)}{' '}
+                                            {monedaFinalUI}
+                                          </Text>
+                                        </View>
+                                      )}
+
                                       <Divider style={{ marginVertical: 10 }} />
 
                                       <View style={styles.totalRow}>
                                         <Text style={styles.totalTotalLabel}>TOTAL A PAGAR</Text>
                                         <View style={styles.totalPill}>
                                           <Text style={styles.totalPillText}>
-                                            {Number(totalResumenConvertido || 0).toFixed(2)} {monedaFinalUI}
+                                            {Number(totalAPagar || 0).toFixed(2)} {monedaFinalUI}
                                           </Text>
                                         </View>
                                       </View>

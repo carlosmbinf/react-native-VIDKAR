@@ -320,7 +320,7 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
     if (carritosAgrupados.vpn.length) items.push(`${carritosAgrupados.vpn.length} VPN`);
     if (carritosAgrupados.recarga.length) items.push(`${carritosAgrupados.recarga.length} Recarga${carritosAgrupados.recarga.length > 1 ? 's' : ''}`);
     if (carritosAgrupados.remesa.length) items.push(`${carritosAgrupados.remesa.length} Remesa${carritosAgrupados.remesa.length > 1 ? 's' : ''}`);
-    if (carritosAgrupados.comercio.length) items.push(`${carritosAgrupados.comercio.length} Remesa${carritosAgrupados.comercio.length > 1 ? 's' : ''}`);
+    if (carritosAgrupados.comercio.length) items.push(`${carritosAgrupados.comercio.length} Producto${carritosAgrupados.comercio.length > 1 ? 's' : ''}`);
     return items.join(' • ') || 'Sin productos';
   }, [carritosAgrupados]);
 
@@ -329,11 +329,11 @@ const AprobacionEvidenciasVenta = ({ venta, onAprobar, onRechazar, onVentaAproba
     const item = carritosAgrupados?.comercio?.[0];
     return item?.idTienda || item?.producto?.idTienda || null;
   }, [carritosAgrupados]);
-console.log("tiendaIdParaComisiones",tiendaIdParaComisiones);
+// console.log("tiendaIdParaComisiones",tiendaIdParaComisiones);
   const monedaFinalParaComisiones = useMemo(() => {
     return venta?.monedaCobrado || 'CUP';
   }, [venta]);
-  console.log("monedaFinalParaComisiones",monedaFinalParaComisiones);
+  // console.log("monedaFinalParaComisiones",monedaFinalParaComisiones);
 
   const subtotalVenta = useMemo(() => {
     return parseFloat(venta?.cobrado) || 0;

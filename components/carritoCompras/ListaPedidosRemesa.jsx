@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ScrollView, View, StyleSheet, Animated, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { Text, Card, IconButton, Divider, Chip, useTheme, Paragraph, Surface } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
-import { CarritoCollection } from '../collections/collections';
+import { CarritoCollection, TiendasComercioCollection } from '../collections/collections';
 import { megasToGB } from '../shared/MegasConverter';
 
 // Habilitar LayoutAnimation en Android
@@ -60,10 +60,10 @@ const ComercioCard = ({ item, eliminar, isDarkMode, eliminarPedido }) => {
                 />
                 <View style={styles.comercioTitleTexts}>
                   <Text style={[styles.comercioProductName, { color }]} numberOfLines={1} ellipsizeMode="tail">
-                    {producto.name || 'Producto'}
+                    {producto?.name || 'Producto'}
                   </Text>
                   <Text style={[styles.comercioSubtitle, isDarkMode && { color: '#AAA' }]}>
-                    Pedido de Tienda
+                    {TiendasComercioCollection.findOne({_id:producto?.idTienda})?.title  || "Pedido de Tienda"}
                   </Text>
                 </View>
               </View>
@@ -167,7 +167,7 @@ const ComercioCard = ({ item, eliminar, isDarkMode, eliminarPedido }) => {
             )}
 
             {/* Ubicación de entrega */}
-            {item.coordenadas && (
+            {/* {item.coordenadas && (
               <View style={styles.comercioDetailRow}>
                 <IconButton icon="map-marker" size={16} iconColor={isDarkMode ? '#AAA' : '#666'} style={styles.detailIcon} />
                 <View style={styles.comercioDetailTextWrapper}>
@@ -177,7 +177,7 @@ const ComercioCard = ({ item, eliminar, isDarkMode, eliminarPedido }) => {
                   </Text>
                 </View>
               </View>
-            )}
+            )} */}
 
             {/* Dirección (si existe) */}
             {item.direccionCuba && item.direccionCuba.trim() !== '' && (
