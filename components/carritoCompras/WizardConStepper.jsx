@@ -45,6 +45,7 @@ const WizardConStepper = ({ product, navigation }) => {
     const [cargandoConversionResumen, setCargandoConversionResumen] = useState(false);
     const [errorConversionResumen, setErrorConversionResumen] = useState(null);
 
+    const [loadCargaPagar, setLoadCargaPagar] = useState(false);
     //CARRITO
     const { pedidosRemesa,subCarrito } = useTracker(() => {
         const subCarrito = Meteor.subscribe('carrito', { idUser: Meteor.userId()});
@@ -733,28 +734,32 @@ const WizardConStepper = ({ product, navigation }) => {
 
       useEffect(() => {
         if(activeStep === 4){
+          setLoadCargaPagar(false);
           Meteor.call("cancelarOrdenesPaypalIncompletas", userId, (error) => {
             if (error) {
               console.error("Error cancelando órdenes PayPal:", error);
             } else {
               console.log("✅ Órdenes PayPal incompletas canceladas");
+              switch (metodoPago) {
+                case "paypal":
+                  console.log("creando orden paypal");
+                  crearOrdenPaypal();
+                  break;
+                case "mercadopago":
+                  console.log("creando orden mercadopago");
+                  crearOrdenMercadoPago();
+                  break;
+                case "efectivo":
+                  // console.log(message);
+                  crearOrdenEfectivo();
+                  break;
+              }
             }
+          setLoadCargaPagar(false);
+
           });
     
-          switch (metodoPago) {
-            case "paypal":
-              console.log("creando orden paypal");
-              crearOrdenPaypal();
-              break;
-            case "mercadopago":
-              console.log("creando orden mercadopago");
-              crearOrdenMercadoPago();
-              break;
-            case "efectivo":
-              // console.log(message);
-              crearOrdenEfectivo();
-              break;
-          }
+          
         }    
       },[activeStep]);
 
@@ -835,21 +840,36 @@ const WizardConStepper = ({ product, navigation }) => {
       }
 
       setProcesandoPago(true);
-        console.log("compra:",compra)
-        const ventaData = {
-          producto: compra,
-          precioOficial: totalAPagar,
-          comisionesComercio: comisionesComercio
-        };
-        
-        Meteor.call('generarVentaEfectivo', ventaData, monedaFinalUI || "CUP", (error, success) => {
-          if (error) {
-            console.log("error", error);
+      // console.log("compra:",compra)
+      // console.log("moneda.convertir",Number(totalAPagar), monedaFinalUI, "USD");
+        Meteor.call('moneda.convertir', Number(totalAPagar), monedaFinalUI, "USD", null, (error, totalAPagar2) => {
+          if (error) console.error('Error al convertir totalAPagar a USD:', error);
+          else {
+
+
+            const ventaData = {
+              producto: compra,
+              precioOficial: totalAPagar2 ,
+              comisionesComercio: comisionesComercio
+            };
+            
+            Meteor.call('generarVentaEfectivo', ventaData, monedaFinalUI || "CUP", (error, success) => {
+              if (error) {
+                console.log("error", error);
+              }
+              if (success) {
+                console.log("success", success);
+              }
+            });
+
+
           }
-          if (success) {
-            console.log("success", success);
-          }
-        });
+
+          setProcesandoPago(false);
+      });
+
+
+       
       
     };
 
@@ -1279,6 +1299,7 @@ const WizardConStepper = ({ product, navigation }) => {
                             <ProgressStep 
                                 buttonDisabledColor='#aaa' 
                                 buttonFinishDisabled={
+                                  loadCargaPagar ||
                                   procesandoPago || 
                                   seEstaPagando || 
                                   bloquearPagoPorComisiones || // ✅ NUEVO: no permitir generar venta con error de comisiones

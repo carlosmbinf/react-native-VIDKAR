@@ -323,7 +323,7 @@ const VentasStepper = ({ navigation }) => {
                   Cobrado: {venta.cobrado} {venta.monedaCobrado || 'USD'}
                 </Chip>
                 <Chip icon="send" style={styles.infoChip}>
-                  Enviado: {venta.precioOficial || 'N/A'} {venta.monedaCobrado || 'USD'}
+                  Enviado: {venta.precioOficial || 'N/A'} {'USD'}
                 </Chip>
                 <Chip icon="credit-card" style={styles.infoChip}>
                   {venta.metodoPago || 'N/A'}
