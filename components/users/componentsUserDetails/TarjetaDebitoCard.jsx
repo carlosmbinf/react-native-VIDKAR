@@ -22,7 +22,7 @@ const normalizeCardWithSpaces = (v) => {
     return digits.replace(/(.{4})/g, '$1 ').trim();
 };
 
-const TarjetaDebitoCard = ({ item, styles }) => {
+const TarjetaDebitoCard = ({ item, styles, accentColor }) => {
     const [loading, setLoading] = useState(true);
     const [tarjeta, setTarjeta] = useState(null); // string con espacios o null
     const [input, setInput] = useState(''); // solo dígitos
@@ -114,9 +114,12 @@ const TarjetaDebitoCard = ({ item, styles }) => {
     if (loading) return null;
     if (!tarjeta && !isAdmin) return null;
 
+    const headerAccent = accentColor || '#263238';
+
     return (
-        <Card style={[styles.cards, { borderRadius: 16 }]}>
-            <Card.Content>
+        <Card style={[styles.cards, s.cardShell, { borderRadius: 16 }]} testID="tarjeta-debito-card">
+            <View style={[s.accentBar, {backgroundColor: headerAccent}]} />
+            <Card.Content style={s.content}>
                 <Text style={styles.title}>Tarjeta de Débito (CUP)</Text>
                 {!tarjeta ? (
                     <View style={{ marginTop: 8 }}>
@@ -153,9 +156,10 @@ const TarjetaDebitoCard = ({ item, styles }) => {
                     </View>
                     <Button
                             icon="content-copy"
-                            mode="text"
+                            mode="contained-tonal"
                             onPress={handleCopy}
-                            style={btnStyles.action}
+                            style={s.copyBtn}
+                            disabled={!tarjeta}
                             compact
                         >
                             Copiar número
@@ -169,10 +173,11 @@ const TarjetaDebitoCard = ({ item, styles }) => {
 };
 
 const s = StyleSheet.create({
-    cardWrapper: {
-        // marginTop: 12,
-        flex: 1
-    },
+    cardShell: { overflow: 'hidden' },
+    accentBar: { height: 4, width: '100%' },
+    content: { paddingTop: 10 },
+    cardWrapper: { flex: 1 },
+    copyBtn: { marginTop: 10, borderRadius: 12, alignSelf: 'center' },
 });
 
 const btnStyles = StyleSheet.create({

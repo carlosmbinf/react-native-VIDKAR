@@ -1,6 +1,6 @@
 import React, { memo, useState, useMemo } from 'react';
 import { View, Dimensions, StyleSheet } from 'react-native';
-import { Card, Title, Text, Button, Switch, Surface, Chip, Divider } from 'react-native-paper';
+import { Card, Title, Text, Button, Switch, Surface, Chip, Divider, IconButton, ProgressBar } from 'react-native-paper';
 import CalendarPicker from 'react-native-calendar-picker';
 import { Dropdown } from 'react-native-element-dropdown';
 import Meteor from '@meteorrn/core';
@@ -12,12 +12,21 @@ const BYTES_IN_MB_APPROX = 1024000;
 const formatLimitDate = (moment, d) =>
   d ? moment.utc(d).format('DD-MM-YYYY') : 'Fecha límite sin especificar';
 
+const formatGB = (mb) => {
+  const n = Number(mb) || 0;
+  return (n / 1024).toFixed(2);
+};
+const clamp01 = (n) => Math.max(0, Math.min(1, n));
+
 const ProxyCardAdmin = ({
   item,
   styles,
   precioslist,
   handleReiniciarConsumo,
   addVenta,
+  accentColor,
+  canEdit,
+  onRequestView,
 }) => {
   if (!item) return null;
   const moment = require('moment');
@@ -38,26 +47,101 @@ const ProxyCardAdmin = ({
     ) : null;
 
   const statusActivo = !item.baneado;
+  const headerAccent = accentColor || '#546e7a';
+
+  const consumoMBn = Number(item.megasGastadosinBytes || 0) / BYTES_IN_MB_APPROX;
+  const limiteMB = Number(item.megas || 0);
+  const progress = item.isIlimitado || !limiteMB ? 0 : clamp01(consumoMBn / limiteMB);
+  const restanteMB = Math.max(0, limiteMB - consumoMBn);
+
+  const limitLabel = item.isIlimitado
+    ? 'Por tiempo'
+    : limiteMB
+      ? `${formatGB(limiteMB)} GB`
+      : 'No configurado';
+
+  const helper =
+    !statusActivo
+      ? 'El servicio está deshabilitado. Contacta a soporte si necesitas reactivarlo.'
+      : item.isIlimitado
+        ? `Vence: ${formatLimitDate(moment, item.fechaSubscripcion)}`
+        : limiteMB
+          ? `Restante aprox.: ${formatGB(restanteMB)} GB`
+          : 'No hay un límite asignado aún.';
 
   return (
-    <Card elevation={12} style={styles.cards} testID="proxyAdminCard">
-      <Card.Content>
+    <Card elevation={12} style={[styles.cards, ui.cardShell]} testID="proxyAdminCard">
+      <View style={[ui.accentBar, {backgroundColor: headerAccent}]} />
+      <Card.Content style={ui.content}>
         <View style={styles.element}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-            <Title style={styles.title}>Datos del Proxy</Title>
-            <Chip
-              compact
-              icon={statusActivo ? 'check-circle' : 'close-circle'}
-              style={{ backgroundColor: statusActivo ? '#2e7d32' : '#c62828' }}
-              selectedColor="#fff"
-              testID="proxyStatusChipAdmin"
-            >
-              {statusActivo ? 'Habilitado' : 'Deshabilitado'}
-            </Chip>
+          <View style={ui.headerRow}>
+            <Title style={styles.title}>Proxy</Title>
+
+            <View style={ui.headerRight}>
+              <Chip
+                compact
+                icon={statusActivo ? 'check-circle' : 'close-circle'}
+                style={{ backgroundColor: statusActivo ? '#2e7d32' : '#c62828' }}
+                selectedColor="#fff"
+                testID="proxyStatusChipAdmin"
+              >
+                {statusActivo ? 'Activo' : 'Inactivo'}
+              </Chip>
+
+              {!!canEdit && (
+                <Chip
+                  compact
+                  icon="close-circle"
+                  mode="flat"
+                  onPress={onRequestView}
+                  style={ui.cancelChip}
+                  textStyle={ui.cancelChipText}
+                  testID="proxyCancelEditBtnAdmin"
+                >
+                  Cancelar
+                </Chip>
+              )}
+            </View>
           </View>
 
-          <View style={{ flexDirection: 'row', marginTop: 4 }}>
-            <Text style={{ paddingRight: 10 }}>Por Tiempo:</Text>
+          <Text style={ui.helper}>{helper}</Text>
+          <Divider style={ui.divider} />
+
+          <View style={ui.kpiRow}>
+            <View style={ui.kpiItem}>
+              <Text style={ui.kpiLabel}>{item.isIlimitado ? 'Tipo' : 'Límite'}</Text>
+              <Text style={ui.kpiValue}>{limitLabel}</Text>
+            </View>
+
+            <View style={ui.kpiItem}>
+              <Text style={ui.kpiLabel}>Consumo</Text>
+              <Text style={ui.kpiValue}>{Number(formatGB(consumoMBn)).toFixed(2)} GB</Text>
+            </View>
+
+            {!item.isIlimitado && !!limiteMB && (
+              <View style={ui.kpiItem}>
+                <Text style={ui.kpiLabel}>Restante</Text>
+                <Text style={ui.kpiValue}>{formatGB(restanteMB)} GB</Text>
+              </View>
+            )}
+          </View>
+
+          {!item.isIlimitado && !!limiteMB && (
+            <View style={ui.progressWrap}>
+              <View style={ui.progressMeta}>
+                <Text style={ui.progressText}>
+                  {formatGB(consumoMBn)} / {formatGB(limiteMB)} GB
+                </Text>
+                <Text style={ui.progressText}>{Math.round(progress * 100)}%</Text>
+              </View>
+              <ProgressBar progress={progress} color={progress > 0.8 ? '#F57C00' : '#1E88E5'}  />
+            </View>
+          )}
+
+          <Divider style={ui.divider} />
+
+          <View style={ui.rowBetween}>
+            <Text style={ui.mutedLabel}>Por Tiempo:</Text>
             <Switch
               value={item.isIlimitado}
               onValueChange={() =>
@@ -67,7 +151,7 @@ const ProxyCardAdmin = ({
             />
           </View>
 
-          <Divider style={{ marginVertical: 8, opacity: 0.4 }} />
+          <Divider style={ui.divider} />
 
           {item.isIlimitado ? (
             <>
@@ -78,22 +162,11 @@ const ProxyCardAdmin = ({
                 </Text>
               </View>
 
-              <View style={{ width: '100%', marginTop: 14 }}>
-                <Text style={{ textAlign: 'center', fontWeight: '600' }}>Consumo</Text>
-                <Text style={{ textAlign: 'center', marginTop: 4 }}>
-                  {(item.megasGastadosinBytes
-                    ? (item.megasGastadosinBytes / 1000000).toFixed(2)
-                    : '0.00') + ' MB'}
-                </Text>
-              </View>
-
               <Surface
                 style={{
                   borderRadius: 16,
-                  // elevation: 12,
                   marginTop: 20,
                   backgroundColor: '#546e7a',
-                  // padding: 18,
                 }}
               >
                 <CalendarPicker
@@ -139,22 +212,6 @@ const ProxyCardAdmin = ({
             </>
           ) : (
             <View style={{ paddingTop: 10 }}>
-              <View style={{ width: '100%', marginTop: 4 }}>
-                <Text style={{ textAlign: 'center', fontWeight: '600' }}>Límite de Megas</Text>
-                <Text style={{ textAlign: 'center', marginTop: 4 }}>
-                  {item.megas
-                    ? `${item.megas} MB  →  ${(item.megas / 1024).toFixed(2)} GB`
-                    : 'No configurado'}
-                </Text>
-              </View>
-
-              <View style={{ width: '100%', marginTop: 14 }}>
-                <Text style={{ textAlign: 'center', fontWeight: '600' }}>Consumo</Text>
-                <Text style={{ textAlign: 'center', marginTop: 4 }}>
-                  {consumo.mb} MB  →  {consumo.gb} GB
-                </Text>
-              </View>
-
               <Surface
                 style={{
                   width: '100%',
@@ -249,6 +306,32 @@ const ProxyCardAdmin = ({
     </Card>
   );
 };
+
+const ui = StyleSheet.create({
+  cardShell: { overflow: 'hidden' },
+  accentBar: { height: 4, width: '100%' },
+  content: { paddingTop: 10 },
+  divider: { marginVertical: 10, opacity: 0.2 },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  mutedLabel: { opacity: 0.75, fontWeight: '600' },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerRight: { flexDirection: 'row', alignItems: 'center' },
+  headerIcon: { margin: 0, marginLeft: 4 },
+  helper: { marginTop: 8, opacity: 0.75, fontSize: 12, lineHeight: 16 },
+  kpiRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },
+  kpiItem: { flexGrow: 1, flexBasis: '30%', paddingVertical: 6 },
+  kpiLabel: { fontSize: 12, opacity: 0.65, fontWeight: '600' },
+  kpiValue: { marginTop: 2, fontSize: 14, fontWeight: '800' },
+  progressWrap: { marginTop: 10 },
+  progressMeta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  progressText: { fontSize: 12, opacity: 0.75, fontWeight: '600' },
+  viewChip: { marginLeft: 8, backgroundColor: '#ECEFF1' },
+  viewChipText: { fontWeight: '800', color: '#263238' },
+  editChip: { marginLeft: 8, backgroundColor: '#E3F2FD' },
+  editChipText: { fontWeight: '800', color: '#1565C0' },
+  cancelChip: { marginLeft: 8, backgroundColor: '#E3F2FD' },
+  cancelChipText: { fontWeight: '800', color: '#1565C0' },
+});
 
 const btnStyles = StyleSheet.create({
   action: { marginTop: 8, borderRadius: 20, marginHorizontal: 8 },

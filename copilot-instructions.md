@@ -253,225 +253,84 @@
 
 ---
 
-## Resumen técnico – Integración de Datos Reales en PedidosPreparacionScreen (VentasRechargeCollection)
+## Resumen técnico – Consistencia de métricas (Consumo vs ProgressBar) en Proxy/VPN Cards (cliente)
 
-- **Contexto**: Migración de datos mock a datos reales desde `VentasRechargeCollection` para gestión de pedidos de comercio en modo empresa.
+- **Problema detectado**: el texto “Consumo” y la meta de la `ProgressBar` mostraban valores distintos (ej. 5.36 vs 5.23) por mezclar:
+  - Consumo textual: bytes → GB “decimal” (dividiendo entre `*1000`).
+  - Barra/meta: MB → GB “binario” (dividiendo entre `1024`).
+- **Corrección aplicada**: se unificó el cálculo para que **texto y barra usen el mismo origen**:
+  - Se calcula `consumoMB = bytes / BYTES_IN_MB_APPROX`.
+  - Se deriva `consumoGB` con el mismo formatter `MB/1024` usado en límite/restante y en la barra.
+- **Lección**: en UIs de “usage/quota” no mezclar unidades **GB decimal** (base 1000) y **GiB/GB binario** (base 1024) dentro del mismo componente. Elegir una convención (recomendado: MB→GB con 1024 si el backend almacena MB) y aplicarla en:
+  - KPI de consumo
+  - Meta de progress
+  - Restante
+  - Límite
 
-- **Estructura de Datos VentasRechargeCollection**:
-  ```javascript
-  {
-    _id: "HEJ53wR8kQXWoNyyk",
-    userId: "WwX53qa95tmhuJSrP",
-    producto: {
-      _id: "mGfkr993cRD7Snt2s",
-      userId: "WwX53qa95tmhuJSrP",
-      idOrder: "EFE-1768735970200-WwX53qa95tmhuJSrP",
-      status: "PENDIENTE",
-      type: "EFECTIVO",
-      carritos: [
-        {
-          _id: "uxerPL8dJzyv3EPjn",
-          type: "COMERCIO", // ✅ Filtro clave
-          producto: {
-            name: "Pan para hamburguesa",
-            precio: 200,
-            // ...otros campos
-          },
-          cantidad: 1,
-          comentario: "Sin cebolla por favor",
-          entregado: false,
-          // ...otros campos
-        }
-      ],
-      createdAt: ISODate("2026-01-18T11:32:50.202+0000")
-    },
-    estado: "ENTREGADO", // ✅ Campo clave para flujo
-    metodoPago: "EFECTIVO",
-    cobrado: 26.6,
-    monedaCobrado: "UYU",
-    isCobrado: true,
-    createdAt: ISODate("2026-01-18T11:32:54.565+0000"),
-    cadeteid: "T2aCRKzc3RmLoj6Fa",
-    fechaAsignacion: ISODate("2026-01-18T11:38:00.604+0000")
-  }
-  ```
+---
 
-- **Query Implementado**:
-  ```javascript
-  const { pedidos, loading } = useTracker(() => {
-    const handle = Meteor.subscribe('ventasRecharge', {
-      'producto.carritos.type': 'COMERCIO'
-    });
+## Resumen técnico – Proxy/VPN Cards: consumo (bytes→MB/GB) consistente entre User y Admin
 
-    const ventas = VentasRechargeCollection.find({
-      'producto.carritos.type': 'COMERCIO'
-    }).fetch();
+- **Problema**: El consumo en vista User se calculaba con una constante distinta (`1024000`) y terminaba mostrando valores diferentes a Admin, generando desconfianza en métricas.
+- **Decisión aplicada**:
+  - Para **consumo** (que parte de bytes), se estandariza la conversión a base **decimal** como en Admin:
+    - `MB = bytes / 1_000_000`
+    - `GB = bytes / 1_000_000_000`
+- **Nota importante**:
+  - Los límites/paquetes vienen en **MB** (plan) y suelen convertirse a GB con `MB/1024`. Mezclar “consumo decimal” con “límite binario” puede ser aceptable si el backend ya define así los planes; si se busca coherencia absoluta, se debe definir una convención global (decimal vs binaria) y aplicarla también a límites/restante.
+- **Lección**:
+  - En dashboards de cuota, las discrepancias entre pantallas (User/Admin) deben resolverse con una única convención, documentada y reutilizada por helpers compartidos.
 
-    // Transformación a formato UI
-    const pedidosTransformados = ventas.map((venta) => {
-      const productosComercio = venta.producto?.carritos?.filter(
-        (item) => item.type === 'COMERCIO'
-      ) || [];
+---
 
-      return {
-        _id: venta._id,
-        idOrder: venta.producto?.idOrder || 'N/A',
-        estado: venta.estado || 'PENDIENTE',
-        metodoPago: venta.metodoPago || 'EFECTIVO',
-        totalACobrar: venta.cobrado || 0,
-        moneda: venta.monedaCobrado || 'CUP',
-        createdAt: venta.createdAt || new Date(),
-        productos: productosComercio.map((item) => ({
-          nombre: item.producto?.name || 'Sin nombre',
-          cantidad: item.cantidad || 1,
-          comentario: item.comentario || ''
-        })),
-        cadeteid: venta.cadeteid,
-        fechaAsignacion: venta.fechaAsignacion,
-        isCobrado: venta.isCobrado
-      };
-    });
+## Resumen técnico – Consistencia de Chip de estado (User/Admin) en Proxy/VPN Cards
 
-    return {
-      pedidos: pedidosTransformados,
-      loading: !handle.ready()
-    };
-  });
-  ```
+- **Problema**: En vista Admin el chip usaba labels diferentes (“Habilitado/Deshabilitado”), mientras que en vista User se mostraba “Activo/Inactivo” (Proxy) y “Activa/Inactiva” (VPN). Esto genera inconsistencia visual y semántica.
+- **Corrección aplicada**:
+  - `ProxyCardAdmin`: chip ahora muestra **“Activo / Inactivo”**.
+  - `VpnCardAdmin`: chip ahora muestra **“Activa / Inactiva”**.
+  - Se mantuvieron iconos y colores (verde/rojo) para no romper el patrón de reconocimiento rápido.
+- **Lección**: En dashboards donde Admin ve “lo mismo que el usuario”, los labels de estado deben ser idénticos. Si se requiere un estado más “operativo” (habilitado/deshabilitado), debe mostrarse como texto secundario, no reemplazando el label principal.
 
-- **Transformación de Datos Clave**:
-  - **Filtrado**: Solo items con `type === 'COMERCIO'` desde `producto.carritos`.
-  - **Agrupación**: Un documento de VentasRechargeCollection puede tener múltiples productos de comercio en `carritos`.
-  - **Normalización**: Conversión de estructura nested a formato plano para UI.
-  - **Fallbacks defensivos**: Valores por defecto para campos opcionales (|| operators).
+---
 
-- **Estados de Pedido Reconocidos**:
-  ```javascript
-  const getEstadoConfig = (estado) => {
-    const configs = {
-      PENDIENTE: { color: '#FF9800', icon: 'clock-outline', label: 'Pendiente' },
-      PREPARANDO: { color: '#2196F3', icon: 'chef-hat', label: 'Preparando' },
-      LISTO: { color: '#4CAF50', icon: 'package-check', label: 'Listo' },
-      ENTREGADO: { color: '#4CAF50', icon: 'package-check', label: 'Entregado' }
-    };
-    return configs[estado] || configs.PENDIENTE;
-  };
-  ```
+## Resumen técnico – Consistencia de títulos (User/Admin) en Proxy/VPN Cards
 
-- **Color Dinámico del Header por Carga**:
-  ```javascript
-  const getHeaderColorConfig = (cantidadPedidos) => {
-    if (cantidadPedidos <= 3) return { backgroundColor: '#4CAF50' }; // Verde - Tranquilo
-    if (cantidadPedidos <= 8) return { backgroundColor: '#FF9800' }; // Naranja - Moderado
-    return { backgroundColor: '#F44336' }; // Rojo - Alta demanda
-  };
-  ```
+- **Problema**: En Admin los títulos eran “Datos del Proxy” / “Datos VPN”, mientras que en User eran “Proxy” / “VPN”. Esto rompe consistencia visual y hace que el admin perciba que está en una pantalla distinta aunque vea la misma información.
+- **Corrección aplicada**:
+  - `ProxyCardAdmin`: título cambiado a **“Proxy”**.
+  - `VpnCardAdmin`: título cambiado a **“VPN”**.
+- **Lección**: Para componentes espejo (User/Admin) mantener *mismo título*, *mismo chip de estado* y *misma estructura de cabecera* mejora UX, reduce soporte y evita que el equipo duplique variantes de UI innecesarias.
 
-- **Flujo de Cambio de Estado (Futuro)**:
-  1. **PENDIENTE → PREPARANDO**: Empresa toca "Iniciar" (método `comercio.cambiarEstadoPedido`).
-  2. **PREPARANDO → LISTO**: Empresa toca "Marcar Listo" (actualiza `estado` en VentasRechargeCollection).
-  3. **LISTO → ENTREGADO**: Cadete confirma entrega (actualiza `entregado: true` en `carritos` + `estado: 'ENTREGADO'`).
+---
 
-- **Método Backend Pendiente de Implementar**:
-  ```javascript
-  Meteor.methods({
-    'comercio.cambiarEstadoPedido'(ventaId, nuevoEstado) {
-      check(ventaId, String);
-      check(nuevoEstado, Match.OneOf('PENDIENTE', 'PREPARANDO', 'LISTO', 'ENTREGADO'));
+## Resumen técnico – Consistencia visual (accentBar + CTA chip) entre User/Admin en Proxy/VPN Cards
 
-      // Validar permisos (solo empresa dueña o admin)
-      const venta = VentasRechargeCollection.findOne(ventaId);
-      if (!venta) throw new Meteor.Error('not-found', 'Pedido no encontrado');
+- **Problema**: En Admin, la barra superior (`accentBar`) y el chip de acción (“Ver”) no seguían los mismos tokens visuales que en User (colores y estilo de CTA), creando una sensación de pantallas “distintas” para el mismo servicio.
+- **Corrección aplicada**:
+  - **accentBar**: Se alineó el color por defecto con User:
+    - Proxy: `#546e7a`
+    - VPN: `#4CAF50`
+    - (si `accentColor` viene por props, se respeta para theming futuro).
+  - **CTA chip**: El botón “Ver” se igualó al patrón de User (“Editar”):
+    - Mismo icono (`pencil`), mismo fondo y mismo color de texto por servicio.
+- **Lección**: Para componentes espejo (Admin/User), usar los mismos **design tokens** (colores, iconografía, labels) en:
+  - barra de acento,
+  - chips de acción (Editar/Ver),
+  - chips de estado,
+  evita duplicación de estilos y reduce confusión en soporte/QA. Idealmente, extraer estos tokens a un helper compartido (p.ej. `proxyVpnCardTheme.ts`) para mantener consistencia a futuro.
 
-      const user = Meteor.user();
-      const tiendaIds = TiendasComercioCollection.find(
-        { idUser: user._id },
-        { fields: { _id: 1 } }
-      ).map(t => t._id);
+---
 
-      const esEmpresaDuena = venta.producto?.carritos?.some(item => 
-        item.type === 'COMERCIO' && tiendaIds.includes(item.idTienda)
-      );
+## Resumen técnico – Modo edición en cards espejo (User/Admin): CTA de salida + acentos determinísticos
 
-      if (!esEmpresaDuena && user.profile?.role !== 'admin') {
-        throw new Meteor.Error('not-authorized', 'No tienes permisos para modificar este pedido');
-      }
-
-      // Actualizar estado
-      VentasRechargeCollection.update(ventaId, {
-        $set: { estado: nuevoEstado }
-      });
-
-      // Log de auditoría
-      LogsCollection.insert({
-        type: 'CAMBIO_ESTADO_PEDIDO',
-        userAdmin: user._id,
-        message: `Estado de pedido ${venta.producto?.idOrder} cambiado a ${nuevoEstado}`,
-        createdAt: new Date()
-      });
-
-      return { success: true, estado: nuevoEstado };
-    }
-  });
-  ```
-
-- **Publicación Backend Requerida**:
-  ```javascript
-  Meteor.publish("ventasRecharge", function (selector, option) {
-    // Ya existe en publicaciones.js
-    return VentasRechargeCollection.find(
-      selector ? selector : {},
-      option ? option : {}
-    );
-  });
-  ```
-
-- **Consideraciones de Seguridad**:
-  - **Filtrado por tienda**: Empresa solo debe ver pedidos de SUS tiendas (pendiente de implementar).
-  - **Validación de estado**: Transiciones válidas: PENDIENTE→PREPARANDO→LISTO (no saltar estados).
-  - **Auditoría**: Registrar en LogsCollection quién cambió el estado y cuándo.
-  - **Protección de datos**: No exponer datos de otros usuarios/empresas en la publicación.
-
-- **Mejoras Pendientes de Implementar**:
-  1. **Botones de acción funcionales**:
-     - "Iniciar" (PENDIENTE → PREPARANDO)
-     - "Marcar Listo" (PREPARANDO → LISTO)
-     - "Ver Detalle" (navegación a screen de detalle de pedido)
-  2. **Pantalla de Detalle de Pedido**:
-     - Información completa del cliente
-     - Dirección de entrega (desde `coordenadas`)
-     - Timeline visual del estado
-     - Botón de contacto con cliente
-  3. **Filtros**:
-     - Por estado (PENDIENTE, PREPARANDO, LISTO, ENTREGADO)
-     - Por fecha (Hoy, Última semana, Mes)
-     - Por método de pago (EFECTIVO, TARJETA)
-  4. **Notificaciones Push**:
-     - Alertar a empresa cuando llega nuevo pedido
-     - Alertar a cliente cuando pedido cambia de estado
-  5. **Restricción por Tienda**:
-     - Query debe incluir `{ 'producto.carritos.idTienda': { $in: tiendasIds } }`
-     - Solo mostrar pedidos de las tiendas del usuario logueado
-
-- **Estructura de UI Responsive**:
-  - **Mobile (1 columna)**: Cards apiladas verticalmente
-  - **Tablet (2 columnas)**: Layout de grid con `columnWrapperStyle`
-  - **Loading state**: ActivityIndicator con mensaje "Cargando pedidos..."
-  - **Empty state**: Mensaje "No hay pedidos pendientes" con ícono
-
-- **Testing Recomendado**:
-  - **Caso 1**: Usuario con 0 pedidos → debe mostrar empty state (futuro).
-  - **Caso 2**: Usuario con 1 pedido PENDIENTE → debe mostrar botón "Iniciar".
-  - **Caso 3**: Usuario con 1 pedido PREPARANDO → debe mostrar botón "Marcar Listo".
-  - **Caso 4**: Usuario con 1 pedido LISTO → debe mostrar mensaje "Listo para recoger".
-  - **Caso 5**: Usuario con 10 pedidos → header debe ser naranja/rojo según cantidad.
-  - **Caso 6**: Tocar "Iniciar" → debe cambiar estado a PREPARANDO y actualizar UI reactivamente.
-  - **Caso 7**: Tablet con 4 pedidos → debe mostrar 2 columnas con 2 cards cada una.
-
-- **Lecciones Aprendidas**:
-  - **useTracker sin memo**: Correcto para suscripciones simples que no requieren optimización agresiva.
-  - **Transformación de datos**: Normalizar estructura nested en useTracker evita lógica compleja en componentes.
-  - **Filtrado por type**: Query con `'producto.carritos.type': 'COMERCIO'` es suficiente para filtrar en MongoDB.
-  - **Estado reactivo**: Cambios en VentasRechargeCollection se reflejan automáticamente en UI sin necesidad de refresh manual.
-  - **Fallbacks defensivos**: Usar `|| 'default'` en transformaciones previene crashes por datos incompletos.
-  - **Color
+- **Problema**: Al entrar en modo edición (Admin), el CTA “Editar/Ver” desaparecía o no era claro cómo **cancelar** y volver al modo lectura. Esto rompe la navegabilidad (user puede quedar “atrapado” en edición).
+- **Corrección aplicada**:
+  - En `ProxyCardAdmin` y `VpnCardAdmin`, el chip de acción en modo edición pasa a ser **“Cancelar”** (icon `close-circle`) y llama al handler que vuelve a modo lectura.
+  - Se conservaron los **mismos tokens visuales** (fondo/texto) del chip “Editar” de los cards User para mantener consistencia.
+- **Color de accentBar (Proxy)**:
+  - Se detectó que `accentColor` venía como color dinámico desde `UserDetails`, lo cual es correcto para algunos cards (identidad), pero **NO** para Proxy/VPN donde User ya define colores fijos.
+  - Decisión: `ProxyCardAdmin` fuerza `accentBar = #546e7a` para quedar idéntico a `ProxyCardUser` (evita “random colors” en la barra).
+- **Lección**:
+  - En patrones “read ↔ edit”, siempre debe existir un CTA explícito para salir del estado (Cancelar/Cerrar) visible en el header.
+  - No reutilizar un `accentColor` global si el feature ya tiene colores semánticos propios; preferir colores determinísticos por dominio (Proxy/VPN) para consistencia y QA.

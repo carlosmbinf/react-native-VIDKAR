@@ -50,6 +50,8 @@ import TarjetaDebitoCard from './componentsUserDetails/TarjetaDebitoCard';
 import SaldoRecargasCard from './componentsUserDetails/SaldoRecargasCard'; // NUEVO
 import SendPushMessageCard from '../mensajes/SendPushMessageCard';
 import DeleteAccountCard from './componentsUserDetails/DeleteAccountCard';
+import ProxyCard from './componentsUserDetails/ProxyCard';
+import VpnCard from './componentsUserDetails/VpnCard';
 
 const axios = require('axios').default;
 
@@ -332,6 +334,14 @@ class MyAppUserDetails extends React.Component {
       );
     };
 
+    const accentColor = (() => {
+      const seed = item?.username || item?._id || 'U';
+      let h = 0;
+      for (let i = 0; i < seed.length; i++) h = seed.charCodeAt(i) + ((h << 5) - h);
+      const c = (h & 0x00ffffff).toString(16).toUpperCase();
+      return '#' + '00000'.substring(0, 6 - c.length) + c;
+    })();
+
     return (
       <Surface style={backgroundStyle}>
         <ScrollView
@@ -365,6 +375,7 @@ class MyAppUserDetails extends React.Component {
                         visible={loadventas && deuda() > 0}
                         deuda={deuda}
                         styles={styles}
+                        accentColor={accentColor}
                       />
                     </View>
                   )}
@@ -373,7 +384,7 @@ class MyAppUserDetails extends React.Component {
                   Meteor.user().profile &&
                   Meteor.user().profile.role == 'admin' && (
                     <View style={[styles.cardItem, computedCardWidth]}>
-                      <SaldoRecargasCard refreshKey={this.state.refreshKey} />
+                      <SaldoRecargasCard refreshKey={this.state.refreshKey} accentColor={accentColor} />
                     </View>
                   )}
                 {/* {Meteor.user() &&
@@ -396,85 +407,69 @@ class MyAppUserDetails extends React.Component {
                     edit={this.state.edit}
                     setEdit={(v) => this.setState({edit: v})}
                     navigation={navigation}
+                    accentColor={accentColor}
                   />
                 </View>
                 {/* Fin Datos de Usuario */}
                 {item?.profile?.role == 'admin' &&
                   <View style={[styles.cardItem, computedCardWidth]}>
-                    <TarjetaDebitoCard item={item} styles={styles} />
+                    <TarjetaDebitoCard item={item} styles={styles} accentColor={accentColor} />
                   </View>
                 }
                 {/* Pair Proxy + VPN en misma fila para tablet */}
                 {isTablet ? (
                   <View style={styles.rowPairFull}>
                     <View style={[styles.cardItem, styles.pairItemWidth]}>
-                      {Meteor.user()?.profile?.role === 'admin' ? (
-                        <ProxyCardAdmin
-                          item={item}
-                          styles={styles}
-                          precioslist={precioslist}
-                          handleReiniciarConsumo={handleReiniciarConsumo}
-                          addVenta={addVenta}
-                        />
-                      ) : (
-                        <ProxyCardUser item={item} styles={styles} />
-                      )}
+                      <ProxyCard
+                        item={item}
+                        styles={styles}
+                        accentColor={accentColor}
+                        precioslist={precioslist}
+                        handleReiniciarConsumo={handleReiniciarConsumo}
+                        addVenta={addVenta}
+                      />
                     </View>
                     <View style={[styles.cardItem, styles.pairItemWidth]}>
-                      {Meteor.user()?.profile?.role === 'admin' ? (
-                        <VpnCardAdmin
-                          item={item}
-                          styles={styles}
-                          preciosVPNlist={preciosVPNlist}
-                          handleReiniciarConsumoVPN={handleReiniciarConsumoVPN}
-                          handleVPNStatus={handleVPNStatus}
-                        />
-                      ) : (
-                        <VpnCardUser item={item} styles={styles} />
-                      )}
+                      <VpnCard
+                        item={item}
+                        styles={styles}
+                        accentColor={accentColor}
+                        preciosVPNlist={preciosVPNlist}
+                        handleReiniciarConsumoVPN={handleReiniciarConsumoVPN}
+                        handleVPNStatus={handleVPNStatus}
+                      />
                     </View>
                   </View>
                 ) : (
                   <>
-                    {/* Móvil / no tablet: comportamiento previo (stack) */}
-                    {Meteor.user()?.profile?.role === 'admin' ? (
-                      <View style={[styles.cardItem, computedCardWidth]}>
-                        <ProxyCardAdmin
-                          item={item}
-                          styles={styles}
-                          precioslist={precioslist}
-                          handleReiniciarConsumo={handleReiniciarConsumo}
-                          addVenta={addVenta}
-                        />
-                      </View>
-                    ) : (
-                      <View style={[styles.cardItem, computedCardWidth]}>
-                        <ProxyCardUser item={item} styles={styles} />
-                      </View>
-                    )}
+                    <View style={[styles.cardItem, computedCardWidth]}>
+                      <ProxyCard
+                        item={item}
+                        styles={styles}
+                        accentColor={accentColor}
+                        precioslist={precioslist}
+                        handleReiniciarConsumo={handleReiniciarConsumo}
+                        addVenta={addVenta}
+                      />
+                    </View>
 
-                    {Meteor.user()?.profile?.role === 'admin' ? (
-                      <View style={[styles.cardItem, computedCardWidth]}>
-                        <VpnCardAdmin
-                          item={item}
-                          styles={styles}
-                          preciosVPNlist={preciosVPNlist}
-                          handleReiniciarConsumoVPN={handleReiniciarConsumoVPN}
-                          handleVPNStatus={handleVPNStatus}
-                        />
-                      </View>
-                    ) : (
-                      <View style={[styles.cardItem, computedCardWidth]}>
-                        <VpnCardUser item={item} styles={styles} />
-                      </View>
-                    )}
+                    <View style={[styles.cardItem, computedCardWidth]}>
+                      <VpnCard
+                        item={item}
+                        styles={styles}
+                        accentColor={accentColor}
+                        preciosVPNlist={preciosVPNlist}
+                        handleReiniciarConsumoVPN={handleReiniciarConsumoVPN}
+                        handleVPNStatus={handleVPNStatus}
+                      />
+                    </View>
                   </>
                 )}
 
                 {/* OPCIONES */}
                 {Meteor.user() && Meteor.user().profile.role == 'admin' && (
                   <View style={[styles.cardItem, computedCardWidth]}>
-                    <OptionsCardAdmin item={item} styles={styles} />
+                    <OptionsCardAdmin item={item} styles={styles} accentColor={accentColor} />
                   </View>
                 )}
                 {/* Fin OPCIONES */}

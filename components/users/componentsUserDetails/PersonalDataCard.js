@@ -64,23 +64,26 @@ const PersonalDataCard = ({item, styles}) => {
         <View style={[styles.element, {paddingBottom: 4}]}>
           <View style={{flexDirection: 'row', alignItems: 'center'}}>
             {item.picture ? (
-              <Card.Actions
-                style={{ justifyContent: 'space-around', paddingBottom: 30 }}>
-                <Avatar.Image size={50} source={{ uri: item.picture }} />
-              </Card.Actions>
-            ) :
+              // Antes: Card.Actions con justifyContent space-around (desplaza/centra visualmente)
+              <View style={{marginRight: 12}}>
+                <Avatar.Image size={50} source={{uri: item.picture}} />
+              </View>
+            ) : (
               <Avatar.Text
                 size={52}
                 label={getInitials(fullName || item.username)}
-                style={{ backgroundColor: accentColor, marginRight: 12 }}
-              />}
-            <View style={{flex: 1}}>
+                style={{backgroundColor: accentColor, marginRight: 12}}
+              />
+            )}
+
+            <View style={{flex: 1, alignItems: 'flex-start'}}>
               <Title
-                style={[styles.title, {marginBottom: 4}]}
+                style={[styles.title, {marginBottom: 4, textAlign: 'left', alignSelf: 'flex-start'}]}
                 numberOfLines={1}
                 testID="pd-fullname">
                 {fullName || 'Nombre no definido'}
               </Title>
+
               <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6}}>
                 <Chip
                   compact
@@ -113,14 +116,15 @@ const PersonalDataCard = ({item, styles}) => {
                 )} */}
               </View>
             </View>
-            <IconButton
+            {/* <IconButton
               icon="dots-vertical"
               size={20}
+              style={{marginLeft: 'auto'}}
               onPress={() => {
                 // Placeholder para menú contextual futuro (editar, ver historial, etc.)
               }}
               accessibilityLabel="Acciones datos personales"
-            />
+            /> */}
           </View>
         </View>
 

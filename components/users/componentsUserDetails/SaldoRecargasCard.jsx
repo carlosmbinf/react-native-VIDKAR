@@ -20,7 +20,7 @@ const EXTRAER_NUMERO = (data) => {
   return null;
 };
 
-const SaldoRecargasCard = ({ refreshKey = 0 }) => {
+const SaldoRecargasCard = ({ refreshKey = 0, accentColor }) => {
   const [saldoRaw, setSaldoRaw] = useState(null);
   const [saldo, setSaldo] = useState(null);
   const [balances, setBalances] = useState([]); // NUEVO: lista de balances normalizados
@@ -154,8 +154,11 @@ const SaldoRecargasCard = ({ refreshKey = 0 }) => {
       ? balances[0].currency
       : (saldoRaw?.currency || saldoRaw?.unit || 'USD');
 
+  const headerAccent = accentColor || '#1E88E5';
+
   return (
-    <Card elevation={12} style={styles.card}>
+    <Card elevation={12} style={[styles.card, styles.cardShell]} testID="saldo-recargas-card">
+      <View style={[styles.accentBar, {backgroundColor: headerAccent}]} />
       <Card.Title
         title="Saldo Disponible Recargas"
         subtitle={
@@ -188,7 +191,7 @@ const SaldoRecargasCard = ({ refreshKey = 0 }) => {
           </View>
         ) : saldo != null ? (
           <View style={styles.valueWrapper}>
-            <Text style={styles.amount}>{saldo}</Text>
+            <Text style={styles.amount}>{formatear(saldo)}</Text>
             <Text style={styles.symbol}>
               {balances.length > 1 ? 'TOTAL' : currency}
             </Text>
@@ -271,5 +274,7 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     // backgroundColor: '#f4f6f9'
   },
-  balanceChipText: { fontSize: 11, fontWeight: '600' }
+  balanceChipText: { fontSize: 11, fontWeight: '600' },
+  cardShell: { overflow: 'hidden' },
+  accentBar: { height: 4, width: '100%' },
 });

@@ -30,7 +30,7 @@ const formatDate = (d) => {
   }
 };
 
-const UserDataCard = ({item, styles, edit, setEdit, navigation}) => {
+const UserDataCard = ({item, styles, edit, setEdit, navigation, accentColor}) => {
   const [form, setForm] = useState({username: '', email: ''});
   const [password, setPassword] = useState('');
   const [repeatPassword, setRepeatPassword] = useState('');
@@ -40,6 +40,8 @@ const UserDataCard = ({item, styles, edit, setEdit, navigation}) => {
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState({visible: false, message: '', type: 'info'});
   const [focus, setFocus] = useState(null); // campo enfocado
+
+  const headerAccent = accentColor || '#1976D2';
 
   useEffect(() => {
     if (edit && item) {
@@ -196,8 +198,9 @@ const UserDataCard = ({item, styles, edit, setEdit, navigation}) => {
 
   return (
     <>
-      <Card elevation={12} style={styles.cards} testID="user-data-card">
-        <Card.Content>
+      <Card elevation={12} style={[styles.cards, ui.cardShell]} testID="user-data-card">
+        <View style={[ui.accentBar, {backgroundColor: headerAccent}]} />
+        <Card.Content style={ui.content}>
           <View style={styles.element}>
             {/* Header identidad */}
             <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
@@ -207,7 +210,7 @@ const UserDataCard = ({item, styles, edit, setEdit, navigation}) => {
                 style={{backgroundColor: hashColor(item?.username || item?._id || 'U')}}
               />
               <View style={{marginLeft: 12, flex: 1}}>
-                <Title style={[styles.title, {marginBottom: 2}]} numberOfLines={1}>
+                <Title style={[styles.title, {marginBottom: 4, textAlign: 'left', alignSelf: 'flex-start'}]} numberOfLines={1}>
                   {item?.username || 'Usuario'}
                 </Title>
                 <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6}}>
@@ -369,9 +372,9 @@ const UserDataCard = ({item, styles, edit, setEdit, navigation}) => {
               <>
                 {/* Vista lectura optimizada */}
                 <View style={{marginTop: 4}}>
-                  <Text style={styles.data}>
+                  {/* <Text style={styles.data}>
                     <MaterialCommunityIcons name="account" size={18} /> {item?.username}
-                  </Text>
+                  </Text> */}
                   <Text style={styles.data}>
                     <MaterialCommunityIcons name="email" size={18} /> {item?.emails?.[0]?.address}
                   </Text>
@@ -389,14 +392,8 @@ const UserDataCard = ({item, styles, edit, setEdit, navigation}) => {
       </Card>
 
       {edit && (
-        <Card
-          style={{
-            width: '100%',
-            padding: 10,
-            elevation: 12,
-            borderRadius: 20,
-            marginBottom: 20,
-          }}>
+        <Card style={[ui.passwordCard, ui.cardShell]}>
+          <View style={[ui.accentBar, {backgroundColor: headerAccent}]} />
           <Card.Content>
             <Title style={styles.title}>{'Cambiar Contraseña:'}</Title>
             <TextInput
@@ -475,6 +472,19 @@ const UserDataCard = ({item, styles, edit, setEdit, navigation}) => {
       </Snackbar>
     </>
   );
+};
+
+const ui = {
+  cardShell: {overflow: 'hidden'},
+  accentBar: {height: 4, width: '100%'},
+  content: {paddingTop: 10},
+  passwordCard: {
+    width: '100%',
+    padding: 10,
+    elevation: 12,
+    borderRadius: 20,
+    marginBottom: 20,
+  },
 };
 
 export default memo(UserDataCard);

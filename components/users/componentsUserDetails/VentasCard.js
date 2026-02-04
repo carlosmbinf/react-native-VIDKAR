@@ -26,7 +26,7 @@ const getDebtLevel = (debt) => {
   return {label: 'Deuda alta', color: DANGER};
 };
 
-const VentasCard = ({visible, deuda, styles, onPressDetalles}) => {
+const VentasCard = ({visible, deuda, styles, onPressDetalles, accentColor}) => {
   // if (!visible) return null;
 
   let deudaValue = 0;
@@ -38,10 +38,12 @@ const VentasCard = ({visible, deuda, styles, onPressDetalles}) => {
   }
 
   const level = getDebtLevel(deudaValue);
+  const headerAccent = accentColor || ACCENT;
 
   return (
-    <Card elevation={12} style={styles.cards}>
-      <Card.Content>
+    <Card elevation={12} style={[styles.cards, s.cardShell]} testID="ventas-card">
+      <View style={[s.accentBar, {backgroundColor: headerAccent}]} />
+      <Card.Content style={s.content}>
         {/* Header */}
         <View style={s.headerRow}>
           <Title style={[s.title, {color: ACCENT}]}>Ventas</Title>
@@ -86,6 +88,9 @@ const VentasCard = ({visible, deuda, styles, onPressDetalles}) => {
 };
 
 const s = StyleSheet.create({
+  cardShell: {overflow: 'hidden'},
+  accentBar: {height: 4, width: '100%'},
+  content: {paddingTop: 10},
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',

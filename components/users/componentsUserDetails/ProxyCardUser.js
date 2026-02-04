@@ -1,83 +1,155 @@
 import React, { memo, useMemo } from 'react';
-import { View } from 'react-native';
-import { Card, Title, Text, Chip, Divider } from 'react-native-paper';
+import { View, StyleSheet } from 'react-native';
+import { Card, Title, Text, Chip, Divider, ProgressBar } from 'react-native-paper';
 
-const BYTES_IN_MB_APPROX = 1024000;
+const BYTES_IN_MB_DECIMAL = 1000000;
+const BYTES_IN_GB_DECIMAL = 1000000000;
 const formatLimitDate = (moment, d) =>
   d ? moment.utc(d).format('DD-MM-YYYY') : 'Fecha límite sin especificar';
 
-const ProxyCardUser = ({ item, styles, momentLib }) => {
+const formatGB = (mb) => {
+  const n = Number(mb) || 0;
+  return (n / 1024).toFixed(2);
+};
+
+const clamp01 = (n) => Math.max(0, Math.min(1, n));
+
+const ProxyCardUser = ({ item, styles, momentLib, accentColor, canEdit, onRequestEdit }) => {
   if (!item) return null;
   const moment = momentLib || require('moment');
 
   const shouldRender = item.megasGastadosinBytes || item.fechaSubscripcion || item.megas;
   if (!shouldRender) return null;
 
+  const statusActivo = !item.baneado;
+  const headerAccent = accentColor || '#546e7a';
+
   const consumo = useMemo(() => {
     const bytes = item.megasGastadosinBytes || 0;
     return {
-      mb: (bytes / BYTES_IN_MB_APPROX).toFixed(2),
-      gb: (bytes / (BYTES_IN_MB_APPROX * 1000)).toFixed(2),
+      bytes,
+      mb: bytes / BYTES_IN_MB_DECIMAL,
+      gb: bytes / BYTES_IN_GB_DECIMAL,
     };
   }, [item.megasGastadosinBytes]);
 
-  const statusActivo = !item.baneado;
+  const limiteMB = Number(item.megas || 0);
+  const consumoMB = consumo.mb; // ✅ ahora en MB decimal como Admin
+  const consumoGB = consumo.gb; // ✅ ahora en GB decimal como Admin
+  const restanteMB = Math.max(0, limiteMB - consumoMB);
+  const progress = item.isIlimitado || !limiteMB ? 0 : clamp01(consumoMB / limiteMB);
+
+  const limitLabel = item.isIlimitado
+    ? 'Por tiempo'
+    : limiteMB
+      ? `${formatGB(limiteMB)} GB`
+      : 'No configurado';
+
+  const helper =
+    !statusActivo
+      ? 'El servicio está deshabilitado. Contacta a soporte si necesitas reactivarlo.'
+      : item.isIlimitado
+        ? `Vence: ${formatLimitDate(moment, item.fechaSubscripcion)}`
+        : limiteMB
+          ? `Restante aprox.: ${formatGB(restanteMB)} GB`
+          : 'No hay un límite asignado aún.';
 
   return (
-    <Card elevation={12} style={styles.cards} testID="proxyUserCard">
-      <Card.Content>
-        <View style={styles.element}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-            <Title style={styles.title}>Datos del Proxy</Title>
+    <Card elevation={12} style={[styles.cards, ui.cardShell]} testID="proxyUserCard">
+      <View style={[ui.accentBar, { backgroundColor: headerAccent }]} />
+      <Card.Content style={ui.content}>
+        <View style={ui.headerRow}>
+          <Title style={[styles.title, ui.headerTitle]}>Proxy</Title>
+
+          <View style={ui.headerRight}>
             <Chip
               compact
               icon={statusActivo ? 'check-circle' : 'close-circle'}
-              style={{ backgroundColor: statusActivo ? '#2e7d32' : '#c62828' }}
+              style={[ui.statusChip, { backgroundColor: statusActivo ? '#2e7d32' : '#c62828' }]}
               selectedColor="#fff"
               testID="proxyStatusChip"
             >
-              {statusActivo ? 'Habilitado' : 'Deshabilitado'}
+              {statusActivo ? 'Activo' : 'Inactivo'}
             </Chip>
+
+            {!!canEdit && (
+              <Chip
+                compact
+                icon="pencil"
+                mode="flat"
+                onPress={onRequestEdit}
+                style={ui.editChip}
+                textStyle={ui.editChipText}
+                testID="proxyEditBtn"
+              >
+                Editar
+              </Chip>
+            )}
+          </View>
+        </View>
+
+        <Text style={ui.helper}>{helper}</Text>
+
+        <Divider style={ui.divider} />
+
+        {/* KPIs */}
+        <View style={ui.kpiRow}>
+          <View style={ui.kpiItem}>
+            <Text style={ui.kpiLabel}>{item.isIlimitado ? 'Tipo' : 'Límite'}</Text>
+            <Text style={ui.kpiValue}>{limitLabel}</Text>
           </View>
 
-          <Divider style={{ marginTop: 4, opacity: 0.4 }} />
+          <View style={ui.kpiItem}>
+            <Text style={ui.kpiLabel}>Consumo</Text>
+            <Text style={ui.kpiValue}>
+              {consumoGB.toFixed(2)} GB
+            </Text>
+          </View>
 
-            {item.isIlimitado ? (
-              <View style={{ width: '100%', marginTop: 14 }}>
-                <Text style={{ textAlign: 'center', fontWeight: '600' }}>Fecha Límite</Text>
-                <Text style={{ textAlign: 'center', marginTop: 4 }}>
-                  {formatLimitDate(moment, item.fechaSubscripcion)}
-                </Text>
-              </View>
-            ) : (
-              <View style={{ width: '100%', marginTop: 14 }}>
-                <Text style={{ textAlign: 'center', fontWeight: '600' }}>Límite de Megas</Text>
-                <Text style={{ textAlign: 'center', marginTop: 4 }}>
-                  {item.megas
-                    ? `${item.megas} MB  →  ${(item.megas / 1024).toFixed(2)} GB`
-                    : 'No configurado'}
-                </Text>
-              </View>
-            )}
-
-            <View style={{ width: '100%', marginTop: 14 }}>
-              <Text style={{ textAlign: 'center', fontWeight: '600' }}>Consumo</Text>
-              <Text style={{ textAlign: 'center', marginTop: 4 }}>
-                {consumo.mb} MB  →  {consumo.gb} GB
-              </Text>
+          {!item.isIlimitado && !!limiteMB && (
+            <View style={ui.kpiItem}>
+              <Text style={ui.kpiLabel}>Restante</Text>
+              <Text style={ui.kpiValue}>{formatGB(restanteMB)} GB</Text>
             </View>
-
-            {/* Estado ya expresado en Chip, se mantiene compatibilidad */}
-            {/* <View style={{ width: '100%', marginTop: 14 }}>
-              <Text style={{ textAlign: 'center', fontWeight: '600' }}>Estado</Text>
-              <Text style={{ textAlign: 'center', marginTop: 4 }}>
-                {statusActivo ? 'Habilitado' : 'Deshabilitado'}
-              </Text>
-            </View> */}
+          )}
         </View>
+
+        {/* Barra: solo si es por megas y hay límite */}
+        {!item.isIlimitado && !!limiteMB && (
+          <View style={ui.progressWrap}>
+            <View style={ui.progressMeta}>
+              <Text style={ui.progressText}>
+                {(consumoMB / 1024).toFixed(2)} / {formatGB(limiteMB)} GB
+              </Text>
+              <Text style={ui.progressText}>{Math.round(progress * 100)}%</Text>
+            </View>
+            <ProgressBar progress={progress} color={progress > 0.8 ? '#F57C00' : '#1E88E5'} />
+          </View>
+        )}
       </Card.Content>
     </Card>
   );
 };
+
+const ui = StyleSheet.create({
+  cardShell: { overflow: 'hidden' },
+  accentBar: { height: 4, width: '100%' },
+  content: { paddingTop: 10 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerTitle: { textAlign: 'left', paddingBottom: 0 },
+  statusChip: { alignSelf: 'flex-start' },
+  helper: { marginTop: 6, opacity: 0.75, fontSize: 12, lineHeight: 16 },
+  divider: { marginVertical: 10, opacity: 0.2 },
+  kpiRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },
+  kpiItem: { flexGrow: 1, flexBasis: '30%', paddingVertical: 6 },
+  kpiLabel: { fontSize: 12, opacity: 0.65, fontWeight: '600' },
+  kpiValue: { marginTop: 2, fontSize: 14, fontWeight: '800' },
+  progressWrap: { marginTop: 10 },
+  progressMeta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  progressText: { fontSize: 12, opacity: 0.75, fontWeight: '600' },
+  headerRight: { flexDirection: 'row', alignItems: 'center' },
+  editChip: { marginLeft: 8, backgroundColor: '#E3F2FD' },
+  editChipText: { fontWeight: '800', color: '#1565C0' },
+});
 
 export default memo(ProxyCardUser);

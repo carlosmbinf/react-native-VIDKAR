@@ -1,93 +1,162 @@
 import React, { memo, useMemo } from 'react';
-import { View } from 'react-native';
-import { Card, Title, Text, Chip, Divider } from 'react-native-paper';
+import { View, StyleSheet } from 'react-native';
+import { Card, Title, Text, Chip, Divider, ProgressBar } from 'react-native-paper';
 
-// Helpers reutilizables (pensado para futura extracción a utils/)
-const BYTES_IN_MB_APPROX = 1024000; // se mantiene la conversión ya usada en el proyecto
-const formatDate = d =>
-  d instanceof Date
-    ? `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(
-        d.getUTCDate(),
-      ).padStart(2, '0')}`
-    : 'Fecha límite sin especificar';
+const BYTES_IN_MB_APPROX = 1024000; // mantener conversión ya usada en este módulo/proyecto
+const BYTES_IN_MB_DECIMAL = 1000000;
+const BYTES_IN_GB_DECIMAL = 1000000000;
+const clamp01 = (n) => Math.max(0, Math.min(1, n));
 
-const getPlanLabel = item =>
-  item.vpnplus ? 'VPN PLUS' : item.vpn2mb ? 'VPN 2MB' : 'Sin Plan';
+const formatLimitDate = (moment, d) =>
+  d ? moment.utc(d).format('DD-MM-YYYY') : 'Fecha límite sin especificar';
 
-const VpnCardUser = ({ item, styles }) => {
+const formatGBFromMB = (mb) => {
+  const n = Number(mb) || 0;
+  return (n / 1024).toFixed(2);
+};
+
+const getPlanLabel = (item) =>
+  item?.vpnplus ? 'VPN PLUS' : item?.vpn2mb ? 'VPN 2MB' : 'VPN';
+
+const VpnCardUser = ({ item, styles, momentLib, accentColor, canEdit, onRequestEdit }) => {
   if (!item) return null;
+  const moment = momentLib || require('moment');
 
-  const shouldRender = item.vpnMbGastados || item.vpnfechaSubscripcion || item.vpnmegas;
+  const shouldRender = item.vpnMbGastados || item.vpnfechaSubscripcion || item.vpnmegas || item.vpn;
   if (!shouldRender) return null;
 
-  const isIlimitado = !!item.vpnisIlimitado;
-  const statusActivo = !!item.vpn;
+  const statusActivo = item.vpn === true;
+  const headerAccent = accentColor || '#4CAF50';
 
   const consumo = useMemo(() => {
     const bytes = item.vpnMbGastados || 0;
     return {
-      mb: (bytes / BYTES_IN_MB_APPROX).toFixed(2),
-      gb: (bytes / (BYTES_IN_MB_APPROX * 1000)).toFixed(2),
+      bytes,
+      mb: bytes / BYTES_IN_MB_DECIMAL,
+      gb: bytes / BYTES_IN_GB_DECIMAL,
     };
   }, [item.vpnMbGastados]);
 
+  const limiteMB = Number(item.vpnmegas || 0);
+  const consumoMB = consumo.mb; // ✅ MB decimal como Admin
+  const consumoGB = consumo.gb; // ✅ GB decimal como Admin
+  const restanteMB = Math.max(0, limiteMB - consumoMB);
+  const progress = item.vpnisIlimitado || !limiteMB ? 0 : clamp01(consumoMB / limiteMB);
+
+  const limitLabel = item.vpnisIlimitado
+    ? 'Por tiempo'
+    : limiteMB
+      ? `${formatGBFromMB(limiteMB)} GB`
+      : 'No configurado';
+
+  const helper =
+    !statusActivo
+      ? 'El servicio está deshabilitado. Contacta a soporte si necesitas reactivarlo.'
+      : item.vpnisIlimitado
+        ? `Vence: ${formatLimitDate(moment, item.vpnfechaSubscripcion)}`
+        : limiteMB
+          ? `Restante aprox.: ${formatGBFromMB(restanteMB)} GB`
+          : 'No hay un límite asignado aún.';
+
   return (
-    <Card elevation={12} style={styles.cards} testID="vpnUserCard">
-      <Card.Content>
-        <View style={styles.element}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-              <Title style={styles.title}>Datos VPN</Title>
+    <Card elevation={12} style={[styles.cards, ui.cardShell]} testID="vpnUserCard">
+      <View style={[ui.accentBar, { backgroundColor: headerAccent }]} />
+      <Card.Content style={ui.content}>
+        <View style={ui.headerRow}>
+          <Title style={[styles.title, ui.headerTitle]}>VPN</Title>
+
+          <View style={ui.headerRight}>
+            <Chip
+              compact
+              icon={statusActivo ? 'check-circle' : 'close-circle'}
+              style={[ui.statusChip, { backgroundColor: statusActivo ? '#2e7d32' : '#c62828' }]}
+              selectedColor="#fff"
+              testID="vpnStatusChip"
+            >
+              {statusActivo ? 'Activa' : 'Inactiva'}
+            </Chip>
+
+            {!!canEdit && (
               <Chip
                 compact
-                icon={statusActivo ? 'check-circle' : 'close-circle'}
-                selectedColor="#fff"
-                style={{
-                  backgroundColor: statusActivo ? '#2e7d32' : '#c62828',
-                }}
-                testID="vpnStatusChip"
+                icon="pencil"
+                mode="flat"
+                onPress={onRequestEdit}
+                style={ui.editChip}
+                textStyle={ui.editChipText}
+                testID="vpnEditBtn"
               >
-                {statusActivo ? 'Habilitada' : 'Deshabilitada'}
+                Editar
               </Chip>
-            </View>
-
-            <Divider style={{ marginTop: 4, opacity: 0.4 }} />
-
-            <View style={{ width: '100%', borderRadius: 16, marginTop: 14 }}>
-              <Text style={{ textAlign: 'center', fontWeight: '600' }}>Oferta / Límite</Text>
-              <Text style={{ textAlign: 'center', marginTop: 4 }}>{getPlanLabel(item)}</Text>
-              {isIlimitado ? (
-                <Text style={{ paddingBottom: 4, textAlign: 'center', opacity: 0.85 }}>
-                  {item.vpnfechaSubscripcion
-                    ? formatDate(item.vpnfechaSubscripcion)
-                    : 'Fecha límite sin especificar'}
-                </Text>
-              ) : (
-                <Text style={{ paddingBottom: 4, textAlign: 'center', opacity: 0.85 }}>
-                  {item.vpnmegas
-                    ? `${item.vpnmegas} MB  →  ${(item.vpnmegas / 1024).toFixed(2)} GB`
-                    : 'Límite de megas no definido'}
-                </Text>
-              )}
-            </View>
-
-            <View style={{ width: '100%', borderRadius: 16, marginTop: 10 }}>
-              <Text style={{ textAlign: 'center', fontWeight: '600' }}>Consumo</Text>
-              <Text style={{ textAlign: 'center', marginTop: 4 }}>
-                {consumo.mb} MB  →  {consumo.gb} GB
-              </Text>
-            </View>
-
-            {/* Estado expresado ya en el Chip superior; se mantiene bloque por compatibilidad */}
-            {/* <View style={{ width: '100%', borderRadius: 16, marginTop: 10 }}>
-              <Text style={{ textAlign: 'center', fontWeight: '600' }}>Estado</Text>
-              <Text style={{ textAlign: 'center', marginTop: 4 }}>
-                {statusActivo ? 'Habilitado' : 'Deshabilitado'}
-              </Text>
-            </View> */}
+            )}
+          </View>
         </View>
+
+        <Text style={ui.helper}>{helper}</Text>
+
+        <Divider style={ui.divider} />
+
+        {/* KPIs (mismo diseño que ProxyCardUser) */}
+        <View style={ui.kpiRow}>
+          <View style={ui.kpiItem}>
+            <Text style={ui.kpiLabel}>Plan</Text>
+            <Text style={ui.kpiValue}>{getPlanLabel(item)}</Text>
+          </View>
+
+          <View style={ui.kpiItem}>
+            <Text style={ui.kpiLabel}>{item.vpnisIlimitado ? 'Tipo' : 'Límite'}</Text>
+            <Text style={ui.kpiValue}>{limitLabel}</Text>
+          </View>
+
+          <View style={ui.kpiItem}>
+            <Text style={ui.kpiLabel}>Consumo</Text>
+            <Text style={ui.kpiValue}>{consumoGB.toFixed(2)} GB</Text>
+          </View>
+
+          {!item.vpnisIlimitado && !!limiteMB && (
+            <View style={ui.kpiItem}>
+              <Text style={ui.kpiLabel}>Restante</Text>
+              <Text style={ui.kpiValue}>{formatGBFromMB(restanteMB)} GB</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Barra: solo si es por megas y hay límite */}
+        {!item.vpnisIlimitado && !!limiteMB && (
+          <View style={ui.progressWrap}>
+            <View style={ui.progressMeta}>
+              <Text style={ui.progressText}>
+                {(consumoMB / 1024).toFixed(2)} / {formatGBFromMB(limiteMB)} GB
+              </Text>
+              <Text style={ui.progressText}>{Math.round(progress * 100)}%</Text>
+            </View>
+            <ProgressBar progress={progress} color={progress > 0.8 ? '#F57C00' : '#4CAF50'} />
+          </View>
+        )}
       </Card.Content>
     </Card>
   );
 };
+
+const ui = StyleSheet.create({
+  cardShell: { overflow: 'hidden' },
+  accentBar: { height: 4, width: '100%' },
+  content: { paddingTop: 10 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerTitle: { textAlign: 'left', paddingBottom: 0 },
+  statusChip: { alignSelf: 'flex-start' },
+  helper: { marginTop: 6, opacity: 0.75, fontSize: 12, lineHeight: 16 },
+  divider: { marginVertical: 10, opacity: 0.2 },
+  kpiRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },
+  kpiItem: { flexGrow: 1, flexBasis: '30%', paddingVertical: 6 },
+  kpiLabel: { fontSize: 12, opacity: 0.65, fontWeight: '600' },
+  kpiValue: { marginTop: 2, fontSize: 14, fontWeight: '800' },
+  progressWrap: { marginTop: 10 },
+  progressMeta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  progressText: { fontSize: 12, opacity: 0.75, fontWeight: '600' },
+  headerRight: { flexDirection: 'row', alignItems: 'center' },
+  editChip: { marginLeft: 8, backgroundColor: '#E8F5E9' },
+  editChipText: { fontWeight: '800', color: '#2E7D32' },
+});
 
 export default memo(VpnCardUser);
