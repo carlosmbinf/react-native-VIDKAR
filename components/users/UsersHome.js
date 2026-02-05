@@ -17,7 +17,10 @@ import {
   Appbar,
   Banner,
   IconButton,
-  ActivityIndicator
+  ActivityIndicator,
+  ProgressBar,
+  Chip,
+  Card
 } from 'react-native-paper';
 import Meteor, { withTracker } from '@meteorrn/core';
 
@@ -39,6 +42,7 @@ import DrawerOptionsAlls from '../drawer/DrawerOptionsAlls';
 import { useSafeAreaInsets, withSafeAreaInsets } from 'react-native-safe-area-context';
 import MenuHeader from '../Header/MenuHeader';
 import { ScrollView } from 'react-native-gesture-handler';
+import UserAvatar from './UserAvatar';
 
 const { width: screenWidth } = Dimensions.get('window');
 const { height: screenHeight } = Dimensions.get('window');
@@ -125,129 +129,192 @@ class MyApp extends React.Component {
     );
 
     const Item = item => {
-      let descripcion = <View>
-      <Text style={{fontWeight:'bold'}}>{item.username}</Text>
-      <Text>VPN:     {item.vpnMbGastados ? (item.vpnMbGastados / 1024000000).toFixed(2) : 0}GB = {item.vpnMbGastados ? (item.vpnMbGastados / 1024000).toFixed(2) : 0} MB</Text>
-      <Text>PROXY: {item.megasGastadosinBytes ? (item.megasGastadosinBytes / 1024000000).toFixed(2) : 0}GB = {item.megasGastadosinBytes ? (item.megasGastadosinBytes / 1024000).toFixed(2) : 0} MB</Text>
-    </View>
+      // Constantes para conversiones binarias (mismas que los cards)
+      const BYTES_IN_MB_BINARY = 1048576;
+      const BYTES_IN_GB_BINARY = 1073741824;
+      const clamp01 = (n) => Math.max(0, Math.min(1, n));
+      const formatGB = (mb) => ((Number(mb) || 0) / 1024).toFixed(2);
+
+      // Estados de servicios
+      const vpnActivo = item.vpn === true;
+      const proxyActivo = item.baneado === false;
+      const vpnPorMegas = !item.vpnisIlimitado && item.vpnmegas > 0;
+      const proxyPorMegas = !item.isIlimitado && item.megas > 0;
+
+      // Cálculos de consumo VPN
+      const vpnConsumidoBytes = item.vpnMbGastados || 0;
+      const vpnConsumidoMB = vpnConsumidoBytes / BYTES_IN_MB_BINARY;
+      const vpnConsumidoGB = vpnConsumidoBytes / BYTES_IN_GB_BINARY;
+      const vpnLimiteMB = Number(item.vpnmegas || 0);
+      const vpnProgress = vpnPorMegas ? clamp01(vpnConsumidoMB / vpnLimiteMB) : 0;
+
+      // Cálculos de consumo Proxy
+      const proxyConsumidoBytes = item.megasGastadosinBytes || 0;
+      const proxyConsumidoMB = proxyConsumidoBytes / BYTES_IN_MB_BINARY;
+      const proxyConsumidoGB = proxyConsumidoBytes / BYTES_IN_GB_BINARY;
+      const proxyLimiteMB = Number(item.megas || 0);
+      const proxyProgress = proxyPorMegas ? clamp01(proxyConsumidoMB / proxyLimiteMB) : 0;
+
+      const descripcion = (
+        <View style={styles.itemDescription}>
+          {/* Información del usuario */}
+          <View style={styles.userInfo}>
+            <Text style={styles.username}>{item.username}</Text>
+          </View>
+
+          <View style={styles.servicesContainer}>
+            {/* VPN Section */}
+            <View style={styles.serviceSection}>
+              <View style={styles.serviceHeader}>
+                <View style={styles.serviceLeft}>
+                  <Chip
+                    mode="flat" 
+                    compact
+                    icon={vpnActivo ? 'shield-check' : 'shield-off'}
+                    style={[
+                      styles.serviceChip, 
+                      { 
+                        backgroundColor: vpnActivo ? '#e8f5e9' : '#f5f5f5',
+                        opacity: vpnActivo ? 1 : 0.7
+                      }
+                    ]}
+                    textStyle={{ 
+                      color: vpnActivo ? '#2e7d32' : '#666', 
+                      fontSize: 10, 
+                      fontWeight: '600' 
+                    }}
+                  >
+                    VPN
+                  </Chip>
+                  {!vpnActivo && (
+                    <Text style={styles.inactiveLabel}>Inactivo</Text>
+                  )}
+                </View>
+                
+                {vpnActivo && (
+                  <Text style={styles.consumoText}>
+                    {vpnConsumidoGB.toFixed(1)} GB
+                    {vpnPorMegas && ` / ${formatGB(vpnLimiteMB)} GB`}
+                    {item.vpnisIlimitado && ' (∞)'}
+                  </Text>
+                )}
+              </View>
+              
+              {vpnActivo && vpnPorMegas && (
+                <View style={styles.progressContainer}>
+                  <View style={styles.progressWrapper}>
+                    <ProgressBar 
+                      progress={vpnProgress} 
+                      color={vpnProgress > 0.8 ? '#FF5722' : vpnProgress > 0.6 ? '#FF9800' : '#4CAF50'}
+                      style={styles.progressBar}
+                    />
+                  </View>
+                  <Text style={styles.progressText}>{Math.round(vpnProgress * 100)}%</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Proxy Section */}
+            <View style={styles.serviceSection}>
+              <View style={styles.serviceHeader}>
+                <View style={styles.serviceLeft}>
+                  <Chip
+                    mode="flat"
+                    compact
+                    icon={proxyActivo ? 'wifi-check' : 'wifi-off'}
+                    style={[
+                      styles.serviceChip, 
+                      { 
+                        backgroundColor: proxyActivo ? '#e3f2fd' : '#f5f5f5',
+                        opacity: proxyActivo ? 1 : 0.7
+                      }
+                    ]}
+                    textStyle={{ 
+                      color: proxyActivo ? '#1565c0' : '#666', 
+                      fontSize: 10, 
+                      fontWeight: '600' 
+                    }}
+                  >
+                    PROXY
+                  </Chip>
+                  {!proxyActivo && (
+                    <Text style={styles.inactiveLabel}>Inactivo</Text>
+                  )}
+                </View>
+                
+                {proxyActivo && (
+                  <Text style={styles.consumoText}>
+                    {proxyConsumidoGB.toFixed(1)} GB
+                    {proxyPorMegas && ` / ${formatGB(proxyLimiteMB)} GB`}
+                    {item.isIlimitado && ' (∞)'}
+                  </Text>
+                )}
+              </View>
+              
+              {proxyActivo && proxyPorMegas && (
+                <View style={styles.progressContainer}>
+                  <View style={styles.progressWrapper}>
+                    <ProgressBar 
+                      progress={proxyProgress} 
+                      color={proxyProgress > 0.8 ? '#FF5722' : proxyProgress > 0.6 ? '#FF9800' : '#1E88E5'}
+                      style={styles.progressBar}
+                    />
+                  </View>
+                  <Text style={styles.progressText}>{Math.round(proxyProgress * 100)}%</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+      );
+
       return (
         <Surface
-          key={'Surface_' + item._id}
-          style={{elevation: 12, margin: 10, borderRadius: 10}}>
+          elevation={5}
+          key={'Card_' + item._id}
+          style={styles.itemCard}>
           <List.Item
-            borderless={false}
+          style={{borderRadius: 12}}
+            // borderless={true}
             key={'Item_' + item._id}
             onPress={() => {
               navigation.navigation.navigate('User', {item: item._id});
             }}
             title={item && item.profile.firstName + ' ' + item.profile.lastName}
             description={descripcion}
-            left={props =>
-              item && item.picture ? (
-                <View style={{justifyContent: 'center'}}>
-                  <Badge
-                    size={20}
-                    style={{
-                      position: 'absolute',
-                      bottom: '20%',
-                      right: 17,
-                      zIndex: 1,
-                      backgroundColor:
-                      isConnectedProxyOrWeb &&
-                      isConnectedProxyOrWeb.length > 0 &&
-                      isConnectedProxyOrWeb.filter(
-                        online => online.userId && online.userId == item._id,
-                      ).length > 0
-                        ? isConnectedProxyOrWeb.filter(
-                            online =>
-                              online.userId &&
-                              online.userId == item._id &&
-                              online.hostname != null,
-                          ).length > 0
-                          ? '#10ffE0'
-                          : '#102dff'
-                        : item.vpnplusConnected || item.vpn2mbConnected
-                        ? '#10ff00'
-                        : null,
-                      borderColor: 'white',
-                      borderWidth: 3,
-                    }}
-                    visible={
-                      item.vpnplusConnected ||
-                      item.vpn2mbConnected ||
-                      (isConnectedProxyOrWeb &&
-                        isConnectedProxyOrWeb.length > 0 &&
-                        isConnectedProxyOrWeb.filter(
-                          online => online.userId && online.userId == item._id,
-                        ).length > 0)
-                        ? true
-                        : false
-                      // connected
-                    }
-                  />
-                  <Avatar.Image
-                    {...props}
+            left={props => {
+              // Determinar tipo de conexión
+              const hasWebConnection = isConnectedProxyOrWeb &&
+                isConnectedProxyOrWeb.length > 0 &&
+                isConnectedProxyOrWeb.filter(
+                  online => online.userId && online.userId == item._id && online.hostname != null
+                ).length > 0;
+              
+              const hasProxyConnection = isConnectedProxyOrWeb &&
+                isConnectedProxyOrWeb.length > 0 &&
+                isConnectedProxyOrWeb.filter(
+                  online => online.userId && online.userId == item._id && !online.hostname
+                ).length > 0;
+              
+              const hasVpnConnection = item.vpnplusConnected || item.vpn2mbConnected;
+              
+              const isConnected = hasWebConnection || hasProxyConnection || hasVpnConnection;
+              const connectionType = hasWebConnection ? 'web' : hasProxyConnection ? 'proxy' : 'vpn';
+
+              return (
+                <View style={styles.avatarContainer}>
+                  <UserAvatar 
+                    user={item}
+                    isConnected={isConnected}
+                    connectionType={connectionType}
                     size={50}
-                    source={{uri: item.picture}}
                   />
                 </View>
-              ) : (
-                <View style={{justifyContent: 'center'}}>
-                  <Badge
-                    size={20}
-                    style={{
-                      position: 'absolute',
-                      bottom: '20%',
-                      right: 17,
-                      zIndex: 1,
-                      backgroundColor:
-                        isConnectedProxyOrWeb &&
-                        isConnectedProxyOrWeb.length > 0 &&
-                        isConnectedProxyOrWeb.filter(
-                          online => online.userId && online.userId == item._id,
-                        ).length > 0
-                          ? isConnectedProxyOrWeb.filter(
-                              online =>
-                                online.userId &&
-                                online.userId == item._id &&
-                                online.hostname != null,
-                            ).length > 0
-                            ? '#10ffE0'
-                            : '#102dff'
-                          : item.vpnplusConnected || item.vpn2mbConnected
-                          ? '#10ff00'
-                          : null,
-                      borderColor: 'white',
-                      borderWidth: 3,
-                    }}
-                    visible={
-                      item.vpnplusConnected ||
-                      item.vpn2mbConnected ||
-                      (isConnectedProxyOrWeb &&
-                        isConnectedProxyOrWeb.length > 0 &&
-                        isConnectedProxyOrWeb.filter(
-                          online => online.userId && online.userId == item._id,
-                        ).length > 0)
-                        ? true
-                        : false
-                      // connected
-                    }
-                  />
-                  <Avatar.Text
-                    {...props}
-                    size={50}
-                    label={
-                      item.profile.firstName.toString().slice(0, 1) +
-                      item.profile.lastName.toString().slice(0, 1)
-                    }
-                  />
-                </View>
-              )
-            }
-            // right={props => ()}
+              );
+            }}
             right={props => {
               return (
-                <View style={{justifyContent: 'center'}}>
+                <View style={styles.rightContainer}>
                   {item.idtelegram && (
                     <IconButton
                       loading={true}
@@ -256,7 +323,6 @@ class MyApp extends React.Component {
                           ? 'cellphone-message'
                           : 'cellphone-message-off'
                       }
-                      // disabled={this.state.valuevpn ? false : true}
                       color={item.notificarByTelegram ? 'black' : 'red'}
                       mode="contained"
                       size={30}
@@ -372,7 +438,7 @@ class MyApp extends React.Component {
                         <Appbar.Action icon="magnify" color={"white"} disabled={this.state.activeBanner} onPress={() => this.setState({ activeBanner: true })} />
 
                         <MenuHeader
-                          navigation={navigation}
+                          navigation={navigation.navigation}
                         />
                       </View>
                     </View>
@@ -405,9 +471,9 @@ class MyApp extends React.Component {
   }
 }
 const UserHome = withTracker(navigation => {
-  const handle = Meteor.subscribe('user', ((Meteor.user() && Meteor.user().username == "carlosmbinf") ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { fields: { username: 1, profile: 1, picture: 1, vpnMbGastados: 1, megasGastadosinBytes: 1, idtelegram: 1,notificarByTelegram:1,vpnplusConnected:1,vpn2mbConnected:1 } });
+  const handle = Meteor.subscribe('user', ((Meteor.user() && Meteor.user().username == "carlosmbinf") ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { fields: { username: 1, profile: 1, picture: 1, vpnMbGastados: 1, megasGastadosinBytes: 1, idtelegram: 1, notificarByTelegram:1, vpnplusConnected:1, vpn2mbConnected:1, vpn: 1, baneado: 1, vpnisIlimitado: 1, isIlimitado: 1, vpnmegas: 1, megas: 1 } });
   const handleOnline =  Meteor.subscribe("conexiones",{},{fields:{userId:1,hostname:1}})
-  let myTodoTasks = Meteor.users.find(((Meteor.user() && Meteor.user().username == "carlosmbinf") ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { "vpnMbGastados": -1, "megasGastadosinBytes": -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, picture: 1, vpnMbGastados: 1, megasGastadosinBytes: 1, idtelegram: 1 , notificarByTelegram:1,vpnplusConnected:1,vpn2mbConnected:1} }).fetch();
+  let myTodoTasks = Meteor.users.find(((Meteor.user() && Meteor.user().username == "carlosmbinf") ? {} : { $or: [{ "bloqueadoDesbloqueadoPor": Meteor.userId() }, { "bloqueadoDesbloqueadoPor": { $exists: false } }, { "bloqueadoDesbloqueadoPor": { $in: [""] } }] }), { sort: { "vpnMbGastados": -1, "megasGastadosinBytes": -1, 'profile.firstName': 1, 'profile.lastName': 1 }, fields: { username: 1, profile: 1, picture: 1, vpnMbGastados: 1, megasGastadosinBytes: 1, idtelegram: 1 , notificarByTelegram:1, vpnplusConnected:1, vpn2mbConnected:1, vpn: 1, baneado: 1, vpnisIlimitado: 1, isIlimitado: 1, vpnmegas: 1, megas: 1} }).fetch();
 
   let isConnectedProxyOrWeb = Online.find({},{fields:{userId:1,hostname:1}}).fetch()
   
@@ -453,7 +519,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     flex: 1,
-    marginBottom: Platform.select({ ios: 0, android: 1 }), // Prevent a random Android rendering issue
+    marginBottom: Platform.select({ ios: 0, android: 1 }),
     backgroundColor: 'white',
     borderRadius: 8,
   },
@@ -462,6 +528,106 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   data: {},
+  // Nuevos estilos para items profesionales
+  itemCard: {
+    margin: 10, 
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    // Añadir sombra adicional en iOS
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 5,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  itemDescription: {
+    marginTop: 2,
+    paddingHorizontal: 4,
+  },
+  userInfo: {
+    marginBottom: 10,
+  },
+  username: {
+    fontWeight: 'bold',
+    fontSize: 12,
+    color: '#444',
+    letterSpacing: 0.2,
+  },
+  servicesContainer: {
+    gap: 8,
+  },
+  serviceSection: {
+    backgroundColor: '#fafafa',
+    borderRadius: 8,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  serviceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  serviceLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  serviceChip: {
+    // height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  inactiveLabel: {
+    fontSize: 9,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  consumoText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#555',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+  },
+  progressWrapper: {
+    flex: 1,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: 6,
+    borderRadius: 3,
+  },
+  progressText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#666',
+    minWidth: 28,
+    textAlign: 'right',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  avatarContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rightContainer: {
+    justifyContent: 'center'
+  },
 });
 
 export default UserHome;

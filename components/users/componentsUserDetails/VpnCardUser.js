@@ -2,9 +2,8 @@ import React, { memo, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Card, Title, Text, Chip, Divider, ProgressBar } from 'react-native-paper';
 
-const BYTES_IN_MB_APPROX = 1024000; // mantener conversión ya usada en este módulo/proyecto
-const BYTES_IN_MB_DECIMAL = 1000000;
-const BYTES_IN_GB_DECIMAL = 1000000000;
+const BYTES_IN_MB_BINARY = 1048576;
+const BYTES_IN_GB_BINARY = 1073741824;
 const clamp01 = (n) => Math.max(0, Math.min(1, n));
 
 const formatLimitDate = (moment, d) =>
@@ -32,8 +31,8 @@ const VpnCardUser = ({ item, styles, momentLib, accentColor, canEdit, onRequestE
     const bytes = item.vpnMbGastados || 0;
     return {
       bytes,
-      mb: bytes / BYTES_IN_MB_DECIMAL,
-      gb: bytes / BYTES_IN_GB_DECIMAL,
+      mb: bytes / BYTES_IN_MB_BINARY,
+      gb: bytes / BYTES_IN_GB_BINARY,
     };
   }, [item.vpnMbGastados]);
 
@@ -126,7 +125,7 @@ const VpnCardUser = ({ item, styles, momentLib, accentColor, canEdit, onRequestE
           <View style={ui.progressWrap}>
             <View style={ui.progressMeta}>
               <Text style={ui.progressText}>
-                {(consumoMB / 1024).toFixed(2)} / {formatGBFromMB(limiteMB)} GB
+                {consumoGB.toFixed(2)} / {formatGBFromMB(limiteMB)} GB
               </Text>
               <Text style={ui.progressText}>{Math.round(progress * 100)}%</Text>
             </View>

@@ -2,8 +2,8 @@ import React, { memo, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Card, Title, Text, Chip, Divider, ProgressBar } from 'react-native-paper';
 
-const BYTES_IN_MB_DECIMAL = 1000000;
-const BYTES_IN_GB_DECIMAL = 1000000000;
+const BYTES_IN_MB_BINARY = 1048576;
+const BYTES_IN_GB_BINARY = 1073741824;
 const formatLimitDate = (moment, d) =>
   d ? moment.utc(d).format('DD-MM-YYYY') : 'Fecha límite sin especificar';
 
@@ -28,8 +28,8 @@ const ProxyCardUser = ({ item, styles, momentLib, accentColor, canEdit, onReques
     const bytes = item.megasGastadosinBytes || 0;
     return {
       bytes,
-      mb: bytes / BYTES_IN_MB_DECIMAL,
-      gb: bytes / BYTES_IN_GB_DECIMAL,
+      mb: bytes / BYTES_IN_MB_BINARY,
+      gb: bytes / BYTES_IN_GB_BINARY,
     };
   }, [item.megasGastadosinBytes]);
 
@@ -119,7 +119,7 @@ const ProxyCardUser = ({ item, styles, momentLib, accentColor, canEdit, onReques
           <View style={ui.progressWrap}>
             <View style={ui.progressMeta}>
               <Text style={ui.progressText}>
-                {(consumoMB / 1024).toFixed(2)} / {formatGB(limiteMB)} GB
+                {consumoGB.toFixed(2)} / {formatGB(limiteMB)} GB
               </Text>
               <Text style={ui.progressText}>{Math.round(progress * 100)}%</Text>
             </View>

@@ -857,3 +857,71 @@ Resumen técnico – Implementación de Pantallas de Compra Proxy/VPN (ProxyPurc
   - Solución en [components/proxyVPN/ProxyVPNPackagesHorizontal.jsx](components/proxyVPN/ProxyVPNPackagesHorizontal.jsx):
     - Añadir `paddingTop/paddingBottom` en `flatListContent` para dar “aire” a la sombra inferior.
   - Lección: cuando una card tiene sombra, el contenedor debe reservar espacio extra; preferir padding del `FlatList` antes que alterar el layout interno de la card.
+
+---
+
+## Resumen técnico – Corrección de Cálculos de Consumo VPN/PROXY (Cards User/Admin)
+- **Problema identificado**: Inconsistencia entre cálculo del progress bar (conversión binaria) y texto de consumo (conversión decimal) en cards de usuario.
+- **Solución aplicada**: Unificación de todos los cálculos usando conversión binaria (1024) para consistencia total:
+  - **Constantes**: BYTES_IN_MB_BINARY = 1,048,576 (1024²), BYTES_IN_GB_BINARY = 1,073,741,824 (1024³)
+  - **Conversiones**: Bytes → MB (÷1048576), MB → GB (÷1024), consistente en texto y progress bar
+  - **Cards afectados**: ProxyCardUser, VpnCardUser, ProxyCardAdmin, VpnCardAdmin
+
+- **Lecciones técnicas**:
+  - **Consistencia de cálculo crítica**: Texto de consumo y progress bar deben usar exactamente la misma lógica de conversión.
+  - **Conversión binaria vs decimal**: En sistemas de almacenamiento y redes, 1024 es estándar técnico (binario), 1000 es estándar comercial (decimal).
+  - **formatGB() centralizado**: Una función para formatear evita inconsistencias entre componentes.
+  - **Validaciones defensivas**: `Number(valor || 0)` y `clamp01()` previenen NaN y valores fuera del rango 0-1.
+
+- **Mejoras futuras recomendadas**: Centralizar constantes de conversión en un módulo compartido (utils/dataUtils.js) para evitar duplicación en múltiples componentes.
+
+---
+
+## Resumen técnico – Rediseño UX de Lista de Usuarios (Progress Bars y Cards Profesionales)
+- **Problema**: Elevation no visible en modo light y UX inconsistente en lista de usuarios con datos de consumo básicos.
+
+- **Solución de Elevation**:
+  - **Surface → Card**: Cambio de componente para mejor manejo de elevation.
+  - **backgroundColor explícito**: '#ffffff' para contraste con sombras en modo light.
+  - **Platform-specific shadows**: iOS (shadowColor/shadowOffset/shadowOpacity/shadowRadius), Android (elevation).
+
+- **Rediseño de Progress Bars Profesional**:
+  - **Altura mejorada**: 6px (era 2px) para mejor visibilidad.
+  - **Wrapper con background**: Container gris como baseline visual del progress.
+  - **Códigos de color inteligentes**: Verde (0-60%), Naranja (60-80%), Rojo (>80%) para indicar criticidad.
+  - **Layout mejorado**: flex: 1 en wrapper, gap consistente, estilos tipográficos monospace para números.
+
+- **Estados Visuales Consistentes**:
+  - **Siempre mostrar servicios**: VPN/Proxy visibles con estado "Inactivo" cuando no están activos.
+  - **Iconografía semántica**: shield-check/shield-off (VPN), wifi-check/wifi-off (Proxy).
+  - **Progress bars condicionales**: Solo cuando servicio activo Y no ilimitado Y tiene límite > 0.
+  - **Chips diferenciados**: Colores y opacity diferentes para activo/inactivo.
+
+- **Consistencia de Conversiones**:
+  - **Misma lógica que cards**: BYTES_IN_MB_BINARY/BYTES_IN_GB_BINARY para cálculos idénticos.
+  - **Formato mejorado**: `.toFixed(1)` en GB para legibilidad, símbolo infinito (∞) para ilimitados.
+  - **Suscribe campos requeridos**: vpn, baneado, vpnisIlimitado, isIlimitado, vpnmegas, megas agregados a withTracker.
+
+- **Mejoras de Layout**:
+  - **Containers anidados**: servicesContainer con gap, serviceSection con background/border/padding.
+  - **Jerarquía tipográfica**: letterSpacing, fontFamily monospace para datos numéricos.
+  - **Spacing profesional**: gap, padding y margin coherentes en toda la jerarquía visual.
+
+- **Consideraciones técnicas críticas**:
+  - **Performance**: Cálculos en render function (no useMemo) aceptable para listas <100 items.
+  - **Platform differences**: iOS requiere shadowColor explícito, Android usa elevation nativo.
+  - **Data consistency**: Validación defensiva para evitar crashes con datos null/undefined.
+  - **Visual hierarchy**: Username destacado, servicios agrupados, progress bars como elementos secundarios pero visibles.
+
+- **Lecciones aprendidas**:
+  - **Surface vs Card**: Card maneja elevation más consistentemente entre temas.
+  - **Progress Bar UX**: Background visual crítico para percepción de progreso.
+  - **Color coding semántico**: Verde/Naranja/Rojo universalmente entendidos como OK/Warning/Danger.
+  - **Monospace fonts**: Esenciales para alineación visual de datos numéricos en listas.
+  - **Conditional rendering vs opacity**: Mostrar elementos inactivos con opacity mejor UX que ocultar completamente.
+
+- **Próximos pasos recomendados**:
+  - Aplicar el mismo patrón visual a otras listas de la app (servidores, logs, ventas).
+  - Crear components reutilizables: ServiceChip, DataProgressBar, UserListItem.
+  - Tests de regression para verificar cálculos idénticos entre cards y lista.
+  - Accessibility: labels apropiados para screen readers en progress bars.

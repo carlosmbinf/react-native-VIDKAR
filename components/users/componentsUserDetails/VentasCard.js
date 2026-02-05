@@ -1,6 +1,6 @@
 import React, {memo} from 'react';
 import {View, StyleSheet} from 'react-native';
-import {Card, Title, Text, Chip, Button, Divider} from 'react-native-paper';
+import {Card, Title, Text, Chip, Button, Divider,Surface} from 'react-native-paper';
 
 const ACCENT = '#1E88E5';
 const WARN = '#F57C00';
@@ -41,7 +41,7 @@ const VentasCard = ({visible, deuda, styles, onPressDetalles, accentColor}) => {
   const headerAccent = accentColor || ACCENT;
 
   return (
-    <Card elevation={12} style={[styles.cards, s.cardShell]} testID="ventas-card">
+    <Surface elevation={5} style={[styles.cards, s.cardShell]} testID="ventas-card">
       <View style={[s.accentBar, {backgroundColor: headerAccent}]} />
       <Card.Content style={s.content}>
         {/* Header */}
@@ -83,7 +83,7 @@ const VentasCard = ({visible, deuda, styles, onPressDetalles, accentColor}) => {
           </Button> */}
         </View>
       </Card.Content>
-    </Card>
+    </Surface>
   );
 };
 

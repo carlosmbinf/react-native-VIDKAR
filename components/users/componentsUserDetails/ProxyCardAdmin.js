@@ -8,7 +8,7 @@ import { Logs } from '../../collections/collections';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const BYTES_IN_MB_APPROX = 1024000;
+const BYTES_IN_MB_BINARY = 1048576;
 const formatLimitDate = (moment, d) =>
   d ? moment.utc(d).format('DD-MM-YYYY') : 'Fecha límite sin especificar';
 
@@ -36,8 +36,8 @@ const ProxyCardAdmin = ({
   const consumo = useMemo(() => {
     const bytes = item.megasGastadosinBytes || 0;
     return {
-      mb: (bytes / BYTES_IN_MB_APPROX).toFixed(2),
-      gb: (bytes / (BYTES_IN_MB_APPROX * 1000)).toFixed(2),
+      mb: (bytes / BYTES_IN_MB_BINARY).toFixed(2),
+      gb: (bytes / (BYTES_IN_MB_BINARY * 1024)).toFixed(2),
     };
   }, [item.megasGastadosinBytes]);
 
@@ -49,7 +49,7 @@ const ProxyCardAdmin = ({
   const statusActivo = !item.baneado;
   const headerAccent = accentColor || '#546e7a';
 
-  const consumoMBn = Number(item.megasGastadosinBytes || 0) / BYTES_IN_MB_APPROX;
+  const consumoMBn = Number(item.megasGastadosinBytes || 0) / BYTES_IN_MB_BINARY;
   const limiteMB = Number(item.megas || 0);
   const progress = item.isIlimitado || !limiteMB ? 0 : clamp01(consumoMBn / limiteMB);
   const restanteMB = Math.max(0, limiteMB - consumoMBn);

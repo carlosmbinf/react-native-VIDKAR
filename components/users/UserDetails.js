@@ -199,7 +199,7 @@ class MyAppUserDetails extends React.Component {
     };
     const backgroundStyle = {
       height: screenHeight,
-      paddingBottom: 20,
+      paddingBottom: 100,
     };
 
     const {isTablet, currentWidth} = this.state;

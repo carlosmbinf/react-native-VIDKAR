@@ -9,7 +9,7 @@ import { Logs } from '../../collections/collections';
 const { width: screenWidth } = Dimensions.get('window');
 
 // Helpers reutilizables
-const BYTES_IN_MB_APPROX = 1000000; // este admin card ya usaba 1e6 base decimal
+const BYTES_IN_MB_BINARY = 1048576; // conversión binaria consistente
 const formatDate = (d, moment) =>
   d ? moment.utc(d).format('YYYY-MM-DD') : 'Fecha límite sin especificar';
 const getPlanLabel = item =>
@@ -39,8 +39,8 @@ const VpnCardAdmin = ({
   const consumo = useMemo(() => {
     const bytes = item.vpnMbGastados || 0;
     return {
-      mb: (bytes / BYTES_IN_MB_APPROX).toFixed(2),
-      gb: (bytes / (BYTES_IN_MB_APPROX * 1000)).toFixed(2),
+      mb: (bytes / BYTES_IN_MB_BINARY).toFixed(2),
+      gb: (bytes / (BYTES_IN_MB_BINARY * 1024)).toFixed(2),
     };
   }, [item.vpnMbGastados]);
 
@@ -54,7 +54,7 @@ const VpnCardAdmin = ({
   const headerAccent = accentColor || '#4CAF50';
   const statusActivo = item.vpn === true;
 
-  const consumoMBn = Number(item.vpnMbGastados || 0) / BYTES_IN_MB_APPROX;
+  const consumoMBn = Number(item.vpnMbGastados || 0) / BYTES_IN_MB_BINARY;
   const limiteMB = Number(item.vpnmegas || 0);
   const restanteMB = Math.max(0, limiteMB - consumoMBn);
   const progress = item.vpnisIlimitado || !limiteMB ? 0 : clamp01(consumoMBn / limiteMB);
