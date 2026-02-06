@@ -65,12 +65,12 @@ const ServiceProgressPill = ({
         <Chip
           mode="outlined"
           compact
-          icon={icon}
+          // icon={icon}
           style={{
             backgroundColor: 'transparent',
             borderWidth: 0,
           }}
-          textStyle={{ fontSize: 10, fontWeight: '700' }}>
+          textStyle={{ fontSize: 10, fontWeight: '700', color:'black' }}>
           {label}
         </Chip>
 

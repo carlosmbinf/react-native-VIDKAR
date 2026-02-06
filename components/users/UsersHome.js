@@ -103,13 +103,14 @@ const ServiceProgressPill = ({
         <Chip
           mode="outlined"
           compact
-          icon={icon}
+          // icon={icon}
           style={{
             backgroundColor: 'transparent',
             borderWidth: 0,
             // borderColor: 'rgba(0,0,0,0.06)',
+            // color: "black",
           }}
-          textStyle={{ fontSize: 10, fontWeight: '700' }}>
+          textStyle={{ fontSize: 10, fontWeight: '700', color:'black' }}>
           {label}
         </Chip>
 
@@ -121,7 +122,9 @@ const ServiceProgressPill = ({
             fontSize: 11,
             opacity: 0.85,
             fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-          }}>
+            color: "black",
+          }}
+          >
           {rightText}
         </Text>
       </View>
@@ -146,7 +149,11 @@ class MyApp extends React.Component {
       userName: "",
       firstName: "",
       activeBanner: false,
-      drawer: false
+      drawer: false,
+      // Nuevos filtros
+      filtroVPN: null, // null = todos, true = activo, false = inactivo
+      filtroProxy: null, // null = todos, true = activo, false = inactivo
+      filtroConexion: null, // null = todos, 'conectado', 'desconectado'
     };
     !Meteor.userId() && navigation.navigation.navigate("Loguin")
   }
@@ -163,12 +170,21 @@ class MyApp extends React.Component {
       <Banner
         visible={this.state.activeBanner}
         actions={[{
-          label: "Ocultar Filtro",
+          label: "Limpiar Filtros",
+          onPress: () => this.setState({ 
+            userName: "",
+            filtroVPN: null,
+            filtroProxy: null,
+            filtroConexion: null
+          })
+        }, {
+          label: "Ocultar",
           onPress: () => this.setState({ activeBanner: false })
         }]}
         style={{
           alignItems: 'center',
-          justifyContent: 'center', margin: 0
+          justifyContent: 'center', 
+          margin: 0
         }}
       >
         <View
@@ -178,8 +194,10 @@ class MyApp extends React.Component {
             alignItems: 'center',
             justifyContent: 'center',
             width: screenWidth - 40,
+            gap: 12,
           }}>
 
+          {/* Búsqueda por texto */}
           <TextInput
             autoFocus={true}
             focusable={true}
@@ -198,13 +216,116 @@ class MyApp extends React.Component {
               borderRadius: 30,
               borderColor: 'black',
               borderWidth: 1,
-              // backgroundColor: '',
               width: '100%',
               padding: 10,
               height: 45,
             }}
             textStyle={{ color: '#000' }}
           />
+
+          {/* Filtros de Servicio */}
+          <View style={styles.filterSection}>
+            <Text style={styles.filterLabel}>Servicio VPN:</Text>
+            <View style={styles.chipGroup}>
+              <Chip 
+                mode={this.state.filtroVPN === null ? "flat" : "outlined"}
+                selected={this.state.filtroVPN === null}
+                onPress={() => this.setState({ filtroVPN: null })}
+                style={styles.filterChip}
+              >
+                Todos
+              </Chip>
+              <Chip 
+                mode={this.state.filtroVPN === true ? "flat" : "outlined"}
+                selected={this.state.filtroVPN === true}
+                icon="shield-check"
+                onPress={() => this.setState({ filtroVPN: true })}
+                style={[styles.filterChip, this.state.filtroVPN === true && { backgroundColor: '#2E7D32' }]}
+                textStyle={this.state.filtroVPN === true && { color: 'white' }}
+              >
+                Activo
+              </Chip>
+              <Chip 
+                mode={this.state.filtroVPN === false ? "flat" : "outlined"}
+                selected={this.state.filtroVPN === false}
+                icon="shield-off"
+                onPress={() => this.setState({ filtroVPN: false })}
+                style={[styles.filterChip, this.state.filtroVPN === false && { backgroundColor: '#D32F2F' }]}
+                textStyle={this.state.filtroVPN === false && { color: 'white' }}
+              >
+                Inactivo
+              </Chip>
+            </View>
+          </View>
+
+          <View style={styles.filterSection}>
+            <Text style={styles.filterLabel}>Servicio Proxy:</Text>
+            <View style={styles.chipGroup}>
+              <Chip 
+                mode={this.state.filtroProxy === null ? "flat" : "outlined"}
+                selected={this.state.filtroProxy === null}
+                onPress={() => this.setState({ filtroProxy: null })}
+                style={styles.filterChip}
+              >
+                Todos
+              </Chip>
+              <Chip 
+                mode={this.state.filtroProxy === true ? "flat" : "outlined"}
+                selected={this.state.filtroProxy === true}
+                icon="wifi-check"
+                onPress={() => this.setState({ filtroProxy: true })}
+                style={[styles.filterChip, this.state.filtroProxy === true && { backgroundColor: '#1565C0' }]}
+                textStyle={this.state.filtroProxy === true && { color: 'white' }}
+              >
+                Activo
+              </Chip>
+              <Chip 
+                mode={this.state.filtroProxy === false ? "flat" : "outlined"}
+                selected={this.state.filtroProxy === false}
+                icon="wifi-off"
+                onPress={() => this.setState({ filtroProxy: false })}
+                style={[styles.filterChip, this.state.filtroProxy === false && { backgroundColor: '#D32F2F' }]}
+                textStyle={this.state.filtroProxy === false && { color: 'white' }}
+              >
+                Inactivo
+              </Chip>
+            </View>
+          </View>
+
+          {/* Filtros de Conexión */}
+          <View style={styles.filterSection}>
+            <Text style={styles.filterLabel}>Estado de Conexión:</Text>
+            <View style={styles.chipGroup}>
+              <Chip 
+                mode={this.state.filtroConexion === null ? "flat" : "outlined"}
+                selected={this.state.filtroConexion === null}
+                onPress={() => this.setState({ filtroConexion: null })}
+                style={styles.filterChip}
+              >
+                Todos
+              </Chip>
+              <Chip 
+                mode={this.state.filtroConexion === 'conectado' ? "flat" : "outlined"}
+                selected={this.state.filtroConexion === 'conectado'}
+                icon="account-check"
+                onPress={() => this.setState({ filtroConexion: 'conectado' })}
+                style={[styles.filterChip, this.state.filtroConexion === 'conectado' && { backgroundColor: '#2E7D32' }]}
+                textStyle={this.state.filtroConexion === 'conectado' && { color: 'white' }}
+              >
+                Conectado
+              </Chip>
+              <Chip 
+                mode={this.state.filtroConexion === 'desconectado' ? "flat" : "outlined"}
+                selected={this.state.filtroConexion === 'desconectado'}
+                icon="account-off"
+                onPress={() => this.setState({ filtroConexion: 'desconectado' })}
+                style={[styles.filterChip, this.state.filtroConexion === 'desconectado' && { backgroundColor: '#757575' }]}
+                textStyle={this.state.filtroConexion === 'desconectado' && { color: 'white' }}
+              >
+                Desconectado
+              </Chip>
+            </View>
+          </View>
         </View>
       </Banner>
 
@@ -353,30 +474,107 @@ class MyApp extends React.Component {
     const admins = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => {
       if (!user || !user.profile || user.profile.role !== "admin") return false;
       
+      // Filtro por texto
       const searchTerm = this.state.userName.toLowerCase().trim();
-      if (!searchTerm) return true; // Si no hay término de búsqueda, mostrar todos
-      
-      const username = user.username ? user.username.toLowerCase() : "";
-      const firstName = user.profile?.firstName ? user.profile.firstName.toLowerCase() : "";
-      const lastName = user.profile?.lastName ? user.profile.lastName.toLowerCase() : "";
-      
-      return username.includes(searchTerm) || 
-             firstName.includes(searchTerm) || 
-             lastName.includes(searchTerm);
+      if (searchTerm) {
+        const username = user.username ? user.username.toLowerCase() : "";
+        const firstName = user.profile?.firstName ? user.profile.firstName.toLowerCase() : "";
+        const lastName = user.profile?.lastName ? user.profile.lastName.toLowerCase() : "";
+        
+        if (!username.includes(searchTerm) && 
+            !firstName.includes(searchTerm) && 
+            !lastName.includes(searchTerm)) {
+          return false;
+        }
+      }
+
+      // Filtro VPN
+      if (this.state.filtroVPN !== null) {
+        const vpnActivo = user.vpn === true;
+        if (this.state.filtroVPN !== vpnActivo) return false;
+      }
+
+      // Filtro Proxy
+      if (this.state.filtroProxy !== null) {
+        const proxyActivo = user.baneado === false;
+        if (this.state.filtroProxy !== proxyActivo) return false;
+      }
+
+      // Filtro Conexión
+      if (this.state.filtroConexion !== null) {
+        const hasWebConnection = isConnectedProxyOrWeb &&
+          isConnectedProxyOrWeb.length > 0 &&
+          isConnectedProxyOrWeb.filter(
+            online => online.userId && online.userId == user._id && online.hostname != null
+          ).length > 0;
+        
+        const hasProxyConnection = isConnectedProxyOrWeb &&
+          isConnectedProxyOrWeb.length > 0 &&
+          isConnectedProxyOrWeb.filter(
+            online => online.userId && online.userId == user._id && !online.hostname
+          ).length > 0;
+        
+        const hasVpnConnection = user.vpnplusConnected || user.vpn2mbConnected;
+        const isConnected = hasWebConnection || hasProxyConnection || hasVpnConnection;
+
+        if (this.state.filtroConexion === 'conectado' && !isConnected) return false;
+        if (this.state.filtroConexion === 'desconectado' && isConnected) return false;
+      }
+
+      return true;
     }).map(element => Item(element))
+
     const users = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => {
       if (!user || !user.profile || user.profile.role !== "user") return false;
       
+      // Filtro por texto
       const searchTerm = this.state.userName.toLowerCase().trim();
-      if (!searchTerm) return true; // Si no hay término de búsqueda, mostrar todos
-      
-      const username = user.username ? user.username.toLowerCase() : "";
-      const firstName = user.profile?.firstName ? user.profile.firstName.toLowerCase() : "";
-      const lastName = user.profile?.lastName ? user.profile.lastName.toLowerCase() : "";
-      
-      return username.includes(searchTerm) || 
-             firstName.includes(searchTerm) || 
-             lastName.includes(searchTerm);
+      if (searchTerm) {
+        const username = user.username ? user.username.toLowerCase() : "";
+        const firstName = user.profile?.firstName ? user.profile.firstName.toLowerCase() : "";
+        const lastName = user.profile?.lastName ? user.profile.lastName.toLowerCase() : "";
+        
+        if (!username.includes(searchTerm) && 
+            !firstName.includes(searchTerm) && 
+            !lastName.includes(searchTerm)) {
+          return false;
+        }
+      }
+
+      // Filtro VPN
+      if (this.state.filtroVPN !== null) {
+        const vpnActivo = user.vpn === true;
+        if (this.state.filtroVPN !== vpnActivo) return false;
+      }
+
+      // Filtro Proxy
+      if (this.state.filtroProxy !== null) {
+        const proxyActivo = user.baneado === false;
+        if (this.state.filtroProxy !== proxyActivo) return false;
+      }
+
+      // Filtro Conexión
+      if (this.state.filtroConexion !== null) {
+        const hasWebConnection = isConnectedProxyOrWeb &&
+          isConnectedProxyOrWeb.length > 0 &&
+          isConnectedProxyOrWeb.filter(
+            online => online.userId && online.userId == user._id && online.hostname != null
+          ).length > 0;
+        
+        const hasProxyConnection = isConnectedProxyOrWeb &&
+          isConnectedProxyOrWeb.length > 0 &&
+          isConnectedProxyOrWeb.filter(
+            online => online.userId && online.userId == user._id && !online.hostname
+          ).length > 0;
+        
+        const hasVpnConnection = user.vpnplusConnected || user.vpn2mbConnected;
+        const isConnected = hasWebConnection || hasProxyConnection || hasVpnConnection;
+
+        if (this.state.filtroConexion === 'conectado' && !isConnected) return false;
+        if (this.state.filtroConexion === 'desconectado' && isConnected) return false;
+      }
+
+      return true;
     }).map(element => Item(element))
 
     const drawerStyles = {
@@ -536,7 +734,7 @@ const styles = StyleSheet.create({
   itemCard: {
     margin: 10, 
     borderRadius: 12,
-    backgroundColor: '#ffffff',
+    // backgroundColor: '#ffffff',
     // Añadir sombra adicional en iOS
     ...Platform.select({
       ios: {
@@ -560,7 +758,7 @@ const styles = StyleSheet.create({
   username: {
     fontWeight: 'bold',
     fontSize: 12,
-    color: '#444',
+    // color: '#444',
     letterSpacing: 0.2,
   },
   servicesContainer: {
@@ -572,6 +770,25 @@ const styles = StyleSheet.create({
   },
   rightContainer: {
     justifyContent: 'center'
+  },
+  // Nuevos estilos para filtros
+  filterSection: {
+    width: '100%',
+    gap: 6,
+  },
+  filterLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.7,
+    marginBottom: 2,
+  },
+  chipGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterChip: {
+    minWidth: 80,
   },
 });
 
