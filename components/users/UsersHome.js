@@ -66,6 +66,7 @@ const ServiceProgressPill = ({
   rightText,
   height = 34,
   palette,
+  width
 }) => {
   const safeRatio = clamp01(ratio);
   const tone = getUsageTone(safeRatio, palette);
@@ -79,6 +80,7 @@ const ServiceProgressPill = ({
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: 'rgba(0,0,0,0.06)',
+        width,
       }}>
       <View
         style={{
@@ -380,6 +382,7 @@ class MyApp extends React.Component {
               ratio={vpnActivo && vpnPorMegas ? vpnProgress : 0}
               rightText={vpnRightText}
               palette={{ ok: '#2E7D32' }}
+              width={220}
             />
 
             <ServiceProgressPill
