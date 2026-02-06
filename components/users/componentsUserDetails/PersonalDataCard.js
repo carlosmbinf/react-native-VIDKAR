@@ -105,26 +105,8 @@ const PersonalDataCard = ({item, styles}) => {
                     ? 'Completo'
                     : `Incompleto (${completeness.percent}%)`}
                 </Chip>
-                {/* {!!firstGiven && !!lastName && (
-                  <Chip
-                    compact
-                    icon="account-badge"
-                    style={{backgroundColor: '#E3F2FD', marginBottom: 4}}
-                    textStyle={{fontSize: 11, color: '#1565C0'}}>
-                    Identificado
-                  </Chip>
-                )} */}
               </View>
             </View>
-            {/* <IconButton
-              icon="dots-vertical"
-              size={20}
-              style={{marginLeft: 'auto'}}
-              onPress={() => {
-                // Placeholder para menú contextual futuro (editar, ver historial, etc.)
-              }}
-              accessibilityLabel="Acciones datos personales"
-            /> */}
           </View>
         </View>
 

@@ -47,6 +47,88 @@ import UserAvatar from './UserAvatar';
 const { width: screenWidth } = Dimensions.get('window');
 const { height: screenHeight } = Dimensions.get('window');
 
+const clamp01 = (n) => Math.max(0, Math.min(1, Number.isFinite(n) ? n : 0));
+
+const formatGB = (mb) => ((Number(mb) || 0) / 1024).toFixed(2);
+
+const getUsageTone = (ratio01, { ok, warn, danger } = {}) => {
+  const r = clamp01(ratio01);
+  if (r >= 0.8) return { fill: danger || '#D32F2F', track: '#FFEBEE' };
+  if (r >= 0.6) return { fill: warn || '#EF6C00', track: '#FFF3E0' };
+  return { fill: ok || '#2E7D32', track: '#E8F5E9' };
+};
+
+// UI: progress “contenedor” (fill abajo + contenido overlay)
+const ServiceProgressPill = ({
+  label,
+  icon,
+  ratio,
+  rightText,
+  height = 34,
+  palette,
+}) => {
+  const safeRatio = clamp01(ratio);
+  const tone = getUsageTone(safeRatio, palette);
+
+  return (
+    <View
+      style={{
+        height,
+        borderRadius: height / 2,
+        backgroundColor: tone.track,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.06)',
+      }}>
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: `${safeRatio * 100}%`,
+          backgroundColor: tone.fill,
+          opacity: 0.22,
+        }}
+      />
+      <View
+        style={{
+          flex: 1,
+          paddingHorizontal: 10,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+        }}>
+        <Chip
+          mode="outlined"
+          compact
+          icon={icon}
+          style={{
+            backgroundColor: 'transparent',
+            borderWidth: 0,
+            // borderColor: 'rgba(0,0,0,0.06)',
+          }}
+          textStyle={{ fontSize: 10, fontWeight: '700' }}>
+          {label}
+        </Chip>
+
+        <Text
+          numberOfLines={1}
+          style={{
+            flex: 1,
+            textAlign: 'right',
+            fontSize: 11,
+            opacity: 0.85,
+            fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+          }}>
+          {rightText}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
 class MyApp extends React.Component {
   componentDidMount() {
   }
@@ -132,8 +214,6 @@ class MyApp extends React.Component {
       // Constantes para conversiones binarias (mismas que los cards)
       const BYTES_IN_MB_BINARY = 1048576;
       const BYTES_IN_GB_BINARY = 1073741824;
-      const clamp01 = (n) => Math.max(0, Math.min(1, n));
-      const formatGB = (mb) => ((Number(mb) || 0) / 1024).toFixed(2);
 
       // Estados de servicios
       const vpnActivo = item.vpn === true;
@@ -155,6 +235,16 @@ class MyApp extends React.Component {
       const proxyLimiteMB = Number(item.megas || 0);
       const proxyProgress = proxyPorMegas ? clamp01(proxyConsumidoMB / proxyLimiteMB) : 0;
 
+      const vpnRightText =
+        vpnActivo
+          ? `${vpnConsumidoGB.toFixed(1)} GB${vpnPorMegas ? ` / ${formatGB(vpnLimiteMB)} GB` : ''}${item.vpnisIlimitado ? ' (∞)' : ''}`
+          : 'Inactivo';
+
+      const proxyRightText =
+        proxyActivo
+          ? `${proxyConsumidoGB.toFixed(1)} GB${proxyPorMegas ? ` / ${formatGB(proxyLimiteMB)} GB` : ''}${item.isIlimitado ? ' (∞)' : ''}`
+          : 'Inactivo';
+
       const descripcion = (
         <View style={styles.itemDescription}>
           {/* Información del usuario */}
@@ -163,107 +253,21 @@ class MyApp extends React.Component {
           </View>
 
           <View style={styles.servicesContainer}>
-            {/* VPN Section */}
-            <View style={styles.serviceSection}>
-              <View style={styles.serviceHeader}>
-                <View style={styles.serviceLeft}>
-                  <Chip
-                    mode="flat" 
-                    compact
-                    icon={vpnActivo ? 'shield-check' : 'shield-off'}
-                    style={[
-                      styles.serviceChip, 
-                      { 
-                        backgroundColor: vpnActivo ? '#e8f5e9' : '#f5f5f5',
-                        opacity: vpnActivo ? 1 : 0.7
-                      }
-                    ]}
-                    textStyle={{ 
-                      color: vpnActivo ? '#2e7d32' : '#666', 
-                      fontSize: 10, 
-                      fontWeight: '600' 
-                    }}
-                  >
-                    VPN
-                  </Chip>
-                  {!vpnActivo && (
-                    <Text style={styles.inactiveLabel}>Inactivo</Text>
-                  )}
-                </View>
-                
-                {vpnActivo && (
-                  <Text style={styles.consumoText}>
-                    {vpnConsumidoGB.toFixed(1)} GB
-                    {vpnPorMegas && ` / ${formatGB(vpnLimiteMB)} GB`}
-                    {item.vpnisIlimitado && ' (∞)'}
-                  </Text>
-                )}
-              </View>
-              
-              {vpnActivo && vpnPorMegas && (
-                <View style={styles.progressContainer}>
-                  <View style={styles.progressWrapper}>
-                    <ProgressBar 
-                      progress={vpnProgress} 
-                      color={vpnProgress > 0.8 ? '#FF5722' : vpnProgress > 0.6 ? '#FF9800' : '#4CAF50'}
-                      style={styles.progressBar}
-                    />
-                  </View>
-                  <Text style={styles.progressText}>{Math.round(vpnProgress * 100)}%</Text>
-                </View>
-              )}
-            </View>
+            <ServiceProgressPill
+              label="VPN"
+              icon={vpnActivo ? 'shield-check' : 'shield-off'}
+              ratio={vpnActivo && vpnPorMegas ? vpnProgress : 0}
+              rightText={vpnRightText}
+              palette={{ ok: '#2E7D32' }}
+            />
 
-            {/* Proxy Section */}
-            <View style={styles.serviceSection}>
-              <View style={styles.serviceHeader}>
-                <View style={styles.serviceLeft}>
-                  <Chip
-                    mode="flat"
-                    compact
-                    icon={proxyActivo ? 'wifi-check' : 'wifi-off'}
-                    style={[
-                      styles.serviceChip, 
-                      { 
-                        backgroundColor: proxyActivo ? '#e3f2fd' : '#f5f5f5',
-                        opacity: proxyActivo ? 1 : 0.7
-                      }
-                    ]}
-                    textStyle={{ 
-                      color: proxyActivo ? '#1565c0' : '#666', 
-                      fontSize: 10, 
-                      fontWeight: '600' 
-                    }}
-                  >
-                    PROXY
-                  </Chip>
-                  {!proxyActivo && (
-                    <Text style={styles.inactiveLabel}>Inactivo</Text>
-                  )}
-                </View>
-                
-                {proxyActivo && (
-                  <Text style={styles.consumoText}>
-                    {proxyConsumidoGB.toFixed(1)} GB
-                    {proxyPorMegas && ` / ${formatGB(proxyLimiteMB)} GB`}
-                    {item.isIlimitado && ' (∞)'}
-                  </Text>
-                )}
-              </View>
-              
-              {proxyActivo && proxyPorMegas && (
-                <View style={styles.progressContainer}>
-                  <View style={styles.progressWrapper}>
-                    <ProgressBar 
-                      progress={proxyProgress} 
-                      color={proxyProgress > 0.8 ? '#FF5722' : proxyProgress > 0.6 ? '#FF9800' : '#1E88E5'}
-                      style={styles.progressBar}
-                    />
-                  </View>
-                  <Text style={styles.progressText}>{Math.round(proxyProgress * 100)}%</Text>
-                </View>
-              )}
-            </View>
+            <ServiceProgressPill
+              label="PROXY"
+              icon={proxyActivo ? 'wifi-check' : 'wifi-off'}
+              ratio={proxyActivo && proxyPorMegas ? proxyProgress : 0}
+              rightText={proxyRightText}
+              palette={{ ok: '#1565C0' }}
+            />
           </View>
         </View>
       );
@@ -408,7 +412,7 @@ class MyApp extends React.Component {
                 // acceptPanOnDrawer={false}
                 // acceptPan={true}
                 onClose={() => this.setState({ drawer: false })}
-                elevation={12}
+                // elevation={3}
                 side="left"
                 openDrawerOffset={0.2} // 20% gap on the right side of drawer
                 panCloseMask={0.2}
@@ -561,65 +565,6 @@ const styles = StyleSheet.create({
   },
   servicesContainer: {
     gap: 8,
-  },
-  serviceSection: {
-    backgroundColor: '#fafafa',
-    borderRadius: 8,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-  },
-  serviceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2,
-  },
-  serviceLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  serviceChip: {
-    // height: 22,
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  inactiveLabel: {
-    fontSize: 9,
-    color: '#999',
-    fontStyle: 'italic',
-  },
-  consumoText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#555',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 6,
-  },
-  progressWrapper: {
-    flex: 1,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: 6,
-    borderRadius: 3,
-  },
-  progressText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#666',
-    minWidth: 28,
-    textAlign: 'right',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   avatarContainer: {
     justifyContent: 'center',
