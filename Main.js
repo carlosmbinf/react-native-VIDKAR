@@ -21,6 +21,8 @@ import PermissionsManager from './components/permissions/PermissionsManager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import messaging from '@react-native-firebase/messaging';
 import { badgeManager } from './services/notifications/PushMessaging';
+import DeviceInfo from 'react-native-device-info'; // ✅ NUEVO: Para obtener versión de la app
+import UpdateRequired from './components/UpdateRequired'; // ✅ NUEVO
 // ✅ NUEVO: Importar hook de permisos y utilidades
 import { check, RESULTS } from 'react-native-permissions';
 import {
@@ -46,13 +48,30 @@ try {
 // ✅ Función para registrar token de push
 const registerPushTokenForUser = async (userId, token) => {
   try {
+    // ✅ Obtener versión de la app
+    const appVersion = DeviceInfo.getVersion(); // ej: "1.0.0"
+    const buildNumber = DeviceInfo.getBuildNumber(); // ej: "42"
+    
+    // ✅ Construir string de plataforma profesional
+    let platformString = '';
+    
+    if (Platform.OS === 'android') {
+      // Android: "android_34_v1.0.0_42"
+      platformString = `${Platform.OS}_${Platform.Version}_v${appVersion}_${buildNumber}`;
+    } else {
+      // Fallback genérico
+      platformString = `${Platform.OS}_v${appVersion}(${buildNumber})`;
+    }
+
     await Meteor.call('push.registerToken', {
       userId,
       token,
-      platform: Platform.OS
+      platform: platformString,
     });
+    
+    console.log(`[Main] ✅ Token registrado para plataforma: ${platformString}`);
   } catch (e) {
-    console.error('[Main] Error en push.registerToken', e);
+    console.error('[Main] ❌ Error en push.registerToken:', e);
   }
 };
 
@@ -130,12 +149,16 @@ class MyApp extends React.Component {
       permissionsChecked: false,
       showPermissionsScreen: false,
       checkingPermissions: true, // ✅ NUEVO: Estado de verificación inicial
+      // ✅ NUEVO: Estados para validación de versión
+      checkingVersion: true,
+      updateRequired: false,
+      currentBuildNumber: null,
+      requiredBuildNumber: null,
     };
 
     // ✅ Bandera para prevenir registros duplicados de listeners
     this.notificationListenersRegistered = false;
   }
-
 
   // ✅ MODIFICADO: Validar disponibilidad de librería ANTES de usar
   checkRequiredPermissions = async (userRole = 'user') => {
@@ -207,6 +230,122 @@ class MyApp extends React.Component {
     } catch (error) {
       console.error('❌ [Permissions Check] Error general:', error);
       return false;
+    }
+  };
+
+  // ✅ MODIFICADO: Validar versión solo DESPUÉS de login
+  checkAppVersion = async () => {
+    try {
+      console.log('[Main] 🔍 Verificando versión de la app...');
+
+      // ✅ NUEVO: Esperar a que haya usuario autenticado
+      const userId = Meteor.userId();
+      if (!userId) {
+        console.log('[Main] ⚠️ Usuario no autenticado, omitiendo validación de versión');
+        this.setState({
+          checkingVersion: false,
+          updateRequired: false,
+        });
+        return;
+      }
+
+      // ✅ Esperar a que Meteor esté conectado
+      const maxWaitTime = 10000; // 10 segundos máximo
+      const startTime = Date.now();
+      
+      while (!Meteor.status().connected && (Date.now() - startTime) < maxWaitTime) {
+        console.log('[Main] ⏳ Esperando conexión de Meteor...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      if (!Meteor.status().connected) {
+        console.warn('[Main] ⚠️ Meteor no conectado después de 10s, permitiendo acceso (fail-open)');
+        this.setState({
+          checkingVersion: false,
+          updateRequired: false,
+        });
+        return;
+      }
+
+      console.log('[Main] ✅ Meteor conectado, continuando validación...');
+
+      // Obtener build number actual de la app
+      const currentBuildNumber = parseInt(DeviceInfo.getBuildNumber(), 10);
+      const platform = Platform.OS;
+
+      console.log('[Main] 📱 Build actual:', currentBuildNumber, 'Plataforma:', platform);
+
+      // ✅ Construir clave según plataforma
+      const propertyKey = platform === 'android' 
+        ? 'androidVersionMinCompilation' 
+        : 'iosVersionMinCompilation';
+
+      console.log('[Main] 🔑 Consultando property:', { type: 'CONFIG', clave: propertyKey });
+
+      // ✅ Obtener versión mínima usando property.getValor
+      const requiredVersionString = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Timeout esperando respuesta del servidor'));
+        }, 5000);
+
+        Meteor.call('property.getValor', 'CONFIG', propertyKey, (error, result) => {
+          clearTimeout(timeout);
+          
+          if (error) {
+            console.error('[Main] ❌ Error obteniendo versión mínima:', error);
+            reject(error);
+          } else {
+            console.log('[Main] ✅ Valor obtenido de property:', result);
+            resolve(result);
+          }
+        });
+      });
+
+      // ✅ Parsear a número
+      const requiredBuildNumber = parseInt(requiredVersionString || '0', 10);
+
+      console.log('[Main] 📋 Build requerido:', requiredBuildNumber);
+
+      // ✅ Si no existe la property o valor es 0, permitir cualquier versión
+      if (!requiredVersionString || requiredBuildNumber === 0) {
+        console.log('[Main] ⚠️ No se encontró versión mínima configurada, permitiendo acceso');
+        this.setState({
+          checkingVersion: false,
+          updateRequired: false,
+          currentBuildNumber,
+          requiredBuildNumber: 0,
+        });
+        return;
+      }
+
+      // Validar si la app está desactualizada
+      const needsUpdate = currentBuildNumber < requiredBuildNumber;
+
+      this.setState({
+        checkingVersion: false,
+        updateRequired: needsUpdate,
+        currentBuildNumber,
+        requiredBuildNumber,
+      });
+
+      if (needsUpdate) {
+        console.warn('[Main] ⚠️ Actualización requerida:', {
+          actual: currentBuildNumber,
+          requerido: requiredBuildNumber,
+        });
+      } else {
+        console.log('[Main] ✅ Versión de la app es válida');
+      }
+
+    } catch (error) {
+      console.error('[Main] ❌ Error en checkAppVersion:', error);
+      console.error('[Main] 📋 Stack trace:', error.stack);
+      
+      // En caso de error, permitir acceso (fail-open)
+      this.setState({
+        checkingVersion: false,
+        updateRequired: false,
+      });
     }
   };
 
@@ -312,14 +451,20 @@ class MyApp extends React.Component {
     }
   };
 
-  // ✅ MODIFICADO: componentDidUpdate para re-verificar cuando cambia el usuario
+  // ✅ MODIFICADO: Validar versión cuando cambia el usuario
   async componentDidUpdate(prevProps) {
     const prevUserId = prevProps.user?._id;
     const currentUserId = this.props.user?._id;
     const prevRole = prevProps.user?.profile?.role;
     const currentRole = this.props.user?.profile?.role;
 
-    // Re-verificar si cambió el usuario o su rol
+    // ✅ NUEVO: Si el usuario se autentica, validar versión
+    if (!prevUserId && currentUserId) {
+      console.log('🔄 [Main] Usuario autenticado, validando versión...');
+      await this.checkAppVersion();
+    }
+
+    // Re-verificar permisos si cambió el usuario o su rol
     if (prevUserId !== currentUserId || prevRole !== currentRole) {
       console.log('🔄 [Main] Usuario o rol cambió, re-verificando permisos');
       await this.verifyPermissionsStatus();
@@ -375,7 +520,14 @@ class MyApp extends React.Component {
 
   render() {
     const { user, ready } = this.props;
-    const { showPermissionsScreen, checkingPermissions } = this.state;
+    const {
+      showPermissionsScreen,
+      checkingPermissions,
+      checkingVersion, // ✅ NUEVO
+      updateRequired, // ✅ NUEVO
+      currentBuildNumber, // ✅ NUEVO
+      requiredBuildNumber, // ✅ NUEVO
+    } = this.state;
     const Stack = createStackNavigator();
 
     const linking = {
@@ -398,10 +550,12 @@ class MyApp extends React.Component {
       userId: Meteor.userId(),
       showPermissionsScreen,
       checkingPermissions,
+      checkingVersion, // ✅ NUEVO
+      updateRequired, // ✅ NUEVO
       modoCadete: user?.modoCadete
     });
 
-    // ✅ NUEVO: Mostrar loading mientras se verifican permisos
+    // ✅ MODIFICADO: Mostrar pantalla de permisos si faltan permisos
     if (false && Platform.OS === 'android' && checkingPermissions && ready && Meteor.userId()) {
       return (
         <SafeAreaProvider>
@@ -450,7 +604,13 @@ class MyApp extends React.Component {
               }
 
             >
-              {ready && user?.modoCadete ? (
+              {/* ✅ NUEVO: Mostrar UpdateRequired DESPUÉS de validar que hay usuario */}
+              {updateRequired && Meteor.userId() ? (
+                <UpdateRequired
+                  currentVersion={currentBuildNumber}
+                  requiredVersion={requiredBuildNumber}
+                />
+              ) : ready && user?.modoCadete ? (
                 // Modo Cadete activo: mostrar pantalla dedicada
                 <CadeteNavigator />
               ) : ready && user?.profile?.roleComercio?.includes('EMPRESA') && user?.modoEmpresa ? (
@@ -548,7 +708,7 @@ const ServerList = withTracker( navigation => {
 })(MyApp);
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, paddingTop: 30, backgroundColor: '#fff' },
+  container: { flex: 1, padding: 16, paddingTop: 30 },
   head: { height: 40, backgroundColor: '#f1f8ff' },
   text: { margin: 6 },
   // ✅ NUEVO: Estilos para pantalla de loading
@@ -556,11 +716,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    // backgroundColor: '#fff',
   },
   loadingText: {
-    marginTop: 16,
-    color: '#666',
+    // marginTop: 16,
+    // color: '#666',
   },
 });
 

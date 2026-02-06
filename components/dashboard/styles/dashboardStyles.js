@@ -89,7 +89,7 @@ export const kpiCardStyles = StyleSheet.create({
     },
     trendChip: {
         backgroundColor: 'rgba(255,255,255,0.25)',
-        height: 24,
+        height: 40,
     },
     trendText: {
         fontSize: 11,

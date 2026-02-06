@@ -63,12 +63,15 @@ const DashBoardPrincipal = ({ type }) => {
     const [ventasLabels, setVentasLabels] = useState([]);
     const [totalVendido, setTotalVendido] = useState([]);
     const [gananciasAdmin, setGananciasAdmin] = useState([]);
-    const [ventasViewMode, setVentasViewMode] = useState('mensual'); // 'mensual', 'por-admin', 'deudas'
+    const [ventasViewMode, setVentasViewMode] = useState('por-dia'); // 'por-dia', 'por-mes'
     const [ventasPorAdmin, setVentasPorAdmin] = useState([]);
     const [adminLabels, setAdminLabels] = useState([]);
     const [totalDeudas, setTotalDeudas] = useState(0);
 
     const scrollY = useRef(new Animated.Value(0)).current;
+
+    // Obtener usuario actual
+    const currentUser = Meteor.user();
 
     // Función para calcular ventas mensuales
     const fetchVentasData = () => {
@@ -106,12 +109,11 @@ const DashBoardPrincipal = ({ type }) => {
 
             console.log(`📈 [DashboardVentas] Ventas encontradas: ${ventas.length}`);
 
-            const dataVentas = [];
-            const labels = [];
-            const totalVendidoArray = [];
-            const gananciasArray = [];
+            // ===== 1. DATOS DE 12 MESES (GraphicsLinealVentasXMeses) =====
+            const labels12Meses = [];
+            const totalVendido12Meses = [];
+            const ganancias12Meses = [];
 
-            // Calcular ventas de los últimos 12 meses
             for (let index = 11; index >= 0; index--) {
                 const dateStartMonth = moment().subtract(index, 'month').startOf('month');
                 const dateEndMonth = moment().subtract(index, 'month').endOf('month');
@@ -127,81 +129,116 @@ const DashBoardPrincipal = ({ type }) => {
                     }
                 });
 
-                labels.push(dateStartMonth.format('MMM'));
-                totalVendidoArray.push(totalMes);
-                gananciasArray.push(gananciasMes);
+                labels12Meses.push(dateStartMonth.format('MMM'));
+                totalVendido12Meses.push(totalMes);
+                ganancias12Meses.push(gananciasMes);
             }
 
-            setVentasLabels(labels);
-            setTotalVendido(totalVendidoArray);
-            setGananciasAdmin(gananciasArray);
+            setVentasLabels(labels12Meses);
+            setTotalVendido(totalVendido12Meses);
+            setGananciasAdmin(ganancias12Meses);
+
+            // ===== 2. DATOS DEL MES ACTUAL POR ADMIN (GraphicsLinealMensualVentasyDeudas) =====
+            const mesActualStart = moment().startOf('month');
+            const mesActualEnd = moment().endOf('month');
             
-            // Calcular ventas por admin (mes actual)
-            const dateStartMonth = moment().startOf('month');
-            const dateEndMonth = moment().endOf('month');
+            console.log(`📅 [DashboardVentas] Calculando datos del mes actual: ${mesActualStart.format('MMMM YYYY')}`);
             
             const admins = Meteor.users.find({ 'profile.role': 'admin' }).fetch();
-            const ventasPorAdminArray = [];
-            const adminLabelsArray = [];
-            let totalDeudasAcumuladas = 0;
+            const ventasPorAdminMesActual = [];
+            const adminLabelsMesActual = [];
+            
+            // Variables para estadísticas del mes actual
+            let totalCobradoMesActual = 0;
+            let totalGananciasMesActual = 0;
+            let totalDeudasMesActual = 0;
             
             admins.forEach(admin => {
                 let totalVendidoAdmin = 0;
-                let gananciasAdminTotal = 0;
-                let deudasAdmin = 0;
+                let gananciasAdminMesActual = 0;
+                let deudasAdminMesActual = 0;
                 
                 ventas.forEach(venta => {
                     if (venta.adminId === admin._id) {
                         const fechaVenta = moment(venta.createdAt);
                         
-                        // Ventas del mes actual
-                        if (fechaVenta.isBetween(dateStartMonth, dateEndMonth, null, '[]')) {
+                        // ===== SOLO VENTAS DEL MES ACTUAL =====
+                        if (fechaVenta.isBetween(mesActualStart, mesActualEnd, null, '[]')) {
                             totalVendidoAdmin += venta.precio || 0;
-                            gananciasAdminTotal += venta.gananciasAdmin || 0;
+                            gananciasAdminMesActual += venta.gananciasAdmin || 0;
                             
-                            // Deudas (ventas no cobradas)
+                            // Deudas SOLO del mes actual
                             if (!venta.cobrado) {
-                                deudasAdmin += venta.precio || 0;
+                                deudasAdminMesActual += venta.precio || 0;
                             }
-                        }
-                        
-                        // Total de deudas (sin filtro de fecha)
-                        if (!venta.cobrado) {
-                            totalDeudasAcumuladas += venta.precio || 0;
                         }
                     }
                 });
                 
+                // Acumular totales del mes actual
+                totalCobradoMesActual += totalVendidoAdmin;
+                totalGananciasMesActual += gananciasAdminMesActual;
+                totalDeudasMesActual += deudasAdminMesActual;
+                
+                // Solo agregar admins con ventas en el mes actual
                 if (totalVendidoAdmin > 0) {
                     const nombreAdmin = `${admin.profile?.firstName || ''} ${admin.profile?.lastName || ''}`.trim() || 'Sin nombre';
-                    ventasPorAdminArray.push({
+                    ventasPorAdminMesActual.push({
                         totalVendido: totalVendidoAdmin,
-                        ganancias: gananciasAdminTotal,
-                        deudas: deudasAdmin
+                        ganancias: gananciasAdminMesActual,
+                        deudas: deudasAdminMesActual
                     });
-                    adminLabelsArray.push(nombreAdmin.length > 15 ? nombreAdmin.substring(0, 15) + '...' : nombreAdmin);
+                    adminLabelsMesActual.push(nombreAdmin.length > 15 ? nombreAdmin.substring(0, 15) + '...' : nombreAdmin);
                 }
             });
             
-            setVentasPorAdmin(ventasPorAdminArray);
-            setAdminLabels(adminLabelsArray);
-            setTotalDeudas(totalDeudasAcumuladas);
+            setVentasPorAdmin(ventasPorAdminMesActual);
+            setAdminLabels(adminLabelsMesActual);
 
-            console.log(`👥 [DashboardVentas] Admins con ventas: ${adminLabelsArray.length}`);
-            console.log(`💰 [DashboardVentas] Total deudas: $${totalDeudasAcumuladas.toFixed(2)}`);
+            // ===== 3. DATOS HISTÓRICOS TOTALES (GraphicsLinealTotalVentasyDeudas) =====
+            let totalVentasHistorico = 0;
+            let totalGananciasHistorico = 0;
+            let totalDeudasHistoricas = 0;
 
-            // Actualizar KPIs de ventas
-            const totalVentasPeriodo = totalVendidoArray.reduce((a, b) => a + b, 0);
-            const totalGananciasPeriodo = gananciasArray.reduce((a, b) => a + b, 0);
-            
-            console.log(`📊 [DashboardVentas] Total ventas 12 meses: $${totalVentasPeriodo.toFixed(2)}`);
-            console.log(`💵 [DashboardVentas] Total ganancias 12 meses: $${totalGananciasPeriodo.toFixed(2)}`);
-            
+            ventas.forEach(venta => {
+                totalVentasHistorico += venta.precio || 0;
+                totalGananciasHistorico += venta.gananciasAdmin || 0;
+                if (!venta.cobrado) {
+                    totalDeudasHistoricas += venta.precio || 0;
+                }
+            });
+
+            setTotalDeudas(totalDeudasHistoricas);
+
+            console.log(`📅 [DashboardVentas] === MES ACTUAL (${mesActualStart.format('MMMM YYYY')}) ===`);
+            console.log(`👥 [DashboardVentas] Admins con ventas: ${adminLabelsMesActual.length}`);
+            console.log(`💰 [DashboardVentas] Total Cobrado: $${totalCobradoMesActual.toFixed(2)}`);
+            console.log(`💵 [DashboardVentas] Ganancias Admin: $${totalGananciasMesActual.toFixed(2)}`);
+            console.log(`🔴 [DashboardVentas] Deudas del mes: $${totalDeudasMesActual.toFixed(2)}`);
+            console.log(`📊 [DashboardVentas] === 12 MESES ===`);
+            console.log(`💰 [DashboardVentas] Total 12 meses: $${totalVendido12Meses.reduce((a, b) => a + b, 0).toFixed(2)}`);
+            console.log(`💵 [DashboardVentas] Ganancias 12 meses: $${ganancias12Meses.reduce((a, b) => a + b, 0).toFixed(2)}`);
+            console.log(`📊 [DashboardVentas] === HISTÓRICO TOTAL ===`);
+            console.log(`💰 [DashboardVentas] Total histórico: $${totalVentasHistorico.toFixed(2)}`);
+            console.log(`💵 [DashboardVentas] Ganancias históricas: $${totalGananciasHistorico.toFixed(2)}`);
+            console.log(`🔴 [DashboardVentas] Deudas históricas: $${totalDeudasHistoricas.toFixed(2)}`);
+
+            // ===== ACTUALIZAR KPIs =====
             setKpiData(prev => ({
                 ...prev,
-                totalVentas: totalVentasPeriodo,
-                totalGanancias: totalGananciasPeriodo,
-                totalDeudas: totalDeudasAcumuladas
+                // Datos de 12 meses
+                totalVentas12Meses: totalVendido12Meses.reduce((a, b) => a + b, 0),
+                totalGanancias12Meses: ganancias12Meses.reduce((a, b) => a + b, 0),
+                
+                // Datos del mes actual
+                totalCobradoMesActual: totalCobradoMesActual,
+                gananciasMesActual: totalGananciasMesActual,
+                deudasMesActual: totalDeudasMesActual,
+                
+                // Datos históricos totales
+                totalVentasHistorico: totalVentasHistorico,
+                totalGananciasHistorico: totalGananciasHistorico,
+                totalDeudasHistoricas: totalDeudasHistoricas
             }));
 
             console.log('✅ [DashboardVentas] fetchVentasData completado exitosamente');
@@ -242,15 +279,23 @@ const DashBoardPrincipal = ({ type }) => {
                             // Calcular KPIs
                             const totalVPN = vpnData.reduce((a, b) => a + b, 0);
                             const totalProxy = proxyData.reduce((a, b) => a + b, 0);
-                            const avgVPN = totalVPN / vpnData.length;
-                            const avgProxy = totalProxy / proxyData.length;
 
-                            setKpiData({
+                            setKpiData(prev => ({
+                                ...prev,
                                 totalUsers: result.length,
                                 activeUsers: result.filter(r => r.VPN > 0 || r.PROXY > 0).length,
                                 totalConsumo: (totalVPN + totalProxy).toFixed(2),
                                 totalVentas: result.reduce((sum, item) => sum + (item.ventas || 0), 0)
-                            });
+                            }));
+                            
+                            // Auto-cambiar vista de ventas según el período detectado
+                            if (detectedPeriod.type === 'DIA') {
+                                // Período diario → Vista "Por Día"
+                                setVentasViewMode('por-dia');
+                            } else if (detectedPeriod.type === 'MES') {
+                                // Período mensual → Vista "Por Mes"
+                                setVentasViewMode('por-mes');
+                            }
                         }
                         resolve();
                     }
@@ -270,7 +315,7 @@ const DashBoardPrincipal = ({ type }) => {
     }, [type]);
 
     useEffect(() => {
-        // Refetch ventas cuando cambiamos a vista de ventas
+        // Refetch cuando cambiamos de vista
         if (selectedView === 'ventas') {
             fetchVentasData();
         }
@@ -407,7 +452,7 @@ const DashBoardPrincipal = ({ type }) => {
             {/* Header */}
             <View style={dashboardStyles.header}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <Text style={dashboardStyles.headerTitle}>Dashboard</Text>
+                    <Text style={dashboardStyles.headerTitle}>{periodInfo.description || `Análisis de ${type === 'VPN' ? 'VPN' : type === 'PROXY' ? 'Proxy' : 'General'}`}</Text>
                     <Chip 
                         icon={periodInfo.icon}
                         style={{ backgroundColor: periodInfo.color }}
@@ -416,9 +461,9 @@ const DashBoardPrincipal = ({ type }) => {
                         {periodInfo.label}
                     </Chip>
                 </View>
-                <Text style={dashboardStyles.headerSubtitle}>
+                {/* <Text style={dashboardStyles.headerSubtitle}>
                     {periodInfo.description || `Análisis de ${type === 'VPN' ? 'VPN' : type === 'PROXY' ? 'Proxy' : 'General'}`}
-                </Text>
+                </Text> */}
             </View>
 
             {/* KPIs principales */}
@@ -445,23 +490,41 @@ const DashBoardPrincipal = ({ type }) => {
                             delay={100}
                         />
                     </>
-                ) : (
+                ) : ventasViewMode === 'por-dia' ? (
                     <>
                         <KPICard
-                            title="Total Ventas"
-                            value={`$${(kpiData.totalVentas || 0).toFixed(2)}`}
-                            subtitle="Últimos 12 meses"
-                            icon="cash-multiple"
-                            color="#FF9800"
-                            trend={15}
+                            title="Total Cobrado"
+                            value={`$${(kpiData.totalCobradoMesActual || 0).toFixed(2)}`}
+                            subtitle={moment().format('MMMM YYYY')}
+                            icon="cash-check"
+                            color="#4CAF50"
                             delay={0}
                         />
                         <KPICard
-                            title="Deudas Pendientes"
-                            value={`$${(kpiData.totalDeudas || 0).toFixed(2)}`}
-                            subtitle="No cobradas"
-                            icon="alert-circle"
-                            color="#F44336"
+                            title="Ganancias Admin"
+                            value={`$${(kpiData.gananciasMesActual || 0).toFixed(2)}`}
+                            subtitle={moment().format('MMMM YYYY')}
+                            icon="account-cash"
+                            color="#2196F3"
+                            delay={100}
+                        />
+                    </>
+                ) : (
+                    <>
+                        <KPICard
+                            title="Total Ventas (12M)"
+                            value={`$${(kpiData.totalVentas12Meses || 0).toFixed(2)}`}
+                            subtitle="Últimos 12 meses"
+                            icon="cash-multiple"
+                            color="#FF9800"
+                            delay={0}
+                        />
+                        <KPICard
+                            title="Histórico Total"
+                            value={`$${(kpiData.totalVentasHistorico || 0).toFixed(2)}`}
+                            subtitle="Todas las ventas"
+                            icon="trending-up"
+                            color="#9C27B0"
                             delay={100}
                         />
                     </>
@@ -477,34 +540,13 @@ const DashBoardPrincipal = ({ type }) => {
                         { value: 'general', label: 'General', icon: 'chart-box' },
                         { value: 'vpn', label: 'VPN', icon: 'shield-check' },
                         { value: 'proxy', label: 'Proxy', icon: 'wifi' },
-                        // Solo mostrar tab de Ventas si NO estamos en período de 24 horas
-                        ...(periodInfo.type !== 'HORA' ? [{ value: 'ventas', label: 'Ventas', icon: 'currency-usd' }] : [])
+                        // Solo mostrar tab de Ventas si:
+                        // 1. NO estamos en período de 24 horas
+                        // 2. El usuario es carlosmbinf
+                        ...(periodInfo.type !== 'HORA' && currentUser?.username === 'carlosmbinf' ? [{ value: 'ventas', label: 'Ventas', icon: 'currency-usd' }] : [])
                     ]}
                 />
             </View>
-
-            {/* Info del período de datos */}
-            {x.length > 0 && (
-                <Card style={{ marginHorizontal: 16, marginBottom: 8 }}>
-                    <Card.Content style={{ paddingVertical: 12 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                            <Icon name="information-outline" size={20} color={periodInfo.color} />
-                            <View style={{ flex: 1 }}>
-                                <Text style={{ fontSize: 12, fontWeight: '600' }}>
-                                    Mostrando {x.length} registros
-                                </Text>
-                                <Text style={{ fontSize: 11, marginTop: 2, opacity: 0.7 }}>
-                                    {periodInfo.type === 'DIA' && `Del día 1 al ${x.length} del mes`}
-                                    {periodInfo.type === 'MES' && `Desde ${x[0]} hasta ${x[x.length - 1]}`}
-                                    {periodInfo.type === 'HORA' && `Análisis por horas del día`}
-                                    {periodInfo.type === 'AÑO' && `Comparativa anual de ${x.length} años`}
-                                    {periodInfo.type === 'GENERAL' && `Análisis general del período`}
-                                </Text>
-                            </View>
-                        </View>
-                    </Card.Content>
-                </Card>
-            )}
 
             {/* Gráfico principal según vista seleccionada */}
             {x.length > 0 && y.length > 0 && (
@@ -627,7 +669,7 @@ const DashBoardPrincipal = ({ type }) => {
                         </Card>
                     )}
 
-                    {selectedView === 'ventas' && ventasLabels.length > 0 && (
+                    {selectedView === 'ventas' && (
                         <Card style={chartStyles.card}>
                             <Card.Content>
                                 <View style={chartStyles.header}>
@@ -635,95 +677,154 @@ const DashBoardPrincipal = ({ type }) => {
                                         <View style={[chartStyles.icon, { backgroundColor: '#FF9800' }]}>
                                             <Icon name="currency-usd" size={24} color="#fff" />
                                         </View>
-                                        <Text style={chartStyles.title}>Histórico de Ventas</Text>
+                                        <Text style={chartStyles.title}>
+                                            {periodInfo.type === 'DIA' 
+                                                ? 'Ventas por Admin (Mes Actual)' 
+                                                : 'Ventas por Mes (12 Meses)'}
+                                        </Text>
                                     </View>
                                 </View>
 
-                                {/* Tabs internos de ventas */}
-                                <ScrollView 
-                                    horizontal 
-                                    showsHorizontalScrollIndicator={false}
-                                    style={{ marginBottom: 16, marginTop: 8 }}
-                                >
-                                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                                        <Chip
-                                            icon="chart-line"
-                                            selected={ventasViewMode === 'mensual'}
-                                            onPress={() => setVentasViewMode('mensual')}
-                                            style={{
-                                                backgroundColor: ventasViewMode === 'mensual' ? '#FF9800' : theme.colors.surface,
-                                                borderColor: '#FF9800',
-                                                borderWidth: 1.5
-                                            }}
-                                            textStyle={{ 
-                                                color: ventasViewMode === 'mensual' ? '#fff' : theme.colors.text,
-                                                fontWeight: 'bold' 
-                                            }}
-                                        >
-                                            12 Meses
-                                        </Chip>
-                                        <Chip
-                                            icon="account-group"
-                                            selected={ventasViewMode === 'por-admin'}
-                                            onPress={() => setVentasViewMode('por-admin')}
-                                            style={{
-                                                backgroundColor: ventasViewMode === 'por-admin' ? '#2196F3' : theme.colors.surface,
-                                                borderColor: '#2196F3',
-                                                borderWidth: 1.5
-                                            }}
-                                            textStyle={{ 
-                                                color: ventasViewMode === 'por-admin' ? '#fff' : theme.colors.text,
-                                                fontWeight: 'bold' 
-                                            }}
-                                        >
-                                            Por Admin
-                                        </Chip>
-                                        <Chip
-                                            icon="alert-circle"
-                                            selected={ventasViewMode === 'deudas'}
-                                            onPress={() => setVentasViewMode('deudas')}
-                                            style={{
-                                                backgroundColor: ventasViewMode === 'deudas' ? '#F44336' : theme.colors.surface,
-                                                borderColor: '#F44336',
-                                                borderWidth: 1.5
-                                            }}
-                                            textStyle={{ 
-                                                color: ventasViewMode === 'deudas' ? '#fff' : theme.colors.text,
-                                                fontWeight: 'bold' 
-                                            }}
-                                        >
-                                            Deudas
-                                        </Chip>
-                                    </View>
-                                </ScrollView>
-
-                                {/* Gráfico Mensual (12 meses) */}
-                                {ventasViewMode === 'mensual' && (
-                                    <>
-                                        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+                                {/* Chip indicador del período según tipo detectado */}
+                                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 16, marginTop: 8, flexWrap: 'wrap' }}>
+                                    {periodInfo.type === 'DIA' ? (
+                                        <>
                                             <Chip 
-                                                icon="calendar-month"
-                                                style={{ backgroundColor: '#FF980033', height: 24 }}
-                                                textStyle={{ color: '#FF9800', fontWeight: 'bold', fontSize: 10 }}
+                                                icon="calendar-check"
+                                                style={{ backgroundColor: '#4CAF5033', height: 40 }}
+                                                textStyle={{ color: '#4CAF50', fontWeight: 'bold', fontSize: 10 }}
                                             >
-                                                Últimos 12 meses
+                                                {moment().format('MMMM YYYY')}
                                             </Chip>
-                                            <Chip icon="trending-up" style={{ backgroundColor: '#4CAF5033', height: 24 }}>
-                                                +15%
+                                            <Chip 
+                                                icon="account-group"
+                                                style={{ backgroundColor: '#2196F333', height: 40 }}
+                                                textStyle={{ color: '#2196F3', fontWeight: 'bold', fontSize: 10 }}
+                                            >
+                                                {adminLabels.length} admins
+                                            </Chip>
+                                        </>
+                                    ) : (
+                                        <Chip 
+                                            icon="calendar-range"
+                                            style={{ backgroundColor: '#FF980033', height: 40 }}
+                                            textStyle={{ color: '#FF9800', fontWeight: 'bold', fontSize: 10 }}
+                                        >
+                                            Últimos 12 meses
+                                        </Chip>
+                                    )}
+                                </View>
+
+                                {/* VISTA "POR DÍA" - Mes actual por admin (cuando periodInfo.type === 'DIA') */}
+                                {periodInfo.type === 'DIA' && adminLabels.length > 0 && (
+                                    <>
+                                        <BarChart
+                                            data={{
+                                                labels: adminLabels,
+                                                datasets: [
+                                                    {
+                                                        data: ventasPorAdmin.map(v => v.totalVendido),
+                                                        color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
+                                                    },
+                                                    {
+                                                        data: ventasPorAdmin.map(v => v.ganancias),
+                                                        color: (opacity = 1) => `rgba(0, 139, 159, ${opacity})`,
+                                                    },
+                                                    {
+                                                        data: ventasPorAdmin.map(v => v.deudas),
+                                                        color: (opacity = 1) => `rgba(211, 47, 47, ${opacity})`,
+                                                    }
+                                                ]
+                                            }}
+                                            width={width - 56}
+                                            height={240}
+                                            yAxisPrefix="$"
+                                            fromZero={true}
+                                            chartConfig={{
+                                                ...chartConfig,
+                                                barPercentage: 0.7,
+                                            }}
+                                            style={chartStyles.chart}
+                                            showValuesOnTopOfBars={false}
+                                        />
+                                        
+                                        {/* Leyenda */}
+                                        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+                                            <Chip 
+                                                icon="cash-check"
+                                                style={{ backgroundColor: '#4CAF5033', height: 40 }}
+                                                textStyle={{ color: '#4CAF50', fontWeight: 'bold', fontSize: 10 }}
+                                            >
+                                                Total Vendido
+                                            </Chip>
+                                            <Chip 
+                                                icon="trending-up"
+                                                style={{ backgroundColor: 'rgba(0, 139, 159, 0.2)', height: 40 }}
+                                                textStyle={{ color: '#008b9f', fontWeight: 'bold', fontSize: 10 }}
+                                            >
+                                                Ganancias Admin
+                                            </Chip>
+                                            <Chip 
+                                                icon="alert-circle"
+                                                style={{ backgroundColor: '#d32f2f33', height: 40 }}
+                                                textStyle={{ color: '#d32f2f', fontWeight: 'bold', fontSize: 10 }}
+                                            >
+                                                Deben
                                             </Chip>
                                         </View>
+                                        
+                                        {/* Estadísticas mes actual */}
+                                        <View style={{ marginTop: 16, padding: 12, backgroundColor: 'rgba(76, 175, 80, 0.05)', borderRadius: 12, gap: 10 }}>
+                                            <Text style={{ fontSize: 13, fontWeight: 'bold', marginBottom: 4, opacity: 0.8 }}>
+                                                📊 Resumen del Mes Actual
+                                            </Text>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>💰 Total Cobrado:</Text>
+                                                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#4CAF50' }}>
+                                                    ${(kpiData.totalCobradoMesActual || 0).toFixed(2)}
+                                                </Text>
+                                            </View>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>💵 Ganancias Admin:</Text>
+                                                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#008b9f' }}>
+                                                    ${(kpiData.gananciasMesActual || 0).toFixed(2)}
+                                                </Text>
+                                            </View>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>🔴 Deben (mes):</Text>
+                                                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#d32f2f' }}>
+                                                    ${(kpiData.deudasMesActual || 0).toFixed(2)}
+                                                </Text>
+                                            </View>
+                                            <View style={{ height: 1, backgroundColor: 'rgba(0,0,0,0.1)', marginVertical: 4 }} />
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>📈 Promedio/Admin:</Text>
+                                                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#FF9800' }}>
+                                                    ${ventasPorAdmin.length > 0 
+                                                        ? ((kpiData.totalCobradoMesActual || 0) / ventasPorAdmin.length).toFixed(2)
+                                                        : '0.00'}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    </>
+                                )}
+
+                                {/* VISTA "POR MES" - 12 meses + histórico total (cuando periodInfo.type === 'MES') */}
+                                {periodInfo.type === 'MES' && ventasLabels.length > 0 && (
+                                    <>
+                                        {/* Gráfico de 12 meses (GraphicsLinealVentasXMeses) */}
                                         <LineChart
                                             data={{
                                                 labels: ventasLabels,
                                                 datasets: [
                                                     {
                                                         data: totalVendido,
-                                                        color: (opacity = 1) => `rgba(255, 152, 0, ${opacity})`,
+                                                        color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
                                                         strokeWidth: 3
                                                     },
                                                     {
                                                         data: gananciasAdmin,
-                                                        color: (opacity = 1) => `rgba(156, 39, 176, ${opacity})`,
+                                                        color: (opacity = 1) => `rgba(0, 139, 159, ${opacity})`,
                                                         strokeWidth: 3
                                                     }
                                                 ],
@@ -739,7 +840,7 @@ const DashBoardPrincipal = ({ type }) => {
                                                 propsForDots: {
                                                     r: "4",
                                                     strokeWidth: "2",
-                                                    stroke: "#FF9800"
+                                                    stroke: "#4CAF50"
                                                 }
                                             }}
                                             bezier
@@ -747,82 +848,83 @@ const DashBoardPrincipal = ({ type }) => {
                                             withShadow={true}
                                             withInnerLines={true}
                                         />
+                                        
+                                        {/* Leyenda */}
+                                        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+                                            <Chip 
+                                                icon="cash-check"
+                                                style={{ backgroundColor: '#4CAF5033', height: 40 }}
+                                                textStyle={{ color: '#4CAF50', fontWeight: 'bold', fontSize: 10 }}
+                                            >
+                                                Total Vendido
+                                            </Chip>
+                                            <Chip 
+                                                icon="trending-up"
+                                                style={{ backgroundColor: 'rgba(0, 139, 159, 0.2)', height: 40 }}
+                                                textStyle={{ color: '#008b9f', fontWeight: 'bold', fontSize: 10 }}
+                                            >
+                                                Ganancias Admin
+                                            </Chip>
+                                        </View>
+                                        
+                                        {/* Estadísticas 12 meses + histórico total */}
+                                        <View style={{ marginTop: 16, padding: 12, backgroundColor: 'rgba(255, 152, 0, 0.05)', borderRadius: 12, gap: 10 }}>
+                                            <Text style={{ fontSize: 13, fontWeight: 'bold', marginBottom: 4, opacity: 0.8 }}>
+                                                📊 Estadísticas 12 Meses
+                                            </Text>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>💰 Total 12 meses:</Text>
+                                                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#4CAF50' }}>
+                                                    ${(kpiData.totalVentas12Meses || 0).toFixed(2)}
+                                                </Text>
+                                            </View>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>💵 Ganancias 12 meses:</Text>
+                                                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#008b9f' }}>
+                                                    ${(kpiData.totalGanancias12Meses || 0).toFixed(2)}
+                                                </Text>
+                                            </View>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>📈 Promedio mensual:</Text>
+                                                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#FF9800' }}>
+                                                    ${((kpiData.totalVentas12Meses || 0) / 12).toFixed(2)}
+                                                </Text>
+                                            </View>
+                                            
+                                            <View style={{ height: 1, backgroundColor: 'rgba(0,0,0,0.1)', marginVertical: 8 }} />
+                                            
+                                            <Text style={{ fontSize: 13, fontWeight: 'bold', marginBottom: 4, opacity: 0.8 }}>
+                                                📊 Histórico Total
+                                            </Text>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>💰 Total histórico:</Text>
+                                                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#9C27B0' }}>
+                                                    ${(kpiData.totalVentasHistorico || 0).toFixed(2)}
+                                                </Text>
+                                            </View>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>💵 Ganancias históricas:</Text>
+                                                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#008b9f' }}>
+                                                    ${(kpiData.totalGananciasHistorico || 0).toFixed(2)}
+                                                </Text>
+                                            </View>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>🔴 Deudas históricas:</Text>
+                                                <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F44336' }}>
+                                                    ${(kpiData.totalDeudasHistoricas || 0).toFixed(2)}
+                                                </Text>
+                                            </View>
+                                        </View>
                                     </>
                                 )}
 
-                                {/* Gráfico Por Admin (mes actual) */}
-                                {ventasViewMode === 'por-admin' && adminLabels.length > 0 && (
-                                    <>
-                                        <Chip 
-                                            icon="calendar-check"
-                                            style={{ backgroundColor: '#2196F333', height: 24, marginBottom: 12 }}
-                                            textStyle={{ color: '#2196F3', fontWeight: 'bold', fontSize: 10 }}
-                                        >
-                                            Mes actual
-                                        </Chip>
-                                        <BarChart
-                                            data={{
-                                                labels: adminLabels,
-                                                datasets: [
-                                                    {
-                                                        data: ventasPorAdmin.map(v => v.totalVendido)
-                                                    }
-                                                ]
-                                            }}
-                                            width={width - 56}
-                                            height={240}
-                                            yAxisPrefix="$"
-                                            fromZero={true}
-                                            chartConfig={{
-                                                ...chartConfig,
-                                                barPercentage: 0.6,
-                                                color: (opacity = 1) => `rgba(33, 150, 243, ${opacity})`,
-                                            }}
-                                            style={chartStyles.chart}
-                                            showValuesOnTopOfBars={false}
-                                        />
-                                    </>
-                                )}
-
-                                {/* Gráfico de Deudas por Admin */}
-                                {ventasViewMode === 'deudas' && adminLabels.length > 0 && (
-                                    <>
-                                        <Chip 
-                                            icon="alert"
-                                            style={{ backgroundColor: '#F4433633', height: 24, marginBottom: 12 }}
-                                            textStyle={{ color: '#F44336', fontWeight: 'bold', fontSize: 10 }}
-                                        >
-                                            Pendientes de cobro
-                                        </Chip>
-                                        <BarChart
-                                            data={{
-                                                labels: adminLabels,
-                                                datasets: [
-                                                    {
-                                                        data: ventasPorAdmin.map(v => v.deudas)
-                                                    }
-                                                ]
-                                            }}
-                                            width={width - 56}
-                                            height={240}
-                                            yAxisPrefix="$"
-                                            fromZero={true}
-                                            chartConfig={{
-                                                ...chartConfig,
-                                                barPercentage: 0.6,
-                                                color: (opacity = 1) => `rgba(244, 67, 54, ${opacity})`,
-                                            }}
-                                            style={chartStyles.chart}
-                                            showValuesOnTopOfBars={false}
-                                        />
-                                    </>
-                                )}
-
-                                {ventasViewMode === 'por-admin' && adminLabels.length === 0 && (
+                                {/* Mensaje cuando no hay datos */}
+                                {((periodInfo.type === 'DIA' && adminLabels.length === 0) || 
+                                  (periodInfo.type === 'MES' && ventasLabels.length === 0)) && (
                                     <View style={{ padding: 32, alignItems: 'center' }}>
                                         <Icon name="information" size={48} color={theme.colors.disabled} />
                                         <Text style={{ color: theme.colors.disabled, marginTop: 8, textAlign: 'center' }}>
-                                            No hay ventas registradas este mes
+                                            No hay ventas registradas
                                         </Text>
                                     </View>
                                 )}
@@ -893,11 +995,23 @@ const DashBoardPrincipal = ({ type }) => {
                             <View style={chartStyles.header}>
                                 <Text style={chartStyles.title}>Estadísticas Detalladas</Text>
                                 <Chip 
-                                    icon={selectedView === 'ventas' ? 'calendar-month' : periodInfo.icon}
-                                    style={{ backgroundColor: (selectedView === 'ventas' ? '#FF9800' : periodInfo.color) + '33' }}
-                                    textStyle={{ color: selectedView === 'ventas' ? '#FF9800' : periodInfo.color, fontWeight: 'bold', fontSize: 11 }}
+                                    icon={selectedView === 'ventas' 
+                                        ? (periodInfo.type === 'DIA' ? 'calendar-today' : 'calendar-range')
+                                        : periodInfo.icon}
+                                    style={{ backgroundColor: (selectedView === 'ventas' 
+                                        ? (periodInfo.type === 'DIA' ? '#4CAF50' : '#FF9800')
+                                        : periodInfo.color) + '33' }}
+                                    textStyle={{ 
+                                        color: selectedView === 'ventas' 
+                                            ? (periodInfo.type === 'DIA' ? '#4CAF50' : '#FF9800')
+                                            : periodInfo.color, 
+                                        fontWeight: 'bold', 
+                                        fontSize: 11 
+                                    }}
                                 >
-                                    {selectedView === 'ventas' ? '12 meses' : periodInfo.label}
+                                    {selectedView === 'ventas' 
+                                        ? (periodInfo.type === 'DIA' ? 'Mes actual' : '12 meses')
+                                        : periodInfo.label}
                                 </Chip>
                             </View>
                             
@@ -948,28 +1062,75 @@ const DashBoardPrincipal = ({ type }) => {
                                         </Text>
                                     </View>
                                 </View>
+                            ) : periodInfo.type === 'DIA' ? (
+                                <View style={statsStyles.grid}>
+                                    <View style={[statsStyles.item, { backgroundColor: '#4CAF5015', borderLeftColor: '#4CAF50' }]}>
+                                        <Text style={statsStyles.label}>Total Mes</Text>
+                                        <Text 
+                                            style={statsStyles.value}
+                                            adjustsFontSizeToFit
+                                            numberOfLines={1}
+                                            minimumFontScale={0.7}
+                                        >
+                                            ${(kpiData.totalCobradoMesActual || 0).toFixed(2)}
+                                        </Text>
+                                    </View>
+                                    <View style={[statsStyles.item, { backgroundColor: '#2196F315', borderLeftColor: '#2196F3' }]}>
+                                        <Text style={statsStyles.label}>Ganancias</Text>
+                                        <Text 
+                                            style={statsStyles.value}
+                                            adjustsFontSizeToFit
+                                            numberOfLines={1}
+                                            minimumFontScale={0.7}
+                                        >
+                                            ${(kpiData.gananciasMesActual || 0).toFixed(2)}
+                                        </Text>
+                                    </View>
+                                    <View style={[statsStyles.item, { backgroundColor: '#F4433615', borderLeftColor: '#F44336' }]}>
+                                        <Text style={statsStyles.label}>Deudas Mes</Text>
+                                        <Text 
+                                            style={statsStyles.value}
+                                            adjustsFontSizeToFit
+                                            numberOfLines={1}
+                                            minimumFontScale={0.7}
+                                        >
+                                            ${(kpiData.deudasMesActual || 0).toFixed(2)}
+                                        </Text>
+                                    </View>
+                                    <View style={[statsStyles.item, { backgroundColor: '#FF980015', borderLeftColor: '#FF9800' }]}>
+                                        <Text style={statsStyles.label}>Mejor Admin</Text>
+                                        <Text 
+                                            style={statsStyles.value}
+                                            adjustsFontSizeToFit
+                                            numberOfLines={1}
+                                            minimumFontScale={0.7}
+                                        >
+                                            ${ventasPorAdmin.length > 0 ? Math.max(...ventasPorAdmin.map(v => v.totalVendido)).toFixed(2) : '0.00'}
+                                        </Text>
+                                    </View>
+                                </View>
                             ) : (
                                 <View style={statsStyles.grid}>
                                     <View style={[statsStyles.item, { backgroundColor: '#FF980015', borderLeftColor: '#FF9800' }]}>
-                                        <Text style={statsStyles.label}>Promedio Mensual</Text>
+                                        <Text style={statsStyles.label}>Total 12 Meses</Text>
                                         <Text 
                                             style={statsStyles.value}
                                             adjustsFontSizeToFit
                                             numberOfLines={1}
                                             minimumFontScale={0.7}
                                         >
-                                            ${totalVendido.length > 0 ? (totalVendido.reduce((a, b) => a + b, 0) / totalVendido.length).toFixed(2) : '0.00'}
+                                            ${(kpiData.totalVentas12Meses || 0).toFixed(2)}
                                         </Text>
                                     </View>
                                     <View style={[statsStyles.item, { backgroundColor: '#9C27B015', borderLeftColor: '#9C27B0' }]}>
-                                        <Text style={statsStyles.label}>Ganancias Promedio</Text>
+                                        <Text style={statsStyles.label}>Histórico Total</Text>
                                         <Text 
                                             style={statsStyles.value}
                                             adjustsFontSizeToFit
                                             numberOfLines={1}
                                             minimumFontScale={0.7}
                                         >
-                                            ${gananciasAdmin.length > 0 ? (gananciasAdmin.reduce((a, b) => a + b, 0) / gananciasAdmin.length).toFixed(2) : '0.00'}
+                                            ${(kpiData.totalVentasHistorico || 0).toFixed(2)}
                                         </Text>
                                     </View>
                                     <View style={[statsStyles.item, { backgroundColor: '#4CAF5015', borderLeftColor: '#4CAF50' }]}>
@@ -983,23 +1144,22 @@ const DashBoardPrincipal = ({ type }) => {
                                             ${totalVendido.length > 0 ? Math.max(...totalVendido).toFixed(2) : '0.00'}
                                         </Text>
                                     </View>
-                                    <View style={[statsStyles.item, { backgroundColor: '#2196F315', borderLeftColor: '#2196F3' }]}>
-                                        <Text style={statsStyles.label}>Margen Ganancia</Text>
+                                    <View style={[statsStyles.item, { backgroundColor: '#F4433615', borderLeftColor: '#F44336' }]}>
+                                        <Text style={statsStyles.label}>Deudas Total</Text>
                                         <Text 
                                             style={statsStyles.value}
                                             adjustsFontSizeToFit
                                             numberOfLines={1}
                                             minimumFontScale={0.7}
                                         >
-                                            {totalVendido.reduce((a, b) => a + b, 0) > 0 
-                                                ? ((gananciasAdmin.reduce((a, b) => a + b, 0) / totalVendido.reduce((a, b) => a + b, 0)) * 100).toFixed(1) 
-                                                : '0.0'}%
+                                            ${(kpiData.totalDeudasHistoricas || 0).toFixed(2)}
                                         </Text>
                                     </View>
                                 </View>
                             )}
                         </Card.Content>
                     </Card>
+
                 </>
             )}
 

@@ -22,6 +22,8 @@ export const PreciosDolarCollection = new Mongo.Collection("preciosDolar");
 export const AsignacionRemesaAdminCollection = new Mongo.Collection("asignacionRemesaAdmins_Recharge");
 export const ConfigCollection = new Mongo.Collection("config");
 
+export const VersionsCollection = new Mongo.Collection("versions");
+
 export const TransaccionRecargasCollection = new Mongo.Collection("transaccionRecargas_DTSHOP");
 
 export const ProductosCollection = new Mongo.Collection("productos_Recharge");

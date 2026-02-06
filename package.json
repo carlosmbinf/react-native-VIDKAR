@@ -36,6 +36,7 @@
     "react-native-chart-kit": "^6.12.0",
     "react-native-credit-card": "^0.1.9",
     "react-native-custom-header": "^1.0.0",
+    "react-native-device-info": "^15.0.1",
     "react-native-drawer": "^2.5.1",
     "react-native-element-dropdown": "^1.8.13",
     "react-native-fast-image": "^8.6.3",
