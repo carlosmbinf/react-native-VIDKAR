@@ -35,6 +35,7 @@ import {
   Alert,
   TextInput,
   StatusBar,
+  FlatList,
 } from 'react-native';
 
 import { Online } from '../collections/collections'
@@ -333,7 +334,7 @@ class MyApp extends React.Component {
 
     );
 
-    const Item = item => {
+    const renderItem = ({ item }) => {
       // Constantes para conversiones binarias (mismas que los cards)
       const BYTES_IN_MB_BINARY = 1048576;
       const BYTES_IN_GB_BINARY = 1073741824;
@@ -525,7 +526,7 @@ class MyApp extends React.Component {
       }
 
       return true;
-    }).map(element => Item(element))
+    })
 
     const users = () => JSON.parse(JSON.stringify(myTodoTasks)).filter(user => {
       if (!user || !user.profile || user.profile.role !== "user") return false;
@@ -578,7 +579,9 @@ class MyApp extends React.Component {
       }
 
       return true;
-    }).map(element => Item(element))
+    })
+
+    const keyExtractor = (item) => item._id;
 
     const drawerStyles = {
       drawer: { shadowColor: 'black', shadowOpacity: 0, shadowRadius: 3 },
@@ -657,11 +660,31 @@ class MyApp extends React.Component {
                     <List.Accordion
                       title="Administradores"
                     >
-                      {admins()}
+                      <FlatList
+                        data={admins()}
+                        renderItem={renderItem}
+                        keyExtractor={keyExtractor}
+                        removeClippedSubviews={true}
+                        maxToRenderPerBatch={10}
+                        updateCellsBatchingPeriod={50}
+                        initialNumToRender={10}
+                        windowSize={10}
+                        scrollEnabled={false}
+                      />
                     </List.Accordion>
                     <List.Accordion
                       title="Usuarios">
-                      {users()}
+                      <FlatList
+                        data={users()}
+                        renderItem={renderItem}
+                        keyExtractor={keyExtractor}
+                        removeClippedSubviews={true}
+                        maxToRenderPerBatch={10}
+                        updateCellsBatchingPeriod={50}
+                        initialNumToRender={10}
+                        windowSize={10}
+                        scrollEnabled={false}
+                      />
                     </List.Accordion>
                   </Surface>
                 </ScrollView>
