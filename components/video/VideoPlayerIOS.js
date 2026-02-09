@@ -20,7 +20,6 @@ import {
 } from 'react-native-paper';
 import Slider from '@react-native-community/slider';
 import Meteor, {Mongo, withTracker} from '@meteorrn/core';
-import { VLCPlayer, VlCPlayerView } from 'react-native-vlc-media-player';
 export const VideoPlayerIOS = ({navigation, route, ocultarControles}) => {
   const {subtitulo,id} = route.params;
   // const subtitulo = "https://vidkar.ddns.net/getsubtitle?idPeli=" + id;
