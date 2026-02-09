@@ -15,7 +15,7 @@ workflows:
         - google_credentials
         - vidkar
       vars:
-        NODE_VERSION: 20
+        NODE_VERSION: 22
       java: 17
 
     cache:
@@ -37,9 +37,13 @@ workflows:
           export BUILD_NUMBER=$PROJECT_BUILD_NUMBER 
           echo "BUILD_NUMBER=$BUILD_NUMBER"
 
+      - name: Install dependencies con yarn (opcional)
+        script: |
+          yarn install --legacy-peer-deps
+
       - name: Install dependencies
         script: |
-          npm install -f
+          npm install --legacy-peer-deps
 
       - name: Build Android App Bundle (AAB)
         script: |
@@ -84,7 +88,7 @@ workflows:
         - google_credentials
         - vidkar
       vars:
-        NODE_VERSION: 20
+        NODE_VERSION: 22
       java: 17
 
     cache:
