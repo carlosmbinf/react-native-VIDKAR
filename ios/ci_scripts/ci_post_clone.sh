@@ -12,19 +12,19 @@ CI_BUILD_NUMBER=$(( ${original} + 60 ))
 echo "Build Number original: $original -> Build Number ajustado: $CI_BUILD_NUMBER"
 
 # Instalar Node (versión estable para RN), Yarn y CocoaPods
-brew install node@20 yarn cocoapods
-brew link --overwrite node@20
+brew install node@18 yarn cocoapods
+brew link --overwrite node@18
 
 # Ir a la raíz del repo (donde está package.json)
 cd "$CI_PRIMARY_REPOSITORY_PATH"
 
 # Instalar dependencias JS
-# echo "Using yarn..."
-# yarn install
+echo "Using yarn..."
+yarn install
 
 echo "-------------------------------------------"
 echo "Using npm..."
-npm install -f
+npm install --legacy-peer-deps
 
 #!/bin/bash
 
