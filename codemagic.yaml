@@ -15,7 +15,7 @@ workflows:
         - google_credentials
         - vidkar
       vars:
-        NODE_VERSION: 18
+        NODE_VERSION: 20
       java: 17
 
     cache:
@@ -84,7 +84,7 @@ workflows:
         - google_credentials
         - vidkar
       vars:
-        NODE_VERSION: 18
+        NODE_VERSION: 20
       java: 17
 
     cache:
@@ -140,11 +140,11 @@ workflows:
       email:
         recipients:
           - "carlosmbinf@gmail.com"
-          - "honoriopompahernandez@gmail.com"
+          # - "honoriopompahernandez@gmail.com"
           - "manumedinap0107@gmail.com"
           - "yaimaduartes@gmail.com"
-          - "eu9023@gmail.com"
-          - "osmedebello74@gmail.com"
+          # - "eu9023@gmail.com"
+          # - "osmedebello74@gmail.com"
         notify:
           success: true
 
