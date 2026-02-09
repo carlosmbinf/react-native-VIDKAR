@@ -37,9 +37,9 @@ workflows:
           export BUILD_NUMBER=$PROJECT_BUILD_NUMBER 
           echo "BUILD_NUMBER=$BUILD_NUMBER"
 
-      - name: Install dependencies con yarn (opcional)
-        script: |
-          yarn install --legacy-peer-deps
+      # - name: Install dependencies con yarn (opcional)
+      #   script: |
+      #     yarn install --legacy-peer-deps
 
       - name: Install dependencies
         script: |
@@ -110,9 +110,9 @@ workflows:
           export BUILD_NUMBER=$PROJECT_BUILD_NUMBER 
           echo "BUILD_NUMBER=$BUILD_NUMBER"
 
-      - name: Install dependencies con yarn (opcional)
-        script: |
-          yarn install --legacy-peer-deps
+      # - name: Install dependencies con yarn (opcional)
+      #   script: |
+      #     yarn install --legacy-peer-deps
 
       - name: Install dependencies
         script: |
