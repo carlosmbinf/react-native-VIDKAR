@@ -178,7 +178,13 @@ const WizardConStepper = ({ product, navigation }) => {
 
     // ✅ FIX: mover aquí los cálculos del Card para que "tieneComercio" exista y los números sean consistentes
     const monedaFinalUI = React.useMemo(() => {
-        if (metodoPago === 'paypal' || metodoPago === 'mercadopago') return 'USD';
+      switch (metodoPago) {
+        case 'paypal':
+          return "USD";
+        case "mercadopago":
+          return "UYU";
+      }
+        // if (metodoPago === 'paypal' || metodoPago === 'mercadopago') return 'USD';
         return monedaPago || paisPago || 'CUP';
     }, [metodoPago, monedaPago, paisPago]);
 
@@ -714,6 +720,12 @@ const WizardConStepper = ({ product, navigation }) => {
       };
 
       const crearOrdenMercadoPago = () => {
+        console.log("Creando orden MercadoPago con datos:", {
+          userId,
+          pedidosRemesa,
+          comisionesComercio,
+          totalAPagar,
+        })
         Meteor.call(
           "mercadopago.createOrder",
           userId,
