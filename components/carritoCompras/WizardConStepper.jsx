@@ -630,7 +630,7 @@ const WizardConStepper = ({ product, navigation }) => {
 
         if (metodoPago == 'paypal') {
           
-         Meteor.call("paypal.totalAPagar", pedidosRemesa,comisionesComercio,(err, res) => {
+         Meteor.call("paypal.totalAPagar", pedidosRemesa,comisionesComercio,monedaFinalUI,(err, res) => {
             if (err) {
               console.error('Error al calcular total a pagar:', err);
             } else {
@@ -640,7 +640,7 @@ const WizardConStepper = ({ product, navigation }) => {
             }
           });
         }else if (metodoPago == 'mercadopago') {
-          Meteor.call("mercadopago.totalAPagar", pedidosRemesa,comisionesComercio,(err, res) => {
+          Meteor.call("mercadopago.totalAPagar", pedidosRemesa,comisionesComercio,monedaFinalUI,(err, res) => {
             if (err) {
               console.error('Error al calcular total a pagar:', err);
             } else {
