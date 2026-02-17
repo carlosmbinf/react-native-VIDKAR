@@ -777,7 +777,7 @@ const App = () => {
                 name="VentasStepper"
                 component={VentasStepper}
                 options={({ navigation, route }) => ({
-                  title: <Text style={{ letterSpacing: 2 }}>Ventas (Stepper)</Text>,
+                  title: <Text style={{ letterSpacing: 2 }}>Remesas</Text>,
                   headerStyle: { backgroundColor: '#3f51b5', height: 90 },
                   headerTitleAlign: 'left',
                   headerTintColor: '#fff',

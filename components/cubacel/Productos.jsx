@@ -76,7 +76,7 @@ const Productos = () => {
               ) : (
                   <View style={styles.loaderContainer}>
                       <ActivityIndicator animating={true} size="large" />
-                      <Text>Cargando productos...</Text>
+                      <Text>Cargando Productos de Cubacel...</Text>
                   </View>
               )}
               </LinearGradient>

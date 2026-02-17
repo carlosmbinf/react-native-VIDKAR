@@ -109,20 +109,20 @@ const MapaUsuarios = ({ initialRegion, filtroRol = 'todos' }) => {
     const emoji = usuario.modoCadete ? '🚴' : 
                   usuario.profile?.role === 'admin' ? '👨‍💼' : '👤';
     const name = usuario.profile?.name || 
-                 `${usuario.profile?.firstName || ''} ${usuario.profile?.lastName || ''}`.trim() ||
-                 usuario.username || 
-                 'Usuario';
+           `${usuario.profile?.firstName || ''} ${usuario.profile?.lastName || ''}`.trim() ||
+           'Usuario';
+    const displayName = usuario.username ? `${name} - ${usuario.username}` : name;
     const statusEmoji = usuario.online ? '🟢' : '⚪';
-    return `${emoji} ${name} ${statusEmoji}`;
+    return `${emoji} ${displayName} ${statusEmoji}`;
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text>Cargando mapa de usuarios...</Text>
-      </View>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <View style={styles.loadingContainer}>
+  //       <Text>Cargando mapa de usuarios...</Text>
+  //     </View>
+  //   );
+  // }
 
   if (!region) {
     return (
@@ -144,6 +144,7 @@ const MapaUsuarios = ({ initialRegion, filtroRol = 'todos' }) => {
       initialRegion={region}
     //   showsUserLocation={true}
       showsMyLocationButton={true}
+      liteMode={false}
       showsScale={true}
       showsCompass={true}
       customMapStyle={[

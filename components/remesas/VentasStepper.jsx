@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, ScrollView, StyleSheet, ImageBackground, Alert } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, ScrollView, StyleSheet, ImageBackground, Alert, FlatList } from 'react-native';
 import { 
   Text, Card, Chip, Divider, Button, List, IconButton, 
   ActivityIndicator, Surface, Portal, Dialog, Snackbar
@@ -69,20 +69,22 @@ const VentasStepper = ({ navigation }) => {
     : {
         $or: [
           { userId: { $in: listIdSubordinados } },
-          { userId: userId }
+          { userId: userId },
         ]
       };
 
     const sub = Meteor.subscribe('ventasRecharge', {
       ...filtro,
       "producto.carritos.entregado": false,
-      "producto.carritos.type": "REMESA"
+      "producto.carritos.type": "REMESA",
+      isCancelada: false
     });
 
     const ventas = VentasRechargeCollection.find({
-      // ...filtro,
+      ...filtro,
       "producto.carritos.entregado": false,
-      "producto.carritos.type": "REMESA"
+      "producto.carritos.type": "REMESA",
+      isCancelada: false
     }, { sort: { createdAt: -1 } }).fetch();
 
     return { ventas, loading: !sub.ready() };
@@ -91,22 +93,29 @@ const VentasStepper = ({ navigation }) => {
   // ✅ Suscripción a ventas ENTREGADAS
   const ventasEntregadas = useTracker(() => {
     const filtro = Meteor?.user()?.username == "carlosmbinf" 
-    ? {} 
+    ? {
+       $or:[
+        {"producto.carritos.entregado": true, isCancelada: false},
+        {"producto.carritos.entregado": false, isCancelada: true}
+      ],
+      "producto.carritos.type": "REMESA"
+    } 
     : {
+      $or:[
+        {"producto.carritos.entregado": true, isCancelada: false},
+        {"producto.carritos.entregado": false, isCancelada: true}
+      ],      
+      "producto.carritos.type": "REMESA",
         $or: [
           { userId: { $in: listIdSubordinados } },
-          { userId: userId }
+          { userId: userId },
         ]
       };
       const sub = Meteor.subscribe('ventasRecharge', {
-        ...filtro,
-        "producto.carritos.entregado": true,
-        "producto.carritos.type": "REMESA"
+        ...filtro
       });
     return VentasRechargeCollection.find({
-      ...filtro,
-      "producto.carritos.entregado": true,
-      "producto.carritos.type": "REMESA"
+      ...filtro
     }, { sort: { createdAt: -1 } }).fetch();
   });
 
@@ -162,6 +171,36 @@ const VentasStepper = ({ navigation }) => {
     setSnackbarMessage(`✅ ${tipo} copiado al portapapeles`);
     setSnackbarVisible(true);
   };
+
+  // ✅ Memoización de renderItem para evitar re-renders innecesarios
+  const renderVentaItem = useCallback(({ item, index }) => {
+    return renderVentaCard(item, index, 'Remesa', false);
+  }, [expandedVentas, expandedAccordions, idAdmin]);
+
+  const renderVentaEntregadaItem = useCallback(({ item, index }) => {
+    return renderVentaCard(item, index, 'Remesa', true);
+  }, [expandedVentas, expandedAccordions, idAdmin]);
+
+  // ✅ KeyExtractor para FlatList
+  const keyExtractor = useCallback((item) => item._id, []);
+
+  // ✅ Componente de separador entre items
+  const ItemSeparator = useCallback(() => <View style={{ height: 16 }} />, []);
+
+  // ✅ Empty states como componentes
+  const EmptyPendientes = useCallback(() => (
+    <Surface style={styles.emptyState} elevation={3}> 
+      <IconButton icon="package-variant" size={48} iconColor="#ccc" />
+      <Text style={styles.emptyText}>No tienes remesas pendientes</Text>
+    </Surface>
+  ), []);
+
+  const EmptyEntregadas = useCallback(() => (
+    <Surface style={styles.emptyState} elevation={3}>
+      <IconButton icon="check-all" size={48} iconColor="#4CAF50" />
+      <Text style={styles.emptyText}>No tienes remesas entregadas</Text>
+    </Surface>
+  ), []);
 
   // ✅ MODIFICADO: Renderizado de progreso con pasos dinámicos y conectores responsivos
   const renderStepper = (pasoActual, metodoPago) => {
@@ -496,39 +535,46 @@ const VentasStepper = ({ navigation }) => {
     <Surface style={{height: '100%'}}>
       <ScrollView style={styles.container}>
         <View style={{paddingBottom: 50}}>
-          {/* ✅ Sección: Remesas sin entregar */}
-        <Text variant="headlineMedium" style={styles.sectionTitle}>
-          Seguimiento de Remesas sin Entregar
-        </Text>
-        
-        {ventas.length === 0 ? (
-          <Surface style={styles.emptyState} elevation={3}> 
-            <IconButton icon="package-variant" size={48} iconColor="#ccc" />
-            <Text style={styles.emptyText}>No tienes remesas pendientes</Text>
-          </Surface>
-        ) : (
-          ventas.map((venta, index) => renderVentaCard(venta, index, 'Remesa'))
-        )}
+          {/* ✅ MODIFICADO: Sección con FlatList para remesas sin entregar */}
+          <Text variant="headlineMedium" style={styles.sectionTitle}>
+            Seguimiento de Remesas sin Entregar
+          </Text>
+          
+          <FlatList
+            data={ventas}
+            renderItem={renderVentaItem}
+            keyExtractor={keyExtractor}
+            ItemSeparatorComponent={ItemSeparator}
+            ListEmptyComponent={EmptyPendientes}
+            scrollEnabled={false}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={5}
+            updateCellsBatchingPeriod={50}
+            windowSize={10}
+            initialNumToRender={3}
+          />
 
-        <Divider style={{ marginVertical: 24 }} />
+          <Divider style={{ marginVertical: 24 }} />
 
-        {/* ✅ Sección: Remesas entregadas */}
-        <Text variant="headlineMedium" style={styles.sectionTitle}>
-          Remesas Entregadas
-        </Text>
+          {/* ✅ MODIFICADO: Sección con FlatList para remesas entregadas */}
+          <Text variant="headlineMedium" style={styles.sectionTitle}>
+            Remesas Entregadas
+          </Text>
 
-        {ventasEntregadas.length === 0 ? (
-          <Surface style={styles.emptyState} elevation={3}>
-            <IconButton icon="check-all" size={48} iconColor="#4CAF50" />
-            <Text style={styles.emptyText}>No tienes remesas entregadas</Text>
-          </Surface>
-        ) : (
-          ventasEntregadas.map((venta, index) => 
-            renderVentaCard(venta, index, 'Remesa', true)
-          )
-        )}
+          <FlatList
+            data={ventasEntregadas}
+            renderItem={renderVentaEntregadaItem}
+            keyExtractor={keyExtractor}
+            ItemSeparatorComponent={ItemSeparator}
+            ListEmptyComponent={EmptyEntregadas}
+            scrollEnabled={false}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={5}
+            updateCellsBatchingPeriod={50}
+            windowSize={10}
+            initialNumToRender={3}
+          />
         </View>
-        
       </ScrollView>
 
       {/* ✅ Dialog de confirmación */}

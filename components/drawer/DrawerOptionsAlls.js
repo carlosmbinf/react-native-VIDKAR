@@ -156,16 +156,16 @@ const DrawerOptionsAlls = (opt) => {
     }
   ];
 
-  if (user?.permiteRemesas == true) {
-    opcionesAdministradorGeneral.push({
-      label: "VentasStepper",
-      url: "VentasStepper",
-      icon: "file-document-edit-outline"
-    });
-  }
+  // if (user?.permiteRemesas == true) {
+  //   opcionesAdministradorGeneral.push({
+  //     label: "Remesas a Entregar",
+  //     url: "VentasStepper",
+  //     icon: "file-document-edit-outline"
+  //   });
+  // }
 
   opcionesAdministradorGeneral.push({
-    label: "MapaUsuarios",
+    label: "Mapa de Usuarios",
     url: "MapaUsuarios",
     icon: "file-document-edit-outline"
   });

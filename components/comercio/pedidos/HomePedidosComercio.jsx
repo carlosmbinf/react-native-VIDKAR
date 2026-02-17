@@ -70,12 +70,12 @@ const HomePedidosComercio = ({ navigation }) => {
   // Loading state mientras carga datos
   if (!ready) {
     return (
-      <View style={styles.loadingContainer}>
+      <Surface style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4CAF50" />
         <Text variant="bodyLarge" style={styles.loadingText}>
           Cargando pedidos...
         </Text>
-      </View>
+      </Surface>
     );
   }
 
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    // backgroundColor: '#f5f5f5',
   },
   loadingText: {
     marginTop: 16,
