@@ -552,7 +552,7 @@ const MenuPrincipal = ({ navigation }) => {
           </View>
         </Appbar>
 
-        <Surface style={{ height: "100%", paddingBottom: insets.bottom + 50, elevation: 0 }}>
+        <Surface style={{ height: "100%", paddingBottom: insets.bottom + 75, elevation: 0 }}>
           <View style={{ flex: 1 }}>
             <ScrollView
               style={styles.container}

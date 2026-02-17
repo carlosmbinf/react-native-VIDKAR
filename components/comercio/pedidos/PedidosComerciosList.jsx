@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, RefreshControl, View } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { StyleSheet, View, FlatList } from 'react-native';
 import { Text, Surface, Appbar } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 import { VentasRechargeCollection } from '../../collections/collections';
@@ -33,20 +33,22 @@ const PedidosComerciosList = ({navigation}) => {
     return { ventas, ready: sub.ready() };
   });
 
-  // Handlers
-  const handleRefresh = async () => {
+  // ✅ Handler de refresh optimizado con useCallback
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
+    // Esperar a que Meteor sincronice datos
     await new Promise(resolve => setTimeout(resolve, 1000));
     setRefreshing(false);
-  };
+  }, []);
 
-  const toggleExpanded = (ventaId) => {
+  // ✅ Toggle expand optimizado con useCallback
+  const toggleExpanded = useCallback((ventaId) => {
     setExpandedVentas(prev => ({ ...prev, [ventaId]: !prev[ventaId] }));
-  };
+  }, []);
 
   // Helper para obtener paso del stepper
-  const getStepFromStatus = (venta) => {
-    // ✅ CORREGIDO: Detectar cancelación con isCancelada
+  const getStepFromStatus = useCallback((venta) => {
+    // ✅ Detectar cancelación con isCancelada
     if (venta.isCancelada === true) {
       return -1; // Paso especial para cancelado
     }
@@ -59,15 +61,45 @@ const PedidosComerciosList = ({navigation}) => {
       'ENTREGADO': 5,
     };
     return steps[venta.estado] || 1;
-  };
+  }, []);
+
+  // ✅ Render de cada item optimizado con useCallback
+  const renderItem = useCallback(({ item: venta }) => (
+    <PedidoCard
+      venta={venta}
+      currentStep={getStepFromStatus(venta)}
+      isExpanded={expandedVentas[venta._id]}
+      onToggleExpand={() => toggleExpanded(venta._id)}
+    />
+  ), [expandedVentas, getStepFromStatus, toggleExpanded]);
+
+  // ✅ KeyExtractor optimizado
+  const keyExtractor = useCallback((item) => item._id, []);
+
+  // ✅ Header de la lista (estadísticas)
+  const ListHeaderComponent = useCallback(() => (
+    <Surface style={styles.headerSection}>
+      <Text variant="titleLarge" style={styles.headerTitle}>
+        📋 Mis Pedidos
+      </Text>
+      <Text variant="bodyMedium" style={styles.headerSubtitle}>
+        {ventas.length} pedido(s) realizados
+      </Text>
+    </Surface>
+  ), [ventas.length]);
+
+  // ✅ Separador entre items (espaciado vertical)
+  const ItemSeparatorComponent = useCallback(() => (
+    <View style={styles.separator} />
+  ), []);
 
   // ✅ Estados de carga usando componentes
   if (!ready) return <LoadingState />;
   if (ventas.length === 0) return <EmptyState />;
 
-  // ✅ Render principal simplificado
+  // ✅ Render principal con FlatList
   return (
-    <Surface style={{height:'100%'}}>
+    <Surface style={styles.surface}>
       <Appbar style={{
         backgroundColor: '#3f51b5',
         height: useSafeAreaInsets().top + 50,
@@ -85,48 +117,35 @@ const PedidosComerciosList = ({navigation}) => {
           <MenuHeader navigation={navigation} />
         </View>
       </Appbar>
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          colors={['#FF6F00']}
-        />
-      }
-    >
-      {/* Header */}
-      <Surface style={styles.headerSection}>
-        <Text variant="titleLarge" style={styles.headerTitle}>
-          📋 Mis Pedidos
-        </Text>
-        <Text variant="bodyMedium" style={styles.headerSubtitle}>
-          {ventas.length} pedido(s) realizados
-        </Text>
-      </Surface>
 
-      {/* ✅ Lista de pedidos usando PedidoCard */}
-      {ventas.map((venta) => (
-        <PedidoCard
-          key={venta._id}
-          venta={venta}
-          currentStep={getStepFromStatus(venta)}
-          isExpanded={expandedVentas[venta._id]}
-          onToggleExpand={() => toggleExpanded(venta._id)}
-        />
-      ))}
-    </ScrollView>
+      <FlatList
+        data={ventas}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        ListHeaderComponent={ListHeaderComponent}
+        ItemSeparatorComponent={ItemSeparatorComponent}
+        contentContainerStyle={styles.flatListContent}
+        // ✅ Pull-to-refresh integrado
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
+        // ✅ Performance optimizations
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={5}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={5}
+        windowSize={10}
+        // ✅ Empty state (por si acaso, aunque ya lo manejamos arriba)
+        ListEmptyComponent={<EmptyState />}
+      />
     </Surface>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    // backgroundColor: '#F5F5F5',
+  surface: {
+    height: '100%',
   },
-  scrollContent: {
+  flatListContent: {
     padding: 16,
     paddingBottom: 32,
   },
@@ -143,6 +162,9 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     color: '#616161',
+  },
+  separator: {
+    height: 12, // Espaciado entre cards
   },
 });
 
