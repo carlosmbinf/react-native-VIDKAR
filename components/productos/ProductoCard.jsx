@@ -50,6 +50,15 @@ const ProductoCard = ({ producto, tienda, searchQuery }) => {
             ]} 
             elevation={4}
           >
+            {/* Ribbon de elaboración - esquina superior derecha */}
+            {producto.productoDeElaboracion && (
+              <View style={styles.ribbonWrapper} pointerEvents="none">
+                <View style={styles.ribbon}>
+                  <Text style={styles.ribbonText}>ELABORACIÓN</Text>
+                </View>
+              </View>
+            )}
+
             {/* Imagen del producto */}
           <View style={styles.imageContainer}>
             {imageUrl ? (
@@ -78,20 +87,6 @@ const ProductoCard = ({ producto, tienda, searchQuery }) => {
                   textStyle={styles.stockChipText}
                 >
                   {producto.count === 0 ? 'Agotado' : `${producto.count} unid.`}
-                </Chip>
-              </View>
-            )}
-
-            {producto.productoDeElaboracion && (
-              <View style={styles.stockBadge}>
-                <Chip 
-                  mode="flat" 
-                  compact
-                  icon="chef-hat"
-                  style={styles.elaboracionChip}
-                  textStyle={styles.elaboracionChipText}
-                >
-                  Elaboración
                 </Chip>
               </View>
             )}
@@ -239,6 +234,50 @@ const styles = StyleSheet.create({
     // backgroundColor: '#E3F2FD',
     borderRadius: 8,
     alignItems: 'center',
+  },
+  // ✅ Ribbon de elaboración (esquina superior derecha)
+  ribbonWrapper: {
+    position: 'absolute',
+    top: 0,
+    right: 0, // ✅ Cambiado de left a right
+    width: 100,
+    height: 100,
+    overflow: 'hidden',
+    zIndex: 10,
+    ...Platform.select({
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  ribbon: {
+    position: 'absolute',
+    top: 20,
+    right: -25, // ✅ Cambiado de left a right
+    width: 120,
+    backgroundColor: 'rgba(156, 39, 176, 0.95)', // Púrpura elegante
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    transform: [{ rotate: '45deg' }], // ✅ Rotación positiva para diagonal derecha
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  ribbonText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
 });
 

@@ -227,6 +227,7 @@ const TiendaCard = ({ tienda, index, searchQuery, userLocation }) => {
             snapToInterval={192} // ✅ Snap a cada card (180 width + 12 margin)
             decelerationRate="fast"
             pagingEnabled={false}
+            windowSize={5}
           />
 
           {/* Footer con padding */}

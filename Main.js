@@ -22,7 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import messaging from '@react-native-firebase/messaging';
 import { badgeManager } from './services/notifications/PushMessaging';
 import DeviceInfo from 'react-native-device-info'; // ✅ NUEVO: Para obtener versión de la app
-import UpdateRequired from './components/UpdateRequired'; // ✅ NUEVO
+import UpdateRequired from './components/update/UpdateRequired'; // ✅ NUEVO
 // ✅ NUEVO: Importar hook de permisos y utilidades
 import { check, RESULTS } from 'react-native-permissions';
 import {
@@ -605,7 +605,7 @@ class MyApp extends React.Component {
 
             >
               {/* ✅ NUEVO: Mostrar UpdateRequired DESPUÉS de validar que hay usuario */}
-              {updateRequired && Meteor.userId() ? (
+              {updateRequired ? (
                 <UpdateRequired
                   currentVersion={currentBuildNumber}
                   requiredVersion={requiredBuildNumber}

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl, Animated, Platform, PermissionsAndroid, Alert, Linking } from 'react-native';
+import { View, StyleSheet, RefreshControl, Animated, Platform, PermissionsAndroid, Alert, Linking, FlatList } from 'react-native';
 import { 
   Text, Searchbar, FAB, ActivityIndicator, Surface, Chip, Divider, 
   Appbar, Portal, Button
@@ -29,7 +29,7 @@ const ProductosScreen = ({ navigation }) => {
     { label: '1 km', value: 1, icon: 'map-marker-radius' },
     { label: '3 km', value: 3, icon: 'map-marker-radius' },
     { label: '5 km', value: 5, icon: 'map-marker-radius' },
-    { label: '5 km', value: 7, icon: 'map-marker-radius' },
+    { label: '7 km', value: 7, icon: 'map-marker-radius' },
     // { label: '10 km', value: 10, icon: 'map-marker-radius' },
     // { label: '20 km', value: 20, icon: 'map-marker-radius' },
   ];
@@ -364,14 +364,104 @@ const ProductosScreen = ({ navigation }) => {
     setRefreshing(false);
   }, [radioKm]);
 
-  if (loading && !refreshing && !loadingTiendas) {
-    return (
-      <Surface style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6200ee" />
-        <Text style={styles.loadingText}>Cargando comercios...</Text>
-      </Surface>
-    );
-  }
+  // ✅ Datos extras para el header del FlatList
+  const ListHeaderComponent = useMemo(() => (
+    <>
+      {loadingTiendas && (
+        <View style={styles.loadingTiendasContainer}>
+          <ActivityIndicator size="small" color="#3f51b5" />
+          <Text style={styles.loadingTiendasText}>Buscando tiendas cercanas...</Text>
+        </View>
+      )}
+
+      {userLocation && (
+        <View style={styles.locationInfo}>
+          <Chip 
+            icon="map-marker-check" 
+            mode="flat"
+            style={styles.locationChip}
+            textStyle={{ fontSize: 12 }}
+          >
+            📍 Mostrando tiendas en {radioKm} km
+          </Chip>
+          <Chip 
+            icon="map" 
+            mode="outlined"
+            style={styles.countChip}
+            textStyle={{ fontSize: 12 }}
+          >
+            {tiendasDisponibles.length} tienda{tiendasDisponibles.length !== 1 ? 's' : ''}
+          </Chip>
+        </View>
+      )}
+
+      <View style={styles.pedidosBannerContent}>
+        <Button
+          mode="outlined"
+          icon="arrow-right"
+          onPress={() => navigation.navigate('PedidosComerciosList')}
+          style={styles.pedidosBannerButton}
+          contentStyle={styles.pedidosBannerButtonContent}
+          labelStyle={styles.pedidosBannerButtonLabel}
+        >
+          Ver listado de compras
+        </Button>
+      </View>
+    </>
+  ), [loadingTiendas, userLocation, radioKm, tiendasDisponibles.length]);
+
+  // ✅ Estado vacío mejorado
+  const ListEmptyComponent = useMemo(() => (
+    <Surface style={styles.emptyState} elevation={1}>
+      <Text style={styles.emptyIcon}>
+        {loadingTiendas 
+          ? '⏳' 
+          : locationError 
+            ? '📍' 
+            : searchQuery.trim()
+              ? '🔍'
+              : '🏪'}
+      </Text>
+      <Text variant="titleMedium" style={styles.emptyTitle}>
+        {loadingTiendas
+          ? 'Buscando tiendas...'
+          : locationError 
+            ? 'Sin ubicación disponible'
+            : searchQuery.trim() 
+              ? 'No se encontraron resultados' 
+              : userLocation
+                ? `No hay tiendas en ${radioKm} km`
+                : 'Activando ubicación...'}
+      </Text>
+      <Text variant="bodyMedium" style={styles.emptySubtitle}>
+        {loadingTiendas
+          ? 'Por favor espera...'
+          : locationError
+            ? `${locationError}. Activa el GPS para ver tiendas cercanas.`
+            : searchQuery.trim() 
+              ? 'Intenta con otros términos de búsqueda' 
+              : userLocation
+                ? 'Intenta aumentar el radio de búsqueda o muévete a otra zona'
+                : 'Obteniendo tu ubicación...'}
+      </Text>
+    </Surface>
+  ), [loadingTiendas, locationError, searchQuery, userLocation, radioKm]);
+
+  // ✅ Renderizado de cada item
+  const renderTiendaItem = ({ item, index }) => (
+    <TiendaCard 
+      tienda={item} 
+      index={index}
+      searchQuery={searchQuery}
+      userLocation={userLocation}
+    />
+  );
+
+  // ✅ Key extractor optimizado
+  const keyExtractor = (item) => item._id;
+
+  // ✅ Footer con espacio para FAB
+  const ListFooterComponent = <View style={{ height: 80 }} />;
 
   return (
     <Surface style={styles.container}>
@@ -431,137 +521,50 @@ const ProductosScreen = ({ navigation }) => {
         </View>
       )}
 
-      {loadingTiendas && (
-        <View style={styles.loadingTiendasContainer}>
-          <ActivityIndicator size="small" color="#3f51b5" />
-          <Text style={styles.loadingTiendasText}>Buscando tiendas cercanas...</Text>
-        </View>
-      )}
-
-
-      {/* Lista de tiendas */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+      {/* ✅ FlatList reemplazando ScrollView */}
+      <FlatList
+        data={tiendasFiltradas}
+        renderItem={renderTiendaItem}
+        keyExtractor={keyExtractor}
+        ListHeaderComponent={ListHeaderComponent}
+        ListEmptyComponent={ListEmptyComponent}
+        ListFooterComponent={ListFooterComponent}
+        contentContainerStyle={styles.flatListContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-      >
-    
-      {/* Indicador de ubicación y radio */}
-      {userLocation && (
-        <View style={styles.locationInfo}>
-          <Chip 
-            icon="map-marker-check" 
-            mode="flat"
-            style={styles.locationChip}
-            textStyle={{ fontSize: 12 }}
-          >
-            📍 Mostrando tiendas en {radioKm} km
-          </Chip>
-          <Chip 
-            icon="map" 
-            mode="outlined"
-            style={styles.countChip}
-            textStyle={{ fontSize: 12 }}
-          >
-            {tiendasDisponibles.length} tienda{tiendasDisponibles.length !== 1 ? 's' : ''}
-          </Chip>
-        </View>
-      )}
+        // ✅ Optimizaciones de performance
+        removeClippedSubviews={Platform.OS === 'android'}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={10}
+        windowSize={10}
+      />
 
-        {/* Vamos a agregar Aqui los componentes en estado de productosComercios procesandose */}
-    {/* Banner de navegación a Pedidos en Proceso */}
-    <View style={styles.pedidosBannerContent}>
-          <Button
-            mode="outlined"
-            icon="arrow-right"
-            onPress={() => navigation.navigate('PedidosComerciosList')}
-            style={styles.pedidosBannerButton}
-            contentStyle={styles.pedidosBannerButtonContent}
-            labelStyle={styles.pedidosBannerButtonLabel}
-          >
-            Ver listado de compras
-          </Button>
-        </View>
-
-        <Animated.View >
-          {tiendasFiltradas.length === 0 ? (
-            <Surface style={styles.emptyState} elevation={1}>
-              <Text style={styles.emptyIcon}>
-                {loadingTiendas 
-                  ? '⏳' 
-                  : locationError 
-                    ? '📍' 
-                    : searchQuery.trim()
-                      ? '🔍'
-                      : '🏪'}
-              </Text>
-              <Text variant="titleMedium" style={styles.emptyTitle}>
-                {loadingTiendas
-                  ? 'Buscando tiendas...'
-                  : locationError 
-                    ? 'Sin ubicación disponible'
-                    : searchQuery.trim() 
-                      ? 'No se encontraron resultados' 
-                      : userLocation
-                        ? `No hay tiendas en ${radioKm} km`
-                        : 'Activando ubicación...'}
-              </Text>
-              <Text variant="bodyMedium" style={styles.emptySubtitle}>
-                {loadingTiendas
-                  ? 'Por favor espera...'
-                  : locationError
-                    ? `${locationError}. Activa el GPS para ver tiendas cercanas.`
-                    : searchQuery.trim() 
-                      ? 'Intenta con otros términos de búsqueda' 
-                      : userLocation
-                        ? 'Intenta aumentar el radio de búsqueda o muévete a otra zona'
-                        : 'Obteniendo tu ubicación...'}
-              </Text>
-            </Surface>
-          ) : (
-            tiendasFiltradas.map((tienda, index) => (
-              <TiendaCard 
-                key={tienda._id} 
-                tienda={tienda} 
-                index={index}
-                searchQuery={searchQuery}
-                userLocation={userLocation}
-              />
-            ))
-          )}
-        </Animated.View>
-
-        <View style={{ height: 80 }} />
-      </ScrollView>
-
-      {/* FAB Group con opciones de radio */}
-      {/* <Portal> */}
-        <FAB.Group
-          open={fabOpen}
-          visible
-          icon={userLocation ? "map-marker-radius" : "map-marker-off"}
-          label={userLocation ? `${radioKm} km` : ''}
-          actions={radioOptions.map((option) => ({
-            icon: option.icon,
-            label: option.label,
-            onPress: () => cambiarRadio(option.value),
-            style: radioKm === option.value ? { backgroundColor: '#e3f2fd' } : undefined,
-            labelStyle: radioKm === option.value ? { color: '#3f51b5', fontWeight: 'bold' } : undefined,
-            small: false,
-          }))}
-          onStateChange={({ open }) => setFabOpen(open)}
-          onPress={() => {
-            if (fabOpen) {
-              // Cerrar el FAB si está abierto
-            }
-          }}
-          fabStyle={styles.fab}
-          color={userLocation ? '#fff' : '#999'}
-        />
-      {/* </Portal> */}
+      {/* FAB Group */}
+      <FAB.Group
+        open={fabOpen}
+        visible
+        icon={userLocation ? "map-marker-radius" : "map-marker-off"}
+        label={userLocation ? `${radioKm} km` : ''}
+        actions={radioOptions.map((option) => ({
+          icon: option.icon,
+          label: option.label,
+          onPress: () => cambiarRadio(option.value),
+          style: radioKm === option.value ? { backgroundColor: '#e3f2fd' } : undefined,
+          labelStyle: radioKm === option.value ? { color: '#3f51b5', fontWeight: 'bold' } : undefined,
+          small: false,
+        }))}
+        onStateChange={({ open }) => setFabOpen(open)}
+        onPress={() => {
+          if (fabOpen) {
+            // Cerrar el FAB si está abierto
+          }
+        }}
+        fabStyle={styles.fab}
+        color={userLocation ? '#fff' : '#999'}
+      />
     </Surface>
   );
 };
@@ -630,11 +633,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#666',
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    // padding: 16,
+  flatListContent: {
+    flexGrow: 1,
   },
   emptyState: {
     padding: 40,

@@ -38,7 +38,7 @@ export const dashboardStyles = StyleSheet.create({
     },
     kpiContainer: {
         flexDirection: 'row',
-        paddingHorizontal: 16,
+        paddingHorizontal: 20, // Incrementado de 16 a 20 para más margen
         paddingVertical: 8,
         gap: 12,
     },
@@ -55,6 +55,7 @@ export const kpiCardStyles = StyleSheet.create({
         minHeight: 140,
         borderRadius: 16,
         overflow: 'hidden',
+        marginHorizontal: 10, // Añadido para evitar corte de sombras
         ...Platform.select({
             ios: {
                 shadowColor: '#000',
@@ -63,15 +64,15 @@ export const kpiCardStyles = StyleSheet.create({
                 shadowRadius: 8,
             },
             android: {
-                elevation: 8,
+                // elevation: 8,
             },
         }),
     },
     gradient: {
-        padding: 16,
+        // padding: 12, // Incrementado de 10 a 12 para más espacio interno
         minHeight: 140,
         justifyContent: 'space-between',
-        overflow: 'hidden',
+        overflow: '',
     },
     header: {
         flexDirection: 'row',
@@ -109,7 +110,8 @@ export const kpiCardStyles = StyleSheet.create({
         color: '#fff',
         marginBottom: 4,
         flexShrink: 1,
-        flexWrap: 'nowrap',
+        flexWrap: 'wrap', // Cambiado de 'nowrap' a 'wrap' para permitir saltos de línea si es necesario
+        maxWidth: '100%', // Añadido para garantizar que no sobrepase el contenedor
     },
     subtitle: {
         fontSize: 12,

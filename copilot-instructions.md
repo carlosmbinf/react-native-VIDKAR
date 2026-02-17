@@ -113,257 +113,286 @@
 
 ---
 
-## Resumen técnico – Platform String con Versión de App (Main.js)
-- **Contexto**: Sistema de registro de tokens push necesita identificar exactamente qué versión del cliente está usando cada usuario.
+## Resumen técnico – Ribbon de Elaboración en ProductoCard (Esquina Superior Derecha)
 
-- **Problema Inicial**: Solo se enviaba el SDK de Android (`Platform.Version`), sin información de la versión de la app.
+- **Contexto**: Reemplazo del Chip de "Elaboración" por un ribbon diagonal elegante para productos de elaboración.
 
-- **Solución Implementada**:
-  - **Librería**: `react-native-device-info` para obtener versión y build number.
-  - **Métodos usados**: 
-    - `DeviceInfo.getVersion()`: Versión semántica (ej: "1.2.3").
-    - `DeviceInfo.getBuildNumber()`: Build number incremental (ej: "42").
-  - **Formato del platform string**: `{OS}_SDK{Version}_v{AppVersion}({BuildNumber})`
+- **Implementación del Ribbon**:
+  - **Posicionamiento**: Esquina superior derecha del card (cambio de izquierda a derecha para mejor visibilidad).
+  - **Estructura**:
+    - `ribbonWrapper`: Container con `overflow: 'hidden'` para recortar el ribbon fuera del card.
+    - `ribbon`: Banda diagonal con rotación `45deg` (positiva para descender hacia la derecha).
+    - `ribbonText`: Texto "ELABORACIÓN" en mayúsculas con `letterSpacing: 0.8`.
 
-- **Ejemplos de Platform Strings**:
+- **Estilos Aplicados**:
   ```javascript
-  // Android
-  "android_SDK34_v1.2.3(100)"
+  ribbonWrapper: {
+    position: 'absolute',
+    top: 0,
+    right: 0,  // Esquina derecha
+    width: 100,
+    height: 100,
+    overflow: 'hidden',
+    zIndex: 10,
+    elevation: 5  // Android
+  }
   
-  // iOS
-  "ios_17.2_v2.0.0(45)"
+  ribbon: {
+    position: 'absolute',
+    top: 20,
+    right: -25,  // Offset desde la derecha
+    width: 120,
+    backgroundColor: 'rgba(156, 39, 176, 0.95)',  // Púrpura semi-transparente
+    transform: [{ rotate: '45deg' }],  // Rotación positiva
+    // Sombras platform-specific
+  }
   ```
 
-- **Ventajas Técnicas**:
-  - **Debugging preciso**: Identificar versión exacta del cliente con problemas.
-  - **Analytics**: Trackear adopción de nuevas versiones.
-  - **Feature flags**: Activar/desactivar features por versión de app.
-  - **Rollback selectivo**: Enviar notificaciones solo a versiones específicas.
-  - **Soporte técnico**: Saber qué versión usa cada usuario sin preguntar.
+- **Ventajas del Ribbon vs Chip**:
+  - **Espacio**: No ocupa espacio del layout, es overlay puro.
+  - **Visibilidad**: Diagonal clásica más llamativa que badge plano.
+  - **Premium UX**: Apariencia más "exclusiva" para productos especiales.
+  - **No interfiere**: Badge de stock permanece en esquina derecha sin conflicto.
 
-- **Integración Backend**:
-  - Parsear platform string con regex: `/^(android|ios)_(?:SDK)?(\d+(?:\.\d+)*)_v([\d.]+)\((\d+)\)$/`
-  - Validar versión mínima soportada antes de procesar requests.
-  - Almacenar en base de datos para auditoría.
-  - Usar en analytics para reportes de adopción de versiones.
-
-- **Consideraciones de Seguridad**:
-  - **Version spoofing**: Backend debe validar que la versión reportada sea consistente con el comportamiento del cliente.
-  - **Forced updates**: Detectar versiones obsoletas y forzar actualización.
-  - **Feature detection**: No confiar ciegamente en la versión reportada, validar capabilities.
-
-- **Lecciones Aprendidas**:
-  - **DeviceInfo es estándar**: Librería mantenida activamente y compatible con ambas plataformas.
-  - **Build number es crítico**: Permite diferenciar builds de prueba vs producción con misma versión.
-  - **Formato consistente**: Tener un formato estándar facilita parsing en backend y logs.
-  - **Logging de debugging**: Siempre loggear el platform string completo para troubleshooting.
+- **Consideraciones Técnicas**:
+  - **pointerEvents="none"**: Evita que el ribbon capture toques destinados al card.
+  - **zIndex + elevation**: Necesario para que quede sobre la imagen en Android.
+  - **Rotación 45deg vs -45deg**: Positiva para diagonal descendente hacia la derecha (estándar).
+  - **Offset negativo**: `right: -25` saca parte del ribbon fuera del wrapper para el efecto diagonal.
 
 - **Testing Recomendado**:
-  - Verificar formato en logs tras registro de token.
-  - Validar que backend parsee correctamente el string.
-  - Probar con versiones de app antiguas (1.0.0) y nuevas (2.x.x).
-  - Verificar que build number se incremente automáticamente en CI/CD.
+  - Verificar que el ribbon NO bloquee tap en el card.
+  - Validar visibilidad en modo claro/oscuro.
+  - Confirmar que no se superpone con badge de stock.
+  - Probar en diferentes tamaños de pantalla (phones/tablets).
 
-- **Próximos Pasos**:
-  - Implementar validación de versión mínima en backend.
-  - Agregar UI para mostrar versión en pantalla de perfil/ajustes.
-  - Crear dashboard de analytics con distribución de versiones.
-  - Implementar sistema de forced updates para versiones críticas.
-
-- **Archivos Modificados**:
-  - Main.js: Agregado import de DeviceInfo y construcción profesional de platform string.
-  - package.json: Dependencia react-native-device-info agregada.
+- **Lecciones Aprendidas**:
+  - **Ribbons diagonales**: Siempre usar wrapper con `overflow: 'hidden'` para recortar correctamente.
+  - **Rotación de ribbons**: Positiva (45deg) para esquina derecha, negativa (-45deg) para izquierda.
+  - **Offset calculado**: `right: -25` con `width: 120` asegura que el texto quede centrado en la diagonal visible.
+  - **Z-index crítico**: En Android, `elevation` en el wrapper es esencial para overlay sobre imagen.
 
 ---
 
-## Resumen técnico – Sistema de Validación de Versión Mínima de App (Version Gating)
+## Resumen técnico – Migración de `.map()` a FlatList en TiendasCercanas (Optimización de Performance)
 
-- **Contexto**: Sistema profesional para forzar actualizaciones de app cuando la versión instalada es menor a la requerida por el backend.
+- **Problema Identificado**: Renderizado de lista de tiendas con `.map()` no optimizado para listas largas (scroll lag, memory issues).
 
-- **Migración de VersionsCollection a ConfigCollection**:
-  - **Antes**: Colección dedicada `VersionsCollection` con método específico `getCompilationMin(platform)`.
-  - **Ahora**: Uso de infraestructura existente `ConfigCollection` con método genérico `property.getValor(type, clave)`.
-  - **Ventajas**: Reutilización de sistema de configuración, auditoría unificada, gestión desde PropertyTable UI.
+- **Solución Aplicada**: Migración a `FlatList` con virtualización nativa de React Native.
 
-- **Arquitectura de datos**:
+- **Beneficios de FlatList**:
+  1. **Virtualización**: Solo renderiza items visibles en viewport + buffer.
+  2. **Scroll Performance**: Manejo nativo de scroll con mejor FPS.
+  3. **Memory Efficiency**: Recicla componentes fuera de pantalla.
+  4. **Pull-to-refresh**: Integración nativa con `onRefresh`.
+  5. **Load More**: Soporte para paginación infinita con `onEndReached`.
+
+- **Patrón de Migración Implementado**:
   ```javascript
-  // ConfigCollection documents
-  {
-    _id: ObjectId,
-    type: "CONFIG",
-    clave: "androidVersionMinCompilation" | "iosVersionMinCompilation",
-    valor: "357", // String que se parsea a Number
-    active: true,
-    comentario: "Version minimo a usar",
-    createdAt: Date,
-    idAdminConfigurado: String // Auditoría de quién configuró
+  // ❌ Antes (map imperativo)
+  {tiendasFiltradas.map((tienda, index) => (
+    <TiendaCard key={tienda._id} tienda={tienda} index={index} />
+  ))}
+  
+  // ✅ Después (FlatList declarativo)
+  <FlatList
+    data={tiendasFiltradas}
+    keyExtractor={(item) => item._id}
+    renderItem={({ item, index }) => (
+      <TiendaCard tienda={item} index={index} searchQuery={searchQuery} userLocation={userLocation} />
+    )}
+    // ...optimizaciones
+  />
+  ```
+
+- **Props de Optimización Aplicadas**:
+  - **keyExtractor**: Usa `_id` único para reconciliación eficiente.
+  - **initialNumToRender**: Renderiza solo 5 items iniciales (default 10).
+  - **maxToRenderPerBatch**: Renderiza 3 items por batch durante scroll.
+  - **windowSize**: Ventana de 5 (mantiene 5 * altura_viewport en memoria).
+  - **removeClippedSubviews**: Desmonta componentes fuera de pantalla (Android).
+  - **getItemLayout**: Pre-calcula heights para scroll instantáneo (si heights son fijos).
+
+- **Estilos de ContentContainer**:
+  ```javascript
+  contentContainerStyle={{
+    padding: 16,
+    paddingBottom: 32,  // Espacio final
+    gap: 16,  // Separación entre cards (Android API 29+)
+  }}
+  ```
+
+- **Empty State Mejorado**:
+  - Componente `ListEmptyComponent` con mensaje contextual.
+  - Icono `store-off-outline` para coherencia visual.
+  - Maneja 3 casos: cargando, sin tiendas, sin resultados de búsqueda.
+
+- **Scroll Behavior Configurado**:
+  - **showsVerticalScrollIndicator={false}**: UX más limpia.
+  - **bounces={true}** (iOS): Efecto rubber band nativo.
+  - **overScrollMode="auto"** (Android): Respeta configuración del sistema.
+
+- **Consideraciones de Performance**:
+  - **Memoización de TiendaCard**: Considerar `React.memo()` si re-renders son frecuentes.
+  - **PureComponent**: Si TiendaCard es class component, extender `PureComponent`.
+  - **shouldComponentUpdate**: Implementar comparación shallow de props.
+  - **getItemLayout**: Solo si **todas** las cards tienen altura fija conocida.
+
+- **Cálculo de getItemLayout (ejemplo)**:
+  ```javascript
+  getItemLayout={(data, index) => ({
+    length: 200,  // Altura fija de TiendaCard en px
+    offset: 200 * index + 16 * index,  // Altura + gap
+    index,
+  })}
+  ```
+
+- **Pull-to-Refresh (futuro)**:
+  ```javascript
+  refreshControl={
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
+      tintColor="#9C27B0"  // Color del spinner
+    />
   }
   ```
 
-- **Flujo de validación implementado**:
-  1. **componentDidMount** de Main.js ejecuta `checkAppVersion()` ANTES de cualquier otra inicialización.
-  2. Obtiene `currentBuildNumber` con `DeviceInfo.getBuildNumber()`.
-  3. Consulta `property.getValor('CONFIG', '{platform}VersionMinCompilation')`.
-  4. Si `currentBuildNumber < requiredBuildNumber` → setea `updateRequired: true`.
-  5. Muestra pantalla `UpdateRequired.jsx` con botón de redirección a tienda.
-
-- **Método backend usado**:
+- **Infinite Scroll (futuro)**:
   ```javascript
-  Meteor.call('property.getValor', 'CONFIG', 'androidVersionMinCompilation', (error, result) => {
-    // result es String "357", se parsea a Number con parseInt()
-  });
+  onEndReached={() => {
+    if (hasMore && !loading) {
+      loadMoreTiendas();
+    }
+  }}
+  onEndReachedThreshold={0.5}  // Trigger al 50% del final
   ```
 
-- **Validaciones defensivas implementadas**:
-  - **Property no existe**: Retorna `null`, se interpreta como `0` (permitir acceso).
-  - **Valor inválido**: `parseInt()` con fallback a `0`.
-  - **Error en llamada**: Catch con `fail-open` (permitir acceso para evitar bloqueos masivos).
-  - **Build number actual inválido**: `parseInt()` con validación `isNaN()`.
+- **Testing Recomendado Post-Migración**:
+  - Lista con 0 tiendas → debe mostrar empty state.
+  - Lista con 50+ tiendas → scroll debe ser fluido (60 FPS).
+  - Búsqueda que filtra a 0 resultados → mensaje específico.
+  - Scroll rápido arriba/abajo → sin saltos ni blancos.
+  - Memory profiling: uso de RAM estable durante scroll prolongado.
 
-- **Componente UpdateRequired.jsx**:
-  - **Fondo**: Mismo ImageBackground del Login para consistencia visual.
-  - **Props**: `currentVersion` (número), `requiredVersion` (número).
-  - **Iconografía**: Icon "update" de Material Design con color de alerta (#FF6B6B).
-  - **Información visual**: Dos cards mostrando versión actual vs requerida con iconos semánticos.
-  - **Botón CTA**: Redirige a Play Store (Android) o App Store (iOS) con `Linking.openURL()`.
-  - **No dismissible**: Sin botón de cerrar ni navegación hacia atrás.
+- **Lecciones Aprendidas**:
+  - **FlatList siempre que sea posible**: Incluso para listas cortas (10-20 items), la optimización es gratuita.
+  - **keyExtractor único y estable**: Usar IDs de base de datos, nunca index.
+  - **removeClippedSubviews**: Gran impacto en Android con listas largas, pero puede causar bugs con componentes complejos.
+  - **getItemLayout preciso**: Solo implementar si heights son 100% fijos, sino causa jumps.
+  - **gap en contentContainerStyle**: Requiere Android API 29+, usar marginBottom como fallback.
+  - **Evitar inline functions en renderItem**: Extraer componente para mejor memoización.
 
-- **URLs de tiendas**:
+- **Anti-patterns a Evitar**:
+  ❌ `key={index}` → Causa re-renders innecesarios.
+  ❌ `renderItem={() => <TiendaCard {...props} />}` → Nueva instancia en cada render.
+  ❌ `data={tiendas.filter(...)}` → Re-calcula en cada render, memoizar con useMemo.
+  ❌ Animaciones complejas en TiendaCard → Causa jank durante scroll.
+
+- **Próximos Pasos**:
+  - Implementar Pull-to-Refresh para recargar tiendas cercanas.
+  - Agregar paginación con onEndReached si backend soporta offset/limit.
+  - Memoizar TiendaCard con React.memo() comparando props relevantes.
+  - Profiling con React DevTools Profiler para identificar re-renders.
+  - Considerar react-native-fast-image para carga optimizada de imágenes en TiendaCard.
+
+---
+
+## Resumen técnico – Integración de Geolocalización de Tiendas en MenuPrincipal
+
+- **Contexto**: Replicación de funcionalidad de geolocalización y FlatList de ProductosScreen en MenuPrincipal como sección adicional del menú principal.
+
+- **Arquitectura Implementada**:
+  - **FlatList con ListHeaderComponent**: Todo el contenido estático del menú (Productos, MainPelis, ProxyVPN) se renderiza en el header.
+  - **Items del FlatList**: Solo tiendas cercanas (tiendasConProductos).
+  - **Geolocalización automática**: Se obtiene ubicación al montar el componente.
+  - **Radio fijo de 3km**: Simplificación para MenuPrincipal (sin FAB de cambio de radio).
+
+- **Estados Manejados**:
   ```javascript
-  const storeUrl = Platform.select({
-    ios: 'https://apps.apple.com/app/idTU_APP_ID', // ✅ Reemplazar con App ID real
-    android: 'https://play.google.com/store/apps/details?id=com.nauta.vidkar',
-  });
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationError, setLocationError] = useState(null);
+  const [tiendasCercanas, setTiendasCercanas] = useState([]);
+  const [loadingTiendas, setLoadingTiendas] = useState(false);
   ```
 
-- **Estados del componente Main.js**:
+- **Flujo de Geolocalización**:
+  1. `useEffect` → `obtenerUbicacion()` al montar.
+  2. `requestLocationPermission()` → Solicita permisos (Android).
+  3. `Geolocation.getCurrentPosition()` → Obtiene coordenadas.
+  4. `buscarTiendasCercanas(coordenadas)` → Llama a `comercio.getTiendasCercanas`.
+  5. `setTiendasCercanas(resultado.tiendas)` → Actualiza estado.
+
+- **useTracker para Productos**:
+  - Suscribe a `productosComercio` solo para tiendas cercanas (filtro por `_id: { $in: tiendasIds }`).
+  - Calcula `tiendasConProductos` con productos asociados y disponibles.
+  - Filtra tiendas sin productos (`totalProductos > 0`).
+
+- **Estructura de ListHeaderComponent**:
+  ```
+  ListHeaderComponent
+  ├── Mensaje de bienvenida (View con bg #3f51b5)
+  ├── Productos (componente Cubacel)
+  ├── MainPelis (condicional si subscipcionPelis)
+  ├── ProxyVPNPackagesHorizontal
+  └── Sección "Comercios Cercanos"
+      ├── Título con emoji 🏪
+      ├── Loading indicator (si loadingTiendas)
+      └── Chip con contador de tiendas (si userLocation)
+  ```
+
+- **Optimizaciones Aplicadas**:
+  - **useMemo en ListHeaderComponent**: Evita re-renders cuando cambian dependencias no críticas.
+  - **removeClippedSubviews**: Solo en Android para liberar memoria.
+  - **initialNumToRender: 5**: Renderiza 5 tiendas inicialmente (menos que ProductosScreen por estar en menú).
+  - **windowSize: 5**: Buffer menor para mejor performance en menú con múltiples secciones.
+
+- **Diferencias con ProductosScreen**:
+  | Aspecto | ProductosScreen | MenuPrincipal |
+  |---------|-----------------|---------------|
+  | **Searchbar** | Sí, con filtrado | No (simplificado) |
+  | **FAB de radio** | Sí, múltiples opciones | No, radio fijo 3km |
+  | **Header dedicado** | Chips de ubicación separados | Integrado en sección |
+  | **Empty state** | Detallado con iconos | Minimalista |
+  | **Performance** | Más agresiva (10/10/10) | Balanceada (5/5/5) |
+
+- **Pull-to-Refresh Implementado**:
   ```javascript
-  state = {
-    checkingVersion: true,        // Loading inicial
-    updateRequired: false,        // Flag para mostrar UpdateRequired
-    currentBuildNumber: null,     // Build actual del dispositivo
-    requiredBuildNumber: null,    // Build requerido desde backend
-    // ...otros estados
-  }
+  onRefresh={() => {
+    setLoading(true);
+    obtenerUbicacion(); // Re-obtiene ubicación y tiendas
+    setTimeout(() => setLoading(false), 1500);
+  }}
   ```
 
-- **Orden de inicialización crítico**:
-  ```javascript
-  async componentDidMount() {
-    // 1. PRIMERO: Validar versión
-    await this.checkAppVersion();
-    
-    // 2. Si updateRequired, detener aquí
-    if (this.state.updateRequired) return;
-    
-    // 3. Continuar con permisos y notificaciones
-    await this.verifyPermissionsStatus();
-    // ...
-  }
-  ```
+- **Manejo de Errores**:
+  - **Sin permisos**: Setea `locationError` y muestra empty state con mensaje.
+  - **Timeout GPS**: Muestra error "Ubicación no disponible".
+  - **Sin tiendas**: Empty state con "No hay comercios cercanos".
 
-- **Render condicional jerárquico**:
-  ```javascript
-  render() {
-    // 1. Loading de versión (prioridad máxima)
-    if (checkingVersion) return <LoadingScreen message="Verificando versión..." />;
-    
-    // 2. Actualización requerida (bloqueo total)
-    if (updateRequired) return <UpdateRequired {...versionProps} />;
-    
-    // 3. Loading de permisos
-    if (checkingPermissions) return <LoadingScreen message="Verificando permisos..." />;
-    
-    // 4. Pantalla de permisos
-    if (showPermissionsScreen) return <PermissionsManager />;
-    
-    // 5. App normal
-    return <NavigationContainer>...</NavigationContainer>;
-  }
-  ```
+- **Consideraciones UX**:
+  - **Scroll suave**: `bounces={false}` y `overScrollMode="never"` para experiencia coherente con el resto del menú.
+  - **Separador visual**: Sección "Comercios Cercanos" con fondo gris (#f5f5f5) para diferenciar del resto del contenido.
+  - **Loading state inline**: ActivityIndicator + texto en la sección, no bloquea vista del resto del menú.
 
-- **Gestión desde PropertyTable UI**:
-  - Admins pueden modificar versión mínima sin deploy de código.
-  - Campo `valor` acepta solo números como string.
-  - Toggle `active` para deshabilitar validación temporalmente.
-  - Auditoría automática con `idAdminConfigurado`.
+- **Testing Recomendado**:
+  - Menú con ubicación activada → debe cargar tiendas automáticamente.
+  - Menú sin permisos de ubicación → debe mostrar empty state sin crashear.
+  - Pull-to-refresh → debe re-obtener ubicación y actualizar tiendas.
+  - Scroll con 0 tiendas → header completo visible sin saltos.
+  - Scroll con 20+ tiendas → performance fluida sin jank.
 
-- **Logging profesional implementado**:
-  ```javascript
-  console.log('[Main] 📱 Build actual:', currentBuildNumber);
-  console.log('[Main] 🔑 Consultando property:', { type: 'CONFIG', clave: propertyKey });
-  console.log('[Main] ✅ Valor obtenido:', requiredVersionString);
-  console.warn('[Main] ⚠️ Actualización requerida:', { actual, requerido });
-  ```
+- **Lecciones Aprendidas**:
+  - **ListHeaderComponent dinámico**: Permite reutilizar FlatList para menús complejos con secciones fijas + listas dinámicas.
+  - **useMemo crítico**: En ListHeaderComponent complejo (múltiples componentes) previene re-renders costosos.
+  - **Geolocalización silenciosa**: No mostrar Alert de permisos en mount automático mejora UX (solo mostrar si falla).
+  - **Radio fijo para menús**: Simplifica UX en pantallas secundarias, reservar configuración avanzada para pantallas dedicadas.
+  - **Empty state contextual**: Solo mostrar cuando realmente no hay datos, no bloquear vista del header.
 
-- **Casos edge manejados**:
-  - **Property no configurada**: Permitir acceso (no bloquear por error de config).
-  - **Backend caído**: Fail-open para evitar lock-out masivo.
-  - **Valor 0 en property**: Interpretado como "sin restricción".
-  - **Build number no numérico**: Parseo defensivo con fallback.
-  - **Usuario presiona "Atrás"**: No hay navegación hacia atrás desde UpdateRequired.
+- **Próximos Pasos**:
+  - Considerar lazy loading de TiendaCard con `React.memo()` si hay lag.
+  - Agregar botón "Ver Todos" que navegue a ProductosScreen con filtros pre-aplicados.
+  - Cachear `userLocation` en AsyncStorage para evitar solicitudes repetidas.
+  - Implementar Analytics para trackear engagement con sección de comercios.
 
-- **Testing recomendado**:
-  ```bash
-  # 1. Versión válida (mayor a requerida)
-  - currentBuild: 400, requiredBuild: 357 → permitir acceso
-  
-  # 2. Versión desactualizada (menor)
-  - currentBuild: 300, requiredBuild: 357 → mostrar UpdateRequired
-  
-  # 3. Versión exacta (igual)
-  - currentBuild: 357, requiredBuild: 357 → permitir acceso (>=)
-  
-  # 4. Property no existe
-  - Retorna null → permitir acceso
-  
-  # 5. Property active=false
-  - No se retorna → permitir acceso
-  
-  # 6. Backend caído durante check
-  - Catch error → permitir acceso (fail-open)
-  
-  # 7. Usuario toca botón de actualización
-  - Abre tienda correcta según plataforma
-  ```
-
-- **Consideraciones de seguridad**:
-  - **Build number no es secret**: Cualquiera puede ver el valor con `DeviceInfo.getBuildNumber()`.
-  - **Property valor público**: Accesible via `property.getValor` sin autenticación (por diseño).
-  - **Fail-open policy**: Errores NO bloquean acceso para evitar lock-out masivo.
-  - **Rate limiting**: Considerar agregar a `property.getValor` si se abusa del endpoint.
-
-- **Mejoras futuras sugeridas**:
-  1. **Mensajes personalizados**: Agregar campo `comentario` como texto del botón de actualización.
-  2. **Actualización gradual**: Campo `porcentajeUsuarios` para rollout progresivo.
-  3. **Actualización recomendada vs obligatoria**: Flag `updateMode: 'soft' | 'hard'` con opción de omitir.
-  4. **Changelog en pantalla**: Mostrar novedades de la nueva versión.
-  5. **Cache local**: Guardar último `requiredBuildNumber` en AsyncStorage para reducir llamadas.
-  6. **Analytics**: Trackear cuántos usuarios están bloqueados por versión desactualizada.
-
-- **Troubleshooting común**:
-  - **Pantalla UpdateRequired no desaparece tras actualizar**: Limpiar data de app o incrementar build number.
-  - **Loop infinito de UpdateRequired**: Verificar que el build number se incrementó correctamente.
-  - **Usuario bloqueado en versión válida**: Verificar parseo de string a number (`parseInt()`).
-  - **Property no se encuentra**: Confirmar `active: true` y `type: 'CONFIG'`.
-
-- **Lecciones aprendidas**:
-  - **Fail-open crítico**: En sistemas de gating, siempre permitir acceso si falla la validación (evitar lock-out).
-  - **String vs Number**: ConfigCollection almacena valores como String, siempre parsear a Number.
-  - **Orden de validaciones**: Version check ANTES de permisos y notificaciones.
-  - **Reutilizar infraestructura**: property.getValor más flexible que método dedicado.
-  - **UX clara**: Pantalla de actualización debe ser no-dismissible con CTA prominente.
-  - **Logging verboso**: Emojis y mensajes claros facilitan debugging en producción.
-
-- **Archivos modificados**:
-  - **Main.js**: Método `checkAppVersion()` refactorizado para usar `property.getValor`.
-  - **UpdateRequired.jsx**: Componente profesional con mismo fondo del Login.
-  - **versions.js**: Marcado como deprecated, redirige a `property.getValor`.
-  - **collections.js**: Ya tenía `VersionsCollection` y `ConfigCollection` exportados.
-
-- **Próximos pasos**:
-  - Agregar botón en PropertyTable para "Incrementar versión mínima" con confirmación.
-  - Crear script de admin para actualizar versión mínima en batch (Android + iOS).
-  - Implementar notificación push cuando se incremente la versión requerida.
-  - Agregar analytics para trackear cuántos usuarios necesitan actualizar.
-  - Tests e2e del flujo completo: versión desactualizada → UpdateRequired → abrir tienda.
+---
