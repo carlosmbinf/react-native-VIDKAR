@@ -71,6 +71,34 @@ const ProductosScreen = ({ navigation }) => {
     });
   };
 
+  // ✅ Helper para actualizar ubicación en backend
+  const actualizarUbicacionBackend = (ubicacion) => {
+    const userId = Meteor.userId();
+    if (!userId || !ubicacion) {
+      console.log('⚠️ [Backend] No se puede actualizar ubicación: usuario no autenticado o ubicación no disponible');
+      return;
+    }
+
+    console.log('📡 [Backend] Enviando ubicación al servidor...');
+    
+    Meteor.call('cadete.updateLocation', {
+      userId,
+      cordenadas: {
+        latitude: ubicacion.latitude,
+        longitude: ubicacion.longitude,
+        accuracy: ubicacion.accuracy,
+        altitude: ubicacion.altitude || null,
+        timestamp: ubicacion.timestamp
+      }
+    }, (error, result) => {
+      if (error) {
+        console.warn('⚠️ [Backend] Error al actualizar ubicación:', error.reason || error.message);
+      } else {
+        console.log('✅ [Backend] Ubicación actualizada correctamente en servidor');
+      }
+    });
+  };
+
   // Buscar tiendas cercanas usando el método backend
   const buscarTiendasCercanas = async (coordenadas, radio = radioKm) => {
     if (!coordenadas) {
@@ -182,6 +210,9 @@ const ProductosScreen = ({ navigation }) => {
           precision: `${accuracy.toFixed(0)}m`,
           fecha: new Date(position.timestamp).toLocaleString()
         });
+
+        // ✅ Enviar ubicación al backend
+        actualizarUbicacionBackend(ubicacion);
 
         // Buscar tiendas cercanas automáticamente
         buscarTiendasCercanas(ubicacion, radioKm);

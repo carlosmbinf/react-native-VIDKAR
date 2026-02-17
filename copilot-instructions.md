@@ -113,6 +113,143 @@
 
 ---
 
+## Resumen técnico – Actualización de Ubicación en Tiempo Real (MenuPrincipal y ProductosScreen)
+
+- **Contexto**: Implementación de envío automático de ubicación del usuario al backend cada vez que se obtienen coordenadas GPS, reutilizando el método `cadete.updateLocation` existente.
+
+- **Método Backend Reutilizado**:
+  ```javascript
+  Meteor.call('cadete.updateLocation', { userId, cordenadas }, callback)
+  
+  // Parámetros esperados:
+  {
+    userId: String,         // ID del usuario actual
+    cordenadas: {
+      latitude: Number,     // Coordenada latitud
+      longitude: Number,    // Coordenada longitud
+      accuracy: Number,     // Precisión en metros
+      altitude: Number,     // Altitud (opcional)
+      timestamp: Number     // Timestamp de la medición
+    }
+  }
+  ```
+
+- **Validaciones Backend Implementadas**:
+  1. **Usuario existe**: Verifica que el `userId` sea válido.
+  2. **Modo cadete activo**: Solo permite actualización si `user.modoCadete === true`.
+  3. **Actualización atómica**: Usa `$set` para actualizar campo `cordenadas` en Users collection.
+  4. **Logging**: Registra cada actualización con username, coordenadas y precisión.
+
+- **Integración en Frontend (MenuPrincipal y ProductosScreen)**:
+  - **Ubicación en el flujo**: Se llama `actualizarUbicacionBackend()` inmediatamente después de obtener coordenadas GPS exitosas.
+  - **Función helper centralizada**:
+    ```javascript
+    const actualizarUbicacionBackend = (ubicacion) => {
+      const userId = Meteor.userId();
+      if (!userId || !ubicacion) return;
+      
+      Meteor.call('cadete.updateLocation', {
+        userId,
+        cordenadas: {
+          latitude: ubicacion.latitude,
+          longitude: ubicacion.longitude,
+          accuracy: ubicacion.accuracy,
+          altitude: ubicacion.altitude,
+          timestamp: ubicacion.timestamp
+        }
+      }, (error, result) => {
+        if (error) {
+          console.warn('⚠️ [Backend] Error al actualizar ubicación:', error.reason);
+        } else {
+          console.log('✅ [Backend] Ubicación actualizada correctamente');
+        }
+      });
+    };
+    ```
+
+- **Puntos de Invocación**:
+  1. **Obtención inicial**: Cuando `Geolocation.getCurrentPosition()` retorna éxito.
+  2. **Auto-refresh**: En el intervalo de 60s (solo en MenuPrincipal) tras buscar tiendas cercanas.
+  3. **Refresh manual**: Cuando usuario hace pull-to-refresh (solo en ProductosScreen).
+
+- **Manejo de Errores No Bloqueante**:
+  - **Error en backend**: Se loggea con `console.warn` pero NO interrumpe el flujo de búsqueda de tiendas.
+  - **Usuario no autenticado**: Se valida `Meteor.userId()` antes de llamar al método.
+  - **Modo cadete inactivo**: El backend rechaza pero el frontend continúa normalmente (validación opcional).
+  - **Sin callback**: La llamada es "fire-and-forget" para no bloquear UI.
+
+- **Consideraciones de Performance**:
+  - **Throttling natural**: Solo se actualiza cuando se obtiene ubicación (no en cada render).
+  - **Sin retry automático**: Si falla, se espera a la próxima actualización natural.
+  - **Payload mínimo**: Solo se envían coordenadas esenciales (lat, lng, accuracy, altitude, timestamp).
+  - **Async no bloqueante**: Usa callback en lugar de await para no detener búsqueda de tiendas.
+
+- **Privacidad y Seguridad**:
+  - **Solo usuarios autenticados**: Requiere `Meteor.userId()` válido.
+  - **Validación en backend**: Servidor verifica permisos antes de actualizar.
+  - **Sin exposición pública**: La ubicación solo se guarda en el documento del usuario (no en colección separada).
+  - **Opcional para usuarios normales**: Solo es obligatorio si `modoCadete: true`.
+
+- **Logs de Depuración Implementados**:
+  ```javascript
+  // Frontend
+  console.log('📡 [Backend] Enviando ubicación al servidor...');
+  console.log('✅ [Backend] Ubicación actualizada correctamente');
+  console.warn('⚠️ [Backend] Error al actualizar ubicación:', error.reason);
+  
+  // Backend
+  console.log(`📍 [Cadete ${user.username}] Ubicación actualizada:`, {
+    lat: data.cordenadas.latitude.toFixed(6),
+    lng: data.cordenadas.longitude.toFixed(6),
+    accuracy: `${data.cordenadas.accuracy.toFixed(2)}m`,
+  });
+  ```
+
+- **Diferencias entre MenuPrincipal y ProductosScreen**:
+  | Aspecto | MenuPrincipal | ProductosScreen |
+  |---------|---------------|-----------------|
+  | **Auto-refresh** | Sí (60s con intervalo) | No (solo manual) |
+  | **Envío de ubicación** | Inicial + cada 60s | Inicial + cada refresh manual |
+  | **FlatList embebido** | Sí (dentro de ScrollView) | Sí (pantalla completa) |
+  | **Otros componentes** | Productos, MainPelis, ProxyVPN | Solo tiendas |
+
+- **Mejoras Futuras Sugeridas**:
+  1. **Watchdog de ubicación**: Detectar si GPS está desactivado y notificar al usuario.
+  2. **Historial de ubicaciones**: Guardar trail de ubicaciones para análisis posterior.
+  3. **Geofencing**: Notificar cuando usuario entra/sale de zona específica.
+  4. **Batch updates**: Acumular ubicaciones y enviar en lotes para reducir tráfico.
+  5. **Fallback a ubicación de red**: Si GPS falla, usar `enableHighAccuracy: false`.
+  6. **Indicador visual**: Mostrar ícono en header cuando se está enviando ubicación al servidor.
+
+- **Testing Recomendado**:
+  - **Caso 1**: Usuario autenticado con `modoCadete: false` → debe actualizar ubicación sin errores (validación backend opcional).
+  - **Caso 2**: Usuario autenticado con `modoCadete: true` → debe actualizar ubicación exitosamente.
+  - **Caso 3**: Usuario no autenticado → NO debe llamar al método backend.
+  - **Caso 4**: Error de red durante envío → debe loggear warning pero continuar con búsqueda de tiendas.
+  - **Caso 5**: Auto-refresh en MenuPrincipal → debe enviar ubicación cada 60s.
+  - **Caso 6**: Pull-to-refresh en ProductosScreen → debe enviar ubicación al refrescar.
+
+- **Lecciones Aprendidas**:
+  - **Fire-and-forget pattern**: Para operaciones no críticas, usar callback sin await evita bloqueos de UI.
+  - **Validación defensiva**: Siempre verificar `Meteor.userId()` antes de operaciones que requieren autenticación.
+  - **Logs específicos**: Diferenciar logs de frontend (`[Backend]`) vs backend (`[Cadete]`) facilita debugging.
+  - **Payload estándar**: Mantener estructura consistente de `cordenadas` entre llamadas.
+  - **Backend como source of truth**: No validar `modoCadete` en frontend, dejar que servidor decida.
+  - **Errores no bloqueantes**: En flujos de geolocalización, permitir que la app continúe aunque falle actualización de ubicación.
+
+- **Archivos Modificados**:
+  - `components/Main/MenuPrincipal.jsx`: Agregada función `actualizarUbicacionBackend()` y llamada en `obtenerUbicacion()` y auto-refresh.
+  - `components/productos/ProductosScreen.jsx`: Agregada función `actualizarUbicacionBackend()` y llamada en `obtenerUbicacion()`.
+  - `server/metodos/cadetes.js`: Sin cambios (método ya existía y funciona correctamente).
+
+- **Próximos Pasos**:
+  - Implementar indicador visual de "sincronización" en header mientras se envía ubicación.
+  - Agregar campo `lastLocationUpdate` en Users collection para trackear cuándo fue la última actualización.
+  - Considerar throttling adicional si el usuario hace múltiples refreshes en poco tiempo.
+  - Documentar en README.md el flujo de actualización de ubicación en tiempo real.
+
+---
+
 ## Resumen técnico – Ribbon de Elaboración en ProductoCard (Esquina Superior Derecha)
 
 - **Contexto**: Reemplazo del Chip de "Elaboración" por un ribbon diagonal elegante para productos de elaboración.
@@ -396,3 +533,4 @@
   - Implementar Analytics para trackear engagement con sección de comercios.
 
 ---
+````

@@ -106,6 +106,34 @@ const MenuPrincipal = ({ navigation }) => {
     return true;
   };
 
+  const actualizarUbicacionBackend = (ubicacion) => {
+    const userId = Meteor.userId();
+    console.log("ubicacion",ubicacion)
+    if (!userId || !ubicacion) {
+      console.log('⚠️ [Backend] No se puede actualizar ubicación: usuario no autenticado o ubicación no disponible');
+      return;
+    }
+
+    console.log('📡 [Backend] Enviando ubicación al servidor...');
+    
+    Meteor.call('cadete.updateLocation', {
+      userId,
+      cordenadas: {
+        latitude: ubicacion.latitude,
+        longitude: ubicacion.longitude,
+        accuracy: ubicacion.accuracy,
+        altitude: ubicacion.altitude || null,
+        timestamp: ubicacion.timestamp
+      }
+    }, (error, result) => {
+      if (error) {
+        console.warn('⚠️ [Backend] Error al actualizar ubicación:', error.reason || error.message);
+      } else {
+        console.log('✅ [Backend] Ubicación actualizada correctamente en servidor');
+      }
+    });
+  };
+
   const buscarTiendasCercanas = async (coordenadas, radio = radioKm) => {
     if (!coordenadas) {
       console.warn('⚠️ [Tiendas Cercanas] No hay coordenadas disponibles');
@@ -198,6 +226,8 @@ const MenuPrincipal = ({ navigation }) => {
           precision: `${accuracy.toFixed(0)}m`,
         });
 
+        actualizarUbicacionBackend(ubicacion);
+
         buscarTiendasCercanas(ubicacion, radioKm);
       },
       (error) => {
@@ -281,9 +311,11 @@ const MenuPrincipal = ({ navigation }) => {
     // ✅ Intervalo para actualizar tiendas cada 60 segundos
     const interval = setInterval(() => {
       console.log('🔄 [Auto-refresh] Actualizando tiendas cercanas...');
+      // ✅ Enviar ubicación actualizada al backend
+      actualizarUbicacionBackend(userLocation);
       // ✅ Usar los valores actuales del state via closure
       buscarTiendasCercanas(userLocation, radioKm);
-    }, 60000); // 60 segundos
+    }, 300000); // 60 segundos
 
     // ✅ Cleanup: limpiar intervalo al desmontar o cambiar dependencias
     return () => {
