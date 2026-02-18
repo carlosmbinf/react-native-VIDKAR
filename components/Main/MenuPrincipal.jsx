@@ -39,6 +39,7 @@ const { width: screenWidth } = Dimensions.get('window');
 const { height: screenHeight } = Dimensions.get('window');
 
 const MenuPrincipal = ({ navigation }) => {
+  
   const moment = require('moment');
   const insets = useSafeAreaInsets();
   const [drawer, setDrawer] = useState(false);
@@ -72,6 +73,16 @@ const MenuPrincipal = ({ navigation }) => {
     { label: '7 km', value: 7, icon: 'map-marker-radius' },
   ];
 
+  useEffect(() => {
+    Geolocation.setRNConfiguration(
+      {
+        // skipPermissionRequests: true,
+        authorizationLevel: 'always',
+        enableBackgroundLocationUpdates: true,
+        locationProvider: 'android' 
+      }
+    )
+  },[])
   const meteorCallAsync = (methodName, ...args) => {
     return new Promise((resolve, reject) => {
       Meteor.call(methodName, ...args, (error, result) => {
@@ -263,9 +274,12 @@ const MenuPrincipal = ({ navigation }) => {
         }
       },
       {
+        interval: 60000,
+        // useSignificantChanges: true,
+        // distanceFilter: 0,
         enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 10000,
+        // timeout: 30000,
+        maximumAge: 45000,
       }
     );
   };
@@ -315,7 +329,7 @@ const MenuPrincipal = ({ navigation }) => {
       actualizarUbicacionBackend(userLocation);
       // ✅ Usar los valores actuales del state via closure
       buscarTiendasCercanas(userLocation, radioKm);
-    }, 300000); // 60 segundos
+    }, 60000); // 60 segundos
 
     // ✅ Cleanup: limpiar intervalo al desmontar o cambiar dependencias
     return () => {
@@ -524,31 +538,7 @@ const MenuPrincipal = ({ navigation }) => {
         <Appbar style={{ backgroundColor: '#3f51b5', height:insets.top + 50, justifyContent:'center', paddingTop: insets.top }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
             <Appbar.Action icon="menu" color={"white"} onPress={() => setDrawer(!drawer)} />
-            {showSearchbar ? (
-              <Searchbar
-                placeholder="Buscar tiendas..."
-                onChangeText={setSearchQuery}
-                value={searchQuery}
-                style={styles.searchbarInline}
-                autoFocus
-                blurOnSubmit={false}
-                icon="magnify"
-                clearIcon="close"
-                onIconPress={() => {
-                  setShowSearchbar(false);
-                  setSearchQuery('');
-                }}
-              />
-            ) : (
-              <>
-                <Appbar.Action 
-                  icon="magnify" 
-                  color={"white"} 
-                  onPress={() => setShowSearchbar(true)} 
-                />
                 <MenuHeader navigation={navigation} />
-              </>
-            )}
           </View>
         </Appbar>
 

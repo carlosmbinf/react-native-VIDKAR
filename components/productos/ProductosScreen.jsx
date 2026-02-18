@@ -261,8 +261,8 @@ const ProductosScreen = ({ navigation }) => {
       },
       {
         enableHighAccuracy: true, // Usar GPS (más preciso pero consume más batería)
-        timeout: 15000, // Timeout de 15 segundos
-        maximumAge: 10000, // Aceptar ubicación cacheada de hace máx 10seg
+        // timeout: 15000, // Timeout de 15 segundos
+        // maximumAge: 10000, // Aceptar ubicación cacheada de hace máx 10seg
       }
     );
   };
