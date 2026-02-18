@@ -5,6 +5,7 @@ export const dashboardStyles = StyleSheet.create({
     container: {
         flex: 1,
         // backgroundColor controlado por React Native Paper theme
+        paddingBottom: 100
     },
     loadingContainer: {
         flex: 1,
@@ -55,7 +56,8 @@ export const kpiCardStyles = StyleSheet.create({
         minHeight: 140,
         borderRadius: 16,
         overflow: 'hidden',
-        marginHorizontal: 10, // Añadido para evitar corte de sombras
+        marginHorizontal: 0, // Añadido para evitar corte de sombras
+        // padding:5,
         ...Platform.select({
             ios: {
                 shadowColor: '#000',
@@ -69,7 +71,7 @@ export const kpiCardStyles = StyleSheet.create({
         }),
     },
     gradient: {
-        // padding: 12, // Incrementado de 10 a 12 para más espacio interno
+        padding: 5, // Incrementado de 10 a 12 para más espacio interno
         minHeight: 140,
         justifyContent: 'space-between',
         overflow: '',
@@ -81,16 +83,17 @@ export const kpiCardStyles = StyleSheet.create({
         marginBottom: 8,
     },
     iconContainer: {
-        width: 40,
-        height: 40,
+        width: 30,
+        height: 30,
         borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.25)',
+        // backgroundColor: 'rgba(255,255,255,0.25)',
         justifyContent: 'center',
         alignItems: 'center',
     },
     trendChip: {
         backgroundColor: 'rgba(255,255,255,0.25)',
-        height: 40,
+        height: 30,
+        justifyContent: "center",
     },
     trendText: {
         fontSize: 11,

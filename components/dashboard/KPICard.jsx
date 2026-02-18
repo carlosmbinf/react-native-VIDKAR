@@ -67,7 +67,7 @@ const KPICard = ({
             >
                 <View style={kpiCardStyles.header}>
                     <View style={kpiCardStyles.iconContainer}>
-                        <Icon name={icon} size={32} color="rgba(255,255,255,0.9)" />
+                        <Icon name={icon} size={25} color="rgba(255,255,255,0.9)" />
                     </View>
                     {trend && (
                         <Chip 

@@ -596,12 +596,12 @@ const DashBoardPrincipal = ({ type }) => {
                                     <View style={{ flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                                         <Chip 
                                             icon={periodInfo.icon}
-                                            style={{ backgroundColor: periodInfo.color + '33', height: 24 }}
+                                            style={{ backgroundColor: periodInfo.color + '33', height: 24,justifyContent: "center" }}
                                             textStyle={{ color: periodInfo.color, fontWeight: 'bold', fontSize: 10 }}
                                         >
                                             {periodInfo.label}
                                         </Chip>
-                                        <Chip icon="trending-up" style={{ backgroundColor: '#4CAF5033', height: 24 }}>
+                                        <Chip icon="trending-up" style={{ backgroundColor: '#4CAF5033', height: 24,justifyContent: "center" }}>
                                             +12%
                                         </Chip>
                                     </View>
@@ -639,12 +639,12 @@ const DashBoardPrincipal = ({ type }) => {
                                     <View style={{ flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                                         <Chip 
                                             icon={periodInfo.icon}
-                                            style={{ backgroundColor: periodInfo.color + '33', height: 24 }}
+                                            style={{ backgroundColor: periodInfo.color + '33', height: 24,justifyContent: "center"}}
                                             textStyle={{ color: periodInfo.color, fontWeight: 'bold', fontSize: 10 }}
                                         >
                                             {periodInfo.label}
                                         </Chip>
-                                        <Chip icon="trending-up" style={{ backgroundColor: '#2196F333', height: 24 }}>
+                                        <Chip icon="trending-up" style={{ backgroundColor: '#2196F333', height: 24,justifyContent: "center" }}>
                                             +8%
                                         </Chip>
                                     </View>
@@ -691,14 +691,14 @@ const DashBoardPrincipal = ({ type }) => {
                                         <>
                                             <Chip 
                                                 icon="calendar-check"
-                                                style={{ backgroundColor: '#4CAF5033', height: 40 }}
+                                                style={{ backgroundColor: '#4CAF5033', height: 40,justifyContent: "center" }}
                                                 textStyle={{ color: '#4CAF50', fontWeight: 'bold', fontSize: 10 }}
                                             >
                                                 {moment().format('MMMM YYYY')}
                                             </Chip>
                                             <Chip 
                                                 icon="account-group"
-                                                style={{ backgroundColor: '#2196F333', height: 40 }}
+                                                style={{ backgroundColor: '#2196F333', height: 40,justifyContent: "center" }}
                                                 textStyle={{ color: '#2196F3', fontWeight: 'bold', fontSize: 10 }}
                                             >
                                                 {adminLabels.length} admins
@@ -749,7 +749,7 @@ const DashBoardPrincipal = ({ type }) => {
                                         />
                                         
                                         {/* Leyenda */}
-                                        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+                                        {/* <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
                                             <Chip 
                                                 icon="cash-check"
                                                 style={{ backgroundColor: '#4CAF5033', height: 40 }}
@@ -771,7 +771,7 @@ const DashBoardPrincipal = ({ type }) => {
                                             >
                                                 Deben
                                             </Chip>
-                                        </View>
+                                        </View> */}
                                         
                                         {/* Estadísticas mes actual */}
                                         <View style={{ marginTop: 16, padding: 12, backgroundColor: 'rgba(76, 175, 80, 0.05)', borderRadius: 12, gap: 10 }}>
@@ -779,7 +779,7 @@ const DashBoardPrincipal = ({ type }) => {
                                                 📊 Resumen del Mes Actual
                                             </Text>
                                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>💰 Total Cobrado:</Text>
+                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>💰 Ganancias Vidkar:</Text>
                                                 <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#4CAF50' }}>
                                                     ${(kpiData.totalCobradoMesActual || 0).toFixed(2)}
                                                 </Text>
@@ -798,10 +798,10 @@ const DashBoardPrincipal = ({ type }) => {
                                             </View>
                                             <View style={{ height: 1, backgroundColor: 'rgba(0,0,0,0.1)', marginVertical: 4 }} />
                                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>📈 Promedio/Admin:</Text>
+                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>📈 Total Cobrado:</Text>
                                                 <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#FF9800' }}>
                                                     ${ventasPorAdmin.length > 0 
-                                                        ? ((kpiData.totalCobradoMesActual || 0) / ventasPorAdmin.length).toFixed(2)
+                                                        ? ((parseInt(kpiData.totalCobradoMesActual)  + parseInt(kpiData.gananciasMesActual) || 0)).toFixed(2)
                                                         : '0.00'}
                                                 </Text>
                                             </View>
@@ -850,7 +850,7 @@ const DashBoardPrincipal = ({ type }) => {
                                         />
                                         
                                         {/* Leyenda */}
-                                        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+                                        {/* <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
                                             <Chip 
                                                 icon="cash-check"
                                                 style={{ backgroundColor: '#4CAF5033', height: 40 }}
@@ -865,7 +865,7 @@ const DashBoardPrincipal = ({ type }) => {
                                             >
                                                 Ganancias Admin
                                             </Chip>
-                                        </View>
+                                        </View> */}
                                         
                                         {/* Estadísticas 12 meses + histórico total */}
                                         <View style={{ marginTop: 16, padding: 12, backgroundColor: 'rgba(255, 152, 0, 0.05)', borderRadius: 12, gap: 10 }}>
@@ -873,13 +873,13 @@ const DashBoardPrincipal = ({ type }) => {
                                                 📊 Estadísticas 12 Meses
                                             </Text>
                                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>💰 Total 12 meses:</Text>
+                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>💰 Ganancias Vidkar:</Text>
                                                 <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#4CAF50' }}>
                                                     ${(kpiData.totalVentas12Meses || 0).toFixed(2)}
                                                 </Text>
                                             </View>
                                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>💵 Ganancias 12 meses:</Text>
+                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>💵 Ganancias Admins:</Text>
                                                 <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#008b9f' }}>
                                                     ${(kpiData.totalGanancias12Meses || 0).toFixed(2)}
                                                 </Text>
@@ -887,7 +887,7 @@ const DashBoardPrincipal = ({ type }) => {
                                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <Text style={{ fontSize: 12, opacity: 0.7 }}>📈 Promedio mensual:</Text>
                                                 <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#FF9800' }}>
-                                                    ${((kpiData.totalVentas12Meses || 0) / 12).toFixed(2)}
+                                                    ${((parseInt(kpiData.totalVentas12Meses) + parseInt(kpiData.totalGanancias12Meses) || 0) / 12).toFixed(2)}
                                                 </Text>
                                             </View>
                                             
@@ -909,7 +909,7 @@ const DashBoardPrincipal = ({ type }) => {
                                                 </Text>
                                             </View>
                                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>🔴 Deudas históricas:</Text>
+                                                <Text style={{ fontSize: 12, opacity: 0.7 }}>🔴 Deudas Totales:</Text>
                                                 <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#F44336' }}>
                                                     ${(kpiData.totalDeudasHistoricas || 0).toFixed(2)}
                                                 </Text>
@@ -968,7 +968,7 @@ const DashBoardPrincipal = ({ type }) => {
                                     <Text style={chartStyles.title}>Distribución de Consumo</Text>
                                     <Chip 
                                         icon={periodInfo.icon}
-                                        style={{ backgroundColor: periodInfo.color + '33' }}
+                                        style={{ backgroundColor: periodInfo.color + '33',justifyContent: "center" }}
                                         textStyle={{ color: periodInfo.color, fontWeight: 'bold', fontSize: 11 }}
                                     >
                                         {periodInfo.label}
@@ -1000,7 +1000,7 @@ const DashBoardPrincipal = ({ type }) => {
                                         : periodInfo.icon}
                                     style={{ backgroundColor: (selectedView === 'ventas' 
                                         ? (periodInfo.type === 'DIA' ? '#4CAF50' : '#FF9800')
-                                        : periodInfo.color) + '33' }}
+                                        : periodInfo.color) + '33',justifyContent: "center" }}
                                     textStyle={{ 
                                         color: selectedView === 'ventas' 
                                             ? (periodInfo.type === 'DIA' ? '#4CAF50' : '#FF9800')

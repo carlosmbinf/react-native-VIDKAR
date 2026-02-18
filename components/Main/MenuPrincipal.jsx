@@ -582,6 +582,8 @@ const MenuPrincipal = ({ navigation }) => {
             </ScrollView>
 
 
+          </View>
+        </Surface>
             <FAB.Group
               open={fabOpen}
               visible
@@ -599,8 +601,6 @@ const MenuPrincipal = ({ navigation }) => {
               fabStyle={styles.fab}
               color={userLocation ? '#fff' : '#999'}
             />
-          </View>
-        </Surface>
       </Drawer>
   );
 };

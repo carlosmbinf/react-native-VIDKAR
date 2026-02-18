@@ -133,7 +133,7 @@ class MyApp extends React.Component {
             <Surface style={{
                   flex: 1,
                   flexDirection: 'column',
-                  minHeight: screenHeight,
+                  minHeight: screenHeight - insets.top - 80,
                   // backgroundColor: '#2a323d',
                   // justifyContent: 'center',
                 }}>

@@ -55,7 +55,7 @@ export const detectPeriodType = (labels) => {
             label: 'Por Día', 
             icon: 'calendar-today',
             color: '#FF9800',
-            description: 'Datos del mes actual'
+            description: 'Mes actual'
         };
     }
     
@@ -66,7 +66,7 @@ export const detectPeriodType = (labels) => {
             label: 'Por Mes', 
             icon: 'calendar-month',
             color: '#2196F3',
-            description: 'Histórico mensual'
+            description: 'Anual'
         };
     }
     
