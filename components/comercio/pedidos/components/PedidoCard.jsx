@@ -25,9 +25,9 @@ const PedidoCard = ({ venta, currentStep, isExpanded, onToggleExpand }) => {
   console.log("venta en PedidoCard:", venta);
 
   // ✅ Estados del pedido
-  const isCanceled = venta.isCancelada === true;
-  const isPendientePago = venta.isCobrado === false;
-  const necesitaEvidencia = !venta.isCobrado && !isCanceled && venta.metodoPago === 'EFECTIVO';
+  const isCanceled = venta?.isCancelada === true;
+  const isPendientePago = venta?.isCobrado === false;
+  const necesitaEvidencia = !venta?.isCobrado && !isCanceled && venta?.metodoPago === 'EFECTIVO';
 
   // ✅ Extraer datos de los carritos (productos del pedido)
   const carritos = venta?.producto?.carritos || [];
@@ -76,16 +76,16 @@ const PedidoCard = ({ venta, currentStep, isExpanded, onToggleExpand }) => {
   const mostrarMapa = 
     !isCanceled &&                              // No está cancelado
     cadeteId &&                                  // Tiene cadete asignado
-    venta.estado &&                              // Tiene estado definido
-    ESTADOS_CON_MAPA.includes(venta.estado) &&  // Estado es uno de los válidos
+    venta?.estado &&                              // Tiene estado definido
+    ESTADOS_CON_MAPA.includes(venta?.estado) &&  // Estado es uno de los válidos
     tienda &&                                    // Tiene tienda
     coordenadas;                                 // Tiene coordenadas de destino
 
   console.log("🗺️ [PedidoCard] Validación de mapa:", {
     isCanceled,
     cadeteId,
-    estado: venta.estado,
-    estadoValido: ESTADOS_CON_MAPA.includes(venta.estado),
+    estado: venta?.estado,
+    estadoValido: ESTADOS_CON_MAPA.includes(venta?.estado),
     tienda,
     coordenadas,
     mostrarMapa
@@ -105,8 +105,8 @@ const PedidoCard = ({ venta, currentStep, isExpanded, onToggleExpand }) => {
 
       {/* Header */}
       <Card.Title 
-        title={`Pedido #${venta._id.slice(-6).toUpperCase()}`}
-        subtitle={formatFecha(venta.createdAt)}
+        title={`Pedido #${venta?._id.slice(-6).toUpperCase()}`}
+        subtitle={formatFecha(venta?.createdAt)}
         right={(props) => (
           <IconButton 
             {...props} 
@@ -165,7 +165,7 @@ const PedidoCard = ({ venta, currentStep, isExpanded, onToggleExpand }) => {
             )}
 
             {/* ✨ NUEVO: Alert informativo cuando el mapa no está disponible */}
-            {!mostrarMapa && !isCanceled && cadeteId && venta.estado === 'PREPARANDO' && (
+            {!mostrarMapa && !isCanceled && cadeteId && venta?.estado === 'PREPARANDO' && (
               <Surface style={styles.alertInfo} elevation={1}>
                 <IconButton 
                   icon="clock-outline" 
@@ -180,7 +180,7 @@ const PedidoCard = ({ venta, currentStep, isExpanded, onToggleExpand }) => {
             )}
 
             {/* ✨ NUEVO: Alert cuando está entregado */}
-            {!mostrarMapa && !isCanceled && venta.estado === 'ENTREGADO' && (
+            {!mostrarMapa && !isCanceled && venta?.estado === 'ENTREGADO' && (
               <Surface style={styles.alertSuccess} elevation={1}>
                 <IconButton 
                   icon="check-circle" 

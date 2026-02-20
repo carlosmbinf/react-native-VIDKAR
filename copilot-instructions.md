@@ -113,424 +113,95 @@
 
 ---
 
-## Resumen técnico – Actualización de Ubicación en Tiempo Real (MenuPrincipal y ProductosScreen)
+## Resumen técnico – Sistema de Pedidos Empresariales (Ordenamiento Inteligente y Slide-to-Confirm)
 
-- **Contexto**: Implementación de envío automático de ubicación del usuario al backend cada vez que se obtienen coordenadas GPS, reutilizando el método `cadete.updateLocation` existente.
+- **Contexto**: Pantalla de gestión de pedidos para empresas/comercios con priorización automática por urgencia y UX optimizada para acciones críticas.
 
-- **Método Backend Reutilizado**:
+- **Sistema de Ordenamiento por Prioridad**:
   ```javascript
-  Meteor.call('cadete.updateLocation', { userId, cordenadas }, callback)
-  
-  // Parámetros esperados:
-  {
-    userId: String,         // ID del usuario actual
-    cordenadas: {
-      latitude: Number,     // Coordenada latitud
-      longitude: Number,    // Coordenada longitud
-      accuracy: Number,     // Precisión en metros
-      altitude: Number,     // Altitud (opcional)
-      timestamp: Number     // Timestamp de la medición
-    }
-  }
+  // Prioridad descendente (1 = máxima urgencia):
+  PREPARANDO: 1,           // En proceso activo
+  PENDIENTE: 2,            // Esperando ser preparados
+  PREPARACION_LISTO: 3,    // Listos para recoger
+  PENDIENTE_ENTREGA: 4,    // Esperando asignación de cadete
+  CADETEENLOCAL: 5,        // Cadete en tienda
+  ENCAMINO: 6,             // En ruta al cliente
+  CADETEENDESTINO: 7,      // Cadete llegó al destino
   ```
 
-- **Validaciones Backend Implementadas**:
-  1. **Usuario existe**: Verifica que el `userId` sea válido.
-  2. **Modo cadete activo**: Solo permite actualización si `user.modoCadete === true`.
-  3. **Actualización atómica**: Usa `$set` para actualizar campo `cordenadas` en Users collection.
-  4. **Logging**: Registra cada actualización con username, coordenadas y precisión.
+- **Lógica de Ordenamiento Implementada**:
+  - **Prioridad primaria**: Estado del pedido (menor número = más urgente)
+  - **Prioridad secundaria**: Fecha de creación (más antiguos primero dentro de mismo estado)
+  - **Resultado**: PREPARANDO antiguos → PREPARANDO recientes → PENDIENTE antiguos → etc.
 
-- **Integración en Frontend (MenuPrincipal y ProductosScreen)**:
-  - **Ubicación en el flujo**: Se llama `actualizarUbicacionBackend()` inmediatamente después de obtener coordenadas GPS exitosas.
-  - **Función helper centralizada**:
+- **Componente SlideToConfirm Profesional**:
+  - **Props configurables**: `backgroundColor`, `icon`, `text`, `onConfirm`, `disabled`
+  - **UX Features**:
+    - Vibración táctil en inicio/éxito/fallo (10ms, 50ms, patrón [0,50,100,50])
+    - Threshold de confirmación: 90% del recorrido total
+    - Animación spring de retorno si no completa (bounciness: 8)
+    - Color de texto adaptativo: pasa de color del slider a blanco según progreso
+  - **Cálculo de recorrido preciso**:
     ```javascript
-    const actualizarUbicacionBackend = (ubicacion) => {
-      const userId = Meteor.userId();
-      if (!userId || !ubicacion) return;
-      
-      Meteor.call('cadete.updateLocation', {
-        userId,
-        cordenadas: {
-          latitude: ubicacion.latitude,
-          longitude: ubicacion.longitude,
-          accuracy: ubicacion.accuracy,
-          altitude: ubicacion.altitude,
-          timestamp: ubicacion.timestamp
-        }
-      }, (error, result) => {
-        if (error) {
-          console.warn('⚠️ [Backend] Error al actualizar ubicación:', error.reason);
-        } else {
-          console.log('✅ [Backend] Ubicación actualizada correctamente');
-        }
-      });
-    };
+    MAX_SLIDE = TRACK_WIDTH - THUMB_SIZE - PADDING_LEFT - PADDING_RIGHT
+    // Considera dimensiones reales de pantalla y paddings del contenedor
     ```
 
-- **Puntos de Invocación**:
-  1. **Obtención inicial**: Cuando `Geolocation.getCurrentPosition()` retorna éxito.
-  2. **Auto-refresh**: En el intervalo de 60s (solo en MenuPrincipal) tras buscar tiendas cercanas.
-  3. **Refresh manual**: Cuando usuario hace pull-to-refresh (solo en ProductosScreen).
+- **Interpolaciones de Animated implementadas**:
+  - **textColor**: `[backgroundColor → backgroundColor → #FFFFFF]` en `[0, 40%, 100%]`
+  - **textOpacity**: `[1 → 0.8 → 0]` en `[0, 30%, 70%]` del recorrido
+  - **trackColor**: `[backgroundColor+20 → backgroundColor+FF]` (opacidad del fondo)
+  - **progressIndicator**: Ancho dinámico siguiendo `slideAnim.value`
 
-- **Manejo de Errores No Bloqueante**:
-  - **Error en backend**: Se loggea con `console.warn` pero NO interrumpe el flujo de búsqueda de tiendas.
-  - **Usuario no autenticado**: Se valida `Meteor.userId()` antes de llamar al método.
-  - **Modo cadete inactivo**: El backend rechaza pero el frontend continúa normalmente (validación opcional).
-  - **Sin callback**: La llamada es "fire-and-forget" para no bloquear UI.
+- **Reducción de Espaciados en Cards**:
+  - **cardContent paddingVertical**: 16px → 12px
+  - **sectionDivider marginVertical**: 16px → 8px
+  - **productoRow paddingVertical**: 8px → 4px
+  - **comentarioContainer marginTop**: 6px → 4px
+  - **productoDivider marginVertical**: 8px → 6px
+  - **pagoRow gap**: 16px → 12px
+  - **pagoTotal gap**: 4px → 2px
+  - **Objetivo**: Mostrar más información sin scroll excesivo, manteniendo legibilidad
 
-- **Consideraciones de Performance**:
-  - **Throttling natural**: Solo se actualiza cuando se obtiene ubicación (no en cada render).
-  - **Sin retry automático**: Si falla, se espera a la próxima actualización natural.
-  - **Payload mínimo**: Solo se envían coordenadas esenciales (lat, lng, accuracy, altitude, timestamp).
-  - **Async no bloqueante**: Usa callback en lugar de await para no detener búsqueda de tiendas.
+- **Mejoras de Accesibilidad**:
+  - Vibración táctil como feedback háptico para usuarios con visión reducida
+  - Contraste de color garantizado en slider (WCAG AAA en estados inicial/final)
+  - Iconografía semántica por estado (chef-hat, check, truck-fast, etc.)
 
-- **Privacidad y Seguridad**:
-  - **Solo usuarios autenticados**: Requiere `Meteor.userId()` válido.
-  - **Validación en backend**: Servidor verifica permisos antes de actualizar.
-  - **Sin exposición pública**: La ubicación solo se guarda en el documento del usuario (no en colección separada).
-  - **Opcional para usuarios normales**: Solo es obligatorio si `modoCadete: true`.
+- **Performance Optimizations**:
+  - Ordenamiento en `useTracker` evita re-sorts en cada render
+  - `PanResponder` con `useNativeDriver: false` necesario para ancho dinámico
+  - Cálculos de dimensiones en mounting, no en cada gesture event
 
-- **Logs de Depuración Implementados**:
-  ```javascript
-  // Frontend
-  console.log('📡 [Backend] Enviando ubicación al servidor...');
-  console.log('✅ [Backend] Ubicación actualizada correctamente');
-  console.warn('⚠️ [Backend] Error al actualizar ubicación:', error.reason);
-  
-  // Backend
-  console.log(`📍 [Cadete ${user.username}] Ubicación actualizada:`, {
-    lat: data.cordenadas.latitude.toFixed(6),
-    lng: data.cordenadas.longitude.toFixed(6),
-    accuracy: `${data.cordenadas.accuracy.toFixed(2)}m`,
-  });
-  ```
+- **Consideraciones técnicas críticas**:
+  - **Ordenamiento estable**: Si dos pedidos tienen mismo estado y timestamp, mantener orden original de MongoDB
+  - **Threshold de 90%**: Permite margen de error en gesto sin frustrar al usuario
+  - **Color interpolation**: Usar valores RGB completos evita glitches visuales en transiciones
+  - **Vibration patterns**: Array `[delay, duration, pause, duration]` soportado en Android/iOS
 
-- **Diferencias entre MenuPrincipal y ProductosScreen**:
-  | Aspecto | MenuPrincipal | ProductosScreen |
-  |---------|---------------|-----------------|
-  | **Auto-refresh** | Sí (60s con intervalo) | No (solo manual) |
-  | **Envío de ubicación** | Inicial + cada 60s | Inicial + cada refresh manual |
-  | **FlatList embebido** | Sí (dentro de ScrollView) | Sí (pantalla completa) |
-  | **Otros componentes** | Productos, MainPelis, ProxyVPN | Solo tiendas |
+- **Estados de Pedido y Acciones**:
+  | Estado | Acción Disponible | Color | Ícono | Prioridad |
+  |--------|-------------------|-------|-------|-----------|
+  | PENDIENTE | "Deslizar para preparar" | #2196F3 (azul) | ▶ | 2 |
+  | PREPARANDO | "Deslizar para marcar listo" | #4CAF50 (verde) | ✓ | 1 |
+  | PREPARACION_LISTO | Badge estático "Listo para recoger" | #4CAF50 (verde) | ✅ | 3 |
 
-- **Mejoras Futuras Sugeridas**:
-  1. **Watchdog de ubicación**: Detectar si GPS está desactivado y notificar al usuario.
-  2. **Historial de ubicaciones**: Guardar trail de ubicaciones para análisis posterior.
-  3. **Geofencing**: Notificar cuando usuario entra/sale de zona específica.
-  4. **Batch updates**: Acumular ubicaciones y enviar en lotes para reducir tráfico.
-  5. **Fallback a ubicación de red**: Si GPS falla, usar `enableHighAccuracy: false`.
-  6. **Indicador visual**: Mostrar ícono en header cuando se está enviando ubicación al servidor.
+- **Testing recomendado**:
+  - Ordenamiento: Crear 10 pedidos intercalando estados PREPARANDO/PENDIENTE/PREPARACION_LISTO y verificar orden visual
+  - Slide gesture: Deslizar 50%, 89%, 91% y verificar comportamiento (return vs confirm)
+  - Vibration: Probar en dispositivos con/sin vibrador funcional
+  - Colores: Validar legibilidad en modo claro/oscuro del sistema
+  - Edge cases: Pantallas pequeñas (<360px width), tablets (>768px), landscape orientation
 
-- **Testing Recomendado**:
-  - **Caso 1**: Usuario autenticado con `modoCadete: false` → debe actualizar ubicación sin errores (validación backend opcional).
-  - **Caso 2**: Usuario autenticado con `modoCadete: true` → debe actualizar ubicación exitosamente.
-  - **Caso 3**: Usuario no autenticado → NO debe llamar al método backend.
-  - **Caso 4**: Error de red durante envío → debe loggear warning pero continuar con búsqueda de tiendas.
-  - **Caso 5**: Auto-refresh en MenuPrincipal → debe enviar ubicación cada 60s.
-  - **Caso 6**: Pull-to-refresh en ProductosScreen → debe enviar ubicación al refrescar.
+- **Mejoras futuras sugeridas**:
+  - Agregar opción de ordenamiento manual (usuario elige criterio)
+  - Implementar agrupación visual por estado con headers sticky
+  - Sound feedback opcional para confirmación de acción
+  - Gesture customizable (slide, doble tap, long press según preferencia)
+  - Contador de tiempo estimado de preparación por pedido
+  - Notificación push al comercio cuando pedido pasa a PREPARANDO
 
-- **Lecciones Aprendidas**:
-  - **Fire-and-forget pattern**: Para operaciones no críticas, usar callback sin await evita bloqueos de UI.
-  - **Validación defensiva**: Siempre verificar `Meteor.userId()` antes de operaciones que requieren autenticación.
-  - **Logs específicos**: Diferenciar logs de frontend (`[Backend]`) vs backend (`[Cadete]`) facilita debugging.
-  - **Payload estándar**: Mantener estructura consistente de `cordenadas` entre llamadas.
-  - **Backend como source of truth**: No validar `modoCadete` en frontend, dejar que servidor decida.
-  - **Errores no bloqueantes**: En flujos de geolocalización, permitir que la app continúe aunque falle actualización de ubicación.
-
-- **Archivos Modificados**:
-  - `components/Main/MenuPrincipal.jsx`: Agregada función `actualizarUbicacionBackend()` y llamada en `obtenerUbicacion()` y auto-refresh.
-  - `components/productos/ProductosScreen.jsx`: Agregada función `actualizarUbicacionBackend()` y llamada en `obtenerUbicacion()`.
-  - `server/metodos/cadetes.js`: Sin cambios (método ya existía y funciona correctamente).
-
-- **Próximos Pasos**:
-  - Implementar indicador visual de "sincronización" en header mientras se envía ubicación.
-  - Agregar campo `lastLocationUpdate` en Users collection para trackear cuándo fue la última actualización.
-  - Considerar throttling adicional si el usuario hace múltiples refreshes en poco tiempo.
-  - Documentar en README.md el flujo de actualización de ubicación en tiempo real.
-
----
-
-## Resumen técnico – Ribbon de Elaboración en ProductoCard (Esquina Superior Derecha)
-
-- **Contexto**: Reemplazo del Chip de "Elaboración" por un ribbon diagonal elegante para productos de elaboración.
-
-- **Implementación del Ribbon**:
-  - **Posicionamiento**: Esquina superior derecha del card (cambio de izquierda a derecha para mejor visibilidad).
-  - **Estructura**:
-    - `ribbonWrapper`: Container con `overflow: 'hidden'` para recortar el ribbon fuera del card.
-    - `ribbon`: Banda diagonal con rotación `45deg` (positiva para descender hacia la derecha).
-    - `ribbonText`: Texto "ELABORACIÓN" en mayúsculas con `letterSpacing: 0.8`.
-
-- **Estilos Aplicados**:
-  ```javascript
-  ribbonWrapper: {
-    position: 'absolute',
-    top: 0,
-    right: 0,  // Esquina derecha
-    width: 100,
-    height: 100,
-    overflow: 'hidden',
-    zIndex: 10,
-    elevation: 5  // Android
-  }
-  
-  ribbon: {
-    position: 'absolute',
-    top: 20,
-    right: -25,  // Offset desde la derecha
-    width: 120,
-    backgroundColor: 'rgba(156, 39, 176, 0.95)',  // Púrpura semi-transparente
-    transform: [{ rotate: '45deg' }],  // Rotación positiva
-    // Sombras platform-specific
-  }
-  ```
-
-- **Ventajas del Ribbon vs Chip**:
-  - **Espacio**: No ocupa espacio del layout, es overlay puro.
-  - **Visibilidad**: Diagonal clásica más llamativa que badge plano.
-  - **Premium UX**: Apariencia más "exclusiva" para productos especiales.
-  - **No interfiere**: Badge de stock permanece en esquina derecha sin conflicto.
-
-- **Consideraciones Técnicas**:
-  - **pointerEvents="none"**: Evita que el ribbon capture toques destinados al card.
-  - **zIndex + elevation**: Necesario para que quede sobre la imagen en Android.
-  - **Rotación 45deg vs -45deg**: Positiva para diagonal descendente hacia la derecha (estándar).
-  - **Offset negativo**: `right: -25` saca parte del ribbon fuera del wrapper para el efecto diagonal.
-
-- **Testing Recomendado**:
-  - Verificar que el ribbon NO bloquee tap en el card.
-  - Validar visibilidad en modo claro/oscuro.
-  - Confirmar que no se superpone con badge de stock.
-  - Probar en diferentes tamaños de pantalla (phones/tablets).
-
-- **Lecciones Aprendidas**:
-  - **Ribbons diagonales**: Siempre usar wrapper con `overflow: 'hidden'` para recortar correctamente.
-  - **Rotación de ribbons**: Positiva (45deg) para esquina derecha, negativa (-45deg) para izquierda.
-  - **Offset calculado**: `right: -25` con `width: 120` asegura que el texto quede centrado en la diagonal visible.
-  - **Z-index crítico**: En Android, `elevation` en el wrapper es esencial para overlay sobre imagen.
-
----
-
-## Resumen técnico – Migración de `.map()` a FlatList en TiendasCercanas (Optimización de Performance)
-
-- **Problema Identificado**: Renderizado de lista de tiendas con `.map()` no optimizado para listas largas (scroll lag, memory issues).
-
-- **Solución Aplicada**: Migración a `FlatList` con virtualización nativa de React Native.
-
-- **Beneficios de FlatList**:
-  1. **Virtualización**: Solo renderiza items visibles en viewport + buffer.
-  2. **Scroll Performance**: Manejo nativo de scroll con mejor FPS.
-  3. **Memory Efficiency**: Recicla componentes fuera de pantalla.
-  4. **Pull-to-refresh**: Integración nativa con `onRefresh`.
-  5. **Load More**: Soporte para paginación infinita con `onEndReached`.
-
-- **Patrón de Migración Implementado**:
-  ```javascript
-  // ❌ Antes (map imperativo)
-  {tiendasFiltradas.map((tienda, index) => (
-    <TiendaCard key={tienda._id} tienda={tienda} index={index} />
-  ))}
-  
-  // ✅ Después (FlatList declarativo)
-  <FlatList
-    data={tiendasFiltradas}
-    keyExtractor={(item) => item._id}
-    renderItem={({ item, index }) => (
-      <TiendaCard tienda={item} index={index} searchQuery={searchQuery} userLocation={userLocation} />
-    )}
-    // ...optimizaciones
-  />
-  ```
-
-- **Props de Optimización Aplicadas**:
-  - **keyExtractor**: Usa `_id` único para reconciliación eficiente.
-  - **initialNumToRender**: Renderiza solo 5 items iniciales (default 10).
-  - **maxToRenderPerBatch**: Renderiza 3 items por batch durante scroll.
-  - **windowSize**: Ventana de 5 (mantiene 5 * altura_viewport en memoria).
-  - **removeClippedSubviews**: Desmonta componentes fuera de pantalla (Android).
-  - **getItemLayout**: Pre-calcula heights para scroll instantáneo (si heights son fijos).
-
-- **Estilos de ContentContainer**:
-  ```javascript
-  contentContainerStyle={{
-    padding: 16,
-    paddingBottom: 32,  // Espacio final
-    gap: 16,  // Separación entre cards (Android API 29+)
-  }}
-  ```
-
-- **Empty State Mejorado**:
-  - Componente `ListEmptyComponent` con mensaje contextual.
-  - Icono `store-off-outline` para coherencia visual.
-  - Maneja 3 casos: cargando, sin tiendas, sin resultados de búsqueda.
-
-- **Scroll Behavior Configurado**:
-  - **showsVerticalScrollIndicator={false}**: UX más limpia.
-  - **bounces={true}** (iOS): Efecto rubber band nativo.
-  - **overScrollMode="auto"** (Android): Respeta configuración del sistema.
-
-- **Consideraciones de Performance**:
-  - **Memoización de TiendaCard**: Considerar `React.memo()` si re-renders son frecuentes.
-  - **PureComponent**: Si TiendaCard es class component, extender `PureComponent`.
-  - **shouldComponentUpdate**: Implementar comparación shallow de props.
-  - **getItemLayout**: Solo si **todas** las cards tienen altura fija conocida.
-
-- **Cálculo de getItemLayout (ejemplo)**:
-  ```javascript
-  getItemLayout={(data, index) => ({
-    length: 200,  // Altura fija de TiendaCard en px
-    offset: 200 * index + 16 * index,  // Altura + gap
-    index,
-  })}
-  ```
-
-- **Pull-to-Refresh (futuro)**:
-  ```javascript
-  refreshControl={
-    <RefreshControl
-      refreshing={refreshing}
-      onRefresh={handleRefresh}
-      tintColor="#9C27B0"  // Color del spinner
-    />
-  }
-  ```
-
-- **Infinite Scroll (futuro)**:
-  ```javascript
-  onEndReached={() => {
-    if (hasMore && !loading) {
-      loadMoreTiendas();
-    }
-  }}
-  onEndReachedThreshold={0.5}  // Trigger al 50% del final
-  ```
-
-- **Testing Recomendado Post-Migración**:
-  - Lista con 0 tiendas → debe mostrar empty state.
-  - Lista con 50+ tiendas → scroll debe ser fluido (60 FPS).
-  - Búsqueda que filtra a 0 resultados → mensaje específico.
-  - Scroll rápido arriba/abajo → sin saltos ni blancos.
-  - Memory profiling: uso de RAM estable durante scroll prolongado.
-
-- **Lecciones Aprendidas**:
-  - **FlatList siempre que sea posible**: Incluso para listas cortas (10-20 items), la optimización es gratuita.
-  - **keyExtractor único y estable**: Usar IDs de base de datos, nunca index.
-  - **removeClippedSubviews**: Gran impacto en Android con listas largas, pero puede causar bugs con componentes complejos.
-  - **getItemLayout preciso**: Solo implementar si heights son 100% fijos, sino causa jumps.
-  - **gap en contentContainerStyle**: Requiere Android API 29+, usar marginBottom como fallback.
-  - **Evitar inline functions en renderItem**: Extraer componente para mejor memoización.
-
-- **Anti-patterns a Evitar**:
-  ❌ `key={index}` → Causa re-renders innecesarios.
-  ❌ `renderItem={() => <TiendaCard {...props} />}` → Nueva instancia en cada render.
-  ❌ `data={tiendas.filter(...)}` → Re-calcula en cada render, memoizar con useMemo.
-  ❌ Animaciones complejas en TiendaCard → Causa jank durante scroll.
-
-- **Próximos Pasos**:
-  - Implementar Pull-to-Refresh para recargar tiendas cercanas.
-  - Agregar paginación con onEndReached si backend soporta offset/limit.
-  - Memoizar TiendaCard con React.memo() comparando props relevantes.
-  - Profiling con React DevTools Profiler para identificar re-renders.
-  - Considerar react-native-fast-image para carga optimizada de imágenes en TiendaCard.
-
----
-
-## Resumen técnico – Integración de Geolocalización de Tiendas en MenuPrincipal
-
-- **Contexto**: Replicación de funcionalidad de geolocalización y FlatList de ProductosScreen en MenuPrincipal como sección adicional del menú principal.
-
-- **Arquitectura Implementada**:
-  - **FlatList con ListHeaderComponent**: Todo el contenido estático del menú (Productos, MainPelis, ProxyVPN) se renderiza en el header.
-  - **Items del FlatList**: Solo tiendas cercanas (tiendasConProductos).
-  - **Geolocalización automática**: Se obtiene ubicación al montar el componente.
-  - **Radio fijo de 3km**: Simplificación para MenuPrincipal (sin FAB de cambio de radio).
-
-- **Estados Manejados**:
-  ```javascript
-  const [userLocation, setUserLocation] = useState(null);
-  const [locationError, setLocationError] = useState(null);
-  const [tiendasCercanas, setTiendasCercanas] = useState([]);
-  const [loadingTiendas, setLoadingTiendas] = useState(false);
-  ```
-
-- **Flujo de Geolocalización**:
-  1. `useEffect` → `obtenerUbicacion()` al montar.
-  2. `requestLocationPermission()` → Solicita permisos (Android).
-  3. `Geolocation.getCurrentPosition()` → Obtiene coordenadas.
-  4. `buscarTiendasCercanas(coordenadas)` → Llama a `comercio.getTiendasCercanas`.
-  5. `setTiendasCercanas(resultado.tiendas)` → Actualiza estado.
-
-- **useTracker para Productos**:
-  - Suscribe a `productosComercio` solo para tiendas cercanas (filtro por `_id: { $in: tiendasIds }`).
-  - Calcula `tiendasConProductos` con productos asociados y disponibles.
-  - Filtra tiendas sin productos (`totalProductos > 0`).
-
-- **Estructura de ListHeaderComponent**:
-  ```
-  ListHeaderComponent
-  ├── Mensaje de bienvenida (View con bg #3f51b5)
-  ├── Productos (componente Cubacel)
-  ├── MainPelis (condicional si subscipcionPelis)
-  ├── ProxyVPNPackagesHorizontal
-  └── Sección "Comercios Cercanos"
-      ├── Título con emoji 🏪
-      ├── Loading indicator (si loadingTiendas)
-      └── Chip con contador de tiendas (si userLocation)
-  ```
-
-- **Optimizaciones Aplicadas**:
-  - **useMemo en ListHeaderComponent**: Evita re-renders cuando cambian dependencias no críticas.
-  - **removeClippedSubviews**: Solo en Android para liberar memoria.
-  - **initialNumToRender: 5**: Renderiza 5 tiendas inicialmente (menos que ProductosScreen por estar en menú).
-  - **windowSize: 5**: Buffer menor para mejor performance en menú con múltiples secciones.
-
-- **Diferencias con ProductosScreen**:
-  | Aspecto | ProductosScreen | MenuPrincipal |
-  |---------|-----------------|---------------|
-  | **Searchbar** | Sí, con filtrado | No (simplificado) |
-  | **FAB de radio** | Sí, múltiples opciones | No, radio fijo 3km |
-  | **Header dedicado** | Chips de ubicación separados | Integrado en sección |
-  | **Empty state** | Detallado con iconos | Minimalista |
-  | **Performance** | Más agresiva (10/10/10) | Balanceada (5/5/5) |
-
-- **Pull-to-Refresh Implementado**:
-  ```javascript
-  onRefresh={() => {
-    setLoading(true);
-    obtenerUbicacion(); // Re-obtiene ubicación y tiendas
-    setTimeout(() => setLoading(false), 1500);
-  }}
-  ```
-
-- **Manejo de Errores**:
-  - **Sin permisos**: Setea `locationError` y muestra empty state con mensaje.
-  - **Timeout GPS**: Muestra error "Ubicación no disponible".
-  - **Sin tiendas**: Empty state con "No hay comercios cercanos".
-
-- **Consideraciones UX**:
-  - **Scroll suave**: `bounces={false}` y `overScrollMode="never"` para experiencia coherente con el resto del menú.
-  - **Separador visual**: Sección "Comercios Cercanos" con fondo gris (#f5f5f5) para diferenciar del resto del contenido.
-  - **Loading state inline**: ActivityIndicator + texto en la sección, no bloquea vista del resto del menú.
-
-- **Testing Recomendado**:
-  - Menú con ubicación activada → debe cargar tiendas automáticamente.
-  - Menú sin permisos de ubicación → debe mostrar empty state sin crashear.
-  - Pull-to-refresh → debe re-obtener ubicación y actualizar tiendas.
-  - Scroll con 0 tiendas → header completo visible sin saltos.
-  - Scroll con 20+ tiendas → performance fluida sin jank.
-
-- **Lecciones Aprendidas**:
-  - **ListHeaderComponent dinámico**: Permite reutilizar FlatList para menús complejos con secciones fijas + listas dinámicas.
-  - **useMemo crítico**: En ListHeaderComponent complejo (múltiples componentes) previene re-renders costosos.
-  - **Geolocalización silenciosa**: No mostrar Alert de permisos en mount automático mejora UX (solo mostrar si falla).
-  - **Radio fijo para menús**: Simplifica UX en pantallas secundarias, reservar configuración avanzada para pantallas dedicadas.
-  - **Empty state contextual**: Solo mostrar cuando realmente no hay datos, no bloquear vista del header.
-
-- **Próximos Pasos**:
-  - Considerar lazy loading de TiendaCard con `React.memo()` si hay lag.
-  - Agregar botón "Ver Todos" que navegue a ProductosScreen con filtros pre-aplicados.
-  - Cachear `userLocation` en AsyncStorage para evitar solicitudes repetidas.
-  - Implementar Analytics para trackear engagement con sección de comercios.
-
----
-````
+- **Lecciones aprendidas**:
+  - **Ordenamiento en cliente vs servidor**: Para <100 items, ordenar en cliente es más eficiente que query con sort en MongoDB
+  - **Vibration cross-platform**: Patrones complejos solo funcionan en Android, iOS solo soporta duración fija
+  - **Animated.Text**: Interpolación de color requiere valores hexadecimales completos
