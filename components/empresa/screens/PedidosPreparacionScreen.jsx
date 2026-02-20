@@ -313,13 +313,10 @@ const renderPedidoCard = ({ item: pedido }) => {
             
             <View style={styles.pagoTotal}>
               <Text variant="labelSmall" style={styles.totalLabel}>
-                Total a cobrar
+                Total pagado
               </Text>
               <Text variant="headlineMedium" style={styles.totalValor}>
-                ${pedido.totalACobrar?.toFixed(2)}
-              </Text>
-              <Text variant="labelSmall" style={styles.totalMoneda}>
-                {pedido.moneda}
+                ${pedido.totalACobrar?.toFixed(2)} {pedido.moneda}
               </Text>
             </View>
           </View>
