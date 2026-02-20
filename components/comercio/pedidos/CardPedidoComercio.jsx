@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Linking, Alert } from 'react-native';
+import { View, StyleSheet, Linking, Alert, Platform } from 'react-native';
 import { Card, Button, IconButton, Text, Chip, Divider } from 'react-native-paper';
 import Meteor, { useTracker } from '@meteorrn/core';
 
@@ -12,62 +12,51 @@ import {
 } from '../../../data/comercio/mockData';
 import { TiendasComercioCollection } from '../../collections/collections';
 import MapaPedidos from '../maps/MapaPedidos';
+// ✅ NUEVO: Importar SlideToConfirm
+import SlideToConfirm from '../../empresa/screens/pedidos/components/SlideToConfirm';
 
 const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
-  const [loading, setLoading] = useState(false);
-
-  // Validaciones defensivas
+  // ✅ CORRECCIÓN: Todas las validaciones ANTES de hooks
   if (!ventaProp) {
     console.warn('[CardPedidoComercio] venta es undefined/null');
     return null;
   }
 
   const venta = ventaProp;
+  const producto = venta.producto || {};
+  const comprasEnCarrito = producto?.carritos || [];
+  
+  // ✅ Validar datos mínimos ANTES de hooks
+  if (comprasEnCarrito.length === 0) {
+    console.warn('[CardPedidoComercio] Sin productos en carrito');
+    return null;
+  }
+
+  const primerItem = comprasEnCarrito[0];
+  if (!primerItem?.coordenadas || typeof primerItem.coordenadas.latitude !== 'number') {
+    console.warn('[CardPedidoComercio] coordenadas inválidas', primerItem?.coordenadas);
+    return null;
+  }
+
+  // ✅ AHORA SÍ: Hooks (siempre se ejecutan)
+  const [loading, setLoading] = useState(false);
 
   // Extraer datos de la estructura real de venta
   const {
-    estado = 'PREPARANDO', // Cambiado de 'status' a 'estado'
-    isCobrado = false, // Cambiado de 'pagado' a 'isCobrado'
+    estado = 'PREPARANDO',
+    isCobrado = false,
     cobrado = 0,
     monedaCobrado = 'CUP',
     precioOficial = 0,
     monedaPrecioOficial = 'CUP',
-    producto = {},
   } = venta;
 
-  // Extraer carritos del objeto producto
-  const comprasEnCarrito = useMemo(
-    () => producto?.carritos || [],
-    [producto?.carritos]
-  );
-
-  // Extraer coordenadas del primer item del carrito
-  const coordenadas = useMemo(() => {
-    const primerItem = comprasEnCarrito[0];
-    if (!primerItem?.coordenadas) {
-      console.warn('[CardPedidoComercio] coordenadas no encontradas');
-      return null;
-    }
-    return primerItem.coordenadas;
-  }, [comprasEnCarrito]);
-
-  // Validar coordenadas
-  if (!coordenadas || typeof coordenadas.latitude !== 'number') {
-    console.warn('[CardPedidoComercio] coordenadas inválidas', coordenadas);
-    return null;
-  }
-
-  // Extraer idTienda del primer producto
-  const idTienda = useMemo(
-    () => comprasEnCarrito[0]?.idTienda || null,
-    [comprasEnCarrito]
-  );
-
-  // Extraer comentario del primer item
-  const comentario = useMemo(
-    () => comprasEnCarrito[0]?.comentario || '',
-    [comprasEnCarrito]
-  );
+  // ✅ useMemo ya tiene datos garantizados
+  const coordenadas = useMemo(() => primerItem.coordenadas, [primerItem.coordenadas]);
+  
+  const idTienda = useMemo(() => primerItem.idTienda || null, [primerItem.idTienda]);
+  
+  const comentario = useMemo(() => primerItem.comentario || '', [primerItem.comentario]);
 
   // Suscripción reactiva a la tienda
   const { tienda, tiendaReady } = useTracker(() => {
@@ -111,39 +100,70 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
     return LABELS_BOTON_ESTADO[estado] || 'AVANZAR';
   }, [estado]);
 
+  // ✅ NUEVO: Configuración del slider según estado
+  const sliderConfig = useMemo(() => {
+    const configs = {
+      PREPARACION_LISTO: {
+        backgroundColor: '#00BCD4',
+        icon: '▶',
+        text: 'Llegue al local',
+        textoPedido:'Listo para Retirar'
+      },
+      PENDIENTE_ENTREGA: {
+        backgroundColor: '#9C27B0',
+        icon: '▶',
+        text: 'Deslizar para ir a local',
+        textoPedido:'Pendiente de entrega'
+      },
+      CADETEENLOCAL: {
+        backgroundColor: '#3F51B5',
+        icon: '▶',
+        text: 'Ya tengo el pedido',
+        textoPedido:'Llegue al local'
+      },
+      ENCAMINO: {
+        backgroundColor: '#FF6F00',
+        icon: '▶',
+        text: 'Llegue al lugar de entrega',
+        textoPedido:'En camino al destino'
+      },
+      CADETEENDESTINO: {
+        backgroundColor: '#4CAF50',
+        icon: '✓',
+        text: 'Entregado',
+        textoPedido:'Llegue al destino'
+      },
+    };
+    return configs[estado] || {
+      backgroundColor: COLORES_ESTADO[estado] || '#2196F3',
+      icon: '▶',
+      text: 'Deslizar para avanzar',
+    };
+  }, [estado]);
+
   // Handlers
   const handleGoToLocation = useCallback(() => {
     let coord = {
-      latitude: 0,
-      longitude: 0,
-    }
-    if (estado == PREPARACION_LISTO) {
-      coord.latitude = tienda?.coordenadas?.latitude || 0;
-      coord.longitude = tienda?.coordenadas?.longitude || 0;
-    }else{
-      coord.latitude = coordenadas?.latitude || 0;
-      coord.longitude = coordenadas?.longitude || 0;
-    }
-    if (coord?.latitude && coord?.longitude) {
+      latitude: estado === 'PREPARACION_LISTO' 
+        ? tienda?.coordenadas?.latitude || 0 
+        : coordenadas.latitude,
+      longitude: estado === 'PREPARACION_LISTO' 
+        ? tienda?.coordenadas?.longitude || 0 
+        : coordenadas.longitude,
+    };
+    
+    if (coord.latitude && coord.longitude) {
       const isIOS = Platform.OS === 'ios';
-
-      if (isIOS) {
-        // Apple Maps en iOS
-        const appleUrl = `http://maps.apple.com/?ll=${coord.latitude},${coord.longitude}&q=Destino`;
-        Linking.openURL(appleUrl).catch(err => {
-          console.error('[CardPedidoComercio] Error al abrir Apple Maps:', err);
-          Alert.alert('Error', 'No se pudo abrir Apple Maps');
-        });
-      } else {
-        // Google Maps en Android
-        const url = `https://www.google.com/maps/search/?api=1&query=${coord?.latitude},${coord?.longitude}`;
-        Linking.openURL(url).catch(err => {
-          console.error('[CardPedidoComercio] Error al abrir Google Maps:', err);
-          Alert.alert('Error', 'No se pudo abrir Google Maps');
-        });
-      }
+      const url = isIOS
+        ? `http://maps.apple.com/?ll=${coord.latitude},${coord.longitude}&q=Destino`
+        : `https://www.google.com/maps/search/?api=1&query=${coord.latitude},${coord.longitude}`;
+      
+      Linking.openURL(url).catch(err => {
+        console.error('[CardPedidoComercio] Error al abrir mapas:', err);
+        Alert.alert('Error', `No se pudo abrir ${isIOS ? 'Apple Maps' : 'Google Maps'}`);
+      });
     }
-  }, [coordenadas]);
+  }, [coordenadas, estado, tienda]);
 
   const handleAvanzar = useCallback(() => {
     const nuevoEstado = obtenerSiguienteEstado(estado);
@@ -153,42 +173,51 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
       return;
     }
 
-    Alert.alert(
-      'Confirmar Acción',
-      `¿Cambiar estado a (${obtenerTextoEstado(nuevoEstado)})?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Confirmar',
-          onPress: () => {
-            setLoading(true);
-            
-            Meteor.call(
-              'comercio.pedidos.avanzar',
-              { idPedido: venta._id, idCadete: user?._id },
-              (error, result) => {
-                setLoading(false);
-                
-                if (error) {
-                  console.error('[CardPedidoComercio] Error al avanzar pedido:', error);
-                  Alert.alert(
-                    'Error',
-                    error.reason || 'No se pudo actualizar el estado del pedido'
-                  );
-                } else {
-                  console.log('[CardPedidoComercio] Pedido avanzado:', result);
-                  Alert.alert(
-                    'Éxito',
-                    `Estado actualizado a: ${result.nuevoEstado}`,
-                    [{ text: 'OK' }]
-                  );
-                }
-              }
+    // ✅ Confirmación solo para estados críticos
+    const requiereConfirmacion = ['CADETEENDESTINO'].includes(estado);
+    
+    const ejecutarAvance = () => {
+      setLoading(true);
+      
+      Meteor.call(
+        'comercio.pedidos.avanzar',
+        { idPedido: venta._id, idCadete: user?._id },
+        (error, result) => {
+          setLoading(false);
+          
+          if (error) {
+            console.error('[CardPedidoComercio] Error al avanzar pedido:', error);
+            Alert.alert(
+              'Error',
+              error.reason || 'No se pudo actualizar el estado del pedido'
             );
-          },
-        },
-      ]
-    );
+          } else {
+            console.log('[CardPedidoComercio] Pedido avanzado:', result);
+            // Solo mostrar Alert de éxito en entrega final
+            if (nuevoEstado === 'ENTREGADO') {
+              Alert.alert(
+                '✅ Pedido Entregado',
+                'El pedido ha sido marcado como entregado exitosamente',
+                [{ text: 'OK' }]
+              );
+            }
+          }
+        }
+      );
+    };
+
+    if (requiereConfirmacion) {
+      Alert.alert(
+        'Confirmar Entrega',
+        `¿Confirmas que el pedido fue entregado al cliente?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Sí, entregar', onPress: ejecutarAvance },
+        ]
+      );
+    } else {
+      ejecutarAvance();
+    }
   }, [estado, venta._id, user?._id]);
 
   const handleCancelar = useCallback(() => {
@@ -245,9 +274,9 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
             textStyle={styles.estadoText}
             style={[
               styles.estadoChip,
-              { backgroundColor: COLORES_ESTADO[estado] },
+              { backgroundColor: sliderConfig.backgroundColor || COLORES_ESTADO[estado] },
             ]}>
-            {estado}
+            {sliderConfig.textoPedido || obtenerTextoEstado(estado)}
           </Chip>
         )}
       />
@@ -355,42 +384,56 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
 
         <MapaPedidos puntoPartida={tienda} puntoAIr={coordenadas} />
 
-        {/* Mostrar coordenadas */}
-        <Text variant="titleMedium" style={styles.sectionTitle}>
-          📍 Ubicación de entrega:
-        </Text>
-        <Text variant="bodySmall" style={styles.coordText}>
-          Lat: {coordenadas.latitude?.toFixed(6) || 'N/A'}
-        </Text>
-        <Text variant="bodySmall" style={styles.coordText}>
-          Lng: {coordenadas.longitude?.toFixed(6) || 'N/A'}
-        </Text>
-        
+        {/* ✅ NUEVO: Ubicación con botón a la derecha */}
+        <View style={styles.ubicacionSection}>
+          <View style={styles.coordenadasContainer}>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              📍 Ubicación de entrega:
+            </Text>
+            <Text variant="bodySmall" style={styles.coordText}>
+              Lat: {coordenadas.latitude?.toFixed(6) || 'N/A'}
+            </Text>
+            <Text variant="bodySmall" style={styles.coordText}>
+              Lng: {coordenadas.longitude?.toFixed(6) || 'N/A'}
+            </Text>
+          </View>
+          
+          <IconButton
+            icon="map-marker-radius"
+            mode="contained"
+            onPress={handleGoToLocation}
+            containerColor={COLORES_ESTADO[estado]}
+            iconColor="#fff"
+            size={28}
+            style={styles.mapButton}
+          />
+        </View>
       </Card.Content>
 
+      {/* ✅ NUEVO: Acciones solo con slider o badge */}
       <Card.Actions style={styles.actions}>
-        <IconButton
-          icon="map-marker-radius"
-          mode="contained"
-          onPress={handleGoToLocation}
-          containerColor={COLORES_ESTADO[estado]}
-          iconColor="#fff"
-        />
-        {/* <Button
-          mode="outlined"
-          disabled={estado !== 'PREPARANDO' || loading}
-          onPress={handleCancelar}
-          textColor="#F44336">
-          Cancelar
-        </Button> */}
-        <Button
-          mode="contained"
-          loading={loading}
-          disabled={loading || estado === 'ENTREGADO'}
-          onPress={handleAvanzar}
-          buttonColor={COLORES_ESTADO[estado]}>
-          {buttonLabel}
-        </Button>
+        {estado !== 'ENTREGADO' && (
+          <View style={styles.sliderContainer}>
+            <SlideToConfirm
+              onConfirm={handleAvanzar}
+              backgroundColor={sliderConfig.backgroundColor}
+              icon={sliderConfig.icon}
+              text={sliderConfig.text}
+              disabled={loading}
+            />
+          </View>
+        )}
+        
+        {estado === 'ENTREGADO' && (
+          <View style={styles.entregadoContainer}>
+            <View style={styles.entregadoIconWrapper}>
+              <Text style={styles.entregadoIcon}>✔︎</Text>
+            </View>
+            <Text variant="bodyLarge" style={styles.entregadoText}>
+              Pedido Entregado
+            </Text>
+          </View>
+        )}
       </Card.Actions>
     </Card>
   );
@@ -430,9 +473,40 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
   },
   actions: {
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
+    paddingHorizontal: 16, // ✅ Aumentado de 8 a 16
     paddingVertical: 8,
+    justifyContent: 'center', // ✅ Centrado
+    alignItems: 'stretch', // ✅ Stretch para ocupar ancho completo
+  },
+  sliderContainer: {
+    width: '100%', // ✅ Ocupa ancho completo
+  },
+  entregadoContainer: {
+    width: '100%', // ✅ Ocupa ancho completo
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#E8F5E9',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 30,
+  },
+  entregadoIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  entregadoIcon: {
+    fontSize: 24,
+    color: '#FFFFFF',
+  },
+  entregadoText: {
+    flex: 1,
+    fontWeight: '600',
+    color: '#2E7D32',
   },
   idContainer: {
     flexDirection: 'column',
@@ -441,13 +515,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   idLabel: {
-    // color: '#666',
     marginRight: 6,
     fontWeight: '600',
   },
   idValue: {
     fontFamily: 'monospace',
-    // color: '#333',
     flex: 1,
     fontSize: 11,
   },
@@ -480,6 +552,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 11,
+  },
+  // ✅ NUEVO: Sección de ubicación con botón
+  ubicacionSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginTop: 12,
+    gap: 12,
+  },
+  coordenadasContainer: {
+    flex: 1,
+  },
+  mapButton: {
+    margin: 0,
   },
 });
 
