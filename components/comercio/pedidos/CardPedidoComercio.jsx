@@ -113,12 +113,35 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
 
   // Handlers
   const handleGoToLocation = useCallback(() => {
-    if (coordenadas?.latitude && coordenadas?.longitude) {
-      const url = `https://www.google.com/maps/search/?api=1&query=${coordenadas.latitude},${coordenadas.longitude}`;
-      Linking.openURL(url).catch(err => {
-        console.error('[CardPedidoComercio] Error al abrir Google Maps:', err);
-        Alert.alert('Error', 'No se pudo abrir Google Maps');
-      });
+    let coord = {
+      latitude: 0,
+      longitude: 0,
+    }
+    if (estado == PREPARACION_LISTO) {
+      coord.latitude = tienda?.coordenadas?.latitude || 0;
+      coord.longitude = tienda?.coordenadas?.longitude || 0;
+    }else{
+      coord.latitude = coordenadas?.latitude || 0;
+      coord.longitude = coordenadas?.longitude || 0;
+    }
+    if (coord?.latitude && coord?.longitude) {
+      const isIOS = Platform.OS === 'ios';
+
+      if (isIOS) {
+        // Apple Maps en iOS
+        const appleUrl = `http://maps.apple.com/?ll=${coord.latitude},${coord.longitude}&q=Destino`;
+        Linking.openURL(appleUrl).catch(err => {
+          console.error('[CardPedidoComercio] Error al abrir Apple Maps:', err);
+          Alert.alert('Error', 'No se pudo abrir Apple Maps');
+        });
+      } else {
+        // Google Maps en Android
+        const url = `https://www.google.com/maps/search/?api=1&query=${coord?.latitude},${coord?.longitude}`;
+        Linking.openURL(url).catch(err => {
+          console.error('[CardPedidoComercio] Error al abrir Google Maps:', err);
+          Alert.alert('Error', 'No se pudo abrir Google Maps');
+        });
+      }
     }
   }, [coordenadas]);
 
@@ -353,13 +376,13 @@ const CardPedidoComercio = ({ pedido, venta: ventaProp, navigation }) => {
           containerColor={COLORES_ESTADO[estado]}
           iconColor="#fff"
         />
-        <Button
+        {/* <Button
           mode="outlined"
           disabled={estado !== 'PREPARANDO' || loading}
           onPress={handleCancelar}
           textColor="#F44336">
           Cancelar
-        </Button>
+        </Button> */}
         <Button
           mode="contained"
           loading={loading}

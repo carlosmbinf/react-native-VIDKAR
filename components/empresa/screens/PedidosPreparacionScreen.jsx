@@ -5,6 +5,7 @@ import {
   FlatList,
   ScrollView,
   Dimensions,
+  Alert,
 } from 'react-native';
 import {
   Surface,
@@ -30,6 +31,21 @@ const formatearTiempo = (fecha) => {
   if (minutos < 60) return `hace ${minutos} min`;
   const horas = Math.floor(minutos / 60);
   return `hace ${horas}h`;
+};
+
+// ✅ Helper: extraer tiendas únicas desde carritos COMERCIO (snapshot de tienda en el item)
+const extraerTiendasUnicas = (productosComercio = []) => {
+  const map = new Map();
+
+  productosComercio.forEach((item) => {
+    const id = item?.idTienda || item?.tienda?._id || null;
+    const nombre = item?.tienda?.title || null;
+
+    if (!id || !nombre) return;
+    if (!map.has(id)) map.set(id, { id, nombre });
+  });
+
+  return Array.from(map.values());
 };
 
 // ✅ ACTUALIZADO: Configuración de estado para los 3 estados de empresa
@@ -104,6 +120,11 @@ const PedidosPreparacionScreen = ({ navigation, openDrawer }) => {
         (item) => item.type === 'COMERCIO'
       ) || [];
 
+      // ✅ NUEVO: tiendas únicas del pedido (a partir del snapshot guardado en carrito/venta)
+      const tiendasInfo = extraerTiendasUnicas(productosComercio);
+      const tiendaPrincipalNombre =
+        tiendasInfo.length === 1 ? tiendasInfo[0].nombre : null;
+
       return {
         _id: venta._id,
         idOrder: venta._id || venta.producto?.idOrder || 'N/A',
@@ -112,10 +133,13 @@ const PedidosPreparacionScreen = ({ navigation, openDrawer }) => {
         totalACobrar: venta.cobrado || 0,
         moneda: venta.monedaCobrado || 'CUP',
         createdAt: venta.createdAt || new Date(),
+        tiendasInfo, // ✅ NUEVO
+        tiendaPrincipalNombre, // ✅ NUEVO (si no es multi-tienda)
         productos: productosComercio.map((item) => ({
           nombre: item.producto?.name || 'Sin nombre',
           cantidad: item.cantidad || 1,
-          comentario: item.comentario || ''
+          comentario: item.comentario || '',
+          tiendaNombre: item?.tienda?.title || null, // útil si el pedido es multi-tienda
         })),
         // ✅ Datos adicionales útiles
         cadeteid: venta.cadeteid,
@@ -133,168 +157,233 @@ const PedidosPreparacionScreen = ({ navigation, openDrawer }) => {
   const headerConfig = getHeaderColorConfig(pedidos.length);
 
   // ✅ Handler: Cambiar estado del pedido (simulado, luego se conectará con Meteor.call)
-  const handleCambiarEstado = async (pedidoId, nuevoEstado) => {
-    console.log('[PedidosPreparacion] Cambiar estado:', pedidoId, nuevoEstado);
-      let count = await VentasRechargeCollection.update(pedidoId , {
-          $set: {
-              estado: nuevoEstado
-          }
-      });
-    console.log("count", count);
-    // TODO: Implementar Meteor.call para actualizar estado en backend
+  const handleCambiarEstado = async (pedidoId) => {
+    console.log("pedidoId a avanzar:", {idPedido:pedidoId});
+    Meteor.call("comercio.pedidos.avanzar", {idPedido:pedidoId}, (error, result) => {
+      if (error) {
+        Alert.alert("Error", error.reason)
+      }
+    });
   };
 
-  // ✅ Renderizar card de pedido
-  const renderPedidoCard = ({ item: pedido }) => {
-    const estadoConfig = getEstadoConfig(pedido.estado);
-    const totalItems = pedido.productos.reduce((sum, p) => sum + p.cantidad, 0);
+  // ✅ Renderizar card de pedido - REDISEÑO PROFESIONAL
+const renderPedidoCard = ({ item: pedido }) => {
+  const estadoConfig = getEstadoConfig(pedido.estado);
+  const totalItems = pedido.productos.reduce((sum, p) => sum + p.cantidad, 0);
 
-    return (
-      <Surface style={styles.pedidoCard} elevation={20}>
-        {/* Header */}
-        <Card.Content style={styles.cardHeader}>
-          <View style={styles.headerRow}>
-            <View style={styles.headerLeft}>
-              <Text variant="titleMedium" style={styles.orderNumber}>
-                🏷️ #{pedido.idOrder}
+  const tiendas = pedido.tiendasInfo || [];
+  const esMultiTienda = tiendas.length > 1;
+
+  const tiendaLabel = esMultiTienda
+    ? `${tiendas.length} tiendas`
+    : pedido.tiendaPrincipalNombre || tiendas[0]?.nombre || 'Tienda sin nombre';
+
+  return (
+    <Surface style={styles.pedidoCard} elevation={4}>
+      {/* ✅ Banda superior con tienda */}
+      <View style={[styles.tiendaBanner, { backgroundColor: estadoConfig.color }]}>
+        <View style={styles.tiendaBannerContent}>
+          <View style={styles.tiendaInfo}>
+            <Text style={styles.tiendaIcon}>🏪</Text>
+            <View style={styles.tiendaTexts}>
+              <Text variant="titleMedium" style={styles.tiendaNombre}>
+                {tiendaLabel}
               </Text>
-              <Badge size={24} style={styles.badgeItems}>
-                {totalItems}
-              </Badge>
-            </View>
-            <Chip
-              mode="flat"
-              icon="clock-outline"
-              style={[styles.tiempoChip, { backgroundColor: estadoConfig.color + '20' }]}
-              textStyle={[styles.tiempoText, { color: estadoConfig.color }]}
-              compact
-            >
-              {formatearTiempo(pedido.createdAt)}
-            </Chip>
-          </View>
-
-          <Chip
-            mode="flat"
-            icon={estadoConfig.icon}
-            style={[styles.estadoChip, { backgroundColor: estadoConfig.color }]}
-            textStyle={styles.estadoChipText}
-            // compact
-          >
-            {estadoConfig.label}
-          </Chip>
-        </Card.Content>
-
-        <Divider style={styles.divider} />
-
-        {/* Body - Lista de productos */}
-        <Card.Content style={styles.cardBody}>
-          {pedido.productos.map((producto, index) => (
-            <View key={index}>
-              <List.Item
-                title={producto.nombre}
-                titleStyle={styles.productoNombre}
-                description={
-                  producto.comentario
-                    ? `💬 ${producto.comentario}`
-                    : undefined
-                }
-                descriptionStyle={styles.productoComentario}
-                left={(props) => (
-                  <Badge
-                    size={28}
-                    style={[styles.cantidadBadge, { backgroundColor: estadoConfig.color }]}
-                  >
-                    x{producto.cantidad}
-                  </Badge>
-                )}
-                style={styles.productoItem}
-              />
-              {index < pedido.productos.length - 1 && (
-                <Divider style={styles.dividerLight} />
+              {esMultiTienda && (
+                <Text variant="labelSmall" style={styles.tiendaSubtitle}>
+                  Pedido multi-tienda
+                </Text>
               )}
             </View>
-          ))}
-        </Card.Content>
+          </View>
+          <Badge size={28} style={styles.itemsBadge}>
+            {totalItems}
+          </Badge>
+        </View>
+      </View>
 
-        <Divider style={styles.divider} />
-
-        {/* Footer - Pago y acciones */}
-        <Card.Content style={styles.cardFooter}>
-          <View style={styles.pagoInfo}>
+      <Card.Content style={styles.cardContent}>
+        {/* ✅ Fila superior: Orden + Estado + Tiempo */}
+        <View style={styles.metaRow}>
+          <View style={styles.metaLeft}>
+            <Text variant="titleLarge" style={styles.orderNumber}>
+              #{pedido.idOrder}
+            </Text>
             <Chip
               mode="flat"
-              icon={pedido.metodoPago === 'EFECTIVO' ? 'cash' : 'credit-card'}
-              style={[
-                styles.pagoChip,
-                {
-                  backgroundColor:
-                    pedido.metodoPago === 'EFECTIVO' ? '#FF6F00' : '#673AB7',
-                },
-              ]}
-              textStyle={styles.pagoChipText}
+              icon={estadoConfig.icon}
+              style={[ { backgroundColor: estadoConfig.color }]}
+              textStyle={styles.estadoChipText}
               compact
             >
-              {pedido.metodoPago}
+              {estadoConfig.label}
             </Chip>
-            <Text variant="titleMedium" style={styles.totalText}>
-              ${pedido.totalACobrar?.toFixed(2)} {pedido.moneda}
+          </View>
+          
+          <View style={styles.metaRight}>
+            <Text variant="labelSmall" style={styles.tiempoLabel}>
+              Recibido
+            </Text>
+            <Text variant="bodyMedium" style={styles.tiempoValor}>
+              {formatearTiempo(pedido.createdAt)}
             </Text>
           </View>
-        </Card.Content>
+        </View>
 
-        {/* ✅ ACTUALIZADO: Acciones según estado (solo 3 estados) */}
-        <Card.Actions style={styles.cardActions}>
-          {pedido.estado === 'PENDIENTE' && (
-            <>
-              <Button
-                mode="outlined"
-                onPress={() => console.log('Ver detalle:', pedido._id)}
-                style={styles.buttonSecondary}
-              >
-                Ver Detalle
-              </Button>
-              <Button
-                mode="contained"
-                onPress={() => handleCambiarEstado(pedido._id, 'PREPARANDO')}
-                style={[styles.buttonPrimary, { backgroundColor: '#2196F3' }]}
-                icon="play"
-              >
-                Iniciar
-              </Button>
-            </>
-          )}
+        <Divider style={styles.sectionDivider} />
 
-          {pedido.estado === 'PREPARANDO' && (
-            <>
-              <Button
-                mode="outlined"
-                onPress={() => console.log('Ver detalle:', pedido._id)}
-                style={styles.buttonSecondary}
-              >
-                Ver Detalle
-              </Button>
-              <Button
-                mode="contained"
-                onPress={() => handleCambiarEstado(pedido._id, 'PREPARACION_LISTO')}
-                style={[styles.buttonPrimary, { backgroundColor: '#4CAF50' }]}
-                icon="check-bold"
-              >
-                Marcar Listo
-              </Button>
-            </>
-          )}
+        {/* ✅ Sección de productos con mejor estructura */}
+        <View style={styles.productosSection}>
+          <Text variant="labelLarge" style={styles.sectionTitle}>
+            📦 Productos ({totalItems})
+          </Text>
+          
+          <View style={styles.productosList}>
+            {pedido.productos.map((producto, index) => {
+              const mostrarTiendaEnProducto = esMultiTienda && producto.tiendaNombre;
 
-          {pedido.estado === 'PREPARACION_LISTO' && (
-            <View style={styles.listoInfo}>
-              <Text variant="bodyMedium" style={styles.listoText}>
-                ✅ Empaquetado y listo para recoger
+              return (
+                <View key={`${pedido._id}_prod_${index}`}>
+                  <View style={styles.productoRow}>
+                    <Badge
+                      size={36}
+                      style={[styles.cantidadBadge, { backgroundColor: estadoConfig.color }]}
+                    >
+                      {producto.cantidad}
+                    </Badge>
+                    
+                    <View style={styles.productoInfo}>
+                      <Text variant="bodyLarge" style={styles.productoNombre}>
+                        {producto.nombre}
+                      </Text>
+                      
+                      {mostrarTiendaEnProducto && (
+                        <View style={styles.tiendaTag}>
+                          <Text style={styles.tiendaTagIcon}>📍</Text>
+                          <Text variant="labelSmall" style={styles.tiendaTagText}>
+                            {producto.tiendaNombre}
+                          </Text>
+                        </View>
+                      )}
+                      
+                      {producto.comentario && (
+                        <View style={styles.comentarioContainer}>
+                          <Text style={styles.comentarioIcon}>💬</Text>
+                          <Text variant="bodySmall" style={styles.productoComentario}>
+                            {producto.comentario}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                  
+                  {index < pedido.productos.length - 1 && (
+                    <Divider style={styles.productoDivider} />
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        <Divider style={styles.sectionDivider} />
+
+        {/* ✅ Footer de pago rediseñado */}
+        <View style={styles.pagoSection}>
+          <View style={styles.pagoRow}>
+            <View style={styles.pagoMetodo}>
+              <Text variant="labelSmall" style={styles.pagoLabel}>
+                Método de pago
+              </Text>
+              <Chip
+                mode="flat"
+                icon={pedido.metodoPago === 'EFECTIVO' ? 'cash' : 'credit-card'}
+                style={[
+                  {
+                    backgroundColor:
+                      pedido.metodoPago === 'EFECTIVO' ? '#FF6F00' : '#673AB7',
+                  },
+                ]}
+                textStyle={styles.pagoChipText}
+                compact
+              >
+                {pedido.metodoPago}
+              </Chip>
+            </View>
+            
+            <View style={styles.pagoTotal}>
+              <Text variant="labelSmall" style={styles.totalLabel}>
+                Total a cobrar
+              </Text>
+              <Text variant="headlineMedium" style={styles.totalValor}>
+                ${pedido.totalACobrar?.toFixed(2)}
+              </Text>
+              <Text variant="labelSmall" style={styles.totalMoneda}>
+                {pedido.moneda}
               </Text>
             </View>
-          )}
-        </Card.Actions>
-      </Surface>
-    );
-  };
+          </View>
+        </View>
+      </Card.Content>
+
+      {/* ✅ Acciones con diseño más limpio */}
+      <Card.Actions style={styles.cardActions}>
+        {pedido.estado === 'PENDIENTE' && (
+          <>
+            <Button
+              mode="outlined"
+              onPress={() => console.log('Ver detalle:', pedido._id)}
+              icon="information-outline"
+              style={styles.buttonSecondary}
+            >
+              Detalle
+            </Button>
+            <Button
+              mode="contained"
+              onPress={() => handleCambiarEstado(pedido._id)}
+              style={[styles.buttonPrimary, { backgroundColor: '#2196F3' }]}
+              icon="play"
+            >
+              Iniciar Preparación
+            </Button>
+          </>
+        )}
+
+        {pedido.estado === 'PREPARANDO' && (
+          <>
+            <Button
+              mode="outlined"
+              onPress={() => console.log('Ver detalle:', pedido._id)}
+              icon="information-outline"
+              style={styles.buttonSecondary}
+            >
+              Detalle
+            </Button>
+            <Button
+              mode="contained"
+              onPress={() => handleCambiarEstado(pedido._id)}
+              style={[styles.buttonPrimary, { backgroundColor: '#4CAF50' }]}
+              icon="check-bold"
+            >
+              Marcar como Listo
+            </Button>
+          </>
+        )}
+
+        {pedido.estado === 'PREPARACION_LISTO' && (
+          <View style={styles.listoContainer}>
+            <View style={styles.listoIconWrapper}>
+              <Text style={styles.listoIcon}>✅</Text>
+            </View>
+            <Text variant="bodyLarge" style={styles.listoText}>
+              Pedido empaquetado y listo para recoger
+            </Text>
+          </View>
+        )}
+      </Card.Actions>
+    </Surface>
+  );
+};
 
   // ✅ Loading state mientras se cargan los datos
   if (loading) {
@@ -443,7 +532,7 @@ const styles = StyleSheet.create({
   pedidoCard: {
     borderRadius: 16,
     marginBottom: 16,
-    paddingTop: 16,
+    // paddingTop: 16,
     overflow: 'hidden',
     flex: 1, // ✅ Mantiene flex para ocupar espacio disponible
     minWidth: 0, // ✅ Permite que flex shrink funcione correctamente
@@ -453,6 +542,7 @@ const styles = StyleSheet.create({
 
   // Header del card
   cardHeader: {
+    paddingTop: 12,
     paddingBottom: 12,
   },
   headerRow: {
@@ -474,16 +564,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#E0E0E0',
   },
   tiempoChip: {
-    // height: 28,
+    height: 28,
   },
   tiempoText: {
     fontSize: 12,
     fontWeight: '600',
   },
   estadoChip: {
-    alignSelf: 'flex-start',
-    marginTop: 4,
-    height: 35,
+    // alignSelf: 'flex-start',
+    // marginTop: 4,
+    // height: 40,
   },
   estadoChipText: {
     color: '#FFFFFF',
@@ -568,6 +658,316 @@ const styles = StyleSheet.create({
   dividerLight: {
     marginVertical: 4,
     backgroundColor: '#F5F5F5',
+  },
+
+  // ✅ NUEVO: Estilos para banda de tienda
+  tiendaBanner: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop:0,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  tiendaNombre: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  tiendaSubtitle: {
+    color: '#FFFFFF',
+    opacity: 0.9,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+
+  // ✅ NUEVO: label de tienda en productos multi-tienda
+  productoTienda: {
+    color: '#607D8B',
+    marginTop: 2,
+    fontWeight: '600',
+  },
+
+  productoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 8,
+  },
+  productoInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  productoNombre: {
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  comentarioContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 4,
+  },
+  comentarioIcon: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  productoComentario: {
+    flex: 1,
+    fontStyle: 'italic',
+    color: '#607D8B',
+    lineHeight: 18,
+  },
+
+  // ✅ Card principal mejorado
+  pedidoCard: {
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+    flex: 1,
+    minWidth: 0,
+    maxWidth: '100%',
+    elevation: 4,
+  },
+
+  // ✅ Banda de tienda rediseñada
+  tiendaBanner: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  tiendaBannerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  tiendaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  tiendaIcon: {
+    fontSize: 28,
+  },
+  tiendaTexts: {
+    flex: 1,
+  },
+  tiendaNombre: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  tiendaSubtitle: {
+    color: '#FFFFFF',
+    opacity: 0.9,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  itemsBadge: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+
+  // ✅ Contenido del card
+  cardContent: {
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+
+  // ✅ Fila de metadatos (orden + estado + tiempo)
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  metaLeft: {
+    flex: 1,
+    gap: 8,
+  },
+  orderNumber: {
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  estadoChip: {
+    alignSelf: 'flex-start',
+  },
+  estadoChipText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  metaRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  tiempoLabel: {
+    color: '#757575',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  tiempoValor: {
+    fontWeight: '600',
+  },
+
+  // ✅ Sección de productos
+  productosSection: {
+    marginVertical: 12,
+  },
+  sectionTitle: {
+    fontWeight: '700',
+    marginBottom: 12,
+    letterSpacing: 0.5,
+  },
+  productosList: {
+    gap: 4,
+  },
+  productoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 10,
+  },
+  cantidadBadge: {
+    marginTop: 2,
+  },
+  productoInfo: {
+    flex: 1,
+    gap: 6,
+  },
+  productoNombre: {
+    fontWeight: '700',
+    lineHeight: 22,
+  },
+  tiendaTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  tiendaTagIcon: {
+    fontSize: 12,
+  },
+  tiendaTagText: {
+    color: '#1976D2',
+    fontWeight: '600',
+  },
+  comentarioContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: '#F5F5F5',
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 2,
+  },
+  comentarioIcon: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  productoComentario: {
+    flex: 1,
+    fontStyle: 'italic',
+    color: '#616161',
+    lineHeight: 18,
+  },
+
+  // ✅ Sección de pago rediseñada
+  pagoSection: {
+    marginVertical: 12,
+  },
+  pagoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 16,
+  },
+  pagoMetodo: {
+    gap: 6,
+  },
+  pagoLabel: {
+    color: '#757575',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  pagoChip: {
+    alignSelf: 'flex-start',
+  },
+  pagoChipText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 11,
+  },
+  pagoTotal: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  totalLabel: {
+    color: '#757575',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  totalValor: {
+    fontWeight: 'bold',
+  },
+  totalMoneda: {
+    color: '#757575',
+  },
+
+  // ✅ Dividers
+  sectionDivider: {
+    marginVertical: 12,
+  },
+  productoDivider: {
+    marginVertical: 4,
+    backgroundColor: '#EEEEEE',
+  },
+
+  // ✅ Acciones rediseñadas
+  cardActions: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    justifyContent: 'flex-end',
+    gap: 12,
+    backgroundColor: '#FAFAFA',
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  buttonSecondary: {
+    borderColor: '#BDBDBD',
+  },
+  buttonPrimary: {
+    minWidth: 160,
+  },
+  
+  // ✅ Estado "Listo" mejorado
+  listoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    // backgroundColor: '#E8F5E9',
+    // padding: 12,
+    borderRadius: 8,
+  },
+  listoIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listoIcon: {
+    fontSize: 24,
+  },
+  listoText: {
+    flex: 1,
+    color: '#2E7D32',
+    fontWeight: '600',
+    lineHeight: 20,
   },
 });
 
