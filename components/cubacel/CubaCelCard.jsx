@@ -16,7 +16,8 @@ const CubaCelCard = ({ product }) => {
         prices,
         benefits,
         promotions,
-        requiredCreditPartyIdentifierFields = []
+        requiredCreditPartyIdentifierFields = [],
+        ocultarFondo = false
     } = product;
 
     const [open, setOpen] = useState(false);
@@ -230,7 +231,7 @@ const CubaCelCard = ({ product }) => {
                             </View>
                         )}
 
-                        { !promoImageUrl && <BlurView
+                        { ( ocultarFondo || !promoImageUrl) && <BlurView
                             style={StyleSheet.absoluteFill}
                             blurType={isDarkMode ? "dark" : "light"}
                             autoUpdate={false}
