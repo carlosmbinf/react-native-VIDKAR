@@ -4,7 +4,6 @@ import { View, ScrollView, StyleSheet, Linking, Alert } from 'react-native';
 import { ProgressSteps, ProgressStep } from 'react-native-progress-steps';
 import { TextInput, Text, Button, Dialog, Portal, Divider, Chip, IconButton, Modal,useTheme, Badge, ActivityIndicator, Card } from 'react-native-paper';
 import ListaPedidos from './ListaPedidosRemesa';
-import { BlurView } from '@react-native-community/blur';
 import { Dropdown } from 'react-native-element-dropdown';
 import { CarritoCollection, OrdenesCollection } from '../collections/collections';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -1113,10 +1112,17 @@ const WizardConStepper = ({ product, navigation }) => {
                 {visible && pedidosRemesa && (
                 <Modal theme={{ colors: { primary: 'green' } }} visible={visible} onDismiss={hideModal} contentContainerStyle={styles.containerStyle}>
 
-                    <BlurView
-                        style={StyleSheet.absoluteFill}
-                        blurType= {isDarkMode ?"dark":"light"}
-                    />
+                  <View
+                    pointerEvents="none"
+                    style={[
+                      StyleSheet.absoluteFill,
+                      {
+                        backgroundColor: isDarkMode
+                          ? 'rgba(8, 14, 27, 0.84)'
+                          : 'rgba(255, 255, 255, 0.92)',
+                      },
+                    ]}
+                  />
                     <View style={{ flex: 1 , paddingTop: 30,zIndex:999}}>
                         <View style={styles.dialogTitleContainer}>
                             <Text style={styles.dialogTitleText}>Carrito de compras:</Text>

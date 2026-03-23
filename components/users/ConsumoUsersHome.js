@@ -25,7 +25,6 @@ import {
 } from 'react-native-paper';
 // import * as axios from 'axios';
 import Meteor, { Mongo, withTracker } from '@meteorrn/core';
-// import Header from 'react-native-custom-header';
 
 import Drawer from 'react-native-drawer'
 

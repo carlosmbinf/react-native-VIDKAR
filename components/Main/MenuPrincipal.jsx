@@ -25,9 +25,7 @@ import Drawer from 'react-native-drawer';
 import { PreciosCollection, Logs, VentasCollection, TiendasComercioCollection, ProductosComercioCollection } from '../collections/collections';
 import DrawerOptionsAlls from '../drawer/DrawerOptionsAlls';
 import Productos from '../cubacel/Productos';
-import MainPelis from '../pelis/MainPelis';
 import ProxyVPNPackagesHorizontal from '../proxyVPN/ProxyVPNPackagesHorizontal';
-import { BlurView } from '@react-native-community/blur';
 import MenuHeader from '../Header/MenuHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Geolocation from '@react-native-community/geolocation';
@@ -554,12 +552,6 @@ const MenuPrincipal = ({ navigation }) => {
                 <Text>Bienvenido al menú principal de la aplicación.</Text>
               </View>
               <Productos />
-              {ready && user?.subscipcionPelis &&
-                <MainPelis
-                  navigation={{ navigationGeneral: navigation }}
-                  clasificacion="All"
-                />
-              }
               <ProxyVPNPackagesHorizontal navigation={navigation} />
             
             <View style={styles.tiendasSection}>

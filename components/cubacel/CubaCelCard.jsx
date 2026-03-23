@@ -4,7 +4,6 @@ import { Card, Title, Chip, IconButton, Portal, Dialog, Button, TextInput, Modal
 import { useTheme, Text } from 'react-native-paper';
 import { useWindowDimensions, Button as BotonReact } from 'react-native';
 import Meteor from '@meteorrn/core';
-import { BlurView } from '@react-native-community/blur';
 import moment from 'moment';
 import 'moment/locale/es';
 
@@ -230,12 +229,19 @@ const CubaCelCard = ({ product }) => {
                             </View>
                         )}
 
-                        { !promoImageUrl && <BlurView
-                            style={StyleSheet.absoluteFill}
-                            blurType={isDarkMode ? "dark" : "light"}
-                            autoUpdate={false}
-                            reducedTransparencyFallbackColor="dark"
-                        />}
+                        {!promoImageUrl && (
+                            <View
+                                pointerEvents="none"
+                                style={[
+                                    StyleSheet.absoluteFill,
+                                    {
+                                        backgroundColor: isDarkMode
+                                            ? 'rgba(7, 17, 30, 0.7)'
+                                            : 'rgba(6, 61, 46, 0.58)',
+                                    },
+                                ]}
+                            />
+                        )}
                         <View style={styles.cardContent}>
                             <View style={styles.row}>
                                 {!promoImageUrl && <><IconButton icon="cellphone" iconColor="white" size={16} />

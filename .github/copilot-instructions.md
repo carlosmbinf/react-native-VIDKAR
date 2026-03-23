@@ -925,3 +925,62 @@ Resumen técnico – Implementación de Pantallas de Compra Proxy/VPN (ProxyPurc
   - Crear components reutilizables: ServiceChip, DataProgressBar, UserListItem.
   - Tests de regression para verificar cálculos idénticos entre cards y lista.
   - Accessibility: labels apropiados para screen readers en progress bars.
+
+---
+
+## Resumen técnico – Eliminación de @react-native-community/blur
+- **Objetivo**: retirar completamente el uso de `@react-native-community/blur` del código fuente para evitar dependencia nativa innecesaria y simplificar mantenimiento.
+
+- **Cambios aplicados en frontend RN**:
+  - Se eliminaron todos los imports de `BlurView` en pantallas y componentes activos.
+  - Se reemplazaron overlays con blur por capas translúcidas usando `View` + `StyleSheet.absoluteFill`, manteniendo jerarquía visual y contraste sin depender del módulo nativo.
+  - Componentes ajustados:
+    - `components/loguin/Loguin.js`: card de login ahora usa overlay semitransparente estable.
+    - `components/carritoCompras/WizardConStepper.jsx`: modal del wizard usa backdrop translúcido en lugar de blur.
+    - `components/cubacel/TableRecargas.jsx`: modal de detalle reemplazó blur por fondo opaco/translúcido según tema.
+    - `components/cubacel/CubaCelCard.jsx`: overlay de card sin promoción remota ahora usa tinte semitransparente.
+    - `components/mensajes/MensajesHome.js`: composer inferior unificado con capa translúcida, sin bifurcar lógica iOS/Android por blur.
+    - `components/Main/MenuPrincipal.jsx`: se eliminó import residual no usado.
+
+- **Dependencias**:
+  - Se removió `@react-native-community/blur` de `package.json`.
+  - Se ejecutó `npm uninstall @react-native-community/blur --legacy-peer-deps` para sincronizar `package-lock.json` y `node_modules`.
+  - `yarn.lock` quedó sin entradas del paquete tras la actualización del árbol de dependencias.
+
+- **Consideraciones técnicas importantes**:
+  - Las referencias restantes encontradas tras la limpieza estaban en artefactos generados (`android/app/build`, `.cxx`, autolinking generado). No representan uso activo en código fuente y se regeneran con un clean/build.
+  - Si se quiere dejar también limpio el entorno local, ejecutar `cd android && gradlew clean` antes del próximo build Android.
+  - Reemplazar blur por overlays translúcidos reduce variabilidad visual entre plataformas y evita dependencia de implementación nativa específica.
+
+- **Lecciones aprendidas**:
+  - Si el efecto buscado es solo separación visual o profundidad ligera, un overlay translúcido suele ser suficiente y más robusto que blur real.
+  - En modales y composers, priorizar contraste, legibilidad y consistencia multiplataforma antes que efectos visuales costosos.
+  - Al eliminar librerías nativas en React Native, validar no solo imports del código fuente sino también `package.json`, lockfiles y artefactos generados de autolinking.
+
+---
+
+## Resumen técnico – PeerDependencies de react-native-progress-steps (lucide-react-native)
+- **Problema identificado**: tras limpiar dependencias, Metro dejó de resolver `lucide-react-native` desde `react-native-progress-steps/dist/ProgressSteps/StepIcon.js`.
+
+- **Causa raíz**:
+  - `react-native-progress-steps@2.0.3` declara `lucide-react-native` como `peerDependency`, no como dependencia directa.
+  - El proyecto debe instalar explícitamente esa peer dependency para que el bundle funcione.
+  - `lucide-react-native` requiere además `react-native-svg`, por lo que conviene mantener ambas en dependencias del proyecto.
+
+- **Solución aplicada**:
+  - Instalación explícita con:
+    - `npm install lucide-react-native react-native-svg --legacy-peer-deps`
+  - Verificación del árbol:
+    - `npm ls lucide-react-native react-native-svg --depth=0`
+  - Resultado esperado:
+    - `lucide-react-native` y `react-native-svg` presentes en `package.json` y resolubles desde Metro.
+
+- **Consideraciones técnicas importantes**:
+  - Antes de eliminar paquetes aparentemente no usados, revisar `peerDependencies` de librerías UI críticas, especialmente stepper, navegación, iconografía y renderizado SVG.
+  - Un `npm uninstall` puede dejar el proyecto compilable a nivel npm pero romper el bundle de Metro si una peer dependency desaparece.
+  - Si después de restaurar la dependencia Metro sigue mostrando el mismo error, reiniciar el bundler con caché limpia.
+
+- **Lecciones aprendidas**:
+  - En React Native, un error de Metro por módulo faltante dentro de `node_modules` suele apuntar a una `peerDependency` ausente, no necesariamente a un bug del paquete.
+  - `react-native-svg` debe considerarse parte del stack base cuando se usan librerías modernas de iconos como `lucide-react-native`.
+  - Al limpiar dependencias, validar no solo imports propios sino también contratos de paquetes terceros que renderizan componentes internamente.

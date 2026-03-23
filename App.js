@@ -55,9 +55,6 @@ import VentasList from './components/ventas/VentasList';
 import ChatUsersHome from './components/mensajes/ChatUsersHome';
 import ConsumoUserHome from './components/users/ConsumoUsersHome';
 import ServerList from './components/servers/ServerList';
-import MyTabs from './components/navigator/MyTabs';
-import VideoPlayer from './components/video/VideoPlayer';
-import VideoPlayerIOS from './components/video/VideoPlayerIOS';
 import DashBoardPrincipal from './components/dashboard/DashBoardPrincipal';
 import Productos from './components/cubacel/Productos';
 import MenuHeader from './components/Header/MenuHeader';
@@ -334,33 +331,7 @@ const App = () => {
                   headerShown: false,
                 })}
               />
-              <Stack.Screen
-                name="PeliculasVideos"
-                // component={MyTabs}
-                options={({ navigation, route }) => ({
-                  headerShown: false,
-                  headerTransparent: true,
-                })}
-              >
-                {props => {
-                  const { navigation, route } = props;
-                  return (
-                    Meteor.user() && Meteor.user().subscipcionPelis ? (
-                      <>
-                        <MyTabs navigation={navigation} route={route} />
-                      </>
-                    ) :
-                      (
-                        <Surface style={{ flex: 1, justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                            <Text style={{ fontSize: 20, textAlign: 'center', marginTop: 20 }}>No tiene una Subscripcion Activa</Text>
-                          </View>
-                        </Surface>
-                      )
-                  );
-                }}
-              </Stack.Screen>
-              
+                           
               <Stack.Screen
                 name="Servidores"
                 component={ServerList}
@@ -581,41 +552,6 @@ const App = () => {
                   // headerTransparent:false
                 })}
               />
-
-              <Stack.Screen
-                name="Video"
-                options={({ navigation, route }) => ({
-                  headerShown: false,
-                })}>
-                {props => {
-                  const { navigation, route } = props;
-                  const { id, subtitulo } = route.params;
-
-                  if (Platform.OS == 'ios') {
-                    return (
-                      <VideoPlayerIOS
-                        id={id}
-                        subtitulo={subtitulo}
-                        navigation={navigation}
-                        route={route}
-                      />
-                    );
-                  }
-                  return (
-                    <VideoPlayer
-                      id={id}
-                      subtitulo={subtitulo}
-                      navigation={navigation}
-                      route={route}
-                    />
-                  );
-
-                  // <Player id={id} subtitulo={subtitulo} navigation={navigation} urlPeliHTTPS={urlPeliHTTPS} />
-                  // <TasksProvider user={user} projectPartition={projectPartition}>
-                  //   <TasksView navigation={navigation} route={route} />
-                  // </TasksProvider>
-                }}
-              </Stack.Screen>
               <Stack.Screen
                 name="Mensaje"
                 options={({ navigation, route }) => ({
@@ -875,7 +811,6 @@ const App = () => {
                 }}
               />
 
-              {/* <Stack.Screen name="Video" component={VideoPlayer} /> */}
               {/* <Stack.Screen name="Task List">
                 {props => {
                   const {navigation, route} = props;
@@ -890,8 +825,6 @@ const App = () => {
                 }}
               </Stack.Screen> */}
             </Stack.Navigator>
-
-          {/* <PelisHome /> */}
           {/* </ScrollView> */}
         </>
   );

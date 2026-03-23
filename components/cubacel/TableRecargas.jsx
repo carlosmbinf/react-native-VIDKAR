@@ -4,7 +4,6 @@ import { DataTable, Text, Chip, Surface, Portal, Dialog, Button, IconButton, Div
 import Meteor, { useTracker } from '@meteorrn/core';
 import { TransaccionRecargasCollection, VentasRechargeCollection } from '../collections/collections';
 import SubidaArchivos from '../archivos/SubidaArchivos';
-import { BlurView } from '@react-native-community/blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const chipColorEstado = (estado) => {
@@ -207,9 +206,16 @@ const TableRecargas = () => {
         <Portal>
           <Modal theme={{ colors: { primary: 'green' } }} visible={visible} onDismiss={closeDialog} contentContainerStyle={styles.containerStyle}>
 
-            <BlurView
-              style={StyleSheet.absoluteFill}
-              blurType={isDarkMode ? "dark" : "light"}
+            <View
+              pointerEvents="none"
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  backgroundColor: isDarkMode
+                    ? 'rgba(8, 15, 28, 0.82)'
+                    : 'rgba(255, 255, 255, 0.9)',
+                },
+              ]}
             />
             <View style={[styles.dialogTitleContainer]}>
               <Text style={styles.dialogTitleText}>Detalles de la Venta:</Text>

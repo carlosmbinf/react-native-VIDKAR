@@ -26,8 +26,6 @@ import {
   Surface,
   ActivityIndicator,
 } from 'react-native-paper';
-// Agregar BlurView
-import { BlurView } from '@react-native-community/blur';
 import Meteor, { withTracker } from '@meteorrn/core';
 import { Mensajes as MensajesCollection } from '../collections/collections';
 import moment from 'moment';
@@ -356,30 +354,17 @@ class MensajesHome extends React.Component {
               ...(Platform.OS === 'android' && keyboardHeight > 0 ? { marginBottom: keyboardHeight } : null),
             }}
           >
-            {/* Capa de blur (iOS) o fallback translúcido (Android) */}
-            {Platform.OS === 'ios' ? (
-              <BlurView
-                style={StyleSheet.absoluteFill}
-                blurType={isDark ? 'dark' : 'light'}
-                blurAmount={16}
-                reducedTransparencyFallbackColor={bgColor}
-                pointerEvents="none"
-              />
-            ) : (
-              <View
-                pointerEvents="none"
-                style={[
-                  StyleSheet.absoluteFill,
-                  {
-                    // Fallback translúcido simulando glass en Android
-                    // backgroundColor: "transparent",
-                    backgroundColor: isDark
-                      ? 'rgba(18,26,36,0.6)'
-                      : 'rgba(232,240,254,0.6)',
-                  },
-                ]}
-              />
-            )}
+            <View
+              pointerEvents="none"
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(18, 26, 36, 0.82)'
+                    : 'rgba(232, 240, 254, 0.9)',
+                },
+              ]}
+            />
             {/* Contenido del composer (el input se ve normal) */}
             <View
               style={{

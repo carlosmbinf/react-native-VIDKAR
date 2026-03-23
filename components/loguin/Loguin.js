@@ -14,7 +14,6 @@ import { Colors } from 'react-native/Libraries/NewAppScreen';
 import { Button, Surface, Text, TextInput } from 'react-native-paper';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import FontAwesome5Icon from 'react-native-vector-icons/FontAwesome5';
-import { BlurView } from '@react-native-community/blur';
 import { appleAuth } from '@invertase/react-native-apple-authentication';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -298,11 +297,16 @@ const Loguin = ({ navigation }) => {
               isLandscape && styles.formLandscape,
             ]}>
               <View style={styles.blurCard}>
-                <BlurView
-                  style={StyleSheet.absoluteFill}
-                  blurType={isDarkMode ? 'black' : 'light'}
-                  blurAmount={5}
-                  blurRadius={5}
+                <View
+                  pointerEvents="none"
+                  style={[
+                    StyleSheet.absoluteFill,
+                    {
+                      backgroundColor: isDarkMode
+                        ? 'rgba(10, 18, 32, 0.72)'
+                        : 'rgba(255, 255, 255, 0.68)',
+                    },
+                  ]}
                 />
                 <View style={styles.blurCardContent}>
                   <Text style={{ fontSize: 16, justifyContent: 'center', alignContent: 'center', textAlign: 'center' }}>
