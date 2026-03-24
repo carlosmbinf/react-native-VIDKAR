@@ -15,7 +15,8 @@ const CubaCelCard = ({ product }) => {
         prices,
         benefits,
         promotions,
-        requiredCreditPartyIdentifierFields = []
+        requiredCreditPartyIdentifierFields = [],
+        ocultarFondo = false
     } = product;
 
     const [open, setOpen] = useState(false);
@@ -229,19 +230,12 @@ const CubaCelCard = ({ product }) => {
                             </View>
                         )}
 
-                        {!promoImageUrl && (
-                            <View
-                                pointerEvents="none"
-                                style={[
-                                    StyleSheet.absoluteFill,
-                                    {
-                                        backgroundColor: isDarkMode
-                                            ? 'rgba(7, 17, 30, 0.7)'
-                                            : 'rgba(6, 61, 46, 0.58)',
-                                    },
-                                ]}
-                            />
-                        )}
+                        { ( ocultarFondo || !promoImageUrl) && <BlurView
+                            style={StyleSheet.absoluteFill}
+                            blurType={isDarkMode ? "dark" : "light"}
+                            autoUpdate={false}
+                            reducedTransparencyFallbackColor="dark"
+                        />}
                         <View style={styles.cardContent}>
                             <View style={styles.row}>
                                 {!promoImageUrl && <><IconButton icon="cellphone" iconColor="white" size={16} />
