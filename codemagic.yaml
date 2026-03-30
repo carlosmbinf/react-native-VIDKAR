@@ -1,0 +1,79 @@
+workflows:
+  expo_android_internal:
+    name: Expo Android (AAB + Internal Testing)
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: master
+          include: true
+
+    environment:
+      android_signing:
+        - keystore_reference
+      groups:
+        - google_credentials
+        - vidkar
+      vars:
+        NODE_VERSION: 22
+      java: 17
+
+    cache:
+      cache_paths:
+        - node_modules
+        - ~/.npm
+        - ~/.gradle/caches
+        - ~/.gradle/wrapper
+
+    scripts:
+      - name: Use Node version
+        script: |
+          nvm install $NODE_VERSION
+          nvm use $NODE_VERSION
+
+      - name: Install dependencies
+        script: |
+          npm install --legacy-peer-deps
+
+      - name: Install Expo CLI
+        script: |
+          npm install -g expo-cli
+
+      - name: Clean previous builds
+        script: |
+          rm -rf android
+
+      - name: Expo prebuild (generate native project)
+        script: |
+          npx expo prebuild --platform android
+
+      - name: Set dynamic versionCode
+        script: |
+          echo "Build number: $PROJECT_BUILD_NUMBER"
+
+          cd android/app
+
+          # Esto es más robusto que sed simple
+          perl -pi -e "s/versionCode\s+\d+/versionCode $PROJECT_BUILD_NUMBER/g" build.gradle
+
+      - name: Build AAB
+        script: |
+          cd android
+          chmod +x gradlew
+          ./gradlew bundleRelease
+
+    artifacts:
+      - android/app/build/outputs/**/*.aab
+
+    publishing:
+      google_play:
+        credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+
+      email:
+        recipients:
+          - "carlosmbinf@gmail.com"
+        notify:
+          success: true
+          failure: true
