@@ -35,18 +35,9 @@ workflows:
           rm -rf android
           npx expo prebuild --platform android
 
-      - name: Fix signing config (CRÍTICO)
-        script: |
-          cat <<EOF >> android/gradle.properties
-          MYAPP_UPLOAD_STORE_FILE=$CM_KEYSTORE_PATH
-          MYAPP_UPLOAD_KEY_ALIAS=$CM_KEY_ALIAS
-          MYAPP_UPLOAD_STORE_PASSWORD=$CM_KEYSTORE_PASSWORD
-          MYAPP_UPLOAD_KEY_PASSWORD=$CM_KEY_PASSWORD
-          EOF
-
       - name: Inject signingConfig into build.gradle
         script: |
-          sed -i '' 's/android {/android {\n    signingConfigs {\n        release {\n            storeFile file(MYAPP_UPLOAD_STORE_FILE)\n            storePassword MYAPP_UPLOAD_STORE_PASSWORD\n            keyAlias MYAPP_UPLOAD_KEY_ALIAS\n            keyPassword MYAPP_UPLOAD_KEY_PASSWORD\n        }\n    }\n/g' android/app/build.gradle
+          sed -i '' 's/android {/android {\n    signingConfigs {\n        release {\n            storeFile file($CM_KEYSTORE_PATH)\n            storePassword $CM_KEYSTORE_PASSWORD\n            keyAlias $CM_KEY_ALIAS\n            keyPassword $CM_KEY_PASSWORD\n        }\n    }\n/g' android/app/build.gradle
 
           sed -i '' 's/buildTypes {/buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }\n/g' android/app/build.gradle
 
