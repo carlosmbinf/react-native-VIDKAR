@@ -50,9 +50,9 @@ workflows:
           sed -i '' 's/file(".*CM_KEYSTORE_PATH.*")/file(System.getenv("CM_KEYSTORE_PATH"))/g' build.gradle || true
           sed -i '' 's/"\$CM_KEYSTORE_PATH"/System.getenv("CM_KEYSTORE_PATH")/g' build.gradle || true
 
-          echo "=== SECCION DE SIGNING ==="
-          grep -A 20 "signingConfigs" build.gradle
-          echo "=== FIN SECCION DE SIGNING ==="
+          echo "=== CONTENIDO COMPLETO DE build.gradle ==="
+          cat build.gradle
+          echo "=== FIN DEL ARCHIVO ==="
 
       - name: Set versionCode
         script: |
