@@ -15,8 +15,7 @@ workflows:
       groups:
         - google_credentials
         - vidkar
-      vars:
-        NODE_VERSION: 22
+      node: 22
       java: 17
 
     cache:
@@ -27,14 +26,13 @@ workflows:
         - ~/.gradle/wrapper
 
     scripts:
-      - name: Use Node version
-        script: |
-          nvm install $NODE_VERSION
-          nvm use $NODE_VERSION
-
       - name: Install dependencies
         script: |
           npm install --legacy-peer-deps
+
+      - name: Fix Expo dependencies
+        script: |
+          npx expo install --fix
 
       - name: Install Expo CLI
         script: |
@@ -53,8 +51,6 @@ workflows:
           echo "Build number: $PROJECT_BUILD_NUMBER"
 
           cd android/app
-
-          # Esto es más robusto que sed simple
           perl -pi -e "s/versionCode\s+\d+/versionCode $PROJECT_BUILD_NUMBER/g" build.gradle
 
       - name: Build AAB
