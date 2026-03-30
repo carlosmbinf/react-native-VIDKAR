@@ -47,6 +47,37 @@ workflows:
         script: |
           npx expo prebuild --platform android
 
+      # 👇 AQUI ESTA LA MAGIA (FIRMA)
+      - name: Setup Android signing
+        script: |
+          echo "Setting up signing config..."
+
+          cat >> android/gradle.properties <<EOF
+          MYAPP_UPLOAD_STORE_FILE=$CM_KEYSTORE_PATH
+          MYAPP_UPLOAD_KEY_ALIAS=$CM_KEY_ALIAS
+          MYAPP_UPLOAD_STORE_PASSWORD=$CM_KEYSTORE_PASSWORD
+          MYAPP_UPLOAD_KEY_PASSWORD=$CM_KEY_PASSWORD
+          EOF
+
+          cat >> android/app/build.gradle <<'EOF'
+
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file(MYAPP_UPLOAD_STORE_FILE)
+                      storePassword MYAPP_UPLOAD_STORE_PASSWORD
+                      keyAlias MYAPP_UPLOAD_KEY_ALIAS
+                      keyPassword MYAPP_UPLOAD_KEY_PASSWORD
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
+          }
+          EOF
+
       - name: Set dynamic versionCode
         script: |
           echo "Build number: $PROJECT_BUILD_NUMBER"
