@@ -1,50 +1,77 @@
-import Meteor, {Mongo, withTracker} from '@meteorrn/core';
+import Meteor, { Mongo } from "@meteorrn/core";
 
-export const Logs = new Meteor.Collection('Logs')
-export const Mensajes = new Meteor.Collection('mensajes')
-export const Online = new Meteor.Collection('online')
-export const RegisterDataUsers = new Meteor.Collection('registerDataUsers')
-export const PelisRegister = new Meteor.Collection('pelisRegister');
-export const PreciosCollection = new Meteor.Collection('precios');
-export const VentasCollection = new Mongo.Collection('ventas');
-export const ServersCollection = new Mongo.Collection("servers");
-export const CallsCollection = new Mongo.Collection("calls");
-export const SignalsCollection = new Mongo.Collection("signals");
-
-
-
-///////////////////////////////////NUEVOS PARA RECARGAS//////////////
-export const PreciosRechargeCollection = new Mongo.Collection("precios_Recharge");
+export const Logs = new Meteor.Collection("Logs");
+export const Mensajes = new Meteor.Collection("mensajes");
+export const PreciosCollection = new Meteor.Collection("precios");
+export const PreciosRechargeCollection = new Mongo.Collection(
+  "precios_Recharge",
+);
+export const VentasCollection = new Mongo.Collection("ventas");
 export const VentasRechargeCollection = new Mongo.Collection("ventas_Recharge");
 export const OrdenesCollection = new Mongo.Collection("ordenes_Recharge");
 export const CarritoCollection = new Mongo.Collection("carrito_Recharge");
 export const PreciosDolarCollection = new Mongo.Collection("preciosDolar");
-export const AsignacionRemesaAdminCollection = new Mongo.Collection("asignacionRemesaAdmins_Recharge");
+export const AsignacionRemesaAdminCollection = new Mongo.Collection(
+  "asignacionRemesaAdmins_Recharge",
+);
+export const ServersCollection = new Mongo.Collection("servers");
+export const CallsCollection = new Mongo.Collection("calls");
 export const ConfigCollection = new Mongo.Collection("config");
-
 export const VersionsCollection = new Mongo.Collection("versions");
-
-export const TransaccionRecargasCollection = new Mongo.Collection("transaccionRecargas_DTSHOP");
-
-export const ProductosCollection = new Mongo.Collection("productos_Recharge");
-export const ProductosDescriptionsCollection = new Mongo.Collection("productosDescriptions_Recharge");
+export const TransaccionRecargasCollection = new Mongo.Collection(
+  "transaccionRecargas_DTSHOP",
+);
+export const ProductosRechargeCollection = new Mongo.Collection(
+  "productos_Recharge",
+);
+export const ProductosDescriptionsCollection = new Mongo.Collection(
+  "productosDescriptions_Recharge",
+);
 export const CountriesCollection = new Mongo.Collection("countries_Recharge");
 export const ProvidersCollection = new Mongo.Collection("providers_Recharge");
 export const RegionsCollection = new Mongo.Collection("regions_Recharge");
+export const DTShopProductosCollection = new Mongo.Collection(
+  "dtshopProductos_Recharge",
+);
+export const EvidenciasVentasEfectivoCollection = new Mongo.Collection(
+  "evidenciasVentasEfectivo",
+);
+export const TiendasComercioCollection = new Mongo.Collection(
+  "COMERCIO_tiendas",
+);
+export const ProductosComercioCollection = new Mongo.Collection(
+  "COMERCIO_productos",
+);
+export const Online = new Mongo.Collection("conexiones");
+export const PushTokens = new Mongo.Collection("push_tokens");
 
-/////////////////////DTSHOP////////////////////////////////////
-export const DTShopProductosCollection = new Mongo.Collection("dtshopProductos_Recharge");
-export const EvidenciasVentasEfectivoCollection = new Mongo.Collection("evidenciasVentasEfectivo");
-////////////////////////////////////////////////////////////////////
+export const collections = {
+  Logs,
+  Mensajes,
+  PreciosCollection,
+  PreciosRechargeCollection,
+  VentasCollection,
+  VentasRechargeCollection,
+  OrdenesCollection,
+  CarritoCollection,
+  PreciosDolarCollection,
+  AsignacionRemesaAdminCollection,
+  ServersCollection,
+  CallsCollection,
+  ConfigCollection,
+  VersionsCollection,
+  TransaccionRecargasCollection,
+  ProductosRechargeCollection,
+  ProductosDescriptionsCollection,
+  CountriesCollection,
+  ProvidersCollection,
+  RegionsCollection,
+  DTShopProductosCollection,
+  EvidenciasVentasEfectivoCollection,
+  TiendasComercioCollection,
+  ProductosComercioCollection,
+  Online,
+  PushTokens,
+};
 
-export const PushTokens = new Mongo.Collection('push_tokens'); // { userId, token, platform, deviceId?, createdAt, updatedAt }
-
-///COMERCIO
-
-export const VentasComercioCollection = new Mongo.Collection("COMERCIO_ventas");
-export const PedidosAsignadosComercioCollection = new Mongo.Collection("COMERCIO_pedidosAsignados");
-export const ColaCadetesPorTiendasComercioCollection = new Mongo.Collection("COMERCIO_colacadetesxtiendas");
-export const TiendasComercioCollection = new Mongo.Collection("COMERCIO_tiendas");
-export const ProductosComercioCollection = new Mongo.Collection("COMERCIO_productos");
-export const PaypalComercioCollection = new Mongo.Collection("COMERCIO_paypal");
-///FIN DE COMERCIO
+export default collections;

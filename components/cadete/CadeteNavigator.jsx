@@ -1,81 +1,29 @@
-import React, { useRef } from 'react';
-import { StatusBar } from 'react-native';
-import Drawer from 'react-native-drawer';
-import { Appbar } from 'react-native-paper';
-import HomePedidosComercio from '../comercio/pedidos/HomePedidosComercio';
-import CadeteDrawerContent from './CadeteDrawerContent';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React from 'react';
+
+import ModeShell from '../shared/ModeShell';
 
 const CadeteNavigator = () => {
-  const drawerRef = useRef(null);
-  const insets = useSafeAreaInsets();
-
-  // Fallback seguro si los insets no están disponibles aún
-  const topInset = insets?.top || 0;
-
-  const openDrawer = () => {
-    drawerRef.current?.open();
-  };
-
-  const closeDrawer = () => {
-    drawerRef.current?.close();
-  };
-
   return (
-    <>
-      <StatusBar
-        translucent={false}
-        backgroundColor={'#4CAF50'}
-        barStyle={'light-content'}
-      />
-      <Drawer
-        ref={drawerRef}
-        type="overlay"
-        content={<CadeteDrawerContent closeDrawer={closeDrawer} />}
-        tapToClose={true}
-        openDrawerOffset={0.3} // 70% del ancho de pantalla para el contenido principal
-        panCloseMask={0.3}
-        closedDrawerOffset={0}
-        styles={{
-          drawer: { 
-            shadowColor: '#000000', 
-            shadowOpacity: 0.8, 
-            shadowRadius: 3,
-            backgroundColor: '#FFFFFF'
-          },
-          main: { paddingLeft: 0 }
-        }}
-        tweenHandler={(ratio) => ({
-          main: { opacity: Math.max(0.54, 1 - ratio) }
-        })}
-      >
-        {/* Header principal con botón de menú */}
-        <Appbar style={{  backgroundColor: '#4CAF50',
-                        height: topInset + 50,
-                        paddingTop: topInset}}>
-          <Appbar.Action 
-            icon="menu" 
-            color="#FFFFFF"
-            onPress={openDrawer} 
-          />
-          <Appbar.Content 
-            title="Mis Pedidos" 
-            titleStyle={{ color: '#FFFFFF', fontWeight: 'bold' }}
-          />
-          <Appbar.Action 
-            icon="bell-outline" 
-            color="#FFFFFF"
-            onPress={() => {
-              // TODO: Implementar notificaciones
-              console.log('Notificaciones');
-            }} 
-          />
-        </Appbar>
-
-        {/* Contenido principal */}
-        <HomePedidosComercio />
-      </Drawer>
-    </>
+    <ModeShell
+      color="#4CAF50"
+      title="Modo cadete"
+      subtitle="Replica el patrón del legacy donde el modo cadete entra directo al flujo operativo de pedidos y conserva un shell propio separado del resto de la aplicación."
+      badge="Cadete activo"
+      actions={[
+        {
+          label: 'Mis pedidos',
+          description: 'Pantalla principal equivalente a HomePedidosComercio del flujo cadete.',
+          icon: 'truck-delivery-outline',
+          href: '/(cadete)/HomePedidosComercio',
+        },
+        {
+          label: 'Incidencias y mensajes',
+          description: 'Reserva para pantallas auxiliares del trabajo de reparto.',
+          icon: 'bell-outline',
+          href: '/(normal)/Mensajes',
+        },
+      ]}
+    />
   );
 };
 

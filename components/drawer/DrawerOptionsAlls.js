@@ -1,481 +1,409 @@
-import Meteor, {useTracker} from '@meteorrn/core';
-import * as React from 'react';
-import { ScrollView, Dimensions, Alert, View, StyleSheet, ImageBackground } from 'react-native';
-import { Card, Divider, Drawer, Surface, Avatar, Text, Chip, useTheme } from 'react-native-paper';
-import LinearGradient from 'react-native-linear-gradient';
+import { useMemo } from "react";
+import { ImageBackground, ScrollView, StyleSheet, View } from "react-native";
+import {
+  Avatar,
+  Button,
+  Divider,
+  Drawer,
+  IconButton,
+  Surface,
+  Text,
+} from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import img from "./SGN_04_02_2021_1617417653789.png";
-const { width: screenWidth } = Dimensions.get('window');
-const { height: screenHeight } = Dimensions.get('window');
+const getUserInitials = (user) => {
+  const username = user?.username?.trim();
+  if (!username) return "VK";
 
-const DrawerOptionsAlls = (opt) => {
-  const [active, setActive] = React.useState('');
-  const theme = useTheme();
+  const parts = username.split(" ").filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
 
-  const { user, ready } = useTracker(() => {
-    const subscription = Meteor.subscribe("user", Meteor.userId());
-    const user = Meteor.user();
-    return { user, ready: subscription.ready() };
-  });
+  return username.slice(0, 2).toUpperCase();
+};
 
-  // Obtener iniciales del usuario
-  const getUserInitials = () => {
-    if (!user?.username) return '?';
-    const parts = user.username.split(' ');
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-    return user.username.substring(0, 2).toUpperCase();
-  };
+const getRoleLabel = (user) => {
+  if (user?.username === "carlosmbinf") return "Administrador general";
+  if (user?.profile?.role === "admin") return "Administrador";
+  if (user?.modoCadete) return "Cadete activo";
+  return "Usuario";
+};
 
-  // Obtener rol del usuario
-  const getUserRole = () => {
-    if (user?.username === 'carlosmbinf') return 'Administrador General';
-    if (user?.profile?.role === 'admin') return 'Administrador';
-    if (user?.modoCadete) return 'Cadete Activo';
-    return 'Usuario';
-  };
+const getRoleIcon = (user) => {
+  if (user?.username === "carlosmbinf") return "shield-crown-outline";
+  if (user?.profile?.role === "admin") return "shield-account-outline";
+  if (user?.modoCadete) return "bike-fast";
+  return "account-circle-outline";
+};
 
-  // Obtener icono según rol
-  const getRoleIcon = () => {
-    if (user?.username === 'carlosmbinf') return 'shield-crown';
-    if (user?.profile?.role === 'admin') return 'shield-account';
-    if (user?.modoCadete) return 'bike-fast';
-    return 'account-circle';
-  };
+const buildServiceItems = (user) => {
+  const items = [];
 
-  // Obtener color según rol
-  const getRoleColor = () => {
-    if (user?.username === 'carlosmbinf') return '#FF6B6B';
-    if (user?.profile?.role === 'admin') return '#4ECDC4';
-    if (user?.modoCadete) return '#95E1D3';
-    return '#A8DADC';
-  };
+  if (user?.subscipcionPelis === true) {
+    items.push({
+      label: "Pelis y Series",
+      icon: "movie-filter-outline",
+      href: "/(normal)/PeliculasVideos",
+    });
+  }
 
-  // Construir opciones de servicios dinámicamente según permisos del usuario
-  const getOpcionesServicios = () => {
-    const opciones = [];
-    
-    // Pelis y Series - solo si tiene suscripcionPelis
-    if (user?.subscipcionPelis == true) {
-      opciones.push({
-        label: "Pelis y Series",
-        url: "PeliculasVideos",
-        icon: "movie-filter"
-      });
-    }
-
-    opciones.push({
+  items.push(
+    {
       label: "Productos Cubacel",
-      url: "ProductosCubacelCards",
-      icon: "view-dashboard"
-    });
-    
-    opciones.push({
+      icon: "cellphone-wireless",
+      href: "/(normal)/ProductosCubacelCards",
+    },
+    {
       label: "Productos Proxy",
-      url: "ProxyPackages",
-      icon: "wifi"
-    });
-    
-    opciones.push({
+      icon: "wifi",
+      href: "/(normal)/ProxyPackages",
+    },
+    {
       label: "Productos VPN",
-      url: "VPNPackages",
-      icon: "shield-check"
-    });
-    
-    opciones.push({
+      icon: "shield-check-outline",
+      href: "/(normal)/VPNPackages",
+    },
+    {
       label: "Compras PROXY/VPN",
-      url: "ProxyVPNHistory",
-      icon: "history"
-    });
-    opciones.push({
+      icon: "history",
+      href: "/(normal)/ProxyVPNHistory",
+    },
+    {
       label: "Comercios",
-      url: "ComerciosList",
-      icon: "storefront"
+      icon: "storefront-outline",
+      href: "/(normal)/ComerciosList",
+    },
+  );
+
+  if (user?.permiteRemesas === true) {
+    items.push({
+      label: "Remesas",
+      icon: "cash-fast",
+      href: "/(normal)/remesas",
     });
-    
-    // Remesas - solo si tiene permiteRemesas
-    if (user?.permiteRemesas == true) {
-      opciones.push({
-        label: "Remesas",
-        url: "remesas",
-        icon: "file-document-edit-outline"
+  }
+
+  return items;
+};
+
+const buildAdminItems = () => [
+  {
+    label: "Dashboard",
+    icon: "view-dashboard-outline",
+    href: "/(normal)/Dashboard",
+  },
+  {
+    label: "Lista de usuarios",
+    icon: "account-group-outline",
+    href: "/(normal)/Users",
+  },
+  {
+    label: "Mensajes de usuarios",
+    icon: "message-text-outline",
+    href: "/(normal)/AllMensajesUser",
+  },
+  {
+    label: "Aprobaciones de ventas efectivo",
+    icon: "file-document-outline",
+    href: "/(normal)/ListaArchivos",
+  },
+  {
+    label: "Add usuarios",
+    icon: "account-plus-outline",
+    href: "/(normal)/CreateUsers",
+  },
+  {
+    label: "Registro de logs",
+    icon: "clipboard-list-outline",
+    href: "/(normal)/Logs",
+  },
+  {
+    label: "Servidores",
+    icon: "server-network-outline",
+    href: "/(normal)/Servidores",
+  },
+];
+
+const buildPrivateItems = () => [
+  {
+    label: "Ventas",
+    icon: "cash-register",
+    href: "/(normal)/Ventas",
+  },
+  {
+    label: "Propertys",
+    icon: "cog-outline",
+    href: "/(normal)/ListaPropertys",
+  },
+  {
+    label: "Mapa de usuarios",
+    icon: "map-marker-account-outline",
+    href: "/(normal)/MapaUsuarios",
+  },
+];
+
+const DrawerOptionsAlls = ({
+  user,
+  currentPath,
+  onNavigate,
+  onClose,
+  onToggleModoCadete,
+}) => {
+  const isAdmin =
+    user?.profile?.role === "admin" || user?.username === "carlosmbinf";
+  const isSuperAdmin = user?.username === "carlosmbinf";
+  const canToggleCadete = typeof onToggleModoCadete === "function";
+  const cadeteButtonLabel = user?.modoCadete
+    ? "Salir del modo cadete"
+    : "Entrar en modo cadete";
+  const cadeteButtonIcon = user?.modoCadete ? "bike-off" : "bike-fast";
+  const cadeteHelperCopy = user?.modoCadete
+    ? "Dejarás de aparecer disponible para nuevas entregas hasta que vuelvas a activarlo."
+    : "Activa tu disponibilidad operativa desde el drawer igual que en la app legacy.";
+
+  const sections = useMemo(() => {
+    const result = [
+      // {
+      //   title: "Navegación general",
+      //   items: [
+      //     {
+      //       label: "Mi usuario",
+      //       icon: "account-circle-outline",
+      //       href: "/(normal)/User",
+      //     },
+      //     {
+      //       label: "Mensajes",
+      //       icon: "message-text-outline",
+      //       href: "/(normal)/Mensajes",
+      //     },
+      //   ],
+      // },
+      {
+        title: "Servicios VidKar",
+        items: buildServiceItems(user),
+      },
+    ];
+
+    if (isAdmin) {
+      result.push({
+        title: "Opciones de administradores",
+        items: buildAdminItems(),
       });
     }
-    return opciones;
-  };
 
-  const opcionesAdministradores = [
-    {
-      label: "Dashboard",
-      url:"Dashboard",
-      icon:"view-dashboard"
-    },
-    {
-      label: "Lista de Usuarios",
-      url:"Users",
-      icon:"account"
-    },    
-    {
-      label: "Mensajes de Usuarios",
-      url:"AllMensajesUser",
-      icon:"message-text-outline"
-    },
-    {
-      label: "Aprobaciones de Ventas Efectivo",
-      url:"ListaArchivos",
-      icon:"cellphone-wireless"
-    },
-    {
-      label: "Add Usuarios",
-      url:"CreateUsers",
-      icon:"account-plus"
-    },
-    {
-      label: "Registro de Logs",
-      url:"Logs",
-      icon:"clipboard-list-outline"
-    },
-    {
-      label: "Servidores",
-      url:"Servidores",
-      icon:"server"
-    },
-  ];
-
-  const opcionesAdministradorGeneral = [
-    {
-      label: "Ventas",
-      url:"Ventas",
-      icon:"cash-register"
-    },
-    {
-      label: "Propertys",
-      url:"ListaPropertys",
-      icon:"cog-outline"
+    if (isSuperAdmin) {
+      result.push({
+        title: "Opciones privadas",
+        items: buildPrivateItems(),
+      });
     }
-  ];
 
-  // if (user?.permiteRemesas == true) {
-  //   opcionesAdministradorGeneral.push({
-  //     label: "Remesas a Entregar",
-  //     url: "VentasStepper",
-  //     icon: "file-document-edit-outline"
-  //   });
-  // }
-
-  opcionesAdministradorGeneral.push({
-    label: "Mapa de Usuarios",
-    url: "MapaUsuarios",
-    icon: "file-document-edit-outline"
-  });
-
-  // Función para alternar modo cadete con confirmación
-  const toggleModoCadete = () => {
-    const nuevoEstado = !user?.modoCadete;
-    const mensaje = nuevoEstado 
-      ? 'Al activarlo, comenzarás a aparecer como disponible para entregas y recibirás notificaciones de nuevos pedidos asignados en tiempo real.\n\n✓ Recibirás pedidos automáticamente\n✓ Tu ubicación será visible para el sistema\n✓ Podrás gestionar entregas activas'
-      : 'Al desactivarlo, dejarás de recibir nuevos pedidos y tu disponibilidad quedará en pausa.\n\n• No recibirás más asignaciones\n• Podrás completar pedidos activos\n• Tu ubicación dejará de compartirse\n\nRecuerda: Puedes reactivarlo en cualquier momento.';
-    
-    Alert.alert(
-      nuevoEstado ? '🚴 ¿Activar Modo Cadete?' : '⚠️ ¿Salir del Modo Cadete?',
-      mensaje,
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel'
-        },
-        {
-          text: 'Confirmar',
-          style: nuevoEstado ? 'default' : 'destructive',
-          onPress: () => {
-            Meteor.call('users.toggleModoCadete', nuevoEstado, async (error) => {
-              if (error) {
-                console.error('Error al cambiar modo cadete:', error);
-                Alert.alert('Error', error.reason || 'No se pudo cambiar el modo cadete');
-              } else {
-                Alert.alert(
-                  'Éxito',
-                  nuevoEstado 
-                    ? 'Modo cadete activado. Ahora puedes recibir pedidos.'
-                    : 'Has salido del modo cadete.'
-                );
-              }
-            });
-          }
-        }
-      ]
-    );
-  };
+    return result.filter((section) => section.items.length > 0);
+  }, [isAdmin, isSuperAdmin, user]);
 
   return (
-    <>
-      <Surface style={{ height: '100%', flex: 1 }}>
-        {/* Header Mejorado con UX Profesional */}
-        <Surface elevation={4} style={styles.headerContainer}>
-          <ImageBackground 
-            source={img} 
-            resizeMode="cover"
-            style={styles.headerBackground}
-            imageStyle={styles.headerBackgroundImage}
+    <SafeAreaView style={styles.safeArea} edges={["left", "top", "right"]}>
+      <Surface style={styles.container} elevation={4}>
+        <ImageBackground
+          source={require("../files/space-bg-shadowcodex.jpg")}
+          resizeMode="cover"
+          style={styles.hero}
+          imageStyle={styles.heroImage}
+        >
+          <View style={styles.heroOverlay}>
+            <View style={styles.heroActions}>
+              <Text variant="labelLarge" style={styles.heroCaption}>
+                VIDKAR
+              </Text>
+              <IconButton icon="close" iconColor="#fff" onPress={onClose} />
+            </View>
+            <Avatar.Text
+              size={72}
+              label={getUserInitials(user)}
+              style={styles.avatar}
+              labelStyle={styles.avatarLabel}
+            />
+            <Text
+              variant="titleLarge"
+              style={styles.username}
+              numberOfLines={1}
             >
-            <LinearGradient
-              colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.3)', 'transparent']}
-              style={styles.gradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
+              {user?.username || "Usuario Expo"}
+            </Text>
+            <View style={styles.roleRow}>
+              <Avatar.Icon
+                size={28}
+                icon={getRoleIcon(user)}
+                style={styles.roleIcon}
+                color="#fff"
+              />
+              <Text variant="bodyMedium" style={styles.roleLabel}>
+                {getRoleLabel(user)}
+              </Text>
+            </View>
+            {/* <Text variant="bodySmall" style={styles.heroCopy}>
+              Menú alineado con el drawer legacy y visibilidad por rol.
+            </Text> */}
+          </View>
+        </ImageBackground>
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          bounces={false}
+        >
+          <Surface style={{ paddingBottom: 30 }}>
+            {sections.map((section, sectionIndex) => (
+              <Drawer.Section
+                key={section.title}
+                title={section.title}
+                style={styles.section}
               >
-              
-              {/* Avatar y Status Badge */}
-              <View style={styles.avatarContainer}>
-                <View style={styles.avatarWrapper}>
-                  <Avatar.Text 
-                    size={72} 
-                    label={getUserInitials()}
-                    style={[styles.avatar, { backgroundColor: getRoleColor() }]}
-                    labelStyle={styles.avatarLabel}
-                  />
-                  {user?.modoCadete && (
-                    <Avatar.Icon 
-                      size={28} 
-                      icon="bike-fast" 
-                      style={styles.statusBadge}
-                      color="#fff"
+                {section.items.map((item) => {
+                  const isActive = currentPath === item.href;
+
+                  return (
+                    <Drawer.Item
+                      key={item.href}
+                      label={item.label}
+                      icon={item.icon}
+                      active={isActive}
+                      style={styles.item}
+                      theme={{ colors: { secondaryContainer: "#e8eaf6" } }}
+                      onPress={() => onNavigate?.(item.href)}
                     />
-                  )}
-                </View>
-              </View>
+                  );
+                })}
+                {sectionIndex < sections.length - 1 ? (
+                  <Divider style={styles.divider} />
+                ) : null}
+              </Drawer.Section>
+            ))}
 
-              {/* Info del Usuario */}
-              <View style={styles.userInfoContainer}>
-                <Text style={styles.userName} numberOfLines={1}>
-                  {user?.username || 'Usuario'}
+            {canToggleCadete ? (
+              <Surface style={styles.footerCard} elevation={0}>
+                <Text variant="titleSmall" style={styles.footerTitle}>
+                  Modo cadete
                 </Text>
-                
-                <View style={styles.roleContainer}>
-                  <Avatar.Icon 
-                    size={30} 
-                    icon={getRoleIcon()} 
-                    style={styles.roleIconAvatar}
-                    color="#fff"
-                  />
-                  <Text style={styles.userRole}>{getUserRole()}</Text>
-                </View>
-
-                {/* Chips de Permisos/Estado */}
-                <View style={styles.chipsContainer}>
-                  {user?.permiteRemesas && (
-                    <Chip 
-                      icon="cash-fast" 
-                      mode="outlined" 
-                      textStyle={styles.chipText}
-                      style={styles.chip}
-                      compact>
-                      Remesas
-                    </Chip>
-                  )}
-                  
-                    <Chip 
-                      icon="shield-star" 
-                      mode="outlined" 
-                      textStyle={styles.chipText}
-                      style={styles.chip}
-                      compact>
-                      {user?.profile?.role === 'admin' || user?.username === 'carlosmbinf' ? "Admin" : "Usuario"}
-                    </Chip>
-                  
-                </View>
-              </View>
-            </LinearGradient>
-          </ImageBackground>
-        </Surface>
-
-        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}>
-          <Drawer.Section title="Servicios VidKar">
-            {getOpcionesServicios().map((element, index) => {
-              return (
-                <Drawer.Item
-                  key={`servicio-${index}`}
-                  icon={element.icon}
-                  label={element.label}
-                  active={active === element.url}
-                  onPress={() => {
-                    opt?.navigation?.navigation?.navigate(element.url);
-                  }}
-                />
-              );
-            })}
-          </Drawer.Section>
-          
-          {Meteor.user()?.profile?.role === 'admin' && (
-            <Drawer.Section title="Opciones de Administradores">
-              {opcionesAdministradores.map((element, index) => {
-                return (
-                  <Drawer.Item
-                    key={`admin-${index}`}
-                    icon={element.icon}
-                    label={element.label}
-                    active={active === element.url}
-                    onPress={() => {
-                      opt.navigation.navigation.navigate(element.url);
-                    }}
-                  />
-                );
-              })}
-            </Drawer.Section>
-          )}
-          
-          {Meteor.user()?.username == 'carlosmbinf' && (
-            <Drawer.Section title="Opciones Privadas">
-              {opcionesAdministradorGeneral.map((element, index) => {
-                return (
-                  <Drawer.Item
-                    key={`privado-${index}`}
-                    icon={element.icon}
-                    label={element.label}
-                    active={active === element.url}
-                    onPress={() => {
-                      opt.navigation?.navigation?.navigate(element.url);
-                    }}
-                  />
-                );
-              })}
-              <Divider style={{ marginVertical: 10 }} />
-            </Drawer.Section>
-          )}
-          
-          {/* Spacer */}
-          <View style={{ flex: 1 }} />
+                <Text variant="bodySmall" style={styles.footerCopy}>
+                  {cadeteHelperCopy}
+                </Text>
+                <Button
+                  mode={user?.modoCadete ? "contained-tonal" : "contained"}
+                  icon={cadeteButtonIcon}
+                  style={styles.footerButton}
+                  onPress={() => onToggleModoCadete?.()}
+                  disabled
+                >
+                  {cadeteButtonLabel}
+                </Button>
+              </Surface>
+            ) : null}
+          </Surface>
         </ScrollView>
-
-        {/* Botón Modo Cadete Anclado */}
-        <Surface style={styles.footerButton}>
-          <Drawer.Item
-            icon={user?.modoCadete ? "exit-to-app" : "bike"}
-            label={user?.modoCadete ? "Salir del Modo Cadete" : "Activar Modo Cadete"}
-            active={true}
-            style={{
-              backgroundColor: user?.modoCadete ? '#FFEBEE' : '#E8F5E9',
-              borderRadius: 8,
-              borderLeftWidth: 4,
-              borderLeftColor: user?.modoCadete ? '#FF5252' : '#4CAF50',
-            }}
-            labelStyle={{
-              color: user?.modoCadete ? '#B71C1C' : '#1B5E20',
-              fontWeight: '600',
-            }}
-            onPress={toggleModoCadete}
-          />
-        </Surface>
       </Surface>
-    </>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  headerContainer: {
-    height: 200,
-    overflow: 'hidden',
-  },
-  headerBackground: {
-    // backgroundColor: "#555",
-    width: '100%',
-    height: '100%',
-  },
-  headerBackgroundImage: {
-    opacity: 0.4,
-  },
-  gradient: {
+  safeArea: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 30,
-    paddingBottom: 20,
-    justifyContent: 'space-between',
+    // backgroundColor: "#fff",
   },
-  avatarContainer: {
-    alignItems: 'center',
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
   },
-  avatarWrapper: {
-    position: 'relative',
+  hero: {
+    minHeight: 232,
+  },
+  heroImage: {
+    opacity: 0.3,
+  },
+  heroOverlay: {
+    flex: 1,
+    backgroundColor: "#0f172a",
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+  },
+  heroActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  heroCaption: {
+    color: "#bfdbfe",
+    fontWeight: "800",
+    letterSpacing: 0.8,
   },
   avatar: {
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    backgroundColor: "#4fc3f7",
+    alignSelf: "center",
+    marginTop: 4,
   },
   avatarLabel: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#fff',
+    fontWeight: "800",
   },
-  statusBadge: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    backgroundColor: '#4CAF50',
-    elevation: 4,
+  username: {
+    color: "#fff",
+    fontWeight: "800",
+    textAlign: "center",
+    marginTop: 12,
   },
-  userInfoContainer: {
-    alignItems: 'center',
+  roleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    marginTop: 8,
   },
-  userName: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#fff',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-    // marginBottom: 4,
+  roleIcon: {
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
   },
-  roleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    // marginBottom: 12,
+  roleLabel: {
+    color: "rgba(255, 255, 255, 0.86)",
+    fontWeight: "700",
   },
-  roleIconAvatar: {
-    marginRight: 6,
-    backgroundColor: 'transparent',
-    elevation: 0,
+  heroCopy: {
+    color: "rgba(255, 255, 255, 0.72)",
+    textAlign: "center",
+    marginTop: 10,
+    lineHeight: 18,
   },
-  userRole: {
-    fontSize: 14,
-    color: '#fff',
-    fontWeight: 'bold',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+  scrollContent: {
+    // marginBottom: 20,
   },
-  chipsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 6,
+  section: {
+    paddingHorizontal: 8,
   },
-  chip: {
-    // backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderColor: 'rgba(200, 0, 255, 0.5)',
+  item: {
+    borderRadius: 14,
   },
-  chipText: {
-    fontSize: 11,
-    // color: '#fff',
-    fontWeight: '600',
+  divider: {
+    marginTop: 8,
+    marginHorizontal: 8,
+  },
+  footerCard: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 18,
+    backgroundColor: "#eef2ff",
+    padding: 16,
+  },
+  footerTitle: {
+    color: "#1e293b",
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  footerCopy: {
+    color: "#475569",
+    lineHeight: 19,
   },
   footerButton: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 12,
+    marginTop: 14,
+    borderRadius: 14,
   },
 });
 

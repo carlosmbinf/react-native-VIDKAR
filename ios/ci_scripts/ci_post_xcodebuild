@@ -1,6 +1,0 @@
-#!/bin/zsh
-set -e
-echo "Stage: Post-Xcode build start..."
-# Aquí puedes, por ejemplo, subir logs o artefactos
-echo "Stage: Post-Xcode build done."
-exit 0

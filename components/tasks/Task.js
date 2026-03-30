@@ -1,16 +1,5 @@
-import Meteor, {withTracker} from '@meteorrn/core';
-import {Mensajes} from '../collections/collections'
+import React from 'react';
 
-const TaskMensajes = (myTodoTasks, loading) => {
-  //   !loading &&
-  //     Meteor.userId() &&
-  //     console.log(JSON.stringify(myTodoTasks.fetch()));
-  console.log('hola');
-};
-
-const Task = async () => {
-  const myTodoTasks = await Mensajes.find({});
-  console.log(JSON.stringify(myTodoTasks));
-};
+const Task = () => null;
 
 export default Task;
