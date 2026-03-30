@@ -1,88 +1,79 @@
 workflows:
-expo_android_internal:
-name: Expo Android (AAB + Internal Testing)
+  expo_android_internal:
+    name: Expo Android (AAB + Internal Testing)
 
-triggering:
-  events:
-    - push
-  branch_patterns:
-    - pattern: master
-      include: true
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: master
+          include: true
 
-environment:
-  android_signing:
-    - keystore_reference
-  groups:
-    - google_credentials
-    - vidkar
-  node: 22
-  java: 17
+    environment:
+      android_signing:
+        - keystore_reference
+      groups:
+        - google_credentials
+        - vidkar
+      node: 22
+      java: 17
 
-cache:
-  cache_paths:
-    - node_modules
-    - ~/.npm
-    - ~/.gradle/caches
-    - ~/.gradle/wrapper
+    cache:
+      cache_paths:
+        - node_modules
+        - ~/.npm
+        - ~/.gradle/caches
+        - ~/.gradle/wrapper
 
-scripts:
-  - name: Disable Yarn (force npm)
-    script: |
-      rm -rf .yarn
-      rm -f yarn.lock
+    scripts:
+      - name: Disable Yarn
+        script: |
+          rm -rf .yarn
+          rm -f yarn.lock
 
-  - name: Install dependencies
-    script: |
-      npm install --legacy-peer-deps
+      - name: Install dependencies
+        script: |
+          npm install --legacy-peer-deps
 
-  - name: Install Expo CLI
-    script: |
-      npm install -g expo-cli
+      - name: Clean previous builds
+        script: |
+          rm -rf android
 
-  - name: Clean previous builds
-    script: |
-      rm -rf android
+      - name: Expo prebuild
+        script: |
+          npx expo prebuild --platform android
 
-  - name: Expo prebuild
-    script: |
-      npx expo prebuild --platform android
+      - name: Fix signing config (CRÍTICO)
+        script: |
+          cat <<EOF >> android/gradle.properties
+          MYAPP_UPLOAD_STORE_FILE=$CM_KEYSTORE_PATH
+          MYAPP_UPLOAD_KEY_ALIAS=$CM_KEY_ALIAS
+          MYAPP_UPLOAD_STORE_PASSWORD=$CM_KEYSTORE_PASSWORD
+          MYAPP_UPLOAD_KEY_PASSWORD=$CM_KEY_PASSWORD
+          EOF
 
-  # 👇 CLAVE: reescribir gradle.properties correctamente
-  - name: Fix signing config (gradle.properties)
-    script: |
-      cat > android/gradle.properties <<EOF
+      - name: Set dynamic versionCode
+        script: |
+          cd android/app
+          perl -pi -e "s/versionCode\s+\d+/versionCode $PROJECT_BUILD_NUMBER/g" build.gradle
 
-MYAPP_UPLOAD_STORE_FILE=$CM_KEYSTORE_PATH
-MYAPP_UPLOAD_KEY_ALIAS=$CM_KEY_ALIAS
-MYAPP_UPLOAD_STORE_PASSWORD=$CM_KEYSTORE_PASSWORD
-MYAPP_UPLOAD_KEY_PASSWORD=$CM_KEY_PASSWORD
-org.gradle.jvmargs=-Xmx4096m
-android.useAndroidX=true
-android.enableJetifier=true
-EOF
+      - name: Build AAB
+        script: |
+          cd android
+          chmod +x gradlew
+          ./gradlew bundleRelease
 
-  - name: Set dynamic versionCode
-    script: |
-      cd android/app
-      perl -pi -e "s/versionCode\s+\d+/versionCode $PROJECT_BUILD_NUMBER/g" build.gradle
+    artifacts:
+      - android/app/build/outputs/**/*.aab
 
-  - name: Build AAB
-    script: |
-      cd android
-      chmod +x gradlew
-      ./gradlew bundleRelease
+    publishing:
+      google_play:
+        credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
 
-artifacts:
-  - android/app/build/outputs/**/*.aab
-
-publishing:
-  google_play:
-    credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
-    track: internal
-
-  email:
-    recipients:
-      - "carlosmbinf@gmail.com"
-    notify:
-      success: true
-      failure: true
+      email:
+        recipients:
+          - "carlosmbinf@gmail.com"
+        notify:
+          success: true
+          failure: true
