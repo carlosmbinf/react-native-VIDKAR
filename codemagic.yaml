@@ -10,11 +10,11 @@ workflows:
           include: true
 
     environment:
+      android_signing:
+        - keystore_reference
       groups:
         - google_credentials
         - vidkar
-      vars:
-        NODE_VERSION: 22
       node: 22
       java: 17
 
@@ -26,20 +26,29 @@ workflows:
         - ~/.gradle/wrapper
 
     scripts:
-      - name: Install dependencies
+      - name: Clean yarn
+        script: |
+          rm -rf .yarn yarn.lock
+
+      - name: Install deps
         script: |
           npm install --legacy-peer-deps
 
-      - name: Expo prebuild
+      - name: Clean android
         script: |
           rm -rf android
+
+      - name: Expo prebuild
+        script: |
           npx expo prebuild --platform android
 
-      - name: Inject signingConfig into build.gradle
+      - name: Fix signingConfig (CRÍTICO)
         script: |
-          sed -i '' 's/android {/android {\n    signingConfigs {\n        release {\n            storeFile file($CM_KEYSTORE_PATH)\n            storePassword $CM_KEYSTORE_PASSWORD\n            keyAlias $CM_KEY_ALIAS\n            keyPassword $CM_KEY_PASSWORD\n        }\n    }\n/g' android/app/build.gradle
+          cd android/app
 
-          sed -i '' 's/buildTypes {/buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }\n/g' android/app/build.gradle
+          # Reemplazar cualquier uso incorrecto de variables
+          sed -i '' 's/file(".*CM_KEYSTORE_PATH.*")/file(System.getenv("CM_KEYSTORE_PATH"))/g' build.gradle || true
+          sed -i '' 's/"\$CM_KEYSTORE_PATH"/System.getenv("CM_KEYSTORE_PATH")/g' build.gradle || true
 
       - name: Set versionCode
         script: |
