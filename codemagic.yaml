@@ -10,11 +10,11 @@ workflows:
           include: true
 
     environment:
-      android_signing:
-        - keystore_reference
       groups:
         - google_credentials
         - vidkar
+      vars:
+        NODE_VERSION: 22
       node: 22
       java: 17
 
@@ -26,21 +26,13 @@ workflows:
         - ~/.gradle/wrapper
 
     scripts:
-      - name: Disable Yarn
-        script: |
-          rm -rf .yarn
-          rm -f yarn.lock
-
       - name: Install dependencies
         script: |
           npm install --legacy-peer-deps
 
-      - name: Clean previous builds
-        script: |
-          rm -rf android
-
       - name: Expo prebuild
         script: |
+          rm -rf android
           npx expo prebuild --platform android
 
       - name: Fix signing config (CRÍTICO)
@@ -52,7 +44,13 @@ workflows:
           MYAPP_UPLOAD_KEY_PASSWORD=$CM_KEY_PASSWORD
           EOF
 
-      - name: Set dynamic versionCode
+      - name: Inject signingConfig into build.gradle
+        script: |
+          sed -i '' 's/android {/android {\n    signingConfigs {\n        release {\n            storeFile file(MYAPP_UPLOAD_STORE_FILE)\n            storePassword MYAPP_UPLOAD_STORE_PASSWORD\n            keyAlias MYAPP_UPLOAD_KEY_ALIAS\n            keyPassword MYAPP_UPLOAD_KEY_PASSWORD\n        }\n    }\n/g' android/app/build.gradle
+
+          sed -i '' 's/buildTypes {/buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }\n/g' android/app/build.gradle
+
+      - name: Set versionCode
         script: |
           cd android/app
           perl -pi -e "s/versionCode\s+\d+/versionCode $PROJECT_BUILD_NUMBER/g" build.gradle
