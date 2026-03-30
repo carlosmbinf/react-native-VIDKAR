@@ -33,5 +33,17 @@ module.exports = () => {
   return {
     ...staticAppConfig,
     version: `${versionBase}.${versionPatch}`,
+    plugins: [
+      ...staticAppConfig.plugins,
+      [
+        "@pksung1/expo-store-signing",
+        {
+          storeFile: process.env.CM_KEYSTORE_PATH,
+          storePassword: process.env.CM_KEYSTORE_PASSWORD,
+          keyAlias: process.env.CM_KEY_ALIAS,
+          keyPassword: process.env.CM_KEY_PASSWORD,
+        },
+      ],
+    ],
   };
 };

@@ -42,18 +42,6 @@ workflows:
         script: |
           npx expo prebuild --platform android
 
-      - name: Fix signingConfig (CRÍTICO)
-        script: |
-          cd android/app
-
-          # Reemplazar cualquier uso incorrecto de variables
-          sed -i '' 's/file(".*CM_KEYSTORE_PATH.*")/file(System.getenv("CM_KEYSTORE_PATH"))/g' build.gradle || true
-          sed -i '' 's/"\$CM_KEYSTORE_PATH"/System.getenv("CM_KEYSTORE_PATH")/g' build.gradle || true
-
-          echo "=== CONTENIDO COMPLETO DE build.gradle ==="
-          cat build.gradle
-          echo "=== FIN DEL ARCHIVO ==="
-
       - name: Set versionCode
         script: |
           cd android/app
