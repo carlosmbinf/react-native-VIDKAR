@@ -26,13 +26,14 @@ workflows:
         - ~/.gradle/wrapper
 
     scripts:
+      - name: Disable Yarn (force npm)
+        script: |
+          rm -rf .yarn
+          rm -f yarn.lock
+
       - name: Install dependencies
         script: |
           npm install --legacy-peer-deps
-
-      - name: Fix Expo dependencies
-        script: |
-          npx expo install --fix
 
       - name: Install Expo CLI
         script: |
