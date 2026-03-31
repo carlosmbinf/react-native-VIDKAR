@@ -42,10 +42,21 @@ workflows:
         script: |
           npx expo prebuild --platform android
 
-      - name: Set versionCode
+      - name: Set versionCode & versionName
         script: |
           cd android/app
-          perl -pi -e "s/versionCode\s+\d+/versionCode $PROJECT_BUILD_NUMBER/g" build.gradle
+
+          BUILD_NUMBER=${PROJECT_BUILD_NUMBER:-0}
+          VERSION_CODE=$((500 + BUILD_NUMBER))
+
+          VERSION_NAME="4.0.$VERSION_CODE"
+
+          echo "Build number: $BUILD_NUMBER"
+          echo "Version code: $VERSION_CODE"
+          echo "Version name: $VERSION_NAME"
+
+          perl -pi -e "s/versionCode\s+\d+/versionCode $VERSION_CODE/g" build.gradle
+          perl -pi -e "s/versionName\s+\"[^\"]+\"/versionName \"$VERSION_NAME\"/g" build.gradle
 
       - name: Build AAB
         script: |
