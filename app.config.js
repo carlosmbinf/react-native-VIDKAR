@@ -38,7 +38,7 @@ module.exports = () => {
       [
         "@pksung1/expo-store-signing",
         {
-          storeFile: "/Users/builder/cloned/vidkar-android/my-release.jks",
+          storeFile: "/vidkar-android/my-release.jks",
           storePassword: process.env.CM_KEYSTORE_PASSWORD,
           keyAlias: process.env.CM_KEY_ALIAS,
           keyPassword: process.env.CM_KEY_PASSWORD,
