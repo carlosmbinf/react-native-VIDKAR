@@ -1,93 +1,93 @@
-name: Build And Submit Internal Testing
+# name: Build And Submit Internal Testing
 
-on:
-  push:
-    branches:
-      - master
-      - main
-  workflow_dispatch: {}
+# on:
+#   push:
+#     branches:
+#       - master
+#       - main
+#   workflow_dispatch: {}
 
-concurrency:
-  cancel_in_progress: true
-  group: ${{ workflow.filename }}-${{ github.ref }}
+# concurrency:
+#   cancel_in_progress: true
+#   group: ${{ workflow.filename }}-${{ github.ref }}
 
-jobs:
-  resolve_android_version:
-    name: Resolve Android Version Patch
-    environment: production
-    outputs:
-      app_version_patch: ${{ steps.resolve_android_patch.outputs.app_version_patch }}
-    steps:
-      - uses: eas/checkout
-      - uses: eas/install_node_modules
-      - id: resolve_android_patch
-        name: Resolve Android patch from remote versionCode
-        run: |
-          CURRENT_VERSION_JSON=$(npx --yes eas-cli build:version:get -p android -e production --json --non-interactive)
-          export CURRENT_VERSION_JSON
-          APP_VERSION_PATCH=$(node -e "const data = JSON.parse(process.env.CURRENT_VERSION_JSON); const current = Number.parseInt(data.versionCode, 10); if (!Number.isFinite(current)) { throw new Error('Invalid android versionCode from EAS'); } process.stdout.write(String(current + 1));")
-          echo "Using Android app version patch: $APP_VERSION_PATCH"
-          set-output app_version_patch "$APP_VERSION_PATCH"
+# jobs:
+#   resolve_android_version:
+#     name: Resolve Android Version Patch
+#     environment: production
+#     outputs:
+#       app_version_patch: ${{ steps.resolve_android_patch.outputs.app_version_patch }}
+#     steps:
+#       - uses: eas/checkout
+#       - uses: eas/install_node_modules
+#       - id: resolve_android_patch
+#         name: Resolve Android patch from remote versionCode
+#         run: |
+#           CURRENT_VERSION_JSON=$(npx --yes eas-cli build:version:get -p android -e production --json --non-interactive)
+#           export CURRENT_VERSION_JSON
+#           APP_VERSION_PATCH=$(node -e "const data = JSON.parse(process.env.CURRENT_VERSION_JSON); const current = Number.parseInt(data.versionCode, 10); if (!Number.isFinite(current)) { throw new Error('Invalid android versionCode from EAS'); } process.stdout.write(String(current + 1));")
+#           echo "Using Android app version patch: $APP_VERSION_PATCH"
+#           set-output app_version_patch "$APP_VERSION_PATCH"
 
-  build_android:
-    name: Build Android Production
-    needs:
-      - resolve_android_version
-    environment: production
-    env:
-      APP_VERSION_PATCH: ${{ needs.resolve_android_version.outputs.app_version_patch }}
-    type: build
-    params:
-      platform: android
-      profile: production
-      message: Android production build for Google Play Internal Testing
+#   build_android:
+#     name: Build Android Production
+#     needs:
+#       - resolve_android_version
+#     environment: production
+#     env:
+#       APP_VERSION_PATCH: ${{ needs.resolve_android_version.outputs.app_version_patch }}
+#     type: build
+#     params:
+#       platform: android
+#       profile: production
+#       message: Android production build for Google Play Internal Testing
 
-  submit_android_internal:
-    name: Submit Android To Internal Track
-    needs:
-      - build_android
-    type: submit
-    params:
-      profile: production
-      build_id: ${{ needs.build_android.outputs.build_id }}
+#   submit_android_internal:
+#     name: Submit Android To Internal Track
+#     needs:
+#       - build_android
+#     type: submit
+#     params:
+#       profile: production
+#       build_id: ${{ needs.build_android.outputs.build_id }}
 
-  resolve_ios_version:
-    name: Resolve iOS Version Patch
-    environment: production
-    outputs:
-      app_version_patch: ${{ steps.resolve_ios_patch.outputs.app_version_patch }}
-    steps:
-      - uses: eas/checkout
-      - uses: eas/install_node_modules
-      - id: resolve_ios_patch
-        name: Resolve iOS patch from remote buildNumber
-        run: |
-          CURRENT_VERSION_JSON=$(npx --yes eas-cli build:version:get -p ios -e production --json --non-interactive)
-          export CURRENT_VERSION_JSON
-          APP_VERSION_PATCH=$(node -e "const data = JSON.parse(process.env.CURRENT_VERSION_JSON); const current = Number.parseInt(data.buildNumber, 10); if (!Number.isFinite(current)) { throw new Error('Invalid ios buildNumber from EAS'); } process.stdout.write(String(current + 1));")
-          echo "Using iOS app version patch: $APP_VERSION_PATCH"
-          set-output app_version_patch "$APP_VERSION_PATCH"
+#   resolve_ios_version:
+#     name: Resolve iOS Version Patch
+#     environment: production
+#     outputs:
+#       app_version_patch: ${{ steps.resolve_ios_patch.outputs.app_version_patch }}
+#     steps:
+#       - uses: eas/checkout
+#       - uses: eas/install_node_modules
+#       - id: resolve_ios_patch
+#         name: Resolve iOS patch from remote buildNumber
+#         run: |
+#           CURRENT_VERSION_JSON=$(npx --yes eas-cli build:version:get -p ios -e production --json --non-interactive)
+#           export CURRENT_VERSION_JSON
+#           APP_VERSION_PATCH=$(node -e "const data = JSON.parse(process.env.CURRENT_VERSION_JSON); const current = Number.parseInt(data.buildNumber, 10); if (!Number.isFinite(current)) { throw new Error('Invalid ios buildNumber from EAS'); } process.stdout.write(String(current + 1));")
+#           echo "Using iOS app version patch: $APP_VERSION_PATCH"
+#           set-output app_version_patch "$APP_VERSION_PATCH"
 
-  build_ios:
-    name: Build iOS Production
-    needs:
-      - resolve_ios_version
-    environment: production
-    env:
-      APP_VERSION_PATCH: ${{ needs.resolve_ios_version.outputs.app_version_patch }}
-    type: build
-    params:
-      platform: ios
-      profile: production
-      message: iOS production build for TestFlight internal testers
+#   build_ios:
+#     name: Build iOS Production
+#     needs:
+#       - resolve_ios_version
+#     environment: production
+#     env:
+#       APP_VERSION_PATCH: ${{ needs.resolve_ios_version.outputs.app_version_patch }}
+#     type: build
+#     params:
+#       platform: ios
+#       profile: production
+#       message: iOS production build for TestFlight internal testers
 
-  submit_ios_testflight:
-    name: Submit iOS To TestFlight
-    needs:
-      - build_ios
-    type: testflight
-    params:
-      profile: production
-      build_id: ${{ needs.build_ios.outputs.build_id }}
-      internal_groups:
-        - carlitoPruebas
+#   submit_ios_testflight:
+#     name: Submit iOS To TestFlight
+#     needs:
+#       - build_ios
+#     type: testflight
+#     params:
+#       profile: production
+#       build_id: ${{ needs.build_ios.outputs.build_id }}
+#       internal_groups:
+#         - carlitoPruebas
