@@ -78,3 +78,109 @@ workflows:
         notify:
           success: true
           failure: true
+
+  expo_ios_internal:
+    name: Expo iOS (TestFlight)
+
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: master
+          include: true
+
+    integrations:
+      app_store_connect: VidkarAPIKey
+
+    environment:
+      node: 22
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: "com.vidkar"
+        XCODE_WORKSPACE: "Vidkar.xcworkspace"
+        XCODE_SCHEME: "Vidkar"
+
+    cache:
+      cache_paths:
+        - node_modules
+        - ios/Pods
+        - $HOME/Library/Caches/CocoaPods
+
+    scripts:
+      - name: Clean yarn
+        script: |
+          rm -rf .yarn yarn.lock
+
+      - name: Install deps
+        script: |
+          npm install --legacy-peer-deps
+
+      - name: Clean ios
+        script: |
+          rm -rf ios
+
+      - name: Expo prebuild (iOS)
+        script: |
+          npx expo prebuild --platform ios
+
+      - name: Install CocoaPods
+        script: |
+          cd ios
+          pod install --repo-update
+          cd ..
+
+      # 🔥 VERSIONADO IGUAL QUE ANDROID
+      - name: Set iOS version
+        script: |
+          cd ios
+
+          BUILD_NUMBER=${PROJECT_BUILD_NUMBER:-0}
+          VERSION_CODE=$((532 + BUILD_NUMBER))
+          VERSION_NAME="4.0.$VERSION_CODE"
+
+          echo "Version: $VERSION_NAME"
+          echo "Build: $VERSION_CODE"
+
+          # Detectar ruta correcta automáticamente
+          INFO_PLIST=$(find . -name "Info.plist" | grep -E "Runner|Vidkar" | head -n 1)
+
+          echo "Usando plist: $INFO_PLIST"
+
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION_NAME" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION_CODE" "$INFO_PLIST"
+
+      # 🔐 FIRMA AUTOMÁTICA (CLAVE)
+      - name: Setup signing
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace "ios/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME" \
+            --export-method app-store
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - group carlitoPruebas
+
+      email:
+        recipients:
+          - "carlosmbinf@gmail.com"
+        notify:
+          success: true
+          failure: true
