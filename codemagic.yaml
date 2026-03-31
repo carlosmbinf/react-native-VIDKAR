@@ -93,7 +93,7 @@ workflows:
           include: true
 
     integrations:
-      app_store_connect: F9D8WYJ695
+      app_store_connect: 0d89ae8f-cbc2-41cb-9156-ad32714b2e5b5b2fe6e4-de66-4987-a34e-55fd710288ad
 
     environment:
       ios_signing:
