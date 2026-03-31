@@ -96,6 +96,9 @@ workflows:
       app_store_connect: VidkarAPIKey
 
     environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.vidkar
       node: 22
       xcode: latest
       cocoapods: default
@@ -153,20 +156,16 @@ workflows:
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION_NAME" "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION_CODE" "$INFO_PLIST"
 
-      # 🔐 FIRMA AUTOMÁTICA (CLAVE)
+      # 🔐 Aplicar perfiles/certificados ya resueltos por Codemagic
       - name: Setup signing
         script: |
-          keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
-          keychain add-certificates
           xcode-project use-profiles
 
       - name: Build IPA
         script: |
           xcode-project build-ipa \
             --workspace "ios/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME" \
-            --export-method app-store
+            --scheme "$XCODE_SCHEME"
 
     artifacts:
       - build/ios/ipa/*.ipa
