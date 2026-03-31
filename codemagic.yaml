@@ -47,7 +47,7 @@ workflows:
           cd android/app
 
           BUILD_NUMBER=${PROJECT_BUILD_NUMBER:-0}
-          VERSION_CODE=$((500 + BUILD_NUMBER))
+          VERSION_CODE=$((532 + BUILD_NUMBER))
 
           VERSION_NAME="4.0.$VERSION_CODE"
 
