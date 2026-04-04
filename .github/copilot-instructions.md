@@ -4295,3 +4295,34 @@ Resumen tecnico - Card de recarga en carrito con resumen minimo y beneficios en 
 - Regla practica:
   - En cards de carrito para recargas, el resumen inicial debe responder solo a lo esencial de compra y no competir con el detalle comercial.
   - Si existe copy promocional largo o beneficios multilinea, mostrarlo solo dentro de `Ver más detalles`.
+
+---
+
+Resumen técnico – `BlurView.tint` en Expo acepta enums, no colores hex/RGBA
+
+- Problema detectado:
+  - En Android la app podía romper al abrir menús con blur con un error similar a:
+    - `Cannot set prop 'tint' on view 'class expo.modules.blur.ExpoBlurView'`
+  - La causa fue pasar colores tipo `#f5f7ff8b` o `#5a58c559` al prop `tint` de `BlurView`.
+
+- Causa raíz validada:
+  - En `expo-blur`, el prop `tint` no acepta un color arbitrario; espera un valor enum como:
+    - `light`
+    - `dark`
+    - `default`
+  - En este proyecto, los menús estaban reutilizando constantes visuales de glass (`LIGHT_MENU_GLASS_TINT`, `DARK_MENU_GLASS_TINT`) como si fueran válidas para `BlurView.tint`.
+
+- Corrección aplicada:
+  - En superficies como `MenuHeader.jsx` y `MenuIconMensajes.native.js`, el blur debe usar:
+    - `tint={theme.dark ? 'dark' : 'light'}`
+  - Los colores hex/RGBA deben quedarse solo en capas visuales como:
+    - `backgroundColor`
+    - overlays
+    - bordes
+
+- Regla práctica:
+  - No reutilizar colores de diseño como valor de `BlurView.tint`.
+  - Si se quiere mantener identidad cromática del popup o header, combinar:
+    - `BlurView` con `tint` válido
+    - `backgroundColor` translúcido por encima o en la misma superficie
+  - Si reaparece un crash parecido en Expo Android, revisar primero todos los `BlurView` que reciban props dinámicos desde constantes de tema o glass.

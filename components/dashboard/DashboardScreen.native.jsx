@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppHeader from "../Header/AppHeader";
 import DashBoardPrincipal from "./DashBoardPrincipal.native";
+import RechargeProfitCard from "./RechargeProfitCard.native";
 import { dashboardScreenStyles } from "./styles/dashboardStyles";
 
 const DashboardScreen = () => {
@@ -139,6 +140,7 @@ const DashboardScreen = () => {
           </Card.Content>
         </Card>
 
+        <RechargeProfitCard refreshToken={refreshToken} />
         <DashBoardPrincipal refreshToken={refreshToken} type="HORA" />
         <DashBoardPrincipal refreshToken={refreshToken} type="DIARIO" />
         <DashBoardPrincipal refreshToken={refreshToken} type="MENSUAL" />

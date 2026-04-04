@@ -6,8 +6,8 @@ import { BlurView } from "expo-blur";
 import WizardConStepper from "../carritoCompras/WizardConStepper.native";
 import MenuIconMensajes from "../components/MenuIconMensajes.native";
 import {
-  DARK_MENU_GLASS_TINT,
-  LIGHT_MENU_GLASS_TINT,
+    DARK_MENU_GLASS_TINT,
+    LIGHT_MENU_GLASS_TINT,
 } from "../shared/GlassMenuSurface";
 import AppHeader, { DEFAULT_HEADER_COLOR } from "./AppHeader";
 
@@ -22,6 +22,7 @@ const MenuHeader = ({
 }) => {
   const [menuVisible, setMenuVisible] = useState(false);
   const theme = useTheme();
+  const blurTint = theme.dark ? "dark" : "light";
   const menuTintColor = theme.dark
     ? DARK_MENU_GLASS_TINT
     : LIGHT_MENU_GLASS_TINT;
@@ -57,7 +58,7 @@ const MenuHeader = ({
             anchorPosition="bottom"
           >
             <BlurView
-              tint={menuTintColor}
+              tint={blurTint}
               style={{
                 borderRadius: 25,
                 overflow: "hidden",
@@ -66,6 +67,7 @@ const MenuHeader = ({
                 borderColor: "rgba(255,255,255,0.22)",
               }}
               intensity={15}
+              experimentalBlurMethod="dimezisBlurView"
             >
               <Menu.Item
                 leadingIcon="account-circle-outline"

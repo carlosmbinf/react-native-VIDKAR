@@ -4,23 +4,23 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    Alert,
-    Appearance,
-    Dimensions,
-    ImageBackground,
-    NativeModules,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    View,
+  Alert,
+  Appearance,
+  Dimensions,
+  ImageBackground,
+  NativeModules,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import { Button, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
-    connectToMeteor,
-    ensureMeteorConnection,
-    getMeteorUrl,
+  connectToMeteor,
+  ensureMeteorConnection,
+  getMeteorUrl,
 } from "../../services/meteor/client";
 import { registerPushTokenForActiveSession } from "../../services/notifications/PushMessaging.native";
 import { ConfigCollection } from "../collections/collections";
@@ -96,6 +96,10 @@ const Loguin = () => {
   const [isDarkMode, setIsDarkMode] = useState(
     Appearance.getColorScheme() === "dark",
   );
+  const [windowMetrics, setWindowMetrics] = useState({
+    height: screenHeight,
+    width: screenWidth,
+  });
   const [isLandscape, setIsLandscape] = useState(screenWidth > screenHeight);
   const [showServerInput, setShowServerInput] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -157,6 +161,7 @@ const Loguin = () => {
 
     const dimSub = Dimensions.addEventListener("change", ({ window }) => {
       const { width, height } = window || {};
+      setWindowMetrics({ height, width });
       setIsLandscape(width > height);
     });
 
@@ -584,48 +589,93 @@ const Loguin = () => {
   const backgroundStyle = {
     minHeight: "100%",
     minWidth: "100%",
-    marginTop: isLandscape ? 0 : "5%",
   };
+
+  const isLargeScreen = windowMetrics.width >= 980;
+  const shouldUseSplitLayout = isLandscape || isLargeScreen;
+  const overlayColor = isDarkMode
+    ? "rgba(4, 10, 24, 0.68)"
+    : "rgba(244, 247, 252, 0.58)";
 
   return (
     <View style={styles.screen}>
       <ImageBackground
         source={require("../files/space-bg-shadowcodex.jpg")}
-        style={{
-          width: "100%",
-          height: "100%",
-          position: "relative",
-          left: 0,
-          top: 0,
-          zIndex: 0,
-        }}
+        style={styles.backgroundImage}
         resizeMode="cover"
+      />
+
+      <View
+        pointerEvents="none"
+        style={[styles.backgroundOverlay, { backgroundColor: overlayColor }]}
       />
 
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
-          contentContainerStyle={
-            isLandscape ? styles.scrollLandscapeContent : undefined
-          }
+          contentContainerStyle={[
+            styles.scrollContent,
+            shouldUseSplitLayout
+              ? styles.scrollContentCentered
+              : styles.scrollContentStacked,
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          style={styles.screen}
         >
           <View
             style={[
               backgroundStyle,
-              isLandscape ? styles.mainLandscape : styles.mainPortrait,
+              styles.layoutShell,
+              shouldUseSplitLayout
+                ? styles.layoutShellWide
+                : styles.layoutShellStacked,
             ]}
           >
             <View
-              style={[styles.container, isLandscape && styles.brandLandscape]}
+              style={[
+                styles.brandPanel,
+                shouldUseSplitLayout
+                  ? styles.brandPanelWide
+                  : styles.brandPanelStacked,
+              ]}
             >
-              <Text style={{ fontSize: 30, color: "white" }}>
-                <FontAwesome5 name="house-user" size={100} />
+              <View style={styles.brandBadge}>
+                <FontAwesome5
+                  name="house-user"
+                  size={shouldUseSplitLayout ? 42 : 34}
+                  color="#ffffff"
+                />
+              </View>
+              <Text style={styles.brandEyebrow}>Plataforma operativa</Text>
+              <Text style={styles.brandTitle}>VIDKAR</Text>
+              <Text style={styles.brandDescription}>
+                Recargas, remesas, servicios digitales y gestión comercial en
+                una sola plataforma diseñada para operar con claridad y rapidez.
               </Text>
-              <Text style={{ fontSize: 30, color: "white" }}>🅥🅘🅓🅚🅐🅡</Text>
+
+              <View style={styles.brandHighlights}>
+                <View style={styles.brandHighlightCard}>
+                  <Text style={styles.brandHighlightLabel}>Recargas</Text>
+                  <Text style={styles.brandHighlightValue}>
+                    Cubacel y promos
+                  </Text>
+                </View>
+                <View style={styles.brandHighlightCard}>
+                  <Text style={styles.brandHighlightLabel}>Servicios</Text>
+                  <Text style={styles.brandHighlightValue}>
+                    Proxy, VPN y más
+                  </Text>
+                </View>
+                <View style={styles.brandHighlightCard}>
+                  <Text style={styles.brandHighlightLabel}>Comercio</Text>
+                  <Text style={styles.brandHighlightValue}>
+                    Pedidos y remesas
+                  </Text>
+                </View>
+              </View>
             </View>
 
-            <View
-              style={[styles.container, isLandscape && styles.formLandscape]}
-            >
+            <View style={styles.formPanel}>
               <View style={styles.blurCard}>
                 <View
                   pointerEvents="none"
@@ -633,106 +683,142 @@ const Loguin = () => {
                     StyleSheet.absoluteFill,
                     {
                       backgroundColor: isDarkMode
-                        ? "rgba(10, 18, 32, 0.72)"
-                        : "rgba(255, 255, 255, 0.68)",
+                        ? "rgba(7, 12, 24, 0.82)"
+                        : "rgba(255, 255, 255, 0.78)",
                     },
                   ]}
                 />
                 <View style={styles.blurCardContent}>
-                  <Text style={styles.title}>Inicio de Session</Text>
+                  <View style={styles.formHeader}>
+                    <Text style={styles.formEyebrow}>Inicio de sesión</Text>
+                    <Text style={styles.title}>Entra a tu cuenta</Text>
+                    <Text style={styles.formDescription}>
+                      Accede a tus herramientas, promociones y operaciones
+                      diarias desde una experiencia más clara y cómoda.
+                    </Text>
+                  </View>
 
                   {showServerInput ? (
-                    <View style={styles.serverRow}>
-                      <TextInput
-                        mode="flat"
-                        value={ipserver}
-                        onChangeText={setIpserver}
-                        label="IP del Servidor"
-                        returnKeyType="done"
-                        dense
-                        style={styles.serverInput}
-                      />
-                      <Button
-                        mode="contained"
-                        onPress={reconnectToServer}
-                        disabled={connectingToServer}
-                        loading={connectingToServer}
-                        style={styles.reconnectButton}
-                        contentStyle={styles.reconnectButtonContent}
-                        compact
-                      >
-                        <FontAwesome5 name="sync-alt" size={14} />
-                      </Button>
+                    <View style={styles.serverCard}>
+                      <Text style={styles.serverLabel}>
+                        Servidor personalizado
+                      </Text>
+                      <View style={styles.serverRow}>
+                        <TextInput
+                          mode="flat"
+                          value={ipserver}
+                          onChangeText={setIpserver}
+                          label="IP del Servidor"
+                          returnKeyType="done"
+                          dense
+                          style={styles.serverInput}
+                        />
+                        <Button
+                          mode="contained"
+                          onPress={reconnectToServer}
+                          disabled={connectingToServer}
+                          loading={connectingToServer}
+                          style={styles.reconnectButton}
+                          contentStyle={styles.reconnectButtonContent}
+                          compact
+                        >
+                          <FontAwesome5 name="sync-alt" size={14} />
+                        </Button>
+                      </View>
                     </View>
                   ) : null}
 
-                  <TextInput
-                    mode="flat"
-                    value={username}
-                    onChangeText={handleUsernameChange}
-                    label="Usuario"
-                    returnKeyType="next"
-                    dense
-                    style={styles.input}
-                  />
-                  <TextInput
-                    mode="flat"
-                    value={password}
-                    onChangeText={setPassword}
-                    label="Contraseña"
-                    returnKeyType="done"
-                    secureTextEntry
-                    dense
-                    style={styles.input}
-                  />
+                  <View style={styles.fieldsBlock}>
+                    <TextInput
+                      mode="flat"
+                      value={username}
+                      onChangeText={handleUsernameChange}
+                      label="Usuario"
+                      returnKeyType="next"
+                      dense
+                      style={styles.input}
+                    />
+                    <TextInput
+                      mode="flat"
+                      value={password}
+                      onChangeText={setPassword}
+                      label="Contraseña"
+                      returnKeyType="done"
+                      secureTextEntry
+                      dense
+                      style={styles.input}
+                    />
+                  </View>
+
                   <Button
                     mode="contained"
                     onPress={handleLogin}
                     loading={submitting}
                     disabled={submitting}
+                    style={styles.primaryButton}
+                    contentStyle={styles.primaryButtonContent}
+                    labelStyle={styles.primaryButtonLabel}
                   >
-                    Iniciar Sessión
+                    Iniciar sesión
                   </Button>
 
-                  <View style={{ height: 12 }} />
-                  {permitirLoginWithGoogle?.valor === "true" ? (
-                    <>
-                      <Text style={styles.altText}>O</Text>
-                      <View style={{ height: 10 }} />
-                      <Button
-                        mode="outlined"
-                        icon="google"
-                        onPress={onGoogleLogin}
-                        disabled={loadingGoogle || submitting}
-                        loading={loadingGoogle}
-                      >
-                        Entrar con Google
-                      </Button>
-                    </>
+                  {permitirLoginWithGoogle?.valor === "true" ||
+                  (permitirLoginWithApple?.valor === "true" &&
+                    Platform.OS === "ios" &&
+                    appleAuthAvailable) ? (
+                    <View style={styles.socialSection}>
+                      <View style={styles.dividerRow}>
+                        <View style={styles.dividerLine} />
+                        <Text style={styles.altText}>o continúa con</Text>
+                        <View style={styles.dividerLine} />
+                      </View>
+
+                      <View style={styles.socialButtons}>
+                        {permitirLoginWithGoogle?.valor === "true" ? (
+                          <Button
+                            mode="outlined"
+                            icon="google"
+                            onPress={onGoogleLogin}
+                            disabled={loadingGoogle || submitting}
+                            loading={loadingGoogle}
+                            style={styles.secondaryButton}
+                            contentStyle={styles.secondaryButtonContent}
+                          >
+                            Entrar con Google
+                          </Button>
+                        ) : null}
+
+                        {permitirLoginWithApple?.valor === "true" &&
+                        Platform.OS === "ios" &&
+                        appleAuthAvailable ? (
+                          <Button
+                            mode="outlined"
+                            icon="apple"
+                            onPress={onAppleLogin}
+                            disabled={loadingApple || submitting}
+                            loading={loadingApple}
+                            style={styles.secondaryButton}
+                            contentStyle={styles.secondaryButtonContent}
+                          >
+                            Entrar con Apple
+                          </Button>
+                        ) : null}
+                      </View>
+                    </View>
                   ) : null}
 
-                  {permitirLoginWithApple?.valor === "true" &&
-                  Platform.OS === "ios" &&
-                  appleAuthAvailable ? (
-                    <>
-                      <View style={{ height: 10 }} />
-                      <Button
-                        mode="outlined"
-                        icon="apple"
-                        onPress={onAppleLogin}
-                        disabled={loadingApple || submitting}
-                        loading={loadingApple}
-                      >
-                        Entrar con Apple
-                      </Button>
-                    </>
-                  ) : null}
-
-                  {connectingToServer ? (
-                    <Text style={styles.statusText}>
-                      Conectando con el servidor...
+                  <View style={styles.footerPanel}>
+                    <Text style={styles.footerText}>
+                      Gestiona lo que vendes y atiendes cada día desde un solo
+                      lugar.
                     </Text>
-                  ) : null}
+
+                    {connectingToServer ? (
+                      <Text style={styles.statusText}>
+                        Preparando acceso...
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
               </View>
             </View>
