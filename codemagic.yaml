@@ -92,8 +92,8 @@ workflows:
         - pattern: master
           include: true
 
-    integrations:
-      app_store_connect: 0d89ae8f-cbc2-41cb-9156-ad32714b2e5b5b2fe6e4-de66-4987-a34e-55fd710288ad
+    # integrations:
+    #   app_store_connect: 3arUIhbBY4TGxj6jBzc93cIt8xSOjW-HWxP4A4aQtJQ
 
     environment:
       ios_signing:
