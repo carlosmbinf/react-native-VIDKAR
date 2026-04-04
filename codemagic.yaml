@@ -92,6 +92,9 @@ workflows:
         - pattern: master
           include: true
 
+    integrations:
+      app_store_connect: X948JA4S95
+
     environment:
       ios_signing:
         distribution_type: app_store
