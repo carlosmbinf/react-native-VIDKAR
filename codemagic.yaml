@@ -187,7 +187,6 @@ workflows:
   expo_full_release:
     name: Expo Full Release (Android + iOS)
 
-    max_build_duration: 180
     instance_type: mac_mini_m2
 
     triggering:
