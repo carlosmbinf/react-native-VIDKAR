@@ -175,7 +175,7 @@ workflows:
         auth: integration
         submit_to_testflight: true
         beta_groups:
-          - group carlitoPruebas
+          - group PruebasVidkar
 
       email:
         recipients:
