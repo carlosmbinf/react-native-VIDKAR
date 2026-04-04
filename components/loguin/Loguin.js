@@ -1,35 +1,45 @@
 import FontAwesome5Icon from "@expo/vector-icons/FontAwesome5";
 import React, { useState } from "react";
 import {
-    Appearance,
     Dimensions,
     ImageBackground,
     ScrollView,
     StyleSheet,
     View,
 } from "react-native";
-import { Button, Text, TextInput } from "react-native-paper";
+import { Button, Text, TextInput, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { loginScreenStyles as styles } from "./Loguin.styles";
+import { getLoginPalette, loginScreenStyles as styles } from "./Loguin.styles";
 
 const { width: screenWidth } = Dimensions.get("window");
 const { height: screenHeight } = Dimensions.get("window");
 
 const Loguin = () => {
-  const [isDarkMode] = useState(Appearance.getColorScheme() === "dark");
+  const theme = useTheme();
+  const isDarkMode = theme.dark;
   const [isLandscape] = useState(screenWidth > screenHeight);
   const isLargeScreen = screenWidth >= 980;
   const shouldUseSplitLayout = isLandscape || isLargeScreen;
+  const palette = getLoginPalette(isDarkMode);
+  const inputTheme = {
+    ...theme,
+    colors: {
+      ...theme.colors,
+      onSurface: palette.inputText,
+      onSurfaceVariant: palette.inputLabel,
+      outline: palette.secondaryButtonBorder,
+      primary: palette.inputTint,
+      surfaceVariant: palette.inputBackground,
+    },
+  };
 
   const backgroundStyle = {
     minHeight: "100%",
     minWidth: "100%",
   };
 
-  const overlayColor = isDarkMode
-    ? "rgba(4, 10, 24, 0.68)"
-    : "rgba(244, 247, 252, 0.58)";
+  const overlayColor = palette.backgroundOverlay;
 
   return (
     <View style={styles.screen}>
@@ -80,25 +90,100 @@ const Loguin = () => {
                   color="#ffffff"
                 />
               </View>
-              <Text style={styles.brandEyebrow}>Plataforma operativa</Text>
-              <Text style={styles.brandTitle}>VIDKAR</Text>
-              <Text style={styles.brandDescription}>
+              <Text
+                style={[styles.brandEyebrow, { color: palette.brandEyebrow }]}
+              >
+                Plataforma operativa
+              </Text>
+              <Text style={[styles.brandTitle, { color: palette.brandTitle }]}>
+                VIDKAR
+              </Text>
+              <Text
+                style={[
+                  styles.brandDescription,
+                  { color: palette.brandDescription },
+                ]}
+              >
                 Recargas, remesas, servicios digitales y comercio en una sola
                 experiencia, preparada para operar también en pantallas grandes.
               </Text>
 
               <View style={styles.brandHighlights}>
-                <View style={styles.brandHighlightCard}>
-                  <Text style={styles.brandHighlightLabel}>Recargas</Text>
-                  <Text style={styles.brandHighlightValue}>Promos activas</Text>
+                <View
+                  style={[
+                    styles.brandHighlightCard,
+                    {
+                      backgroundColor: palette.brandHighlightSurface,
+                      borderColor: palette.brandHighlightBorder,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.brandHighlightLabel,
+                      { color: palette.brandHighlightLabel },
+                    ]}
+                  >
+                    Recargas
+                  </Text>
+                  <Text
+                    style={[
+                      styles.brandHighlightValue,
+                      { color: palette.brandHighlightValue },
+                    ]}
+                  >
+                    Promos activas
+                  </Text>
                 </View>
-                <View style={styles.brandHighlightCard}>
-                  <Text style={styles.brandHighlightLabel}>Servicios</Text>
-                  <Text style={styles.brandHighlightValue}>VPN y Proxy</Text>
+                <View
+                  style={[
+                    styles.brandHighlightCard,
+                    {
+                      backgroundColor: palette.brandHighlightSurface,
+                      borderColor: palette.brandHighlightBorder,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.brandHighlightLabel,
+                      { color: palette.brandHighlightLabel },
+                    ]}
+                  >
+                    Servicios
+                  </Text>
+                  <Text
+                    style={[
+                      styles.brandHighlightValue,
+                      { color: palette.brandHighlightValue },
+                    ]}
+                  >
+                    VPN y Proxy
+                  </Text>
                 </View>
-                <View style={styles.brandHighlightCard}>
-                  <Text style={styles.brandHighlightLabel}>Pedidos</Text>
-                  <Text style={styles.brandHighlightValue}>
+                <View
+                  style={[
+                    styles.brandHighlightCard,
+                    {
+                      backgroundColor: palette.brandHighlightSurface,
+                      borderColor: palette.brandHighlightBorder,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.brandHighlightLabel,
+                      { color: palette.brandHighlightLabel },
+                    ]}
+                  >
+                    Pedidos
+                  </Text>
+                  <Text
+                    style={[
+                      styles.brandHighlightValue,
+                      { color: palette.brandHighlightValue },
+                    ]}
+                  >
                     Comercio y remesas
                   </Text>
                 </View>
@@ -106,23 +191,38 @@ const Loguin = () => {
             </View>
 
             <View style={styles.formPanel}>
-              <View style={styles.blurCard}>
+              <View
+                style={[
+                  styles.blurCard,
+                  { borderColor: palette.blurCardBorder },
+                ]}
+              >
                 <View
                   pointerEvents="none"
                   style={[
                     StyleSheet.absoluteFill,
-                    {
-                      backgroundColor: isDarkMode
-                        ? "rgba(10, 18, 32, 0.72)"
-                        : "rgba(255, 255, 255, 0.68)",
-                    },
+                    { backgroundColor: palette.blurCardOverlay },
                   ]}
                 />
                 <View style={styles.blurCardContent}>
                   <View style={styles.formHeader}>
-                    <Text style={styles.formEyebrow}>Inicio de sesión</Text>
-                    <Text style={styles.title}>Acceso principal de VIDKAR</Text>
-                    <Text style={styles.formDescription}>
+                    <Text
+                      style={[
+                        styles.formEyebrow,
+                        { color: palette.formEyebrow },
+                      ]}
+                    >
+                      Inicio de sesión
+                    </Text>
+                    <Text style={[styles.title, { color: palette.formTitle }]}>
+                      Acceso principal de VIDKAR
+                    </Text>
+                    <Text
+                      style={[
+                        styles.formDescription,
+                        { color: palette.formDescription },
+                      ]}
+                    >
                       Descubre una entrada más clara y profesional para
                       gestionar los productos y servicios del sistema.
                     </Text>
@@ -133,14 +233,24 @@ const Loguin = () => {
                       mode="flat"
                       label="Usuario"
                       disabled
-                      style={styles.input}
+                      style={[
+                        styles.input,
+                        { backgroundColor: palette.inputBackground },
+                      ]}
+                      textColor={palette.inputText}
+                      theme={inputTheme}
                     />
                     <TextInput
                       mode="flat"
                       label="Contraseña"
                       secureTextEntry
                       disabled
-                      style={styles.input}
+                      style={[
+                        styles.input,
+                        { backgroundColor: palette.inputBackground },
+                      ]}
+                      textColor={palette.inputText}
+                      theme={inputTheme}
                     />
                   </View>
 
@@ -150,15 +260,31 @@ const Loguin = () => {
                     style={styles.primaryButton}
                     contentStyle={styles.primaryButtonContent}
                     labelStyle={styles.primaryButtonLabel}
+                    buttonColor={theme.colors.primary}
+                    textColor="#ffffff"
                   >
                     Iniciar sesión
                   </Button>
 
                   <View style={styles.socialSection}>
                     <View style={styles.dividerRow}>
-                      <View style={styles.dividerLine} />
-                      <Text style={styles.altText}>o continúa con</Text>
-                      <View style={styles.dividerLine} />
+                      <View
+                        style={[
+                          styles.dividerLine,
+                          { backgroundColor: palette.divider },
+                        ]}
+                      />
+                      <Text
+                        style={[styles.altText, { color: palette.altText }]}
+                      >
+                        o continúa con
+                      </Text>
+                      <View
+                        style={[
+                          styles.dividerLine,
+                          { backgroundColor: palette.divider },
+                        ]}
+                      />
                     </View>
 
                     <View style={styles.socialButtons}>
@@ -166,8 +292,12 @@ const Loguin = () => {
                         mode="outlined"
                         icon="google"
                         disabled
-                        style={styles.secondaryButton}
+                        style={[
+                          styles.secondaryButton,
+                          { borderColor: palette.secondaryButtonBorder },
+                        ]}
                         contentStyle={styles.secondaryButtonContent}
+                        textColor={palette.secondaryButtonText}
                       >
                         Entrar con Google
                       </Button>
@@ -175,7 +305,9 @@ const Loguin = () => {
                   </View>
 
                   <View style={styles.footerPanel}>
-                    <Text style={styles.statusText}>
+                    <Text
+                      style={[styles.statusText, { color: palette.statusText }]}
+                    >
                       Vista previa del acceso principal de VIDKAR
                     </Text>
                   </View>

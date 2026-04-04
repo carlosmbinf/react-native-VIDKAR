@@ -2,21 +2,21 @@ import MeteorBase from "@meteorrn/core";
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import {
-    Avatar,
-    Badge,
-    Divider,
-    IconButton,
-    List,
-    Menu,
-    Text,
-    useTheme,
+  Avatar,
+  Badge,
+  Divider,
+  IconButton,
+  List,
+  Menu,
+  Text,
+  useTheme,
 } from "react-native-paper";
 
 import { BlurView } from "expo-blur";
 import { Mensajes } from "../collections/collections";
 import {
-    DARK_MENU_GLASS_TINT,
-    LIGHT_MENU_GLASS_TINT,
+  DARK_MENU_GLASS_TINT,
+  LIGHT_MENU_GLASS_TINT,
 } from "../shared/GlassMenuSurface";
 
 const Meteor =
@@ -193,7 +193,7 @@ const MenuIconMensajesNative = ({ onOpenMessages }) => {
           borderRadius: 25,
           overflow: "hidden",
           backgroundColor: menuTintColor,
-          borderWidth: 0.5,
+          borderWidth: 2,
           borderColor: "rgba(255,255,255,0.22)",
         }}
         intensity={15}
@@ -230,6 +230,7 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     overflow: "visible",
     padding: 0,
+    borderRadius: 25,
   },
   menuScroll: {
     maxHeight: 390,

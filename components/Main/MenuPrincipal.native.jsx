@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { Alert } from "react-native";
 
 import { getAppVersionInfo } from "../../services/app/appVersion";
+import { VentasCollection } from "../collections/collections";
 import MenuPrincipalScreen from "./MenuPrincipalScreen.jsx";
 
 const Meteor =
@@ -11,8 +12,55 @@ const Meteor =
   );
 
 const MenuPrincipalNative = () => {
-  const user = Meteor.useTracker(() => Meteor.user());
+  const { pendingDebt, pendingVentasCount, user } = Meteor.useTracker(() => {
+    const currentUser = Meteor.user();
+    const currentUserId = currentUser?._id;
+    const isAdmin = currentUser?.profile?.role === "admin";
+
+    if (!currentUserId || !isAdmin) {
+      return {
+        user: currentUser,
+        pendingDebt: 0,
+        pendingVentasCount: 0,
+      };
+    }
+
+    const ventasHandle = Meteor.subscribe("ventas", {
+      adminId: currentUserId,
+      cobrado: false,
+    });
+
+    const pendingVentas = ventasHandle.ready()
+      ? VentasCollection.find({
+          adminId: currentUserId,
+          cobrado: false,
+        }).fetch()
+      : [];
+
+    return {
+      user: currentUser,
+      pendingDebt: pendingVentas.reduce(
+        (total, venta) => total + (Number(venta?.precio) || 0),
+        0,
+      ),
+      pendingVentasCount: pendingVentas.length,
+    };
+  });
   const appVersionInfo = getAppVersionInfo();
+
+  const handleOpenPendingVentas = () => {
+    if (!user?._id) {
+      return;
+    }
+
+    router.push({
+      pathname: "/(normal)/Ventas",
+      params: {
+        id: user._id,
+        pago: "PENDIENTE",
+      },
+    });
+  };
 
   const handleToggleModoCadete = () => {
     const nextState = !user?.modoCadete;
@@ -57,6 +105,9 @@ const MenuPrincipalNative = () => {
       user={user}
       appVersion={appVersionInfo.version}
       buildNumber={appVersionInfo.buildNumber}
+      pendingDebt={pendingDebt}
+      pendingVentasCount={pendingVentasCount}
+      onOpenPendingVentas={handleOpenPendingVentas}
       onToggleModoCadete={handleToggleModoCadete}
       onLogout={() => {
         Meteor.logout(() => {

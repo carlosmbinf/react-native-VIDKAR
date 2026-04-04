@@ -1,3 +1,4 @@
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { usePathname, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -31,10 +32,18 @@ const getRoleLabel = (user) => {
   return "Usuario";
 };
 
+const formatDebtAmount = (amount) => {
+  const numericAmount = Number(amount) || 0;
+  return `${numericAmount.toFixed(2)} CUP`;
+};
+
 const MenuPrincipalScreen = ({
   user,
   appVersion = "0.0.0",
   buildNumber = "0",
+  pendingDebt = 0,
+  pendingVentasCount = 0,
+  onOpenPendingVentas,
   onLogout,
   onToggleModoCadete,
 }) => {
@@ -94,6 +103,8 @@ const MenuPrincipalScreen = ({
     day: "numeric",
     month: "long",
   }).format(new Date());
+  const hasPendingDebt =
+    user?.profile?.role === "admin" && (Number(pendingDebt) || 0) > 0;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
@@ -167,6 +178,71 @@ const MenuPrincipalScreen = ({
                 Comp. {buildNumber}
               </Chip>
             </View>
+            {hasPendingDebt ? (
+              <View style={styles.debtBanner}>
+                <View style={styles.debtBannerHeader}>
+                  <View style={styles.debtBannerTitleWrap}>
+                    <Text variant="labelSmall" style={styles.debtBannerEyebrow}>
+                      Cobros pendientes
+                    </Text>
+                    <Text variant="titleMedium" style={styles.debtBannerTitle}>
+                      Tienes deuda administrativa por cobrar
+                    </Text>
+                  </View>
+                  <Chip
+                    compact
+                    icon="cash-clock"
+                    style={styles.debtBannerChip}
+                    textStyle={styles.debtBannerChipText}
+                  >
+                    {pendingVentasCount} venta
+                    {pendingVentasCount === 1 ? "" : "s"}
+                  </Chip>
+                </View>
+
+                <View style={styles.debtBannerFooter}>
+                  <View>
+                    <Text
+                      variant="labelMedium"
+                      style={styles.debtBannerAmountLabel}
+                    >
+                      Total pendiente
+                    </Text>
+                    <Text
+                      variant="headlineSmall"
+                      style={styles.debtBannerAmount}
+                    >
+                      {formatDebtAmount(pendingDebt)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.debtBannerAction}>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={onOpenPendingVentas}
+                      style={({ pressed }) => [
+                        styles.debtBannerActionButton,
+                        pressed ? styles.debtBannerActionButtonPressed : null,
+                      ]}
+                    >
+                      <Text
+                        variant="labelLarge"
+                        style={styles.debtBannerActionText}
+                      >
+                        Ver pendientes
+                      </Text>
+                      <View style={styles.debtBannerActionIconWrap}>
+                        <MaterialCommunityIcons
+                          color="#fff1f2"
+                          name="arrow-right"
+                          size={18}
+                        />
+                      </View>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            ) : null}
           </Surface>
 
           <Productos isDegradado={false} />
@@ -282,6 +358,95 @@ const styles = StyleSheet.create({
   heroChipText: {
     color: "#ffffff",
     fontWeight: "700",
+  },
+  debtBanner: {
+    marginTop: 18,
+    borderRadius: 24,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    backgroundColor: "rgba(127, 29, 29, 0.28)",
+    borderWidth: 1,
+    borderColor: "rgba(252, 165, 165, 0.22)",
+    gap: 14,
+  },
+  debtBannerHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  debtBannerTitleWrap: {
+    flex: 1,
+    gap: 4,
+  },
+  debtBannerEyebrow: {
+    color: "#fecaca",
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+    fontWeight: "800",
+  },
+  debtBannerTitle: {
+    color: "#fff1f2",
+    fontWeight: "800",
+    lineHeight: 23,
+  },
+  debtBannerChip: {
+    backgroundColor: "rgba(254, 226, 226, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(254, 202, 202, 0.18)",
+  },
+  debtBannerChipText: {
+    color: "#fee2e2",
+    fontWeight: "800",
+  },
+  debtBannerFooter: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  debtBannerAmountLabel: {
+    color: "rgba(255, 241, 242, 0.78)",
+    marginBottom: 4,
+    fontWeight: "700",
+  },
+  debtBannerAmount: {
+    color: "#ffffff",
+    fontWeight: "900",
+  },
+  debtBannerAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingBottom: 4,
+  },
+  debtBannerActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingLeft: 14,
+    paddingRight: 8,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(255, 241, 242, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(254, 202, 202, 0.2)",
+  },
+  debtBannerActionButtonPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.985 }],
+  },
+  debtBannerActionText: {
+    color: "#fee2e2",
+    fontWeight: "800",
+  },
+  debtBannerActionIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 241, 242, 0.12)",
   },
   drawerPortal: {
     ...StyleSheet.absoluteFillObject,

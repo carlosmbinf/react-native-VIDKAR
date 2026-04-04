@@ -1,25 +1,25 @@
 import MeteorBase from "@meteorrn/core";
 import React from "react";
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    useWindowDimensions,
-    View,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    ActivityIndicator,
-    Button,
-    Chip,
-    Dialog,
-    Divider,
-    HelperText,
-    IconButton,
-    Portal,
-    Surface,
-    Text,
-    TextInput,
-    useTheme,
+  ActivityIndicator,
+  Button,
+  Chip,
+  Dialog,
+  Divider,
+  HelperText,
+  IconButton,
+  Portal,
+  Surface,
+  Text,
+  TextInput,
+  useTheme,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -307,8 +307,7 @@ const DialogVenta = ({ visible, hideDialog, ventaId }) => {
             </Text>
             {!isAdminPrincipal ? (
               <Text variant="bodySmall" style={styles.restrictionCopy}>
-                Solo carlosmbinf puede editar o eliminar ventas. Esta vista se
-                muestra en modo lectura.
+                Esta vista se muestra en modo lectura.
               </Text>
             ) : null}
           </View>
@@ -397,6 +396,7 @@ const DialogVenta = ({ visible, hideDialog, ventaId }) => {
                     ]}
                   >
                     <Surface
+                      elevation={0}
                       style={[
                         styles.heroMetaCard,
                         isCompactDialog ? styles.heroMetaCardCompact : null,
@@ -409,6 +409,7 @@ const DialogVenta = ({ visible, hideDialog, ventaId }) => {
                       </Text>
                     </Surface>
                     <Surface
+                      elevation={0}
                       style={[
                         styles.heroMetaCard,
                         isCompactDialog ? styles.heroMetaCardCompact : null,
@@ -421,6 +422,7 @@ const DialogVenta = ({ visible, hideDialog, ventaId }) => {
                       </Text>
                     </Surface>
                     <Surface
+                      elevation={0}
                       style={[
                         styles.heroMetaCard,
                         isCompactDialog ? styles.heroMetaCardCompact : null,
@@ -496,8 +498,8 @@ const DialogVenta = ({ visible, hideDialog, ventaId }) => {
                   />
                   <HelperText type="info" visible>
                     {isAdminPrincipal
-                      ? "El guardado mantiene la lógica legacy y actualiza la venta en la colección local con precio, comentario y ganancias."
-                      : "La edición y eliminación están restringidas a carlosmbinf para evitar cambios accidentales."}
+                      ? "El guardado actualiza la venta en la colección local con precio, comentario y ganancias."
+                      : "La edición y eliminación están restringidas al administrador principal para evitar cambios accidentales."}
                   </HelperText>
                 </View>
               </>

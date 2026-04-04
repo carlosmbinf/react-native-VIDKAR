@@ -1,31 +1,31 @@
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import MeteorBase from "@meteorrn/core";
 import * as AppleAuthentication from "expo-apple-authentication";
+import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
-  Appearance,
-  Dimensions,
-  ImageBackground,
-  NativeModules,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  View,
+    Alert,
+    Dimensions,
+    ImageBackground,
+    NativeModules,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
-import { Button, Text, TextInput } from "react-native-paper";
+import { Button, Text, TextInput, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
-  connectToMeteor,
-  ensureMeteorConnection,
-  getMeteorUrl,
+    connectToMeteor,
+    ensureMeteorConnection,
+    getMeteorUrl,
 } from "../../services/meteor/client";
 import { registerPushTokenForActiveSession } from "../../services/notifications/PushMessaging.native";
 import { ConfigCollection } from "../collections/collections";
 import { resolveSessionRoute } from "../navigator/sessionRoute";
-import { loginScreenStyles as styles } from "./Loguin.styles";
+import { getLoginPalette, loginScreenStyles as styles } from "./Loguin.styles";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker, _startLoggingIn?: () => Promise<void> | void, _endLoggingIn?: () => Promise<void> | void, _handleLoginCallback?: (error: any, response: any) => void }} */ (
@@ -63,7 +63,6 @@ const loadGoogleSignInModule = async () => {
 };
 
 const isGoogleCancelledResponse = (response) => response?.type === "cancelled";
-
 const isGoogleSuccessResponse = (response) => response?.type === "success";
 
 const buildAppleFullName = (fullName) => {
@@ -83,6 +82,51 @@ const buildAppleFullName = (fullName) => {
   return Object.values(normalized).some(Boolean) ? normalized : undefined;
 };
 
+const LoginBlurCard = ({ children, palette }) => {
+  return (
+    <BlurView
+      intensity={74}
+      tint="dark"
+      renderToHardwareTextureAndroid={true}
+      blurReductionFactor={2}
+      experimentalBlurMethod={
+        Platform.OS === "android" ? "dimezisBlurView" : undefined
+      }
+      style={[
+        styles.blurCard,
+        {
+          backgroundColor: "transparent",
+          borderColor: palette.blurCardBorder,
+        },
+      ]}
+    >
+      <View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: palette.blurCardOverlay },
+        ]}
+      />
+      <View
+        pointerEvents="none"
+        style={[styles.blurGlowOrb, { backgroundColor: palette.blurCardGlow }]}
+      />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.blurGlowOrbSecondary,
+          { backgroundColor: palette.blurCardAccent },
+        ]}
+      />
+      <View
+        pointerEvents="none"
+        style={[styles.blurSheen, { backgroundColor: palette.blurCardSheen }]}
+      />
+      {children}
+    </BlurView>
+  );
+};
+
 const Loguin = () => {
   const [ipserver, setIpserver] = useState(() => {
     const meteorUrl = getMeteorUrl() || "ws://www.vidkar.com:3000/websocket";
@@ -93,9 +137,6 @@ const Loguin = () => {
   });
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [isDarkMode, setIsDarkMode] = useState(
-    Appearance.getColorScheme() === "dark",
-  );
   const [windowMetrics, setWindowMetrics] = useState({
     height: screenHeight,
     width: screenWidth,
@@ -107,6 +148,34 @@ const Loguin = () => {
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingApple, setLoadingApple] = useState(false);
   const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
+
+  const theme = useTheme();
+  const isDarkMode = theme.dark;
+  const palette = React.useMemo(
+    () => getLoginPalette(isDarkMode),
+    [isDarkMode],
+  );
+  const inputTheme = React.useMemo(
+    () => ({
+      ...theme,
+      colors: {
+        ...theme.colors,
+        onSurface: palette.inputText,
+        onSurfaceVariant: palette.inputLabel,
+        outline: palette.secondaryButtonBorder,
+        primary: palette.inputTint,
+        surfaceVariant: palette.inputBackground,
+      },
+    }),
+    [
+      palette.inputBackground,
+      palette.inputLabel,
+      palette.inputText,
+      palette.inputTint,
+      palette.secondaryButtonBorder,
+      theme,
+    ],
+  );
 
   const userId = Meteor.useTracker(() => Meteor.userId());
   const user = Meteor.useTracker(() => Meteor.user());
@@ -165,13 +234,8 @@ const Loguin = () => {
       setIsLandscape(width > height);
     });
 
-    const themeSub = Appearance.addChangeListener(({ colorScheme }) => {
-      setIsDarkMode(colorScheme === "dark");
-    });
-
     return () => {
       dimSub?.remove?.();
-      themeSub?.remove?.();
     };
   }, []);
 
@@ -273,6 +337,7 @@ const Loguin = () => {
             reject(error);
             return;
           }
+
           resolve();
         });
       });
@@ -593,9 +658,6 @@ const Loguin = () => {
 
   const isLargeScreen = windowMetrics.width >= 980;
   const shouldUseSplitLayout = isLandscape || isLargeScreen;
-  const overlayColor = isDarkMode
-    ? "rgba(4, 10, 24, 0.68)"
-    : "rgba(244, 247, 252, 0.58)";
 
   return (
     <View style={styles.screen}>
@@ -603,11 +665,6 @@ const Loguin = () => {
         source={require("../files/space-bg-shadowcodex.jpg")}
         style={styles.backgroundImage}
         resizeMode="cover"
-      />
-
-      <View
-        pointerEvents="none"
-        style={[styles.backgroundOverlay, { backgroundColor: overlayColor }]}
       />
 
       <SafeAreaView style={styles.safeArea}>
@@ -646,29 +703,100 @@ const Loguin = () => {
                   color="#ffffff"
                 />
               </View>
-              <Text style={styles.brandEyebrow}>Plataforma operativa</Text>
-              <Text style={styles.brandTitle}>VIDKAR</Text>
-              <Text style={styles.brandDescription}>
+              <Text
+                style={[styles.brandEyebrow, { color: palette.brandEyebrow }]}
+              >
+                Plataforma operativa
+              </Text>
+              <Text style={[styles.brandTitle, { color: palette.brandTitle }]}>
+                VIDKAR
+              </Text>
+              <Text
+                style={[
+                  styles.brandDescription,
+                  { color: palette.brandDescription },
+                ]}
+              >
                 Recargas, remesas, servicios digitales y gestión comercial en
                 una sola plataforma diseñada para operar con claridad y rapidez.
               </Text>
 
               <View style={styles.brandHighlights}>
-                <View style={styles.brandHighlightCard}>
-                  <Text style={styles.brandHighlightLabel}>Recargas</Text>
-                  <Text style={styles.brandHighlightValue}>
+                <View
+                  style={[
+                    styles.brandHighlightCard,
+                    {
+                      backgroundColor: palette.brandHighlightSurface,
+                      borderColor: palette.brandHighlightBorder,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.brandHighlightLabel,
+                      { color: palette.brandHighlightLabel },
+                    ]}
+                  >
+                    Recargas
+                  </Text>
+                  <Text
+                    style={[
+                      styles.brandHighlightValue,
+                      { color: palette.brandHighlightValue },
+                    ]}
+                  >
                     Cubacel y promos
                   </Text>
                 </View>
-                <View style={styles.brandHighlightCard}>
-                  <Text style={styles.brandHighlightLabel}>Servicios</Text>
-                  <Text style={styles.brandHighlightValue}>
+                <View
+                  style={[
+                    styles.brandHighlightCard,
+                    {
+                      backgroundColor: palette.brandHighlightSurface,
+                      borderColor: palette.brandHighlightBorder,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.brandHighlightLabel,
+                      { color: palette.brandHighlightLabel },
+                    ]}
+                  >
+                    Servicios
+                  </Text>
+                  <Text
+                    style={[
+                      styles.brandHighlightValue,
+                      { color: palette.brandHighlightValue },
+                    ]}
+                  >
                     Proxy, VPN y más
                   </Text>
                 </View>
-                <View style={styles.brandHighlightCard}>
-                  <Text style={styles.brandHighlightLabel}>Comercio</Text>
-                  <Text style={styles.brandHighlightValue}>
+                <View
+                  style={[
+                    styles.brandHighlightCard,
+                    {
+                      backgroundColor: palette.brandHighlightSurface,
+                      borderColor: palette.brandHighlightBorder,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.brandHighlightLabel,
+                      { color: palette.brandHighlightLabel },
+                    ]}
+                  >
+                    Comercio
+                  </Text>
+                  <Text
+                    style={[
+                      styles.brandHighlightValue,
+                      { color: palette.brandHighlightValue },
+                    ]}
+                  >
                     Pedidos y remesas
                   </Text>
                 </View>
@@ -676,31 +804,80 @@ const Loguin = () => {
             </View>
 
             <View style={styles.formPanel}>
-              <View style={styles.blurCard}>
-                <View
-                  pointerEvents="none"
-                  style={[
-                    StyleSheet.absoluteFill,
-                    {
-                      backgroundColor: isDarkMode
-                        ? "rgba(7, 12, 24, 0.82)"
-                        : "rgba(255, 255, 255, 0.78)",
-                    },
-                  ]}
-                />
+              <LoginBlurCard palette={palette}>
                 <View style={styles.blurCardContent}>
                   <View style={styles.formHeader}>
-                    <Text style={styles.formEyebrow}>Inicio de sesión</Text>
-                    <Text style={styles.title}>Entra a tu cuenta</Text>
-                    <Text style={styles.formDescription}>
+                    <Text
+                      style={[
+                        styles.formEyebrow,
+                        { color: palette.formEyebrow },
+                      ]}
+                    >
+                      Inicio de sesión
+                    </Text>
+                    <Text style={[styles.title, { color: palette.formTitle }]}>
+                      Entra a tu cuenta
+                    </Text>
+                    <Text
+                      style={[
+                        styles.formDescription,
+                        { color: palette.formDescription },
+                      ]}
+                    >
                       Accede a tus herramientas, promociones y operaciones
                       diarias desde una experiencia más clara y cómoda.
                     </Text>
+
+                    <View style={styles.formMetaRow}>
+                      <View
+                        style={[
+                          styles.formMetaPill,
+                          { backgroundColor: palette.formMetaSurface },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.formMetaPillText,
+                            { color: palette.formMetaText },
+                          ]}
+                        >
+                          Acceso seguro
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.formMetaPill,
+                          { backgroundColor: palette.formMetaSurface },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.formMetaPillText,
+                            { color: palette.formMetaText },
+                          ]}
+                        >
+                          Operación centralizada
+                        </Text>
+                      </View>
+                    </View>
                   </View>
 
                   {showServerInput ? (
-                    <View style={styles.serverCard}>
-                      <Text style={styles.serverLabel}>
+                    <View
+                      style={[
+                        styles.serverCard,
+                        {
+                          backgroundColor: palette.serverCardSurface,
+                          borderColor: palette.serverCardBorder,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.serverLabel,
+                          { color: palette.serverLabel },
+                        ]}
+                      >
                         Servidor personalizado
                       </Text>
                       <View style={styles.serverRow}>
@@ -711,7 +888,14 @@ const Loguin = () => {
                           label="IP del Servidor"
                           returnKeyType="done"
                           dense
-                          style={styles.serverInput}
+                          style={[
+                            styles.serverInput,
+                            { backgroundColor: palette.inputBackground },
+                          ]}
+                          textColor={palette.inputText}
+                          cursorColor={palette.inputTint}
+                          selectionColor={palette.inputTint}
+                          theme={inputTheme}
                         />
                         <Button
                           mode="contained"
@@ -720,6 +904,8 @@ const Loguin = () => {
                           loading={connectingToServer}
                           style={styles.reconnectButton}
                           contentStyle={styles.reconnectButtonContent}
+                          buttonColor={theme.colors.primary}
+                          textColor="#ffffff"
                           compact
                         >
                           <FontAwesome5 name="sync-alt" size={14} />
@@ -736,7 +922,21 @@ const Loguin = () => {
                       label="Usuario"
                       returnKeyType="next"
                       dense
-                      style={styles.input}
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: palette.inputBackground,
+                          borderColor: palette.inputBorder,
+                          borderRadius: 18,
+                          borderWidth: 1,
+                        },
+                      ]}
+                      textColor={palette.inputText}
+                      cursorColor={palette.inputTint}
+                      selectionColor={palette.inputTint}
+                      underlineColor="transparent"
+                      activeUnderlineColor="transparent"
+                      theme={inputTheme}
                     />
                     <TextInput
                       mode="flat"
@@ -746,7 +946,21 @@ const Loguin = () => {
                       returnKeyType="done"
                       secureTextEntry
                       dense
-                      style={styles.input}
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: palette.inputBackground,
+                          borderColor: palette.inputBorder,
+                          borderRadius: 18,
+                          borderWidth: 1,
+                        },
+                      ]}
+                      textColor={palette.inputText}
+                      cursorColor={palette.inputTint}
+                      selectionColor={palette.inputTint}
+                      underlineColor="transparent"
+                      activeUnderlineColor="transparent"
+                      theme={inputTheme}
                     />
                   </View>
 
@@ -758,6 +972,8 @@ const Loguin = () => {
                     style={styles.primaryButton}
                     contentStyle={styles.primaryButtonContent}
                     labelStyle={styles.primaryButtonLabel}
+                    buttonColor={theme.colors.primary}
+                    textColor={palette.inputText}
                   >
                     Iniciar sesión
                   </Button>
@@ -768,9 +984,23 @@ const Loguin = () => {
                     appleAuthAvailable) ? (
                     <View style={styles.socialSection}>
                       <View style={styles.dividerRow}>
-                        <View style={styles.dividerLine} />
-                        <Text style={styles.altText}>o continúa con</Text>
-                        <View style={styles.dividerLine} />
+                        <View
+                          style={[
+                            styles.dividerLine,
+                            { backgroundColor: palette.divider },
+                          ]}
+                        />
+                        <Text
+                          style={[styles.altText, { color: palette.altText }]}
+                        >
+                          o continúa con
+                        </Text>
+                        <View
+                          style={[
+                            styles.dividerLine,
+                            { backgroundColor: palette.divider },
+                          ]}
+                        />
                       </View>
 
                       <View style={styles.socialButtons}>
@@ -781,8 +1011,12 @@ const Loguin = () => {
                             onPress={onGoogleLogin}
                             disabled={loadingGoogle || submitting}
                             loading={loadingGoogle}
-                            style={styles.secondaryButton}
+                            style={[
+                              styles.secondaryButton,
+                              { borderColor: palette.secondaryButtonBorder },
+                            ]}
                             contentStyle={styles.secondaryButtonContent}
+                            textColor={palette.secondaryButtonText}
                           >
                             Entrar con Google
                           </Button>
@@ -797,8 +1031,12 @@ const Loguin = () => {
                             onPress={onAppleLogin}
                             disabled={loadingApple || submitting}
                             loading={loadingApple}
-                            style={styles.secondaryButton}
+                            style={[
+                              styles.secondaryButton,
+                              { borderColor: palette.secondaryButtonBorder },
+                            ]}
                             contentStyle={styles.secondaryButtonContent}
+                            textColor={palette.secondaryButtonText}
                           >
                             Entrar con Apple
                           </Button>
@@ -808,19 +1046,26 @@ const Loguin = () => {
                   ) : null}
 
                   <View style={styles.footerPanel}>
-                    <Text style={styles.footerText}>
+                    <Text
+                      style={[styles.footerText, { color: palette.footerText }]}
+                    >
                       Gestiona lo que vendes y atiendes cada día desde un solo
                       lugar.
                     </Text>
 
                     {connectingToServer ? (
-                      <Text style={styles.statusText}>
+                      <Text
+                        style={[
+                          styles.statusText,
+                          { color: palette.statusText },
+                        ]}
+                      >
                         Preparando acceso...
                       </Text>
                     ) : null}
                   </View>
                 </View>
-              </View>
+              </LoginBlurCard>
             </View>
           </View>
         </ScrollView>

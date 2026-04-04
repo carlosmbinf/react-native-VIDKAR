@@ -733,10 +733,10 @@ const styles = StyleSheet.create({
     shadowColor: "#04120d",
     shadowOffset: {
       width: 0,
-      height: 12,
+      height: 8,
     },
     shadowOpacity: 0.18,
-    shadowRadius: 18,
+    shadowRadius: 4,
   },
   cardWrapperHidden: {
     opacity: 0.0,

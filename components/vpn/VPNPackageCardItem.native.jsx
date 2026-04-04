@@ -35,7 +35,7 @@ const VPNPackageCardItem = ({
         isRecommended && !isIlimitado && styles.recommendedCard,
         isIlimitado && styles.unlimitedCard,
       ]}
-      elevation={isIlimitado ? 5 : isRecommended ? 4 : 2}
+      elevation={2}
     >
       {isIlimitado ? (
         <View style={[styles.premiumBadge, { backgroundColor: goldColor }]}>

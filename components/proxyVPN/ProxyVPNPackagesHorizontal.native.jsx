@@ -2,16 +2,16 @@ import MeteorBase from "@meteorrn/core";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  Alert,
-  FlatList,
-  Platform,
-  StyleSheet,
-  useWindowDimensions,
-  View,
+    Alert,
+    FlatList,
+    StyleSheet,
+    useWindowDimensions,
+    View,
 } from "react-native";
-import { Chip, Text, Title, useTheme } from "react-native-paper";
+import { Title, useTheme } from "react-native-paper";
 
 import ProxyPackageCardItem from "../proxy/ProxyPackageCardItem.native";
+import ServiceProgressPill from "../shared/ServiceProgressPill";
 import VPNPackageCardItem from "../vpn/VPNPackageCardItem.native";
 
 const Meteor =
@@ -22,53 +22,6 @@ const Meteor =
 const clamp01 = (value) =>
   Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
 const formatGB = (mb) => ((Number(mb) || 0) / 1024).toFixed(2);
-
-const getUsageTone = (ratio01, { danger, ok, warn } = {}) => {
-  const ratio = clamp01(ratio01);
-  if (ratio >= 0.8) return { fill: danger || "#D32F2F", track: "#FFEBEE" };
-  if (ratio >= 0.6) return { fill: warn || "#EF6C00", track: "#FFF3E0" };
-  return { fill: ok || "#2E7D32", track: "#E8F5E9" };
-};
-
-const ServiceProgressPill = ({ label, palette, ratio, rightText, width }) => {
-  const safeRatio = clamp01(ratio);
-  const tone = getUsageTone(safeRatio, palette);
-  const height = 32;
-
-  return (
-    <View
-      style={[
-        styles.pillContainer,
-        {
-          backgroundColor: tone.track,
-          borderRadius: height / 2,
-          height,
-          width,
-        },
-      ]}
-    >
-      <View
-        style={[
-          styles.pillFill,
-          { backgroundColor: tone.fill, width: `${safeRatio * 100}%` },
-        ]}
-      />
-      <View style={styles.pillContent}>
-        <Chip
-          mode="outlined"
-          compact
-          style={styles.pillChip}
-          textStyle={styles.pillChipText}
-        >
-          {label}
-        </Chip>
-        <Text numberOfLines={1} style={styles.pillRightText}>
-          {rightText}
-        </Text>
-      </View>
-    </View>
-  );
-};
 
 const ProxyVPNPackagesHorizontal = () => {
   const router = useRouter();
@@ -357,27 +310,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(0,0,0,0.06)",
     borderWidth: 1,
     overflow: "hidden",
-  },
-  pillContent: {
-    alignItems: "center",
-    flex: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 10,
-  },
-  pillFill: {
-    bottom: 0,
-    left: 0,
-    opacity: 0.22,
-    position: "absolute",
-    top: 0,
-  },
-  pillRightText: {
-    flex: 1,
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-    fontSize: 11,
-    opacity: 0.85,
-    textAlign: "right",
   },
   progressWrapper: {
     minWidth: 180,

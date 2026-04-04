@@ -19,6 +19,9 @@ const MenuPrincipal = () => {
       user={previewUser}
       appVersion={appVersionInfo.version}
       buildNumber={appVersionInfo.buildNumber}
+      pendingDebt={0}
+      pendingVentasCount={0}
+      onOpenPendingVentas={() => {}}
       onLogout={() => router.replace("/(auth)")}
     />
   );

@@ -3240,6 +3240,38 @@ Resumen técnico – Soporte de `ws://` en producción para Meteor
 
 ---
 
+Resumen técnico – Compactación de user cards para mejorar el zoom del peek
+
+- Ajuste aplicado:
+  - `components/users/UsersHome.native.js` redujo la huella visual del card sin cambiar su lógica.
+  - La intención fue dejar más margen perceptual para que el efecto de zoom del peek se sienta más claro y menos pesado.
+
+- Cambios visuales aplicados:
+  - avatar base más pequeño
+  - menor `padding` interno del card
+  - menores `gap` entre bloques
+  - tipografías ligeramente más compactas en título, username y pills
+  - chevron lateral más pequeño
+  - menor separación vertical entre cards
+
+- Regla práctica:
+  - Si un efecto de zoom o elevación necesita sentirse más evidente, muchas veces conviene reducir primero el tamaño base de la card antes que exagerar la escala del overlay.
+  - En este módulo, el peek funciona mejor cuando el card original tiene menos densidad vertical y deja más aire visual alrededor.
+
+Notas adicionales – Más margen horizontal para cards dentro de secciones de usuarios
+
+- Ajuste aplicado:
+  - `components/users/UsersHome.native.js` ahora agrega `paddingHorizontal` en `sectionContent` para que los cards queden más separados de los bordes del bloque de sección.
+
+- Criterio técnico:
+  - El margen lateral se aplicó al contenedor de la sección y no al `itemCard` compartido.
+  - Así el inset afecta solo a la lista visible de usuarios y no altera la geometría del card reutilizado por el overlay del peek.
+
+- Regla práctica:
+  - Si se quiere dar más aire lateral a los cards de una lista que también se reutilizan en overlays o previews, preferir ajustar el contenedor de la lista antes que el estilo base del card.
+
+---
+
 Resumen técnico – Error iOS de RNFirebase por `non-modular header` con `useFrameworks: static`
 
 - Problema detectado:
@@ -3882,6 +3914,31 @@ Resumen técnico – Migración de MapaUsuarios a Expo con `react-native-maps` y
   - En Expo la lectura reactiva se elevó a `MapaUsuariosScreen.native.jsx` y el mapa quedó como componente visual controlado por props.
   - Esto evita suscripciones duplicadas, facilita filtros/búsqueda/estadísticas en una sola fuente de verdad y hace más estable el render del mapa.
 
+---
+
+Resumen técnico – Lista de usuarios en grilla responsiva con cards de ancho máximo
+
+- Ajuste aplicado:
+  - `components/users/UsersHome.native.js` dejó de renderizar la lista expandida solo como columna única.
+  - Ahora usa una grilla responsiva con `FlatList` + `numColumns`, calculando cuántas cards caben por fila según el ancho disponible.
+
+- Patrón implementado:
+  - Se añadió `getUsersLayout(width)` para resolver:
+    - número de columnas
+    - ancho máximo por card
+    - separación horizontal entre cards
+    - tamaño de avatar y compactación del contenido interno cuando la card entra en modo grilla
+  - Cada item se renderiza dentro de una celda con ancho fijo derivado del layout, mientras `itemCard` queda con `width: '100%'` para llenar esa celda.
+
+- Criterio técnico:
+  - El máximo de ancho por card evita que en tablets o pantallas amplias una card se estire demasiado.
+  - El número de columnas aumenta solo cuando el ancho real permite mostrar varias cards sin degradar la legibilidad del contenido.
+  - El card del peek sigue reutilizando la misma superficie visual, pero la lista visible ya no depende de una sola columna rígida.
+
+- Regla práctica:
+  - Si esta pantalla sigue evolucionando, cualquier cambio de densidad o número de columnas debe pasar por `getUsersLayout(width)` y no por `numColumns` hardcodeado o anchos fijos dispersos.
+  - Cuando una lista necesita mostrar varias cards en horizontal, primero limitar el ancho máximo de la card y luego calcular columnas; no dejar que la card crezca sin control con el ancho de pantalla.
+
 - Mejoras aplicadas respecto al legacy:
   - Header unificado con `AppHeader` en lugar del toolbar manual antiguo.
   - Hero superior con métricas, búsqueda y filtros por rol antes del mapa.
@@ -4326,3 +4383,774 @@ Resumen técnico – `BlurView.tint` en Expo acepta enums, no colores hex/RGBA
     - `BlurView` con `tint` válido
     - `backgroundColor` translúcido por encima o en la misma superficie
   - Si reaparece un crash parecido en Expo Android, revisar primero todos los `BlurView` que reciban props dinámicos desde constantes de tema o glass.
+
+---
+
+Resumen técnico – Chips de estado de ventas alineados en una sola fila
+
+- Ajuste UX aplicado en `components/ventas/VentasList.native.jsx`:
+  - El chip `Sin confirmar al admin` / `Confirmado al admin` ya no se renderiza en una fila separada.
+  - Ahora vive en la misma fila visual que el estado principal de cobro (`Pagado` / `Pendiente`) dentro del header de la card.
+
+- Criterio visual validado:
+  - Ambos chips representan estado operativo de la venta, así que deben leerse juntos y no como bloques independientes.
+  - El patrón correcto para esta card es:
+    - bloque izquierdo: tipo + fecha
+    - bloque derecho: chips de estado en la misma línea o wrap natural si falta espacio
+
+- Ajuste de estilo aplicado:
+  - Los chips de estado pasaron a usar un radio más alto tipo pill (`borderRadius: 999`) para una lectura más suave y moderna.
+
+- Regla práctica:
+  - Si una card administrativa muestra varios estados de la misma entidad, agruparlos en la misma fila visual mejora jerarquía y reduce ruido vertical.
+  - Cuando se busque un look más elegante en chips de estado, preferir radio alto tipo pill antes que bloques rectangulares con esquinas apenas redondeadas.
+
+---
+
+Resumen técnico – Cards de ventas en grilla responsiva con comportamiento por ancho
+
+- Ajuste UX aplicado en `components/ventas/VentasList.native.jsx`:
+  - El listado de ventas dejó de depender de una sola columna rígida.
+  - Ahora calcula una grilla responsiva por ancho de pantalla y permite:
+    - 1 columna en móvil
+    - 2 columnas en anchos intermedios
+    - 3 columnas en pantallas amplias
+
+- Patrón técnico validado:
+  - Se centralizó el cálculo en un helper `getVentasGridLayout(windowWidth)`.
+  - El helper resuelve:
+    - cantidad de columnas
+    - ancho útil por card
+    - gap entre cards
+    - si la card debe entrar en modo compacto
+
+- Ajustes de UX dentro de cada card:
+  - En cards angostas:
+    - header y fila de chips toleran mejor el wrap
+    - la botonera inferior pasa a columna
+    - los estados siguen siendo legibles sin apretar el contenido
+  - En cards amplias se conserva el layout más horizontal y editorial.
+
+- Regla práctica:
+  - Si una pantalla administrativa debe funcionar bien en teléfono, tablet y ventanas amplias, no dejar el card siempre a ancho completo.
+  - La forma profesional en Expo es calcular columnas y activar variantes compactas del layout cuando el ancho real del card baja de cierto umbral, en lugar de depender solo de `flexWrap` sin control.
+
+---
+
+Resumen técnico – User cards minimalistas con Peek & Pop en `UsersHome.native.js`
+
+- Objetivo aplicado:
+  - El card de usuario en `components/users/UsersHome.native.js` dejó de ser una fila simple y pasó a una superficie más editorial, pero manteniendo lectura rápida y sin abandonar `ServiceProgressPill`.
+  - Se añadió interacción secundaria tipo Peek & Pop por `onLongPress`, con menú inferior blur y tres acciones reales.
+
+- Criterio visual validado:
+  - El card debe concentrar primero identidad y estado, luego servicios.
+  - La jerarquía final aprobada fue:
+    - avatar + nombre + username
+    - estado de conexión
+    - meta pills compactas (`Administrador/Usuario`, `Telegram activo/vinculado/sin Telegram`)
+    - resumen corto de estado de VPN y Proxy
+    - `ServiceProgressPill` para consumo detallado
+    - footer mínimo con hints de interacción
+
+- Peek & Pop implementado:
+  - La interacción se abre con `measureInWindow(...)` sobre el card real para posicionar un clon flotante dentro de `Portal`.
+  - El overlay usa:
+    - backdrop con opacidad animada
+    - card elevado animado con `scale` + `translateY`
+    - bandeja inferior con `BlurView`
+  - Acciones rápidas actuales:
+    - `Ver perfil`
+    - `Enviar mensaje`
+    - `Copiar usuario`
+
+- Decisiones técnicas importantes:
+  - El card visible y el card flotante del peek comparten el mismo renderer (`UserCardContent`) para evitar drift visual entre ambos estados.
+  - La apertura del peek se resolvió en el screen, no dentro de `FlatList`, para mantener una sola fuente de verdad del overlay activo.
+  - La acción de copiar reutiliza `expo-clipboard` y feedback con `Alert`, evitando introducir un sistema adicional de toast solo para esta acción.
+  - El `BlurView` del menú usa `tint={theme.dark ? 'dark' : 'light'}` y `experimentalBlurMethod="dimezisBlurView"` en Android, consistente con el patrón ya validado en el proyecto.
+
+- Regla práctica:
+  - Si un listado móvil necesita más acciones sin ensuciar el layout principal, usar tap corto para navegación primaria y long press para menú contextual.
+  - Si el peek muestra un clon del card, ese clon debe renderizar la misma composición visual del card base; no conviene crear una segunda versión "parecida".
+  - En cards de usuarios o entidades operativas, primero mostrar estado y resumen utilizable; los accesos secundarios deben vivir en el peek, no en una hilera de botones permanentes.
+
+---
+
+Resumen técnico – `ServiceProgressPill` más compacto y con fondo visual moderno en `UsersHome.native.js`
+
+- Ajuste aplicado:
+  - El card de usuario se compactó principalmente reduciendo la huella visual de `ServiceProgressPill` y los espacios que lo rodean.
+  - La lógica funcional del pill no cambió:
+    - sigue usando `ratio`
+    - sigue usando `label`
+    - sigue usando `rightText`
+    - sigue respetando el color principal definido por `palette.fill` o por `getUsageTone(...)`
+
+- Cambio visual validado:
+  - El fondo del pill ya no depende de un bloque plano de color track.
+  - Ahora se compone con capas suaves:
+    - base teñida usando el color principal con alpha
+    - glow lateral sutil
+    - fill de progreso translúcido
+    - chip superior con tinte derivado del mismo color
+  - Esto mantiene la semántica del progreso pero da una lectura más premium y menos pesada.
+
+- Compactación aplicada alrededor del pill:
+  - menor altura del pill
+  - menor padding horizontal interno
+  - tipografías ligeramente más pequeñas en chip y valor
+  - menor gap entre pills
+  - reducción de paddings/gaps del card para que el bloque de servicios no domine tanto la superficie completa
+
+- Decisión técnica importante:
+  - Se añadió un helper local `hexToRgba(...)` para derivar capas visuales desde el color principal del servicio sin duplicar colores hardcodeados por estado.
+  - Ese helper permite construir fondos modernos manteniendo coherencia con el color funcional del servicio.
+
+- Regla práctica:
+  - Si un pill de progreso ya comunica bien la lógica, conviene modernizar primero sus capas visuales y su densidad antes de reescribir el componente completo.
+  - En este proyecto, para pills informativos compactos, el patrón recomendado es:
+    - base translúcida
+    - fill suave
+    - chip discreto
+    - texto alineado a la derecha
+  - Si luego se reutiliza este patrón en otras pantallas, conservar la lógica del ratio y solo variar la densidad o la paleta según el contexto.
+
+---
+
+Resumen técnico – `ServiceProgressPill` extraído como componente compartido para Users y Proxy/VPN
+
+- Alcance aplicado:
+  - El pill de progreso dejó de vivir solo dentro de `components/users/UsersHome.native.js`.
+  - Ahora existe un componente compartido en:
+    - `components/shared/ServiceProgressPill.jsx`
+  - Ya se reutiliza desde:
+    - `components/users/UsersHome.native.js`
+    - `components/proxyVPN/ProxyVPNPackagesHorizontal.native.jsx`
+
+- Contrato visual preservado:
+  - El componente compartido mantiene:
+    - `label`
+    - `ratio`
+    - `rightText`
+    - `palette`
+    - `width`
+  - La lógica de tono por consumo (`ok / warn / danger`) sigue centralizada dentro del propio pill y no en cada pantalla consumidora.
+
+- Decisiones técnicas importantes:
+  - El componente resuelve internamente `theme.dark` con `useTheme()` para que la misma API funcione igual en superficies claras y oscuras.
+  - Se soportan tanto paletas con `fill` fijo como paletas con claves por estado (`ok`, `warn`, `danger`), de modo que Users y Proxy/VPN no necesiten wrappers distintos.
+  - El helper `hexToRgba(...)` se movió al componente compartido para evitar duplicar derivación de capas visuales en varias pantallas.
+
+- Regla práctica:
+  - Si otra pantalla necesita mostrar consumo o progreso de servicio con este mismo lenguaje visual, debe importar `components/shared/ServiceProgressPill` y no volver a redefinir un pill local.
+  - Si se desea ajustar densidad, glow, fondo o chip del pill, hacerlo primero en el componente compartido para mantener consistencia visual global.
+
+---
+
+Resumen técnico – Color progresivo real por porcentaje en `ServiceProgressPill`
+
+- Ajuste aplicado:
+  - El color del fill ya no cambia solo por tramos rígidos de estado.
+  - Ahora el componente interpola color de forma progresiva según el porcentaje exacto de `ratio`.
+
+- Comportamiento visual final:
+  - 10%, 15% y 20% ya no comparten exactamente el mismo color.
+  - De 0 a 75% el fill progresa gradualmente dentro de la familia `ok`.
+  - De 75 a 90% transiciona de `ok` a `warn`.
+  - De 90 a 100% transiciona de `warn` a `danger`.
+
+- Decisión técnica importante:
+  - Se añadieron helpers de mezcla de color (`hexToRgb`, `rgbToHex`, `mixHexColors`) dentro del componente compartido.
+  - La interpolación se hace sobre hex base de la paleta recibida, así que el comportamiento sigue siendo compatible con paletas distintas para Proxy y VPN.
+
+- Regla práctica:
+  - Si un indicador de progreso necesita transmitir consumo gradual, evitar thresholds visuales demasiado bruscos cuando el requerimiento de UX pide sensibilidad fina por porcentaje.
+  - Si se ajustan colores de `ok/warn/danger`, revisar el componente compartido porque la interpolación ahora depende directamente de esos colores base.
+
+---
+
+Resumen técnico – Fade in escalonado al expandir secciones de usuarios
+
+- Ajuste aplicado:
+  - `components/users/UsersHome.native.js` ahora anima cada `UserListCard` cuando una sección expandida monta su `FlatList`.
+  - La animación vive dentro del propio card para aprovechar que la lista se desmonta al colapsar y se vuelve a montar al expandirse.
+
+- Patrón implementado:
+  - Se pasa `index` desde `renderItem` hacia `UserListCard`.
+  - Cada card crea dos `Animated.Value` locales:
+    - `fadeOpacity` iniciando en `0`
+    - `fadeTranslateY` iniciando en `10`
+  - En `useEffect` del card se ejecuta una animación paralela con delay escalonado por índice:
+    - `opacity: 0 -> 1`
+    - `translateY: 10 -> 0`
+
+- Criterio técnico validado:
+  - No conviene animar el contenedor completo de la sección si se quiere que cada item entre de forma más elegante y progresiva.
+  - Como el `FlatList` solo se renderiza cuando `expanded === true`, montar la animación por item da naturalmente el efecto de entrada cada vez que la sección se vuelve a expandir.
+
+- Regla práctica:
+  - Si en esta pantalla se agregan nuevas variantes de card o secciones adicionales, mantener la animación de entrada en el nivel del item y seguir pasando `index` desde `renderItem` para conservar el stagger visual.
+
+---
+
+Resumen técnico – Peek de usuarios debe ocultar el card fuente con placeholder, no solo con opacidad
+
+- Problema detectado:
+  - En `components/users/UsersHome.native.js`, al abrir el Peek & Pop por long press todavía podía percibirse el card original detrás del overlay.
+  - Ocultarlo solo con `opacity: 0` no daba la sensación correcta de que el componente “se traslada”; visualmente seguía existiendo una referencia del card fuente en la lista.
+
+- Solución aplicada:
+  - Se añadió `peekSourceId` en el screen para identificar explícitamente el item que originó el peek.
+  - `UserListCard` ahora recibe `hidden` por ese `peekSourceId`, no por la presencia del overlay.
+  - Cuando el card está oculto, ya no se renderiza el `Surface` original; se reemplaza por un placeholder transparente del mismo alto medido con `onLayout`.
+
+- Patrón implementado:
+  - `onPeekStart(item)` se dispara desde el long press antes de abrir el overlay.
+  - El card guarda su altura real en estado local (`cardHeight`).
+  - Mientras ese item es la fuente activa del peek, se renderiza:
+    - `View` transparente
+    - mismo espacio vertical
+    - sin contenido visual ni shadow residual
+
+- Regla práctica:
+  - Si un overlay debe dar sensación de “movimiento” desde un item de lista, no basta con bajar la opacidad del item fuente.
+  - Lo correcto es sustituir temporalmente el componente original por un placeholder que conserve layout pero elimine por completo su presencia visual.
+
+Notas adicionales – El traslado del peek debe sincronizar source y overlay, no cortar uno antes que entre el otro
+
+- Hallazgo práctico:
+  - Ocultar el card fuente demasiado pronto hace que el efecto se perciba intermitente o como un corte, no como un traslado continuo.
+  - El origen y el clon flotante deben convivir brevemente en el mismo lugar mientras el overlay toma protagonismo.
+
+- Ajuste aplicado:
+  - `UsersHome.native.js` ahora deja el card fuente visible al inicio del peek y lo desvanece con `peekProgress`.
+  - El overlay flotante también usa `peekProgress` para entrar con opacidad, escala y elevación progresivas.
+  - El menú inferior se retrasa un poco más para que primero se lea el “despegue” del card y luego aparezcan las acciones.
+
+- Regla práctica:
+  - Si se quiere un efecto real de traslado, sincronizar siempre:
+    - fade out del card fuente
+    - fade in del card flotante
+    - pequeño cambio de escala/translate del overlay
+  - No esconder el origen antes de que el clon ya esté visible sobre la misma posición.
+
+---
+
+Resumen técnico – Inset horizontal de 16px para cards de usuarios en modo una columna
+
+- Ajuste aplicado:
+  - `components/users/UsersHome.native.js` ahora aplica `paddingHorizontal: 16` al contenedor expandido de la sección solo cuando el layout resuelve una sola card por fila.
+
+- Criterio visual validado:
+  - En modo teléfono o cualquier escenario de una sola columna, las cards no deben quedar pegadas al borde interno de la sección.
+  - Cuando la lista entra en modo grilla con varias columnas, ese inset extra ya no se aplica para no comprimir innecesariamente el ancho útil de cada card.
+
+- Regla práctica:
+  - Si se vuelve a ajustar la densidad horizontal de `UsersHome`, mantener este criterio:
+    - una columna -> inset lateral explícito para respiración visual
+    - varias columnas -> sin inset adicional en `sectionContent`, dejando que el ancho útil se lo repartan las cards del grid
+
+---
+
+Resumen técnico – Chip de usuarios basado en `push_tokens` en vez de Telegram
+
+- Cambio aplicado:
+  - En `components/users/UsersHome.native.js`, el segundo meta pill del card ya no muestra estado de Telegram.
+  - Ahora muestra estado de notificaciones push usando la colección `push_tokens`.
+
+- Estructura confirmada desde backend (`react-download/server/metodos/mensajeriaPush.tsx`):
+  - `push_tokens` guarda al menos:
+    - `userId`
+    - `token`
+    - `platform`
+    - `provider`
+    - `deviceId`
+    - `updatedAt`
+    - `createdAt`
+  - El flujo vigente del proyecto conserva solo tokens `provider: 'expo'` como fuente de verdad activa para push.
+
+- Integración aplicada en Expo:
+  - Se añadió `PushTokens` a `components/collections/collections.js` como dependencia ya existente del módulo.
+  - `UsersHome.native.js` ahora suscribe `push_tokens` filtrando por:
+    - `userId: { $in: userIdsVisibles }`
+    - `provider: 'expo'`
+  - El card calcula `hasPush` por usuario buscando tokens Expo asociados a su `_id`.
+
+- Regla visual aplicada:
+  - Con tokens Expo registrados:
+    - label `Push activo` o `Push N disp.`
+    - paleta verde
+  - Sin tokens:
+    - label `Sin push`
+    - paleta neutra
+
+- Regla práctica:
+  - Si otra pantalla necesita saber si un usuario tiene push habilitado, no inferirlo desde flags del perfil ni desde Telegram.
+  - La fuente de verdad actual es la existencia de documentos en `push_tokens` con `provider: 'expo'`.
+
+Notas adicionales – Filtro de usuarios con push usando la misma fuente `push_tokens`
+
+- Ajuste aplicado:
+  - `components/users/UsersHome.native.js` ahora incluye `filtroPush` junto a VPN, Proxy y conexión.
+  - El panel de filtros expone tres estados:
+    - `Push: Todos`
+    - `Push Activo`
+    - `Sin Push`
+
+- Criterio técnico:
+  - El filtro no usa campos del perfil del usuario.
+  - Reutiliza `getPushState(user, pushTokens)` para mantener una única fuente de verdad entre:
+    - pill visual del card
+    - lógica de filtrado
+
+- Regla práctica:
+  - Si un estado visible ya se deriva de una colección auxiliar, el filtro correspondiente debe reutilizar exactamente esa misma derivación en vez de duplicar lógica con heurísticas distintas.
+
+---
+
+Resumen técnico – `BlurView` del peek de usuarios en Android necesita intensidad real y overlay menos opaco
+
+- Problema detectado:
+  - En `components/users/UsersHome.native.js`, el menú inferior del Peek & Pop prácticamente no mostraba blur en Android aunque `expo-blur` estuviera montado correctamente.
+
+- Causa raíz validada:
+  - El `BlurView` estaba usando `intensity={10}`, demasiado bajo para un overlay portalizado sobre fondo oscuro.
+  - Además, encima del blur se estaba pintando una capa muy opaca (`rgba(15,23,42,0.82)` en dark), lo que terminaba tapando visualmente casi todo el efecto.
+
+- Corrección aplicada:
+  - Se elevó la intensidad del blur a `36`.
+  - Se añadió `renderToHardwareTextureAndroid={true}` al `BlurView` del peek.
+  - Se añadió base translúcida y borde suave directamente al `BlurView`.
+  - La capa `peekMenuOverlay` se volvió mucho menos opaca para dejar leer el blur real.
+
+- Regla práctica:
+  - En Android, si un `BlurView` está dentro de `Portal`/overlay y parece “no funcionar”, revisar primero estas tres cosas antes de tocar toda la UI:
+    - intensidad demasiado baja
+    - overlay superior demasiado opaco
+    - falta de `renderToHardwareTextureAndroid={true}` en superficies complejas
+
+---
+
+Resumen técnico – Acción rápida de users hacia Logs filtrados por usuario
+
+- Ajuste aplicado:
+  - En `components/users/UsersHome.native.js`, la tercera acción del Peek & Pop dejó de copiar el username y ahora navega a `/(normal)/Logs` enviando `params: { id: user._id }`.
+
+- Contrato reutilizado:
+  - `components/logs/LogsList.native.js` ya soporta `useLocalSearchParams()` y, cuando recibe `id`, arma la query:
+    - `{ $or: [{ userAfectado: routeId }, { userAdmin: routeId }] }`
+  - Eso permite ver en una sola pantalla todos los logs donde el usuario participa como admin o como afectado, sin crear otra ruta ni otro modo de filtro especial.
+
+- Regla práctica:
+  - Si otra superficie necesita abrir logs contextuales de un usuario, reutilizar la misma ruta `/(normal)/Logs` con `id` en params en lugar de duplicar pantallas o filtros locales.
+
+---
+
+Resumen técnico – Peek de users con menú adaptable arriba o abajo según espacio disponible
+
+- Problema detectado:
+  - Cuando el long press ocurría sobre cards muy bajas en la pantalla, la bandeja de acciones del Peek & Pop salía siempre por debajo y podía quedar cortada fuera del viewport.
+
+- Corrección aplicada:
+  - En `components/users/UsersHome.native.js`, el cálculo de `measureInWindow(...)` ahora evalúa espacio libre arriba y abajo del card.
+  - La bandeja de acciones guarda en el target del peek:
+    - `menuPlacement: 'top' | 'bottom'`
+    - `menuOffset` relativo al card flotante
+  - El contenedor del menú pasó a `position: 'absolute'`, permitiendo renderizarlo por encima o por debajo sin empujar la composición del card.
+  - La animación de entrada del menú también invierte su `translateY` según la dirección real de apertura.
+
+- Regla práctica:
+  - Si un popover o action tray depende de un elemento medido en pantalla, no asumir que siempre debe abrir hacia abajo.
+  - Evaluar siempre el espacio disponible en ambos lados y escoger la dirección con mejor cabida antes de abrir el overlay.
+
+Notas adicionales – El gap del menú superior debe calcularse desde el borde inferior del tray
+
+- Hallazgo puntual:
+  - Cuando el tray del peek abría hacia arriba, usar un offset basado en `availableSpaceAbove` hacía que el espacio aparente quedara “del lado de arriba” del menú en vez de percibirse como separación contra el card.
+
+- Regla práctica:
+  - Si el menú abre debajo del card, el offset correcto es:
+    - `cardHeight + gap`
+  - Si el menú abre arriba del card, el offset correcto es:
+    - `-(menuHeight + gap)`
+  - El gap debe representar siempre la separación entre el menú y el card, no entre el menú y el borde libre del viewport.
+
+Notas adicionales – El card flotante también debe alejarse del menú según la dirección del tray
+
+- Hallazgo puntual:
+  - Aunque el offset del menú sea correcto, el gap visual puede desaparecer si el card flotante siempre anima hacia arriba.
+  - Cuando el tray abre arriba, el card debe moverse ligeramente hacia abajo; cuando el tray abre abajo, el card puede levantarse hacia arriba.
+
+- Regla práctica:
+  - La animación de `translateY` del card flotante no debe ser fija.
+  - Debe invertirse según `menuPlacement` para que card y menú se separen en lugar de acercarse.
+
+---
+
+Resumen técnico – Acción rápida de users hacia Ventas filtradas por usuario
+
+- Ajuste aplicado:
+  - En `components/users/UsersHome.native.js`, el menú del Peek & Pop ahora incluye también `Ver ventas` debajo de `Ver logs`.
+  - Esa acción navega a `/(normal)/Ventas` enviando `params: { id: user._id }`.
+
+- Contrato reutilizado en ventas:
+  - `components/ventas/VentasList.native.jsx` ahora consume `useLocalSearchParams()` y, cuando recibe `id`, arma la query:
+    - `{ $or: [{ userId: routeId }, { adminId: routeId }] }`
+  - Eso permite ver en una sola pantalla todas las ventas donde el usuario participa como comprador o como admin, sin crear una ruta adicional.
+
+- Consideración importante:
+  - Al crecer el menú de acciones del peek con una cuarta opción, también se debe revisar la constante de altura esperada del tray (`PEEK_MENU_HEIGHT`) para que el cálculo de apertura arriba/abajo siga siendo realista.
+
+- Regla práctica:
+  - Si otra superficie necesita abrir ventas contextuales de un usuario, reutilizar la misma ruta `/(normal)/Ventas` con `id` en params en lugar de duplicar pantallas o filtros locales.
+
+---
+
+Resumen técnico – `VentasCard` en detalle de usuario abre ventas pendientes por ruta
+
+- Ajuste aplicado:
+  - En `components/users/UserDetails.native.js`, el botón `Ver historial` de `components/users/componentsUserDetails/VentasCard.js` ahora navega a `/(normal)/Ventas` con:
+    - `id: item._id`
+    - `pago: 'PENDIENTE'`
+
+- Contrato reutilizado:
+  - `components/ventas/VentasList.native.jsx` ya filtra por usuario/admin cuando recibe `id`.
+  - Ahora además acepta `pago` desde `useLocalSearchParams()` para inicializar `selectedPago` con:
+    - `PENDIENTE`
+    - `PAGADO`
+    - fallback `TODOS`
+
+- Resultado funcional:
+  - Desde el detalle de un usuario, el card de ventas abre directamente las ventas donde ese usuario participa y que tienen `cobrado === false`.
+
+- Regla práctica:
+  - Si otra superficie necesita abrir Ventas ya filtrada por estado, preferir params de ruta iniciales (`id`, `pago`) y reutilizar `VentasList.native.jsx` antes que crear pantallas nuevas para pendientes o pagadas.
+
+---
+
+Resumen técnico – Rediseño UX del card de deuda en `VentasCard`
+
+- Ajuste aplicado:
+  - `components/users/componentsUserDetails/VentasCard.js` dejó de ser una tarjeta mínima con monto y botón genérico.
+  - Ahora presenta la deuda como una superficie más orientada a acción, con mejor jerarquía visual y copy más claro para administración.
+
+- Mejoras visuales y de UX:
+  - Header con eyebrow `Cobros del usuario` y título `Ventas pendientes`.
+  - Bloque principal de monto con label más explícito: `Saldo pendiente por cobrar`.
+  - Texto helper contextual según el nivel de deuda (`sin pendientes`, `seguimiento recomendado`, `revisión prioritaria`, `atención inmediata`).
+  - Franja informativa secundaria con dos campos:
+    - `Estado`
+    - `Acción sugerida`
+  - CTA principal más coherente con el flujo real:
+    - icono `cash-clock`
+    - texto `Ver pendientes` o `Ver ventas` cuando no hay deuda
+
+- Criterio técnico validado:
+  - El card no calcula nuevas métricas de negocio; sigue usando la misma función `deuda()` y la misma categorización por monto.
+  - La mejora correcta estuvo en explicar mejor el estado y en alinear el botón con el flujo real de ventas no cobradas.
+
+- Regla práctica:
+  - Si un card administrativo ya abre una vista filtrada específica, el texto del botón debe reflejar esa acción real y no un label genérico como `Ver historial`.
+
+---
+
+Resumen tecnico - Deuda pendiente del admin visible en `MenuPrincipal` Expo
+
+- Ajuste aplicado:
+  - `components/Main/MenuPrincipal.native.jsx` ahora calcula reactivamente la deuda pendiente del admin autenticado usando `VentasCollection`.
+  - La consulta sigue la misma fuente de verdad ya validada en el modulo de users:
+    - `adminId: currentUser._id`
+    - `cobrado: false`
+  - El wrapper nativo pasa al screen compartido dos props nuevas:
+    - `pendingDebt`
+    - `pendingVentasCount`
+  - Tambien expone una accion `onOpenPendingVentas` que navega a:
+    - `/(normal)/Ventas?id=<adminId>&pago=PENDIENTE`
+
+- Criterio funcional validado:
+  - La deuda del menu principal debe mostrarse solo para usuarios admin.
+  - La superficie no debe aparecer si el monto pendiente es `0`.
+  - El acceso directo debe abrir exactamente las ventas pendientes del admin actual, no una vista generica de historial.
+
+- UX/UI aplicada en `components/Main/MenuPrincipalScreen.jsx`:
+  - Se agrego un bloque visual dentro del hero principal cuando existe deuda pendiente.
+  - La superficie muestra:
+    - eyebrow `Cobros pendientes`
+    - titulo explicando que existe deuda administrativa por cobrar
+    - chip con cantidad de ventas pendientes
+    - monto total pendiente en CUP
+    - CTA `Ver pendientes`
+  - El bloque es presionable y funciona como acceso rapido al modulo de ventas filtrado.
+
+- Compatibilidad de preview:
+  - `components/Main/MenuPrincipal.jsx` ahora envia valores por defecto seguros para estas nuevas props.
+  - Esto evita romper previews o superficies no nativas del menu principal.
+
+- Regla practica:
+  - Si otra superficie necesita resumir deuda administrativa, reutilizar la misma derivacion desde `VentasCollection` por `adminId` y `cobrado: false`.
+  - Si el destino operativo sigue siendo Ventas pendientes, pasar params de ruta (`id`, `pago`) en lugar de crear una pantalla nueva solo para deuda.
+
+Notas adicionales - CTA visual dentro del banner de deuda debe leerse como boton real
+
+- Ajuste UX aplicado en `components/Main/MenuPrincipalScreen.jsx`:
+  - El texto `Ver pendientes ->` se reemplazo por una micro-superficie tipo pill dentro del banner.
+  - El patron aprobado usa:
+    - contenedor redondeado translúcido
+    - borde suave
+    - texto fuerte
+    - icono encapsulado en un circulo interno
+
+- Regla practica:
+  - Aunque todo el banner siga siendo presionable, el CTA visible debe parecer un boton real para mejorar descubribilidad.
+  - Si se reutiliza este patron en hero banners o alertas operativas, mantener el CTA como sub-superficie elegante y no como texto con flecha ASCII.
+
+Notas adicionales - En el banner de deuda el tap debe vivir en el CTA, no en toda la superficie
+
+- Ajuste UX aplicado en `components/Main/MenuPrincipalScreen.jsx`:
+  - El banner de deuda dejo de ser presionable completo.
+  - La accion de navegar a ventas pendientes ahora vive solo en el boton interno `Ver pendientes`.
+  - El resto del banner queda como superficie informativa para evitar taps accidentales y hacer mas clara la jerarquia de interaccion.
+
+- Regla practica:
+  - Si una card o banner administrativo contiene informacion + CTA, no siempre conviene que toda la superficie navegue.
+  - Cuando el mensaje principal es informativo y existe una accion puntual, concentrar el `onPress` en el CTA mejora precision y deja mas clara la intencion del usuario.
+
+---
+
+Resumen tecnico - Eliminacion de `Mensajes de usuarios` del drawer y del stack normal
+
+- Ajuste aplicado:
+  - Se elimino la opcion administrativa `Mensajes de usuarios` de `components/drawer/DrawerOptionsAlls.js`.
+  - Tambien se retiro `AllMensajesUser` del stack en `app/(normal)/_layout.tsx`.
+  - Se elimino el entrypoint `app/(normal)/AllMensajesUser.tsx` porque solo era un `ScreenFallback` placeholder y ya no debia seguir expuesto.
+
+- Criterio funcional validado:
+  - Este cambio no toca el sistema de mensajeria normal del usuario.
+  - Solo retira la ruta administrativa placeholder de bandeja global que no estaba implementada realmente en Expo.
+
+- Regla practica:
+  - Si una opcion del drawer deja de formar parte del producto o sigue siendo solo placeholder, hay que retirarla tambien del stack y borrar su route file para no dejar navegacion huerfana.
+  - No dejar rutas administrativas vacias visibles desde drawer si no existe una superficie funcional detras.
+
+---
+
+Resumen tecnico - `Ventas` pasa a administradores y su alcance depende del usuario actual
+
+- Ajuste aplicado en drawer:
+  - `Ventas` se movio de `Opciones privadas` a `Opciones de administradores` en `components/drawer/DrawerOptionsAlls.js`.
+  - `Opciones privadas` queda reservada solo para rutas realmente exclusivas de `carlosmbinf`.
+
+- Regla de acceso aplicada en `components/ventas/VentasList.native.jsx`:
+  - Si `currentUsername === 'carlosmbinf'`:
+    - la pantalla conserva el comportamiento amplio actual
+    - sin `routeId` muestra todas las ventas
+    - con `routeId` filtra por `{ userId: routeId }` o `{ adminId: routeId }`
+  - Si el usuario NO es `carlosmbinf`:
+    - la query base se restringe siempre a ventas donde participa el usuario actual
+    - criterio: `{ $or: [{ userId: currentUserId }, { adminId: currentUserId }] }`
+    - en ese caso `routeId` no debe ampliar el alcance de datos
+
+- Criterio funcional validado:
+  - El menu puede mostrar `Ventas` a cualquier admin, pero la coleccion visible ya no depende solo de tener acceso a la ruta.
+  - La autorizacion efectiva de lectura se refuerza tambien desde la query del cliente, alineando UX y alcance esperado.
+
+- Regla practica:
+  - Cuando una pantalla administrativa se comparte entre superadmin y admins normales, no basta con esconder o mostrar la opcion del drawer.
+  - La query reactiva tambien debe resolver el scope correcto segun el usuario actual para evitar que params de ruta o accesos indirectos amplien la visibilidad de datos.
+
+---
+
+Resumen tecnico - Cambio de estado de ventas segun el usuario que confirma
+
+- Ajuste aplicado en backend:
+  - `react-download/server/metodos/ventas.js` ahora trata `changeStatusVenta` como confirmacion unidireccional y no como toggle generico.
+  - Si el usuario actual es `carlosmbinf`:
+    - setea `cobrado: true`
+    - setea `cobradoAlAdmin: true`
+  - Si el usuario actual es otro admin:
+    - solo setea `cobradoAlAdmin: true`
+    - NO modifica `cobrado`
+
+- Ajuste aplicado en frontend Expo:
+  - `components/ventas/VentasList.native.jsx` ahora mapea tambien `cobradoAlAdmin` desde `VentasCollection`.
+  - La card muestra dos estados distintos:
+    - estado real de pago (`cobrado`)
+    - confirmacion al admin (`cobradoAlAdmin`)
+  - El boton ya no se comporta como toggle reversible:
+    - `carlosmbinf` ve `Marcar pagado` y luego queda en `Pagado`
+    - otros admins ven `Confirmar al admin` y luego `Reportado al admin`
+
+- Criterio funcional validado:
+  - Solo `carlosmbinf` puede dejar la venta realmente pagada.
+  - Los otros admins solo pueden reportar o confirmar al admin principal que la venta ya fue revisada.
+  - El dialogo de edicion sigue restringido a `carlosmbinf` y ahora el boton de la lista tambien refleja mejor esa jerarquia operativa.
+
+- Regla practica:
+  - Si un flujo administrativo tiene dos niveles de confirmacion (`confirmado al admin` vs `pagado real`), no reutilizar un unico booleano para ambos estados.
+  - La UI debe mostrar y accionar cada estado de forma distinta para no inducir a error al operador.
+
+---
+
+Resumen tecnico - Chips de estado de ventas en una sola linea para altura consistente de cards
+
+- Ajuste aplicado en `components/ventas/VentasList.native.jsx`:
+  - La fila de estados del card ya no debe hacer wrap entre `Pendiente/Pagado` y `Sin confirmar al admin/Confirmado al admin`, porque eso desalineaba la altura entre cards del grid.
+  - Se forzo la fila a una sola linea con `flexShrink` y sin `flexWrap`.
+
+- Criterio visual validado:
+  - En cards angostas se deben compactar los chips antes que permitir una segunda linea en el header.
+  - Para esos casos se aprobaron labels abreviados solo en modo compacto:
+    - `Conf. admin`
+    - `Sin conf. admin`
+  - El objetivo es mantener el significado del estado sin romper la uniformidad del card.
+
+- Regla practica:
+  - Si un par de chips de estado comparte la misma entidad visual del card, priorizar una sola linea estable para no generar cards con alturas diferentes dentro de la grilla.
+  - Primero reducir padding, font-size o copy en modo compacto; dejar el wrap como ultimo recurso.
+
+---
+
+Resumen tecnico - Login Expo con paleta dinamica real para light y dark mode
+
+- Problema detectado:
+  - `components/loguin/Loguin.native.js` y `components/loguin/Loguin.js` estaban usando una composicion visual casi completamente fijada a colores de dark mode.
+  - Aunque el overlay general cambiaba un poco por `Appearance`, el resto del modulo seguia dejando textos, cards, highlights, divisores e inputs con semantica visual de oscuro, lo que rompia el contraste en la otra variante.
+
+- Correccion aplicada:
+  - Se dejo de depender de `Appearance` como fuente principal de estilo y se alineo el modulo con el `theme` global de React Native Paper usando `useTheme()`.
+  - Se creo `getLoginPalette(isDarkMode)` en `components/loguin/Loguin.styles.js` para centralizar colores por tema sin duplicar layout.
+  - Tanto la variante nativa como la de preview ahora consumen esa paleta para:
+    - overlay de fondo
+    - glass card del formulario
+    - textos del panel de marca
+    - tarjetas highlight
+    - divisores
+    - footer y estados
+    - server card
+    - borde y texto de botones secundarios
+    - fondos y colores de `TextInput`
+
+- Decision tecnica importante:
+  - El layout y las medidas del login se mantuvieron en `loginScreenStyles`; solo se movio la semantica cromatica a una paleta dinamica.
+  - Esto evita tener dos hojas de estilo casi duplicadas para claro y oscuro.
+
+- Regla practica:
+  - En pantallas de acceso con branding fuerte, no basta con cambiar el color del overlay principal al alternar tema.
+  - Si el modulo tiene superficies de marca, cards translúcidas e inputs custom, todas esas capas deben resolverse desde una paleta por tema y no con colores hardcodeados dispersos.
+  - En este proyecto, si otra pantalla premium necesita convivir bien en light/dark, conviene replicar este patron: estilos estructurales fijos + helper `get...Palette(theme.dark)`.
+
+---
+
+Resumen tecnico - BlurView del login Expo debe usar tint valido y metodo experimental en Android
+
+- Problema detectado en `components/loguin/Loguin.native.js`:
+  - El `BlurView` del card principal estaba usando `tint="regular"`, valor que no forma parte de los enums validos de `expo-blur` en este proyecto.
+  - Ademas, a diferencia de otros blur ya estables del workspace, no estaba declarando `experimentalBlurMethod="dimezisBlurView"` en Android.
+  - El overlay interno de color tambien habia quedado comentado, lo que dejaba peor legibilidad y hacia mas dificil percibir correctamente el efecto final.
+
+- Correccion aplicada:
+  - `tint` ahora se resuelve por tema real:
+    - dark mode -> `dark`
+    - light mode -> `light`
+  - Se agrego `experimentalBlurMethod` condicional para Android.
+  - Se restauro una capa interna translúcida con `palette.blurCardOverlay` encima del blur para conservar contraste del contenido.
+
+- Regla practica:
+  - En este proyecto, no usar `tint="regular"` en `expo-blur`.
+  - Para superficies blur importantes en Android, seguir el patron ya validado:
+    - `tint={theme.dark ? 'dark' : 'light'}`
+    - `experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}`
+    - overlay translúcido adicional si el contenido necesita legibilidad consistente.
+
+Notas adicionales - Fabric puede tolerar mejor `BlurView` con `tint` literal que con expresion dinamica
+
+- Hallazgo puntual:
+  - En `components/loguin/Loguin.native.js`, aunque `tint={isDarkMode ? 'dark' : 'light'}` devuelve un string valido en JavaScript, en runtime Android/Fabric puede terminar llegando al bridge como un valor dinamico no aceptado por `ExpoBlurView`.
+  - El error visible fue:
+    - `Couldn't convert ... to TintStyle where value is the enum parameter`
+
+- Ajuste aplicado:
+  - Se reemplazo la expresion dinamica por renderizado por ramas con `tint` literal:
+    - rama dark -> `tint="dark"`
+    - rama light -> `tint="light"`
+  - Tambien se restauro el import de `StyleSheet` porque el overlay interno del blur usa `StyleSheet.absoluteFill`.
+
+- Regla practica:
+  - Si `expo-blur` falla en Android/Fabric con errores de enum sobre `tint`, probar primero un valor literal directo en JSX antes de asumir un problema de tema o de estilos.
+
+---
+
+Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Android
+
+- Hallazgo puntual en `components/loguin/Loguin.native.js`:
+  - Tener `renderToHardwareTextureAndroid={true}` no hace que `BlurView` funcione por si solo en Android.
+  - En `expo-blur`, el blur real en Android depende del prop:
+    - `experimentalBlurMethod="dimezisBlurView"`
+
+- Criterio tecnico validado:
+  - Si el `BlurView` no muestra desenfoque en Android pero no crashea, lo primero a revisar no es `intensity`, sino si falta `experimentalBlurMethod`.
+  - `renderToHardwareTextureAndroid` puede ayudar a la composicion visual en algunos casos, pero no sustituye el metodo experimental del blur.
+
+- Regla practica:
+  - Para cualquier `BlurView` importante en Android dentro de este proyecto, usar ambos cuando aplique:
+    - `experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}`
+    - `renderToHardwareTextureAndroid={true}`
+
+  ***
+
+  Resumen tecnico - Card de login con blur elegante y tema real en Expo
+  - Ajuste aplicado:
+    - `components/loguin/Loguin.native.js` dejo de tratar la card del formulario como una superficie casi oscura fija.
+    - La card ahora usa el `theme.dark` real para decidir su rama visual y monta un blur mas fuerte con capas internas de soporte:
+      - overlay translúcido
+      - glow/accent orb
+      - sheen superior suave
+    - El objetivo no fue cambiar la logica de autenticacion, sino dar una superficie premium y consistente en claro/oscuro.
+
+  - Decisiones visuales validadas:
+    - La card del login debe sentirse como una unica superficie de vidrio, no como blur + formulario suelto.
+    - Para eso conviene combinar:
+      - `BlurView`
+      - una capa translúcida con contraste controlado
+      - acentos internos suaves para profundidad
+    - Los inputs no deben quedar completamente transparentes sobre la card blur; necesitan su propia superficie translúcida con borde suave para mantener legibilidad en ambos temas.
+
+  - Regla tecnica importante:
+    - No volver a hardcodear `isDarkMode={true}` al renderizar la card de login.
+    - La fuente de verdad del aspecto visual debe seguir siendo `useTheme()` + `getLoginPalette(theme.dark)`.
+    - Si se ajusta el blur del login en Android, mantener este patron minimo:
+      - `tint="dark"` o `tint="light"` literal segun la rama
+      - `experimentalBlurMethod="dimezisBlurView"`
+      - `renderToHardwareTextureAndroid={true}`
+
+  - Regla practica:
+    - En superficies premium del login, el contraste no debe resolverse solo con texto blanco/negro; debe vivir tambien en:
+      - overlay del blur
+      - fondo de inputs
+      - chips o micro-pills de apoyo
+      - copy del panel de marca
+    - Si en una futura iteracion el login vuelve a verse "oscuro disfrazado" en modo claro, revisar primero si la card blur, los inputs y el copy siguen consumiendo la paleta dinamica correcta.
+
+  ***
+
+  Resumen tecnico - El fondo del login debe permanecer visible y el blur vivir solo en la card
+  - Ajuste visual validado:
+    - En `components/loguin/Loguin.native.js` no conviene cubrir toda la pantalla con una capa adicional si la imagen de fondo ya tiene buena presencia visual.
+    - El efecto premium correcto para este login es:
+      - fondo visible tal cual
+      - blur localizado solo en la card del formulario
+      - tipografia e inputs ajustados al azul oscuro real del backdrop
+
+  - Decision tecnica importante:
+    - Se descarto la idea de una variante clara del card con apariencia blanquecina porque, sobre este fondo especifico, terminaba tapando demasiado la imagen y rompia el lenguaje visual del login.
+    - Para este modulo, aunque exista light mode en el tema global, la card del formulario funciona mejor con una logica de glass oscuro translúcido y texto claro.
+
+  - Regla practica:
+    - No montar un `backgroundOverlay` global opaco en esta pantalla salvo que el asset de fondo cambie radicalmente.
+    - Si se quiere reforzar legibilidad, hacerlo dentro de la propia `LoginBlurCard` con:
+      - overlay interno sutil
+      - borde suave
+      - glow leve
+      - inputs translúcidos
+    - Si el login vuelve a sentirse como un panel blanco encima del fondo, revisar primero `blurCardOverlay`, `inputBackground` y si reaparecio una capa global sobre toda la pantalla.

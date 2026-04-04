@@ -1,4 +1,5 @@
 import MeteorBase from "@meteorrn/core";
+import { useLocalSearchParams } from "expo-router";
 import React from "react";
 import {
     Alert,
@@ -72,6 +73,51 @@ const getPaidChipColors = (isPaid) =>
     ? { backgroundColor: "#d1fae5", textColor: "#065f46" }
     : { backgroundColor: "#fff3cd", textColor: "#8a5a00" };
 
+const getAdminReportChipColors = (isReported) =>
+  isReported
+    ? { backgroundColor: "#dbeafe", textColor: "#1d4ed8" }
+    : { backgroundColor: "#e2e8f0", textColor: "#475569" };
+
+const buildVentasQuery = ({ currentUserId, currentUsername, routeId }) => {
+  const isGeneralAdmin = currentUsername === "carlosmbinf";
+
+  if (isGeneralAdmin) {
+    return routeId ? { $or: [{ userId: routeId }, { adminId: routeId }] } : {};
+  }
+
+  if (!currentUserId) {
+    return { _id: "__no_access__" };
+  }
+
+  return {
+    $or: [{ userId: currentUserId }, { adminId: currentUserId }],
+  };
+};
+
+const getVentasGridLayout = (windowWidth) => {
+  const horizontalPadding = 36;
+  const gap = 14;
+  const availableWidth = Math.max(windowWidth - horizontalPadding, 280);
+
+  let columns = 1;
+  if (windowWidth >= 1180) {
+    columns = 3;
+  } else if (windowWidth >= 760) {
+    columns = 2;
+  }
+
+  const rawCardWidth =
+    (availableWidth - gap * Math.max(columns - 1, 0)) / columns;
+  const cardWidth = Math.min(rawCardWidth, columns === 1 ? 9999 : 430);
+
+  return {
+    columns,
+    cardWidth,
+    gap,
+    isCompactCard: cardWidth < 360,
+  };
+};
+
 const SummaryCard = ({ label, value, tone, compact }) => (
   <Surface
     style={[styles.summaryCard, compact ? styles.summaryCardCompact : null]}
@@ -128,13 +174,17 @@ const FilterGroup = ({ label, values, selectedValue, onSelect }) => (
     >
       {values.map((value) => {
         const selected = selectedValue === value;
+
         return (
           <Chip
             key={`${label}-${value}`}
             selected={selected}
             showSelectedCheck={selected}
             onPress={() => onSelect(value)}
-            style={[styles.filterChip, selected && styles.filterChipSelected]}
+            style={[
+              styles.filterChip,
+              selected ? styles.filterChipSelected : null,
+            ]}
             textStyle={selected ? styles.filterChipTextSelected : null}
           >
             {value}
@@ -148,7 +198,14 @@ const FilterGroup = ({ label, values, selectedValue, onSelect }) => (
 const VentasList = () => {
   const theme = useTheme();
   const { width: windowWidth } = useWindowDimensions();
+  const { id, pago } = useLocalSearchParams();
   const isCompactScreen = windowWidth < 560;
+  const routeId =
+    typeof id === "string" ? id : Array.isArray(id) ? id[0] : null;
+  const routePago =
+    typeof pago === "string" ? pago : Array.isArray(pago) ? pago[0] : null;
+  const initialPagoFilter =
+    routePago === "PAGADO" || routePago === "PENDIENTE" ? routePago : "TODOS";
 
   const [fetchLimit, setFetchLimit] = React.useState(FETCH_LIMIT_OPTIONS[0]);
   const [page, setPage] = React.useState(0);
@@ -160,24 +217,38 @@ const VentasList = () => {
   const [selectedType, setSelectedType] = React.useState("TODOS");
   const [selectedAdmin, setSelectedAdmin] = React.useState("TODOS");
   const [selectedUser, setSelectedUser] = React.useState("TODOS");
-  const [selectedPago, setSelectedPago] = React.useState("TODOS");
+  const [selectedPago, setSelectedPago] = React.useState(initialPagoFilter);
   const [updatingIds, setUpdatingIds] = React.useState([]);
 
-  const { ready, ventas } = Meteor.useTracker(() => {
-    const ventasReady = Meteor.subscribe(
-      "ventas",
-      {},
-      { sort: { createdAt: -1 }, limit: fetchLimit },
-    ).ready();
+  React.useEffect(() => {
+    setSelectedPago(initialPagoFilter);
+  }, [initialPagoFilter]);
+
+  const { currentUsername, ready, ventas } = Meteor.useTracker(() => {
+    const currentUser = Meteor.user();
+    const currentUserId = currentUser?._id;
+    const currentUsernameValue = currentUser?.username || "";
+    const ventasQuery = buildVentasQuery({
+      currentUserId,
+      currentUsername: currentUsernameValue,
+      routeId,
+    });
+
+    const ventasReady = Meteor.subscribe("ventas", ventasQuery, {
+      sort: { createdAt: -1 },
+      limit: fetchLimit,
+    }).ready();
+
     const usersReady = Meteor.subscribe(
       "user",
       {},
       { fields: { _id: 1, username: 1 } },
     ).ready();
-    const docs = VentasCollection.find(
-      {},
-      { sort: { createdAt: -1 }, limit: fetchLimit },
-    ).fetch();
+
+    const docs = VentasCollection.find(ventasQuery, {
+      sort: { createdAt: -1 },
+      limit: fetchLimit,
+    }).fetch();
 
     const mappedVentas = docs.map((element) => {
       const userusername = usersReady
@@ -201,16 +272,19 @@ const VentasList = () => {
         precio: element.precio,
         gananciasAdmin: element.gananciasAdmin,
         createdAt: element.createdAt ? new Date(element.createdAt) : null,
+        cobradoAlAdmin: element.cobradoAlAdmin === true,
         cobrado: element.cobrado === true,
       };
     });
 
     return {
+      currentUsername: currentUsernameValue,
       ready: ventasReady && usersReady,
       ventas: mappedVentas,
     };
-  }, [fetchLimit]);
+  }, [fetchLimit, routeId]);
 
+  const isGeneralAdmin = currentUsername === "carlosmbinf";
   const types = React.useMemo(() => getUniqueValues(ventas, "type"), [ventas]);
   const admins = React.useMemo(
     () => getUniqueValues(ventas, "adminusername"),
@@ -344,28 +418,75 @@ const VentasList = () => {
   const handleToggleCobrado = (ventaId) => {
     setUpdatingIds((current) => [...new Set([...current, ventaId])]);
 
-    Meteor.call("changeStatusVenta", ventaId, (error) => {
-      setUpdatingIds((current) => current.filter((id) => id !== ventaId));
+    if (isGeneralAdmin) {
+      Meteor.call("changeStatusVenta", ventaId, (error, result) => {
+        setUpdatingIds((current) => current.filter((id) => id !== ventaId));
 
-      if (error) {
-        Alert.alert(
-          "No se pudo actualizar",
-          error?.message || "Ocurrió un problema cambiando el estado de pago.",
-        );
-      }
-    });
+        if (error) {
+          Alert.alert(
+            "No se pudo actualizar",
+            error?.message ||
+              "Ocurrió un problema cambiando el estado de pago.",
+          );
+          return;
+        }
+
+        if (result) {
+          Alert.alert("Estado actualizado", String(result));
+        }
+      });
+      return;
+    }
+
+    VentasCollection.update(
+      ventaId,
+      { $set: { cobradoAlAdmin: true } },
+      (error) => {
+        setUpdatingIds((current) => current.filter((id) => id !== ventaId));
+        if (error) {
+          Alert.alert(
+            "No se pudo actualizar",
+            error?.message ||
+              "Ocurrió un problema cambiando el estado de pago.",
+          );
+        } else {
+          Alert.alert(
+            "Estado actualizado",
+            "El estado de pago se actualizó correctamente.",
+          );
+        }
+      },
+    );
   };
 
   const screenBackground = theme.dark ? "#07111f" : "#f3f5fb";
   const panelBackground = theme.dark
     ? theme.colors.elevation?.level1 || theme.colors.surface
     : "#ffffff";
+  const ventasGridLayout = React.useMemo(
+    () => getVentasGridLayout(windowWidth),
+    [windowWidth],
+  );
 
   return (
     <View style={[styles.screen, { backgroundColor: screenBackground }]}>
       <AppHeader
         title="Ventas"
-        subtitle="Control, filtros y edición de ventas"
+        subtitle={
+          isGeneralAdmin && routeId
+            ? selectedPago === "PENDIENTE"
+              ? "Ventas pendientes filtradas por usuario o admin"
+              : selectedPago === "PAGADO"
+                ? "Ventas pagadas filtradas por usuario o admin"
+                : "Ventas filtradas por usuario o admin"
+            : !isGeneralAdmin
+              ? selectedPago === "PENDIENTE"
+                ? "Ventas pendientes donde participas como admin o usuario"
+                : selectedPago === "PAGADO"
+                  ? "Ventas pagadas donde participas como admin o usuario"
+                  : "Ventas donde participas como admin o usuario"
+              : "Control, filtros y edición de ventas"
+        }
         showBackButton
         backHref="/(normal)/Main"
         actions={
@@ -565,6 +686,44 @@ const VentasList = () => {
               {visibleVentas.map((venta) => {
                 const isUpdating = updatingIds.includes(venta._id);
                 const paymentColors = getPaidChipColors(venta.cobrado);
+                const adminReportColors = getAdminReportChipColors(
+                  venta.cobradoAlAdmin,
+                );
+                const canEditVenta = isGeneralAdmin;
+                const isCompactCard = ventasGridLayout.isCompactCard;
+                const paymentStatusLabel = venta.cobrado
+                  ? "Pagado"
+                  : "Pendiente";
+                const adminReportLabel = venta.cobradoAlAdmin
+                  ? isCompactCard
+                    ? "Conf. admin"
+                    : "Confirmado al admin"
+                  : isCompactCard
+                    ? "Sin conf. admin"
+                    : "Sin confirmar al admin";
+                const actionDisabled =
+                  isUpdating ||
+                  venta.cobrado ||
+                  (!isGeneralAdmin && venta.cobradoAlAdmin);
+                const actionLabel = isUpdating
+                  ? "Actualizando..."
+                  : isGeneralAdmin
+                    ? venta.cobrado
+                      ? "Pagado"
+                      : "Marcar pagado"
+                    : venta.cobradoAlAdmin
+                      ? "Reportado al admin"
+                      : "Confirmar al admin";
+                const actionIcon = isGeneralAdmin
+                  ? venta.cobrado
+                    ? "cart-check"
+                    : "cash-check"
+                  : venta.cobradoAlAdmin
+                    ? "account-check-outline"
+                    : "account-arrow-up-outline";
+                const cardHintText = canEditVenta
+                  ? "Toca la tarjeta para ver o editar"
+                  : "Toca la tarjeta para consultar el detalle";
 
                 return (
                   <Pressable
@@ -573,6 +732,12 @@ const VentasList = () => {
                     android_ripple={{ color: "rgba(37, 99, 235, 0.12)" }}
                     style={({ pressed }) => [
                       styles.cardPressable,
+                      {
+                        width:
+                          ventasGridLayout.columns > 1
+                            ? ventasGridLayout.cardWidth
+                            : "100%",
+                      },
                       pressed ? styles.cardPressableActive : null,
                     ]}
                   >
@@ -582,7 +747,12 @@ const VentasList = () => {
                         { backgroundColor: panelBackground },
                       ]}
                     >
-                      <View style={styles.cardHeaderRow}>
+                      <View
+                        style={[
+                          styles.cardHeaderRow,
+                          isCompactCard ? styles.cardHeaderRowCompact : null,
+                        ]}
+                      >
                         <View style={styles.cardTitleBlock}>
                           <Chip
                             compact
@@ -596,19 +766,52 @@ const VentasList = () => {
                           </Text>
                         </View>
 
-                        <Chip
-                          compact
+                        <View
                           style={[
-                            styles.paymentChip,
-                            { backgroundColor: paymentColors.backgroundColor },
-                          ]}
-                          textStyle={[
-                            styles.paymentChipText,
-                            { color: paymentColors.textColor },
+                            styles.statusChipsRow,
+                            isCompactCard ? styles.statusChipsRowCompact : null,
                           ]}
                         >
-                          {venta.cobrado ? "Pagado" : "Pendiente"}
-                        </Chip>
+                          <Chip
+                            compact
+                            style={[
+                              styles.paymentChip,
+                              isCompactCard ? styles.paymentChipCompact : null,
+                              {
+                                backgroundColor: paymentColors.backgroundColor,
+                              },
+                            ]}
+                            textStyle={[
+                              styles.paymentChipText,
+                              isCompactCard
+                                ? styles.paymentChipTextCompact
+                                : null,
+                              { color: paymentColors.textColor },
+                            ]}
+                          >
+                            {paymentStatusLabel}
+                          </Chip>
+                          <Chip
+                            compact
+                            style={[
+                              styles.paymentChip,
+                              isCompactCard ? styles.paymentChipCompact : null,
+                              {
+                                backgroundColor:
+                                  adminReportColors.backgroundColor,
+                              },
+                            ]}
+                            textStyle={[
+                              styles.paymentChipText,
+                              isCompactCard
+                                ? styles.paymentChipTextCompact
+                                : null,
+                              { color: adminReportColors.textColor },
+                            ]}
+                          >
+                            {adminReportLabel}
+                          </Chip>
+                        </View>
                       </View>
 
                       <View style={styles.metaGrid}>
@@ -644,24 +847,21 @@ const VentasList = () => {
                         </Text>
                       ) : null}
 
-                      <View style={styles.cardActionsRow}>
-                        <Text style={styles.cardHint}>
-                          Toca la tarjeta para ver o editar
-                        </Text>
+                      <View
+                        style={[
+                          styles.cardActionsRow,
+                          isCompactCard ? styles.cardActionsRowCompact : null,
+                        ]}
+                      >
+                        <Text style={styles.cardHint}>{cardHintText}</Text>
                         <Button
-                          mode={venta.cobrado ? "contained-tonal" : "outlined"}
-                          icon={
-                            venta.cobrado ? "cart-check" : "cart-arrow-down"
-                          }
+                          mode={actionDisabled ? "contained-tonal" : "outlined"}
+                          icon={actionIcon}
                           onPress={() => handleToggleCobrado(venta._id)}
-                          disabled={isUpdating}
+                          disabled={actionDisabled}
                           compact
                         >
-                          {isUpdating
-                            ? "Actualizando..."
-                            : venta.cobrado
-                              ? "Marcar pendiente"
-                              : "Marcar pagado"}
+                          {actionLabel}
                         </Button>
                       </View>
                     </Surface>
@@ -719,16 +919,16 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 8,
   },
-  clearFiltersRow: {
-    alignItems: "flex-end",
-    marginTop: 4,
-  },
   cardActionsRow: {
     alignItems: "center",
     flexDirection: "row",
     gap: 12,
     justifyContent: "space-between",
     marginTop: 14,
+  },
+  cardActionsRowCompact: {
+    alignItems: "stretch",
+    flexDirection: "column",
   },
   cardDate: {
     fontSize: 12,
@@ -739,6 +939,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     justifyContent: "space-between",
+  },
+  cardHeaderRowCompact: {
+    gap: 14,
   },
   cardHint: {
     flex: 1,
@@ -757,7 +960,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   cardsList: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 14,
+  },
+  clearFiltersRow: {
+    alignItems: "flex-end",
+    marginTop: 4,
   },
   commentPreview: {
     lineHeight: 20,
@@ -781,9 +991,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "800",
   },
+  fetchLimitChip: {
+    backgroundColor: "#e0ecff",
+  },
+  fetchLimitChipText: {
+    color: "#1d4ed8",
+    fontWeight: "800",
+  },
   filterChip: {
-    marginRight: 8,
     borderRadius: 16,
+    marginRight: 8,
   },
   filterChipSelected: {
     backgroundColor: "#3f51b5",
@@ -822,13 +1039,6 @@ const styles = StyleSheet.create({
   filterValuesRow: {
     paddingRight: 8,
   },
-  fetchLimitChip: {
-    backgroundColor: "#e0ecff",
-  },
-  fetchLimitChipText: {
-    color: "#1d4ed8",
-    fontWeight: "800",
-  },
   loadingContainer: {
     alignItems: "center",
     flex: 1,
@@ -846,6 +1056,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   metaItem: {
+    flexGrow: 1,
     minWidth: 132,
     rowGap: 4,
   },
@@ -866,9 +1077,18 @@ const styles = StyleSheet.create({
   },
   paymentChip: {
     alignSelf: "flex-start",
+    borderRadius: 999,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  paymentChipCompact: {
+    paddingHorizontal: 0,
   },
   paymentChipText: {
     fontWeight: "800",
+  },
+  paymentChipTextCompact: {
+    fontSize: 11,
   },
   resultsHeader: {
     gap: 4,
@@ -884,6 +1104,11 @@ const styles = StyleSheet.create({
   },
   screen: {
     flex: 1,
+  },
+  scrollContent: {
+    gap: 18,
+    padding: 18,
+    paddingBottom: 24,
   },
   searchInput: {
     color: "#000000",
@@ -911,10 +1136,18 @@ const styles = StyleSheet.create({
   searchTrailingIcon: {
     margin: 0,
   },
-  scrollContent: {
-    gap: 18,
-    padding: 18,
-    paddingBottom: 24,
+  statusChipsRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexShrink: 1,
+    gap: 8,
+    justifyContent: "flex-end",
+    minWidth: 0,
+    maxWidth: 252,
+  },
+  statusChipsRowCompact: {
+    gap: 6,
+    maxWidth: "100%",
   },
   summaryCard: {
     borderRadius: 24,

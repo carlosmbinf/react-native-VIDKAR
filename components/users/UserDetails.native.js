@@ -232,6 +232,20 @@ const UserDetails = () => {
     router.replace(fallbackRoute);
   };
 
+  const handleOpenVentasPendientes = () => {
+    if (!item?._id) {
+      return;
+    }
+
+    router.push({
+      pathname: "/(normal)/Ventas",
+      params: {
+        id: item._id,
+        pago: "PENDIENTE",
+      },
+    });
+  };
+
   if (!itemId) {
     return (
       <Surface style={styles.emptyState}>
@@ -269,6 +283,7 @@ const UserDetails = () => {
               <View style={[styles.cardItem, computedCardWidth]}>
                 <VentasCard
                   deuda={deuda}
+                  onPressDetalles={handleOpenVentasPendientes}
                   styles={styles}
                   accentColor={accentColor}
                 />

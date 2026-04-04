@@ -1,13 +1,13 @@
 import { useMemo } from "react";
 import { ImageBackground, ScrollView, StyleSheet, View } from "react-native";
 import {
-  Avatar,
-  Button,
-  Divider,
-  Drawer,
-  IconButton,
-  Surface,
-  Text,
+    Avatar,
+    Button,
+    Divider,
+    Drawer,
+    IconButton,
+    Surface,
+    Text,
 } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -99,9 +99,9 @@ const buildAdminItems = () => [
     href: "/(normal)/Users",
   },
   {
-    label: "Mensajes de usuarios",
-    icon: "message-text-outline",
-    href: "/(normal)/AllMensajesUser",
+    label: "Ventas",
+    icon: "cash-register",
+    href: "/(normal)/Ventas",
   },
   {
     label: "Aprobaciones de ventas efectivo",
@@ -126,11 +126,6 @@ const buildAdminItems = () => [
 ];
 
 const buildPrivateItems = () => [
-  {
-    label: "Ventas",
-    icon: "cash-register",
-    href: "/(normal)/Ventas",
-  },
   {
     label: "Propertys",
     icon: "cog-outline",

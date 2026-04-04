@@ -6,8 +6,8 @@ import { BlurView } from "expo-blur";
 import WizardConStepper from "../carritoCompras/WizardConStepper.native";
 import MenuIconMensajes from "../components/MenuIconMensajes.native";
 import {
-    DARK_MENU_GLASS_TINT,
-    LIGHT_MENU_GLASS_TINT,
+  DARK_MENU_GLASS_TINT,
+  LIGHT_MENU_GLASS_TINT,
 } from "../shared/GlassMenuSurface";
 import AppHeader, { DEFAULT_HEADER_COLOR } from "./AppHeader";
 
@@ -63,7 +63,7 @@ const MenuHeader = ({
                 borderRadius: 25,
                 overflow: "hidden",
                 backgroundColor: menuTintColor,
-                borderWidth: 0.5,
+                borderWidth: 2,
                 borderColor: "rgba(255,255,255,0.22)",
               }}
               intensity={15}
@@ -109,6 +109,7 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     overflow: "visible",
     padding: 0,
+    borderRadius: 25,
   },
 });
 
