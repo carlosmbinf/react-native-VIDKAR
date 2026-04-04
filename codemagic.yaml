@@ -93,7 +93,7 @@ workflows:
           include: true
 
     integrations:
-      app_store_connect: X948JA4S95
+      app_store_connect: "VidkarAPIKey"
 
     environment:
       ios_signing:
