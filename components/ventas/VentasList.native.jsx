@@ -80,18 +80,23 @@ const getAdminReportChipColors = (isReported) =>
 
 const buildVentasQuery = ({ currentUserId, currentUsername, routeId }) => {
   const isGeneralAdmin = currentUsername === "carlosmbinf";
+  const routeQuery = routeId
+    ? { $or: [{ userId: routeId }, { adminId: routeId }] }
+    : null;
 
   if (isGeneralAdmin) {
-    return routeId ? { $or: [{ userId: routeId }, { adminId: routeId }] } : {};
+    return routeQuery || {};
   }
 
   if (!currentUserId) {
     return { _id: "__no_access__" };
   }
 
-  return {
+  const ownScopeQuery = {
     $or: [{ userId: currentUserId }, { adminId: currentUserId }],
   };
+
+  return routeQuery ? { $and: [ownScopeQuery, routeQuery] } : ownScopeQuery;
 };
 
 const getVentasGridLayout = (windowWidth) => {
@@ -224,67 +229,78 @@ const VentasList = () => {
     setSelectedPago(initialPagoFilter);
   }, [initialPagoFilter]);
 
-  const { currentUsername, ready, ventas } = Meteor.useTracker(() => {
-    const currentUser = Meteor.user();
-    const currentUserId = currentUser?._id;
-    const currentUsernameValue = currentUser?.username || "";
-    const ventasQuery = buildVentasQuery({
-      currentUserId,
-      currentUsername: currentUsernameValue,
-      routeId,
-    });
+  const { currentUsername, ready, routeUsername, ventas } =
+    Meteor.useTracker(() => {
+      const currentUser = Meteor.user();
+      const currentUserId = currentUser?._id;
+      const currentUsernameValue = currentUser?.username || "";
+      const ventasQuery = buildVentasQuery({
+        currentUserId,
+        currentUsername: currentUsernameValue,
+        routeId,
+      });
 
-    const ventasReady = Meteor.subscribe("ventas", ventasQuery, {
-      sort: { createdAt: -1 },
-      limit: fetchLimit,
-    }).ready();
+      const ventasReady = Meteor.subscribe("ventas", ventasQuery, {
+        sort: { createdAt: -1 },
+        limit: fetchLimit,
+      }).ready();
 
-    const usersReady = Meteor.subscribe(
-      "user",
-      {},
-      { fields: { _id: 1, username: 1 } },
-    ).ready();
+      const usersReady = Meteor.subscribe(
+        "user",
+        {},
+        { fields: { _id: 1, username: 1 } },
+      ).ready();
 
-    const docs = VentasCollection.find(ventasQuery, {
-      sort: { createdAt: -1 },
-      limit: fetchLimit,
-    }).fetch();
+      const docs = VentasCollection.find(ventasQuery, {
+        sort: { createdAt: -1 },
+        limit: fetchLimit,
+      }).fetch();
+      const routeUserDoc =
+        routeId && usersReady ? Meteor.users.findOne(routeId) : null;
 
-    const mappedVentas = docs.map((element) => {
-      const userusername = usersReady
-        ? Meteor.users.findOne(element.userId)?.username
-        : "";
-      const adminusername = usersReady
-        ? Meteor.users.findOne(element.adminId)?.username
-        : "";
+      const mappedVentas = docs.map((element) => {
+        const userusername = usersReady
+          ? Meteor.users.findOne(element.userId)?.username
+          : "";
+        const adminusername = usersReady
+          ? Meteor.users.findOne(element.adminId)?.username
+          : "";
+
+        return {
+          _id: element._id,
+          type: element.type,
+          userId: element.userId,
+          adminId: element.adminId,
+          userusername: userusername || "Desconocido",
+          adminusername:
+            element.adminId !== "SERVER"
+              ? adminusername || "Desconocido"
+              : "SERVER",
+          comentario: element.comentario,
+          precio: element.precio,
+          gananciasAdmin: element.gananciasAdmin,
+          createdAt: element.createdAt ? new Date(element.createdAt) : null,
+          cobradoAlAdmin: element.cobradoAlAdmin === true,
+          cobrado: element.cobrado === true,
+        };
+      });
 
       return {
-        _id: element._id,
-        type: element.type,
-        userId: element.userId,
-        adminId: element.adminId,
-        userusername: userusername || "Desconocido",
-        adminusername:
-          element.adminId !== "SERVER"
-            ? adminusername || "Desconocido"
-            : "SERVER",
-        comentario: element.comentario,
-        precio: element.precio,
-        gananciasAdmin: element.gananciasAdmin,
-        createdAt: element.createdAt ? new Date(element.createdAt) : null,
-        cobradoAlAdmin: element.cobradoAlAdmin === true,
-        cobrado: element.cobrado === true,
+        currentUsername: currentUsernameValue,
+        ready: ventasReady && usersReady,
+        routeUsername: routeUserDoc?.username || "",
+        ventas: mappedVentas,
       };
-    });
-
-    return {
-      currentUsername: currentUsernameValue,
-      ready: ventasReady && usersReady,
-      ventas: mappedVentas,
-    };
-  }, [fetchLimit, routeId]);
+    }, [fetchLimit, routeId]);
 
   const isGeneralAdmin = currentUsername === "carlosmbinf";
+  const routeContextLabel = React.useMemo(() => {
+    if (!routeId) {
+      return "";
+    }
+
+    return routeUsername || routeId;
+  }, [routeId, routeUsername]);
   const types = React.useMemo(() => getUniqueValues(ventas, "type"), [ventas]);
   const admins = React.useMemo(
     () => getUniqueValues(ventas, "adminusername"),
@@ -473,12 +489,12 @@ const VentasList = () => {
       <AppHeader
         title="Ventas"
         subtitle={
-          isGeneralAdmin && routeId
+          routeId
             ? selectedPago === "PENDIENTE"
-              ? "Ventas pendientes filtradas por usuario o admin"
+              ? "Ventas pendientes filtradas para el usuario seleccionado"
               : selectedPago === "PAGADO"
-                ? "Ventas pagadas filtradas por usuario o admin"
-                : "Ventas filtradas por usuario o admin"
+                ? "Ventas pagadas filtradas para el usuario seleccionado"
+                : "Ventas filtradas para el usuario seleccionado"
             : !isGeneralAdmin
               ? selectedPago === "PENDIENTE"
                 ? "Ventas pendientes donde participas como admin o usuario"
@@ -579,6 +595,18 @@ const VentasList = () => {
                 onSelect={setSelectedPago}
               />
 
+              {routeId ? (
+                <View style={styles.activeFiltersRow}>
+                  <Chip
+                    icon="account-filter"
+                    style={styles.routeContextChip}
+                    textStyle={styles.routeContextChipText}
+                  >
+                    Usuario filtrado: {routeContextLabel}
+                  </Chip>
+                </View>
+              ) : null}
+
               <View style={styles.activeFiltersRow}>
                 <Chip
                   icon="database-search-outline"
@@ -620,6 +648,16 @@ const VentasList = () => {
               ]}
             >
               <View style={styles.filtersCollapsedContent}>
+                {routeId ? (
+                  <Chip
+                    compact
+                    icon="account-filter"
+                    style={styles.routeContextChip}
+                    textStyle={styles.routeContextChipText}
+                  >
+                    {routeContextLabel}
+                  </Chip>
+                ) : null}
                 <Chip
                   compact
                   icon="database-search-outline"
@@ -659,6 +697,11 @@ const VentasList = () => {
               Mostrando {dataToDisplay.length} de {ventas.length} ventas. Límite
               actual: {fetchLimit}
             </Text>
+            {routeId ? (
+              <Text style={styles.routeContextText}>
+                Contexto activo: ventas filtradas para {routeContextLabel}.
+              </Text>
+            ) : null}
           </View>
 
           {dataToDisplay.length === 0 ? (
@@ -919,6 +962,14 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 8,
   },
+  routeContextChip: {
+    alignSelf: "flex-start",
+    backgroundColor: "#dbeafe",
+  },
+  routeContextChipText: {
+    color: "#1d4ed8",
+    fontWeight: "800",
+  },
   cardActionsRow: {
     alignItems: "center",
     flexDirection: "row",
@@ -1097,6 +1148,11 @@ const styles = StyleSheet.create({
   resultsText: {
     fontSize: 13,
     opacity: 0.72,
+  },
+  routeContextText: {
+    color: "#2563eb",
+    fontSize: 12,
+    fontWeight: "700",
   },
   resultsTitle: {
     fontSize: 20,

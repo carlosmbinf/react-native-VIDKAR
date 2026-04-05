@@ -198,7 +198,7 @@ const DrawerOptionsAlls = ({
   }, [isAdmin, isSuperAdmin, user]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["left", "top", "right"]}>
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <Surface style={styles.container} elevation={4}>
         <ImageBackground
           source={require("../files/space-bg-shadowcodex.jpg")}

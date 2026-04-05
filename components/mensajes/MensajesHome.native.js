@@ -313,7 +313,7 @@ class MensajesHomeScreen extends React.Component {
 
     if (loading) {
       return (
-        <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <SafeAreaView style={styles.safeArea} edges={["top"]}>
           <Appbar.Header elevated statusBarHeight={0} style={styles.header}>
             <Appbar.BackAction
               iconColor="#fff"
@@ -337,7 +337,7 @@ class MensajesHomeScreen extends React.Component {
     }
 
     return (
-      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <Appbar.Header elevated statusBarHeight={0} style={styles.header}>
           <Appbar.BackAction iconColor="#fff" onPress={handleBackNavigation} />
           <Appbar.Content

@@ -3,37 +3,37 @@ import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  Alert,
-  FlatList,
-  Linking,
-  Platform,
-  RefreshControl,
-  StyleSheet,
-  View,
+    Alert,
+    FlatList,
+    Linking,
+    Platform,
+    RefreshControl,
+    StyleSheet,
+    View,
 } from "react-native";
 import {
-  ActivityIndicator,
-  Appbar,
-  Button,
-  Chip,
-  FAB,
-  Menu,
-  Searchbar,
-  Surface,
-  Text,
+    ActivityIndicator,
+    Appbar,
+    Button,
+    Chip,
+    FAB,
+    Menu,
+    Searchbar,
+    Surface,
+    Text,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
-  getCachedDeviceLocationSync,
-  getCurrentDeviceLocation,
-  readCachedDeviceLocation,
-  requestDeviceLocationPermission,
+    getCachedDeviceLocationSync,
+    getCurrentDeviceLocation,
+    readCachedDeviceLocation,
+    requestDeviceLocationPermission,
 } from "../../services/location/deviceLocationCache.native";
 import WizardConStepper from "../carritoCompras/WizardConStepper.native";
 import {
-  ProductosComercioCollection,
-  TiendasComercioCollection,
+    ProductosComercioCollection,
+    TiendasComercioCollection,
 } from "../collections/collections";
 import MenuIconMensajes from "../components/MenuIconMensajes.native";
 import TiendaCard from "./TiendaCard";
@@ -65,17 +65,21 @@ const meteorCallAsync = (methodName, ...args) =>
 const ProductosScreenNative = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const initialCachedLocation = getCachedDeviceLocationSync();
+  const initialCachedLocationRef = React.useRef(getCachedDeviceLocationSync());
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [showSearchbar, setShowSearchbar] = useState(false);
-  const [userLocation, setUserLocation] = useState(initialCachedLocation);
+  const [userLocation, setUserLocation] = useState(
+    initialCachedLocationRef.current,
+  );
   const [locationError, setLocationError] = useState(null);
   const [tiendasCercanas, setTiendasCercanas] = useState([]);
   const [loadingTiendas, setLoadingTiendas] = useState(false);
   const [radioKm, setRadioKm] = useState(5);
   const [fabOpen, setFabOpen] = useState(false);
   const [profileMenuVisible, setProfileMenuVisible] = useState(false);
+  const radioKmRef = React.useRef(5);
+  const lastSearchSignatureRef = React.useRef(null);
 
   const actualizarUbicacionBackend = React.useCallback((ubicacion) => {
     const userId = Meteor.userId();
@@ -108,10 +112,20 @@ const ProductosScreenNative = () => {
   }, []);
 
   const buscarTiendasCercanas = React.useCallback(
-    async (coordenadas, radio = radioKm) => {
+    async (coordenadas, radio) => {
       if (!coordenadas) {
         return;
       }
+
+      const resolvedRadio =
+        typeof radio === "number" ? radio : radioKmRef.current;
+      const searchSignature = `${Number(coordenadas.latitude).toFixed(5)}:${Number(coordenadas.longitude).toFixed(5)}:${resolvedRadio}`;
+
+      if (lastSearchSignatureRef.current === searchSignature) {
+        return;
+      }
+
+      lastSearchSignatureRef.current = searchSignature;
 
       setLoadingTiendas(true);
 
@@ -122,7 +136,7 @@ const ProductosScreenNative = () => {
             latitude: coordenadas.latitude,
             longitude: coordenadas.longitude,
           },
-          radio,
+          resolvedRadio,
         );
 
         if (resultado?.success) {
@@ -137,6 +151,8 @@ const ProductosScreenNative = () => {
           reason: error.reason,
         });
 
+        lastSearchSignatureRef.current = null;
+
         Alert.alert(
           "Error al buscar tiendas",
           error.reason ||
@@ -148,7 +164,7 @@ const ProductosScreenNative = () => {
         setLoadingTiendas(false);
       }
     },
-    [radioKm],
+    [],
   );
 
   const aplicarUbicacion = React.useCallback(
@@ -164,9 +180,9 @@ const ProductosScreenNative = () => {
         actualizarUbicacionBackend(ubicacion);
       }
 
-      buscarTiendasCercanas(ubicacion, radioKm);
+      buscarTiendasCercanas(ubicacion, radioKmRef.current);
     },
-    [actualizarUbicacionBackend, buscarTiendasCercanas, radioKm],
+    [actualizarUbicacionBackend, buscarTiendasCercanas],
   );
 
   const obtenerUbicacion = React.useCallback(async () => {
@@ -242,18 +258,25 @@ const ProductosScreenNative = () => {
   }, [aplicarUbicacion]);
 
   React.useEffect(() => {
-    if (initialCachedLocation) {
-      aplicarUbicacion(initialCachedLocation, { updateBackend: false });
+    if (initialCachedLocationRef.current) {
+      aplicarUbicacion(initialCachedLocationRef.current, {
+        updateBackend: false,
+      });
     }
 
     obtenerUbicacion();
-  }, [aplicarUbicacion, initialCachedLocation, obtenerUbicacion]);
+  }, [aplicarUbicacion, obtenerUbicacion]);
+
+  React.useEffect(() => {
+    radioKmRef.current = radioKm;
+  }, [radioKm]);
 
   const cambiarRadio = React.useCallback(
     (nuevoRadio) => {
       setRadioKm(nuevoRadio);
 
       if (userLocation) {
+        lastSearchSignatureRef.current = null;
         buscarTiendasCercanas(userLocation, nuevoRadio);
         return;
       }

@@ -33,7 +33,7 @@ const DashboardScreen = () => {
         dashboardScreenStyles.safeArea,
         { backgroundColor: screenBackground },
       ]}
-      edges={["left", "right", "bottom"]}
+      edges={[]}
     >
       <AppHeader
         actions={

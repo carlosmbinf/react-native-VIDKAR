@@ -667,7 +667,7 @@ const Loguin = () => {
         resizeMode="cover"
       />
 
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,

@@ -9,7 +9,7 @@ import TableRecargas from "./TableRecargas";
 
 const ProductosScreen = () => {
   return (
-    <SafeAreaView style={styles.safeArea} edges={["left", "right"]}>
+    <SafeAreaView style={styles.safeArea} edges={[]}>
       <Surface style={styles.screen}>
         <AppHeader
           title="Productos Cubacel"

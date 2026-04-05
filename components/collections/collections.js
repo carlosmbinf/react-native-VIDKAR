@@ -42,7 +42,7 @@ export const TiendasComercioCollection = new Mongo.Collection(
 export const ProductosComercioCollection = new Mongo.Collection(
   "COMERCIO_productos",
 );
-export const Online = new Mongo.Collection("conexiones");
+export const Online = new Mongo.Collection("online");
 export const PushTokens = new Mongo.Collection("push_tokens");
 
 export const collections = {

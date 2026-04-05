@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import {
     ActivityIndicator,
-  Appbar,
+    Appbar,
     Button,
     Chip,
     IconButton,
@@ -20,6 +20,7 @@ import {
 } from "react-native-paper";
 
 import AppHeader from "../../Header/AppHeader";
+import { Online } from "../../collections/collections";
 import MapaUsuarios from "./MapaUsuarios";
 
 const Meteor =
@@ -49,12 +50,150 @@ const LOCATION_FIELDS = {
   modoCadete: 1,
   picture: 1,
   createdAt: 1,
+  vpnplusConnected: 1,
+  vpn2mbConnected: 1,
 };
 
 const normalizeString = (value) =>
   String(value || "")
     .trim()
     .toLowerCase();
+
+const normalizeUserId = (value) => {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  if (typeof value === "object") {
+    if (typeof value._str === "string") {
+      return value._str;
+    }
+
+    if (typeof value.$oid === "string") {
+      return value.$oid;
+    }
+
+    if (typeof value._id === "string") {
+      return value._id;
+    }
+
+    if (typeof value.toHexString === "function") {
+      const hexValue = value.toHexString();
+
+      if (typeof hexValue === "string" && hexValue.length > 0) {
+        return hexValue;
+      }
+    }
+
+    if (typeof value.valueOf === "function") {
+      const primitiveValue = value.valueOf();
+
+      if (
+        primitiveValue != null &&
+        primitiveValue !== value &&
+        typeof primitiveValue !== "object"
+      ) {
+        return String(primitiveValue);
+      }
+    }
+  }
+
+  const stringValue = String(value);
+  return stringValue === "[object Object]" ? null : stringValue;
+};
+
+const matchesUserId = (leftId, rightId) => {
+  const normalizedLeftId = normalizeUserId(leftId);
+  const normalizedRightId = normalizeUserId(rightId);
+
+  if (!normalizedLeftId || !normalizedRightId) {
+    return false;
+  }
+
+  return normalizedLeftId === normalizedRightId;
+};
+
+const getConnectionAddress = (connectionDoc) => {
+  if (typeof connectionDoc?.address !== "string") {
+    return "";
+  }
+
+  return connectionDoc.address.trim().toLowerCase();
+};
+
+const getConnectionHostname = (connectionDoc) => {
+  if (typeof connectionDoc?.hostname !== "string") {
+    return "";
+  }
+
+  return connectionDoc.hostname.trim().toLowerCase();
+};
+
+const isBlankConnectionValue = (value) => value == null || value === "";
+
+const getUserConnectionState = (user, connections) => {
+  const onlineConnections = Array.isArray(connections) ? connections : [];
+
+  const hasWebConnection =
+    onlineConnections.length > 0 &&
+    onlineConnections.some((online) => {
+      if (!online?.userId || !matchesUserId(online.userId, user?._id)) {
+        return false;
+      }
+
+      const address = getConnectionAddress(online);
+      const hostname = getConnectionHostname(online);
+
+      return (
+        isBlankConnectionValue(address) && isBlankConnectionValue(hostname)
+      );
+    });
+
+  const hasAppConnection =
+    onlineConnections.length > 0 &&
+    onlineConnections.some((online) => {
+      if (!online?.userId || !matchesUserId(online.userId, user?._id)) {
+        return false;
+      }
+
+      const address = getConnectionAddress(online);
+      const hostname = getConnectionHostname(online);
+
+      return (
+        !isBlankConnectionValue(address) || !isBlankConnectionValue(hostname)
+      );
+    });
+
+  const hasProxyConnection =
+    onlineConnections.length > 0 &&
+    onlineConnections.some((online) => {
+      if (!online?.userId || !matchesUserId(online.userId, user?._id)) {
+        return false;
+      }
+
+      const address = getConnectionAddress(online);
+
+      return address.startsWith("proxy:");
+    });
+
+  const hasVpnConnection = !!(user?.vpnplusConnected || user?.vpn2mbConnected);
+
+  return {
+    hasAppConnection,
+    hasProxyConnection,
+    hasVpnConnection,
+    hasWebConnection,
+    isConnected:
+      hasWebConnection ||
+      hasProxyConnection ||
+      hasVpnConnection ||
+      hasAppConnection,
+  };
+};
 
 const getCoordinate = (user) => {
   const candidate = user?.cordenadas || user?.coordenadas;
@@ -315,6 +454,16 @@ const MapaUsuariosScreen = () => {
         fields: LOCATION_FIELDS,
       })
       .fetch();
+    const userIds = docs.map((doc) => doc?._id).filter(Boolean);
+    const connectionsHandle = Meteor.subscribe(
+      "conexiones",
+      { userId: { $in: userIds } },
+      { fields: { userId: 1, address: 1, hostname: 1 } },
+    );
+    const connections = Online.find(
+      { userId: { $in: userIds } },
+      { fields: { userId: 1, address: 1, hostname: 1 } },
+    ).fetch();
 
     const normalizedUsers = docs
       .map((doc) => {
@@ -326,12 +475,18 @@ const MapaUsuariosScreen = () => {
         const roleComercio = Array.isArray(doc?.profile?.roleComercio)
           ? doc.profile.roleComercio
           : [];
+        const connectionState = getUserConnectionState(doc, connections);
 
         return {
           ...doc,
           coordinate,
           displayName: getDisplayName(doc),
+          hasAppConnection: connectionState.hasAppConnection,
+          hasProxyConnection: connectionState.hasProxyConnection,
+          hasVpnConnection: connectionState.hasVpnConnection,
+          hasWebConnection: connectionState.hasWebConnection,
           isEmpresa: roleComercio.includes("EMPRESA"),
+          online: connectionState.isConnected,
           roleLabel: getRoleLabel(doc),
           timestamp:
             (doc?.cordenadas || doc?.coordenadas)?.timestamp || doc?.createdAt,
@@ -350,7 +505,8 @@ const MapaUsuariosScreen = () => {
       });
 
     return {
-      ready: handle?.ready?.() ?? false,
+      ready:
+        (handle?.ready?.() ?? false) && (connectionsHandle?.ready?.() ?? false),
       users: normalizedUsers,
     };
   }, []);

@@ -101,40 +101,117 @@ const matchesUserId = (leftId, rightId) => {
   return normalizedLeftId === normalizedRightId;
 };
 
+const getConnectionAddress = (connectionDoc) => {
+  if (typeof connectionDoc?.address !== "string") {
+    return "";
+  }
+
+  return connectionDoc.address.trim().toLowerCase();
+};
+
+const getConnectionHostname = (connectionDoc) => {
+  if (typeof connectionDoc?.hostname !== "string") {
+    return "";
+  }
+
+  return connectionDoc.hostname.trim().toLowerCase();
+};
+
+const isBlankConnectionValue = (value) => value == null || value === "";
+
+const matchesConnectionFilter = (connectionState, filtroConexion) => {
+  if (!filtroConexion) {
+    return true;
+  }
+
+  switch (filtroConexion) {
+    case "activa":
+      return connectionState?.isConnected === true;
+    case "desconectado":
+      return connectionState?.isConnected !== true;
+    case "web":
+      return connectionState?.hasWebConnection === true;
+    case "proxy":
+      return connectionState?.hasProxyConnection === true;
+    case "vpn":
+      return connectionState?.hasVpnConnection === true;
+    case "app":
+      return connectionState?.hasAppConnection === true;
+    default:
+      return true;
+  }
+};
+
 const getUserConnectionState = (user, connections) => {
   const onlineConnections = Array.isArray(connections) ? connections : [];
 
   const hasWebConnection =
     onlineConnections.length > 0 &&
-    onlineConnections.some(
-      (online) =>
-        online?.userId &&
-        matchesUserId(online.userId, user?._id) &&
-        online.address != null,
-    );
+    onlineConnections.some((online) => {
+      if (!online?.userId || !matchesUserId(online.userId, user?._id)) {
+        return false;
+      }
+
+      const address = getConnectionAddress(online);
+      const hostname = getConnectionHostname(online);
+
+      return (
+        isBlankConnectionValue(address) && isBlankConnectionValue(hostname)
+      );
+    });
+
+  const hasAppConnection =
+    onlineConnections.length > 0 &&
+    onlineConnections.some((online) => {
+      if (!online?.userId || !matchesUserId(online.userId, user?._id)) {
+        return false;
+      }
+
+      const address = getConnectionAddress(online);
+      const hostname = getConnectionHostname(online);
+
+      return (
+        !isBlankConnectionValue(address) || !isBlankConnectionValue(hostname)
+      );
+    });
 
   const hasProxyConnection =
     onlineConnections.length > 0 &&
-    onlineConnections.some(
-      (online) =>
-        online?.userId &&
-        matchesUserId(online.userId, user?._id) &&
-        !online.address,
-    );
+    onlineConnections.some((online) => {
+      if (!online?.userId || !matchesUserId(online.userId, user?._id)) {
+        return false;
+      }
+
+      const address = getConnectionAddress(online);
+
+      if (address.startsWith("proxy:")) {
+        return true;
+      }
+
+      return false;
+    });
 
   const hasVpnConnection = !!(user?.vpnplusConnected || user?.vpn2mbConnected);
   const isConnected =
-    hasWebConnection || hasProxyConnection || hasVpnConnection;
+    hasWebConnection ||
+    hasProxyConnection ||
+    hasVpnConnection ||
+    hasAppConnection;
   const connectionType = hasWebConnection
     ? "web"
     : hasProxyConnection
       ? "proxy"
-      : "vpn";
+      : hasVpnConnection
+        ? "vpn"
+        : hasAppConnection
+          ? "app"
+          : null;
 
   return {
     hasWebConnection,
     hasProxyConnection,
     hasVpnConnection,
+    hasAppConnection,
     isConnected,
     connectionType,
   };
@@ -177,40 +254,57 @@ const getPushState = (user, pushTokens) => {
   };
 };
 
-const getConnectionBadgeMeta = (connectionState) => {
+const getConnectionBadgesMeta = (connectionState) => {
+  const badges = [];
+
   if (connectionState?.hasWebConnection) {
-    return {
+    badges.push({
       backgroundColor: "rgba(16,255,224,0.14)",
       borderColor: "rgba(16,255,224,0.35)",
       label: "Web",
       textColor: "#00796B",
-    };
+    });
   }
 
   if (connectionState?.hasProxyConnection) {
-    return {
+    badges.push({
       backgroundColor: "rgba(16,45,255,0.12)",
       borderColor: "rgba(16,45,255,0.28)",
       label: "Proxy",
       textColor: "#1D4ED8",
-    };
+    });
   }
 
   if (connectionState?.hasVpnConnection) {
-    return {
+    badges.push({
       backgroundColor: "rgba(16,255,0,0.12)",
       borderColor: "rgba(16,255,0,0.28)",
       label: "VPN",
       textColor: "#2E7D32",
-    };
+    });
   }
 
-  return {
-    backgroundColor: "rgba(100,116,139,0.14)",
-    borderColor: "rgba(100,116,139,0.22)",
-    label: "Offline",
-    textColor: "#475569",
-  };
+  if (connectionState?.hasAppConnection) {
+    badges.push({
+      backgroundColor: "rgba(176, 7, 30, 0.56)",
+      borderColor: "rgba(176, 7, 30, 0.82)",
+      label: "APP",
+      textColor: "#2E7D32",
+    });
+  }
+
+  if (badges.length > 0) {
+    return badges;
+  }
+
+  return [
+    {
+      backgroundColor: "rgba(100,116,139,0.14)",
+      borderColor: "rgba(100,116,139,0.22)",
+      label: "Offline",
+      textColor: "#475569",
+    },
+  ];
 };
 
 const getServiceSnapshot = (item) => {
@@ -343,7 +437,7 @@ const UserCardContent = ({
   theme,
 }) => {
   const connectionState = getUserConnectionState(item, connections);
-  const connectionMeta = getConnectionBadgeMeta(connectionState);
+  const connectionBadges = getConnectionBadgesMeta(connectionState);
   const pushState = getPushState(item, pushTokens);
   const serviceSnapshot = getServiceSnapshot(item);
   const displayName = getDisplayName(item);
@@ -398,7 +492,15 @@ const UserCardContent = ({
               >
                 {displayName}
               </Text>
-              <MetaPill {...connectionMeta} />
+            </View>
+
+            <View style={styles.connectionPillsRow}>
+              {connectionBadges.map((badge) => (
+                <MetaPill
+                  key={`${item?._id || "user"}-${badge.label}`}
+                  {...badge}
+                />
+              ))}
             </View>
 
             <Text
@@ -743,7 +845,6 @@ const UsersHome = () => {
       vpnmegas: 1,
       megas: 1,
     };
-
     const userHandle = Meteor.subscribe("user", userFilter, {
       fields: userFields,
     });
@@ -774,16 +875,17 @@ const UsersHome = () => {
     );
     const connectionHandle = Meteor.subscribe(
       "conexiones",
-      {},
-      { fields: { userId: 1, address: 1 } },
+      { userId: { $in: userIds } },
+      { fields: { userId: 1, address: 1, hostname: 1 } },
     );
+
     return {
       loading:
         !userHandle.ready() || !connectionHandle.ready() || !pushHandle.ready(),
       users: usersDocs,
       connections: Online.find(
-        {},
-        { fields: { userId: 1, address: 1 } },
+        { userId: { $in: userIds } },
+        { fields: { userId: 1, address: 1, hostname: 1 } },
       ).fetch(),
       pushTokens: PushTokens.find(
         { userId: { $in: userIds } },
@@ -825,11 +927,9 @@ const UsersHome = () => {
         return false;
       }
       if (filtroConexion !== null) {
-        const { isConnected } = getUserConnectionState(user, connections);
-        if (filtroConexion === "conectado" && !isConnected) {
-          return false;
-        }
-        if (filtroConexion === "desconectado" && isConnected) {
+        const connectionState = getUserConnectionState(user, connections);
+
+        if (!matchesConnectionFilter(connectionState, filtroConexion)) {
           return false;
         }
       }
@@ -1185,10 +1285,34 @@ const UsersHome = () => {
               Conexión: Todos
             </Chip>
             <Chip
-              selected={filtroConexion === "conectado"}
-              onPress={() => setFiltroConexion("conectado")}
+              selected={filtroConexion === "activa"}
+              onPress={() => setFiltroConexion("activa")}
             >
-              Conectados
+              Alguna activa
+            </Chip>
+            <Chip
+              selected={filtroConexion === "web"}
+              onPress={() => setFiltroConexion("web")}
+            >
+              WEB
+            </Chip>
+            <Chip
+              selected={filtroConexion === "proxy"}
+              onPress={() => setFiltroConexion("proxy")}
+            >
+              PROXY
+            </Chip>
+            <Chip
+              selected={filtroConexion === "vpn"}
+              onPress={() => setFiltroConexion("vpn")}
+            >
+              VPN
+            </Chip>
+            <Chip
+              selected={filtroConexion === "app"}
+              onPress={() => setFiltroConexion("app")}
+            >
+              APP
             </Chip>
             <Chip
               selected={filtroConexion === "desconectado"}
@@ -1649,6 +1773,11 @@ const styles = StyleSheet.create({
   },
   username: { fontSize: 10, fontWeight: "700" },
   metaPillsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 5,
+  },
+  connectionPillsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 5,

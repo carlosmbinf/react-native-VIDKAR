@@ -2,23 +2,26 @@ import MeteorBase from "@meteorrn/core";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-    Alert,
-    ImageBackground,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    View,
+  Alert,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import {
-    ActivityIndicator,
-    Button,
-    Card,
-    Surface,
-    Text,
-    TextInput,
+  ActivityIndicator,
+  Button,
+  Card,
+  Surface,
+  Text,
+  TextInput,
 } from "react-native-paper";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import { DTShopProductosCollection } from "../collections/collections";
 import AppHeader from "../Header/AppHeader";
@@ -102,6 +105,7 @@ const toMoneyLabel = (value, currency) => {
 const CubacelOfertaScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
   const [extraFields, setExtraFields] = useState({});
   const [nombre, setNombre] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -220,7 +224,7 @@ const CubacelOfertaScreen = () => {
 
   if (!productId) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={["left", "right"]}>
+      <SafeAreaView style={styles.safeArea} edges={[]}>
         <Surface style={styles.screen}>
           <AppHeader
             title="Oferta Cubacel"
@@ -239,7 +243,7 @@ const CubacelOfertaScreen = () => {
 
   if (!ready && !product) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={["left", "right"]}>
+      <SafeAreaView style={styles.safeArea} edges={[]}>
         <Surface style={styles.screen}>
           <AppHeader
             title="Oferta Cubacel"
@@ -257,7 +261,7 @@ const CubacelOfertaScreen = () => {
 
   if (ready && !product) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={["left", "right"]}>
+      <SafeAreaView style={styles.safeArea} edges={[]}>
         <Surface style={styles.screen}>
           <AppHeader
             title="Oferta Cubacel"
@@ -281,7 +285,7 @@ const CubacelOfertaScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["left", "right"]}>
+    <SafeAreaView style={styles.safeArea} edges={[]}>
       <Surface style={styles.screen}>
         <AppHeader
           title="Oferta Cubacel"
@@ -443,7 +447,14 @@ const CubacelOfertaScreen = () => {
             </Card>
           </ScrollView>
 
-          <View style={styles.footer}>
+          <View
+            style={[
+              styles.footer,
+              {
+                paddingBottom: Math.max(insets.bottom, 18),
+              },
+            ]}
+          >
             <View style={styles.footerSummary}>
               <Text style={styles.footerSummaryLabel}>Total</Text>
               <Text style={styles.footerSummaryValue}>

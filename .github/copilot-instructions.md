@@ -2713,6 +2713,31 @@ Notas adicionales – La prioridad correcta del render de ubicación es memoria,
   - Si en la misma sesión una pantalla ya resolvió GPS, los hijos o flujos posteriores no deben volver a comportarse como si no existiera ubicación.
   - El GPS debe refrescar y guardar la nueva posición por detrás, pero no bloquear el render inicial cuando ya hay una última ubicación conocida utilizable.
 
+---
+
+Resumen tecnico - Evitar búsquedas repetidas de `comercio.getTiendasCercanas` en `ProductosScreen`
+
+- Problema detectado en `components/productos/ProductosScreen.native.jsx`:
+  - La pantalla recalculaba `initialCachedLocation` en cada render y ese valor entraba en las dependencias del `useEffect` de arranque.
+  - Como la ubicación actual también actualiza la caché en memoria, ese patrón podía volver a disparar `obtenerUbicacion()` y `buscarTiendasCercanas()` varias veces con coordenadas prácticamente iguales.
+
+- Corrección aplicada:
+  - La ubicación cacheada inicial ahora se congela en un `useRef` de arranque en lugar de recalcularse en cada render.
+  - Se añadió `radioKmRef` para desacoplar la búsqueda del cambio de identidad de callbacks por radio actual.
+  - Se añadió `lastSearchSignatureRef` para no volver a pedir exactamente la misma combinación de:
+    - latitud
+    - longitud
+    - radio
+
+- Criterio funcional validado:
+  - Cambiar el radio sí debe forzar una nueva búsqueda.
+  - Rehidratar desde caché y luego resolver GPS real puede producir una segunda búsqueda legítima si la ubicación cambió.
+  - Lo que se evita es repetir llamadas idénticas por renders/recreaciones de callback y no por una necesidad real del flujo.
+
+- Regla practica:
+  - Si una pantalla Expo arranca con caché local y luego refresca GPS, no poner el valor cacheado recalculado inline dentro de dependencias de efectos de bootstrap.
+  - Para métodos costosos o sensibles como `comercio.getTiendasCercanas`, conviene deduplicar la misma firma de búsqueda antes de volver a llamar al backend.
+
   ***
 
   Resumen técnico – Step 5 del carrito en Expo debe reconstruir el desglose legacy, no reutilizar `totalAPagar` como subtotal
@@ -5154,3 +5179,272 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
       - glow leve
       - inputs translúcidos
     - Si el login vuelve a sentirse como un panel blanco encima del fondo, revisar primero `blurCardOverlay`, `inputBackground` y si reaparecio una capa global sobre toda la pantalla.
+
+  ---
+
+  Resumen tecnico - `CubacelOfertaScreen` debe respetar el inset inferior real en Android
+
+  - Problema detectado:
+    - En `components/cubacel/CubacelOfertaScreen.native.jsx`, la pantalla solo aplicaba `SafeAreaView` en `left/right`.
+    - Cuando Android muestra botones o barra de navegación inferior, el footer fijo puede quedar demasiado pegado o visualmente montado sobre esa zona del sistema.
+
+  - Correccion aplicada:
+    - La pantalla ahora incluye `bottom` en `edges` del `SafeAreaView`.
+    - Se usa `useSafeAreaInsets()` para aplicar el inset inferior real al footer fijo con `paddingBottom: Math.max(insets.bottom, 18)`.
+
+  - Criterio UX validado:
+    - En pantallas con footer persistente de acciones, no basta con envolver la vista en `SafeAreaView` si el edge inferior no esta activo o si el footer usa padding fijo.
+    - El bloque de acciones debe respirar respecto a la barra del sistema tanto en Android con botones tradicionales como con navegación gestual.
+
+  - Regla practica:
+    - Si una pantalla Expo tiene CTA fijo al fondo, usar `useSafeAreaInsets()` y no confiar solo en padding hardcodeado.
+    - En este proyecto, el `bottom inset` debe aplicarse especialmente en footers de compra, checkout y formularios con acción principal persistente.
+
+  ***
+
+  Resumen tecnico - Ventas filtradas por usuario al entrar desde Users
+  - Ajuste aplicado en `components/ventas/VentasList.native.jsx`:
+    - La ruta `/(normal)/Ventas` ahora respeta `id` como contexto de usuario tambien para admins no generales.
+    - Si el usuario actual no es `carlosmbinf`, la query final se arma como interseccion entre:
+      - las ventas donde participa el admin actual
+      - las ventas donde participa el usuario recibido por ruta
+    - Esto mantiene el alcance seguro del admin y a la vez evita perder el filtro de contexto al abrir Ventas desde Users.
+
+  - Mejora de UX:
+    - La pantalla de Ventas ahora muestra un chip y texto de contexto cuando entra con `routeId`, dejando visible que el listado ya esta filtrado para un usuario concreto.
+    - El subtitulo del header tambien cambia para reflejar ese contexto y no parecer una lista general.
+
+  - Regla practica:
+    - Si una pantalla administrativa recibe params de filtro por navegacion contextual, la UI debe mostrarlos explicitamente y la query reactiva debe respetarlos sin romper el scope de permisos del usuario actual.
+
+  ---
+
+  Resumen tecnico - Footer inferior de `CubacelOfertaScreen` con padding por inset, sin reservar el bottom safe area en el contenedor padre
+
+  - Ajuste aplicado en `components/cubacel/CubacelOfertaScreen.native.jsx`:
+    - El `SafeAreaView` principal no debe consumir `bottom` en `edges` porque esa superficie padre debe poder ocupar tambien el area inferior.
+    - El respiro real se deja solo en el footer fijo de acciones usando `useSafeAreaInsets()` y `paddingBottom: Math.max(insets.bottom, 18)`.
+
+  - Criterio UX validado:
+    - En esta pantalla, el problema no era el contenedor completo sino los botones fijos del bloque inferior.
+    - La solucion correcta es dejar que el layout padre llegue al borde inferior y aplicar el inset solo donde hace falta evitar choque con la navegacion del sistema.
+
+  - Regla practica:
+    - Si una pantalla tiene footer fijo, no agregar `bottom` al `SafeAreaView` principal por defecto.
+    - Primero validar si basta con aplicar el inset inferior solo en el contenedor de acciones o CTA persistente.
+
+  ***
+
+  Resumen tecnico - `CubacelOfertaScreen` no debe reservar safe area lateral en el contenedor raiz
+  - Ajuste aplicado en `components/cubacel/CubacelOfertaScreen.native.jsx`:
+    - El `SafeAreaView` raiz dejo de consumir tambien `left` y `right`.
+    - La pantalla ahora ocupa todo el ancho disponible y el respiro lateral queda a cargo de los bloques internos que ya usan margenes/paddings propios.
+
+  - Criterio UX validado:
+    - En esta pantalla, el contenedor padre no debe encoger ni vertical ni horizontalmente por safe areas.
+    - Las separaciones laterales deben vivir en el layout del contenido, no en el wrapper raiz.
+
+  - Regla practica:
+    - Si una superficie ya tiene tarjetas, hero, formulario y footer con paddings internos, no envolver todo el screen con `left/right` safe area por defecto.
+    - Usar el `SafeAreaView` raiz solo para el comportamiento que realmente deba afectar al contenedor completo.
+
+  ***
+
+  Resumen tecnico - Safe area lateral unificada en pantallas Expo
+  - Ajuste aplicado en pantallas raiz activas del proyecto Expo:
+    - `components/Header/AppHeader.jsx` ahora solo reserva `top` cuando monta su propio `SafeAreaView`.
+    - Las pantallas con header custom propio mantienen solo `edges={["top"]}` en el root.
+    - Las pantallas cuyo header ya usa `AppHeader` pasan a `edges={[]}` en el contenedor raiz para no volver a encoger lateral o inferiormente toda la superficie.
+
+  - Pantallas alineadas con este criterio:
+    - `components/Main/MenuPrincipalScreen.jsx`
+    - `components/drawer/DrawerOptionsAlls.js`
+    - `components/mensajes/MensajesHome.native.js`
+    - `components/dashboard/DashboardScreen.native.jsx`
+    - `components/cubacel/ProductosScreen.native.jsx`
+    - `components/loguin/Loguin.native.js`
+    - `components/loguin/Loguin.js`
+
+  - Criterio UX validado:
+    - El safe area lateral no debe encoger por defecto toda la pantalla.
+    - Los margenes horizontales deben salir del layout interno de cada modulo.
+    - El inset superior se reserva solo donde una cabecera propia realmente lo necesita.
+
+  - Regla practica:
+    - Si una pantalla usa `AppHeader`, el root normalmente no debe volver a reservar `left/right/bottom`.
+    - Si una pantalla usa header custom dentro del screen, dejar como maximo `top` en el `SafeAreaView` raiz.
+
+  ***
+
+  Resumen tecnico - Deteccion real de conexion web/proxy/VPN en Expo Users
+  - Hallazgo validado al contrastar legacy con backend:
+    - El legacy intentaba distinguir `web` y `proxy` usando `online.hostname`, pero esa heuristica no representa bien la forma real de los documentos en `conexiones`.
+    - En el backend actual:
+      - conexiones web normales se crean desde `Meteor.onConnection` con `address = connection.clientAddress` y luego se les agrega `userId` en `Accounts.onLogin`
+      - conexiones proxy se insertan desde `serverproxy3002.js` con `address = "proxy: <ip>"` y `userId`
+    - Por tanto, la regla correcta en Expo no es `address != null => web`.
+
+  - Correccion aplicada en `components/users/UsersHome.native.js`:
+    - `hasWebConnection` ahora exige:
+      - `userId` que haga match con el usuario
+      - `address` presente
+      - `address` que NO empiece con `proxy:`
+    - `hasProxyConnection` ahora exige:
+      - `userId` que haga match con el usuario
+      - `address` que empiece con `proxy:`
+    - `hasVpnConnection` sigue saliendo de `vpnplusConnected || vpn2mbConnected`.
+
+  - Regla practica:
+    - Para el proyecto Expo, la fuente de verdad para distinguir web vs proxy en `conexiones` debe ser el contenido de `address` y no la presencia/ausencia del campo.
+    - Si un usuario aparece conectado solo por VPN cuando deberia salir web o proxy, revisar primero el valor real de `address` en la coleccion `conexiones`.
+
+  ***
+
+  Resumen tecnico - Chips multiples por conexion activa en Users Expo
+  - Ajuste aplicado en `components/users/UsersHome.native.js`:
+    - El card de usuario ya no resume las conexiones en un solo chip por prioridad.
+    - Ahora genera un chip por cada conexion activa detectada:
+      - `Web`
+      - `Proxy`
+      - `VPN`
+    - Si no existe ninguna conexion activa, mantiene un unico chip `Offline`.
+
+  - Criterio visual validado:
+    - Si un usuario esta conectado por `Proxy` y `VPN` al mismo tiempo, el card debe mostrar ambos chips para que el operador identifique todos los canales activos y no solo uno dominante.
+    - La prioridad unica sigue siendo util para el badge puntual del avatar, pero no para el resumen textual del card.
+
+  - Regla practica:
+    - Cuando una entidad puede tener varios estados de conexion simultaneos, no colapsarlos a una sola etiqueta si la UI necesita diagnostico operativo.
+    - En este modulo, los chips del card deben representar el conjunto completo de conexiones activas, no solo la primera coincidencia.
+
+  Notas adicionales - Soporte dual de `hostname` legacy y `address` backend en Users Expo
+  - Hallazgo importante:
+    - Para diagnosticar conexiones en `Users`, no conviene depender solo de `address` ni solo de `hostname`.
+    - El legacy filtraba con `hostname`, mientras que el backend actual tambien distingue proxy por `address = "proxy: ..."`.
+
+  - Ajuste aplicado:
+    - `components/users/UsersHome.native.js` ahora suscribe y lee ambos campos en `conexiones`:
+      - `address`
+      - `hostname`
+    - La deteccion de `web` se considera positiva si:
+      - existe `hostname`, o
+      - existe `address` y no empieza con `proxy:`
+    - La deteccion de `proxy` se considera positiva si:
+      - `address` empieza con `proxy:`
+
+  - Regla practica:
+    - Si una heuristica de conexion deja de detectar usuarios en Expo, contrastar siempre contra los dos contratos historicos del proyecto antes de simplificar la logica a un solo campo.
+
+  ---
+
+  Resumen tecnico - Filtro de conexion por tipo en `UsersHome` y APP cuenta como conexion activa
+
+  - Ajuste aplicado en `components/users/UsersHome.native.js`:
+    - El filtro general de `Conexión` dejo de ser solo binario (`conectado` / `desconectado`).
+    - Ahora permite filtrar por:
+      - cualquier conexion activa
+      - `WEB`
+      - `PROXY`
+      - `VPN`
+      - `APP`
+      - `desconectado`
+
+  - Correccion funcional importante:
+    - `getUserConnectionState(...)` ahora cuenta `hasAppConnection` dentro de `isConnected`.
+    - Antes, un usuario que solo tuviera conexion por app podia quedar fuera del filtro de conectados aunque el estado de APP ya estuviera calculado.
+
+  - Criterio aplicado:
+    - El filtro por tipo no exige exclusividad.
+    - Si un usuario tiene varias conexiones activas, debe aparecer en cualquiera de los filtros que le correspondan.
+    - Ejemplo:
+      - si tiene `PROXY` y `VPN`, aparece tanto en `PROXY` como en `VPN`
+
+  - Regla practica:
+    - Si el modulo ya deriva un estado compuesto de conexion, el filtro no debe volver a inferirlo con reglas paralelas dispersas.
+    - Conviene centralizar el matching del filtro contra `getUserConnectionState(...)` para que chips visuales, avatar y filtros usen la misma fuente de verdad.
+
+  ---
+
+  Resumen tecnico - `MapaUsuarios` debe derivar online desde `conexiones`, no desde `user.online`
+
+  - Ajuste aplicado en `components/comercio/maps/MapaUsuariosScreen.native.jsx`:
+    - La pantalla del mapa ahora suscribe `conexiones` ademas de `user`.
+    - El campo `online` de cada usuario se recalcula con la misma logica usada en `components/users/UsersHome.native.js`.
+
+  - Criterio funcional validado:
+    - `hasAppConnection` se considera activo cuando existe alguna conexion del usuario con `address` o `hostname` no vacios.
+    - `isConnected` del mapa ahora sale de:
+      - `hasWebConnection`
+      - `hasProxyConnection`
+      - `hasVpnConnection`
+      - `hasAppConnection`
+    - Con eso, la metrica `En línea`, el ordenado y el filtro `online` del mapa ya no dependen del flag legacy `user.online`.
+
+  - Regla practica:
+    - Si una pantalla Expo necesita estado de conexion del usuario y existe la coleccion `conexiones`, no usar `user.online` como fuente primaria.
+    - Reutilizar los helpers de derivacion de `UsersHome` evita inconsistencias entre listado de usuarios y mapa.
+
+  ---
+
+  Resumen tecnico - Copy de bienvenida del menu principal debe sonar institucional, no tecnico
+
+  - Ajuste aplicado en `components/Main/MenuPrincipalScreen.jsx`:
+    - El texto principal del hero se reemplazo por un mensaje de bienvenida mas profesional y neutral para cliente final.
+
+  - Criterio de contenido validado:
+    - En la pantalla principal no conviene usar copy tecnico ni enumeraciones funcionales demasiado operativas si el objetivo inmediato es dar la bienvenida.
+    - El mensaje correcto para esta superficie debe sentirse:
+      - claro
+      - cercano
+      - profesional
+      - orientado al usuario final
+
+  - Regla practica:
+    - En heroes de entrada o menues principales, priorizar lenguaje institucional y de servicio.
+    - Dejar el detalle tecnico o funcional para cards, modulos y CTAs especificos dentro de la pantalla.
+
+  ---
+
+  Resumen tecnico - Saludo del menu principal debe priorizar `profile.firstName`
+
+  - Ajuste aplicado en `components/Main/MenuPrincipalScreen.jsx`:
+    - `formatGreeting(...)` dejo de usar `username` para construir el saludo principal.
+    - Ahora prioriza `user.profile.firstName` y usa fallback simple `Bienvenido` si no existe.
+
+  - Criterio UX validado:
+    - En la pantalla principal, el saludo debe sonar personal y limpio.
+    - `username` puede contener aliases tecnicos o valores poco presentables para un hero de bienvenida.
+    - `firstName` es la fuente mas adecuada cuando existe en el perfil.
+
+  - Regla practica:
+    - En copys personalizados dirigidos al usuario final, preferir `profile.firstName` antes que `username` salvo que el flujo sea estrictamente tecnico o administrativo.
+
+  ---
+
+  Resumen tecnico - Chip de rol en `MenuPrincipal` solo para administradores
+
+  - Ajuste aplicado en `components/Main/MenuPrincipalScreen.jsx`:
+    - El chip con `shield-account` y `getRoleLabel(user)` ya no se muestra para usuarios normales.
+    - Ahora solo se renderiza cuando el usuario es admin o administrador general.
+
+  - Criterio UX validado:
+    - En el hero principal no conviene ocupar espacio visual con un badge de rol para usuarios finales si ese dato no aporta valor operativo.
+    - El chip de rol si tiene sentido para perfiles administrativos porque contextualiza permisos y responsabilidad dentro del sistema.
+
+  - Regla practica:
+    - En superficies de bienvenida, mostrar metadatos de rol solo cuando aporten contexto real al flujo del usuario.
+
+  ---
+
+  Resumen tecnico - Boton de mensajes solo visible cuando existen mensajes reales
+
+  - Ajuste aplicado en `components/components/MenuIconMensajes.native.js`:
+    - El icono de mensajes deja de renderizarse si no hay mensajes o conversaciones disponibles para el usuario actual.
+    - Tambien se oculta durante `loading` para evitar mostrar un acceso transitorio que luego desaparezca.
+
+  - Criterio UX validado:
+    - Si el menu de mensajes no tiene contenido, no conviene mostrar el icono en el header.
+    - Un acceso visible que no puede abrir nada util solo genera ruido visual y expectativa falsa de funcionalidad.
+
+  - Regla practica:
+    - En menus o acciones contextuales del header, renderizar el acceso solo cuando exista contenido real detras de esa accion.

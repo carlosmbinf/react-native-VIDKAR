@@ -54,7 +54,7 @@ const Loguin = () => {
         style={[styles.backgroundOverlay, { backgroundColor: overlayColor }]}
       />
 
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,

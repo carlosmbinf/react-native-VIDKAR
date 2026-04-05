@@ -112,7 +112,7 @@ const AppHeader = ({
   return (
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor }]}
-      edges={["top", "left", "right"]}
+      edges={["top"]}
     >
       {headerNode}
     </SafeAreaView>

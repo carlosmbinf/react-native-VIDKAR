@@ -175,8 +175,12 @@ const MenuIconMensajesNative = ({ onOpenMessages }) => {
     return null;
   }
 
+  if (loading) {
+    return null;
+  }
+
   if (users.length === 0) {
-    return anchor;
+    return null;
   }
 
   return (

@@ -12,6 +12,7 @@ import {
 import { Chip, Portal, Surface, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import Meteor from "@meteorrn/core";
 import Productos from "../cubacel/Productos";
 import DrawerOptionsAlls from "../drawer/DrawerOptionsAlls";
 import MenuHeader from "../Header/MenuHeader";
@@ -19,11 +20,14 @@ import ProxyVPNPackagesHorizontal from "../proxyVPN/ProxyVPNPackagesHorizontal";
 
 const DRAWER_WIDTH = 316;
 
-const formatGreeting = (username) => {
-  if (!username) return "Bienvenido";
+const formatGreeting = (user) => {
+  const firstName = user?.profile?.firstName?.trim();
 
-  const [firstWord] = username.split(" ");
-  return `Hola, ${firstWord}`;
+  if (firstName) {
+    return `Bienvenido, ${firstName}`;
+  }
+
+  return "Bienvenido";
 };
 
 const getRoleLabel = (user) => {
@@ -103,11 +107,13 @@ const MenuPrincipalScreen = ({
     day: "numeric",
     month: "long",
   }).format(new Date());
+  const hasAdminRole =
+    user?.username === "carlosmbinf" || user?.profile?.role === "admin";
   const hasPendingDebt =
     user?.profile?.role === "admin" && (Number(pendingDebt) || 0) > 0;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <Surface style={styles.screen}>
         <ImageBackground
           source={require("../files/space-bg-shadowcodex.jpg")}
@@ -146,37 +152,44 @@ const MenuPrincipalScreen = ({
               {todayLabel}
             </Text>
             <Text variant="headlineMedium" style={styles.heroTitle}>
-              {formatGreeting(user?.username)}
+              {formatGreeting(user)}
             </Text>
             <Text variant="bodyLarge" style={styles.heroCopy}>
-              Gestiona tus servicios de conectividad, recargas y compras con
-              seguridad. Accede a todas las funcionalidades desde un solo lugar.
+              Nos alegra tenerte de vuelta. Desde aquí puedes acceder de forma
+              rápida y sencilla a los servicios y opciones principales de tu
+              cuenta.
             </Text>
             <View style={styles.heroChipsRow}>
-              <Chip
-                compact
-                icon="shield-account"
-                style={styles.heroChip}
-                textStyle={styles.heroChipText}
-              >
-                {getRoleLabel(user)}
-              </Chip>
-              <Chip
-                compact
-                icon="information"
-                style={styles.heroChip}
-                textStyle={styles.heroChipText}
-              >
-                v{appVersion}
-              </Chip>
-              <Chip
-                compact
-                icon="cellphone-arrow-down"
-                style={styles.heroChip}
-                textStyle={styles.heroChipText}
-              >
-                Comp. {buildNumber}
-              </Chip>
+              {hasAdminRole ? (
+                <Chip
+                  compact
+                  icon="shield-account"
+                  style={styles.heroChip}
+                  textStyle={styles.heroChipText}
+                >
+                  {getRoleLabel(user)}
+                </Chip>
+              ) : null}
+              {Meteor.user()?.username === "carlosmbinf" && (
+                <Chip
+                  compact
+                  icon="information"
+                  style={styles.heroChip}
+                  textStyle={styles.heroChipText}
+                >
+                  v{appVersion}
+                </Chip>
+              )}
+              {Meteor.user()?.username === "carlosmbinf" && (
+                <Chip
+                  compact
+                  icon="cellphone-arrow-down"
+                  style={styles.heroChip}
+                  textStyle={styles.heroChipText}
+                >
+                  Comp. {buildNumber}
+                </Chip>
+              )}
             </View>
             {hasPendingDebt ? (
               <View style={styles.debtBanner}>
