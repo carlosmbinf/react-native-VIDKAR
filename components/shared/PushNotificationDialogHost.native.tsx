@@ -66,7 +66,7 @@ export default function PushNotificationDialogHost() {
         contentContainerStyle={styles.modalContainer}
       >
         <BlurView
-          intensity={60}
+          intensity={24}
           tint={isDarkMode ? "dark" : "light"}
           style={StyleSheet.absoluteFill}
           experimentalBlurMethod="dimezisBlurView"

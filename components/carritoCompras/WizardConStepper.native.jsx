@@ -1397,7 +1397,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
             theme={{ colors: { primary: "green" } }}
           >
             <BlurView
-              intensity={50}
+              intensity={24}
               tint={isDarkMode ? "dark" : "light"}
               style={StyleSheet.absoluteFill}
               experimentalBlurMethod="dimezisBlurView"
