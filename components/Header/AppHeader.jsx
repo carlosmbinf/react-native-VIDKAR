@@ -74,7 +74,7 @@ const AppHeader = ({
   const headerNode = (
     <View style={[styles.headerFrame, { backgroundColor }]}>
       <BlurView
-        intensity={52}
+        intensity={24}
         tint="dark"
         style={styles.blurLayer}
         experimentalBlurMethod={

@@ -85,7 +85,7 @@ const buildAppleFullName = (fullName) => {
 const LoginBlurCard = ({ children, palette }) => {
   return (
     <BlurView
-      intensity={74}
+      intensity={24}
       tint="dark"
       renderToHardwareTextureAndroid={true}
       blurReductionFactor={2}

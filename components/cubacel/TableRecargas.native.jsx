@@ -350,7 +350,7 @@ const TableRecargas = () => {
             ]}
           >
             <BlurView
-              intensity={25}
+              intensity={24}
               //   tint={isDarkMode ? "dark" : "light"}
               style={StyleSheet.absoluteFill}
               experimentalBlurMethod="dimezisBlurView"
