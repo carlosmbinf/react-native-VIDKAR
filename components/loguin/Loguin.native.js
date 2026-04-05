@@ -87,7 +87,7 @@ const LoginBlurCard = ({ children, palette }) => {
     <BlurView
       intensity={24}
       tint="dark"
-      renderToHardwareTextureAndroid={true}
+      renderToHardwareTextureAndroid={false}
       blurReductionFactor={2}
       experimentalBlurMethod={
         Platform.OS === "android" ? "dimezisBlurView" : undefined
