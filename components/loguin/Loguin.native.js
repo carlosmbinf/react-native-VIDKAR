@@ -8,11 +8,14 @@ import {
     Alert,
     Dimensions,
     ImageBackground,
+    Keyboard,
+    KeyboardAvoidingView,
     NativeModules,
     Platform,
     ScrollView,
     StyleSheet,
     View,
+    findNodeHandle,
 } from "react-native";
 import { Button, Text, TextInput, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -148,6 +151,9 @@ const Loguin = () => {
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingApple, setLoadingApple] = useState(false);
   const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
+  const scrollViewRef = React.useRef(null);
+  const passwordInputRef = React.useRef(null);
+  const loginButtonAnchorRef = React.useRef(null);
 
   const theme = useTheme();
   const isDarkMode = theme.dark;
@@ -353,6 +359,45 @@ const Loguin = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const scrollTargetIntoView = React.useCallback((targetRef, extraOffset = 96) => {
+    setTimeout(() => {
+      const scrollResponder = scrollViewRef.current;
+      const targetNode = findNodeHandle(targetRef?.current || targetRef);
+
+      if (
+        !scrollResponder ||
+        !targetNode ||
+        typeof scrollResponder.scrollResponderScrollNativeHandleToKeyboard !==
+          "function"
+      ) {
+        return;
+      }
+
+      scrollResponder.scrollResponderScrollNativeHandleToKeyboard(
+        targetNode,
+        extraOffset,
+        true,
+      );
+    }, 80);
+  }, []);
+
+  const handleFieldFocus = () => {
+    scrollTargetIntoView(
+      loginButtonAnchorRef,
+      Platform.OS === "ios" ? 120 : 96,
+    );
+  };
+
+  const handleUsernameSubmit = () => {
+    passwordInputRef.current?.focus();
+    handleFieldFocus();
+  };
+
+  const handlePasswordSubmit = () => {
+    Keyboard.dismiss();
+    handleLogin();
   };
 
   const onGoogleLogin = async () => {
@@ -668,26 +713,33 @@ const Loguin = () => {
       />
 
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            shouldUseSplitLayout
-              ? styles.scrollContentCentered
-              : styles.scrollContentStacked,
-          ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          style={styles.screen}
+        <KeyboardAvoidingView
+          style={styles.safeArea}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 16 : 0}
         >
-          <View
-            style={[
-              backgroundStyle,
-              styles.layoutShell,
+          <ScrollView
+            ref={scrollViewRef}
+            contentContainerStyle={[
+              styles.scrollContent,
               shouldUseSplitLayout
-                ? styles.layoutShellWide
-                : styles.layoutShellStacked,
+                ? styles.scrollContentCentered
+                : styles.scrollContentStacked,
             ]}
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            style={styles.screen}
           >
+            <View
+              style={[
+                backgroundStyle,
+                styles.layoutShell,
+                shouldUseSplitLayout
+                  ? styles.layoutShellWide
+                  : styles.layoutShellStacked,
+              ]}
+            >
             <View
               style={[
                 styles.brandPanel,
@@ -885,6 +937,7 @@ const Loguin = () => {
                           mode="flat"
                           value={ipserver}
                           onChangeText={setIpserver}
+                          onFocus={handleFieldFocus}
                           label="IP del Servidor"
                           returnKeyType="done"
                           dense
@@ -919,6 +972,9 @@ const Loguin = () => {
                       mode="flat"
                       value={username}
                       onChangeText={handleUsernameChange}
+                      onFocus={handleFieldFocus}
+                      onSubmitEditing={handleUsernameSubmit}
+                      blurOnSubmit={false}
                       label="Usuario"
                       returnKeyType="next"
                       dense
@@ -939,9 +995,12 @@ const Loguin = () => {
                       theme={inputTheme}
                     />
                     <TextInput
+                      ref={passwordInputRef}
                       mode="flat"
                       value={password}
                       onChangeText={setPassword}
+                      onFocus={handleFieldFocus}
+                      onSubmitEditing={handlePasswordSubmit}
                       label="Contraseña"
                       returnKeyType="done"
                       secureTextEntry
@@ -964,19 +1023,21 @@ const Loguin = () => {
                     />
                   </View>
 
-                  <Button
-                    mode="contained"
-                    onPress={handleLogin}
-                    loading={submitting}
-                    disabled={submitting}
-                    style={styles.primaryButton}
-                    contentStyle={styles.primaryButtonContent}
-                    labelStyle={styles.primaryButtonLabel}
-                    buttonColor={theme.colors.primary}
-                    textColor={palette.inputText}
-                  >
-                    Iniciar sesión
-                  </Button>
+                  <View ref={loginButtonAnchorRef} collapsable={false}>
+                    <Button
+                      mode="contained"
+                      onPress={handleLogin}
+                      loading={submitting}
+                      disabled={submitting}
+                      style={styles.primaryButton}
+                      contentStyle={styles.primaryButtonContent}
+                      labelStyle={styles.primaryButtonLabel}
+                      buttonColor={theme.colors.primary}
+                      textColor={palette.inputText}
+                    >
+                      Iniciar sesión
+                    </Button>
+                  </View>
 
                   {permitirLoginWithGoogle?.valor === "true" ||
                   (permitirLoginWithApple?.valor === "true" &&
@@ -1067,8 +1128,9 @@ const Loguin = () => {
                 </View>
               </LoginBlurCard>
             </View>
-          </View>
-        </ScrollView>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
