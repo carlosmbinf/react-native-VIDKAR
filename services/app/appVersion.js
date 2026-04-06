@@ -19,9 +19,19 @@ const parseBuildNumber = (value) => {
   return normalized;
 };
 
+const parseVersion = (value) => {
+  const normalized = String(value ?? "").trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized;
+};
+
 export const getAppVersionInfo = () => {
   const expoConfig = resolveExpoConfig();
-  const version = String(expoConfig?.version || "0.0.0");
+  const version = parseVersion(expoConfig?.version) || "0.0.0";
   const buildNumber =
     parseBuildNumber(expoConfig?.android?.versionCode) ||
     parseBuildNumber(expoConfig?.ios?.buildNumber) ||
