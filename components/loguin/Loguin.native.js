@@ -363,31 +363,29 @@ const Loguin = () => {
 
   const scrollTargetIntoView = React.useCallback((targetRef, extraOffset = 96) => {
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const scrollView = scrollViewRef.current;
-        const scrollContent = scrollContentRef.current;
-        const targetNode = targetRef?.current;
+      const scrollView = scrollViewRef.current;
+      const scrollContent = scrollContentRef.current;
+      const targetNode = targetRef?.current;
 
-        if (
-          !scrollView ||
-          !scrollContent ||
-          !targetNode ||
-          typeof targetNode.measureLayout !== "function"
-        ) {
-          return;
-        }
+      if (
+        !scrollView ||
+        !scrollContent ||
+        !targetNode ||
+        typeof targetNode.measureLayout !== "function"
+      ) {
+        return;
+      }
 
-        targetNode.measureLayout(
-          scrollContent,
-          (_x, y) => {
-            scrollView.scrollTo({
-              animated: true,
-              y: Math.max(y - extraOffset, 0),
-            });
-          },
-          () => null,
-        );
-      });
+      targetNode.measureLayout(
+        scrollContent,
+        (_x, y) => {
+          scrollView.scrollTo({
+            animated: true,
+            y: Math.max(y - extraOffset, 0),
+          });
+        },
+        () => null,
+      );
     });
   }, []);
 
@@ -400,7 +398,6 @@ const Loguin = () => {
 
   const handleUsernameSubmit = () => {
     passwordInputRef.current?.focus();
-    handleFieldFocus();
   };
 
   const handlePasswordSubmit = () => {
@@ -1032,7 +1029,7 @@ const Loguin = () => {
                     />
                   </View>
 
-                  {/* Android puede optimizar away este contenedor si no se fuerza. */}
+                  {/* Android puede optimizar este contenedor si no se fuerza. */}
                   <View
                     ref={loginButtonAnchorRef}
                     collapsable={false}
