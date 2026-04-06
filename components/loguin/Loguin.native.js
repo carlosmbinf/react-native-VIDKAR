@@ -8,6 +8,8 @@ import {
     Alert,
     Dimensions,
     ImageBackground,
+    Keyboard,
+    KeyboardAvoidingView,
     NativeModules,
     Platform,
     ScrollView,
@@ -36,6 +38,8 @@ const GOOGLE_IOS_CLIENT_ID =
   "1043110071233-p7e56eu0sb203j32pf66b1blaql14f26.apps.googleusercontent.com";
 const GOOGLE_WEB_CLIENT_ID =
   "1043110071233-5mf355rcrf02hq4ja99uaq9kspokur1t.apps.googleusercontent.com";
+const IOS_LOGIN_KEYBOARD_OFFSET = 120;
+const ANDROID_LOGIN_KEYBOARD_OFFSET = 96;
 
 let cachedGoogleSignInModulePromise = null;
 
@@ -148,6 +152,10 @@ const Loguin = () => {
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingApple, setLoadingApple] = useState(false);
   const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
+  const scrollViewRef = React.useRef(null);
+  const scrollContentRef = React.useRef(null);
+  const passwordInputRef = React.useRef(null);
+  const loginButtonAnchorRef = React.useRef(null);
 
   const theme = useTheme();
   const isDarkMode = theme.dark;
@@ -353,6 +361,52 @@ const Loguin = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const scrollTargetIntoView = React.useCallback((targetRef, keyboardOffset) => {
+    requestAnimationFrame(() => {
+      const scrollView = scrollViewRef.current;
+      const scrollContent = scrollContentRef.current;
+      const targetNode = targetRef?.current;
+
+      if (
+        !scrollView ||
+        !scrollContent ||
+        !targetNode ||
+        typeof targetNode.measureLayout !== "function"
+      ) {
+        return;
+      }
+
+      targetNode.measureLayout(
+        scrollContent,
+        (_xPosition, yPosition) => {
+          scrollView.scrollTo({
+            animated: true,
+            y: Math.max(yPosition - keyboardOffset, 0),
+          });
+        },
+        () => null,
+      );
+    });
+  }, []);
+
+  const handleFieldFocus = () => {
+    scrollTargetIntoView(
+      loginButtonAnchorRef,
+      Platform.OS === "ios"
+        ? IOS_LOGIN_KEYBOARD_OFFSET
+        : ANDROID_LOGIN_KEYBOARD_OFFSET,
+    );
+  };
+
+  const handleUsernameSubmit = () => {
+    passwordInputRef.current?.focus();
+  };
+
+  const handlePasswordSubmit = () => {
+    Keyboard.dismiss();
+    handleLogin();
   };
 
   const onGoogleLogin = async () => {
@@ -668,26 +722,34 @@ const Loguin = () => {
       />
 
       <SafeAreaView style={styles.safeArea} edges={["top"]}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            shouldUseSplitLayout
-              ? styles.scrollContentCentered
-              : styles.scrollContentStacked,
-          ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          style={styles.screen}
+        <KeyboardAvoidingView
+          style={styles.safeArea}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 16 : 0}
         >
-          <View
-            style={[
-              backgroundStyle,
-              styles.layoutShell,
+          <ScrollView
+            ref={scrollViewRef}
+            contentContainerStyle={[
+              styles.scrollContent,
               shouldUseSplitLayout
-                ? styles.layoutShellWide
-                : styles.layoutShellStacked,
+                ? styles.scrollContentCentered
+                : styles.scrollContentStacked,
             ]}
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            style={styles.screen}
           >
+            <View
+              ref={scrollContentRef}
+              style={[
+                backgroundStyle,
+                styles.layoutShell,
+                shouldUseSplitLayout
+                  ? styles.layoutShellWide
+                  : styles.layoutShellStacked,
+              ]}
+            >
             <View
               style={[
                 styles.brandPanel,
@@ -885,6 +947,7 @@ const Loguin = () => {
                           mode="flat"
                           value={ipserver}
                           onChangeText={setIpserver}
+                          onFocus={handleFieldFocus}
                           label="IP del Servidor"
                           returnKeyType="done"
                           dense
@@ -919,6 +982,9 @@ const Loguin = () => {
                       mode="flat"
                       value={username}
                       onChangeText={handleUsernameChange}
+                      onFocus={handleFieldFocus}
+                      onSubmitEditing={handleUsernameSubmit}
+                      blurOnSubmit={false}
                       label="Usuario"
                       returnKeyType="next"
                       dense
@@ -939,9 +1005,12 @@ const Loguin = () => {
                       theme={inputTheme}
                     />
                     <TextInput
+                      ref={passwordInputRef}
                       mode="flat"
                       value={password}
                       onChangeText={setPassword}
+                      onFocus={handleFieldFocus}
+                      onSubmitEditing={handlePasswordSubmit}
                       label="Contraseña"
                       returnKeyType="done"
                       secureTextEntry
@@ -964,19 +1033,25 @@ const Loguin = () => {
                     />
                   </View>
 
-                  <Button
-                    mode="contained"
-                    onPress={handleLogin}
-                    loading={submitting}
-                    disabled={submitting}
-                    style={styles.primaryButton}
-                    contentStyle={styles.primaryButtonContent}
-                    labelStyle={styles.primaryButtonLabel}
-                    buttonColor={theme.colors.primary}
-                    textColor={palette.inputText}
+                  {/* Android needs this view as a stable measurement anchor for scroll positioning. */}
+                  <View
+                    ref={loginButtonAnchorRef}
+                    collapsable={false}
                   >
-                    Iniciar sesión
-                  </Button>
+                    <Button
+                      mode="contained"
+                      onPress={handleLogin}
+                      loading={submitting}
+                      disabled={submitting}
+                      style={styles.primaryButton}
+                      contentStyle={styles.primaryButtonContent}
+                      labelStyle={styles.primaryButtonLabel}
+                      buttonColor={theme.colors.primary}
+                      textColor={palette.inputText}
+                    >
+                      Iniciar sesión
+                    </Button>
+                  </View>
 
                   {permitirLoginWithGoogle?.valor === "true" ||
                   (permitirLoginWithApple?.valor === "true" &&
@@ -1067,8 +1142,9 @@ const Loguin = () => {
                 </View>
               </LoginBlurCard>
             </View>
-          </View>
-        </ScrollView>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
