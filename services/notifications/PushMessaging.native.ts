@@ -2,6 +2,7 @@ import MeteorBase from "@meteorrn/core";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { AppState, PermissionsAndroid, Platform } from "react-native";
+import { getAppVersionInfo } from "../app/appVersion";
 
 type PushData = Record<string, string | number | boolean | null | undefined>;
 
@@ -178,16 +179,13 @@ const isForCurrentUser = (notification?: Notifications.Notification | null) => {
 };
 
 const buildPlatformString = () => {
-  const appVersion = Constants.expoConfig?.version || "0.0.0";
-  const nativeBuildVersion =
-    Constants.expoConfig?.ios?.buildNumber ||
-    String(Constants.expoConfig?.android?.versionCode || "0");
+  const { buildNumber, version: appVersion } = getAppVersionInfo();
 
   if (Platform.OS === "android") {
-    return `${Platform.OS}_expo_${Platform.Version}_v${appVersion}_${nativeBuildVersion}`;
+    return `${Platform.OS}_expo_${Platform.Version}_v${appVersion}_${buildNumber}`;
   }
 
-  return `${Platform.OS}_expo_v${appVersion}_${nativeBuildVersion}`;
+  return `${Platform.OS}_expo_v${appVersion}_${buildNumber}`;
 };
 
 const ensureAndroidNotificationChannel = async () => {
