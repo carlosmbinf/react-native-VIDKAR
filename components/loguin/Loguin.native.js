@@ -15,7 +15,6 @@ import {
     ScrollView,
     StyleSheet,
     View,
-    findNodeHandle,
 } from "react-native";
 import { Button, Text, TextInput, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -152,6 +151,7 @@ const Loguin = () => {
   const [loadingApple, setLoadingApple] = useState(false);
   const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
   const scrollViewRef = React.useRef(null);
+  const scrollContentRef = React.useRef(null);
   const passwordInputRef = React.useRef(null);
   const loginButtonAnchorRef = React.useRef(null);
 
@@ -362,25 +362,33 @@ const Loguin = () => {
   };
 
   const scrollTargetIntoView = React.useCallback((targetRef, extraOffset = 96) => {
-    setTimeout(() => {
-      const scrollResponder = scrollViewRef.current;
-      const targetNode = findNodeHandle(targetRef?.current || targetRef);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const scrollView = scrollViewRef.current;
+        const scrollContent = scrollContentRef.current;
+        const targetNode = targetRef?.current;
 
-      if (
-        !scrollResponder ||
-        !targetNode ||
-        typeof scrollResponder.scrollResponderScrollNativeHandleToKeyboard !==
-          "function"
-      ) {
-        return;
-      }
+        if (
+          !scrollView ||
+          !scrollContent ||
+          !targetNode ||
+          typeof targetNode.measureLayout !== "function"
+        ) {
+          return;
+        }
 
-      scrollResponder.scrollResponderScrollNativeHandleToKeyboard(
-        targetNode,
-        extraOffset,
-        true,
-      );
-    }, 80);
+        targetNode.measureLayout(
+          scrollContent,
+          (_x, y) => {
+            scrollView.scrollTo({
+              animated: true,
+              y: Math.max(y - extraOffset, 0),
+            });
+          },
+          () => null,
+        );
+      });
+    });
   }, []);
 
   const handleFieldFocus = () => {
@@ -732,6 +740,7 @@ const Loguin = () => {
             style={styles.screen}
           >
             <View
+              ref={scrollContentRef}
               style={[
                 backgroundStyle,
                 styles.layoutShell,
@@ -1023,7 +1032,11 @@ const Loguin = () => {
                     />
                   </View>
 
-                  <View ref={loginButtonAnchorRef} collapsable={false}>
+                  {/* Android puede optimizar away este contenedor si no se fuerza. */}
+                  <View
+                    ref={loginButtonAnchorRef}
+                    collapsable={false}
+                  >
                     <Button
                       mode="contained"
                       onPress={handleLogin}
