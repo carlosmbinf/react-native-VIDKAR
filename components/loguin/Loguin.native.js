@@ -363,7 +363,7 @@ const Loguin = () => {
     }
   };
 
-  const scrollTargetIntoView = React.useCallback((targetRef, extraOffset = 96) => {
+  const scrollTargetIntoView = React.useCallback((targetRef, keyboardOffset) => {
     requestAnimationFrame(() => {
       const scrollView = scrollViewRef.current;
       const scrollContent = scrollContentRef.current;
@@ -380,11 +380,10 @@ const Loguin = () => {
 
       targetNode.measureLayout(
         scrollContent,
-        (xPosition, yPosition) => {
-          void xPosition;
+        (_xPosition, yPosition) => {
           scrollView.scrollTo({
             animated: true,
-            y: Math.max(yPosition - extraOffset, 0),
+            y: Math.max(yPosition - keyboardOffset, 0),
           });
         },
         () => null,
@@ -1034,7 +1033,7 @@ const Loguin = () => {
                     />
                   </View>
 
-                  {/* Android may optimize away this container if it is not forced. */}
+                  {/* Android needs this view as a stable measurement anchor for scroll positioning. */}
                   <View
                     ref={loginButtonAnchorRef}
                     collapsable={false}
