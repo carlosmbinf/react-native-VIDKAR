@@ -38,6 +38,8 @@ const GOOGLE_IOS_CLIENT_ID =
   "1043110071233-p7e56eu0sb203j32pf66b1blaql14f26.apps.googleusercontent.com";
 const GOOGLE_WEB_CLIENT_ID =
   "1043110071233-5mf355rcrf02hq4ja99uaq9kspokur1t.apps.googleusercontent.com";
+const IOS_LOGIN_KEYBOARD_OFFSET = 120;
+const ANDROID_LOGIN_KEYBOARD_OFFSET = 96;
 
 let cachedGoogleSignInModulePromise = null;
 
@@ -378,10 +380,11 @@ const Loguin = () => {
 
       targetNode.measureLayout(
         scrollContent,
-        (_x, y) => {
+        (xPosition, yPosition) => {
+          void xPosition;
           scrollView.scrollTo({
             animated: true,
-            y: Math.max(y - extraOffset, 0),
+            y: Math.max(yPosition - extraOffset, 0),
           });
         },
         () => null,
@@ -392,7 +395,9 @@ const Loguin = () => {
   const handleFieldFocus = () => {
     scrollTargetIntoView(
       loginButtonAnchorRef,
-      Platform.OS === "ios" ? 120 : 96,
+      Platform.OS === "ios"
+        ? IOS_LOGIN_KEYBOARD_OFFSET
+        : ANDROID_LOGIN_KEYBOARD_OFFSET,
     );
   };
 
@@ -1029,7 +1034,7 @@ const Loguin = () => {
                     />
                   </View>
 
-                  {/* Android puede optimizar este contenedor si no se fuerza. */}
+                  {/* Android may optimize away this container if it is not forced. */}
                   <View
                     ref={loginButtonAnchorRef}
                     collapsable={false}
