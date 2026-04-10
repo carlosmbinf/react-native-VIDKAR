@@ -313,7 +313,7 @@ const UserDetails = () => {
             </View>
             <DevicesCard
               userId={item._id}
-              styles={styles}
+              parentStyles={styles}
               accentColor={accentColor}
               containerStyle={[styles.cardItem, computedCardWidth]}
             />

@@ -41,16 +41,6 @@ const formatDate = (value) => {
 	}
 };
 
-const getTimeValue = (value) => {
-	if (!value) {
-		return 0;
-	}
-
-	const date = new Date(value);
-	const time = date.getTime();
-	return Number.isFinite(time) ? time : 0;
-};
-
 const capitalize = (value = '') => {
 	if (!value) {
 		return '';
@@ -126,7 +116,7 @@ const getPlatformIcon = (platformLabel) => {
 	return 'cellphone';
 };
 
-const DevicesCard = ({ userId, styles, accentColor, containerStyle }) => {
+const DevicesCard = ({ userId, parentStyles, accentColor, containerStyle }) => {
 	const { ready, devices } = Meteor.useTracker(() => {
 		if (!userId) {
 			return { ready: false, devices: [] };
@@ -155,22 +145,16 @@ const DevicesCard = ({ userId, styles, accentColor, containerStyle }) => {
 
 	const parsedDevices = useMemo(
 		() =>
-			[...devices]
-				.sort(
-					(left, right) =>
-						getTimeValue(right?.updatedAt || right?.createdAt) -
-						getTimeValue(left?.updatedAt || left?.createdAt),
-				)
-				.map((device, index) => {
-					const meta = getPlatformMeta(device?.platform, device?.provider);
-					return {
-						...device,
-						index,
-						meta,
-						icon: getPlatformIcon(meta.platformLabel),
-						title: getDeviceTitle(meta.platformLabel, { ...device, meta }, index),
-					};
-				}),
+			devices.map((device, index) => {
+				const meta = getPlatformMeta(device?.platform, device?.provider);
+				return {
+					...device,
+					index,
+					meta,
+					icon: getPlatformIcon(meta.platformLabel),
+					title: getDeviceTitle(meta.platformLabel, { ...device, meta }, index),
+				};
+			}),
 		[devices],
 	);
 
@@ -182,7 +166,7 @@ const DevicesCard = ({ userId, styles, accentColor, containerStyle }) => {
 	}
 
 	return (
-		<Surface elevation={5} style={[styles.cards, ui.cardShell, containerStyle]} testID="devices-card">
+		<Surface elevation={5} style={[parentStyles.cards, ui.cardShell, containerStyle]} testID="devices-card">
 			<View style={[ui.accentBar, { backgroundColor: accentColor || '#5E35B1' }]} />
 			<Card.Content style={ui.content}>
 				<View style={ui.headerRow}>
