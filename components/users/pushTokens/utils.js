@@ -62,19 +62,25 @@ export const getPlatformMeta = (platform, provider) => {
   const providerCandidate = (parts[1] || "").toLowerCase();
   const parsedProvider =
     typeof provider === "string" && provider.trim()
-      ? provider.trim().toLowerCase()
-      : ["expo", "fcm", "apns"].includes(providerCandidate)
-        ? providerCandidate
-        : "";
+        ? provider.trim().toLowerCase()
+        : ["expo", "fcm", "apns"].includes(providerCandidate)
+          ? providerCandidate
+          : "";
   const appVersionToken = parts.find((part) => /^v\d+(?:\.\d+)+$/i.test(part)) || "";
-  const buildToken = parts[parts.length - 1] || "";
+  const buildToken =
+    [...parts]
+      .reverse()
+      .find((part) => /^\d+$/.test(part) && part !== appVersionToken) || "";
 
   let osVersion = UNKNOWN_LABEL;
   let androidVersionLabel = UNKNOWN_LABEL;
 
   if (platformKey === "android") {
     const androidVersionToken = parts.find(
-      (part) => /^\d+$/.test(part) && part !== buildToken,
+      (part) =>
+        /^\d+$/.test(part) &&
+        part !== buildToken &&
+        part !== appVersionToken,
     );
 
     if (androidVersionToken) {
@@ -154,9 +160,13 @@ const getMostFrequent = (values) => {
     return accumulator;
   }, {});
 
-  const [label = UNKNOWN_LABEL, count = 0] = Object.entries(stats).sort(
-    (left, right) => right[1] - left[1],
-  )[0] || [UNKNOWN_LABEL, 0];
+  const entries = Object.entries(stats);
+
+  if (!entries.length) {
+    return { label: UNKNOWN_LABEL, count: 0 };
+  }
+
+  const [label, count] = entries.sort((left, right) => right[1] - left[1])[0];
 
   return { label, count };
 };

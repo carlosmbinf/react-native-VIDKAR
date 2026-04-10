@@ -185,6 +185,8 @@ const DevicesCard = ({
               icon="arrow-right"
               onPress={onOpenDevices}
               disabled={!onOpenDevices}
+              accessibilityLabel="Ver dispositivos registrados"
+              accessibilityHint="Abre la pantalla con el detalle de push tokens del usuario"
             >
               Ver dispositivos
             </Button>

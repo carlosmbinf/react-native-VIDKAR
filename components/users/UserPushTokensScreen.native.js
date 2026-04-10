@@ -468,7 +468,7 @@ const UserPushTokensScreen = () => {
         actions={
           <IconButton
             icon={showFilters ? "filter-off-outline" : "filter-outline"}
-            iconColor="#ffffff"
+            iconColor={theme.colors.onPrimary}
             onPress={() => setShowFilters((current) => !current)}
           />
         }
