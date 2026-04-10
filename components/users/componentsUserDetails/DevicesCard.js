@@ -12,6 +12,16 @@ const Meteor =
 	);
 
 const UNKNOWN_LABEL = 'No disponible';
+const PUSH_TOKEN_FIELDS = {
+	platform: 1,
+	createdAt: 1,
+	updatedAt: 1,
+	provider: 1,
+	token: 1,
+	deviceId: 1,
+	userId: 1,
+};
+const PUSH_TOKEN_SORT = { updatedAt: -1, createdAt: -1 };
 
 const formatDate = (value) => {
 	if (!value) {
@@ -86,7 +96,22 @@ const getPlatformMeta = (platformRaw, provider) => {
 	};
 };
 
-const getDeviceTitle = (platformLabel, index) => `${platformLabel} ${index + 1}`;
+const getDeviceTitle = (platformLabel, device, index, buildNumber) => {
+	const shortDeviceId =
+		typeof device?.deviceId === 'string' && device.deviceId.trim()
+			? device.deviceId.trim().slice(-4).toUpperCase()
+			: null;
+
+	if (shortDeviceId) {
+		return `${platformLabel} #${index + 1} · ${shortDeviceId}`;
+	}
+
+	if (buildNumber && buildNumber !== UNKNOWN_LABEL) {
+		return `${platformLabel} #${index + 1} · build ${buildNumber}`;
+	}
+
+	return `${platformLabel} #${index + 1}`;
+};
 
 const getPlatformIcon = (platformLabel) => {
 	if (platformLabel === 'Android') {
@@ -110,16 +135,8 @@ const DevicesCard = ({ userId, styles, accentColor, containerStyle }) => {
 			'push_tokens',
 			{ userId },
 			{
-				fields: {
-					platform: 1,
-					createdAt: 1,
-					updatedAt: 1,
-					provider: 1,
-					token: 1,
-					deviceId: 1,
-					userId: 1,
-				},
-				sort: { updatedAt: -1, createdAt: -1 },
+				fields: PUSH_TOKEN_FIELDS,
+				sort: PUSH_TOKEN_SORT,
 			},
 		);
 
@@ -128,16 +145,8 @@ const DevicesCard = ({ userId, styles, accentColor, containerStyle }) => {
 			devices: PushTokens.find(
 				{ userId },
 				{
-					fields: {
-						platform: 1,
-						createdAt: 1,
-						updatedAt: 1,
-						provider: 1,
-						token: 1,
-						deviceId: 1,
-						userId: 1,
-					},
-					sort: { updatedAt: -1, createdAt: -1 },
+					fields: PUSH_TOKEN_FIELDS,
+					sort: PUSH_TOKEN_SORT,
 				},
 			).fetch(),
 		};
@@ -151,16 +160,16 @@ const DevicesCard = ({ userId, styles, accentColor, containerStyle }) => {
 					...device,
 					index,
 					meta,
-					title: getDeviceTitle(meta.platformLabel, index),
+					title: getDeviceTitle(meta.platformLabel, device, index, meta.buildNumber),
 					icon: getPlatformIcon(meta.platformLabel),
 					updatedAtValue: getTimeValue(device?.updatedAt || device?.createdAt),
 				};
-			}),
+			}).sort((left, right) => right.updatedAtValue - left.updatedAtValue),
 		[devices],
 	);
 
-	const latestDevice = parsedDevices[0];
 	const deviceCount = parsedDevices.length;
+	const latestDevice = deviceCount ? parsedDevices[0] : null;
 
 	if (!ready || !deviceCount) {
 		return null;
@@ -351,7 +360,7 @@ const ui = StyleSheet.create({
 		marginTop: 14,
 		padding: 12,
 	},
-	metricItem: { flexGrow: 1, flexBasis: '30%', minWidth: 96 },
+	metricItem: { flexBasis: 0, flexGrow: 1, minWidth: 108 },
 	metricLabel: {
 		color: '#64748B',
 		fontSize: 11,
