@@ -41,7 +41,7 @@ const formatDebtAmount = (amount) => {
   return `${numericAmount.toFixed(2)} CUP`;
 };
 
-const getCashApprovalsHeadline = (count, loading) => {
+const getCashApprovalsStatusText = (count, loading) => {
   if (loading) {
     return "Actualizando aprobaciones en tiempo real";
   }
@@ -302,7 +302,7 @@ const MenuPrincipalScreen = ({
                     Resumen pendiente por validar
                   </Text>
                   <Text variant="bodyMedium" style={styles.cashApprovalsCopy}>
-                    {getCashApprovalsHeadline(
+                    {getCashApprovalsStatusText(
                       pendingCashApprovalsCount,
                       pendingCashApprovalsLoading,
                     )}
