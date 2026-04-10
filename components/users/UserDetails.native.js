@@ -247,6 +247,20 @@ const UserDetails = () => {
     });
   };
 
+  const handleOpenPushDevices = () => {
+    if (!item?._id) {
+      return;
+    }
+
+    router.push({
+      pathname: "/(normal)/UserPushTokens",
+      params: {
+        item: item._id,
+        username: item.username,
+      },
+    });
+  };
+
   if (!itemId) {
     return (
       <Surface style={styles.emptyState}>
@@ -311,12 +325,13 @@ const UserDetails = () => {
                 accentColor={accentColor}
               />
             </View>
-            <DevicesCard
-              userId={item._id}
-              parentStyles={styles}
-              accentColor={accentColor}
-              containerStyle={[styles.cardItem, computedCardWidth]}
-            />
+             <DevicesCard
+               userId={item._id}
+               parentStyles={styles}
+               accentColor={accentColor}
+               onOpenDevices={handleOpenPushDevices}
+               containerStyle={[styles.cardItem, computedCardWidth]}
+             />
             {item?.profile?.role === "admin" ? (
               <View style={[styles.cardItem, computedCardWidth]}>
                 <TarjetaDebitoCard

@@ -5,6 +5,7 @@ export default function NormalLayout() {
     <Stack initialRouteName="Main" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Main" />
       <Stack.Screen name="User" />
+      <Stack.Screen name="UserPushTokens" />
       <Stack.Screen name="PeliculasVideos" />
       <Stack.Screen name="ProductosCubacelCards" />
       <Stack.Screen name="CubacelOferta" />
