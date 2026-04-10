@@ -59,8 +59,8 @@ const capitalize = (value = '') => {
 	return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 };
 
-const getPlatformMeta = (platformRaw, provider) => {
-	const raw = typeof platformRaw === 'string' ? platformRaw.trim() : '';
+const getPlatformMeta = (platform, provider) => {
+	const raw = typeof platform === 'string' ? platform.trim() : '';
 	const parts = raw.split('_').filter(Boolean);
 	const platformKey = (parts[0] || '').toLowerCase();
 	const versionIndex = parts.findIndex((part) => /^v\d+(?:\.\d+)+$/i.test(part));
@@ -96,11 +96,12 @@ const getPlatformMeta = (platformRaw, provider) => {
 	};
 };
 
-const getDeviceTitle = (platformLabel, device, index, buildNumber) => {
+const getDeviceTitle = (platformLabel, device, index) => {
 	const shortDeviceId =
 		typeof device?.deviceId === 'string' && device.deviceId.trim()
 			? device.deviceId.trim().slice(-4).toUpperCase()
 			: null;
+	const buildNumber = device?.meta?.buildNumber;
 
 	if (shortDeviceId) {
 		return `${platformLabel} #${index + 1} · ${shortDeviceId}`;
@@ -154,26 +155,22 @@ const DevicesCard = ({ userId, styles, accentColor, containerStyle }) => {
 
 	const parsedDevices = useMemo(
 		() =>
-			devices.map((device, index) => {
-				const meta = getPlatformMeta(device?.platform, device?.provider);
-				return {
-					...device,
-					meta,
-					icon: getPlatformIcon(meta.platformLabel),
-					updatedAtValue: getTimeValue(device?.updatedAt || device?.createdAt),
-				};
-			})
-				.sort((left, right) => right.updatedAtValue - left.updatedAtValue)
-				.map((device, index) => ({
-					...device,
-					index,
-					title: getDeviceTitle(
-						device.meta.platformLabel,
-						device,
+			[...devices]
+				.sort(
+					(left, right) =>
+						getTimeValue(right?.updatedAt || right?.createdAt) -
+						getTimeValue(left?.updatedAt || left?.createdAt),
+				)
+				.map((device, index) => {
+					const meta = getPlatformMeta(device?.platform, device?.provider);
+					return {
+						...device,
 						index,
-						device.meta.buildNumber,
-					),
-				})),
+						meta,
+						icon: getPlatformIcon(meta.platformLabel),
+						title: getDeviceTitle(meta.platformLabel, { ...device, meta }, index),
+					};
+				}),
 		[devices],
 	);
 
