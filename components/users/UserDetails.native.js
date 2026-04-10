@@ -256,7 +256,7 @@ const UserDetails = () => {
       pathname: "/(normal)/UserPushTokens",
       params: {
         item: item._id,
-        username: item.username,
+        username: item.username || "",
       },
     });
   };

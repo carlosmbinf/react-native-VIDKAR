@@ -95,7 +95,9 @@ const DevicesCard = ({
       />
       <Pressable
         accessibilityRole="button"
-        onPress={onOpenDevices}
+        accessibilityLabel="Abrir dispositivos registrados"
+        accessibilityHint="Muestra la pantalla con el detalle completo de push tokens del usuario"
+        onPress={onOpenDevices ? () => onOpenDevices() : undefined}
         style={({ pressed }) => [styles.pressableArea, pressed ? styles.pressed : null]}
       >
         <Card.Content style={styles.content}>

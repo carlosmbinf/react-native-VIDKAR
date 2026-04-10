@@ -66,22 +66,21 @@ export const getPlatformMeta = (platform, provider) => {
         : ["expo", "fcm", "apns"].includes(providerCandidate)
           ? providerCandidate
           : "";
-  const appVersionToken = parts.find((part) => /^v\d+(?:\.\d+)+$/i.test(part)) || "";
+  const appVersionIndex = parts.findIndex((part) => /^v\d+(?:\.\d+)+$/i.test(part));
+  const appVersionToken = appVersionIndex >= 0 ? parts[appVersionIndex] : "";
   const buildToken =
-    [...parts]
-      .reverse()
-      .find((part) => /^\d+$/.test(part) && part !== appVersionToken) || "";
+    appVersionIndex >= 0 && /^\d+$/.test(parts[appVersionIndex + 1] || "")
+      ? parts[appVersionIndex + 1]
+      : "";
 
   let osVersion = UNKNOWN_LABEL;
   let androidVersionLabel = UNKNOWN_LABEL;
 
   if (platformKey === "android") {
-    const androidVersionToken = parts.find(
-      (part) =>
-        /^\d+$/.test(part) &&
-        part !== buildToken &&
-        part !== appVersionToken,
-    );
+    const androidVersionToken =
+      appVersionIndex > 1 && /^\d+$/.test(parts[appVersionIndex - 1] || "")
+        ? parts[appVersionIndex - 1]
+        : "";
 
     if (androidVersionToken) {
       osVersion = `Android API ${androidVersionToken}`;

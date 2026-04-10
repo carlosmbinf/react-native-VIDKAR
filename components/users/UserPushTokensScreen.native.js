@@ -37,6 +37,13 @@ const SORT_OPTIONS = [
   { value: "UPDATED", label: "Actualización" },
   { value: "TOKEN", label: "Token" },
 ];
+const DEVICE_SEARCH_FIELDS = [
+  "token",
+  "tokenLabel",
+  "deviceId",
+  "raw",
+  "androidVersionLabel",
+];
 
 const getUserLabel = (user) => {
   const firstName =
@@ -291,10 +298,14 @@ const UserPushTokensScreen = () => {
   const theme = useTheme();
   const palette = React.useMemo(() => buildPalette(theme), [theme]);
   const params = useLocalSearchParams();
-  const routeUserId = Array.isArray(params.item) ? params.item[0] : params.item;
-  const routeUsername = Array.isArray(params.username)
-    ? params.username[0]
-    : params.username;
+  const routeUserId = React.useMemo(
+    () => (Array.isArray(params.item) ? params.item[0] : params.item),
+    [params.item],
+  );
+  const routeUsername = React.useMemo(
+    () => (Array.isArray(params.username) ? params.username[0] : params.username),
+    [params.username],
+  );
   const [showFilters, setShowFilters] = React.useState(false);
   const [selectedSort, setSelectedSort] = React.useState("UPDATED");
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -345,13 +356,11 @@ const UserPushTokensScreen = () => {
         return true;
       }
 
-      return [
-        device.token,
-        device.tokenLabel,
-        device.deviceId,
-        device.meta.raw,
-        device.meta.androidVersionLabel,
-      ]
+      return DEVICE_SEARCH_FIELDS.map((field) =>
+        Object.prototype.hasOwnProperty.call(device, field)
+          ? device[field]
+          : device.meta?.[field],
+      )
         .filter(Boolean)
         .some((value) =>
           String(value).toLowerCase().includes(normalizedQuery),
