@@ -158,13 +158,22 @@ const DevicesCard = ({ userId, styles, accentColor, containerStyle }) => {
 				const meta = getPlatformMeta(device?.platform, device?.provider);
 				return {
 					...device,
-					index,
 					meta,
-					title: getDeviceTitle(meta.platformLabel, device, index, meta.buildNumber),
 					icon: getPlatformIcon(meta.platformLabel),
 					updatedAtValue: getTimeValue(device?.updatedAt || device?.createdAt),
 				};
-			}).sort((left, right) => right.updatedAtValue - left.updatedAtValue),
+			})
+				.sort((left, right) => right.updatedAtValue - left.updatedAtValue)
+				.map((device, index) => ({
+					...device,
+					index,
+					title: getDeviceTitle(
+						device.meta.platformLabel,
+						device,
+						index,
+						device.meta.buildNumber,
+					),
+				})),
 		[devices],
 	);
 
