@@ -17,6 +17,7 @@ import {
 } from "../collections/collections";
 import AppHeader from "../Header/AppHeader";
 import DeleteAccountCard from "./componentsUserDetails/DeleteAccountCard";
+import DevicesCard from "./componentsUserDetails/DevicesCard";
 import OptionsCardAdmin from "./componentsUserDetails/OptionsCardAdmin";
 import PersonalDataCard from "./componentsUserDetails/PersonalDataCard";
 import ProxyCard from "./componentsUserDetails/ProxyCard";
@@ -310,6 +311,12 @@ const UserDetails = () => {
                 accentColor={accentColor}
               />
             </View>
+            <DevicesCard
+              userId={item._id}
+              parentStyles={styles}
+              accentColor={accentColor}
+              containerStyle={[styles.cardItem, computedCardWidth]}
+            />
             {item?.profile?.role === "admin" ? (
               <View style={[styles.cardItem, computedCardWidth]}>
                 <TarjetaDebitoCard
