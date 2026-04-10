@@ -22,9 +22,14 @@ const CASH_APPROVAL_TYPE_META = {
   VPN: { icon: "shield-check", label: "VPN" },
 };
 
+const isPrincipalAdmin = (user) => user?.username === "carlosmbinf";
+
+const isAdminUser = (user) =>
+  user?.profile?.role === "admin" || isPrincipalAdmin(user);
+
 const getCashApprovalTypes = (venta) => {
   const carritos = Array.isArray(venta?.producto?.carritos)
-    ? venta.producto.carritos
+    ? venta?.producto?.carritos
     : [];
   const types = new Set(
     carritos.map((item) => item?.type).filter((type) => !!type),
@@ -75,32 +80,27 @@ const buildPendingCashApprovalsSummary = (ventas = []) => {
 };
 
 const MenuPrincipalNative = () => {
-  const {
-    pendingCashApprovalTypes,
-    pendingCashApprovalsCount,
-    pendingCashApprovalsLoading,
-    pendingDebt,
-    pendingVentasCount,
-    user,
-  } = Meteor.useTracker(() => {
-    const currentUser = Meteor.user();
-    const currentUserId = currentUser?._id;
-    const isAdmin =
-      currentUser?.profile?.role === "admin" ||
-      currentUser?.username === "carlosmbinf";
-    const isAdminPrincipal = currentUser?.username === "carlosmbinf";
+  const user = Meteor.useTracker(() => Meteor.user());
+  const currentUserId = user?._id;
+  const isAdmin = isAdminUser(user);
+  const isAdminPrincipal = isPrincipalAdmin(user);
 
-    let subordinadosHandle = null;
-    if (isAdmin && currentUserId && !isAdminPrincipal) {
-      subordinadosHandle = Meteor.subscribe(
-        "user",
-        { bloqueadoDesbloqueadoPor: currentUserId },
-        { fields: { _id: 1 } },
-      );
+  const { subordinadosIds, subordinadosLoading } = Meteor.useTracker(() => {
+    if (!isAdmin || !currentUserId || isAdminPrincipal) {
+      return {
+        subordinadosIds: [],
+        subordinadosLoading: false,
+      };
     }
 
-    const subordinadosIds =
-      subordinadosHandle?.ready() && currentUserId
+    const subordinadosHandle = Meteor.subscribe(
+      "user",
+      { bloqueadoDesbloqueadoPor: currentUserId },
+      { fields: { _id: 1 } },
+    );
+
+    return {
+      subordinadosIds: subordinadosHandle.ready()
         ? Meteor.users
             .find(
               { bloqueadoDesbloqueadoPor: currentUserId },
@@ -108,14 +108,14 @@ const MenuPrincipalNative = () => {
             )
             .fetch()
             .map((usuario) => usuario._id)
-        : [];
+        : [],
+      subordinadosLoading: !subordinadosHandle.ready(),
+    };
+  }, [currentUserId, isAdmin, isAdminPrincipal]);
 
+  const { pendingDebt, pendingVentasCount } = Meteor.useTracker(() => {
     if (!currentUserId || !isAdmin) {
       return {
-        pendingCashApprovalTypes: [],
-        pendingCashApprovalsCount: 0,
-        pendingCashApprovalsLoading: false,
-        user: currentUser,
         pendingDebt: 0,
         pendingVentasCount: 0,
       };
@@ -133,6 +133,28 @@ const MenuPrincipalNative = () => {
         }).fetch()
       : [];
 
+    return {
+      pendingDebt: pendingVentas.reduce(
+        (total, venta) => total + (Number(venta?.precio) || 0),
+        0,
+      ),
+      pendingVentasCount: pendingVentas.length,
+    };
+  }, [currentUserId, isAdmin]);
+
+  const {
+    pendingCashApprovalTypes,
+    pendingCashApprovalsCount,
+    pendingCashApprovalsLoading,
+  } = Meteor.useTracker(() => {
+    if (!currentUserId || !isAdmin) {
+      return {
+        pendingCashApprovalTypes: [],
+        pendingCashApprovalsCount: 0,
+        pendingCashApprovalsLoading: false,
+      };
+    }
+
     const cashApprovalsQuery = isAdminPrincipal
       ? {
           isCancelada: false,
@@ -148,6 +170,7 @@ const MenuPrincipalNative = () => {
             { userId: { $in: subordinadosIds } },
           ],
         };
+
     const cashApprovalsHandle = Meteor.subscribe(
       "ventasRecharge",
       cashApprovalsQuery,
@@ -164,16 +187,9 @@ const MenuPrincipalNative = () => {
     return {
       ...cashApprovalsSummary,
       pendingCashApprovalsLoading:
-        !cashApprovalsHandle.ready() ||
-        (!!subordinadosHandle && !subordinadosHandle.ready()),
-      user: currentUser,
-      pendingDebt: pendingVentas.reduce(
-        (total, venta) => total + (Number(venta?.precio) || 0),
-        0,
-      ),
-      pendingVentasCount: pendingVentas.length,
+        !cashApprovalsHandle.ready() || subordinadosLoading,
     };
-  });
+  }, [currentUserId, isAdmin, isAdminPrincipal, subordinadosIds, subordinadosLoading]);
   const appVersionInfo = getAppVersionInfo();
 
   const handleOpenPendingVentas = () => {

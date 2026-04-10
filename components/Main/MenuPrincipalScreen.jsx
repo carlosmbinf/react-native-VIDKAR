@@ -57,7 +57,7 @@ const getCashApprovalsHeadline = (count, loading) => {
   return `Tienes ${count} ventas en efectivo esperando tu aprobación o rechazo.`;
 };
 
-const formatSalesCountLabel = (count) =>
+const formatCashApprovalSalesLabel = (count) =>
   `${count} venta${count === 1 ? "" : "s"}`;
 
 const MenuPrincipalScreen = ({
@@ -405,7 +405,7 @@ const MenuPrincipalScreen = ({
                           variant="bodySmall"
                           style={styles.cashApprovalsTypeMeta}
                         >
-                          {formatSalesCountLabel(typeSummary.count)}
+                          {formatCashApprovalSalesLabel(typeSummary.count)}
                         </Text>
                       </View>
                       <Chip
