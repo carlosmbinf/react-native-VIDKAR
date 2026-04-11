@@ -164,7 +164,7 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 					<Text style={ui.loadingCopy}>Cargando administradores del sistema...</Text>
 				) : (
 					<>
-						{selectedAdmin || isFocus ? (
+						{(selectedAdmin && selectedAdmin !== EMPTY_ADMIN_VALUE) || isFocus ? (
 							<Text style={[styles.label, isFocus && { color: headerAccent }]}>Administrador del sistema</Text>
 						) : null}
 						<Dropdown
