@@ -51,13 +51,11 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 			bloqueadoDesbloqueadoPor: 1,
 		};
 		const userHandle = Meteor.subscribe('user', { _id: itemId }, { fields: userFields });
-		const currentDoc = Meteor.users.findOne(itemId, { fields: userFields }) || item || null;
-		const currentAdminId = currentDoc?.bloqueadoDesbloqueadoPor || item?.bloqueadoDesbloqueadoPor || null;
+		const currentDoc = Meteor.users.findOne(itemId, { fields: userFields }) || null;
 		const adminSelector = {
 			$or: [
 				{ 'profile.role': 'admin' },
 				{ username: 'carlosmbinf' },
-				...(currentAdminId ? [{ _id: currentAdminId }] : []),
 			],
 		};
 		const adminFields = {
@@ -83,9 +81,9 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 			userDoc: currentDoc,
 			admins: adminDocs,
 		};
-	}, [itemId, item?.bloqueadoDesbloqueadoPor]);
+	}, [itemId]);
 
-	const currentAdminId = userDoc?.bloqueadoDesbloqueadoPor || item?.bloqueadoDesbloqueadoPor || null;
+	const currentAdminId = userDoc?.bloqueadoDesbloqueadoPor || null;
 
 	useEffect(() => {
 		setSelectedAdmin(currentAdminId || EMPTY_ADMIN_VALUE);
@@ -156,7 +154,7 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 						{buildAdminLabel(currentAdmin)}
 					</Chip>
 					<Text style={ui.helper}>
-						Selecciona el administrador responsable de este usuario usando el campo bloqueadoDesbloqueadoPor.
+						Selecciona el administrador responsable de este usuario.
 					</Text>
 				</View>
 
@@ -214,7 +212,7 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 
 				{!canEditAssignment ? (
 					<HelperText type="info" visible style={ui.feedback}>
-						Solo puedes cambiar tu administrador actual desde esta tarjeta.
+						Solo los administradores del sistema o el propio usuario pueden modificar esta asignación.
 					</HelperText>
 				) : null}
 			</Card.Content>
