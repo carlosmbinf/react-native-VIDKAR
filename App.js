@@ -68,7 +68,6 @@ import ListaArchivos from './components/archivos/ListaArchivos';
 import PropertyTable from './components/property/PropertyTable';
 import HomePedidosComercio from './components/comercio/pedidos/HomePedidosComercio';
 import MapaUsuariosScreen from './components/comercio/maps/MapaUsuariosScreen';
-import PushTokensListScreen from './components/pushTokens/PushTokensListScreen';
 
 import VPNPackageCard from './components/vpn/VPNPackageCard';
 import ProxyPackageCard from './components/proxy/ProxyPackageCard';
@@ -809,14 +808,6 @@ const App = () => {
                 component={MapaUsuariosScreen}
                 options={{
                   headerShown: false // La pantalla tiene su propio Appbar
-                }}
-              />
-
-              <Stack.Screen
-                name="PushTokensList"
-                component={PushTokensListScreen}
-                options={{
-                  headerShown: false, // La pantalla tiene su propio Appbar
                 }}
               />
 

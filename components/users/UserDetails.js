@@ -52,7 +52,6 @@ import SendPushMessageCard from '../mensajes/SendPushMessageCard';
 import DeleteAccountCard from './componentsUserDetails/DeleteAccountCard';
 import ProxyCard from './componentsUserDetails/ProxyCard';
 import VpnCard from './componentsUserDetails/VpnCard';
-import DeviceDashboardCard from './componentsUserDetails/DeviceDashboardCard';
 
 const axios = require('axios').default;
 
@@ -474,14 +473,8 @@ class MyAppUserDetails extends React.Component {
                   </View>
                 )}
                 {/* Fin OPCIONES */}
-                {/* Dashboard de dispositivos (tokens): solo carlosmbinf */}
-                {Meteor.user()?.username === 'carlosmbinf' && item?._id && (
-                  <View style={[styles.cardItem, computedCardWidth]}>
-                    <DeviceDashboardCard item={item} styles={styles} accentColor={accentColor} />
-                  </View>
-                )}
-                {/* Enviar notificación push: solo carlosmbinf y si el usuario tiene tokens */}
-                {Meteor.user()?.username === 'carlosmbinf' && item?._id && item?._id !== Meteor.userId() && this.state.hasPushTokens ? (
+                {/* MODIFICADO: Mostrar envío de Push solo si hay tokens */}
+                {item?._id && (item?._id != Meteor.userId() || Meteor?.user()?.profile?.role == 'admin') && this.state.hasPushTokens ? (
                   <SendPushMessageCard toUserId={item._id} />
                 ) : null}
                 {/* NUEVO: Eliminar cuenta */}

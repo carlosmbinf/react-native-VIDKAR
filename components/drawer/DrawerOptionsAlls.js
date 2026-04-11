@@ -107,6 +107,11 @@ const DrawerOptionsAlls = (opt) => {
 
   const opcionesAdministradores = [
     {
+      label: "Dashboard",
+      url:"Dashboard",
+      icon:"view-dashboard"
+    },
+    {
       label: "Lista de Usuarios",
       url:"Users",
       icon:"account"
@@ -140,11 +145,6 @@ const DrawerOptionsAlls = (opt) => {
 
   const opcionesAdministradorGeneral = [
     {
-      label: "Dashboard",
-      url:"Dashboard",
-      icon:"view-dashboard"
-    },
-    {
       label: "Ventas",
       url:"Ventas",
       icon:"cash-register"
@@ -153,12 +153,7 @@ const DrawerOptionsAlls = (opt) => {
       label: "Propertys",
       url:"ListaPropertys",
       icon:"cog-outline"
-    },
-    {
-      label: "Push Tokens",
-      url:"PushTokensList",
-      icon:"cellphone-key"
-    },
+    }
   ];
 
   // if (user?.permiteRemesas == true) {
