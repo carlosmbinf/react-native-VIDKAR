@@ -20,6 +20,7 @@ import DeleteAccountCard from "./componentsUserDetails/DeleteAccountCard";
 import DevicesCard from "./componentsUserDetails/DevicesCard";
 import OptionsCardAdmin from "./componentsUserDetails/OptionsCardAdmin";
 import PersonalDataCard from "./componentsUserDetails/PersonalDataCard";
+import { canAccessPushTokenDashboards } from "./pushTokens/utils";
 import ProxyCard from "./componentsUserDetails/ProxyCard";
 import SaldoRecargasCard from "./componentsUserDetails/SaldoRecargasCard";
 import TarjetaDebitoCard from "./componentsUserDetails/TarjetaDebitoCard";
@@ -37,6 +38,10 @@ const UserDetails = () => {
   const pathname = usePathname();
   const routeItemId = Array.isArray(params.item) ? params.item[0] : params.item;
   const currentUserId = Meteor.useTracker(() => Meteor.userId());
+  const canViewPushDashboard = Meteor.useTracker(
+    () => canAccessPushTokenDashboards(Meteor.user()),
+    [],
+  );
   const itemId = routeItemId || currentUserId || null;
   const [edit, setEdit] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -325,13 +330,15 @@ const UserDetails = () => {
                 accentColor={accentColor}
               />
             </View>
-             <DevicesCard
-               userId={item._id}
-               parentStyles={styles}
-               accentColor={accentColor}
-               onOpenDevices={handleOpenPushDevices}
-               containerStyle={[styles.cardItem, computedCardWidth]}
-             />
+            {canViewPushDashboard ? (
+              <DevicesCard
+                userId={item._id}
+                parentStyles={styles}
+                accentColor={accentColor}
+                onOpenDevices={handleOpenPushDevices}
+                containerStyle={[styles.cardItem, computedCardWidth]}
+              />
+            ) : null}
             {item?.profile?.role === "admin" ? (
               <View style={[styles.cardItem, computedCardWidth]}>
                 <TarjetaDebitoCard

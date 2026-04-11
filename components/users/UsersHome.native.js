@@ -27,6 +27,7 @@ import AppHeader from "../Header/AppHeader";
 import { Online, PushTokens } from "../collections/collections";
 import ServiceProgressPill from "../shared/ServiceProgressPill";
 import UserAvatar from "./UserAvatar";
+import { canAccessPushTokenDashboards } from "./pushTokens/utils";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
@@ -434,6 +435,7 @@ const UserCardContent = ({
   layout,
   overlayMode = false,
   pushTokens,
+  showPushState = true,
   theme,
 }) => {
   const connectionState = getUserConnectionState(item, connections);
@@ -529,36 +531,38 @@ const UserCardContent = ({
                 label={roleLabel}
                 textColor={theme.dark ? "#e0e7ff" : "#4338ca"}
               />
-              <MetaPill
-                backgroundColor={
-                  pushState.hasPush
-                    ? theme.dark
-                      ? "rgba(34,197,94,0.18)"
-                      : "rgba(34,197,94,0.1)"
-                    : theme.dark
-                      ? "rgba(148,163,184,0.14)"
-                      : "rgba(100,116,139,0.1)"
-                }
-                borderColor={
-                  pushState.hasPush
-                    ? theme.dark
-                      ? "rgba(74,222,128,0.26)"
-                      : "rgba(34,197,94,0.18)"
-                    : theme.dark
-                      ? "rgba(148,163,184,0.22)"
-                      : "rgba(100,116,139,0.16)"
-                }
-                label={pushLabel}
-                textColor={
-                  pushState.hasPush
-                    ? theme.dark
-                      ? "#dcfce7"
-                      : "#15803d"
-                    : theme.dark
-                      ? "#e2e8f0"
-                      : "#475569"
-                }
-              />
+              {showPushState ? (
+                <MetaPill
+                  backgroundColor={
+                    pushState.hasPush
+                      ? theme.dark
+                        ? "rgba(34,197,94,0.18)"
+                        : "rgba(34,197,94,0.1)"
+                      : theme.dark
+                        ? "rgba(148,163,184,0.14)"
+                        : "rgba(100,116,139,0.1)"
+                  }
+                  borderColor={
+                    pushState.hasPush
+                      ? theme.dark
+                        ? "rgba(74,222,128,0.26)"
+                        : "rgba(34,197,94,0.18)"
+                      : theme.dark
+                        ? "rgba(148,163,184,0.22)"
+                        : "rgba(100,116,139,0.16)"
+                  }
+                  label={pushLabel}
+                  textColor={
+                    pushState.hasPush
+                      ? theme.dark
+                        ? "#dcfce7"
+                        : "#15803d"
+                      : theme.dark
+                        ? "#e2e8f0"
+                        : "#475569"
+                  }
+                />
+              ) : null}
             </View>
           </View>
         </View>
@@ -657,6 +661,7 @@ const UserListCard = ({
   peekSourceOpacity,
   peekSourceScale,
   pushTokens,
+  showPushState,
   theme,
 }) => {
   const cardRef = useRef(null);
@@ -787,6 +792,7 @@ const UserListCard = ({
                 connections={connections}
                 layout={layout}
                 pushTokens={pushTokens}
+                showPushState={showPushState}
                 theme={theme}
               />
             </Surface>
@@ -801,6 +807,10 @@ const UsersHome = () => {
   const theme = useTheme();
   const { width } = useWindowDimensions();
   const layout = useMemo(() => getUsersLayout(width), [width]);
+  const canViewPushTokens = Meteor.useTracker(
+    () => canAccessPushTokenDashboards(Meteor.user()),
+    [],
+  );
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filtroVPN, setFiltroVPN] = useState(null);
@@ -860,19 +870,23 @@ const UsersHome = () => {
       })
       .fetch();
     const userIds = usersDocs.map((userDoc) => userDoc?._id).filter(Boolean);
-    const pushHandle = Meteor.subscribe(
-      "push_tokens",
-      { userId: { $in: userIds } },
-      {
-        fields: {
-          userId: 1,
-          provider: 1,
-          platform: 1,
-          updatedAt: 1,
-          deviceId: 1,
-        },
-      },
-    );
+    const pushFields = {
+      userId: 1,
+      provider: 1,
+      platform: 1,
+      updatedAt: 1,
+      deviceId: 1,
+    };
+    const pushHandle =
+      canViewPushTokens && userIds.length > 0
+        ? Meteor.subscribe(
+            "push_tokens",
+            { userId: { $in: userIds } },
+            {
+              fields: pushFields,
+            },
+          )
+        : null;
     const connectionHandle = Meteor.subscribe(
       "conexiones",
       { userId: { $in: userIds } },
@@ -881,26 +895,24 @@ const UsersHome = () => {
 
     return {
       loading:
-        !userHandle.ready() || !connectionHandle.ready() || !pushHandle.ready(),
+        !userHandle.ready() ||
+        !connectionHandle.ready() ||
+        (pushHandle ? !pushHandle.ready() : false),
       users: usersDocs,
       connections: Online.find(
         { userId: { $in: userIds } },
         { fields: { userId: 1, address: 1, hostname: 1 } },
       ).fetch(),
-      pushTokens: PushTokens.find(
-        { userId: { $in: userIds } },
-        {
-          fields: {
-            userId: 1,
-            provider: 1,
-            platform: 1,
-            updatedAt: 1,
-            deviceId: 1,
-          },
-        },
-      ).fetch(),
+      pushTokens: canViewPushTokens && userIds.length > 0
+        ? PushTokens.find(
+            { userId: { $in: userIds } },
+            {
+              fields: pushFields,
+            },
+          ).fetch()
+        : [],
     };
-  }, []);
+  }, [canViewPushTokens]);
 
   const filteredUsers = useMemo(() => {
     const term = search.toLowerCase().trim();
@@ -934,7 +946,7 @@ const UsersHome = () => {
         }
       }
 
-      if (filtroPush !== null) {
+      if (canViewPushTokens && filtroPush !== null) {
         const { hasPush } = getPushState(user, pushTokens);
 
         if (hasPush !== filtroPush) {
@@ -950,6 +962,7 @@ const UsersHome = () => {
     filtroProxy,
     filtroPush,
     filtroVPN,
+    canViewPushTokens,
     pushTokens,
     search,
     users,
@@ -1176,6 +1189,7 @@ const UsersHome = () => {
                       peekSourceOpacity={sourcePeekOpacity}
                       peekSourceScale={sourcePeekScale}
                       pushTokens={pushTokens}
+                      showPushState={canViewPushTokens}
                       theme={theme}
                     />
                   </View>
@@ -1321,26 +1335,28 @@ const UsersHome = () => {
               Desconectados
             </Chip>
           </View>
-          <View style={styles.filterRow}>
-            <Chip
-              selected={filtroPush === null}
-              onPress={() => setFiltroPush(null)}
-            >
-              Push: Todos
-            </Chip>
-            <Chip
-              selected={filtroPush === true}
-              onPress={() => setFiltroPush(true)}
-            >
-              Push Activo
-            </Chip>
-            <Chip
-              selected={filtroPush === false}
-              onPress={() => setFiltroPush(false)}
-            >
-              Sin Push
-            </Chip>
-          </View>
+          {canViewPushTokens ? (
+            <View style={styles.filterRow}>
+              <Chip
+                selected={filtroPush === null}
+                onPress={() => setFiltroPush(null)}
+              >
+                Push: Todos
+              </Chip>
+              <Chip
+                selected={filtroPush === true}
+                onPress={() => setFiltroPush(true)}
+              >
+                Push Activo
+              </Chip>
+              <Chip
+                selected={filtroPush === false}
+                onPress={() => setFiltroPush(false)}
+              >
+                Sin Push
+              </Chip>
+            </View>
+          ) : null}
           <Button
             mode="text"
             onPress={() => {
@@ -1439,6 +1455,7 @@ const UsersHome = () => {
                     connections={connections}
                     layout={layout}
                     pushTokens={pushTokens}
+                    showPushState={canViewPushTokens}
                     overlayMode
                     theme={theme}
                   />

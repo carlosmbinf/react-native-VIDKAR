@@ -7,6 +7,7 @@ import { PushTokens } from "../../collections/collections";
 import {
   buildDeviceViewModel,
   buildPushDashboard,
+  canAccessPushTokenDashboards,
   PUSH_TOKEN_FIELDS,
   PUSH_TOKEN_SORT_UPDATED,
 } from "../pushTokens/utils";
@@ -42,6 +43,10 @@ const DevicesCard = ({
   onOpenDevices,
 }) => {
   const theme = useTheme();
+  const canViewPushDashboard = Meteor.useTracker(
+    () => canAccessPushTokenDashboards(Meteor.user()),
+    [],
+  );
   const { ready, devices } = Meteor.useTracker(() => {
     if (!userId) {
       return { ready: false, devices: [] };
@@ -77,7 +82,7 @@ const DevicesCard = ({
     [parsedDevices],
   );
 
-  if (!ready || !dashboard.totalDevices) {
+  if (!canViewPushDashboard || !ready || !dashboard.totalDevices) {
     return null;
   }
 
