@@ -3,7 +3,29 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 export const UNKNOWN_LABEL = "No disponible";
 export const PUSH_TOKENS_ADMIN_USERNAME = "carlosmbinf";
 export const canAccessPushTokenDashboards = (user) =>
-  user?.username === PUSH_TOKENS_ADMIN_USERNAME;
+  user?.username === PUSH_TOKENS_ADMIN_USERNAME || false;
+export const normalizePushTokenEntityId = (value) => {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  if (typeof value === "object") {
+    if (typeof value._str === "string") {
+      return value._str;
+    }
+
+    if (typeof value.$oid === "string") {
+      return value.$oid;
+    }
+  }
+
+  const stringValue = String(value);
+  return stringValue === "[object Object]" ? null : stringValue;
+};
 
 export const PUSH_TOKEN_FIELDS = {
   platform: 1,

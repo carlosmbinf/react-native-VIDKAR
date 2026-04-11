@@ -25,6 +25,7 @@ import {
   buildDeviceViewModel,
   buildPushDashboard,
   canAccessPushTokenDashboards,
+  normalizePushTokenEntityId,
   PUSH_TOKEN_FIELDS,
   PUSH_TOKEN_SORT_UPDATED,
 } from "./pushTokens/utils";
@@ -53,29 +54,6 @@ const DEVICE_SEARCH_FIELDS = [
 const USER_FIELDS = {
   username: 1,
   profile: 1,
-};
-
-const normalizeId = (value) => {
-  if (value == null) {
-    return null;
-  }
-
-  if (typeof value === "string" || typeof value === "number") {
-    return String(value);
-  }
-
-  if (typeof value === "object") {
-    if (typeof value._str === "string") {
-      return value._str;
-    }
-
-    if (typeof value.$oid === "string") {
-      return value.$oid;
-    }
-  }
-
-  const stringValue = String(value);
-  return stringValue === "[object Object]" ? null : stringValue;
 };
 
 const getUserLabel = (user) => {
@@ -402,7 +380,11 @@ const UserPushTokensScreen = () => {
       sort: PUSH_TOKEN_SORT_UPDATED,
     }).fetch();
     const userIds = Array.from(
-      new Set(tokenDocs.map((device) => normalizeId(device?.userId)).filter(Boolean)),
+      new Set(
+        tokenDocs
+          .map((device) => normalizePushTokenEntityId(device?.userId))
+          .filter(Boolean),
+      ),
     );
     const shouldLoadUsers = routeUserId || userIds.length > 0;
     const userSelector = routeUserId
@@ -431,7 +413,7 @@ const UserPushTokensScreen = () => {
     () =>
       new Map(
         users
-          .map((entry) => [normalizeId(entry?._id), entry])
+          .map((entry) => [normalizePushTokenEntityId(entry?._id), entry])
           .filter(([id]) => Boolean(id)),
       ),
     [users],
@@ -441,7 +423,9 @@ const UserPushTokensScreen = () => {
     () =>
       devices.map((device, index) => {
         const parsedDevice = buildDeviceViewModel(device, index);
-        const owner = usersById.get(normalizeId(device?.userId));
+        const owner = usersById.get(
+          normalizePushTokenEntityId(device?.userId),
+        );
 
         return {
           ...parsedDevice,
@@ -628,7 +612,7 @@ const UserPushTokensScreen = () => {
       <View style={[styles.screen, { backgroundColor: palette.screen }]}>
         <AppHeader
           title={screenTitle}
-          subtitle="Acceso restringido"
+          subtitle="Vista privada"
           showBackButton
           onBack={handleBack}
         />
