@@ -903,7 +903,7 @@ const UsersHome = () => {
         { userId: { $in: userIds } },
         { fields: { userId: 1, address: 1, hostname: 1 } },
       ).fetch(),
-      pushTokens: canViewPushTokens
+      pushTokens: canViewPushTokens && userIds.length > 0
         ? PushTokens.find(
             { userId: { $in: userIds } },
             {

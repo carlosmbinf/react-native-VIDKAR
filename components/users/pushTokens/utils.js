@@ -3,7 +3,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 export const UNKNOWN_LABEL = "No disponible";
 export const PUSH_TOKENS_ADMIN_USERNAME = "carlosmbinf";
 export const canAccessPushTokenDashboards = (user) =>
-  user?.username === PUSH_TOKENS_ADMIN_USERNAME || false;
+  user?.username === PUSH_TOKENS_ADMIN_USERNAME;
 export const normalizePushTokenEntityId = (value) => {
   if (value == null) {
     return null;
