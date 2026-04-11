@@ -16,6 +16,7 @@ import {
     VentasCollection,
 } from "../collections/collections";
 import AppHeader from "../Header/AppHeader";
+import AdminAssignmentCard from "./componentsUserDetails/AdminAssignmentCard";
 import DeleteAccountCard from "./componentsUserDetails/DeleteAccountCard";
 import DevicesCard from "./componentsUserDetails/DevicesCard";
 import OptionsCardAdmin from "./componentsUserDetails/OptionsCardAdmin";
@@ -327,6 +328,13 @@ const UserDetails = () => {
                 styles={styles}
                 edit={edit}
                 setEdit={setEdit}
+                accentColor={accentColor}
+              />
+            </View>
+            <View style={[styles.cardItem, computedCardWidth]}>
+              <AdminAssignmentCard
+                item={item}
+                styles={styles}
                 accentColor={accentColor}
               />
             </View>
