@@ -37,6 +37,11 @@ const SORT_OPTIONS = [
   { value: "UPDATED", label: "Actualización" },
   { value: "TOKEN", label: "Token" },
 ];
+const PLATFORM_OPTIONS = [
+  { value: "ALL", label: "Todas" },
+  { value: "ANDROID", label: "Android" },
+  { value: "IOS", label: "iOS" },
+];
 const DEVICE_SEARCH_FIELDS = [
   "token",
   "tokenLabel",
@@ -44,6 +49,33 @@ const DEVICE_SEARCH_FIELDS = [
   "raw",
   "androidVersionLabel",
 ];
+const USER_FIELDS = {
+  username: 1,
+  profile: 1,
+};
+
+const normalizeId = (value) => {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  if (typeof value === "object") {
+    if (typeof value._str === "string") {
+      return value._str;
+    }
+
+    if (typeof value.$oid === "string") {
+      return value.$oid;
+    }
+  }
+
+  const stringValue = String(value);
+  return stringValue === "[object Object]" ? null : stringValue;
+};
 
 const getUserLabel = (user) => {
   const firstName =
@@ -95,11 +127,11 @@ const buildPalette = (theme) => {
   };
 };
 
-const SearchField = ({ value, onChangeText }) => (
+const SearchField = ({ label, placeholder, value, onChangeText }) => (
   <TextInput
     mode="outlined"
-    label="Filtrar por token"
-    placeholder="Escribe parte del token o device id"
+    label={label}
+    placeholder={placeholder}
     value={value}
     onChangeText={onChangeText}
     autoCapitalize="none"
@@ -167,7 +199,15 @@ const SummaryMetric = ({ label, value, tone, surface }) => (
   </Surface>
 );
 
-const DeviceRow = ({ item, deleting, onDelete, colors, theme }) => {
+const DeviceRow = ({
+  item,
+  deleting,
+  onDelete,
+  canDelete,
+  colors,
+  showOwner,
+  theme,
+}) => {
   const Icon = item.iconComponent;
 
   return (
@@ -204,18 +244,40 @@ const DeviceRow = ({ item, deleting, onDelete, colors, theme }) => {
           </View>
         </View>
 
-        <Button
-          mode="text"
-          icon="delete-outline"
-          compact
-          loading={deleting}
-          disabled={deleting}
-          onPress={() => onDelete(item)}
-          textColor={colors.delete}
-        >
-          Eliminar
-        </Button>
+        {canDelete ? (
+          <Button
+            mode="text"
+            icon="delete-outline"
+            compact
+            loading={deleting}
+            disabled={deleting}
+            onPress={() => onDelete(item)}
+            textColor={colors.delete}
+          >
+            Eliminar
+          </Button>
+        ) : null}
       </View>
+
+      {showOwner ? (
+        <Surface
+          elevation={0}
+          style={[styles.ownerBlock, { backgroundColor: colors.panelSecondary }]}
+        >
+          <Text
+            variant="labelSmall"
+            style={[styles.tokenLabel, { color: colors.subtle }]}
+          >
+            Usuario
+          </Text>
+          <Text variant="bodyMedium" style={styles.ownerValue}>
+            {item.userLabel}
+          </Text>
+          <Text variant="bodySmall" style={{ color: colors.subtle }}>
+            @{item.usernameLabel}
+          </Text>
+        </Surface>
+      ) : null}
 
       <Surface
         elevation={0}
@@ -306,49 +368,120 @@ const UserPushTokensScreen = () => {
     () => (Array.isArray(params.username) ? params.username[0] : params.username),
     [params.username],
   );
+  const isGlobalMode = !routeUserId;
   const [showFilters, setShowFilters] = React.useState(false);
   const [selectedSort, setSelectedSort] = React.useState("UPDATED");
+  const [selectedPlatform, setSelectedPlatform] = React.useState("ALL");
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [userSearchQuery, setUserSearchQuery] = React.useState("");
   const [deletingIds, setDeletingIds] = React.useState(() => new Set());
   const [dismissedIds, setDismissedIds] = React.useState(() => new Set());
 
-  const { ready, user, devices } = Meteor.useTracker(() => {
-    if (!routeUserId) {
-      return { ready: false, user: null, devices: [] };
+  const { ready, user, users, currentUser, devices } = Meteor.useTracker(() => {
+    const sessionUser = Meteor.user();
+    const isPrincipalAdmin = sessionUser?.username === "carlosmbinf";
+
+    if (!isPrincipalAdmin) {
+      return {
+        ready: true,
+        currentUser: sessionUser,
+        user: null,
+        users: [],
+        devices: [],
+      };
     }
 
-    const userHandle = Meteor.subscribe("user", { _id: routeUserId });
-    const tokenHandle = Meteor.subscribe(
-      "push_tokens",
-      { userId: routeUserId },
-      {
-        fields: PUSH_TOKEN_FIELDS,
-        sort: PUSH_TOKEN_SORT_UPDATED,
-      },
+    const tokenSelector = routeUserId ? { userId: routeUserId } : {};
+    const tokenHandle = Meteor.subscribe("push_tokens", tokenSelector, {
+      fields: PUSH_TOKEN_FIELDS,
+      sort: PUSH_TOKEN_SORT_UPDATED,
+    });
+    const tokenDocs = PushTokens.find(tokenSelector, {
+      fields: PUSH_TOKEN_FIELDS,
+      sort: PUSH_TOKEN_SORT_UPDATED,
+    }).fetch();
+    const userIds = Array.from(
+      new Set(tokenDocs.map((device) => normalizeId(device?.userId)).filter(Boolean)),
     );
+    const shouldLoadUsers = routeUserId || userIds.length > 0;
+    const userSelector = routeUserId
+      ? { _id: routeUserId }
+      : { _id: { $in: userIds } };
+    const userHandle = shouldLoadUsers
+      ? Meteor.subscribe("user", userSelector, {
+          fields: USER_FIELDS,
+        })
+      : null;
 
     return {
-      ready: userHandle.ready() && tokenHandle.ready(),
-      user: Meteor.users.findOne({ _id: routeUserId }),
-      devices: PushTokens.find(
-        { userId: routeUserId },
-        {
-          fields: PUSH_TOKEN_FIELDS,
-          sort: PUSH_TOKEN_SORT_UPDATED,
-        },
-      ).fetch(),
+      ready: tokenHandle.ready() && (userHandle ? userHandle.ready() : true),
+      currentUser: sessionUser,
+      user: routeUserId
+        ? Meteor.users.findOne({ _id: routeUserId }, { fields: USER_FIELDS })
+        : null,
+      users: shouldLoadUsers
+        ? Meteor.users.find(userSelector, { fields: USER_FIELDS }).fetch()
+        : [],
+      devices: tokenDocs,
     };
   }, [routeUserId]);
+  const canManagePushTokens = currentUser?.username === "carlosmbinf";
+  const usersById = React.useMemo(
+    () =>
+      new Map(
+        users
+          .map((entry) => [normalizeId(entry?._id), entry])
+          .filter(([id]) => Boolean(id)),
+      ),
+    [users],
+  );
 
   const parsedDevices = React.useMemo(
-    () => devices.map((device, index) => buildDeviceViewModel(device, index)),
-    [devices],
+    () =>
+      devices.map((device, index) => {
+        const parsedDevice = buildDeviceViewModel(device, index);
+        const owner = usersById.get(normalizeId(device?.userId));
+
+        return {
+          ...parsedDevice,
+          userLabel: getUserLabel(owner || { username: routeUsername }),
+          usernameLabel: owner?.username || routeUsername || "sin-usuario",
+        };
+      }),
+    [devices, routeUsername, usersById],
   );
 
   const visibleDevices = React.useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
+    const normalizedUserQuery = userSearchQuery.trim().toLowerCase();
     const filtered = parsedDevices.filter((device) => {
       if (dismissedIds.has(device._id)) {
+        return false;
+      }
+
+      if (
+        selectedPlatform === "ANDROID" &&
+        device.meta.platformLabel !== "Android"
+      ) {
+        return false;
+      }
+
+      if (
+        selectedPlatform === "IOS" &&
+        device.meta.platformLabel !== "iPhone / iOS"
+      ) {
+        return false;
+      }
+
+      if (
+        isGlobalMode &&
+        normalizedUserQuery &&
+        ![device.userLabel, device.usernameLabel]
+          .filter(Boolean)
+          .some((value) =>
+            String(value).toLowerCase().includes(normalizedUserQuery),
+          )
+      ) {
         return false;
       }
 
@@ -368,7 +501,7 @@ const UserPushTokensScreen = () => {
     });
 
     return filtered.sort((left, right) => {
-      if (selectedSort === "TOKEN") {
+      if (!isGlobalMode && selectedSort === "TOKEN") {
         return String(left.token || "").localeCompare(
           String(right.token || ""),
           "es",
@@ -380,7 +513,15 @@ const UserPushTokensScreen = () => {
         new Date(left.updatedAt || left.createdAt || 0).getTime()
       );
     });
-  }, [dismissedIds, parsedDevices, searchQuery, selectedSort]);
+  }, [
+    dismissedIds,
+    isGlobalMode,
+    parsedDevices,
+    searchQuery,
+    selectedPlatform,
+    selectedSort,
+    userSearchQuery,
+  ]);
 
   const dashboard = React.useMemo(
     () => buildPushDashboard(visibleDevices),
@@ -389,9 +530,13 @@ const UserPushTokensScreen = () => {
 
   const activeFiltersCount = React.useMemo(
     () =>
-      [selectedSort !== "UPDATED", searchQuery.trim().length > 0].filter(Boolean)
-        .length,
-    [searchQuery, selectedSort],
+      [
+        !isGlobalMode && selectedSort !== "UPDATED",
+        searchQuery.trim().length > 0,
+        isGlobalMode && userSearchQuery.trim().length > 0,
+        selectedPlatform !== "ALL",
+      ].filter(Boolean).length,
+    [isGlobalMode, searchQuery, selectedPlatform, selectedSort, userSearchQuery],
   );
 
   const handleBack = React.useCallback(() => {
@@ -408,15 +553,21 @@ const UserPushTokensScreen = () => {
       return;
     }
 
-    router.replace("/(normal)/Users");
-  }, [routeUserId]);
+    router.replace(isGlobalMode ? "/(normal)/Main" : "/(normal)/Users");
+  }, [isGlobalMode, routeUserId]);
 
   const clearFilters = React.useCallback(() => {
     setSelectedSort("UPDATED");
+    setSelectedPlatform("ALL");
     setSearchQuery("");
+    setUserSearchQuery("");
   }, []);
 
   const handleDelete = React.useCallback((device) => {
+    if (!canManagePushTokens) {
+      return;
+    }
+
     Alert.alert(
       "Eliminar dispositivo",
       "Este registro de push token dejará de estar asociado al usuario. ¿Deseas continuar?",
@@ -463,15 +614,47 @@ const UserPushTokensScreen = () => {
         },
       ],
     );
-  }, []);
+  }, [canManagePushTokens]);
 
   const userLabel = getUserLabel(user || { username: routeUsername });
+  const screenTitle = isGlobalMode ? "Push tokens" : "Dispositivos push";
+  const screenSubtitle = isGlobalMode
+    ? "Inventario global ordenado por actualización"
+    : `Usuario: ${userLabel}`;
+
+  if (!canManagePushTokens) {
+    return (
+      <View style={[styles.screen, { backgroundColor: palette.screen }]}>
+        <AppHeader
+          title={screenTitle}
+          subtitle="Acceso restringido"
+          showBackButton
+          onBack={handleBack}
+        />
+        <View style={styles.loadingState}>
+          <Surface
+            elevation={0}
+            style={[styles.emptyState, { backgroundColor: palette.panel }]}
+          >
+            <Text variant="titleMedium">Acceso restringido</Text>
+            <Text
+              variant="bodyMedium"
+              style={[styles.emptyCopy, { color: palette.subtle }]}
+            >
+              Solo carlosmbinf puede consultar dashboards y listados de push
+              tokens.
+            </Text>
+          </Surface>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.screen, { backgroundColor: palette.screen }]}>
       <AppHeader
-        title="Dispositivos push"
-        subtitle={routeUserId ? `Usuario: ${userLabel}` : "Registros del usuario"}
+        title={screenTitle}
+        subtitle={screenSubtitle}
         showBackButton
         onBack={handleBack}
         actions={
@@ -483,19 +666,13 @@ const UserPushTokensScreen = () => {
         }
       />
 
-      {!routeUserId ? (
-        <View style={styles.loadingState}>
-          <Text variant="titleMedium">No se recibió el usuario</Text>
-          <Text variant="bodyMedium" style={{ color: palette.subtle, textAlign: "center" }}>
-            Abre esta pantalla desde el detalle del usuario para consultar sus
-            dispositivos registrados.
-          </Text>
-        </View>
-      ) : !ready ? (
+      {!ready ? (
         <View style={styles.loadingState}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text variant="bodyMedium" style={{ color: palette.subtle }}>
-            Cargando push tokens y resolviendo el resumen del usuario.
+            {isGlobalMode
+              ? "Cargando push tokens de la base de datos."
+              : "Cargando push tokens y resolviendo el resumen del usuario."}
           </Text>
         </View>
       ) : (
@@ -509,7 +686,9 @@ const UserPushTokensScreen = () => {
               item={item}
               deleting={deletingIds.has(item._id)}
               onDelete={handleDelete}
+              canDelete={canManagePushTokens}
               colors={palette}
+              showOwner={isGlobalMode}
               theme={theme}
             />
           )}
@@ -526,15 +705,17 @@ const UserPushTokensScreen = () => {
                   Inventario de dispositivos
                 </Text>
                 <Text variant="headlineMedium" style={styles.heroTitle}>
-                  Tokens registrados para {userLabel}
+                  {isGlobalMode
+                    ? "Todos los push tokens registrados"
+                    : `Tokens registrados para ${userLabel}`}
                 </Text>
                 <Text
                   variant="bodyMedium"
                   style={[styles.heroCopy, { color: palette.subtle }]}
                 >
-                  Ordena por actualización o token, filtra por identificadores y
-                  elimina registros obsoletos sin perder visibilidad del parque
-                  actual.
+                  {isGlobalMode
+                    ? "Consulta todos los registros ordenados por updatedAt, filtra por usuario o plataforma y mantén visible el estado global del parque."
+                    : "Ordena por actualización o token, filtra por identificadores y elimina registros obsoletos sin perder visibilidad del parque actual."}
                 </Text>
               </Surface>
 
@@ -570,12 +751,25 @@ const UserPushTokensScreen = () => {
                   elevation={0}
                   style={[styles.filtersPanel, { backgroundColor: palette.panel }]}
                 >
-                  <SearchField value={searchQuery} onChangeText={setSearchQuery} />
+                  <SearchField
+                    label="Filtrar por token"
+                    placeholder="Escribe parte del token o device id"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                  />
+                  {isGlobalMode ? (
+                    <SearchField
+                      label="Filtrar por usuario"
+                      placeholder="Busca por nombre o username"
+                      value={userSearchQuery}
+                      onChangeText={setUserSearchQuery}
+                    />
+                  ) : null}
                   <FilterGroup
-                    label="Ordenar por"
-                    options={SORT_OPTIONS}
-                    selectedValue={selectedSort}
-                    onSelect={setSelectedSort}
+                    label="Plataforma"
+                    options={PLATFORM_OPTIONS}
+                    selectedValue={selectedPlatform}
+                    onSelect={setSelectedPlatform}
                     colors={{
                       background: palette.chipBackground,
                       border: palette.chipBorder,
@@ -586,6 +780,23 @@ const UserPushTokensScreen = () => {
                       text: palette.chipText,
                     }}
                   />
+                  {!isGlobalMode ? (
+                    <FilterGroup
+                      label="Ordenar por"
+                      options={SORT_OPTIONS}
+                      selectedValue={selectedSort}
+                      onSelect={setSelectedSort}
+                      colors={{
+                        background: palette.chipBackground,
+                        border: palette.chipBorder,
+                        label: palette.subtle,
+                        selectedBackground: palette.chipSelectedBackground,
+                        selectedBorder: palette.chipSelectedBorder,
+                        selectedText: palette.chipSelectedText,
+                        text: palette.chipText,
+                      }}
+                    />
+                  ) : null}
 
                   <View style={styles.filtersFooter}>
                     <Text variant="bodySmall" style={{ color: palette.subtle }}>
@@ -614,8 +825,17 @@ const UserPushTokensScreen = () => {
                       : "Filtros ocultos"}
                   </Text>
                   <View style={styles.collapsedChipsRow}>
-                    <Chip compact icon="sort" style={styles.collapsedChip}>
-                      {selectedSort === "UPDATED" ? "Actualización" : "Token"}
+                    {!isGlobalMode ? (
+                      <Chip compact icon="sort" style={styles.collapsedChip}>
+                        {selectedSort === "UPDATED" ? "Actualización" : "Token"}
+                      </Chip>
+                    ) : null}
+                    <Chip compact icon="cellphone-cog" style={styles.collapsedChip}>
+                      {selectedPlatform === "ALL"
+                        ? "Plataformas"
+                        : selectedPlatform === "ANDROID"
+                          ? "Android"
+                          : "iOS"}
                     </Chip>
                     <Chip compact icon="devices" style={styles.collapsedChip}>
                       {visibleDevices.length} visibles
@@ -644,8 +864,9 @@ const UserPushTokensScreen = () => {
                 variant="bodyMedium"
                 style={[styles.emptyCopy, { color: palette.subtle }]}
               >
-                No se encontraron dispositivos para este usuario con los filtros
-                actuales.
+                {isGlobalMode
+                  ? "No se encontraron push tokens visibles con los filtros actuales."
+                  : "No se encontraron dispositivos para este usuario con los filtros actuales."}
               </Text>
               {activeFiltersCount > 0 ? (
                 <Button
@@ -845,6 +1066,15 @@ const styles = StyleSheet.create({
   },
   deviceInfoChip: {
     alignSelf: "flex-start",
+  },
+  ownerBlock: {
+    borderRadius: 18,
+    marginTop: 14,
+    padding: 14,
+  },
+  ownerValue: {
+    fontWeight: "700",
+    marginTop: 6,
   },
   emptyState: {
     alignItems: "center",

@@ -132,6 +132,11 @@ const buildPrivateItems = () => [
     href: "/(normal)/ListaPropertys",
   },
   {
+    label: "Push tokens",
+    icon: "devices",
+    href: "/(normal)/PushTokens",
+  },
+  {
     label: "Mapa de usuarios",
     icon: "map-marker-account-outline",
     href: "/(normal)/MapaUsuarios",

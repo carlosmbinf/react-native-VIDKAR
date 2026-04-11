@@ -42,6 +42,10 @@ const DevicesCard = ({
   onOpenDevices,
 }) => {
   const theme = useTheme();
+  const canViewPushDashboard = Meteor.useTracker(
+    () => Meteor.user()?.username === "carlosmbinf",
+    [],
+  );
   const { ready, devices } = Meteor.useTracker(() => {
     if (!userId) {
       return { ready: false, devices: [] };
@@ -77,7 +81,7 @@ const DevicesCard = ({
     [parsedDevices],
   );
 
-  if (!ready || !dashboard.totalDevices) {
+  if (!canViewPushDashboard || !ready || !dashboard.totalDevices) {
     return null;
   }
 
