@@ -27,6 +27,7 @@ import AppHeader from "../Header/AppHeader";
 import { Online, PushTokens } from "../collections/collections";
 import ServiceProgressPill from "../shared/ServiceProgressPill";
 import UserAvatar from "./UserAvatar";
+import { canAccessPushTokenDashboards } from "./pushTokens/utils";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
@@ -807,7 +808,7 @@ const UsersHome = () => {
   const { width } = useWindowDimensions();
   const layout = useMemo(() => getUsersLayout(width), [width]);
   const canViewPushTokens = Meteor.useTracker(
-    () => Meteor.user()?.username === "carlosmbinf",
+    () => canAccessPushTokenDashboards(Meteor.user()),
     [],
   );
   const [search, setSearch] = useState("");

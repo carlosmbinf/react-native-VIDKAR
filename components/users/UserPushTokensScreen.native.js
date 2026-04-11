@@ -24,6 +24,7 @@ import AppHeader from "../Header/AppHeader";
 import {
   buildDeviceViewModel,
   buildPushDashboard,
+  canAccessPushTokenDashboards,
   PUSH_TOKEN_FIELDS,
   PUSH_TOKEN_SORT_UPDATED,
 } from "./pushTokens/utils";
@@ -379,7 +380,7 @@ const UserPushTokensScreen = () => {
 
   const { ready, user, users, currentUser, devices } = Meteor.useTracker(() => {
     const sessionUser = Meteor.user();
-    const isPrincipalAdmin = sessionUser?.username === "carlosmbinf";
+    const isPrincipalAdmin = canAccessPushTokenDashboards(sessionUser);
 
     if (!isPrincipalAdmin) {
       return {
@@ -425,7 +426,7 @@ const UserPushTokensScreen = () => {
       devices: tokenDocs,
     };
   }, [routeUserId]);
-  const canManagePushTokens = currentUser?.username === "carlosmbinf";
+  const canManagePushTokens = canAccessPushTokenDashboards(currentUser);
   const usersById = React.useMemo(
     () =>
       new Map(
@@ -641,8 +642,8 @@ const UserPushTokensScreen = () => {
               variant="bodyMedium"
               style={[styles.emptyCopy, { color: palette.subtle }]}
             >
-              Solo carlosmbinf puede consultar dashboards y listados de push
-              tokens.
+              Solo el administrador principal puede consultar dashboards y
+              listados de push tokens.
             </Text>
           </Surface>
         </View>

@@ -20,6 +20,7 @@ import DeleteAccountCard from "./componentsUserDetails/DeleteAccountCard";
 import DevicesCard from "./componentsUserDetails/DevicesCard";
 import OptionsCardAdmin from "./componentsUserDetails/OptionsCardAdmin";
 import PersonalDataCard from "./componentsUserDetails/PersonalDataCard";
+import { canAccessPushTokenDashboards } from "./pushTokens/utils";
 import ProxyCard from "./componentsUserDetails/ProxyCard";
 import SaldoRecargasCard from "./componentsUserDetails/SaldoRecargasCard";
 import TarjetaDebitoCard from "./componentsUserDetails/TarjetaDebitoCard";
@@ -38,7 +39,7 @@ const UserDetails = () => {
   const routeItemId = Array.isArray(params.item) ? params.item[0] : params.item;
   const currentUserId = Meteor.useTracker(() => Meteor.userId());
   const canViewPushDashboard = Meteor.useTracker(
-    () => Meteor.user()?.username === "carlosmbinf",
+    () => canAccessPushTokenDashboards(Meteor.user()),
     [],
   );
   const itemId = routeItemId || currentUserId || null;

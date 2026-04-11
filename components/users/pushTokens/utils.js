@@ -1,6 +1,9 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 export const UNKNOWN_LABEL = "No disponible";
+export const PUSH_TOKENS_ADMIN_USERNAME = "carlosmbinf";
+export const canAccessPushTokenDashboards = (user) =>
+  user?.username === PUSH_TOKENS_ADMIN_USERNAME;
 
 export const PUSH_TOKEN_FIELDS = {
   platform: 1,
