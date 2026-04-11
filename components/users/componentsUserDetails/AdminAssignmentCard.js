@@ -25,11 +25,12 @@ const buildAdminLabel = (admin) => {
 
 const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 	const itemId = item?._id || null;
+	const initialAdminValue = item?.bloqueadoDesbloqueadoPor || EMPTY_ADMIN_VALUE;
 	const currentUserId = Meteor.userId();
 	const currentUsername = Meteor.user()?.username;
 	const isSystemAdmin = Meteor.user()?.profile?.role === 'admin' || currentUsername === 'carlosmbinf';
 	const canEditAssignment = Boolean(itemId) && (itemId === currentUserId || isSystemAdmin);
-	const [selectedAdmin, setSelectedAdmin] = useState(EMPTY_ADMIN_VALUE);
+	const [selectedAdmin, setSelectedAdmin] = useState(initialAdminValue);
 	const [isFocus, setIsFocus] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [feedback, setFeedback] = useState({ message: '', type: 'info' });
@@ -110,6 +111,7 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 	);
 
 	const hasChanges = selectedAdmin !== (currentAdminId || EMPTY_ADMIN_VALUE);
+	const showFloatingLabel = (selectedAdmin && selectedAdmin !== EMPTY_ADMIN_VALUE) || isFocus;
 
 	const handleSave = () => {
 		if (!itemId || !canEditAssignment || !hasChanges) {
@@ -164,7 +166,7 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 					<Text style={ui.loadingCopy}>Cargando administradores del sistema...</Text>
 				) : (
 					<>
-						{(selectedAdmin && selectedAdmin !== EMPTY_ADMIN_VALUE) || isFocus ? (
+						{showFloatingLabel ? (
 							<Text style={[styles.label, isFocus && { color: headerAccent }]}>Administrador del sistema</Text>
 						) : null}
 						<Dropdown
