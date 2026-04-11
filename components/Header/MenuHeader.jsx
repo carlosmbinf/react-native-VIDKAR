@@ -1,54 +1,116 @@
-import React, { useState } from 'react';
-import { View } from 'react-native';
-import { Appbar, Menu, IconButton, Text } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
-import WizardConStepper from '../carritoCompras/WizardConStepper';
-import Meteor, {Mongo, withTracker} from '@meteorrn/core';
-import { logoutFromGoogle } from '../../utilesMetodos/metodosUtiles';
-import MenuIconMensajes from '../components/MenuIconMensajes';
+import { useState } from "react";
+import { StyleSheet, View } from "react-native";
+import { Appbar, Menu, useTheme } from "react-native-paper";
 
-const MenuHeader = ({ navigation }) => {
-  const [visibleMenu, setVisibleMenu] = useState(false);
-// console.log(navigation);
+import { BlurView } from "expo-blur";
+import WizardConStepper from "../carritoCompras/WizardConStepper.native";
+import MenuIconMensajes from "../components/MenuIconMensajes.native";
+import {
+  DARK_MENU_GLASS_TINT,
+  LIGHT_MENU_GLASS_TINT,
+} from "../shared/GlassMenuSurface";
+import AppHeader, { DEFAULT_HEADER_COLOR } from "./AppHeader";
+
+const MenuHeader = ({
+  backgroundColor = DEFAULT_HEADER_COLOR,
+  title,
+  subtitle,
+  onOpenDrawer,
+  onOpenProfile,
+  onOpenMessages,
+  onLogout,
+}) => {
+  const [menuVisible, setMenuVisible] = useState(false);
+  const theme = useTheme();
+  const blurTint = theme.dark ? "dark" : "light";
+  const menuTintColor = theme.dark
+    ? DARK_MENU_GLASS_TINT
+    : LIGHT_MENU_GLASS_TINT;
+
+  const closeMenu = () => setMenuVisible(false);
+
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-      {/* 🛒 Botón del carrito */}
-      <MenuIconMensajes navigation={navigation}/>
-      <WizardConStepper/>
-      {/* 📋 Botón del menú */}
-      <Menu
-        visible={visibleMenu}
-        onDismiss={() => setVisibleMenu(false)}
-        anchor={
-          <Appbar.Action
-            icon="dots-vertical"
-            color="white"
-            onPress={() => setVisibleMenu(true)}
-          />
-        }
-        style={{ top: 80, width: 210, paddingRight: 30, zIndex:999 }}
-      >
-          <Menu.Item
-            icon="account"
-            onPress={() => {
-              setVisibleMenu(false);
-              navigation.navigate('User', {
-                item: Meteor.userId(),
-              });
-            }}
-            title="Mi usuario"
-          />
-          <Menu.Item
-            icon="logout"
-            onPress={() => {
-              logoutFromGoogle();
-              setVisibleMenu(false);
-            }}
-            title="Cerrar Sesión"
-          />
-      </Menu>
-    </View>
+    <AppHeader
+      backgroundColor={backgroundColor}
+      includeSafeAreaTop={false}
+      title={title || "VIDKAR"}
+      subtitle={subtitle}
+      titleStyle={styles.title}
+      subtitleStyle={styles.subtitle}
+      left={
+        <Appbar.Action icon="menu" iconColor="#fff" onPress={onOpenDrawer} />
+      }
+      actions={
+        <View style={styles.actionsRow}>
+          <MenuIconMensajes onOpenMessages={onOpenMessages} />
+          <WizardConStepper />
+          <Menu
+            visible={menuVisible}
+            onDismiss={closeMenu}
+            anchor={
+              <Appbar.Action
+                icon="dots-vertical"
+                iconColor="#fff"
+                onPress={() => setMenuVisible(true)}
+              />
+            }
+            contentStyle={styles.menuContent}
+            anchorPosition="bottom"
+          >
+            <BlurView
+              tint={blurTint}
+              style={{
+                borderRadius: 25,
+                overflow: "hidden",
+                backgroundColor: menuTintColor,
+                borderWidth: 2,
+                borderColor: "rgba(255,255,255,0.22)",
+              }}
+              intensity={15}
+              experimentalBlurMethod="dimezisBlurView"
+            >
+              <Menu.Item
+                leadingIcon="account-circle-outline"
+                title="Mi usuario"
+                onPress={() => {
+                  closeMenu();
+                  onOpenProfile?.();
+                }}
+              />
+              <Menu.Item
+                leadingIcon="logout"
+                title="Cerrar sesión"
+                onPress={() => {
+                  closeMenu();
+                  onLogout?.();
+                }}
+              />
+            </BlurView>
+          </Menu>
+        </View>
+      }
+    />
   );
 };
+
+const styles = StyleSheet.create({
+  actionsRow: {
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  title: {
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  subtitle: {
+    marginTop: 1,
+  },
+  menuContent: {
+    backgroundColor: "transparent",
+    overflow: "visible",
+    padding: 0,
+    borderRadius: 25,
+  },
+});
 
 export default MenuHeader;

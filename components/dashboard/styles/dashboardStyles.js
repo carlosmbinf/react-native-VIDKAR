@@ -1,257 +1,378 @@
-import { StyleSheet, Platform } from 'react-native';
+import { Platform, StyleSheet } from "react-native";
 
-// Estilos para el contenedor principal del Dashboard
 export const dashboardStyles = StyleSheet.create({
-    container: {
-        flex: 1,
-        // backgroundColor controlado por React Native Paper theme
-        paddingBottom: 100
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 40,
-        minHeight: 400,
-    },
-    loadingText: {
-        // color controlado por React Native Paper theme
-        fontSize: 16,
-        marginTop: 16,
-        opacity: 0.7,
-    },
-    header: {
-        paddingTop: Platform.OS === 'ios' ? 60 : 40,
-        paddingBottom: 30,
-        paddingHorizontal: 20,
-    },
-    headerTitle: {
-        fontSize: 32,
-        fontWeight: 'bold',
-        // color controlado por React Native Paper theme
-        marginBottom: 4,
-    },
-    headerSubtitle: {
-        fontSize: 15,
-        // color controlado por React Native Paper theme
-        fontWeight: '500',
-        opacity: 0.7,
-    },
-    kpiContainer: {
-        flexDirection: 'row',
-        paddingHorizontal: 20, // Incrementado de 16 a 20 para más margen
-        paddingVertical: 8,
-        gap: 12,
-    },
-    segmentedContainer: {
-        paddingHorizontal: 16,
-        paddingVertical: 16,
-    },
+  section: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 10,
+  },
+  loadingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 260,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+  },
+  loadingText: {
+    fontSize: 15,
+    marginTop: 14,
+    opacity: 0.72,
+  },
+  header: {
+    marginBottom: 18,
+  },
+  headerTitleRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  headerTitleBlock: {
+    flex: 1,
+    gap: 6,
+  },
+  headerEyebrow: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 1,
+    opacity: 0.72,
+    textTransform: "uppercase",
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: "800",
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.74,
+  },
+  sourceCard: {
+    borderRadius: 18,
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+  sourceCardContent: {
+    gap: 12,
+  },
+  sourceRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+  },
+  sourceIcon: {
+    alignItems: "center",
+    borderRadius: 14,
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
+  sourceTextBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  sourceLabel: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  sourceDescription: {
+    fontSize: 12,
+    lineHeight: 17,
+    opacity: 0.7,
+  },
+  kpiContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 14,
+  },
+  segmentedContainer: {
+    marginBottom: 14,
+  },
 });
 
-// Estilos para KPICard
 export const kpiCardStyles = StyleSheet.create({
-    card: {
-        flex: 1,
-        minHeight: 140,
-        borderRadius: 16,
-        overflow: 'hidden',
-        marginHorizontal: 0, // Añadido para evitar corte de sombras
-        // padding:5,
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-            },
-            android: {
-                // elevation: 8,
-            },
-        }),
-    },
-    gradient: {
-        padding: 5, // Incrementado de 10 a 12 para más espacio interno
-        minHeight: 140,
-        justifyContent: 'space-between',
-        overflow: '',
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 8,
-    },
-    iconContainer: {
-        width: 30,
-        height: 30,
-        borderRadius: 20,
-        // backgroundColor: 'rgba(255,255,255,0.25)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    trendChip: {
-        backgroundColor: 'rgba(255,255,255,0.25)',
-        height: 30,
-        justifyContent: "center",
-    },
-    trendText: {
-        fontSize: 11,
-        color: '#fff',
-    },
-    title: {
-        fontSize: 13,
-        color: '#ffffffcc',
-        fontWeight: '600',
-        marginBottom: 4,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-    value: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: '#fff',
-        marginBottom: 4,
-        flexShrink: 1,
-        flexWrap: 'wrap', // Cambiado de 'nowrap' a 'wrap' para permitir saltos de línea si es necesario
-        maxWidth: '100%', // Añadido para garantizar que no sobrepase el contenedor
-    },
-    subtitle: {
-        fontSize: 12,
-        color: '#ffffffaa',
-        fontWeight: '500',
-    },
+  card: {
+    borderRadius: 18,
+    flex: 1,
+    minHeight: 148,
+    overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 18,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  gradient: {
+    flex: 1,
+    justifyContent: "space-between",
+    minHeight: 148,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  header: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  iconContainer: {
+    alignItems: "center",
+    borderRadius: 18,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  trendChip: {
+    backgroundColor: "rgba(255,255,255,0.18)",
+    height: 28,
+    justifyContent: "center",
+  },
+  trendText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  title: {
+    color: "rgba(255,255,255,0.84)",
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+  },
+  value: {
+    color: "#ffffff",
+    fontWeight: "900",
+    marginTop: 10,
+  },
+  subtitle: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 16,
+    marginTop: 8,
+  },
 });
 
-// Estilos para CustomSegmentedButtons
 export const segmentedButtonsStyles = StyleSheet.create({
-    container: {
-        flexDirection: 'row',
-        gap: 8,
-        justifyContent: 'space-around',
-    },
-    button: {
-        flex: 1,
-        borderColor: '#4CAF50',
-    },
-    buttonActive: {
-        backgroundColor: '#4CAF50',
-    },
-    buttonText: {
-        fontSize: 12,
-    },
-    buttonTextActive: {
-        color: '#fff',
-        fontWeight: 'bold',
-    },
+  container: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  button: {
+    borderWidth: 1,
+    minHeight: 40,
+  },
+  buttonActive: {},
+  buttonText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  buttonTextActive: {
+    fontWeight: "800",
+  },
 });
 
-// Estilos para Charts
 export const chartStyles = StyleSheet.create({
-    card: {
-        marginHorizontal: 16,
-        marginVertical: 8,
-        borderRadius: 16,
-        // backgroundColor controlado por React Native Paper theme
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.25,
-                shadowRadius: 8,
-            },
-            android: {
-                elevation: 4,
-            },
-        }),
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    titleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    icon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        // color controlado por React Native Paper theme
-    },
-    chart: {
-        borderRadius: 16,
-        marginVertical: 8,
-    },
+  card: {
+    borderRadius: 20,
+    marginBottom: 14,
+    overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  header: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 14,
+  },
+  titleRow: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: 12,
+    paddingRight: 12,
+  },
+  icon: {
+    alignItems: "center",
+    borderRadius: 18,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  title: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 24,
+  },
+  chipColumn: {
+    alignItems: "flex-end",
+    gap: 6,
+  },
+  chart: {
+    alignSelf: "center",
+    borderRadius: 18,
+    marginVertical: 8,
+  },
+  insightBox: {
+    borderRadius: 16,
+    gap: 10,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  insightTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    opacity: 0.8,
+  },
+  insightRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  insightLabel: {
+    fontSize: 12,
+    opacity: 0.72,
+  },
+  insightValue: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  chartEmpty: {
+    alignItems: "center",
+    borderRadius: 16,
+    borderStyle: "dashed",
+    borderWidth: 1,
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 220,
+    padding: 24,
+  },
+  chartEmptyTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  chartEmptyText: {
+    fontSize: 13,
+    lineHeight: 18,
+    opacity: 0.7,
+    textAlign: "center",
+  },
 });
 
-// Estilos para Statistics Grid
 export const statsStyles = StyleSheet.create({
-    grid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12,
-        marginTop: 16,
-    },
-    item: {
-        flex: 1,
-        minWidth: '45%',
-        // backgroundColor aplicado individualmente por componente
-        padding: 16,
-        borderRadius: 12,
-        borderLeftWidth: 4,
-        // borderLeftColor aplicado individualmente por componente
-    },
-    label: {
-        fontSize: 12,
-        // color controlado por React Native Paper theme
-        marginBottom: 6,
-        fontWeight: '600',
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-        opacity: 0.7,
-    },
-    value: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        // color controlado por React Native Paper theme
-        flexShrink: 1,
-    },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 12,
+  },
+  item: {
+    borderRadius: 16,
+    flex: 1,
+    minWidth: "46%",
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  label: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    marginBottom: 6,
+    opacity: 0.7,
+    textTransform: "uppercase",
+  },
+  value: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
 });
 
-// Estilos para ChartSkeleton
 export const chartSkeletonStyles = StyleSheet.create({
-    container: {
-        width: '90%',
-        height: 200,
-        // backgroundColor controlado por React Native Paper theme
-        borderRadius: 16,
-        padding: 20,
-        marginTop: 20,
-        justifyContent: 'center',
-    },
-    line: {
-        height: 12,
-        // backgroundColor controlado por React Native Paper theme
-        borderRadius: 6,
-        width: '100%',
-        opacity: 0.3,
-    },
-    lineShort: {
-        width: '80%',
-        marginTop: 12,
-    },
-    lineShorter: {
-        width: '60%',
-        marginTop: 12,
-    },
+  container: {
+    borderRadius: 18,
+    height: 180,
+    justifyContent: "center",
+    marginTop: 18,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    width: "100%",
+  },
+  line: {
+    borderRadius: 6,
+    height: 12,
+    opacity: 0.3,
+    width: "100%",
+  },
+  lineShort: {
+    marginTop: 12,
+    width: "78%",
+  },
+  lineShorter: {
+    marginTop: 12,
+    width: "56%",
+  },
 });
+
+export const dashboardScreenStyles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 28,
+  },
+  heroCard: {
+    borderRadius: 24,
+    marginHorizontal: 16,
+    marginTop: 16,
+    overflow: "hidden",
+  },
+  heroContent: {
+    gap: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+  },
+  heroEyebrow: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 1,
+    opacity: 0.68,
+    textTransform: "uppercase",
+  },
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: "900",
+    lineHeight: 32,
+  },
+  heroSubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.78,
+  },
+  heroChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+});
+
+export default dashboardStyles;

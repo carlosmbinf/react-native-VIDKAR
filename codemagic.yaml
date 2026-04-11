@@ -1,323 +1,326 @@
 workflows:
-  deploy_internal_tester:
-    name: Internal Tester - React Native Android Build & Upload to Google Play
+  expo_android_internal:
+    name: Expo Android (AAB + Internal Testing)
+
     triggering:
       events:
         - push
       branch_patterns:
         - pattern: master
           include: true
-          source: true
+
     environment:
       android_signing:
         - keystore_reference
       groups:
         - google_credentials
         - vidkar
-      vars:
-        NODE_VERSION: 22
+      node: 22
       java: 17
 
     cache:
       cache_paths:
-        - $HOME/.gradle/caches
-        - $HOME/.gradle/wrapper
         - node_modules
-        - android/.gradle
-        - android/app/build
         - ~/.npm
-        
+        - ~/.gradle/caches
+        - ~/.gradle/wrapper
+
     scripts:
-      - name: Show build number
+      - name: Clean yarn
         script: |
-          echo "Build number is: $PROJECT_BUILD_NUMBER "
+          rm -rf .yarn yarn.lock
 
-      - name: Export build number as env var for gradle
-        script: |
-          export BUILD_NUMBER=$PROJECT_BUILD_NUMBER 
-          echo "BUILD_NUMBER=$BUILD_NUMBER"
-
-      # - name: Install dependencies con yarn (opcional)
-      #   script: |
-      #     yarn install --legacy-peer-deps
-
-      - name: Install dependencies
+      - name: Install deps
         script: |
           npm install --legacy-peer-deps
 
-      - name: Build Android App Bundle (AAB)
+      - name: Clean android
+        script: |
+          rm -rf android
+
+      - name: Expo prebuild
+        script: |
+          npx expo prebuild --platform android
+
+      - name: Set versionCode & versionName
+        script: |
+          cd android/app
+
+          BUILD_NUMBER=${PROJECT_BUILD_NUMBER:-0}
+          VERSION_CODE=$((532 + BUILD_NUMBER))
+
+          VERSION_NAME="4.0.$VERSION_CODE"
+
+          echo "Build number: $BUILD_NUMBER"
+          echo "Version code: $VERSION_CODE"
+          echo "Version name: $VERSION_NAME"
+
+          perl -pi -e "s/versionCode\s+\d+/versionCode $VERSION_CODE/g" build.gradle
+          perl -pi -e "s/versionName\s+\"[^\"]+\"/versionName \"$VERSION_NAME\"/g" build.gradle
+
+      - name: Build AAB
         script: |
           cd android
           chmod +x gradlew
           ./gradlew bundleRelease
 
-      # - name: Build APK Release
-      #   script: |
-      #     cd android
-      #     ./gradlew assembleRelease
-
     artifacts:
       - android/app/build/outputs/**/*.aab
-      # - android/app/build/outputs/**/*.apk
 
     publishing:
       google_play:
         credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
         track: internal
 
-      slack:
-        channel: "#deploys"
-        notify_on_build_start: true
-        notify:
-          success: true
-          failure: true
       email:
         recipients:
           - "carlosmbinf@gmail.com"
-          - "manumedinap0107@gmail.com"
-          - "yaimaduartes@gmail.com"
-        notify:
-          success: true
-
-  deploy_produccion:
-    name: Production - React Native Android Build & Upload to Google Play
-    environment:
-      android_signing:
-        - keystore_reference
-      groups:
-        - google_credentials
-        - vidkar
-      vars:
-        NODE_VERSION: 22
-      java: 17
-
-    cache:
-      cache_paths:
-        - $HOME/.gradle/caches
-        - $HOME/.gradle/wrapper
-        - node_modules
-        - android/.gradle
-        - android/app/build
-        - ~/.npm
-        
-    scripts:
-      - name: Show build number
-        script: |
-          echo "Build number is: $PROJECT_BUILD_NUMBER "
-
-      - name: Export build number as env var for gradle
-        script: |
-          export BUILD_NUMBER=$PROJECT_BUILD_NUMBER 
-          echo "BUILD_NUMBER=$BUILD_NUMBER"
-
-      # - name: Install dependencies con yarn (opcional)
-      #   script: |
-      #     yarn install --legacy-peer-deps
-
-      - name: Install dependencies
-        script: |
-          npm install --legacy-peer-deps
-
-      - name: Build Android App Bundle (AAB)
-        script: |
-          cd android
-          chmod +x gradlew
-          ./gradlew bundleRelease
-
-      # - name: Build APK Release
-      #   script: |
-      #     cd android
-      #     ./gradlew assembleRelease
-
-    artifacts:
-      - android/app/build/outputs/**/*.aab
-      # - android/app/build/outputs/**/*.apk
-
-    publishing:
-      google_play:
-        credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
-        track: production
-
-      slack:
-        channel: "#deploys_production"
-        notify_on_build_start: true
         notify:
           success: true
           failure: true
 
-      email:
-        recipients:
-          - "carlosmbinf@gmail.com"
-          # - "honoriopompahernandez@gmail.com"
-          - "manumedinap0107@gmail.com"
-          - "yaimaduartes@gmail.com"
-          # - "eu9023@gmail.com"
-          # - "osmedebello74@gmail.com"
-        notify:
-          success: true
+  expo_ios_internal:
+    name: Expo iOS (TestFlight)
 
-  react-native-ios:
-    name: React Native iOS
     max_build_duration: 120
     instance_type: mac_mini_m2
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: master
+          include: true
+
     integrations:
-      app_store_connect: VidkarAPIKey    # nombre de la integración creada en Codemagic UI
+      app_store_connect: "VidkarAPIKey"
+
     environment:
-      vars:
-        XCODE_WORKSPACE: "Vidkar.xcworkspace"     # ajusta si tu workspace tiene otro nombre
-        XCODE_SCHEME: "Vidkar"                    # ajusta si tu scheme tiene otro nombre
-        APP_ID: 6751348594                        # App Store Connect - Apple ID (número)
-        BUNDLE_ID: "com.vidkar"                   # Bundle Identifier exacto
-      node: 18
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.vidkar
+      node: 22
       xcode: latest
       cocoapods: default
-
-    scripts:
-      - name: Install npm dependencies
-        script: |
-          npm install -f
-
-      - name: Install CocoaPods dependencies
-        script: |
-          cd ios
-          pod install
-          cd ..
-
-      - name: Initialize keychain and fetch signing files
-        script: |
-          # crea/abre un keychain en la VM y descarga/crea certificados y provisioning profiles
-          keychain initialize
-
-          # fetch-signing-files usará la integración App Store Connect configurada
-          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
-
-          # añade los certificados al keychain actual
-          keychain add-certificates
-
-          # aplica los provisioning profiles y settings al proyecto Xcode
-          xcode-project use-profiles
-
-      - name: Increment build number (optional)
-        script: |
-          cd $CM_BUILD_DIR/ios
-          # obtiene el ultimo build number de TestFlight y suma 1
-          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$APP_ID" || echo 0)
-          NEW_BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
-          agvtool new-version -all $NEW_BUILD_NUMBER
-          echo "New build number: $NEW_BUILD_NUMBER"
-          cd $CM_BUILD_DIR
-
-      - name: Build ipa for distribution
-        script: |
-          # build-ipa usa la configuración aplicada por xcode-project use-profiles
-          xcode-project build-ipa \
-            --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME" \
-            --export-method app-store
-
-    artifacts:
-      - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
-
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
-        beta_groups:
-          - group carlitoPruebas
-
-      email:
-        recipients:
-          - "carlosmbinf@gmail.com"
-        notify:
-          success: true
-          failure: true
-
-  ios_release_build:
-    name: iOS Release – React Native
-    max_build_duration: 120
-    instance_type: mac_mini_m2
-    integrations:
-      app_store_connect: VidkarAPIKey
-    environment:
       vars:
-        XCODE_WORKSPACE: "Vidkar.xcworkspace"          # Ajustar si cambia
-        XCODE_SCHEME: "Vidkar"
-        APP_ID: 6751348594
         BUNDLE_ID: "com.vidkar"
-        NODE_VERSION: 18
-        # SELF_SIGNED_CERT_BASE64: (Definir en UI si se usa un cert autofirmado para QA)
-      node: 18
-      xcode: latest
-      cocoapods: default
+        XCODE_WORKSPACE: "Vidkar.xcworkspace"
+        XCODE_SCHEME: "Vidkar"
+
     cache:
       cache_paths:
         - node_modules
         - ios/Pods
         - $HOME/Library/Caches/CocoaPods
-        - ~/Library/Developer/Xcode/DerivedData
+
     scripts:
-      - name: Mostrar variables base
+      - name: Clean yarn
         script: |
-          echo "Node $(node -v)"
-          echo "Workspace: $XCODE_WORKSPACE | Scheme: $XCODE_SCHEME"
+          rm -rf .yarn yarn.lock
 
-      - name: Instalar dependencias npm (forzado)
+      - name: Install deps
         script: |
-          npm install -f
+          npm install --legacy-peer-deps
 
-      - name: Instalar dependencias CocoaPods
+      - name: Clean ios
+        script: |
+          rm -rf ios
+
+      - name: Expo prebuild (iOS)
+        script: |
+          npx expo prebuild --platform ios
+
+      - name: Install CocoaPods
         script: |
           cd ios
           pod install --repo-update
           cd ..
 
-      - name: Importar certificado autofirmado (opcional)
-        script: |
-          if [ -n "$SELF_SIGNED_CERT_BASE64" ]; then
-            echo "$SELF_SIGNED_CERT_BASE64" | base64 --decode > selfsigned.cer
-            security import selfsigned.cer -k "$HOME/Library/Keychains/login.keychain-db" -A || true
-            security add-trusted-cert -d -r trustRoot -k "$HOME/Library/Keychains/login.keychain-db" selfsigned.cer || true
-            echo "Certificado autofirmado importado."
-          else
-            echo "No se definió SELF_SIGNED_CERT_BASE64. Se omite importación."
-          fi
-
-      - name: Inicializar keychain y perfiles
-        script: |
-          keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
-          keychain add-certificates
-          xcode-project use-profiles
-
-      - name: Incrementar build number desde TestFlight
+      # 🔥 VERSIONADO IGUAL QUE ANDROID
+      - name: Set iOS version
         script: |
           cd ios
-          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$APP_ID" || echo 0)
-          NEW_BUILD_NUMBER=$((LATEST_BUILD_NUMBER + 1))
-          agvtool new-version -all $NEW_BUILD_NUMBER
-          echo "Nuevo build number: $NEW_BUILD_NUMBER"
-          cd ..
 
-      - name: Compilar IPA
+          BUILD_NUMBER=${PROJECT_BUILD_NUMBER:-0}
+          VERSION_CODE=$((532 + BUILD_NUMBER))
+          VERSION_NAME="4.0.$VERSION_CODE"
+
+          echo "Version: $VERSION_NAME"
+          echo "Build: $VERSION_CODE"
+
+          # Detectar ruta correcta automáticamente
+          INFO_PLIST=$(find . -name "Info.plist" | grep -E "Runner|Vidkar" | head -n 1)
+
+          echo "Usando plist: $INFO_PLIST"
+
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION_NAME" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION_CODE" "$INFO_PLIST"
+
+      # 🔐 Aplicar perfiles/certificados ya resueltos por Codemagic
+      - name: Setup signing
+        script: |
+          xcode-project use-profiles
+
+      - name: Build IPA
         script: |
           xcode-project build-ipa \
             --workspace "ios/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME" \
-            --export-method app-store
+            --scheme "$XCODE_SCHEME"
 
     artifacts:
       - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
 
     publishing:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        beta_groups:
-          - group carlitoPruebas
+      # beta_groups:
+      #   - group PruebasVidkar
+
+      email:
+        recipients:
+          - "carlosmbinf@gmail.com"
+        notify:
+          success: true
+          failure: true
+
+  expo_full_release:
+    name: Expo Full Release (Android + iOS)
+
+    instance_type: mac_mini_m2
+
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: "release-*"
+          include: true
+
+    integrations:
+      app_store_connect: "VidkarAPIKey"
+
+    environment:
+      android_signing:
+        - keystore_reference
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.vidkar
+      groups:
+        - google_credentials
+        - vidkar
+      node: 22
+      java: 17
+      xcode: latest
+      cocoapods: default
+      vars:
+        BUNDLE_ID: "com.vidkar"
+        XCODE_WORKSPACE: "Vidkar.xcworkspace"
+        XCODE_SCHEME: "Vidkar"
+
+    cache:
+      cache_paths:
+        - node_modules
+        - ~/.npm
+        - ~/.gradle/caches
+        - ~/.gradle/wrapper
+        - ios/Pods
+        - $HOME/Library/Caches/CocoaPods
+
+    scripts:
+      - name: Clean yarn
+        script: |
+          rm -rf .yarn yarn.lock
+
+      - name: Install deps
+        script: |
+          npm install --legacy-peer-deps
+
+      # ── ANDROID ────────────────────────────────────────────────────
+      - name: Clean android
+        script: |
+          rm -rf android
+
+      - name: Expo prebuild (Android)
+        script: |
+          npx expo prebuild --platform android
+
+      - name: Set Android versionCode & versionName
+        script: |
+          cd android/app
+
+          BUILD_NUMBER=${PROJECT_BUILD_NUMBER:-0}
+          VERSION_CODE=$((532 + BUILD_NUMBER))
+          VERSION_NAME="4.0.$VERSION_CODE"
+
+          echo "Android Build number: $BUILD_NUMBER"
+          echo "Android Version code: $VERSION_CODE"
+          echo "Android Version name: $VERSION_NAME"
+
+          perl -pi -e "s/versionCode\s+\d+/versionCode $VERSION_CODE/g" build.gradle
+          perl -pi -e "s/versionName\s+\"[^\"]+\"/versionName \"$VERSION_NAME\"/g" build.gradle
+
+      - name: Build AAB
+        script: |
+          cd android
+          chmod +x gradlew
+          ./gradlew bundleRelease
+
+      # ── iOS ────────────────────────────────────────────────────────
+      - name: Clean ios
+        script: |
+          rm -rf ios
+
+      - name: Expo prebuild (iOS)
+        script: |
+          npx expo prebuild --platform ios
+
+      - name: Install CocoaPods
+        script: |
+          cd ios
+          pod install --repo-update
+          cd ..
+
+      - name: Set iOS version
+        script: |
+          cd ios
+
+          BUILD_NUMBER=${PROJECT_BUILD_NUMBER:-0}
+          VERSION_CODE=$((532 + BUILD_NUMBER))
+          VERSION_NAME="4.0.$VERSION_CODE"
+
+          echo "iOS Version: $VERSION_NAME"
+          echo "iOS Build: $VERSION_CODE"
+
+          INFO_PLIST=$(find . -name "Info.plist" | grep -E "Runner|Vidkar" | head -n 1)
+
+          echo "Usando plist: $INFO_PLIST"
+
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION_NAME" "$INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION_CODE" "$INFO_PLIST"
+
+      - name: Setup signing
+        script: |
+          xcode-project use-profiles
+
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace "ios/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+
+    artifacts:
+      - android/app/build/outputs/**/*.aab
+      - build/ios/ipa/*.ipa
+
+    publishing:
+      google_play:
+        credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+
       email:
         recipients:
           - "carlosmbinf@gmail.com"

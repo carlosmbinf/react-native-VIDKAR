@@ -1,410 +1,316 @@
-import React, { useState, useEffect } from 'react';
+import FontAwesome5Icon from "@expo/vector-icons/FontAwesome5";
+import React, { useState } from "react";
 import {
-  Alert,
-  View,
-  StyleSheet,
-  ScrollView,
-  Appearance,
-  Dimensions,
-  ImageBackground,
-  Platform,
-} from 'react-native';
-import Meteor, { Accounts, Mongo, withTracker, useTracker } from '@meteorrn/core';
-import { Colors } from 'react-native/Libraries/NewAppScreen';
-import { Button, Surface, Text, TextInput } from 'react-native-paper';
-import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
-import FontAwesome5Icon from 'react-native-vector-icons/FontAwesome5';
-import { appleAuth } from '@invertase/react-native-apple-authentication';
+    Dimensions,
+    ImageBackground,
+    ScrollView,
+    StyleSheet,
+    View,
+} from "react-native";
+import { Button, Text, TextInput, useTheme } from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const { width: screenWidth } = Dimensions.get('window');
-const { height: screenHeight } = Dimensions.get('window');
-import { ConfigCollection, Mensajes } from '../collections/collections';
+import { getLoginPalette, loginScreenStyles as styles } from "./Loguin.styles";
 
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { loginWithGoogle, loginWithApple } from '../../utilesMetodos/metodosUtiles';
+const { width: screenWidth } = Dimensions.get("window");
+const { height: screenHeight } = Dimensions.get("window");
 
-const Loguin = ({ navigation }) => {
-  // Estado usando useState
-  const [ipserver, setIpserver] = useState('www.vidkar.com');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [isDarkMode, setIsDarkMode] = useState(Appearance.getColorScheme() === 'dark');
-  const [isLandscape, setIsLandscape] = useState(screenWidth > screenHeight);
-  const [loadingGoogle, setLoadingGoogle] = useState(false);
-  const [loadingApple, setLoadingApple] = useState(false);
-  const [showServerInput, setShowServerInput] = useState(false);
-  const [connectingToServer, setConnectingToServer] = useState(false);
-
-  // Efectos usando useEffect (reemplazan componentDidMount y componentWillUnmount)
-  useEffect(() => {
-    // Conectar a Meteor solo si no está conectado
-    (async () => {
-      try {
-      const status = Meteor.status && Meteor.status();
-      if (!status || !status.connected) {
-        setConnectingToServer(true);
-        const url = `ws://${ipserver}:3000/websocket`;
-        console.log(`[Loguin] Intentando conectar a Meteor en ${url}`);
-        await Meteor.connect(url);
-        console.log('[Loguin] Conectado a Meteor');
-      } else {
-        console.log('[Loguin] Ya conectado a Meteor');
-      }
-      } catch (error) {
-      console.warn('[Loguin] Error conectando a Meteor:', error);
-      Alert.alert(
-        'Error de Conexión',
-        `No se pudo conectar al servidor: ${ipserver}\n\nError: ${error?.message || error}`
-      );
-      } finally {
-      setConnectingToServer(false);
-      }
-    })();
-
-    // Suscripción a cambios de dimensiones
-    const dimSub = Dimensions.addEventListener('change', ({ window }) => {
-      const { width, height } = window || {};
-      setIsLandscape(width > height);
-    });
-
-    // Suscripción a cambios de tema
-    const themeSub = Appearance.addChangeListener(({ colorScheme }) => {
-      setIsDarkMode(colorScheme === 'dark');
-    });
-
-    // Listener para credenciales de Apple revocadas (solo en iOS)
-    let appleCredentialsRevoked = null;
-    if (Platform.OS === 'ios') {
-      appleCredentialsRevoked = appleAuth.onCredentialRevoked(async () => {
-        console.warn('Apple credentials have been revoked. User should be logged out.');
-        // Aquí puedes agregar lógica para cerrar sesión automáticamente
-        // Por ejemplo: Meteor.logout();
-      });
-    }
-
-    // Cleanup al desmontar el componente
-    return () => {
-      dimSub?.remove?.();
-      themeSub?.remove?.();
-      // Limpiar listener de Apple
-      if (appleCredentialsRevoked) {
-        appleCredentialsRevoked();
-      }
-    };
-  }, []);
-
-  // Función para detectar comando secreto en el campo usuario
-  const handleUsernameChange = (text) => {
-    setUsername(text);
-    // Activar modo desarrollador si se escribe "change server"
-    if (text.toLowerCase() === 'change server') {
-      setShowServerInput(true);
-      Alert.alert(
-        'Modo Desarrollador',
-        'Campo de servidor habilitado permanentemente',
-        [{ text: 'OK' }]
-      );
-    }
-  };
-
-  // Función para reconectar al servidor
-  const reconnectToServer = async () => {
-    try {
-      setConnectingToServer(true);
-      
-      // Desconectar primero
-      await Meteor.disconnect();
-      
-      // Pequeña pausa para asegurar desconexión
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Reconectar con el nuevo servidor
-      await Meteor.connect(`ws://${ipserver}:3000/websocket`);
-      
-      Alert.alert(
-        'Conexión Exitosa',
-        `Conectado exitosamente a: ${ipserver}`,
-        [{ text: 'OK' }]
-      );
-    } catch (error) {
-      Alert.alert(
-        'Error de Conexión',
-        `No se pudo conectar al servidor: ${ipserver}\n\nError: ${error.message}`,
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setConnectingToServer(false);
-    }
-  };
-
-  // Método de login
-  const onLogin = () => {
-    try {
-      Meteor.loginWithPassword(username, password, function (error) {
-        error && Alert.alert('Credenciales incorrectas');
-      });
-    } catch (error) {
-      Alert.alert(
-        'Error de Conexión',
-        'No se pudo conectar al servidor: ' + ipserver,
-      );
-    }
-  };
-
-  const permitirLoginWithGoogle = useTracker(() => {
-    if(!Meteor.status()?.connected) return null;
-    let sub = Meteor.subscribe(
-      'propertys', {
-      "active": true,
-      "type": "CONFIG",
-      "clave": "LOGIN_WITH_GOOGLE"
-    }
-    );
-    console.log("sub",sub?.ready());
-    // console.log(VentasCollection.find({ adminId: id}).fetch());
-    // console.log(VentasCollection.find({ adminId: id }).count() > 0);
-    return ConfigCollection.findOne({ 
-      "active" : true,
-      "type" : "CONFIG",
-      "clave" : "LOGIN_WITH_GOOGLE"
-     });
-  });
-
-  const permitirLoginWithApple = useTracker(() => {
-    if(!Meteor.status()?.connected) return null;
-    let sub = Meteor.subscribe(
-      'propertys', {
-      "active": true,
-      "type": "CONFIG",
-      "clave": "LOGIN_WITH_APPLE"
-    }
-    );
-    console.log("sub apple",sub?.ready());
-    return ConfigCollection.findOne({ 
-      "active" : true,
-      "type" : "CONFIG",
-      "clave" : "LOGIN_WITH_APPLE"
-     });
-  });
-
-  // Método de login con Google
-  const onGoogleLogin = () => {
-    try {
-      if (loadingGoogle) return;
-      setLoadingGoogle(true);
-
-      const options = {
-        clientId: '1043110071233-pbeoteq8ua30rsbqmk8dtku6hcmeekci.apps.googleusercontent.com',
-        iosClientId: '1043110071233-p7e56eu0sb203j32pf66b1blaql14f26.apps.googleusercontent.com',
-        scopes: ['profile', 'email'],
-        forceCodeForRefreshToken: false,
-      };
-
-      const done = (err) => {
-        setLoadingGoogle(false);
-        if (err) {
-          Alert.alert('Google', err.reason || err.message || 'Error iniciando sesión con Google.');
-          return;
-        }
-      };
-
-      if (typeof loginWithGoogle === 'function') {
-        loginWithGoogle(options, done);
-      } else {
-        setLoadingGoogle(false);
-        Alert.alert('Google', 'Proveedor de Google no disponible en el cliente.');
-      }
-    } catch (error) {
-      Alert.alert('Error de Conexión', error);
-    }
-  };
-
-  // Método de login con Apple
-  const onAppleLogin = () => {
-    try {
-      if (loadingApple) return;
-      setLoadingApple(true);
-
-      const done = (err) => {
-        setLoadingApple(false);
-        if (err) {
-          Alert.alert('Apple', err.reason || err.message || 'Error iniciando sesión con Apple.');
-          return;
-        }
-      };
-
-      if (typeof loginWithApple === 'function') {
-        loginWithApple(done);
-      } else {
-        setLoadingApple(false);
-        Alert.alert('Apple', 'Proveedor de Apple no disponible en el cliente.');
-      }
-    } catch (error) {
-      setLoadingApple(false);
-      Alert.alert('Error de Conexión', 'Error iniciando sesión con Apple: ' + error);
-    }
+const Loguin = () => {
+  const theme = useTheme();
+  const isDarkMode = theme.dark;
+  const [isLandscape] = useState(screenWidth > screenHeight);
+  const isLargeScreen = screenWidth >= 980;
+  const shouldUseSplitLayout = isLandscape || isLargeScreen;
+  const palette = getLoginPalette(isDarkMode);
+  const inputTheme = {
+    ...theme,
+    colors: {
+      ...theme.colors,
+      onSurface: palette.inputText,
+      onSurfaceVariant: palette.inputLabel,
+      outline: palette.secondaryButtonBorder,
+      primary: palette.inputTint,
+      surfaceVariant: palette.inputBackground,
+    },
   };
 
   const backgroundStyle = {
     minHeight: "100%",
     minWidth: "100%",
-    marginTop: isLandscape ? 0 : "5%",
   };
 
+  const overlayColor = palette.backgroundOverlay;
+
   return (
-    <View style={{ minHeight: "100%", minWidth: "100%" }}>
+    <View style={styles.screen}>
       <ImageBackground
-        source={require('../files/space-bg-shadowcodex.jpg')}
-        style={{
-          width: "100%",
-          height: "100%",
-          position: 'relative',
-          left: 0,
-          top: 0,
-          zIndex: 0,
-        }}
+        source={require("../files/space-bg-shadowcodex.jpg")}
+        style={styles.backgroundImage}
         resizeMode="cover"
-        onLoad={() => console.log('[Loguin] Fondo cargado correctamente')}
-        onError={(e) => console.warn('[Loguin] Error cargando fondo:', e.nativeEvent?.error)}
       />
 
-      <SafeAreaView style={{
-        position: 'absolute',
-        minHeight: '100%',
-        minWidth: '100%'
-      }}>
+      <View
+        pointerEvents="none"
+        style={[styles.backgroundOverlay, { backgroundColor: overlayColor }]}
+      />
+
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <ScrollView
-          contentContainerStyle={isLandscape ? styles.scrollLandscapeContent : undefined}
+          contentContainerStyle={[
+            styles.scrollContent,
+            shouldUseSplitLayout
+              ? styles.scrollContentCentered
+              : styles.scrollContentStacked,
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          style={styles.screen}
         >
-          <View style={[
-            backgroundStyle,
-            isLandscape ? styles.mainLandscape : styles.mainPortrait
-          ]}>
-            {/* PANE IZQUIERDO: icono + VIDKAR */}
-            <View style={[
-              styles.container,
-              isLandscape && styles.brandLandscape
-            ]}>
-              <Text style={{ fontSize: 30, color: 'white' }}>
-                <FontAwesome5Icon name="house-user" size={100} />
+          <View
+            style={[
+              backgroundStyle,
+              styles.layoutShell,
+              shouldUseSplitLayout
+                ? styles.layoutShellWide
+                : styles.layoutShellStacked,
+            ]}
+          >
+            <View
+              style={[
+                styles.brandPanel,
+                shouldUseSplitLayout
+                  ? styles.brandPanelWide
+                  : styles.brandPanelStacked,
+              ]}
+            >
+              <View style={styles.brandBadge}>
+                <FontAwesome5Icon
+                  name="house-user"
+                  size={shouldUseSplitLayout ? 42 : 34}
+                  color="#ffffff"
+                />
+              </View>
+              <Text
+                style={[styles.brandEyebrow, { color: palette.brandEyebrow }]}
+              >
+                Plataforma operativa
               </Text>
-              <Text style={{ fontSize: 30, color: 'white' }}>🅥🅘🅓🅚🅐🅡</Text>
+              <Text style={[styles.brandTitle, { color: palette.brandTitle }]}>
+                VIDKAR
+              </Text>
+              <Text
+                style={[
+                  styles.brandDescription,
+                  { color: palette.brandDescription },
+                ]}
+              >
+                Recargas, remesas, servicios digitales y comercio en una sola
+                experiencia, preparada para operar también en pantallas grandes.
+              </Text>
+
+              <View style={styles.brandHighlights}>
+                <View
+                  style={[
+                    styles.brandHighlightCard,
+                    {
+                      backgroundColor: palette.brandHighlightSurface,
+                      borderColor: palette.brandHighlightBorder,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.brandHighlightLabel,
+                      { color: palette.brandHighlightLabel },
+                    ]}
+                  >
+                    Recargas
+                  </Text>
+                  <Text
+                    style={[
+                      styles.brandHighlightValue,
+                      { color: palette.brandHighlightValue },
+                    ]}
+                  >
+                    Promos activas
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.brandHighlightCard,
+                    {
+                      backgroundColor: palette.brandHighlightSurface,
+                      borderColor: palette.brandHighlightBorder,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.brandHighlightLabel,
+                      { color: palette.brandHighlightLabel },
+                    ]}
+                  >
+                    Servicios
+                  </Text>
+                  <Text
+                    style={[
+                      styles.brandHighlightValue,
+                      { color: palette.brandHighlightValue },
+                    ]}
+                  >
+                    VPN y Proxy
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.brandHighlightCard,
+                    {
+                      backgroundColor: palette.brandHighlightSurface,
+                      borderColor: palette.brandHighlightBorder,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.brandHighlightLabel,
+                      { color: palette.brandHighlightLabel },
+                    ]}
+                  >
+                    Pedidos
+                  </Text>
+                  <Text
+                    style={[
+                      styles.brandHighlightValue,
+                      { color: palette.brandHighlightValue },
+                    ]}
+                  >
+                    Comercio y remesas
+                  </Text>
+                </View>
+              </View>
             </View>
 
-            {/* PANE DERECHO: login */}
-            <View style={[
-              styles.container,
-              isLandscape && styles.formLandscape,
-            ]}>
-              <View style={styles.blurCard}>
+            <View style={styles.formPanel}>
+              <View
+                style={[
+                  styles.blurCard,
+                  { borderColor: palette.blurCardBorder },
+                ]}
+              >
                 <View
                   pointerEvents="none"
                   style={[
                     StyleSheet.absoluteFill,
-                    {
-                      backgroundColor: isDarkMode
-                        ? 'rgba(10, 18, 32, 0.72)'
-                        : 'rgba(255, 255, 255, 0.68)',
-                    },
+                    { backgroundColor: palette.blurCardOverlay },
                   ]}
                 />
                 <View style={styles.blurCardContent}>
-                  <Text style={{ fontSize: 16, justifyContent: 'center', alignContent: 'center', textAlign: 'center' }}>
-                    Inicio de Session
-                  </Text>
-                  
-                  {/* Campo de servidor (solo visible en modo desarrollador) */}
-                  {showServerInput && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                      <TextInput
-                        mode="flat"
-                        value={ipserver}
-                        onChangeText={setIpserver}
-                        label={'IP del Servidor'}
-                        returnKeyType="done"
-                        dense={true}
-                        style={{
-                          backgroundColor: 'transparent',
-                          flex: 1,
-                          marginRight: 8,
-                        }}
+                  <View style={styles.formHeader}>
+                    <Text
+                      style={[
+                        styles.formEyebrow,
+                        { color: palette.formEyebrow },
+                      ]}
+                    >
+                      Inicio de sesión
+                    </Text>
+                    <Text style={[styles.title, { color: palette.formTitle }]}>
+                      Acceso principal de VIDKAR
+                    </Text>
+                    <Text
+                      style={[
+                        styles.formDescription,
+                        { color: palette.formDescription },
+                      ]}
+                    >
+                      Descubre una entrada más clara y profesional para
+                      gestionar los productos y servicios del sistema.
+                    </Text>
+                  </View>
+
+                  <View style={styles.fieldsBlock}>
+                    <TextInput
+                      mode="flat"
+                      label="Usuario"
+                      disabled
+                      style={[
+                        styles.input,
+                        { backgroundColor: palette.inputBackground },
+                      ]}
+                      textColor={palette.inputText}
+                      theme={inputTheme}
+                    />
+                    <TextInput
+                      mode="flat"
+                      label="Contraseña"
+                      secureTextEntry
+                      disabled
+                      style={[
+                        styles.input,
+                        { backgroundColor: palette.inputBackground },
+                      ]}
+                      textColor={palette.inputText}
+                      theme={inputTheme}
+                    />
+                  </View>
+
+                  <Button
+                    mode="contained"
+                    disabled
+                    style={styles.primaryButton}
+                    contentStyle={styles.primaryButtonContent}
+                    labelStyle={styles.primaryButtonLabel}
+                    buttonColor={theme.colors.primary}
+                    textColor="#ffffff"
+                  >
+                    Iniciar sesión
+                  </Button>
+
+                  <View style={styles.socialSection}>
+                    <View style={styles.dividerRow}>
+                      <View
+                        style={[
+                          styles.dividerLine,
+                          { backgroundColor: palette.divider },
+                        ]}
                       />
-                      <Button
-                        mode="contained"
-                        onPress={reconnectToServer}
-                        disabled={connectingToServer}
-                        loading={connectingToServer}
-                        style={{ height: 36 }}
-                        contentStyle={{ height: 36 }}
-                        compact={true}
+                      <Text
+                        style={[styles.altText, { color: palette.altText }]}
                       >
-                        <FontAwesome5 name="sync-alt" size={14} />
+                        o continúa con
+                      </Text>
+                      <View
+                        style={[
+                          styles.dividerLine,
+                          { backgroundColor: palette.divider },
+                        ]}
+                      />
+                    </View>
+
+                    <View style={styles.socialButtons}>
+                      <Button
+                        mode="outlined"
+                        icon="google"
+                        disabled
+                        style={[
+                          styles.secondaryButton,
+                          { borderColor: palette.secondaryButtonBorder },
+                        ]}
+                        contentStyle={styles.secondaryButtonContent}
+                        textColor={palette.secondaryButtonText}
+                      >
+                        Entrar con Google
                       </Button>
                     </View>
-                  )}
-                  
-                  <TextInput
-                    mode="flat"
-                    value={username}
-                    onChangeText={handleUsernameChange}
-                    label={'Usuario'}
-                    returnKeyType="next"
-                    dense={true}
-                    style={{
-                      backgroundColor: 'transparent',
-                      width: 250,
-                      marginBottom: 10,
-                    }}
-                  />
-                  <TextInput
-                    mode="flat"
-                    value={password}
-                    onChangeText={setPassword}
-                    label={'Contraseña'}
-                    returnKeyType="done"
-                    secureTextEntry={true}
-                    dense={true}
-                    style={{
-                      backgroundColor: 'transparent',
-                      width: 250,
-                      marginBottom: 10,
-                    }}
-                  />
-                  <Button mode="contained" onPress={onLogin}>
-                    Iniciar Sessión
-                  </Button>
+                  </View>
 
-                  <View style={{ height: 12 }} />
-                  {permitirLoginWithGoogle?.valor == 'true' && 
-                  (<>
-                    <Text style={{ fontSize: 16, justifyContent: 'center', alignContent: 'center', textAlign: 'center' }}>O</Text>
-                  <View style={{ height: 10 }} />
-                  <Button
-                    mode="outlined"
-                    icon="google"
-                    onPress={onGoogleLogin}
-                    disabled={loadingGoogle}
-                    loading={loadingGoogle}
-                  >
-                    Entrar con Google
-                  </Button>
-                  </>)
-                  }
-
-                  {permitirLoginWithApple?.valor == 'true' && Platform.OS === 'ios' && 
-                  (<>
-                    <View style={{ height: 10 }} />
-                    <Button
-                      mode="outlined"
-                      icon="apple"
-                      onPress={onAppleLogin}
-                      disabled={loadingApple}
-                      loading={loadingApple}
+                  <View style={styles.footerPanel}>
+                    <Text
+                      style={[styles.statusText, { color: palette.statusText }]}
                     >
-                      Entrar con Apple
-                    </Button>
-                  </>)
-                  }
+                      Vista previa del acceso principal de VIDKAR
+                    </Text>
+                  </View>
                 </View>
               </View>
             </View>
@@ -416,41 +322,3 @@ const Loguin = ({ navigation }) => {
 };
 
 export default Loguin;
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: 10,
-    zIndex: 1,
-  },
-  blurCard: {
-    position: 'relative',
-    borderRadius: 25,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.25)',
-  },
-  blurCardContent: {
-    padding: 15,
-  },
-  mainLandscape: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  mainPortrait: {
-    flexDirection: 'column',
-  },
-  brandLandscape: {
-    marginRight: 24,
-  },
-  formLandscape: {
-    marginLeft: 24,
-  },
-  scrollLandscapeContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingVertical: 0,
-  },
-});
