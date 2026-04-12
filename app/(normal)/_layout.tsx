@@ -17,6 +17,7 @@ export default function NormalLayout() {
       <Stack.Screen name="ProxyVPNHistory" />
       <Stack.Screen name="Dashboard" />
       <Stack.Screen name="Users" />
+      <Stack.Screen name="NotificacionUsersConnectionVPN" />
       <Stack.Screen name="ListaArchivos" />
       <Stack.Screen name="CreateUsers" />
       <Stack.Screen name="Logs" />

@@ -99,6 +99,11 @@ const buildAdminItems = () => [
     href: "/(normal)/Users",
   },
   {
+    label: "Notificaciones VPN",
+    icon: "bell-badge-outline",
+    href: "/(normal)/NotificacionUsersConnectionVPN",
+  },
+  {
     label: "Ventas",
     icon: "cash-register",
     href: "/(normal)/Ventas",

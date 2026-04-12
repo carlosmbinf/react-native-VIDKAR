@@ -5448,3 +5448,118 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
 
   - Regla practica:
     - En menus o acciones contextuales del header, renderizar el acceso solo cuando exista contenido real detras de esa accion.
+
+  ---
+
+  Resumen tecnico - Pantalla Expo para notificaciones de conexiones VPN con alcance por admin
+
+  - Alcance aplicado:
+    - Se migro la funcionalidad de `imports/ui/pages/notificacionUsersConnectionVPN` del proyecto React web a Expo bajo una superficie nativa nueva:
+      - `components/notificacionUsersConnectionVPN/NotificacionUsersConnectionVPN.native.jsx`
+      - `components/notificacionUsersConnectionVPN/NotificacionRuleDialog.native.jsx`
+    - La ruta Expo nueva quedo registrada en:
+      - `app/(normal)/NotificacionUsersConnectionVPN.tsx`
+      - `app/(normal)/_layout.tsx`
+    - El acceso se expuso en el drawer de administradores con label `Notificaciones VPN`.
+
+  - Contrato Meteor preservado:
+    - La coleccion cliente Expo agregada en `components/collections/collections.js` es:
+      - `NotificacionUsersConectadosVPNCollection = new Mongo.Collection('notificacionUsersConectadosVPN')`
+    - La pantalla sigue usando la misma publicacion del backend:
+      - `Meteor.subscribe('notificacionUsersConnectionVPN', selector, option)`
+    - El alta sigue siendo directa sobre la coleccion, igual que en React web:
+      - `NotificacionUsersConectadosVPNCollection.insert({ userIdConnected, adminIdSolicitud, mensajeaenviarConnected, mensajeaenviarDisconnected })`
+    - La eliminacion tambien se mantiene directa sobre la coleccion:
+      - `NotificacionUsersConectadosVPNCollection.remove(_id)`
+    - Se mantiene auditoria con `Meteor.call('registrarLog', ...)` tanto en creacion como en eliminacion.
+
+  - Regla de acceso y alcance validada en Expo:
+    - `carlosmbinf` ve y administra todas las reglas (`selector = {}`).
+    - Cualquier otro admin solo ve sus reglas:
+      - `selector = { adminIdSolicitud: Meteor.userId() }`
+    - Para seleccionar usuario objetivo al crear una regla:
+      - admin general puede consultar todo el universo visible de usuarios
+      - admin normal usa el criterio operativo del sistema para sus subordinados:
+        - `bloqueadoDesbloqueadoPor: Meteor.userId()`
+    - La pantalla muestra estado `Sin acceso` si entra un usuario no admin por ruta directa.
+
+  - Decision UX/UI aplicada:
+    - La funcionalidad no se porto como formulario plano + tabla literal del web.
+    - En Expo se resolvio como pantalla administrativa movil con:
+      - hero superior de contexto
+      - resumen de metricas
+      - buscador reactivo
+      - cards por regla con ambos mensajes (`conecte` / `desconecte`)
+      - dialogo dedicado para crear reglas nuevas
+      - picker de usuarios dentro de dialogo usando `react-native-paper`
+    - Esta decision conserva el contrato de datos legacy pero adapta mejor la lectura a movil.
+
+  - Consideraciones tecnicas importantes:
+    - El observer real del backend dispara la logica cuando cambia `vpnplusConnected` en `Meteor.users`, por lo que la pantalla solo administra reglas; no ejecuta la notificacion por si misma.
+    - El payload minimo requerido por la coleccion sigue siendo:
+      - `userIdConnected`
+      - `adminIdSolicitud`
+      - `mensajeaenviarConnected`
+      - `mensajeaenviarDisconnected`
+    - La fecha se sigue resolviendo del lado del schema backend con `autoValue`, por lo que el cliente Expo no debe intentar setear `fecha` manualmente.
+
+  - Regla practica:
+    - Si mas adelante se agregan edicion o duplicado de reglas, mantener el mismo alcance por admin en el selector de consulta antes de abrir cualquier accion destructiva o de mutacion.
+    - Si se toca esta funcionalidad, contrastar siempre contra estos tres puntos antes de cambiar la UI:
+      - nombre exacto de la coleccion `notificacionUsersConectadosVPN`
+      - publicacion `notificacionUsersConnectionVPN`
+      - logica servidor en `server/observers.js` basada en `vpnplusConnected`
+
+  ---
+
+  Resumen tecnico - Notificaciones VPN con cards minimalistas y responsable editable solo por carlosmbinf
+
+  - Ajuste aplicado:
+    - `components/notificacionUsersConnectionVPN/NotificacionUsersConnectionVPN.native.jsx` ahora usa cards mas compactas y directas para cada regla.
+    - Se elimino la composicion pesada con rail superior y bloques grandes por mensaje; la card quedo reducida a:
+      - usuario monitoreado
+      - responsable
+      - fecha
+      - resumen corto de mensajes de conectar y desconectar
+      - acciones `Editar` y `Eliminar`
+
+  - Flujo nuevo de edicion:
+    - `components/notificacionUsersConnectionVPN/NotificacionRuleDialog.native.jsx` ya no es solo de alta.
+    - Acepta `editingRule` y persiste cambios con `NotificacionUsersConectadosVPNCollection.update(...)`.
+    - La pantalla conserva `editingRule` en estado local y abre el dialogo en modo create o edit segun el caso.
+
+  - Regla funcional critica:
+    - El campo responsable real sigue siendo `adminIdSolicitud`.
+    - Solo `carlosmbinf` puede cambiar ese responsable desde el dialogo.
+    - Los demas admins pueden editar mensajes y regla visible dentro de su propio alcance, pero el responsable se les muestra como solo lectura.
+
+  - Alcance de datos aplicado:
+    - La pantalla ahora suscribe tambien admins visibles para poblar el picker de responsable:
+      - `username === 'carlosmbinf'`
+      - o `profile.role === 'admin'`
+    - Esto no cambia el alcance de reglas visibles; solo alimenta el selector de responsable cuando el usuario actual tiene permiso para reasignarlo.
+
+  - Regla practica:
+    - Si se vuelve a tocar este modulo, no mover la logica de permiso del responsable a una heuristica visual; la fuente de verdad sigue siendo:
+      - `currentUsername === 'carlosmbinf'`
+    - Si se agrega validacion backend futura, debe proteger explicitamente mutaciones de `adminIdSolicitud` y no confiar solo en el cliente Expo.
+
+  ---
+
+  Resumen tecnico - Responsable de notificaciones VPN puede ser cualquier usuario visible
+
+  - Ajuste aplicado:
+    - El selector de responsable en `components/notificacionUsersConnectionVPN/NotificacionRuleDialog.native.jsx` ya no se limita a admins.
+    - Para `carlosmbinf`, el picker ahora puede mostrar cualquier usuario visible dentro del alcance cargado por la pantalla.
+
+  - Regla funcional validada:
+    - Solo `carlosmbinf` puede reasignar `adminIdSolicitud`.
+    - Pero el destino de esa reasignacion puede ser cualquier usuario disponible, no solo perfiles administrativos.
+
+  - Ajuste importante en modo edicion:
+    - Si la regla editada ya apunta a un usuario o responsable que no aparece en el listado filtrado actual, el dialogo debe seguir mostrando ese valor cargado usando los datos de la propia regla.
+    - Esto evita que al abrir `Editar` parezca que el usuario monitoreado o el responsable actual se perdieron.
+
+  - Criterio UX aplicado:
+    - En esta pantalla se eliminaron textos tecnicos visibles para el usuario final o el operador.
+    - El copy debe hablar del funcionamiento del negocio y del seguimiento del servicio, no de implementacion interna, colecciones o infraestructura.

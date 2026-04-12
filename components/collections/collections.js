@@ -44,6 +44,9 @@ export const ProductosComercioCollection = new Mongo.Collection(
 );
 export const Online = new Mongo.Collection("online");
 export const PushTokens = new Mongo.Collection("push_tokens");
+export const NotificacionUsersConectadosVPNCollection = new Mongo.Collection(
+  "notificacionUsersConectadosVPN",
+);
 
 export const collections = {
   Logs,
@@ -72,6 +75,7 @@ export const collections = {
   ProductosComercioCollection,
   Online,
   PushTokens,
+  NotificacionUsersConectadosVPNCollection,
 };
 
 export default collections;
