@@ -26,6 +26,7 @@ import {
     VentasRechargeCollection,
 } from "../collections/collections";
 import AppHeader from "../Header/AppHeader";
+import { chipTextColorEstado } from "../shared/saleDetailDialog.utils";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -60,9 +61,6 @@ const estadoLabel = (estado) => {
       return estado;
   }
 };
-
-const chipTextColorEstado = (estado) =>
-  estado === "PENDIENTE_ENTREGA" ? "#422006" : "#ffffff";
 
 const getTypeColor = (type) => {
   switch (type) {
@@ -638,7 +636,7 @@ const TableProxyVPNHistory = () => {
                                     { color: dialogPalette.textPrimary },
                                   ]}
                                 >
-                                  {item?.nombre || `${item.type || "Paquete"} sin cliente`}
+                                  {item?.nombre || "Sin cliente especificado"}
                                 </Text>
                                 <Text
                                   style={[

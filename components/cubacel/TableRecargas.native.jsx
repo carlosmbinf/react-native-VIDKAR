@@ -27,6 +27,7 @@ import {
     TransaccionRecargasCollection,
     VentasRechargeCollection,
 } from "../collections/collections";
+import { chipTextColorEstado } from "../shared/saleDetailDialog.utils";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -62,9 +63,6 @@ const estadoLabel = (estado) => {
   }
 };
 
-const chipTextColorEstado = (estado) =>
-  estado === "PENDIENTE_ENTREGA" ? "#422006" : "#ffffff";
-
 const getDialogPalette = (isDarkMode) => ({
   accentSoft: isDarkMode ? "rgba(59, 130, 246, 0.18)" : "#eff6ff",
   border: isDarkMode ? "rgba(148, 163, 184, 0.18)" : "rgba(15, 23, 42, 0.08)",
@@ -76,6 +74,8 @@ const getDialogPalette = (isDarkMode) => ({
   textMuted: isDarkMode ? "#94a3b8" : "#64748b",
   textPrimary: isDarkMode ? "#f8fafc" : "#0f172a",
   textSecondary: isDarkMode ? "#cbd5e1" : "#475569",
+  promoBadgeBg: isDarkMode ? "rgba(21, 128, 61, 0.24)" : "#dcfce7",
+  promoBadgeText: isDarkMode ? "#bbf7d0" : "#166534",
   warningBg: isDarkMode ? "rgba(120, 53, 15, 0.34)" : "#fff7ed",
   warningBorder: isDarkMode ? "rgba(251, 146, 60, 0.28)" : "#fed7aa",
   warningText: isDarkMode ? "#fdba74" : "#9a3412",
@@ -733,8 +733,17 @@ const TableRecargas = () => {
                                 {hasPromotion ? (
                                   <Chip
                                     compact
-                                    style={styles.itemBadgePromo}
-                                    textStyle={styles.itemBadgePromoText}
+                                    style={[
+                                      styles.itemBadgePromo,
+                                      {
+                                        backgroundColor:
+                                          dialogPalette.promoBadgeBg,
+                                      },
+                                    ]}
+                                    textStyle={[
+                                      styles.itemBadgePromoText,
+                                      { color: dialogPalette.promoBadgeText },
+                                    ]}
                                   >
                                     Promo
                                   </Chip>
