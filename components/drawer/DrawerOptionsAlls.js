@@ -254,36 +254,39 @@ const DrawerOptionsAlls = ({
         </ImageBackground>
 
         <ScrollView
+          style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           bounces={false}
         >
-          <Surface style={{ paddingBottom: 30 }}>
-            {sections.map((section, sectionIndex) => (
-              <Drawer.Section
-                key={section.title}
-                title={section.title}
-                style={styles.section}
-              >
-                {section.items.map((item) => {
-                  const isActive = currentPath === item.href;
+          <Surface style={styles.contentSurface} elevation={0}>
+            <View>
+              {sections.map((section, sectionIndex) => (
+                <Drawer.Section
+                  key={section.title}
+                  title={section.title}
+                  style={styles.section}
+                >
+                  {section.items.map((item) => {
+                    const isActive = currentPath === item.href;
 
-                  return (
-                    <Drawer.Item
-                      key={item.href}
-                      label={item.label}
-                      icon={item.icon}
-                      active={isActive}
-                      style={styles.item}
-                      theme={{ colors: { secondaryContainer: "#e8eaf6" } }}
-                      onPress={() => onNavigate?.(item.href)}
-                    />
-                  );
-                })}
-                {sectionIndex < sections.length - 1 ? (
-                  <Divider style={styles.divider} />
-                ) : null}
-              </Drawer.Section>
-            ))}
+                    return (
+                      <Drawer.Item
+                        key={item.href}
+                        label={item.label}
+                        icon={item.icon}
+                        active={isActive}
+                        style={styles.item}
+                        theme={{ colors: { secondaryContainer: "#e8eaf6" } }}
+                        onPress={() => onNavigate?.(item.href)}
+                      />
+                    );
+                  })}
+                  {sectionIndex < sections.length - 1 ? (
+                    <Divider style={styles.divider} />
+                  ) : null}
+                </Drawer.Section>
+              ))}
+            </View>
 
             {canToggleCadete ? (
               <Surface style={styles.footerCard} elevation={0}>
@@ -378,7 +381,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   scrollContent: {
-    // marginBottom: 20,
+    flexGrow: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  contentSurface: {
+    flexGrow: 1,
+    minHeight: "100%",
+    justifyContent: "space-between",
+    paddingBottom: 30,
   },
   section: {
     paddingHorizontal: 8,
