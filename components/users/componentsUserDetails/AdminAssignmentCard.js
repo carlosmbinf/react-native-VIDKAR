@@ -139,7 +139,7 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 		});
 	};
 
-	if (!item || currentUsername !== 'carlosmbinf') {
+	if (!item) {
 		return null;
 	}
 

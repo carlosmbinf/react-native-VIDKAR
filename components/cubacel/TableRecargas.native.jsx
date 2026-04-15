@@ -436,8 +436,7 @@ const TableRecargas = () => {
                                 if (error) {
                                   Alert.alert(
                                     "Info",
-                                    `Error en la transacción asociada a la recarga con ID:
-${carrito._id}`,
+                                    `Error en la transacción asociada a la recarga con ID:\n${carrito._id}`,
                                   );
                                 }
                               },
