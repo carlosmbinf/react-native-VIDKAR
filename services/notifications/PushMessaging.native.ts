@@ -78,13 +78,19 @@ const normalizePushToken = (tokenData: unknown) => {
   return null;
 };
 
+let currentAppState = AppState.currentState;
+
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-    shouldShowBanner: false,
-    shouldShowList: false,
-  }),
+  handleNotification: async (notification) => {
+    const isInForeground = currentAppState === "active";
+    
+    return {
+      shouldPlaySound: !isInForeground,
+      shouldSetBadge: !isInForeground,
+      shouldShowBanner: !isInForeground,
+      shouldShowList: !isInForeground,
+    };
+  },
 });
 
 const getNotificationContent = (
@@ -456,6 +462,7 @@ export const setupPushListeners = async (options?: SetupOptions) => {
   const appStateSubscription = AppState.addEventListener(
     "change",
     async (state) => {
+      currentAppState = state;
       if (state === "active") {
         await badgeManager.reset();
       }
