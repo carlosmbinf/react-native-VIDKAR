@@ -95,6 +95,8 @@ const getItemsArray = (venta) =>
     []
   )?.filter((carrito) => carrito.type === "RECARGA") || [];
 
+const EMPTY_SELECTED_ITEMS = [];
+
 const TableRecargas = () => {
   const { width, height } = useWindowDimensions();
   const isWide = width > height || width >= 768;
@@ -254,11 +256,8 @@ const TableRecargas = () => {
     }
     return "PENDIENTE_ENTREGA";
   };
-  const selectedEstado = React.useMemo(
-    () => (ventaSel ? deriveEstadoVenta(ventaSel) : null),
-    [ventaSel, transacciones],
-  );
-  const selectedItems = React.useMemo(() => getItemsArray(ventaSel), [ventaSel]);
+  const selectedEstado = ventaSel ? deriveEstadoVenta(ventaSel) : null;
+  const selectedItems = ventaSel ? getItemsArray(ventaSel) : EMPTY_SELECTED_ITEMS;
 
   return (
     <ScrollView style={styles.container} scrollEnabled>

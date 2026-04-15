@@ -111,6 +111,7 @@ const getItemsArray = (venta) =>
   (venta?.producto?.carritos || venta?.carrito || []).filter(
     (carrito) => carrito.type === "PROXY" || carrito.type === "VPN",
   );
+const EMPTY_SELECTED_ITEMS = [];
 
 const TableProxyVPNHistory = () => {
   const { height, width } = useWindowDimensions();
@@ -232,11 +233,8 @@ const TableProxyVPNHistory = () => {
     if (venta.isCobrado !== true) return "PENDIENTE_PAGO";
     return "PENDIENTE_ENTREGA";
   };
-  const selectedEstado = React.useMemo(
-    () => (ventaSel ? deriveEstadoVenta(ventaSel) : null),
-    [ventaSel],
-  );
-  const selectedItems = React.useMemo(() => getItemsArray(ventaSel), [ventaSel]);
+  const selectedEstado = ventaSel ? deriveEstadoVenta(ventaSel) : null;
+  const selectedItems = ventaSel ? getItemsArray(ventaSel) : EMPTY_SELECTED_ITEMS;
 
   const getTipoPredominante = (venta) => {
     const carritos = getItemsArray(venta);
