@@ -27,6 +27,7 @@ import {
     TransaccionRecargasCollection,
     VentasRechargeCollection,
 } from "../collections/collections";
+import { chipTextColorEstado } from "../shared/saleDetailDialog.utils";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -62,6 +63,24 @@ const estadoLabel = (estado) => {
   }
 };
 
+const getDialogPalette = (isDarkMode) => ({
+  accentSoft: isDarkMode ? "rgba(59, 130, 246, 0.18)" : "#eff6ff",
+  border: isDarkMode ? "rgba(148, 163, 184, 0.18)" : "rgba(15, 23, 42, 0.08)",
+  commentBg: isDarkMode ? "rgba(15, 23, 42, 0.76)" : "#f8fafc",
+  noteBg: isDarkMode ? "rgba(30, 41, 59, 0.76)" : "#f8fafc",
+  noteBorder: isDarkMode ? "rgba(148, 163, 184, 0.16)" : "#e2e8f0",
+  surface: isDarkMode ? "rgba(10, 16, 28, 0.9)" : "rgba(255, 255, 255, 0.92)",
+  surfaceAlt: isDarkMode ? "rgba(20, 27, 45, 0.92)" : "#ffffff",
+  textMuted: isDarkMode ? "#94a3b8" : "#64748b",
+  textPrimary: isDarkMode ? "#f8fafc" : "#0f172a",
+  textSecondary: isDarkMode ? "#cbd5e1" : "#475569",
+  promoBadgeBg: isDarkMode ? "rgba(21, 128, 61, 0.24)" : "#dcfce7",
+  promoBadgeText: isDarkMode ? "#bbf7d0" : "#166534",
+  warningBg: isDarkMode ? "rgba(120, 53, 15, 0.34)" : "#fff7ed",
+  warningBorder: isDarkMode ? "rgba(251, 146, 60, 0.28)" : "#fed7aa",
+  warningText: isDarkMode ? "#fdba74" : "#9a3412",
+});
+
 const getItemsCount = (venta) =>
   venta?.producto?.carritos?.length ||
   venta?.carrito?.length ||
@@ -76,12 +95,18 @@ const getItemsArray = (venta) =>
     []
   )?.filter((carrito) => carrito.type === "RECARGA") || [];
 
+const EMPTY_SELECTED_ITEMS = [];
+
 const TableRecargas = () => {
   const { width, height } = useWindowDimensions();
   const isWide = width > height || width >= 768;
   const theme = useTheme();
   const isDarkMode = theme.dark;
   const { top } = useSafeAreaInsets();
+  const dialogPalette = React.useMemo(
+    () => getDialogPalette(isDarkMode),
+    [isDarkMode],
+  );
 
   const flexes = React.useMemo(
     () =>
@@ -231,6 +256,8 @@ const TableRecargas = () => {
     }
     return "PENDIENTE_ENTREGA";
   };
+  const selectedEstado = ventaSel ? deriveEstadoVenta(ventaSel) : null;
+  const selectedItems = ventaSel ? getItemsArray(ventaSel) : EMPTY_SELECTED_ITEMS;
 
   return (
     <ScrollView style={styles.container} scrollEnabled>
@@ -351,10 +378,19 @@ const TableRecargas = () => {
           >
             <BlurView
               intensity={24}
-              //   tint={isDarkMode ? "dark" : "light"}
               style={StyleSheet.absoluteFill}
               experimentalBlurMethod="dimezisBlurView"
               renderToHardwareTextureAndroid={true}
+            />
+            <View
+              style={[
+                styles.modalBackdropTint,
+                {
+                  backgroundColor: isDarkMode
+                    ? "rgba(5, 11, 24, 0.44)"
+                    : "rgba(248, 250, 252, 0.24)",
+                },
+              ]}
             />
             <View style={styles.dialogTitleContainer}>
               <Text style={styles.dialogTitleText}>Detalles de la Venta:</Text>
@@ -364,6 +400,7 @@ const TableRecargas = () => {
             <View style={styles.dialogBody}>
               <ScrollView
                 style={styles.dialogScroll}
+                contentContainerStyle={styles.dialogScrollContent}
                 refreshControl={
                   <RefreshControl
                     refreshing={false}
@@ -417,54 +454,196 @@ const TableRecargas = () => {
               >
                 {ventaSel ? (
                   <View style={styles.ventaDetailContainer}>
-                    <View style={styles.ventaHeaderBlock}>
-                      <Text style={styles.detailLine}>
-                        <Text style={styles.bold}>ID de la Venta: </Text>
-                        {ventaSel._id}
-                      </Text>
-                      <Text style={styles.detailLine}>
-                        📅 <Text style={styles.bold}>Fecha:</Text>{" "}
-                        {formatFecha(ventaSel.createdAt)}
-                      </Text>
-                      <Text style={styles.detailLine}>
-                        💳 <Text style={styles.bold}>Método de pago:</Text>{" "}
-                        {ventaSel.metodoPago || "-"}
-                      </Text>
-                      <View style={styles.estadoRow}>
-                        <Text style={styles.detailLine}>
-                          📊 <Text style={styles.bold}>Estado:</Text>
-                        </Text>
+                    <Surface
+                      style={[
+                        styles.summaryCard,
+                        {
+                          backgroundColor: dialogPalette.surface,
+                          borderColor: dialogPalette.border,
+                        },
+                      ]}
+                    >
+                      <View style={styles.summaryHeaderRow}>
+                        <View style={styles.summaryTitleBlock}>
+                          <Text
+                            style={[
+                              styles.summaryEyebrow,
+                              { color: dialogPalette.textMuted },
+                            ]}
+                          >
+                            Resumen de la venta
+                          </Text>
+                          <Text
+                            numberOfLines={1}
+                            style={[
+                              styles.summaryTitle,
+                              { color: dialogPalette.textPrimary },
+                            ]}
+                          >
+                            {ventaSel._id}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.summarySubtitle,
+                              { color: dialogPalette.textSecondary },
+                            ]}
+                          >
+                            Revisa el estado general y cada recarga asociada sin
+                            perder el contexto de la operación.
+                          </Text>
+                        </View>
                         <Chip
                           compact
                           style={[
-                            styles.estadoChip,
+                            styles.heroStatusChip,
                             {
-                              backgroundColor: chipColorEstado(
-                                deriveEstadoVenta(ventaSel),
-                              ),
+                              backgroundColor: chipColorEstado(selectedEstado),
                             },
                           ]}
-                          textStyle={styles.estadoChipText}
+                          textStyle={[
+                            styles.heroStatusChipText,
+                            {
+                              color: chipTextColorEstado(selectedEstado),
+                            },
+                          ]}
                         >
-                          {estadoLabel(deriveEstadoVenta(ventaSel))}
+                          {estadoLabel(selectedEstado)}
                         </Chip>
+                      </View>
+
+                      <View style={styles.summaryGrid}>
+                        <Surface
+                          style={[
+                            styles.summaryMetricCard,
+                            {
+                              backgroundColor: dialogPalette.surfaceAlt,
+                              borderColor: dialogPalette.border,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.summaryMetricLabel,
+                              { color: dialogPalette.textMuted },
+                            ]}
+                          >
+                            Fecha
+                          </Text>
+                          <Text
+                            style={[
+                              styles.summaryMetricValue,
+                              { color: dialogPalette.textPrimary },
+                            ]}
+                          >
+                            {formatFecha(ventaSel.createdAt)}
+                          </Text>
+                        </Surface>
+                        <Surface
+                          style={[
+                            styles.summaryMetricCard,
+                            {
+                              backgroundColor: dialogPalette.surfaceAlt,
+                              borderColor: dialogPalette.border,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.summaryMetricLabel,
+                              { color: dialogPalette.textMuted },
+                            ]}
+                          >
+                            Método de pago
+                          </Text>
+                          <Text
+                            style={[
+                              styles.summaryMetricValue,
+                              { color: dialogPalette.textPrimary },
+                            ]}
+                          >
+                            {ventaSel.metodoPago || "-"}
+                          </Text>
+                        </Surface>
+                        <Surface
+                          style={[
+                            styles.summaryMetricCard,
+                            {
+                              backgroundColor: dialogPalette.surfaceAlt,
+                              borderColor: dialogPalette.border,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.summaryMetricLabel,
+                              { color: dialogPalette.textMuted },
+                            ]}
+                          >
+                            Recargas
+                          </Text>
+                          <Text
+                            style={[
+                              styles.summaryMetricValue,
+                              { color: dialogPalette.textPrimary },
+                            ]}
+                          >
+                            {selectedItems.length}
+                          </Text>
+                        </Surface>
+                      </View>
+                    </Surface>
+
+                    <View style={styles.sectionHeadingRow}>
+                      <View
+                        style={[
+                          styles.sectionHeadingIcon,
+                          { backgroundColor: dialogPalette.accentSoft },
+                        ]}
+                      >
+                        <Text style={styles.sectionHeadingEmoji}>📱</Text>
+                      </View>
+                      <View style={styles.sectionHeadingCopy}>
+                        <Text
+                          style={[
+                            styles.sectionHeadingTitle,
+                            { color: dialogPalette.textPrimary },
+                          ]}
+                        >
+                          Recargas incluidas
+                        </Text>
+                        <Text
+                          style={[
+                            styles.sectionHeadingSubtitle,
+                            { color: dialogPalette.textSecondary },
+                          ]}
+                        >
+                          Se muestra la misma información operativa con una
+                          lectura más clara por recarga.
+                        </Text>
                       </View>
                     </View>
 
-                    <Divider />
-
-                    <Text variant="titleMedium" style={styles.itemsTitle}>
-                      {`📱 Cantidad de Recargas (${getItemsArray(ventaSel).length})`}
-                    </Text>
-
-                    {getItemsArray(ventaSel).length === 0 ? (
-                      <Surface style={styles.emptyItemsCard}>
-                        <Text style={styles.emptyItemsText}>
+                    {selectedItems.length === 0 ? (
+                      <Surface
+                        style={[
+                          styles.emptyItemsCard,
+                          {
+                            backgroundColor: dialogPalette.warningBg,
+                            borderColor: dialogPalette.warningBorder,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.emptyItemsText,
+                            { color: dialogPalette.warningText },
+                          ]}
+                        >
                           ⚠️ Sin recargas registradas
                         </Text>
                       </Surface>
                     ) : (
-                      getItemsArray(ventaSel).map((item, index) => {
+                      selectedItems.map((item, index) => {
                         const itemTransaction = transacciones?.find(
                           (transaction) => transaction.externalId === item._id,
                         );
@@ -485,102 +664,232 @@ const TableRecargas = () => {
                           }
                           return "#ffc107";
                         };
+                        const statusTone = isFailed
+                          ? {
+                              backgroundColor: isDarkMode
+                                ? "rgba(127, 29, 29, 0.32)"
+                                : "#fff1f2",
+                              borderColor: isDarkMode
+                                ? "rgba(248, 113, 113, 0.24)"
+                                : "#fecdd3",
+                              textColor: isDarkMode ? "#fecaca" : "#991b1b",
+                            }
+                          : isCompleted
+                            ? {
+                                backgroundColor: isDarkMode
+                                  ? "rgba(20, 83, 45, 0.34)"
+                                  : "#f0fdf4",
+                                borderColor: isDarkMode
+                                  ? "rgba(74, 222, 128, 0.22)"
+                                  : "#bbf7d0",
+                                textColor: isDarkMode ? "#bbf7d0" : "#166534",
+                              }
+                            : {
+                                backgroundColor: isDarkMode
+                                  ? "rgba(133, 77, 14, 0.34)"
+                                  : "#fffbeb",
+                                borderColor: isDarkMode
+                                  ? "rgba(251, 191, 36, 0.24)"
+                                  : "#fde68a",
+                                textColor: isDarkMode ? "#fde68a" : "#92400e",
+                              };
 
                         return (
                           <Surface
                             key={item._id || index}
                             style={[
                               styles.rechargeCard,
-                              { borderLeftColor: getBorderColor() },
+                              {
+                                backgroundColor: dialogPalette.surface,
+                                borderColor: dialogPalette.border,
+                                borderLeftColor: getBorderColor(),
+                              },
                             ]}
                           >
-                            {hasPromotion ? (
-                              <View style={styles.rechargeRibbon}>
-                                <Text style={styles.rechargeRibbonText}>
-                                  🎁 Promo
+                            <View style={styles.itemCardHeader}>
+                              <View style={styles.itemCardHeaderCopy}>
+                                <Text
+                                  style={[
+                                    styles.itemCardEyebrow,
+                                    { color: dialogPalette.textMuted },
+                                  ]}
+                                >{`Recarga #${index + 1}`}</Text>
+                                <Text
+                                  style={[
+                                    styles.rechargeTitle,
+                                    { color: dialogPalette.textPrimary },
+                                  ]}
+                                >
+                                  {item?.nombre || "Cliente sin especificar"}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.itemCardSubtitle,
+                                    { color: dialogPalette.textSecondary },
+                                  ]}
+                                >
+                                  {item?.movilARecargar || "Sin móvil asociado"}
                                 </Text>
                               </View>
-                            ) : null}
+                              <View style={styles.itemCardHeaderActions}>
+                                {hasPromotion ? (
+                                  <Chip
+                                    compact
+                                    style={[
+                                      styles.itemBadgePromo,
+                                      {
+                                        backgroundColor:
+                                          dialogPalette.promoBadgeBg,
+                                      },
+                                    ]}
+                                    textStyle={[
+                                      styles.itemBadgePromoText,
+                                      { color: dialogPalette.promoBadgeText },
+                                    ]}
+                                  >
+                                    Promo
+                                  </Chip>
+                                ) : null}
+                                <Chip
+                                  compact
+                                  style={[
+                                    styles.itemStatusChip,
+                                    {
+                                      backgroundColor:
+                                        statusTone.backgroundColor,
+                                      borderColor: statusTone.borderColor,
+                                    },
+                                  ]}
+                                  textStyle={[
+                                    styles.itemStatusChipText,
+                                    { color: statusTone.textColor },
+                                  ]}
+                                >
+                                  {itemTransaction?.status?.message ||
+                                    item?.status ||
+                                    "Pendiente"}
+                                </Chip>
+                              </View>
+                            </View>
 
-                            <Text
-                              style={styles.rechargeTitle}
-                            >{`📱 Recarga #${index + 1}`}</Text>
-                            <Text style={styles.rechargeLine}>
-                              <Text style={styles.bold}>
-                                ID de la Recarga:{" "}
-                              </Text>
-                              {itemTransaction?._id || "N/A"}
-                            </Text>
-                            <Text style={styles.rechargeLine}>
-                              👤 <Text style={styles.bold}>Cliente:</Text>{" "}
-                              {item?.nombre || "Sin especificar"}
-                            </Text>
-                            <Text style={styles.rechargeLine}>
-                              📞 <Text style={styles.bold}>Móvil:</Text>{" "}
-                              {item?.movilARecargar || "Sin especificar"}
-                            </Text>
-                            <Text style={styles.rechargeLine}>
-                              💰 <Text style={styles.bold}>Precio:</Text>{" "}
-                              {money(item.cobrarUSD, "USD")}
-                            </Text>
+                            <View style={styles.itemInfoGrid}>
+                              {[
+                                {
+                                  label: "ID de la recarga",
+                                  value: itemTransaction?._id || "N/A",
+                                },
+                                {
+                                  label: "Cliente",
+                                  value: item?.nombre || "Sin especificar",
+                                },
+                                {
+                                  label: "Móvil",
+                                  value:
+                                    item?.movilARecargar || "Sin especificar",
+                                },
+                                {
+                                  label: "Precio",
+                                  value: money(item.cobrarUSD, "USD"),
+                                },
+                              ].map((detail) => (
+                                <Surface
+                                  key={`${item._id || index}-${detail.label}`}
+                                  style={[
+                                    styles.itemInfoCard,
+                                    {
+                                      backgroundColor: dialogPalette.surfaceAlt,
+                                      borderColor: dialogPalette.border,
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.itemInfoLabel,
+                                      { color: dialogPalette.textMuted },
+                                    ]}
+                                  >
+                                    {detail.label}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.itemInfoValue,
+                                      { color: dialogPalette.textPrimary },
+                                    ]}
+                                  >
+                                    {detail.value}
+                                  </Text>
+                                </Surface>
+                              ))}
+                            </View>
 
                             <Surface
                               style={[
                                 styles.statusCard,
-                                isFailed
-                                  ? styles.statusCardFailed
-                                  : isCompleted
-                                    ? styles.statusCardCompleted
-                                    : styles.statusCardPending,
+                                {
+                                  backgroundColor: statusTone.backgroundColor,
+                                  borderColor: statusTone.borderColor,
+                                },
                               ]}
                             >
                               <Text
                                 style={[
                                   styles.statusTitle,
-                                  isFailed
-                                    ? styles.statusTextFailed
-                                    : isCompleted
-                                      ? styles.statusTextCompleted
-                                      : styles.statusTextPending,
+                                  { color: statusTone.textColor },
                                 ]}
                               >
                                 {isFailed ? "❌" : isCompleted ? "✅" : "⏳"}{" "}
                                 Estado de la Recarga
                               </Text>
                               <Text
-                                style={
-                                  isFailed
-                                    ? styles.statusTextFailed
-                                    : isCompleted
-                                      ? styles.statusTextCompleted
-                                      : styles.statusTextPending
-                                }
+                                style={[
+                                  styles.statusDetailLine,
+                                  { color: statusTone.textColor },
+                                ]}
                               >
                                 {`Entregado: ${isCompleted ? "Sí" : "No"}`}
                               </Text>
                               <Text
-                                style={
-                                  isFailed
-                                    ? styles.statusTextFailed
-                                    : isCompleted
-                                      ? styles.statusTextCompleted
-                                      : styles.statusTextPending
-                                }
+                                style={[
+                                  styles.statusDetailLine,
+                                  { color: statusTone.textColor },
+                                ]}
                               >
                                 {`Estado: ${itemTransaction?.status?.message || item?.status || "No Disponible"}`}
                               </Text>
 
                               {isFailed && itemTransaction?.status?.error ? (
                                 <Text
-                                  style={styles.errorText}
+                                  style={[
+                                    styles.errorText,
+                                    { color: statusTone.textColor },
+                                  ]}
                                 >{`⚠️ Error: ${itemTransaction.status.error}`}</Text>
                               ) : null}
                             </Surface>
 
                             {item?.comentario ? (
-                              <Surface style={styles.commentCard}>
+                              <Surface
+                                style={[
+                                  styles.commentCard,
+                                  {
+                                    backgroundColor: dialogPalette.commentBg,
+                                    borderColor: dialogPalette.noteBorder,
+                                  },
+                                ]}
+                              >
                                 <Text
-                                  style={styles.commentText}
+                                  style={[
+                                    styles.commentLabel,
+                                    { color: dialogPalette.textMuted },
+                                  ]}
+                                >
+                                  Comentario de la recarga
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.commentText,
+                                    { color: dialogPalette.textSecondary },
+                                  ]}
                                 >{`💬 ${item.comentario}`}</Text>
                               </Surface>
                             ) : null}
@@ -590,17 +899,46 @@ const TableRecargas = () => {
                     )}
 
                     {ventaSel?.metodoPago === "EFECTIVO" ? (
-                      <Surface style={styles.warningCard}>
-                        <Text style={styles.warningText}>
-                          ⚠️ Debe subir Evidencia para poder {"\n"}corroborar el
-                          pago y Autorizar la recarga
+                      <Surface
+                        style={[
+                          styles.warningCard,
+                          {
+                            backgroundColor: dialogPalette.warningBg,
+                            borderColor: dialogPalette.warningBorder,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.warningEyebrow,
+                            { color: dialogPalette.warningText },
+                          ]}
+                        >
+                          Evidencia requerida
+                        </Text>
+                        <Text
+                          style={[
+                            styles.warningText,
+                            { color: dialogPalette.warningText },
+                          ]}
+                        >
+                          Debe subir evidencia para corroborar el pago y
+                          autorizar la recarga.
                         </Text>
                         <SubidaArchivos venta={ventaSel} />
                       </Surface>
                     ) : null}
                   </View>
                 ) : (
-                  <Surface style={styles.errorCard}>
+                  <Surface
+                    style={[
+                      styles.errorCard,
+                      {
+                        backgroundColor: dialogPalette.warningBg,
+                        borderColor: dialogPalette.warningBorder,
+                      },
+                    ]}
+                  >
                     <Text style={styles.errorCardText}>
                       ❌ Sin datos disponibles
                     </Text>
@@ -608,9 +946,32 @@ const TableRecargas = () => {
                 )}
 
                 {ventaSel?.comentario ? (
-                  <Text style={styles.footerComment}>
-                    💬 {ventaSel.comentario}
-                  </Text>
+                  <Surface
+                    style={[
+                      styles.footerCommentCard,
+                      {
+                        backgroundColor: dialogPalette.noteBg,
+                        borderColor: dialogPalette.noteBorder,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.footerCommentLabel,
+                        { color: dialogPalette.textMuted },
+                      ]}
+                    >
+                      Comentario general de la venta
+                    </Text>
+                    <Text
+                      style={[
+                        styles.footerComment,
+                        { color: dialogPalette.textSecondary },
+                      ]}
+                    >
+                      💬 {ventaSel.comentario}
+                    </Text>
+                  </Surface>
                 ) : null}
               </ScrollView>
             </View>
@@ -622,13 +983,6 @@ const TableRecargas = () => {
 };
 
 const styles = StyleSheet.create({
-  dialogTitleContainer: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 30,
-  },
   container: {
     flex: 1,
   },
@@ -639,23 +993,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: "center",
   },
-  containerStyle: {
-    flex: 1,
-    height: "100%",
-    margin: 0,
-    padding: 0,
-  },
-  dialogTitleText: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  dialogBody: {
-    paddingHorizontal: 10,
-    paddingBottom: 40,
-  },
-  dialogScroll: {
-    minHeight: "100%",
-  },
   infoButton: {
     margin: 0,
   },
@@ -664,157 +1001,312 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     marginTop: 0,
   },
-  ventaDetailContainer: {
-    borderRadius: 8,
-  },
-  ventaHeaderBlock: {
-    borderRadius: 6,
-    marginBottom: 0,
-    padding: 0,
-    paddingTop: 12,
-  },
-  detailLine: {
-    marginBottom: 6,
-  },
-  bold: {
-    fontWeight: "bold",
-  },
-  estadoRow: {
-    alignItems: "center",
+  containerStyle: {
     flex: 1,
-    flexDirection: "row",
-    marginBottom: 6,
+    height: "100%",
+    margin: 0,
+    padding: 0,
   },
-  estadoChip: {
+  modalBackdropTint: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  dialogTitleContainer: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 30,
+  },
+  dialogTitleText: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  dialogBody: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingBottom: 24,
+  },
+  dialogScroll: {
+    flex: 1,
+  },
+  dialogScrollContent: {
+    paddingBottom: 28,
+  },
+  ventaDetailContainer: {
+    gap: 14,
+    paddingTop: 14,
+  },
+  summaryCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 18,
+  },
+  summaryHeaderRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  summaryTitleBlock: {
+    flex: 1,
+    gap: 6,
+  },
+  summaryEyebrow: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  summaryTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  summarySubtitle: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  heroStatusChip: {
+    borderRadius: 999,
     marginLeft: 8,
   },
-  estadoChipText: {
-    color: "black",
-    fontSize: 12,
+  heroStatusChipText: {
+    fontSize: 11,
+    fontWeight: "800",
   },
-  itemsTitle: {
-    marginBottom: 12,
-    marginTop: 12,
+  summaryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 16,
+  },
+  summaryMetricCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    flexGrow: 1,
+    minWidth: 150,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  summaryMetricLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+    marginBottom: 6,
+    textTransform: "uppercase",
+  },
+  summaryMetricValue: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  sectionHeadingRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 4,
+  },
+  sectionHeadingIcon: {
+    alignItems: "center",
+    borderRadius: 16,
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
+  sectionHeadingEmoji: {
+    fontSize: 18,
+  },
+  sectionHeadingCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  sectionHeadingTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  sectionHeadingSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   emptyItemsCard: {
-    backgroundColor: "#fff3cd",
-    borderColor: "#ffeaa7",
-    borderRadius: 6,
+    borderRadius: 20,
     borderWidth: 1,
-    padding: 16,
+    padding: 18,
   },
   emptyItemsText: {
-    color: "#856404",
+    fontSize: 14,
+    fontWeight: "600",
     textAlign: "center",
   },
   rechargeCard: {
     borderLeftWidth: 4,
-    borderRadius: 8,
-    elevation: 2,
-    marginBottom: 12,
-    maxWidth: 400,
+    borderRadius: 24,
+    borderWidth: 1,
+    elevation: 1,
+    marginBottom: 14,
     overflow: "hidden",
-    padding: 14,
+    padding: 16,
     position: "relative",
   },
-  rechargeRibbon: {
-    backgroundColor: "#28a745",
-    elevation: 3,
-    paddingHorizontal: 40,
-    paddingVertical: 5,
-    position: "absolute",
-    right: -35,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    top: 10,
-    transform: [{ rotate: "45deg" }],
-    zIndex: 10,
+  itemCardHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
   },
-  rechargeRibbonText: {
-    color: "white",
-    fontSize: 10,
-    fontWeight: "bold",
-    textAlign: "center",
+  itemCardHeaderCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  itemCardEyebrow: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.8,
     textTransform: "uppercase",
   },
   rechargeTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 8,
+    fontSize: 17,
+    fontWeight: "800",
   },
-  rechargeLine: {
-    marginBottom: 4,
+  itemCardSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  itemCardHeaderActions: {
+    alignItems: "flex-end",
+    gap: 8,
+    maxWidth: "46%",
+  },
+  itemBadgePromo: {
+    alignSelf: "flex-end",
+    backgroundColor: "#dcfce7",
+    borderRadius: 999,
+  },
+  itemBadgePromoText: {
+    color: "#166534",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  itemStatusChip: {
+    alignSelf: "flex-end",
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  itemStatusChipText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  itemInfoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 14,
+  },
+  itemInfoCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    flexGrow: 1,
+    minWidth: 135,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  itemInfoLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+    marginBottom: 5,
+    textTransform: "uppercase",
+  },
+  itemInfoValue: {
+    fontSize: 13,
+    fontWeight: "700",
   },
   statusCard: {
-    borderRadius: 6,
-    marginVertical: 8,
-    padding: 8,
-  },
-  statusCardFailed: {
-    backgroundColor: "#f8d7da",
-  },
-  statusCardCompleted: {
-    backgroundColor: "#d4edda",
-  },
-  statusCardPending: {
-    backgroundColor: "#fff3cd",
+    borderRadius: 20,
+    borderWidth: 1,
+    marginTop: 14,
+    padding: 14,
   },
   statusTitle: {
-    fontWeight: "bold",
-    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: "800",
+    marginBottom: 8,
   },
-  statusTextFailed: {
-    color: "#721c24",
-  },
-  statusTextCompleted: {
-    color: "#155724",
-  },
-  statusTextPending: {
-    color: "#856404",
+  statusDetailLine: {
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 19,
+    marginBottom: 3,
   },
   errorText: {
-    color: "#721c24",
     fontSize: 12,
     fontStyle: "italic",
-    marginTop: 6,
+    lineHeight: 18,
+    marginTop: 8,
   },
   commentCard: {
-    backgroundColor: "#e9ecef",
-    borderRadius: 6,
-    marginTop: 8,
-    padding: 8,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 14,
+    padding: 14,
+  },
+  commentLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+    marginBottom: 6,
+    textTransform: "uppercase",
   },
   commentText: {
-    color: "#6c757d",
+    fontSize: 13,
     fontStyle: "italic",
+    lineHeight: 19,
   },
   warningCard: {
-    backgroundColor: "#fff3cd",
-    borderColor: "#ffeaa7",
-    borderRadius: 60,
+    borderRadius: 24,
     borderWidth: 1,
-    marginTop: 5,
-    marginBottom: 20,
+    marginBottom: 8,
+    padding: 16,
+  },
+  warningEyebrow: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    marginBottom: 6,
+    textTransform: "uppercase",
   },
   warningText: {
-    color: "#856404",
-    padding: 5,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 19,
+    marginBottom: 12,
     textAlign: "center",
   },
   errorCard: {
-    backgroundColor: "#f8d7da",
-    borderRadius: 8,
+    borderRadius: 20,
+    borderWidth: 1,
     padding: 20,
   },
   errorCardText: {
-    color: "#721c24",
+    fontSize: 14,
+    fontWeight: "700",
     textAlign: "center",
   },
+  footerCommentCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    marginTop: 14,
+    padding: 16,
+  },
+  footerCommentLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+    marginBottom: 6,
+    textTransform: "uppercase",
+  },
   footerComment: {
+    fontSize: 13,
     fontStyle: "italic",
-    marginTop: 8,
+    lineHeight: 20,
   },
 });
 
