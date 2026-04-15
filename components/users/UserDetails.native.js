@@ -331,13 +331,15 @@ const UserDetails = () => {
                 accentColor={accentColor}
               />
             </View>
-            <View style={[styles.cardItem, computedCardWidth]}>
-              <AdminAssignmentCard
-                item={item}
-                styles={styles}
-                accentColor={accentColor}
-              />
-            </View>
+            {Meteor.user()?.username === "carlosmbinf" ? (
+              <View style={[styles.cardItem, computedCardWidth]}>
+                <AdminAssignmentCard
+                  item={item}
+                  styles={styles}
+                  accentColor={accentColor}
+                />
+              </View>
+            ) : null}
             {canViewPushDashboard ? (
               <DevicesCard
                 userId={item._id}
