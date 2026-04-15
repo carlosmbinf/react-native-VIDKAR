@@ -232,8 +232,11 @@ const TableProxyVPNHistory = () => {
     if (venta.isCobrado !== true) return "PENDIENTE_PAGO";
     return "PENDIENTE_ENTREGA";
   };
-  const selectedEstado = ventaSel ? deriveEstadoVenta(ventaSel) : null;
-  const selectedItems = getItemsArray(ventaSel);
+  const selectedEstado = React.useMemo(
+    () => (ventaSel ? deriveEstadoVenta(ventaSel) : null),
+    [ventaSel],
+  );
+  const selectedItems = React.useMemo(() => getItemsArray(ventaSel), [ventaSel]);
 
   const getTipoPredominante = (venta) => {
     const carritos = getItemsArray(venta);

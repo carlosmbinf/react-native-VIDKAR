@@ -254,8 +254,11 @@ const TableRecargas = () => {
     }
     return "PENDIENTE_ENTREGA";
   };
-  const selectedEstado = ventaSel ? deriveEstadoVenta(ventaSel) : null;
-  const selectedItems = getItemsArray(ventaSel);
+  const selectedEstado = React.useMemo(
+    () => (ventaSel ? deriveEstadoVenta(ventaSel) : null),
+    [ventaSel, transacciones],
+  );
+  const selectedItems = React.useMemo(() => getItemsArray(ventaSel), [ventaSel]);
 
   return (
     <ScrollView style={styles.container} scrollEnabled>
