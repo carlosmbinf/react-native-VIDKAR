@@ -1,9 +1,12 @@
 import MeteorBase from "@meteorrn/core";
 import { router } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import React from "react";
 import {
   Alert,
   FlatList,
+  Image,
+  Linking,
   Pressable,
   StyleSheet,
   View,
@@ -49,6 +52,94 @@ const PLATFORM_FILTERS = [
   { value: "ANDROID", label: "Android" },
   { value: "IOS", label: "iPhone" },
 ];
+
+const PUSH_IMAGE_PICKER_OPTIONS = {
+  allowsEditing: true,
+  aspect: [16, 9],
+  base64: true,
+  mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  quality: 0.75,
+};
+
+const formatFileSize = (bytes) => {
+  if (!bytes) {
+    return "0 B";
+  }
+
+  const units = ["B", "KB", "MB", "GB"];
+  const unitIndex = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1,
+  );
+
+  return `${(bytes / 1024 ** unitIndex).toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+};
+
+const getBase64SizeBytes = (base64) => {
+  if (!base64) {
+    return 0;
+  }
+
+  const padding = (base64.match(/=+$/) || [""])[0].length;
+  return Math.floor((base64.length * 3) / 4) - padding;
+};
+
+const inferMimeType = (asset) => {
+  if (typeof asset?.mimeType === "string" && asset.mimeType.trim()) {
+    return asset.mimeType;
+  }
+
+  const fileName = String(asset?.fileName || "").toLowerCase();
+  if (fileName.endsWith(".png")) {
+    return "image/png";
+  }
+
+  return "image/jpeg";
+};
+
+const getCampaignImageKey = (image) =>
+  [image?.uri || "", image?.fileName || "", image?.fileSize || 0].join("|");
+
+const requestGalleryPermission = async () => {
+  const current = await ImagePicker.getMediaLibraryPermissionsAsync();
+  if (current.granted || current.accessPrivileges === "limited") {
+    return true;
+  }
+
+  if (current.status === "denied" && !current.canAskAgain) {
+    Alert.alert(
+      "Permiso de galería bloqueado",
+      "Para adjuntar una imagen a la campaña, habilita el acceso a Fotos en Configuración.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Abrir Configuración", onPress: () => Linking.openSettings() },
+      ],
+    );
+    return false;
+  }
+
+  const requestResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (requestResult.granted || requestResult.accessPrivileges === "limited") {
+    return true;
+  }
+
+  Alert.alert(
+    "Permiso denegado",
+    "No se puede adjuntar una imagen si la app no tiene acceso a tu galería.",
+  );
+  return false;
+};
+
+const buildNotificationImageMetadata = ({ recipientCount, senderMode }) => ({
+  type: "NOTIFICACION",
+  category: "PUSH_CAMPAIGN",
+  channel: "PUSH",
+  source: "PushOffersScreen.native",
+  sourceApp: "expo",
+  senderMode,
+  targetAudience: "CLIENTES",
+  recipientCount,
+});
 
 const formatDate = (value) => {
   if (!value) {
@@ -325,6 +416,8 @@ const PushOffersScreen = () => {
   const [showFilters, setShowFilters] = React.useState(false);
   const [sending, setSending] = React.useState(false);
   const [feedback, setFeedback] = React.useState({ visible: false, message: "" });
+  const [campaignImage, setCampaignImage] = React.useState(null);
+  const [uploadedCampaignImage, setUploadedCampaignImage] = React.useState(null);
 
   const { ready, currentUser, recipients } = Meteor.useTracker(() => {
     const sessionUser = Meteor.user();
@@ -554,6 +647,98 @@ const PushOffersScreen = () => {
     setFeedback({ visible: true, message: nextMessage });
   }, []);
 
+  const clearCampaignImage = React.useCallback(() => {
+    setCampaignImage(null);
+    setUploadedCampaignImage(null);
+  }, []);
+
+  const selectCampaignImage = React.useCallback(async () => {
+    try {
+      const allowed = await requestGalleryPermission();
+      if (!allowed) {
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync(
+        PUSH_IMAGE_PICKER_OPTIONS,
+      );
+      if (result.canceled) {
+        return;
+      }
+
+      const asset = result.assets?.[0];
+      if (!asset?.base64) {
+        showFeedback("No se pudo leer la imagen seleccionada.");
+        return;
+      }
+
+      const normalizedImage = {
+        assetKey: getCampaignImageKey({
+          fileName: asset.fileName,
+          fileSize: asset.fileSize || getBase64SizeBytes(asset.base64),
+          uri: asset.uri,
+        }),
+        base64: asset.base64,
+        fileName: asset.fileName || `notificacion_${Date.now()}.jpg`,
+        fileSize: asset.fileSize || getBase64SizeBytes(asset.base64),
+        height: asset.height,
+        mimeType: inferMimeType(asset),
+        uri: asset.uri,
+        width: asset.width,
+      };
+
+      setCampaignImage(normalizedImage);
+      setUploadedCampaignImage(null);
+    } catch (_error) {
+      showFeedback("No se pudo seleccionar la imagen de la campaña.");
+    }
+  }, [showFeedback]);
+
+  const uploadCampaignImage = React.useCallback(
+    async ({ recipientCount, senderMode }) => {
+      if (!campaignImage || !currentUserId) {
+        return null;
+      }
+
+      if (
+        uploadedCampaignImage?.assetKey === campaignImage.assetKey &&
+        uploadedCampaignImage?.url
+      ) {
+        return uploadedCampaignImage;
+      }
+
+      const uploadResponse = await new Promise((resolve, reject) => {
+        Meteor.call(
+          "images.upload",
+          {
+            base64: campaignImage.base64,
+            name: campaignImage.fileName,
+            size: campaignImage.fileSize,
+            type: campaignImage.mimeType,
+          },
+          buildNotificationImageMetadata({ recipientCount, senderMode }),
+          (error, result) => (error ? reject(error) : resolve(result)),
+        );
+      });
+
+      if (!uploadResponse?.success || !uploadResponse?.url) {
+        throw new Error("No se pudo obtener la URL pública de la imagen.");
+      }
+
+      const normalizedUpload = {
+        assetKey: campaignImage.assetKey,
+        fileId: uploadResponse.fileId,
+        fileName: uploadResponse.fileName,
+        metadata: uploadResponse.metadata,
+        url: uploadResponse.url,
+      };
+
+      setUploadedCampaignImage(normalizedUpload);
+      return normalizedUpload;
+    },
+    [campaignImage, currentUserId, uploadedCampaignImage],
+  );
+
   const runSend = React.useCallback(async () => {
     const cleanTitle = title.trim();
     const cleanMessage = message.trim();
@@ -570,6 +755,7 @@ const PushOffersScreen = () => {
 
     let successCount = 0;
     const failedRecipients = [];
+    let imagePayload = null;
     const registerAuditLog = (type, detail) => {
       try {
         Meteor.call(
@@ -592,6 +778,13 @@ const PushOffersScreen = () => {
     };
 
     try {
+      if (campaignImage) {
+        imagePayload = await uploadCampaignImage({
+          recipientCount: recipientsToSend.length,
+          senderMode,
+        });
+      }
+
       const sendResults = await Promise.allSettled(
         recipientsToSend.map((recipient) =>
           sendMessage({
@@ -602,6 +795,18 @@ const PushOffersScreen = () => {
             data: {
               campaignType: "offer",
               senderMode,
+              ...(imagePayload?.url
+                ? {
+                    attachment: imagePayload.url,
+                    attachmentUrl: imagePayload.url,
+                    image: imagePayload.url,
+                    imageUrl: imagePayload.url,
+                    image_url: imagePayload.url,
+                    notificationAssetType: "NOTIFICACION",
+                    notificationImageFileId: imagePayload.fileId,
+                    notificationImageFileName: imagePayload.fileName,
+                  }
+                : {}),
             },
           }),
         ),
@@ -626,13 +831,14 @@ const PushOffersScreen = () => {
 
       registerAuditLog(
         failedRecipients.length > 0 ? "OFERTAS PUSH PARCIAL" : "OFERTAS PUSH",
-        `Campaña "${cleanTitle}" enviada a ${successCount} cliente(s) con firma ${senderMode === "SERVER" ? "SERVER" : currentUsername}.${failedRecipients.length ? ` Pendientes: ${failedRecipients.join(", ")}.` : ""}`,
+        `Campaña "${cleanTitle}" enviada a ${successCount} cliente(s) con firma ${senderMode === "SERVER" ? "SERVER" : currentUsername}.${imagePayload?.url ? " Incluye imagen adjunta." : ""}${failedRecipients.length ? ` Pendientes: ${failedRecipients.join(", ")}.` : ""}`,
       );
 
       if (failedRecipients.length === 0) {
         setTitle("");
         setMessage("");
         setSelectedRecipientIds([]);
+        clearCampaignImage();
         showFeedback(
           successCount === 1
             ? "La campaña se envió al cliente seleccionado."
@@ -658,6 +864,8 @@ const PushOffersScreen = () => {
       setSending(false);
     }
   }, [
+    campaignImage,
+    clearCampaignImage,
     recipientsById,
     currentUserId,
     currentUsername,
@@ -666,6 +874,7 @@ const PushOffersScreen = () => {
     senderMode,
     showFeedback,
     title,
+    uploadCampaignImage,
   ]);
 
   const handleSend = React.useCallback(() => {
@@ -910,6 +1119,86 @@ const PushOffersScreen = () => {
                 style={styles.messageInput}
               />
 
+              <View style={styles.campaignImageSection}>
+                <View style={styles.sectionHeader}>
+                  <Text variant="titleSmall" style={{ color: colors.title }}>
+                    Imagen de apoyo
+                  </Text>
+                  <Text variant="bodySmall" style={{ color: colors.subtitle }}>
+                    Opcional. Se sube primero al backend y luego se envía su URL dentro del payload push.
+                  </Text>
+                </View>
+
+                {campaignImage ? (
+                  <Surface
+                    elevation={0}
+                    style={[
+                      styles.imagePreviewCard,
+                      {
+                        backgroundColor: colors.panelSecondary,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Image
+                      source={{ uri: campaignImage.uri }}
+                      resizeMode="cover"
+                      style={styles.imagePreview}
+                    />
+
+                    <View style={styles.imagePreviewCopy}>
+                      <Text variant="titleSmall" style={{ color: colors.title }}>
+                        {campaignImage.fileName}
+                      </Text>
+                      <Text variant="bodySmall" style={{ color: colors.subtitle }}>
+                        {formatFileSize(campaignImage.fileSize)} · {campaignImage.width || 0}x{campaignImage.height || 0}
+                      </Text>
+                      <View style={styles.imagePreviewChips}>
+                        <Chip compact icon="image-outline">
+                          Tipo NOTIFICACION
+                        </Chip>
+                        {uploadedCampaignImage?.url ? (
+                          <Chip compact icon="cloud-check-outline">
+                            Lista para reutilizar
+                          </Chip>
+                        ) : null}
+                      </View>
+                    </View>
+
+                    <View style={styles.imagePreviewActions}>
+                      <Button mode="text" icon="image-edit-outline" onPress={selectCampaignImage}>
+                        Cambiar
+                      </Button>
+                      <Button mode="text" icon="delete-outline" onPress={clearCampaignImage}>
+                        Quitar
+                      </Button>
+                    </View>
+                  </Surface>
+                ) : (
+                  <Surface
+                    elevation={0}
+                    style={[
+                      styles.imageEmptyState,
+                      {
+                        backgroundColor: colors.panelSecondary,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Text variant="bodyMedium" style={{ color: colors.subtitle }}>
+                      Puedes adjuntar una sola imagen para reforzar la campaña en Android, iPhone y en el diálogo interno de Expo.
+                    </Text>
+                    <Button
+                      mode="outlined"
+                      icon="image-plus-outline"
+                      onPress={selectCampaignImage}
+                    >
+                      Seleccionar imagen
+                    </Button>
+                  </Surface>
+                )}
+              </View>
+
               <View style={styles.composerFooter}>
                 <View style={styles.selectionResume}>
                   <Chip compact icon="account-multiple-check-outline">
@@ -1051,6 +1340,9 @@ const styles = StyleSheet.create({
   composerFooter: {
     gap: 14,
   },
+  campaignImageSection: {
+    gap: 12,
+  },
   emptyState: {
     borderRadius: 24,
     borderWidth: 1,
@@ -1093,6 +1385,39 @@ const styles = StyleSheet.create({
     gap: 14,
     marginBottom: 18,
     padding: 20,
+  },
+  imageEmptyState: {
+    borderRadius: 20,
+    borderStyle: "dashed",
+    borderWidth: 1,
+    gap: 12,
+    padding: 16,
+  },
+  imagePreview: {
+    aspectRatio: 16 / 9,
+    borderRadius: 16,
+    width: "100%",
+  },
+  imagePreviewActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+    gap: 4,
+  },
+  imagePreviewCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    gap: 14,
+    overflow: "hidden",
+    padding: 14,
+  },
+  imagePreviewChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  imagePreviewCopy: {
+    gap: 8,
   },
   heroCard: {
     borderRadius: 28,

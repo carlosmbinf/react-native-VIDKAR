@@ -4916,6 +4916,54 @@ Resumen tecnico - Deuda pendiente del admin visible en `MenuPrincipal` Expo
   - Si otra superficie necesita resumir deuda administrativa, reutilizar la misma derivacion desde `VentasCollection` por `adminId` y `cobrado: false`.
   - Si el destino operativo sigue siendo Ventas pendientes, pasar params de ruta (`id`, `pago`) en lugar de crear una pantalla nueva solo para deuda.
 
+---
+
+Resumen tecnico - Campañas push Expo con imagen subida previamente al backend
+
+- Alcance aplicado:
+  - `components/users/PushOffersScreen.native.jsx` ahora permite adjuntar una imagen opcional a la campaña antes de enviarla.
+  - La imagen no se manda inline en el push; primero se sube al backend mediante `images.upload` y luego se reutiliza la `url` publica devuelta por ese metodo dentro de `data`.
+
+- Flujo tecnico validado:
+  - Seleccion de imagen con `expo-image-picker` en la propia pantalla de campañas.
+  - Upload unico previo al envio usando:
+    - `Meteor.call('images.upload', fileData, metadata)`
+  - La metadata enviada para este caso debe incluir como minimo:
+    - `type: 'NOTIFICACION'`
+  - Para dejar mejor trazabilidad futura, el cliente Expo tambien envia campos adicionales de contexto como:
+    - `category: 'PUSH_CAMPAIGN'`
+    - `channel: 'PUSH'`
+    - `source: 'PushOffersScreen.native'`
+    - `sourceApp: 'expo'`
+    - `senderMode`
+    - `targetAudience: 'CLIENTES'`
+    - `recipientCount`
+
+- Contrato de envio de push aplicado:
+  - La URL publica de la imagen viaja dentro de `data`, no como binario:
+    - `imageUrl`
+    - `image`
+    - `image_url`
+  - Tambien se adjuntan datos auxiliares del recurso subido:
+    - `notificationAssetType: 'NOTIFICACION'`
+    - `notificationImageFileId`
+    - `notificationImageFileName`
+  - El backend duplica esa misma URL en aliases adicionales (`attachment*`, `media*`) para que futuras superficies o integraciones no dependan de una sola clave.
+
+- Compatibilidad Expo validada:
+  - `services/notifications/PushMessaging.native.ts` ya extraia imagen desde `data.image`, `data.imageUrl`, `data.image_url`, `attachment*` y `media*`.
+  - Se añadió tambien soporte a `data.notificationImageUrl` como fallback extra.
+  - Esto garantiza que el dialogo interno `PushNotificationDialogHost.native.tsx` pueda renderizar la imagen aunque el sistema no la muestre como rich push nativa.
+
+- Regla practica:
+  - Si una nueva pantalla Expo quiere mandar push con imagen, no debe subir la imagen por su cuenta a otro endpoint ni mandar base64 en `messages.send`.
+  - Debe seguir este orden:
+    1. seleccionar imagen
+    2. subir con `images.upload`
+    3. usar la `url` resultante dentro de `data`
+    4. marcar la metadata del archivo con `type: 'NOTIFICACION'`
+
+
 Notas adicionales - CTA visual dentro del banner de deuda debe leerse como boton real
 
 - Ajuste UX aplicado en `components/Main/MenuPrincipalScreen.jsx`:

@@ -130,6 +130,7 @@ const getImageUrl = (notification?: Notifications.Notification | null) => {
     data.image,
     data.imageUrl,
     data.image_url,
+    data.notificationImageUrl,
     data.media,
     data.mediaUrl,
     data.media_url,
