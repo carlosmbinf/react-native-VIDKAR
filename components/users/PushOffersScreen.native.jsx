@@ -1,6 +1,6 @@
 import MeteorBase from "@meteorrn/core";
-import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import { router } from "expo-router";
 import React from "react";
 import {
   Alert,
@@ -26,9 +26,9 @@ import {
   useTheme,
 } from "react-native-paper";
 
+import { sendMessage } from "../../services/notifications/PushMessaging.native";
 import { PushTokens } from "../collections/collections";
 import AppHeader from "../Header/AppHeader";
-import { sendMessage } from "../../services/notifications/PushMessaging.native";
 import {
   canAccessPushTokenDashboards,
   getPlatformMeta,
@@ -57,7 +57,7 @@ const PUSH_IMAGE_PICKER_OPTIONS = {
   allowsEditing: true,
   aspect: [16, 9],
   base64: true,
-  mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  mediaTypes: ImagePicker.MediaType.Images,
   quality: 0.75,
 };
 

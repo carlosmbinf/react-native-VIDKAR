@@ -108,7 +108,8 @@
         }
       ],
       "expo-secure-store",
-      "expo-notifications"
+      "expo-notifications",
+      "./plugins/with-notification-service-extension.js"
     ],
     "experiments": {
       "typedRoutes": true,

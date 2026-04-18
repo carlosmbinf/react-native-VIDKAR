@@ -134,7 +134,7 @@ const IMAGE_PICKER_OPTIONS = {
   allowsEditing: false,
   base64: true,
   exif: true,
-  mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  mediaTypes: ImagePicker.MediaType.Images,
   quality: 0.5,
 };
 
@@ -142,7 +142,7 @@ const CAMERA_PICKER_OPTIONS = {
   allowsEditing: true,
   base64: true,
   exif: true,
-  mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  mediaTypes: ImagePicker.MediaType.Images,
   quality: 0.5,
 };
 
