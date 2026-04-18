@@ -3,6 +3,7 @@ import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { AppState, PermissionsAndroid, Platform } from "react-native";
 import { getAppVersionInfo } from "../app/appVersion";
+import { canAccessPushTokenDashboards } from "../../components/users/pushTokens/utils";
 
 type PushData = Record<string, string | number | boolean | null | undefined>;
 
@@ -43,6 +44,7 @@ export type PushDialogPayload = {
 
 const Meteor = MeteorBase as unknown as {
   call: (...args: any[]) => void;
+  user: () => { username?: string } | null;
   userId: () => string | null;
 };
 
@@ -433,6 +435,14 @@ export const sendMessage = async (payload: SendMessagePayload) => {
     typeof payload.senderId === "string" && payload.senderId.trim().length > 0
       ? payload.senderId.trim()
       : currentUserId;
+  const canUseServerSender =
+    requestedSenderId.toUpperCase() !== "SERVER" ||
+    canAccessPushTokenDashboards(Meteor.user?.());
+
+  if (!canUseServerSender) {
+    throw new Error("No autorizado para usar la firma institucional.");
+  }
+
   const fromUserId =
     requestedSenderId.toUpperCase() === "SERVER" ? "SERVER" : currentUserId;
 

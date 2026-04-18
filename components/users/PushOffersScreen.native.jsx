@@ -456,6 +456,10 @@ const PushOffersScreen = () => {
     () => new Set(selectedRecipientIds),
     [selectedRecipientIds],
   );
+  const recipientsById = React.useMemo(
+    () => new Map(recipients.map((item) => [item.userId, item])),
+    [recipients],
+  );
 
   React.useEffect(() => {
     const validIds = new Set(recipients.map((item) => item.userId));
@@ -553,9 +557,10 @@ const PushOffersScreen = () => {
   const runSend = React.useCallback(async () => {
     const cleanTitle = title.trim();
     const cleanMessage = message.trim();
-    const recipientsToSend = recipients.filter((item) =>
-      selectedRecipientSet.has(item.userId),
-    );
+    const recipientsToSend = selectedRecipientIds
+      .map((recipientId) => recipientsById.get(recipientId))
+      .filter(Boolean);
+    const senderLogActor = senderMode === "SERVER" ? "SERVER" : currentUserId;
 
     if (!currentUserId || !cleanTitle || !cleanMessage || !recipientsToSend.length) {
       return;
@@ -591,17 +596,19 @@ const PushOffersScreen = () => {
         }
 
         failedRecipients.push(recipient.displayName);
-        console.warn(
-          `[PushOffersScreen] No se pudo enviar la campaña a ${recipient.userId}:`,
-          result.reason,
-        );
+        if (__DEV__) {
+          console.warn(
+            `[PushOffersScreen] No se pudo enviar la campaña a ${recipient.userId}:`,
+            result.reason,
+          );
+        }
       });
 
       Meteor.call(
         "registrarLog",
         failedRecipients.length > 0 ? "OFERTAS PUSH PARCIAL" : "OFERTAS PUSH",
         currentUserId,
-        currentUserId,
+        senderLogActor,
         `Campaña "${cleanTitle}" enviada a ${successCount} cliente(s) con firma ${senderMode === "SERVER" ? "SERVER" : currentUsername}.`,
       );
 
@@ -625,8 +632,10 @@ const PushOffersScreen = () => {
         "registrarLog",
         "ERROR OFERTAS PUSH",
         currentUserId,
-        currentUserId,
-        error?.message || error?.reason || "No se pudo completar la campaña.",
+        senderLogActor,
+        error?.message ||
+          error?.reason ||
+          `No se pudo completar la campaña con firma ${senderMode === "SERVER" ? "SERVER" : currentUsername}.`,
       );
       showFeedback(
         error?.reason || error?.message || "No se pudo completar el envío.",
@@ -635,11 +644,11 @@ const PushOffersScreen = () => {
       setSending(false);
     }
   }, [
+    recipientsById,
     currentUserId,
     currentUsername,
     message,
-    recipients,
-    selectedRecipientSet,
+    selectedRecipientIds,
     senderMode,
     showFeedback,
     title,
@@ -867,7 +876,7 @@ const PushOffersScreen = () => {
                 maxLength={80}
               />
               <HelperText type="info" visible={true}>
-                Un buen título facilita la lectura del comunicado.
+                {`${title.length}/80 · Un buen título facilita la lectura del comunicado.`}
               </HelperText>
 
               <TextInput
