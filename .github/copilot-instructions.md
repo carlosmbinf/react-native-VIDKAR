@@ -4963,56 +4963,6 @@ Resumen tecnico - Campañas push Expo con imagen subida previamente al backend
     3. usar la `url` resultante dentro de `data`
     4. marcar la metadata del archivo con `type: 'NOTIFICACION'`
 
----
-
-Resumen tecnico - Imagen remota en push iOS requiere Notification Service Extension
-
-- Hallazgo validado con la documentacion de Expo:
-  - `NotificationContentAttachmentIos` describe attachments del lado iOS, pero para push remotos enviados por Expo Push Service la clave operativa no es solo mandar `data.imageUrl`.
-  - En Android, `richContent.image` funciona practicamente out of the box.
-  - En iOS, Expo documenta que para mostrar esa imagen en la notificacion remota hace falta agregar un `Notification Service Extension` target nativo.
-
-- Estado previo del proyecto:
-  - El backend ya enviaba correctamente:
-    - `richContent.image`
-    - `mutableContent: true`
-    - aliases en `data` como `imageUrl`, `image`, `attachmentUrl`, etc.
-  - Eso era suficiente para Android, pero el proyecto iOS solo tenia el target principal `Vidkar`; no existia ninguna extension de servicio para interceptar la push y descargar la imagen.
-
-- Implementacion aplicada:
-  - Se agregó el target nativo `NotificationServiceExtension` dentro de `ios/Vidkar.xcodeproj`.
-  - Se creó `ios/NotificationServiceExtension/NotificationService.swift` con una implementacion minima que:
-    - intercepta la notificacion remota
-    - busca la URL de imagen en `richContent`, `data` y aliases conocidos
-    - descarga la imagen
-    - la adjunta como `UNNotificationAttachment`
-  - Se creó `ios/NotificationServiceExtension/Info.plist` con el extension point `com.apple.usernotifications.service`.
-  - El target principal `Vidkar` ahora embebe la extension como app extension.
-
-- Regla practica:
-  - Si una push con imagen funciona en Android pero no en iOS, no asumir primero un bug del payload.
-  - Revisar esta cadena completa:
-    1. backend envia `richContent.image`
-    2. backend envia `mutableContent: true`
-    3. la app iOS tiene `Notification Service Extension` target real
-    4. la imagen remota responde por `https` y con extension o `Content-Type` valido
-  - El plugin `expo-notifications` y `UIBackgroundModes` no sustituyen la extension de servicio para rich media en iOS.
-
-Notas adicionales - En Expo managed la fuente de verdad debe ser un config plugin, no `ios/` manual
-
-- Hallazgo operativo importante:
-  - En este proyecto Expo, las carpetas `ios/` y `android/` se regeneran en prebuild/EAS y no deben asumirse como superficie persistente de trabajo.
-  - Si una solucion nativa critica queda solo editada manualmente dentro de `ios/`, se puede perder al regenerar el proyecto.
-
-- Ajuste aplicado:
-  - La Notification Service Extension de iOS quedo respaldada por el plugin local:
-    - `plugins/with-notification-service-extension.js`
-  - `app.json` ya registra ese plugin para que el target, los archivos Swift/plist y el parche de `project.pbxproj` se repliquen durante prebuild.
-
-- Regla practica:
-  - Para proyectos Expo managed de este workspace, cualquier cambio nativo que deba sobrevivir a regeneraciones debe vivir en un config plugin local o equivalente.
-  - No tomar `ios/` ni `android/` como fuente de verdad final si el flujo del proyecto depende de Expo prebuild/EAS.
-
 
 Notas adicionales - CTA visual dentro del banner de deuda debe leerse como boton real
 

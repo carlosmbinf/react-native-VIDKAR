@@ -2,8 +2,8 @@ import MeteorBase from "@meteorrn/core";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { AppState, PermissionsAndroid, Platform } from "react-native";
-import { canAccessPushTokenDashboards } from "../../components/users/pushTokens/utils";
 import { getAppVersionInfo } from "../app/appVersion";
+import { canAccessPushTokenDashboards } from "../../components/users/pushTokens/utils";
 
 type PushData = Record<string, string | number | boolean | null | undefined>;
 
