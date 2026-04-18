@@ -3,12 +3,14 @@ import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { AppState, PermissionsAndroid, Platform } from "react-native";
 import { getAppVersionInfo } from "../app/appVersion";
+import { canAccessPushTokenDashboards } from "../../components/users/pushTokens/utils";
 
 type PushData = Record<string, string | number | boolean | null | undefined>;
 
 type SendMessagePayload = {
   body: string;
   data?: PushData;
+  senderId?: string;
   title: string;
   toUserId: string;
 };
@@ -42,6 +44,7 @@ export type PushDialogPayload = {
 
 const Meteor = MeteorBase as unknown as {
   call: (...args: any[]) => void;
+  user?: () => { username?: string } | null;
   userId: () => string | null;
 };
 
@@ -423,10 +426,25 @@ export const unregisterPushTokenForUser = async (userId?: string) => {
 };
 
 export const sendMessage = async (payload: SendMessagePayload) => {
-  const fromUserId = Meteor.userId();
-  if (!fromUserId) {
+  const currentUserId = Meteor.userId();
+  if (!currentUserId) {
     throw new Error("Usuario no autenticado.");
   }
+
+  const requestedSenderId =
+    typeof payload.senderId === "string" && payload.senderId.trim().length > 0
+      ? payload.senderId.trim()
+      : currentUserId;
+  const canUseServerSender =
+    requestedSenderId.toUpperCase() !== "SERVER" ||
+    canAccessPushTokenDashboards(Meteor.user?.());
+
+  if (!canUseServerSender) {
+    throw new Error("No autorizado para usar la firma institucional.");
+  }
+
+  const fromUserId =
+    requestedSenderId.toUpperCase() === "SERVER" ? "SERVER" : currentUserId;
 
   return new Promise((resolve, reject) => {
     Meteor.call(

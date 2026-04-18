@@ -132,6 +132,11 @@ const buildAdminItems = () => [
 
 const buildPrivateItems = () => [
   {
+    label: "Campañas y ofertas",
+    icon: "bullhorn-variant-outline",
+    href: "/(normal)/CampanasOfertas",
+  },
+  {
     label: "Propertys",
     icon: "cog-outline",
     href: "/(normal)/ListaPropertys",
