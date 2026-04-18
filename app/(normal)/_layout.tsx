@@ -7,6 +7,7 @@ export default function NormalLayout() {
       <Stack.Screen name="User" />
       <Stack.Screen name="UserPushTokens" />
       <Stack.Screen name="PushTokens" />
+      <Stack.Screen name="CampanasOfertas" />
       <Stack.Screen name="PeliculasVideos" />
       <Stack.Screen name="ProductosCubacelCards" />
       <Stack.Screen name="CubacelOferta" />

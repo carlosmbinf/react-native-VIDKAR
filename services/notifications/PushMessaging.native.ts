@@ -9,6 +9,7 @@ type PushData = Record<string, string | number | boolean | null | undefined>;
 type SendMessagePayload = {
   body: string;
   data?: PushData;
+  senderId?: string;
   title: string;
   toUserId: string;
 };
@@ -423,10 +424,21 @@ export const unregisterPushTokenForUser = async (userId?: string) => {
 };
 
 export const sendMessage = async (payload: SendMessagePayload) => {
-  const fromUserId = Meteor.userId();
-  if (!fromUserId) {
+  const currentUserId = Meteor.userId();
+  if (!currentUserId) {
     throw new Error("Usuario no autenticado.");
   }
+
+  const requestedSenderId =
+    typeof payload.senderId === "string" && payload.senderId.trim().length > 0
+      ? payload.senderId.trim()
+      : currentUserId;
+  const fromUserId =
+    requestedSenderId.toUpperCase() === "SERVER"
+      ? "SERVER"
+      : requestedSenderId === currentUserId
+        ? currentUserId
+        : currentUserId;
 
   return new Promise((resolve, reject) => {
     Meteor.call(
