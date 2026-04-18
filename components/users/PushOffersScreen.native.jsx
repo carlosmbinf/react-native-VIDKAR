@@ -570,6 +570,26 @@ const PushOffersScreen = () => {
 
     let successCount = 0;
     const failedRecipients = [];
+    const registerAuditLog = (type, detail) => {
+      try {
+        Meteor.call(
+          "registrarLog",
+          type,
+          currentUserId,
+          senderLogActor,
+          detail,
+          (logError) => {
+            if (logError && __DEV__) {
+              console.warn("[PushOffersScreen] No se pudo registrar el log:", logError);
+            }
+          },
+        );
+      } catch (logError) {
+        if (__DEV__) {
+          console.warn("[PushOffersScreen] Error registrando log:", logError);
+        }
+      }
+    };
 
     try {
       const sendResults = await Promise.allSettled(
@@ -604,12 +624,9 @@ const PushOffersScreen = () => {
         }
       });
 
-      Meteor.call(
-        "registrarLog",
+      registerAuditLog(
         failedRecipients.length > 0 ? "OFERTAS PUSH PARCIAL" : "OFERTAS PUSH",
-        currentUserId,
-        senderLogActor,
-        `Campaña "${cleanTitle}" enviada a ${successCount} cliente(s) con firma ${senderMode === "SERVER" ? "SERVER" : currentUsername}.`,
+        `Campaña "${cleanTitle}" enviada a ${successCount} cliente(s) con firma ${senderMode === "SERVER" ? "SERVER" : currentUsername}.${failedRecipients.length ? ` Pendientes: ${failedRecipients.join(", ")}.` : ""}`,
       );
 
       if (failedRecipients.length === 0) {
@@ -628,11 +645,8 @@ const PushOffersScreen = () => {
         `Se enviaron ${successCount} comunicaciones y ${failedRecipients.length} quedaron pendientes.`,
       );
     } catch (error) {
-      Meteor.call(
-        "registrarLog",
+      registerAuditLog(
         "ERROR OFERTAS PUSH",
-        currentUserId,
-        senderLogActor,
         error?.message ||
           error?.reason ||
           `No se pudo completar la campaña con firma ${senderMode === "SERVER" ? "SERVER" : currentUsername}.`,
@@ -681,7 +695,12 @@ const PushOffersScreen = () => {
         {
           text: "Enviar",
           onPress: () => {
-            runSend().catch(() => null);
+            runSend().catch((error) => {
+              if (__DEV__) {
+                console.warn("[PushOffersScreen] Error inesperado enviando campaña:", error);
+              }
+              showFeedback("No se pudo completar el envío.");
+            });
           },
         },
       ],

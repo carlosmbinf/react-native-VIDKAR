@@ -44,7 +44,7 @@ export type PushDialogPayload = {
 
 const Meteor = MeteorBase as unknown as {
   call: (...args: any[]) => void;
-  user: () => { username?: string } | null;
+  user?: () => { username?: string } | null;
   userId: () => string | null;
 };
 
