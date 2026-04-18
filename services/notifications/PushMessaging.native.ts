@@ -434,11 +434,7 @@ export const sendMessage = async (payload: SendMessagePayload) => {
       ? payload.senderId.trim()
       : currentUserId;
   const fromUserId =
-    requestedSenderId.toUpperCase() === "SERVER"
-      ? "SERVER"
-      : requestedSenderId === currentUserId
-        ? currentUserId
-        : currentUserId;
+    requestedSenderId.toUpperCase() === "SERVER" ? "SERVER" : currentUserId;
 
   return new Promise((resolve, reject) => {
     Meteor.call(

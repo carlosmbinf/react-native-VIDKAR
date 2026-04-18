@@ -567,9 +567,9 @@ const PushOffersScreen = () => {
     const failedRecipients = [];
 
     try {
-      for (const recipient of recipientsToSend) {
-        try {
-          await sendMessage({
+      const sendResults = await Promise.allSettled(
+        recipientsToSend.map((recipient) =>
+          sendMessage({
             body: cleanMessage,
             title: cleanTitle,
             toUserId: recipient.userId,
@@ -578,12 +578,24 @@ const PushOffersScreen = () => {
               campaignType: "offer",
               senderMode,
             },
-          });
+          }),
+        ),
+      );
+
+      sendResults.forEach((result, index) => {
+        const recipient = recipientsToSend[index];
+
+        if (result.status === "fulfilled") {
           successCount += 1;
-        } catch (_error) {
-          failedRecipients.push(recipient.displayName);
+          return;
         }
-      }
+
+        failedRecipients.push(recipient.displayName);
+        console.warn(
+          `[PushOffersScreen] No se pudo enviar la campaña a ${recipient.userId}:`,
+          result.reason,
+        );
+      });
 
       Meteor.call(
         "registrarLog",
