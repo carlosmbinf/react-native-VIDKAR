@@ -34,6 +34,31 @@ const Meteor =
     MeteorBase
   );
 
+const RECARGA_VENTA_FIELDS = {
+  _id: 1,
+  cobrado: 1,
+  createdAt: 1,
+  isCancelada: 1,
+  isCobrado: 1,
+  metodoPago: 1,
+  monedaCobrado: 1,
+  precioOficial: 1,
+  "producto.carritos._id": 1,
+  "producto.carritos.cobrarUSD": 1,
+  "producto.carritos.comentario": 1,
+  "producto.carritos.movilARecargar": 1,
+  "producto.carritos.nombre": 1,
+  "producto.carritos.producto.promotions": 1,
+  "producto.carritos.status": 1,
+  "producto.carritos.type": 1,
+};
+
+const TRANSACCION_RECARGA_FIELDS = {
+  _id: 1,
+  externalId: 1,
+  status: 1,
+};
+
 const chipColorEstado = (estado) => {
   switch (estado) {
     case "ENTREGADA":
@@ -159,8 +184,11 @@ const TableRecargas = () => {
             userId: Meteor.userId(),
           };
 
-    const sub = Meteor.subscribe("ventasRecharge", query);
+    const sub = Meteor.subscribe("ventasRecharge", query, {
+      fields: RECARGA_VENTA_FIELDS,
+    });
     const ventas = VentasRechargeCollection.find(query, {
+      fields: RECARGA_VENTA_FIELDS,
       sort: { createdAt: -1 },
     });
     return {
@@ -188,11 +216,15 @@ const TableRecargas = () => {
     }
     const sub = Meteor.subscribe("transacciones", {
       externalId: { $in: carritoIds },
+    }, {
+      fields: TRANSACCION_RECARGA_FIELDS,
     });
     return {
       cargandoTransacciones: !sub.ready(),
       transacciones: TransaccionRecargasCollection.find({
         externalId: { $in: carritoIds },
+      }, {
+        fields: TRANSACCION_RECARGA_FIELDS,
       }).fetch(),
     };
   }, [JSON.stringify(carritoIds)]);

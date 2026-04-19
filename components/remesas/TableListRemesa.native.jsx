@@ -26,6 +26,32 @@ const Meteor =
     MeteorBase
   );
 
+const REMESA_LIST_FIELDS = {
+  _id: 1,
+  cobrado: 1,
+  comentario: 1,
+  createdAt: 1,
+  estado: 1,
+  isCancelada: 1,
+  isCobrado: 1,
+  metodoPago: 1,
+  monedaCobrado: 1,
+  precioOficial: 1,
+  "producto.carritos._id": 1,
+  "producto.carritos.cancelado": 1,
+  "producto.carritos.comentario": 1,
+  "producto.carritos.cobrarUSD": 1,
+  "producto.carritos.direccionCuba": 1,
+  "producto.carritos.entregado": 1,
+  "producto.carritos.monedaACobrar": 1,
+  "producto.carritos.monedaRecibirEnCuba": 1,
+  "producto.carritos.nombre": 1,
+  "producto.carritos.recibirEnCuba": 1,
+  "producto.carritos.status": 1,
+  "producto.carritos.tarjetaCUP": 1,
+  "producto.carritos.type": 1,
+};
+
 const chipColorEstado = (estado) => {
   switch (estado) {
     case "ENTREGADO":
@@ -123,9 +149,15 @@ const TableListRemesa = () => {
   }, [Meteor.userId()]);
 
   const { loading, ventas } = Meteor.useTracker(() => {
-    const sub = Meteor.subscribe("ventasRecharge", {
-      "producto.carritos.type": "REMESA",
-    });
+    const sub = Meteor.subscribe(
+      "ventasRecharge",
+      {
+        "producto.carritos.type": "REMESA",
+      },
+      {
+        fields: REMESA_LIST_FIELDS,
+      },
+    );
     const query = isAdminPrincipal
       ? { "producto.carritos.type": "REMESA" }
       : isAdmin
@@ -139,6 +171,7 @@ const TableListRemesa = () => {
         : { "producto.carritos.type": "REMESA", userId: Meteor.userId() };
 
     const docs = VentasRechargeCollection.find(query, {
+      fields: REMESA_LIST_FIELDS,
       sort: { createdAt: -1 },
     });
     return { loading: !sub.ready(), ventas: docs.fetch() };

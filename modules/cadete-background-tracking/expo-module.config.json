@@ -1,0 +1,10 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["CadeteBackgroundTrackingModule"],
+    "appDelegateSubscribers": ["CadeteBackgroundTrackingAppDelegateSubscriber"]
+  },
+  "android": {
+    "modules": ["expo.modules.cadetebackgroundtracking.CadeteBackgroundTrackingModule"]
+  }
+}

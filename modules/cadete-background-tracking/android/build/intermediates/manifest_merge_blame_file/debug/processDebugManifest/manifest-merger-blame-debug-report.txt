@@ -1,0 +1,27 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="expo.modules.cadetebackgroundtracking" >
+4
+5    <uses-sdk android:minSdkVersion="24" />
+6
+7    <uses-permission android:name="android.permission.WAKE_LOCK" />
+7-->/Users/krly/Documents/Proyectos/react-native-VIDKAR/modules/cadete-background-tracking/android/src/main/AndroidManifest.xml:2:3-66
+7-->/Users/krly/Documents/Proyectos/react-native-VIDKAR/modules/cadete-background-tracking/android/src/main/AndroidManifest.xml:2:20-63
+8
+9    <application>
+9-->/Users/krly/Documents/Proyectos/react-native-VIDKAR/modules/cadete-background-tracking/android/src/main/AndroidManifest.xml:4:3-11:17
+10        <service
+10-->/Users/krly/Documents/Proyectos/react-native-VIDKAR/modules/cadete-background-tracking/android/src/main/AndroidManifest.xml:5:5-10:38
+11            android:name="expo.modules.cadetebackgroundtracking.CadeteTrackingService"
+11-->/Users/krly/Documents/Proyectos/react-native-VIDKAR/modules/cadete-background-tracking/android/src/main/AndroidManifest.xml:6:7-81
+12            android:enabled="true"
+12-->/Users/krly/Documents/Proyectos/react-native-VIDKAR/modules/cadete-background-tracking/android/src/main/AndroidManifest.xml:7:7-29
+13            android:exported="false"
+13-->/Users/krly/Documents/Proyectos/react-native-VIDKAR/modules/cadete-background-tracking/android/src/main/AndroidManifest.xml:8:7-31
+14            android:foregroundServiceType="location"
+14-->/Users/krly/Documents/Proyectos/react-native-VIDKAR/modules/cadete-background-tracking/android/src/main/AndroidManifest.xml:9:7-47
+15            android:stopWithTask="false" />
+15-->/Users/krly/Documents/Proyectos/react-native-VIDKAR/modules/cadete-background-tracking/android/src/main/AndroidManifest.xml:10:7-35
+16    </application>
+17
+18</manifest>

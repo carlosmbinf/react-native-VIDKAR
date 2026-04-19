@@ -1,0 +1,15 @@
+{
+  "name": "cadete-background-tracking",
+  "version": "1.0.0",
+  "description": "Modulo local Expo para tracking nativo del modo cadete en segundo plano.",
+  "license": "UNLICENSED",
+  "author": "VIDKAR",
+  "homepage": "https://vidkar.com",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "peerDependencies": {
+    "expo": "*",
+    "react-native": "*"
+  }
+}

@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { Alert } from "react-native";
 
 import { getAppVersionInfo } from "../../services/app/appVersion";
+import { syncCadeteBackgroundLocation } from "../../services/location/cadeteBackgroundLocation.native";
 import {
   VentasCollection,
   VentasRechargeCollection,
@@ -20,6 +21,17 @@ const CASH_APPROVAL_TYPE_META = {
   RECARGA: { icon: "cellphone-arrow-down", label: "Recargas" },
   REMESA: { icon: "cash-fast", label: "Remesas" },
   VPN: { icon: "shield-check", label: "VPN" },
+};
+
+const PENDING_DEBT_FIELDS = {
+  precio: 1,
+};
+
+const PENDING_CASH_APPROVAL_FIELDS = {
+  createdAt: 1,
+  type: 1,
+  "producto.carritos.type": 1,
+  "producto.type": 1,
 };
 
 const isPrincipalAdmin = (user) => user?.username === "carlosmbinf";
@@ -121,10 +133,14 @@ const MenuPrincipalNative = () => {
       };
     }
 
-    const ventasHandle = Meteor.subscribe("ventas", {
-      adminId: currentUserId,
-      cobrado: false,
-    });
+    const ventasHandle = Meteor.subscribe(
+      "ventas",
+      {
+        adminId: currentUserId,
+        cobrado: false,
+      },
+      { fields: PENDING_DEBT_FIELDS },
+    );
 
     const pendingVentas = ventasHandle.ready()
       ? VentasCollection.find({
@@ -174,6 +190,7 @@ const MenuPrincipalNative = () => {
     const cashApprovalsHandle = Meteor.subscribe(
       "ventasRecharge",
       cashApprovalsQuery,
+      { fields: PENDING_CASH_APPROVAL_FIELDS },
     );
     const ventasEfectivoPendientes = cashApprovalsHandle.ready()
       ? VentasRechargeCollection.find(cashApprovalsQuery, {
@@ -226,13 +243,25 @@ const MenuPrincipalNative = () => {
         {
           text: "Confirmar",
           onPress: () => {
-            Meteor.call("users.toggleModoCadete", nextState, (error) => {
+            Meteor.call("users.toggleModoCadete", nextState, async (error) => {
               if (error) {
                 Alert.alert(
                   "Error",
                   error.reason || "No se pudo cambiar el modo cadete.",
                 );
                 return;
+              }
+
+              try {
+                await syncCadeteBackgroundLocation({
+                  enabled: nextState,
+                  userId: nextState ? currentUserId : undefined,
+                });
+              } catch (trackingError) {
+                console.warn(
+                  "[CadeteLocation] No se pudo sincronizar el tracking al cambiar modo cadete:",
+                  trackingError,
+                );
               }
 
               Alert.alert(

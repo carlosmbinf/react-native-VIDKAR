@@ -1,5 +1,3 @@
-import "../services/notifications/PushMessaging.native";
-
 import { Stack } from "expo-router";
 import React, { useMemo } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";

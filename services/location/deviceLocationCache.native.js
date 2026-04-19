@@ -1,7 +1,7 @@
 import * as Location from "expo-location";
 import * as SecureStore from "expo-secure-store";
 
-const DEVICE_LOCATION_CACHE_KEY = "device:last-location:v1";
+const DEVICE_LOCATION_CACHE_KEY = "device.last-location.v1";
 let inMemoryCachedDeviceLocation = null;
 
 const toFiniteNumber = (value) => {

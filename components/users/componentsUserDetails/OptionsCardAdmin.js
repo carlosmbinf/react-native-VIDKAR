@@ -8,6 +8,15 @@ const Meteor =
     MeteorBase
   );
 
+const ADMIN_OPTIONS_FIELDS = {
+  desconectarVPN: 1,
+  modoEmpresa: 1,
+  permitirAprobacionEfectivoCUP: 1,
+  permitirPagoEfectivoCUP: 1,
+  permiteRemesas: 1,
+  subscipcionPelis: 1,
+};
+
 const OptionsCardAdmin = ({ item, styles, accentColor }) => {
   const itemId = item?._id || null;
 
@@ -16,16 +25,9 @@ const OptionsCardAdmin = ({ item, styles, accentColor }) => {
     if (!id) {
       return { userDoc: null };
     }
-    Meteor.subscribe("userID", id);
+    Meteor.subscribe("userID", id, { fields: ADMIN_OPTIONS_FIELDS });
     const doc = Meteor.users.findOne(id, {
-      fields: {
-        desconectarVPN: 1,
-        permitirPagoEfectivoCUP: 1,
-        permiteRemesas: 1,
-        subscipcionPelis: 1,
-        permitirAprobacionEfectivoCUP: 1,
-        modoEmpresa: 1,
-      },
+      fields: ADMIN_OPTIONS_FIELDS,
     });
     return { userDoc: doc };
   }, [itemId]);

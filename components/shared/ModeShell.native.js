@@ -1,8 +1,7 @@
-import React from 'react';
-import { router } from 'expo-router';
 import Meteor from '@meteorrn/core';
+import { router } from 'expo-router';
 
-import ModeShell from './ModeShell';
+import ModeShell from './ModeShell.js';
 
 const ModeShellNative = (props) => {
   return (

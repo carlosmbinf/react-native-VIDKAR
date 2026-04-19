@@ -11,6 +11,7 @@ import Loguin from "../components/loguin/Loguin.native";
 import MenuPrincipal from "../components/Main/MenuPrincipal.native";
 import PushNotificationDialogHost from "../components/shared/PushNotificationDialogHost.native";
 import UpdateRequired from "../components/update/UpdateRequired";
+import { syncCadeteBackgroundLocation } from "../services/location/cadeteBackgroundLocation.native";
 import {
   registerPushTokenForActiveSession,
   registerPushTokenForUser,
@@ -32,6 +33,18 @@ const Meteor = MeteorBase as unknown as {
 const VERSION_CHECK_TIMEOUT_MS = 5_000;
 const METEOR_CONNECTION_TIMEOUT_MS = 10_000;
 const METEOR_CONNECTION_POLL_MS = 500;
+
+const ROOT_USER_FIELDS = {
+  modoCadete: 1,
+  modoEmpresa: 1,
+  permiteRemesas: 1,
+  picture: 1,
+  "profile.firstName": 1,
+  "profile.role": 1,
+  "profile.roleComercio": 1,
+  subscipcionPelis: 1,
+  username: 1,
+};
 
 const resolveCurrentBuildNumber = () => {
   const nativeBuildNumber = parseInt(Application.nativeBuildVersion ?? "", 10);
@@ -89,25 +102,33 @@ export default function IndexScreen() {
     currentBuildNumber: null as number | null,
     requiredBuildNumber: null as number | null,
   });
-  const { ready, user, userId } = Meteor.useTracker(
+  const { connected, ready, user, userId } = Meteor.useTracker(
     (): {
+      connected: boolean;
       ready: boolean;
       user: any;
       userId: string | null;
     } => {
       const currentUserId = Meteor.userId();
+      const connected = Boolean(Meteor.status()?.connected);
 
       if (!currentUserId) {
         return {
+          connected,
           ready: false,
           user: null,
           userId: null,
         };
       }
 
-      const subscription = Meteor.subscribe("user", { _id: currentUserId });
+      const subscription = Meteor.subscribe(
+        "user",
+        { _id: currentUserId },
+        { fields: ROOT_USER_FIELDS },
+      );
 
       return {
+        connected,
         ready: subscription.ready(),
         user: Meteor.user(),
         userId: currentUserId,
@@ -217,6 +238,34 @@ export default function IndexScreen() {
       cancelled = true;
     };
   }, [userId]);
+
+  React.useEffect(() => {
+    if (userId && !ready) {
+      return;
+    }
+
+    if (!userId && !connected) {
+      return;
+    }
+
+    const shouldEnableCadeteTracking = Boolean(userId && user?.modoCadete === true);
+
+    const syncCadeteTracking = async () => {
+      try {
+        await syncCadeteBackgroundLocation({
+          enabled: shouldEnableCadeteTracking,
+          userId: shouldEnableCadeteTracking ? userId : undefined,
+        });
+      } catch (error) {
+        console.warn(
+          "[CadeteLocation] No se pudo sincronizar el tracking en segundo plano:",
+          error,
+        );
+      }
+    };
+
+    syncCadeteTracking();
+  }, [connected, ready, user?.modoCadete, userId]);
 
   React.useEffect(() => {
     let active = true;

@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StyleSheet, View } from "react-native";
-import { Surface, Text } from "react-native-paper";
+import { Text } from "react-native-paper";
 
 const steps = [
   { key: 1, label: "Preparando", icon: "chef-hat" },
@@ -11,21 +11,24 @@ const steps = [
 ];
 
 const PedidoStepperNative = ({ currentStep }) => {
+  const resolvedCurrentStep = Number.isFinite(Number(currentStep))
+    ? Number(currentStep)
+    : 1;
+
   return (
     <View style={styles.stepperContainer}>
       {steps.map((step, index) => {
-        const isActive = currentStep >= step.key;
+        const isActive = resolvedCurrentStep >= step.key;
         const isLast = index === steps.length - 1;
 
         return (
           <View key={step.key} style={styles.stepWrapper}>
             <View style={styles.stepCircleContainer}>
-              <Surface
-                elevation={isActive ? 2 : 0}
+              <View
                 style={[
                   styles.stepCircle,
                   isActive ? styles.stepCircleActive : null,
-                  currentStep === step.key ? styles.stepCircleCurrent : null,
+                  resolvedCurrentStep === step.key ? styles.stepCircleCurrent : null,
                 ]}
               >
                 <MaterialCommunityIcons
@@ -33,13 +36,13 @@ const PedidoStepperNative = ({ currentStep }) => {
                   name={step.icon}
                   size={20}
                 />
-              </Surface>
+              </View>
 
               {!isLast ? (
                 <View
                   style={[
                     styles.stepConnector,
-                    isActive && currentStep > step.key
+                    isActive && resolvedCurrentStep > step.key
                       ? styles.stepConnectorActive
                       : null,
                   ]}
@@ -52,7 +55,7 @@ const PedidoStepperNative = ({ currentStep }) => {
               style={[
                 styles.stepLabel,
                 isActive ? styles.stepLabelActive : null,
-                currentStep === step.key ? styles.stepLabelCurrent : null,
+                resolvedCurrentStep === step.key ? styles.stepLabelCurrent : null,
               ]}
               variant="bodySmall"
             >

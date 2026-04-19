@@ -1,5 +1,12 @@
 import React from 'react';
 
-const ProductoFormScreen = () => null;
+import ScreenFallback from '../../shared/ScreenFallback';
+
+const ProductoFormScreen = () => (
+	<ScreenFallback
+		title="Producto"
+		description="La edición de productos está disponible en la variante nativa de Expo."
+	/>
+);
 
 export default ProductoFormScreen;

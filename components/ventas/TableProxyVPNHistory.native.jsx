@@ -1,4 +1,5 @@
 import MeteorBase from "@meteorrn/core";
+import { BlurView } from "expo-blur";
 import React from "react";
 import {
     ScrollView,
@@ -18,7 +19,6 @@ import {
     useTheme,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BlurView } from "expo-blur";
 
 import SubidaArchivos from "../archivos/SubidaArchivos.native";
 import {
@@ -32,6 +32,46 @@ const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
     MeteorBase
   );
+
+const PROXY_VPN_VENTA_FIELDS = {
+  _id: 1,
+  cobrado: 1,
+  comentario: 1,
+  createdAt: 1,
+  isCancelada: 1,
+  isCobrado: 1,
+  metodoPago: 1,
+  monedaCobrado: 1,
+  "producto.carritos._id": 1,
+  "producto.carritos.cobrarUSD": 1,
+  "producto.carritos.comentario": 1,
+  "producto.carritos.entregado": 1,
+  "producto.carritos.megas": 1,
+  "producto.carritos.type": 1,
+};
+
+const PROXY_VPN_EVIDENCIA_FIELDS = {
+  _id: 1,
+  aprobado: 1,
+  base64: 1,
+  cancelada: 1,
+  cancelado: 1,
+  createdAt: 1,
+  data: 1,
+  dataB64: 1,
+  dataBase64: 1,
+  denegado: 1,
+  descripcion: 1,
+  detalles: 1,
+  estado: 1,
+  fecha: 1,
+  fechaSubida: 1,
+  isCancelada: 1,
+  rechazado: 1,
+  size: 1,
+  tamano: 1,
+  ventaId: 1,
+};
 
 const chipColorEstado = (estado) => {
   switch (estado) {
@@ -170,8 +210,11 @@ const TableProxyVPNHistory = () => {
             userId: Meteor.userId(),
           };
 
-    const sub = Meteor.subscribe("ventasRecharge", query);
+    const sub = Meteor.subscribe("ventasRecharge", query, {
+      fields: PROXY_VPN_VENTA_FIELDS,
+    });
     const ventas = VentasRechargeCollection.find(query, {
+      fields: PROXY_VPN_VENTA_FIELDS,
       sort: { createdAt: -1 },
     });
     return {
@@ -196,11 +239,15 @@ const TableProxyVPNHistory = () => {
     }
     const sub = Meteor.subscribe("evidenciasVentasEfectivoRecharge", {
       ventaId: { $in: carritoIds },
+    }, {
+      fields: PROXY_VPN_EVIDENCIA_FIELDS,
     });
     return {
       cargandoEvidencias: !sub.ready(),
       evidencias: EvidenciasVentasEfectivoCollection.find({
         ventaId: { $in: carritoIds },
+      }, {
+        fields: PROXY_VPN_EVIDENCIA_FIELDS,
       }).fetch(),
     };
   }, [JSON.stringify(carritoIds)]);

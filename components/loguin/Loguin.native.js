@@ -38,6 +38,12 @@ const GOOGLE_IOS_CLIENT_ID =
   "1043110071233-p7e56eu0sb203j32pf66b1blaql14f26.apps.googleusercontent.com";
 const GOOGLE_WEB_CLIENT_ID =
   "1043110071233-5mf355rcrf02hq4ja99uaq9kspokur1t.apps.googleusercontent.com";
+const LOGIN_CONFIG_FIELDS = {
+  active: 1,
+  clave: 1,
+  type: 1,
+  valor: 1,
+};
 const IOS_LOGIN_KEYBOARD_OFFSET = 120;
 const ANDROID_LOGIN_KEYBOARD_OFFSET = 96;
 
@@ -193,11 +199,15 @@ const Loguin = () => {
       active: true,
       type: "CONFIG",
       clave: "LOGIN_WITH_GOOGLE",
+    }, {
+      fields: LOGIN_CONFIG_FIELDS,
     });
     return ConfigCollection.findOne({
       active: true,
       type: "CONFIG",
       clave: "LOGIN_WITH_GOOGLE",
+    }, {
+      fields: LOGIN_CONFIG_FIELDS,
     });
   });
   const permitirLoginWithApple = Meteor.useTracker(() => {
@@ -206,11 +216,15 @@ const Loguin = () => {
       active: true,
       type: "CONFIG",
       clave: "LOGIN_WITH_APPLE",
+    }, {
+      fields: LOGIN_CONFIG_FIELDS,
     });
     return ConfigCollection.findOne({
       active: true,
       type: "CONFIG",
       clave: "LOGIN_WITH_APPLE",
+    }, {
+      fields: LOGIN_CONFIG_FIELDS,
     });
   });
 

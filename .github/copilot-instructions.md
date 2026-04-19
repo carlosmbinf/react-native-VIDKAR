@@ -28,6 +28,66 @@
 
 ---
 
+Resumen tecnico - Tracking nativo del cadete como modulo local de Expo para sobrevivir prebuild
+
+- Contexto validado:
+  - El tracking de ubicacion del cadete ya tenia permisos, `UIBackgroundModes` y configuracion Expo correctos, pero la confiabilidad del background en iOS/Android seguia limitada por la capa JS/TaskManager.
+  - Como este proyecto usa Expo con carpetas `ios/` y `android/` generadas, no conviene basar una solucion critica solo en parches manuales dentro de esos entrypoints nativos.
+
+- Arquitectura aplicada:
+  - Se creo un modulo local Expo en:
+    - `modules/cadete-background-tracking/`
+  - El modulo expone un contrato nativo comun `CadeteBackgroundTracking` con metodos:
+    - `startTracking(userId, meteorUrl)`
+    - `stopTracking()`
+    - `syncTracking(enabled, userId, meteorUrl)`
+    - `getStatus()`
+  - La idea base es que el tracking critico viva en codigo nativo autolinkeable por Expo y no solo en `expo-task-manager`.
+
+- Implementacion iOS aplicada:
+  - `CadeteNativeLocationService.swift` usa `CLLocationManager` nativo con:
+    - `allowsBackgroundLocationUpdates = true`
+    - `pausesLocationUpdatesAutomatically = false`
+    - `activityType = .otherNavigation`
+    - heartbeat interno y envio por `POST /api/location`
+    - verificacion periodica via `POST /api/cadete/isActive`
+  - `CadeteBackgroundTrackingAppDelegateSubscriber.swift` restaura el tracking desde el arranque nativo usando `ExpoAppDelegateSubscriber`, evitando depender de que el router o una pantalla JS ya hayan montado.
+
+- Implementacion Android aplicada:
+  - `CadeteTrackingService.kt` usa `FusedLocationProviderClient` dentro de un `foreground service` propio del modulo.
+  - El servicio mantiene:
+    - notificacion persistente
+    - `requestLocationUpdates(...)`
+    - heartbeat de 30s
+    - `getCurrentLocation(...)` como respaldo
+    - envio HTTP a `/api/location`
+    - gate por `/api/cadete/isActive`
+  - La configuracion del servicio vive dentro del propio modulo, no en codigo de pantalla.
+
+- Integracion JS aplicada:
+  - `services/location/cadeteBackgroundLocation.native.js` ahora usa `requireOptionalNativeModule('CadeteBackgroundTracking')` y entra en modo `native-first` cuando el modulo esta disponible.
+  - En ese modo:
+    - `startCadeteBackgroundLocation` delega al modulo nativo
+    - `stopCadeteBackgroundLocation` delega al modulo nativo
+    - `syncCadeteBackgroundLocation` delega al modulo nativo
+    - `readCadeteLocationStatus` fusiona estado persistido JS con estado nativo real
+    - el bootstrap JS ya no intenta levantar el task Expo si existe el modulo nativo; solo restaura/sincroniza el servicio nativo
+    - `useCadeteLocationTracking.native.js` deja de montar `watchPositionAsync(...)` y heartbeat JS cuando el modulo nativo esta disponible; en native-first el hook queda solo como capa de estado/UI
+  - Se mantiene el fallback Expo actual para runtimes donde el modulo nativo aun no este compilado en el binario.
+
+- Decisiones tecnicas importantes:
+  - El modulo local necesita vivir en `modules/` con:
+    - `expo-module.config.json`
+    - codigo Swift/Kotlin
+    - manifest/build propios
+  - Esto es preferible a tocar directamente `AppDelegate.swift` o `MainApplication.kt` como solucion principal, porque Expo puede regenerar esos folders.
+  - Si se recompila un binario sin incluir el modulo nativo, el servicio JS debe seguir funcionando como fallback y no romper el runtime.
+
+- Regla practica:
+  - Si una feature critica de background necesita mas confiabilidad que la capa JS de Expo, primero evaluar un modulo local Expo antes de editar manualmente `ios/` o `android/` generados.
+  - El entrypoint JS del proyecto puede seguir coordinando estado y fallback, pero el tracking continuo del cadete debe considerarse responsabilidad del modulo nativo cuando este presente.
+
+
 Resumen técnico – Parche reproducible para RNFirebase Messaging iOS tras error de `RCTPromiseRejectBlock`
 
 - Problema detectado:
@@ -1553,6 +1613,115 @@ Resumen técnico – Pantalla previa a JS en iOS era de Expo Go, no del splash r
 
 - Hallazgo validado:
   - Cuando el proyecto se abre con Expo Go, iOS puede mostrar una pantalla previa con icono y nombre de la app antes de cargar el bundle JavaScript.
+
+---
+
+Resumen técnico - Proyección mínima de suscripciones Meteor fuera del menú principal
+
+- Alcance aplicado:
+  - Se extendió la estrategia de `fields` mínimos más allá del flujo del menú principal y se recortaron suscripciones en módulos administrativos, mensajería, comercio/cadete, empresa, remesas, recargas, evidencias y historiales Proxy/VPN.
+  - La intención no fue “minificar por minificar”, sino reducir payload sin romper documentos anidados usados por UI, acciones y métodos Meteor posteriores.
+
+- Hallazgo crítico de backend validado antes de recortar:
+  - En `react-download/server/publicaciones.js`, las publicaciones relevantes aceptan `selector` y `option` y pasan `option` a `find(...)`.
+  - Eso confirma que `fields` sí reduce datos entregados por servidor y no es solo un filtro local de Minimongo.
+  - Antes de recortar flujos sensibles se contrastaron también métodos backend que consumen esos documentos, especialmente en:
+    - remesas
+    - recargas DTShop
+    - checkout/carrito
+    - comisiones de comercio
+
+- Patrón aplicado por módulo:
+  - Definir constantes `*_FIELDS` cerca del `Meteor.useTracker(...)` para documentar explícitamente qué shape necesita la pantalla.
+  - Reutilizar esas mismas constantes tanto en:
+    - `Meteor.subscribe(..., { fields })`
+    - `Collection.find/findOne(..., { fields })`
+  - Esto evita que la query local vuelva a leer más campos de los necesarios cuando Minimongo tiene un subset proyectado.
+
+- Áreas optimizadas en esta conversación:
+  - Config/admin:
+    - `components/property/PropertyTable.native.js`
+    - `components/servers/ServerList.native.jsx`
+    - `components/dashboard/RechargeProfitCard.native.jsx`
+  - Auth/config:
+    - `components/loguin/Loguin.native.js`
+  - Users:
+    - `components/users/UserDetails.native.js`
+    - `components/users/componentsUserDetails/OptionsCardAdmin.js`
+  - Mensajes:
+    - `components/mensajes/MensajesHome.native.js`
+  - Comercio / catálogo / empresa:
+    - `components/productos/ProductosScreen.native.jsx`
+    - `components/empresa/screens/ProductoFormScreen.native.jsx`
+    - `components/empresa/screens/TiendaDetailScreen.native.jsx`
+    - `components/empresa/screens/MisTiendasScreen.native.jsx`
+    - `components/empresa/screens/PedidosPreparacionScreen.native.jsx`
+  - Cadete / pedidos comercio:
+    - `components/comercio/pedidos/HomePedidosComercio.native.jsx`
+    - `components/comercio/pedidos/CardPedidoComercio.native.jsx`
+    - `components/comercio/pedidos/components/PedidoCard.native.jsx`
+    - `components/comercio/pedidos/PedidosComerciosList.native.jsx`
+    - `components/comercio/maps/MapaPedidoConCadete.native.jsx`
+  - Remesas / recargas / evidencias / historiales:
+    - `components/remesas/VentasStepper.native.jsx`
+    - `components/remesas/TableListRemesa.native.jsx`
+    - `components/cubacel/TableRecargas.native.jsx`
+    - `components/archivos/SubidaArchivos.native.jsx`
+    - `components/archivos/AprobacionEvidenciasVenta.native.jsx`
+    - `components/archivos/ListaArchivos.native.jsx`
+    - `components/ventas/TableProxyVPNHistory.native.jsx`
+
+- Regla crítica para `ventasRecharge`:
+  - No conviene recortar esa colección mirando solo los textos visibles de una pantalla.
+  - Hay que revisar siempre si la pantalla o sus hijos usan campos anidados de:
+    - `producto.carritos.*`
+    - `producto.comisiones`
+    - estados de pago/cobro/cancelación
+    - ids de carrito reutilizados por evidencias o transacciones
+  - En historiales y pantallas de aprobación se validó especialmente que siguieran presentes campos como:
+    - `_id`
+    - `createdAt`
+    - `metodoPago`
+    - `cobrado`
+    - `isCobrado`
+    - `isCancelada`
+    - `comentario`
+    - `monedaCobrado`
+    - `precioOficial`
+    - nested `producto.carritos.*` según cada flujo
+
+- Regla crítica para `evidenciasVentasEfectivoRecharge`:
+  - Las pantallas de evidencia no usan un shape limpio único; hacen fallback entre varios nombres legacy del documento.
+  - Por eso la proyección segura debe conservar variantes como:
+    - `base64`, `dataBase64`, `data`, `dataB64`
+    - `createdAt`, `fecha`, `fechaSubida`
+    - `descripcion`, `detalles`
+    - `size`, `tamano`
+    - flags `aprobado`, `rechazado`, `denegado`, `cancelado`, `cancelada`, `isCancelada`, `estado`
+  - Si se quita alguna de esas alternativas sin revisar `mapEvidenciaDoc(...)`, la UI puede parecer “vacía” aunque la evidencia exista.
+
+- Regla crítica para `transacciones` de recargas:
+  - En `TableRecargas.native.jsx` no hace falta traer todo el documento de transacción.
+  - Pero sí conviene conservar al menos:
+    - `_id`
+    - `externalId`
+    - `status`
+  - La pantalla deriva el estado visual desde `status`, así que recortar solo ids rompe el resumen del pago.
+
+- Regla práctica con `user` / `userID`:
+  - Si una pantalla solo necesita nombre o username, no suscribir el documento completo del usuario.
+  - En esta conversación se confirmó que `user` y `userID` también aceptan `fields`, así que el patrón correcto es proyectar explícitamente `username`, `profile.name`, `_id` u otros campos mínimos según el caso.
+
+- Validación realizada:
+  - Tras los cambios se ejecutó verificación de errores sobre todos los archivos tocados y el resultado quedó limpio.
+  - Esto es importante porque al introducir constantes de proyección es fácil romper firmas de `Meteor.subscribe`, dependencias de hooks o contextos de `find/findOne`.
+
+- Lección práctica:
+  - En este proyecto, optimizar `fields` solo es seguro cuando se valida a la vez:
+    1. la publicación Meteor
+    2. el shape realmente usado por la pantalla
+    3. los métodos backend o diálogos hijos que reutilizan el mismo documento
+  - Si un módulo usa documentos nested complejos, es mejor una proyección conservadora pero explícita que una minimización agresiva que rompa silenciosamente acciones o detalles.
   - Esa pantalla no corresponde al splash nativo final configurable de la app y no conviene intentar corregirla desde componentes React.
 
 - Solución aplicada:
@@ -2298,6 +2467,100 @@ Resumen técnico – Migración de push notifications Firebase a Expo con parida
   - `services/notifications/PushMessaging.ts`
     - fallback no-op para superficies no nativas
   - `app/_layout.native.tsx`
+
+---
+
+Resumen técnico – El contenido del `StoreCard` debe renderizarse como child real del mapa
+
+- Ajuste aplicado:
+  - `components/empresa/maps/MapaTiendaCardBackground.native.jsx` ahora acepta `children` y los monta dentro de su propio wrapper, por encima del `MapView` y del scrim.
+  - `components/empresa/screens/MisTiendasScreen.native.jsx` dejó de armar el hero de la tienda con overlays hermanos del mapa.
+  - La composición visible del card (`status chip`, menú, panel informativo, métricas y CTA) ahora vive como child real de `MapaTiendaCardBackground`.
+
+- Criterio técnico validado:
+  - Si el mapa es el componente padre visual del card, el contenido asociado también debe vivir dentro de ese mismo árbol.
+  - Esto simplifica el layering y hace más coherente la composición del hero que dejar el mapa como fondo aislado y el resto como capas externas.
+
+- Regla práctica:
+  - En este proyecto, si un componente de media o mapa actúa como contenedor principal del card, preferir inyectar el contenido superpuesto como `children` del componente de fondo antes que envolverlo con capas hermanas usando `absoluteFill`.
+
+---
+
+Resumen técnico – En React Native Maps los overlays del card no deben renderizarse dentro de `MapView`
+
+- Problema detectado:
+  - En iOS/Fabric apareció el crash:
+    - `RCTComponentViewRegistry: Attempt to recycle a mounted view`
+  - La causa fue montar `children` arbitrarios del card dentro del árbol nativo de `MapView` en `MapaTiendaCardBackground.native.jsx`.
+
+- Corrección aplicada:
+  - `MapaTiendaCardBackground.native.jsx` mantiene al mapa como padre visual del card, pero el contenido superpuesto ya no se renderiza dentro de `MapView`.
+  - La estructura correcta quedó así:
+    - `MapView`
+    - `scrim`
+    - `overlayContent` con `children`
+  - Todo eso vive dentro del mismo wrapper del mapa, pero solo `Marker` queda como hijo del `MapView`.
+
+- Regla práctica:
+  - Si un card necesita overlays sobre un mapa en Expo/React Native Maps, esos overlays deben vivir en el wrapper del componente y no como hijos directos de `MapView`.
+  - En este proyecto, dentro de `MapView` dejar solo elementos compatibles del mapa como `Marker`, `Polyline`, etc.; no montar ahí paneles, menús, botones o vistas de layout general.
+
+---
+
+Resumen técnico – `StoreCard` de Mis Tiendas con CTA principal en toda la tarjeta
+
+- Ajuste aplicado:
+  - `components/empresa/screens/MisTiendasScreen.native.jsx` dejó de usar un botón explícito `Abrir tienda` dentro del hero.
+  - La navegación principal ahora vive en el propio `Card` usando `onPress`, de modo que tocar cualquier parte de la tarjeta abre el detalle de la tienda y sus productos.
+  - El menú de tres puntos se mantiene como acción secundaria para editar o eliminar la tienda.
+
+- Criterio UX validado:
+  - En este card, el CTA principal no debe competir visualmente con la información del negocio.
+  - La tarjeta debe leerse primero como una superficie informativa del local y, a la vez, comportarse completa como acceso natural al detalle.
+  - El contenido del hero debe quedar más resumido y mejor jerarquizado:
+    - firma del local
+    - fecha/antigüedad
+    - nombre
+    - descripción breve
+    - estado operativo
+    - cantidad de productos
+    - ubicación
+    - hint final de interacción
+
+- Regla práctica:
+  - Si una card ya representa una entidad navegable completa, preferir que toda la superficie sea el target principal y dejar botones internos solo para acciones secundarias o destructivas.
+
+---
+
+Resumen técnico – `StoreCard` de Mis Tiendas con chips blur y jerarquía editorial
+
+- Ajuste aplicado:
+  - `components/empresa/screens/MisTiendasScreen.native.jsx` ahora usa chips con `BlurView` dentro del hero del mapa para reforzar el look premium del card.
+  - El patrón blur se aplicó a:
+    - estado de ubicación
+    - fecha/antigüedad de la tienda
+    - contador principal de productos
+    - contenedor visual del botón de menú contextual
+
+- Criterio UX validado:
+  - El card debe sentirse como un mapa editorial con información superpuesta, no como un bloque común con widgets dispersos.
+  - La estructura aprobada para el contenido del hero quedó así:
+    - fila superior con estado blur + menú
+    - metadatos de firma/antigüedad
+    - nombre y descripción
+    - bloque resumido de estado y perfil
+    - ubicación registrada
+    - hint de navegación al detalle
+
+- Regla técnica importante:
+  - En este proyecto, `BlurView` debe usar:
+    - `tint="dark"` o `tint="light"` literal
+    - `experimentalBlurMethod="dimezisBlurView"` en Android
+    - `renderToHardwareTextureAndroid={true}` cuando el blur esté dentro de overlays complejos
+  - Si se usan chips blur dentro de cards con mapa, el contenido superpuesto debe seguir viviendo fuera de `MapView` y solo en el wrapper del componente.
+
+- Regla práctica:
+  - Si se vuelve a iterar esta tarjeta, mantener los blur chips solo en puntos de lectura rápida; no convertir todo el panel inferior en glass para no perder contraste ni claridad comercial.
     - importa el servicio push por side effect para asegurar que el handler global quede registrado desde el arranque nativo
   - `app/index.native.tsx`
     - inicializa listeners globales con `setupPushListeners()`
@@ -3643,6 +3906,35 @@ Resumen técnico – Límite configurable de consulta y toggle de filtros en `Ve
   - Se añadió una acción en `AppHeader` para mostrar u ocultar el panel de filtros.
   - Cuando el panel está oculto, la pantalla conserva una barra compacta con el límite activo y el conteo de filtros activos, además de un acceso para limpiar filtros si hace falta.
 
+  ---
+
+  Resumen técnico - Crash en `TiendaDetailScreen` por import inválido de `FAB` y reactividad frágil en `MenuIconMensajes`
+
+  - Problema detectado:
+    - `components/empresa/screens/TiendaDetailScreen.native.jsx` estaba importando `FAB` desde `react-native`.
+    - En runtime eso deja `FAB` como `undefined` y dispara el error clásico:
+      - `Element type is invalid ... but got: undefined`
+    - El stack podía señalar líneas cercanas del `FlatList` o `refreshControl`, aunque la causa real estuviera en otro nodo del mismo árbol renderizado.
+
+  - Corrección aplicada:
+    - `FAB` debe importarse desde `react-native-paper`, no desde `react-native`.
+    - Esto restaura correctamente el botón flotante de `TiendaDetailScreen` sin tocar la lógica de la pantalla.
+
+  - Hallazgo adicional en `components/components/MenuIconMensajes.native.js`:
+    - El componente estaba haciendo `Meteor.subscribe(...)` dentro de un loop reactivo sobre mensajes.
+    - Ese patrón es frágil y puede terminar provocando warnings de montaje del tipo:
+      - `Can't perform a React state update on a component that hasn't mounted yet`
+
+  - Ajuste aplicado al menú de mensajes:
+    - Se separó la carga reactiva en dos pasos estables:
+      - primero suscripción a `mensajes` y derivación de IDs únicos de remitentes
+      - luego una sola suscripción agregada a `user` con `{ _id: { $in: users } }`
+    - Con esto el componente deja de abrir suscripciones dentro de un `map(...)` reactivo y queda más estable al montar/desmontar headers.
+
+  - Regla práctica:
+    - Si un componente usa `FAB`, `Portal`, `Dialog`, `Surface` u otras piezas de Paper, verificar siempre que el import venga de `react-native-paper` y no de `react-native`.
+    - En este proyecto, no abrir `Meteor.subscribe(...)` dentro de loops reactivos por mensaje o por item; derivar primero los IDs necesarios y luego hacer una única suscripción agregada.
+
 - Regla práctica:
   - Si una pantalla administrativa usa `limit` fijo en Meteor, conviene convertirlo en estado controlado cuando el volumen operativo puede variar por contexto.
   - Si el panel de filtros consume mucho espacio, no hace falta eliminarlo ni simplificarlo: es mejor añadir un toggle de visibilidad y dejar una versión colapsada con la información mínima relevante.
@@ -3904,6 +4196,101 @@ Resumen técnico – Sistema visual de modo oscuro validado en Servidores como r
     - diálogos de detalle
     - filtros con chips
     - métricas en cards
+
+---
+
+Resumen tecnico - `ProductoCard` de TiendaDetail sin altura rigida ni estiramiento en modo compacto
+
+- Problema detectado:
+  - `components/empresa/components/ProductoCard.native.jsx` seguia usando `height: "100%"` en la card.
+  - En `TiendaDetailScreen.native.jsx`, la variante compacta del card se renderiza en columna (`contentCompact`), pero el bloque `info` seguia con:
+    - `flex: 1`
+    - `justifyContent: 'space-between'`
+  - Esa combinacion hacia que el card se estirara visualmente y dejara demasiado aire vertical, especialmente en movil con una sola columna.
+
+- Correccion aplicada:
+  - Se elimino la altura rigida del `Card`.
+  - Se agrego una variante `infoCompact` con:
+    - `flex: 0`
+    - `justifyContent: 'flex-start'`
+  - Se ajusto tambien la densidad del modo compacto con:
+    - `contentCompact.gap = 12`
+    - radio levemente mas compacto en la card
+    - `overflow: 'hidden'` para una superficie mas limpia.
+
+- Criterio visual validado:
+  - En cards verticales de producto, la altura debe salir del contenido real y no de una regla de estiramiento artificial.
+  - Si el card pasa de layout horizontal a layout columna, no conviene conservar la misma logica de `space-between` pensada para llenar altura disponible.
+
+- Regla practica:
+  - En este proyecto, si una card cambia a modo compacto/columna, revisar siempre si sigue teniendo `flex: 1` o `justifyContent: 'space-between'` en el bloque principal de contenido.
+  - Para listas moviles de productos, evitar `height: '100%'` salvo que exista una grilla con altura de fila realmente controlada por el contenedor padre.
+
+---
+
+Resumen tecnico - Flujo legacy real de imagenes de productos en modo Empresa
+
+- Fuente de verdad validada en legacy:
+  - La imagen del producto NO vive dentro del documento de `ProductosComercioCollection`.
+  - El frontend legacy resuelve la foto llamando:
+    - `Meteor.call('findImgbyProduct', productoId)`
+  - El backend busca en `ImagesCollection` por:
+    - `meta.idProducto = productoId`
+  - Si encuentra archivo, devuelve la URL publica usando `imageDoc.link()` + `replaceUrl(..., ROOT_URL)`.
+
+- Visualizacion en legacy:
+  - `components/empresa/components/ProductoImage.jsx`:
+    - llama `findImgbyProduct` en `useEffect`
+    - mientras carga muestra `ActivityIndicator`
+    - si no hay imagen o falla, muestra placeholder con `image-off`
+    - si existe, renderiza `Image` con `resizeMode='cover'`
+  - `components/empresa/components/ProductoCard.jsx` solo monta `ProductoImage productoId={producto._id}` y no consume ningun campo de imagen dentro del producto.
+
+- Flujo de edicion/creacion de imagen en modo empresa:
+  - El shell de empresa se activa en legacy cuando:
+    - `user.profile.roleComercio` incluye `EMPRESA`
+    - y `user.modoEmpresa === true`
+  - La navegacion relevante del modulo es:
+    - `MisTiendas -> TiendaDetail -> ProductoForm`
+  - `TiendaDetailScreen.jsx` abre `ProductoForm` pasando:
+    - `producto` existente para editar, o
+    - objeto base con `idTienda` para crear.
+
+- ProductoForm legacy:
+  - En modo edicion, `ProductoFormScreen.jsx` hace dos cosas al montar:
+    - hidrata `formData` desde el producto
+    - carga imagen actual con `findImgbyProduct(producto._id)` para poblar `imagenPreview`
+  - La seleccion de nueva imagen usa `launchImageLibrary` de `react-native-image-picker`.
+  - El archivo local se valida por:
+    - tipo `image/*`
+    - peso maximo `5MB`
+  - Para subir la imagen:
+    - lee el archivo local con `react-native-fs` en base64
+    - construye `data:<mime>;base64,...`
+    - llama `Meteor.call('comercio.uploadProductImage', productoId, fileData)`
+
+- Contrato backend confirmado:
+  - `addProducto` solo inserta el documento del producto y devuelve `productoId`.
+  - `comercio.editProducto` solo actualiza datos del producto; NO manipula imagen.
+  - `comercio.uploadProductImage`:
+    - valida autenticacion y permisos (dueno de tienda o admin)
+    - valida archivo
+    - elimina primero cualquier imagen previa de ese producto en `ImagesCollection`
+    - escribe el archivo nuevo con metadata incluyendo `idProducto`, `idTienda`, `userId` y `type: 'COMERCIO'`
+  - `comercio.deleteProductImage` existe como metodo separado para borrar explicitamente la imagen asociada.
+
+- Matiz funcional importante del legacy:
+  - En `ProductoFormScreen.jsx`, `handleRemoveImage()` solo limpia el estado local (`imagen` e `imagenPreview`).
+  - Si el usuario quita la preview en modo edicion y guarda SIN seleccionar una nueva imagen, el flujo normal de guardado no llama `comercio.deleteProductImage`.
+  - La imagen remota solo se reemplaza de forma efectiva cuando se selecciona otra nueva y luego se ejecuta `comercio.uploadProductImage`.
+  - O sea: en el legacy, "quitar la foto" desde la UI no necesariamente borra la imagen del backend salvo que se dispare el metodo explicito de borrado o un upload nuevo la reemplace.
+
+- Regla practica:
+  - Si se migra o ajusta este flujo en Expo, mantener estas responsabilidades separadas:
+    - producto -> `addProducto` / `comercio.editProducto`
+    - imagen -> `findImgbyProduct` / `comercio.uploadProductImage` / `comercio.deleteProductImage`
+  - No asumir que la imagen viene embebida en el documento del producto.
+  - Si se quiere soportar borrado real de foto sin reemplazo, hay que llamar explicitamente `comercio.deleteProductImage` en el flujo de guardar, porque el legacy no lo deja resuelto solo con limpiar la preview local.
     - buscadores y barras de entrada sobre superficies oscuras
 
 - Lección práctica:
@@ -4502,6 +4889,62 @@ Resumen técnico – User cards minimalistas con Peek & Pop en `UsersHome.native
 
 ---
 
+Resumen técnico – `MapaTiendaCardBackground` con modo fill para ocupar todo el alto del `StoreCard`
+
+- Ajuste aplicado:
+  - `components/empresa/maps/MapaTiendaCardBackground.native.jsx` ahora soporta `fill` para comportarse como fondo full-height del card.
+  - Cuando `fill === true`, el wrapper usa `flex: 1` y el `MapView` deja de depender de `minHeight` fijo.
+  - `components/empresa/screens/MisTiendasScreen.native.jsx` ya consume ese modo con `fill` en lugar de pasar una altura intermedia manual.
+
+- Criterio visual validado:
+  - Si el mapa es el hero del `StoreCard`, no debe quedarse con una altura parcial mientras el resto del contenido sigue creciendo encima.
+  - El mapa debe ocupar todo el alto real del card y actuar como lienzo de fondo completo, igual que la imagen en `ProductoCard`.
+
+- Regla práctica:
+  - Si una superficie usa `MapaTiendaCardBackground` como fondo completo del card, preferir `fill` en lugar de pasar `height="100%"` o `minHeight` mezclados desde el padre.
+  - Reservar `height` fijo solo para contextos donde el mapa realmente deba renderizarse como bloque parcial y no como hero full-bleed.
+
+---
+
+Resumen técnico – `StoreCard` con altura estable para descripciones de hasta 3 líneas
+
+- Ajuste aplicado:
+  - `components/empresa/screens/MisTiendasScreen.native.jsx` ahora reserva altura real para el bloque editorial del card de tienda.
+  - La descripción quedó limitada a `3` líneas visibles y con `minHeight` fijo para que una tienda con copy corto no rompa la composición frente a otra con copy más largo.
+  - También se aumentó ligeramente la `minHeight` del hero para que el card respire bien incluso cuando usa las 3 líneas completas.
+
+- Criterio visual validado:
+  - En este módulo, el card no debe verse “encogido” cuando la descripción ocupa 1 línea ni “forzado” cuando ocupa 3.
+  - La composición correcta es reservar el espacio editorial y mantener estable la relación entre:
+    - badge superior
+    - título y descripción
+    - bloque de productos
+    - panel de estado
+    - nota operativa inferior
+
+- Regla práctica:
+  - Si se vuelve a ajustar el copy visible del `StoreCard`, primero modificar la altura reservada del bloque de texto antes de tocar toda la geometría del card.
+  - Para cards de tienda con layout editorial, la estabilidad visual debe salir de `minHeight` y límites de líneas, no de dejar que cada descripción cambie libremente la altura del componente.
+
+---
+
+Resumen técnico – Safe area real en drawers de Expo
+
+- Ajuste aplicado:
+  - `components/drawer/DrawerOptionsAlls.js`, `components/cadete/CadeteDrawerContent.native.jsx` y `components/empresa/EmpresaDrawerContent.native.jsx` ahora respetan safe area real del dispositivo.
+  - Los drawers se envolvieron con `SafeAreaView` usando `edges={["top", "bottom", "left"]}` para evitar contenido bajo la hora, la Dynamic Island o la zona inferior del sistema.
+  - Además se añadió padding inferior dinámico con `useSafeAreaInsets()` en el `ScrollView` y en los footers para que botones y bloques finales no queden pegados al home indicator.
+
+- Criterio UX validado:
+  - En drawers laterales no basta con reservar solo `top`; el contenido largo y las acciones finales también deben respirar respecto al borde inferior.
+  - El inset lateral izquierdo también debe contemplarse como parte del layout seguro del drawer, especialmente en dispositivos con esquinas redondeadas o futuras variaciones de ventana.
+
+- Regla práctica:
+  - Si un drawer Expo monta header, scroll y footer propios, aplicar safe area al contenedor completo y no confiar en paddings fijos dispersos.
+  - Si existe footer persistente dentro del drawer, sumar `insets.bottom` también en esa zona y no solo en el cuerpo scrolleable.
+
+---
+
 Resumen técnico – `ServiceProgressPill` más compacto y con fondo visual moderno en `UsersHome.native.js`
 
 - Ajuste aplicado:
@@ -4592,6 +5035,140 @@ Resumen técnico – Color progresivo real por porcentaje en `ServiceProgressPil
 - Regla práctica:
   - Si un indicador de progreso necesita transmitir consumo gradual, evitar thresholds visuales demasiado bruscos cuando el requerimiento de UX pide sensibilidad fina por porcentaje.
   - Si se ajustan colores de `ok/warn/danger`, revisar el componente compartido porque la interpolación ahora depende directamente de esos colores base.
+
+---
+
+Resumen técnico – `ProductoCard` de empresa con imagen integrada como fondo del card
+
+- Ajuste aplicado:
+  - `components/empresa/components/ProductoCard.native.jsx` dejó de separar visualmente la imagen del resto del contenido.
+  - La imagen del producto ahora funciona como superficie hero/fondo del card completo y los elementos principales viven dentro de esa misma zona visual:
+    - chip de disponibilidad
+    - menú de acciones
+    - nombre del producto
+    - descripción
+    - precio
+    - resumen de disponibilidad
+    - observaciones
+
+- Decisión técnica importante:
+  - No se cambió el contrato de obtención de imagen.
+  - `components/empresa/components/ProductoImage.native.jsx` sigue resolviendo la media con `Meteor.call('findImgbyProduct', productoId, ...)`.
+  - Solo se amplió el componente para soportar modo `fill`, permitiendo reutilizar la misma fuente de verdad como capa full-bleed dentro del card.
+
+- Criterio UX validado:
+  - En este módulo empresa, la imagen debe sentirse como parte del producto y no como un bloque aislado.
+  - Si el card necesita comunicar disponibilidad, precio y contexto comercial rápido, conviene integrar esos overlays sobre el hero visual en lugar de dividir foto y contenido en dos secciones desconectadas.
+
+- Regla práctica:
+  - Si se vuelve a tocar este card, preservar primero la integración visual de la imagen como fondo antes de reintroducir layouts partidos tipo `media + info`.
+  - Si la imagen falla o no existe, el fallback debe seguir viviendo en `ProductoImage` y no duplicarse dentro del card.
+
+---
+
+Resumen técnico – `StoreCard` de Mis Tiendas con hero más comercial y CTA más claro
+
+- Ajuste aplicado:
+  - `components/empresa/screens/MisTiendasScreen.native.jsx` mejoró el card de tienda sin cambiar su lógica de datos.
+  - El bloque superior con `MapaTiendaCardBackground` se mantuvo como hero del negocio, pero ahora incorpora mejor jerarquía visual:
+    - estado de ubicación listo/revisar
+    - menú contextual
+    - nombre de tienda
+    - contador de productos en pill dentro del hero
+
+- Mejora de contenido inferior:
+  - El cuerpo del card se simplificó para que primero comunique el estado operativo de la tienda (`Catálogo disponible` / `Lista para publicar`) y luego la ubicación.
+  - El CTA inferior pasó a una acción más clara y comercial: `Abrir tienda`.
+
+- Regla práctica:
+  - En cards de tiendas para Expo, el mapa debe sentirse como cabecera visual de la tienda y no solo como decoración.
+  - Si una card necesita mostrar métrica, estado y acceso rápido, priorizar una sola narrativa visual compacta en lugar de sumar chips sueltos sin jerarquía.
+
+---
+
+Resumen técnico – `TextInput` de búsqueda en header de `FlatList` no debe remount en iOS
+
+- Problema detectado:
+  - En `components/empresa/screens/TiendaDetailScreen.native.jsx`, el buscador vivía dentro del header de un `FlatList` y al escribir en iOS el teclado se cerraba tras cada caracter.
+
+- Causa raíz validada:
+  - El header se estaba regenerando como función en cada render de la pantalla.
+  - En este contexto, el `TextInput` puede perder foco por remount del `ListHeaderComponent`, especialmente en iOS.
+
+- Corrección aplicada:
+  - El header pasó a renderizarse como elemento memoizado (`useMemo`) y se entrega a `ListHeaderComponent` como nodo estable, no como callback recreado en cada pulsación.
+
+- Regla práctica:
+  - Si un `TextInput` vive dentro del header de un `FlatList` o `SectionList` y pierde foco al escribir, revisar primero si el header se está remontando por identidad inestable del componente.
+  - En este proyecto, para headers con inputs interactivos conviene memoizar el elemento del header o extraerlo a un componente estable antes de depurar el teclado.
+
+---
+
+Resumen técnico – `StoreCard` final con mapa full-hero y contenido completo dentro del mismo lienzo
+
+- Ajuste aplicado:
+  - `components/empresa/screens/MisTiendasScreen.native.jsx` dejó de usar una estructura separada de `mapa arriba + contenido abajo + acciones aparte`.
+  - El mapa ahora funciona como componente padre visual del card completo y todo lo demás vive como overlays internos:
+    - estado de ubicación
+    - menú contextual
+    - nombre de tienda
+    - contador de productos
+    - estado operativo
+    - coordenadas
+    - CTA `Abrir tienda`
+
+- Criterio UX validado:
+  - Para que el card de tiendas se sienta al nivel del card de producto, el hero visual no debe quedar aislado de la información útil.
+  - La composición correcta es una sola superficie inmersiva donde el mapa aporte identidad del negocio y el contenido comercial quede integrado encima.
+
+- Hallazgo técnico adicional:
+  - Durante el ajuste apareció una contaminación accidental en estilos (`dialogContent` con props absolutas heredadas de otro bloque).
+  - En pantallas con muchos estilos locales, después de refactors grandes conviene revisar el bloque `StyleSheet.create(...)` completo y no solo el JSX visible.
+
+- Regla práctica:
+  - Si un card usa mapa o media como hero principal, evitar repartir el contenido importante en secciones separadas debajo salvo que sea estrictamente necesario.
+  - En este módulo empresa, el patrón aprobado queda así:
+    - hero full-bleed
+    - scrim/fade para legibilidad
+    - contenido comercial dentro del mismo hero
+    - CTA integrado en la misma superficie
+
+---
+
+Resumen técnico – `StoreCard` refinado con identidad comercial más útil y menos cajas internas
+
+- Ajuste aplicado:
+  - `components/empresa/screens/MisTiendasScreen.native.jsx` dejó de apoyarse en varios bloques blancos grandes dentro del mapa.
+  - La información del negocio ahora se resume en una sola narrativa más comercial dentro del hero:
+    - especialidad del local
+    - nombre de la tienda
+    - cantidad de productos
+    - descripción breve
+    - estado operativo
+    - antigüedad de la tienda
+    - coordenadas
+    - CTA principal
+
+- Datos reales considerados:
+  - Las tiendas del proyecto traen por defecto:
+    - `title`
+    - `descripcion`
+    - `coordenadas`
+    - `createdAt`
+    - `pinColor`
+  - A partir de esos campos, el card ahora aprovecha mejor:
+    - `pinColor` como acento visual
+    - `createdAt` para mostrar contexto tipo `Activa desde ...`
+    - `title` + `descripcion` para derivar una firma comercial simple (`Pizzería`, `Sabores cubanos`, `Cocina regional`, etc.)
+
+- Criterio UX validado:
+  - En cards de tiendas, las coordenadas no deben competir como bloque principal con la identidad del negocio.
+  - La especialidad del local y su estado operativo aportan más valor inicial que una caja grande solo para `Operación actual` o una pill sobredimensionada de lat/lng.
+  - Si el mapa ya es el fondo completo del card, conviene reducir el número de paneles sólidos para no lavar la imagen.
+
+- Regla práctica:
+  - Si se vuelve a iterar este card, primero ajustar la jerarquía del contenido antes de añadir más chips o más overlays.
+  - El mapa debe seguir leyéndose claramente detrás del contenido; si el card vuelve a verse demasiado blanco o plano, revisar primero la opacidad del fade y la cantidad de contenedores internos.
 
 ---
 
@@ -5296,6 +5873,41 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
     - Si una superficie ya tiene tarjetas, hero, formulario y footer con paddings internos, no envolver todo el screen con `left/right` safe area por defecto.
     - Usar el `SafeAreaView` raiz solo para el comportamiento que realmente deba afectar al contenedor completo.
 
+  ---
+
+  Resumen tecnico - Google Maps Android en Expo reutiliza la API key legacy del manifest nativo
+
+  - Hallazgo validado:
+    - El proyecto legacy ya tenia una key especifica de Google Maps Android declarada en:
+      - `react-native-VIDKAR-LEGACY/android/app/src/main/AndroidManifest.xml`
+    - Esa key NO coincide con la key generada por Firebase (`google_api_key` de `google-services.json`).
+    - Para `react-native-maps` en Android, la fuente de verdad correcta es el `meta-data`:
+      - `com.google.android.geo.API_KEY`
+
+  - Valor legacy localizado:
+    - `AIzaSyD1r5uJ1PBgUaZkqKtlCgInLJtrA-Fem5g`
+
+  - Correccion aplicada en Expo:
+    - Se agrego el mismo `meta-data` al manifest nativo actual:
+      - `react-native-VIDKAR/android/app/src/main/AndroidManifest.xml`
+
+  - Regla practica:
+    - Si Google Maps falla en Android con errores de key o carga del mapa, no asumir que la key de Firebase sirve para Maps.
+    - Revisar primero si existe `com.google.android.geo.API_KEY` en el `AndroidManifest.xml` del build activo.
+    - Si el proyecto viene de un legacy RN CLI, contrastar siempre el manifest viejo antes de inventar una key nueva o reutilizar `google-services.json`.
+
+  Notas adicionales - En Expo la fuente de verdad de Google Maps debe vivir en `app.json`, no en `android/` generado
+
+  - Correccion de criterio aplicada:
+    - Aunque se haya localizado la key correcta en el `AndroidManifest.xml` del legacy, en este proyecto Expo no debe mantenerse manualmente dentro de `android/app/src/main/AndroidManifest.xml`.
+    - La configuracion correcta queda en:
+      - `expo.android.config.googleMaps.apiKey`
+      - dentro de `app.json`
+
+  - Regla practica:
+    - Si una key nativa de Android o iOS necesita sobrevivir a `prebuild` o a compilaciones limpias de Expo, moverla a `app.json` o a un config plugin.
+    - No usar `android/` o `ios/` generados como fuente de verdad persistente salvo que exista una razon excepcional y controlada.
+
   ***
 
   Resumen tecnico - Safe area lateral unificada en pantallas Expo
@@ -5611,3 +6223,1093 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
   - Criterio UX aplicado:
     - En esta pantalla se eliminaron textos tecnicos visibles para el usuario final o el operador.
     - El copy debe hablar del funcionamiento del negocio y del seguimiento del servicio, no de implementacion interna, colecciones o infraestructura.
+
+  ---
+
+  Resumen tecnico - Historial de mensajes a pantalla completa con paginacion incremental de 20
+
+  - Ajuste aplicado en `components/mensajes/MensajesHome.native.js`:
+    - La pantalla de conversacion dejo de renderizar el card superior/resumen del chat y tambien elimino el bloque interno tipo cabecera de historial.
+    - El cuerpo del chat ahora ocupa toda la superficie disponible entre `AppHeader` y el composer inferior.
+
+  - Criterio UX validado:
+    - En una vista de chat, la prioridad debe ser el historial de mensajes y no una tarjeta introductoria arriba.
+    - Si el usuario entra a conversar, la mayor parte de la pantalla debe quedar para leer y desplazarse por mensajes, no para resumen decorativo del canal.
+
+  - Paginacion reactiva aplicada:
+    - La suscripcion Meteor `mensajes` ahora se hace con `limit` incremental.
+    - Carga inicial:
+      - ultimos `20` mensajes
+    - Al desplazarse hacia arriba:
+      - se aumenta el `limit` en bloques de `20`
+    - Para detectar si existen mas mensajes sin desbordar la UI, se consulta internamente con `limit = messageLimit + 1` y luego se renderizan solo los primeros `messageLimit` visibles.
+
+  - Regla tecnica importante:
+    - En listas invertidas de chat no conviene hacer auto-scroll al fondo cada vez que aumenta la cantidad total de items.
+    - El scroll automatico solo debe dispararse si cambia el mensaje mas reciente; si lo que entra son mensajes antiguos por paginacion, la posicion visible del usuario debe mantenerse.
+
+  - Soporte visual agregado:
+    - La lista muestra indicador de carga de mensajes anteriores al paginar.
+    - Cuando aun hay historial disponible, aparece un hint discreto para seguir desplazandose hacia arriba.
+
+  - Regla practica:
+    - Si otra pantalla de mensajeria o timeline usa Meteor + `FlatList` invertido, seguir este patron:
+      1. suscripcion con `sort: { createdAt: -1 }`
+      2. carga inicial corta (`20`)
+      3. aumento progresivo del `limit`
+      4. deteccion de `hasMore` con `limit + 1`
+      5. evitar auto-scroll cuando solo se agregan mensajes antiguos
+
+    ---
+
+    Resumen tecnico - Menu de adjuntos tipo chat para enviar imagenes
+
+    - Ajuste aplicado en `components/mensajes/MensajesHome.native.js`:
+      - El composer del chat ahora incluye un boton `+` con menu contextual tipo mensajeria.
+      - Por el momento el menu expone solo una accion real:
+        - `Fotos y videos`
+      - La interfaz se resolvio con `Menu` de React Native Paper anclado al boton de adjuntos, sin introducir un modal nuevo ni romper el layout del composer.
+
+    - Flujo funcional implementado:
+      1. pedir permiso de galeria con `expo-image-picker`
+      2. abrir selector de imagenes
+      3. subir la imagen usando `Meteor.call('images.upload', ...)`
+      4. insertar mensaje en `mensajes` con `type: 'image'`
+      5. renderizar la imagen como burbuja dentro del historial del chat
+
+    - Metadata de upload aplicada para chat:
+      - `type: 'CHAT'`
+      - `category: 'CHAT_MESSAGE'`
+      - `channel: 'CHAT'`
+      - `source: 'MensajesHome.native'`
+      - `sourceApp: 'expo'`
+      - `recipientId`
+
+    - Contrato visual del mensaje imagen:
+      - Si el mensaje trae `imageUrl`, la burbuja renderiza primero la imagen.
+      - Si ademas existe `mensaje`, ese texto se trata como caption y se muestra debajo de la imagen dentro de la misma burbuja.
+      - Si no existe caption, el mensaje queda solo como imagen con su timestamp.
+
+    - Regla practica:
+      - Si luego se agregan mas opciones al menu `+` (archivo, contacto, encuesta, evento), mantener el mismo patron del composer y agregar cada accion como item del menu, no como nueva fila de botones fija.
+      - Si otra pantalla necesita enviar imagenes por chat, reutilizar el flujo actual `expo-image-picker -> images.upload -> mensaje type image` antes de inventar un endpoint dedicado.
+
+    Notas adicionales - El menu `+` del composer debe abrir arriba del boton
+
+    - Ajuste UX aplicado en `components/mensajes/MensajesHome.native.js`:
+      - El menu de adjuntos ya no debe sentirse montado encima del propio boton `+`.
+      - El patron aprobado es anclarlo con `anchorPosition="top"` para que aparezca por encima del composer, mas cercano al comportamiento esperado en apps de mensajeria.
+
+    - Regla practica:
+      - Si luego se agregan nuevas acciones al menu del chat, mantener la apertura superior y no dejar que el popup tape el boton ancla ni la caja de texto.
+
+    Notas adicionales - El cliente de chat ya prepara adjuntos genericos aunque solo renderice imagenes
+
+    - Ajuste tecnico aplicado:
+      - Aunque por ahora el soporte visual completo es solo para imagenes, el mensaje que se inserta desde Expo ya guarda tambien campos genericos de adjunto:
+        - `attachmentKind`
+        - `attachmentUrl`
+        - `attachmentFileId`
+        - `attachmentFileName`
+        - `attachmentMimeType`
+        - `attachmentFileSize`
+        - `attachmentWidth`
+        - `attachmentHeight`
+        - `attachments[]`
+
+    - Regla practica:
+      - Si despues se agrega audio, video o archivo, reutilizar estos campos genericos como fuente principal y dejar `image*` como compatibilidad de la fase actual.
+
+  ---
+
+  Resumen tecnico - Push de chat con imagen reutilizando el mismo adjunto subido
+
+  - Ajuste aplicado en `components/mensajes/MensajesHome.native.js`:
+    - Cuando el usuario envia una foto por chat, el cliente ya no dispara la push solo con texto (`Imagen` o caption).
+    - Ahora `enviarMensajeDirecto2` recibe tambien `options.data` con la metadata visual de la imagen:
+      - `imageUrl`
+      - `image`
+      - `attachmentUrl`
+      - `notificationImageUrl`
+      - `attachments[]`
+    - La URL usada para push se normaliza contra el `meteorUrl` activo del cliente para no depender del host fijo devuelto por `ROOT_URL` cuando la app esta conectada a un server Meteor local.
+
+  - Regla practica:
+    - Si un mensaje de chat incluye imagen, la push debe reutilizar la misma URL publica ya generada por `images.upload`; no volver a subir el archivo ni mandar base64 dentro del payload push.
+    - Si en el futuro se agregan audio/video/documentos al chat, mantener este mismo patron: persistir primero el adjunto y luego pasar su metadata en `options.data` del metodo que dispara la notificacion.
+
+---
+
+Resumen tecnico - Migracion del flujo Cadete a Expo sin tocar el flujo normal
+
+- Alcance aplicado:
+  - Se implementaron variantes nativas reales para la rama cadete en Expo:
+    - `components/cadete/CadeteNavigator.native.jsx`
+    - `components/cadete/CadeteDrawerContent.native.jsx`
+    - `components/comercio/pedidos/HomePedidosComercio.native.jsx`
+    - `components/comercio/pedidos/CardPedidoComercio.native.jsx`
+    - `components/comercio/maps/MapaPedidos.native.jsx`
+    - `components/empresa/screens/pedidos/components/SlideToConfirm.native.jsx`
+    - `app/(cadete)/HomePedidosComercio.native.tsx`
+  - Se mantuvo intacto el gate existente de `app/index.native.tsx` para que el flujo se active solo cuando `user?.modoCadete === true`.
+
+- Colecciones cliente agregadas en Expo:
+  - `VentasComercioCollection = COMERCIO_ventas`
+  - `PedidosAsignadosComercioCollection = COMERCIO_pedidosAsignados`
+  - `ColaCadetesPorTiendasComercioCollection = COMERCIO_colacadetesxtiendas`
+  - La pantalla de home del cadete usa estas colecciones junto a `VentasRechargeCollection` para reconstruir el flujo real de asignacion.
+
+- Shell y navegacion:
+  - El shell cadete en Expo ya no usa `ModeShell`; ahora replica el patron operativo del legacy con:
+    - `AppHeader` verde
+    - drawer lateral propio montado con `Portal + Animated`
+    - render directo de `HomePedidosComercio`
+  - No se introdujo `react-native-drawer`; se reutilizo el patron de overlay del menu principal de Expo para evitar dependencias extra y mantener consistencia tecnica.
+
+- Home del cadete:
+  - `HomePedidosComercio.native.jsx` suscribe y combina:
+    - `pedidosAsignados`
+    - `ventasRecharge`
+    - `colacadetesxtiendas`
+  - Cada pedido asignado se enriquece por `idVentas` con su venta correspondiente antes de renderizarse.
+  - El refresh manual sigue llamando `comercio.pedidos.getPedidosCadete({ cadeteId })` como reconciliacion del lado servidor.
+  - La pantalla muestra tambien el conteo de tiendas en cola para reflejar el mecanismo real de asignacion, incluso cuando no hay pedidos activos.
+
+- Seguimiento de ubicacion del cadete:
+  - Se creo `hooks/useCadeteLocationTracking.native.js` como capa Expo de seguimiento foreground.
+  - El hook:
+    - pide permiso foreground de ubicacion
+    - hidrata desde cache local existente (`deviceLocationCache.native.js`)
+    - hace `watchPositionAsync(...)`
+    - envia actualizaciones via `Meteor.call('cadete.updateLocation', locationData)`
+    - refresca tambien al volver la app a `active`
+  - La logica evita spam con distancia minima + heartbeat temporal antes de volver a mandar la misma ubicacion.
+
+- Card operativo del pedido:
+  - `CardPedidoComercio.native.jsx` porta el flujo real del legacy y reusa componentes ya migrados donde conviene:
+    - `PedidoStepper.native.jsx`
+    - `SlideToConfirm.native.jsx`
+    - `MapaPedidos.native.jsx`
+  - El slider avanza usando la maquina de estados activa del backend:
+    - `PREPARACION_LISTO -> CADETEENLOCAL -> ENCAMINO -> CADETEENDESTINO -> ENTREGADO`
+  - El CTA de ruta abre tienda o destino segun el estado actual del pedido.
+  - La confirmacion fuerte solo se deja para la entrega final.
+
+- Utilidades nuevas:
+  - `components/comercio/pedidos/cadetePedidoUtils.js` centraliza:
+    - colores de estado
+    - labels del slider
+    - siguiente estado
+    - paso actual del stepper
+    - helpers de subtotal, entrega y coordenadas
+  - Esto evita depender de `data/comercio/mockData` del legacy dentro del proyecto Expo.
+
+- Consideraciones tecnicas importantes:
+  - La paridad actual de ubicacion es foreground/in-session. El servicio foreground persistente de Android del legacy (`Main.js` + `NotificacionAndroidForeground.js`) no se porto en esta iteracion.
+  - Si mas adelante se exige paridad total en background, debe tratarse como una capa separada del UI cadete y no mezclarse con la migracion de pantallas.
+  - El flujo de usuario normal no debe reutilizar estos componentes; los pedidos del cadete y los pedidos del cliente siguen siendo superficies distintas aunque compartan parte del dominio comercio.
+
+- Validacion realizada:
+  - `get_errors` limpio en todos los archivos nuevos de cadete.
+  - `npx eslint --no-cache` limpio sobre:
+    - `components/comercio/pedidos/CardPedidoComercio.native.jsx`
+    - `components/comercio/pedidos/HomePedidosComercio.native.jsx`
+    - `components/cadete/CadeteNavigator.native.jsx`
+    - `components/cadete/CadeteDrawerContent.native.jsx`
+    - `hooks/useCadeteLocationTracking.native.js`
+    - `components/comercio/maps/MapaPedidos.native.jsx`
+    - `components/empresa/screens/pedidos/components/SlideToConfirm.native.jsx`
+    - `app/(cadete)/HomePedidosComercio.native.tsx`
+
+---
+
+Resumen tecnico - Geolocalizacion en segundo plano profesional para modo Cadete en Expo
+
+- Alcance aplicado:
+  - El seguimiento de ubicacion del cadete dejo de depender solo del hook foreground de la pantalla.
+  - Ahora existe un servicio nativo centralizado en:
+    - `services/location/cadeteBackgroundLocation.native.js`
+  - La activacion se controla desde el root de la app y solo corre cuando:
+    - existe `userId`
+    - `user?.modoCadete === true`
+
+- Arquitectura validada:
+  - Registro global del task con:
+    - `expo-task-manager`
+    - `expo-location`
+  - El task se define una sola vez usando guard con `TaskManager.isTaskDefined(...)` para no duplicarse en Fast Refresh.
+  - La importacion side-effect del servicio se hace en:
+    - `app/_layout.native.tsx`
+  - El arranque/parada del tracking se sincroniza en:
+    - `app/index.native.tsx`
+    - mediante `syncCadeteBackgroundLocation({ enabled, userId })`
+
+- Decision tecnica importante:
+  - En segundo plano no se usa `Meteor.call(...)` para enviar ubicacion.
+  - El servicio resuelve la base HTTP a partir de `getMeteorUrl()` y envia por fetch a:
+    - `POST /api/location`
+  - Tambien consulta periodicamente:
+    - `POST /api/cadete/isActive`
+  - Si el backend responde que el cadete ya no esta activo, el servicio se detiene y limpia su configuracion local.
+
+- Comportamiento por plataforma:
+  - Android:
+    - `timeInterval` de `30000ms`
+    - `distanceInterval` de `15m`
+    - foreground service notification activa mientras el modo cadete esta corriendo
+  - iOS:
+    - `UIBackgroundModes` incluye `location`
+    - `activityType` configurado como `Location.ActivityType.OtherNavigation`
+    - tracking pensado para actualizacion por movimiento con background location real
+
+- Persistencia y estado:
+  - El servicio usa `expo-secure-store` para guardar:
+    - config activa del tracking (`userId`, `meteorUrl`)
+    - ultimo estado del servicio (`lastSentAt`, `lastSentLocation`, `lastError`, `permissionStatus`)
+  - Esto permite que el hook de UI pueda hidratarse sin depender de que la pantalla haya estado abierta todo el tiempo.
+
+  - `hooks/useCadeteLocationTracking.native.js` ya no es la fuente de verdad del tracking.
+- Hook de UI refactorizado:
+  - Ahora:
+    - lee estado del servicio background
+    - se suscribe a cambios de estado
+    - consulta si el task sigue corriendo
+    - usa `sendCadeteLocationNow(...)` para refresh manual
+  - El refresh manual y la sincronizacion inicial fuerzan envio inmediato al backend, aunque no haya habido suficiente desplazamiento desde el ultimo punto.
+
+- Integracion visual:
+  - `components/comercio/pedidos/HomePedidosComercio.native.jsx` ahora muestra que el seguimiento puede permanecer activo incluso en segundo plano.
+  - La UI distingue cuando el tracking esta operando en modo `Segundo plano`.
+
+- Configuracion Expo requerida:
+  - En `app.json` se habilito para `expo-location`:
+    - `isIosBackgroundLocationEnabled: true`
+    - `isAndroidBackgroundLocationEnabled: true`
+    - `isAndroidForegroundServiceEnabled: true`
+    - permisos `Always` en iOS
+  - En Android se agregaron permisos:
+    - `ACCESS_BACKGROUND_LOCATION`
+    - `FOREGROUND_SERVICE`
+    - `FOREGROUND_SERVICE_LOCATION`
+
+- Regla practica:
+  - Este flujo debe validarse en dev build o build nativo real; no asumir paridad completa en Expo Go para background execution.
+  - Si otra pantalla necesita reflejar el estado del tracking del cadete, debe leer el servicio centralizado y no volver a crear otro `watchPositionAsync(...)` paralelo.
+  - Si se toca el contrato con backend, mantener siempre estos dos endpoints como fuente de verdad del tracking en background:
+    - `/api/location`
+    - `/api/cadete/isActive`
+
+- Validacion realizada:
+  - `npx expo config --json` resolvio correctamente la configuracion actualizada.
+  - `get_errors` limpio en:
+    - `services/location/cadeteBackgroundLocation.native.js`
+    - `hooks/useCadeteLocationTracking.native.js`
+    - `app/index.native.tsx`
+    - `app/_layout.native.tsx`
+    - `components/comercio/pedidos/HomePedidosComercio.native.jsx`
+  - `npx eslint --no-cache` limpio sobre esos mismos archivos.
+
+---
+
+Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo temporal del scroll
+
+- Problema detectado:
+  - El slider de `components/empresa/screens/pedidos/components/SlideToConfirm.native.jsx` estaba capturando el gesto de forma fragil dentro de la pantalla scrolleable `HomePedidosComercio.native.jsx`.
+  - Solo se sentia realmente arrastrable sobre el pulgar y podia competir con el scroll vertical de `Mis pedidos`, dando la sensacion de que “no deja deslizar bien”.
+
+- Correccion aplicada:
+  - El gesture handling se hizo mas tolerante y preciso:
+    - el `PanResponder` ahora vive sobre toda la pista, no solo sobre el thumb
+    - calcula offset real del toque para que el pulgar siga el dedo incluso si se inicia fuera del centro exacto
+    - exige predominio horizontal en `onMoveShouldSetPanResponder` para reducir activaciones accidentales
+    - bloquea la terminacion del responder mientras el gesto esta activo
+  - El slider ahora expone `onInteractionChange(...)` y la pantalla `HomePedidosComercio.native.jsx` desactiva temporalmente el `ScrollView` mientras el usuario esta arrastrando.
+
+- Mejora UX aplicada:
+  - Se endurecio el flujo de confirmacion para evitar dobles disparos:
+    - estado interno `isCompleting`
+    - el thumb queda al final mientras el pedido se esta actualizando
+    - el reset ocurre de forma mas natural al terminar la transicion
+  - Se reforzo visualmente el thumb con sombra dinamica segun drag/confirmacion para hacerlo mas legible y tactil.
+
+- Regla practica:
+  - Si un slider horizontal vive dentro de una lista o `ScrollView` vertical, no basta con que el thumb sea arrastrable; tambien hay que coordinar el gesto con el scroll padre.
+  - En este proyecto, cualquier confirmacion por slide dentro de superficies scrolleables debe poder notificar al contenedor para pausar temporalmente el scroll durante el arrastre.
+
+  ---
+
+  Resumen tecnico - Modo cadete: Surface sin fondo forzado, botones alineados al theme y slider con drag real hasta el final
+
+  - Ajuste aplicado en:
+    - `components/comercio/pedidos/HomePedidosComercio.native.jsx`
+    - `components/comercio/pedidos/CardPedidoComercio.native.jsx`
+    - `components/empresa/screens/pedidos/components/SlideToConfirm.native.jsx`
+
+  - Criterio visual validado para React Native Paper:
+    - `Surface` no debe recibir `backgroundColor` hardcodeado cuando se espera que conserve el comportamiento natural del theme.
+    - Si una sub-superficie necesita color personalizado (bloque de comentario, metrica, estado completado, etc.), conviene usar `View` o una capa interna propia y dejar el `Surface` contenedor sin forzar fondo.
+    - En botones Paper no conviene fijar colores de texto de forma arbitraria si la accion puede resolverse con el tema actual; si se personaliza, debe revisarse explicitamente en claro y oscuro.
+
+  - Ajustes aplicados en modo cadete:
+    - Se eliminaron fondos fijos de varios `Surface` del flujo de pedidos del cadete.
+    - Los colores de textos auxiliares, chips y bloques suaves ahora se derivan del `theme` (`onSurface`, `onSurfaceVariant`, `background`) en lugar de asumir paleta light.
+    - Los bloques internos que si necesitan tinte visual quedaron como `View` con fondo controlado por palette local, sin romper la superficie Paper principal.
+
+  - Slider de `Mis pedidos`:
+    - El bug de deslizamiento venia de un calculo fragil basado en `locationX` y offset del pulgar.
+    - Se cambio a un modelo mas robusto basado en:
+      - valor inicial del thumb en el momento del `grant`
+      - `gestureState.dx` como delta real del arrastre
+      - clamp contra `maxSlide`
+    - Esto hace que el slider llegue correctamente al final incluso en pantallas pequenas o cuando el gesto empieza fuera del centro exacto del thumb.
+    - El umbral de confirmacion tambien se suavizo (`0.82`) para reducir falsos negativos al finalizar el gesto.
+
+  - Responsividad aplicada:
+    - `HomePedidosComercio` ahora ajusta padding horizontal y ancho maximo util segun `useWindowDimensions()`.
+    - `CardPedidoComercio` adapta su densidad para anchos compactos, especialmente en los bloques de metricas.
+    - La idea es que el flujo funcione de forma consistente en telefonos estrechos y pantallas mas amplias sin reventar columnas ni forzar overflow visual.
+
+  - Regla practica:
+    - En este proyecto, cuando se trabaje con React Native Paper en pantallas operativas, asumir que el soporte light/dark ya viene del componente. Solo personalizar color cuando realmente haga falta y siempre con una palette dependiente de `theme.dark`, no con hex fijos pensados para una sola apariencia.
+
+  ---
+
+  Resumen tecnico - Task de background del cadete debe registrarse antes de `expo-router`
+
+  - Problema detectado:
+    - El runtime de `expo-task-manager` estaba lanzando:
+      - `Task "vidkar-cadete-background-location-v1" not found for app ID 'mainApplication'`
+    - La definicion del task existia en `services/location/cadeteBackgroundLocation.native.js`, pero su carga dependia de `app/_layout.native.tsx`.
+
+  - Causa raiz validada:
+    - Para tareas de background, importar el modulo desde el arbol de rutas no es suficientemente temprano.
+    - En ciertos arranques en segundo plano, Expo despierta la app para resolver el task antes de que `expo-router` haya montado el layout y, por tanto, antes de que ese modulo haya sido evaluado.
+
+  - Solucion aplicada:
+    - Se creo un entrypoint propio en la raiz del proyecto:
+      - `index.js`
+    - Ese entrypoint importa primero los side effects globales:
+      - `./services/location/cadeteBackgroundLocation.native`
+      - `./services/notifications/PushMessaging.native`
+    - Y luego carga:
+      - `expo-router/entry`
+    - `package.json` dejo de usar `expo-router/entry` como `main` directo y ahora apunta a `./index.js`.
+    - `app/_layout.native.tsx` dejo de importar esos servicios para evitar dependencia redundante del arbol de navegacion.
+
+  - Regla practica:
+    - Cualquier task de `expo-task-manager` o side effect global critico del runtime debe registrarse desde el entrypoint mas temprano posible del bundle, no desde una pantalla, layout o rama del router.
+    - Si un task falla con `Task not found for app ID ...`, revisar primero si el modulo que hace `TaskManager.defineTask(...)` realmente se importa antes de `expo-router` y no solo dentro del arbol `app/`.
+
+  ---
+
+  Resumen tecnico - SecureStore en Expo no acepta `:` en las keys
+
+  - Problema detectado:
+    - El tracking del cadete y la cache de ubicacion estaban intentando leer/escribir claves como:
+      - `cadete:background-location:config:v1`
+      - `cadete:background-location:status:v1`
+      - `device:last-location:v1`
+    - En `expo-secure-store`, esas keys son invalidas porque el runtime solo acepta caracteres alfanumericos, `.`, `-` y `_`.
+
+  - Sintoma visible:
+    - Warnings repetidos del estilo:
+      - `Invalid key provided to SecureStore. Keys must not be empty and contain only alphanumeric characters, ".", "-", and "_".`
+    - Eso rompe silenciosamente lectura de cache, estado del tracking y persistencia de configuracion aunque la logica de ubicacion sea correcta.
+
+  - Solucion aplicada:
+    - Se normalizaron las keys a formatos validos:
+      - `cadete.background-location.config.v1`
+      - `cadete.background-location.status.v1`
+      - `device.last-location.v1`
+
+  - Regla practica:
+    - En este proyecto no usar `:` en claves de `expo-secure-store`.
+    - Si una feature necesita versionado de key, usar separadores permitidos como `.` o `-`.
+
+  ---
+
+  Resumen tecnico - `deliveryFee` del cadete debe convertirse a la moneda cobrada del pedido
+
+  - Hallazgo validado:
+    - En `components/comercio/pedidos/cadetePedidoUtils.js`, `venta.producto.comisiones.costoTotalEntrega` no debe mostrarse crudo si `venta.producto.comisiones.moneda` difiere de la moneda en la que se presenta o cobra el pedido.
+    - La fuente de verdad del backend para conversion de moneda ya existe y se usa en Expo en el wizard del carrito:
+      - `Meteor.call('moneda.convertir', precio, monedaOrigen, monedaDestino, adminId?)`
+
+  - Correccion aplicada:
+    - `getDeliveryFee(...)` paso a resolver la conversion de forma async reutilizando `moneda.convertir`.
+    - `components/comercio/pedidos/CardPedidoComercio.native.jsx` ahora hidrata `costoEntrega` en estado local y actualiza el valor convertido segun la moneda cobrada visible del pedido.
+
+  - Regla practica:
+    - Si se muestra costo de entrega, comision o subtotal derivado de `comisionesComercio`, no asumir que ya esta en la misma moneda del card o del checkout.
+    - Reutilizar `moneda.convertir` con el mismo patron async ya usado en `WizardConStepper.native.jsx` en lugar de convertir manualmente o mezclar monedas en UI.
+
+  ---
+
+  Resumen tecnico - No renderizar conversiones async directamente en JSX de comercio/cadete
+
+  - Hallazgo validado:
+    - `convertMoney(...)` en `components/comercio/pedidos/cadetePedidoUtils.js` devuelve una `Promise` porque internamente usa `Meteor.call('moneda.convertir', ...)`.
+    - Si se usa directo dentro del JSX, por ejemplo en una metrica como `Costo por KM`, React no renderiza el valor numerico y la UI queda vacia o inconsistente.
+
+  - Correccion aplicada:
+    - `components/comercio/pedidos/CardPedidoComercio.native.jsx` ahora resuelve `costoPorKm` en `useEffect` y lo guarda en estado local antes de renderizar.
+    - El JSX solo consume valores ya resueltos (`number` o fallback), nunca una promesa.
+
+  - Regla practica:
+    - En este proyecto no llamar helpers async dentro del render de React.
+    - Si una conversion depende de `Meteor.call`, resolverla en `useEffect`, hook o view-model previo y luego pintar el resultado sincronico en la UI.
+
+  ---
+
+  Resumen tecnico - Geolocalizacion en tiempo real para modo Cadete con watcher foreground + heartbeat
+
+  - Ajuste aplicado:
+    - `hooks/useCadeteLocationTracking.native.js` ahora inicia un `Location.watchPositionAsync(...)` mientras la app esta activa.
+    - Ademas mantiene un heartbeat cada `30s` reutilizando `sendCadeteLocationNow(...)` para garantizar envio periodico al backend incluso si no entra un cambio de posicion inmediato.
+
+  - Contrato funcional final:
+    - app activa:
+      - enviar ubicacion cuando cambia la posicion del cadete
+      - reenviar tambien cada `30s`
+    - app en segundo plano:
+      - el envio queda a cargo de `startLocationUpdatesAsync(...)` y del task `vidkar-cadete-background-location-v1`
+
+  - Decisiones tecnicas importantes:
+    - `sendCadeteLocationNow(...)` ahora acepta `locationOverride`, `trackingMode` y un umbral de distancia configurable para reutilizar el mismo pipeline de envio tanto desde watcher foreground como desde el task background.
+    - El watcher foreground usa un umbral mas sensible que background para reaccionar mejor a cambios reales de ubicacion mientras el cadete esta usando la app.
+    - El hook no sigue enviando en background por su cuenta; cuando `AppState` deja de estar en `active`, se evita duplicar envios y se deja el segundo plano al task nativo.
+
+  - Regla practica:
+    - Si en modo cadete se quiere “tiempo real” con la app abierta, no alcanza con leer estado o hacer refresh manual; hace falta un watcher foreground real.
+    - Si ya existe task background, el watcher foreground debe apagarse logicamente fuera de `active` para no competir con el servicio nativo.
+
+  ---
+
+  Resumen tecnico - No solapar consultas GPS pendientes en tracking del cadete
+
+  - Ajuste aplicado:
+    - `services/location/cadeteBackgroundLocation.native.js` ahora serializa las llamadas que necesitan pedir una ubicacion nueva con `Location.getCurrentPositionAsync(...)`.
+    - Si heartbeat, refresh manual u otro disparador vuelven a llamar `sendCadeteLocationNow(...)` mientras la consulta GPS anterior sigue pendiente, reutilizan la misma promesa en curso en vez de abrir otra lectura paralela.
+
+  - Criterio tecnico validado:
+    - El riesgo real no era solo duplicar envios al backend, sino disparar varias consultas lentas al GPS cuando una sola podia tardar mas de `30s`.
+    - El lock debe vivir en el servicio central, no en el componente UI, porque varios disparadores distintos pueden terminar llamando el mismo metodo.
+
+  - Regla practica:
+    - Si `sendCadeteLocationNow(...)` necesita obtener la ubicacion actual por su cuenta, no debe lanzar una segunda consulta mientras exista otra pendiente del mismo tipo.
+    - Las actualizaciones que ya traen `locationOverride` desde `watchPositionAsync(...)` pueden seguir entrando por separado; el guard aplica especificamente a las consultas activas de `getCurrentPositionAsync(...)`.
+
+  ---
+
+  Resumen tecnico - Tracking del cadete no debe depender solo del montaje de la UI
+
+  - Hallazgo importante:
+    - Si el servicio de ubicacion del cadete solo se reinicia desde `app/index.native.tsx` cuando el shell ya resolvio al usuario, puede haber ventanas de arranque donde `userId` aun no exista y el tracking se detenga por error.
+    - Eso es especialmente delicado al relanzar la app o cuando el runtime levanta el bundle por trabajo de background.
+
+  - Ajuste aplicado:
+    - `services/location/cadeteBackgroundLocation.native.js` ahora intenta restaurar automaticamente el tracking persistido al cargar el modulo, leyendo la config guardada y volviendo a registrar `startLocationUpdatesAsync(...)` si hace falta.
+    - `app/index.native.tsx` ya no debe llamar a `syncCadeteBackgroundLocation(...)` mientras `userId` siga sin resolverse; primero debe existir una sesion concreta.
+
+  - Regla practica:
+    - El servicio del cadete debe poder auto-recuperarse desde su propia config persistida y no depender unicamente de que la pantalla del cadete o el shell principal lleguen a montarse.
+    - En el root, no tratar `userId === null` durante bootstrap como señal suficiente para apagar el tracking; puede ser solo una sesion aun no rehidratada.
+
+  ---
+
+  Resumen tecnico - Modulo local Expo del cadete: errores de build por archivos duplicados y validacion final iOS/Android
+
+  - Hallazgo validado:
+    - Al crear el modulo local `modules/cadete-background-tracking`, varios archivos quedaron concatenados dos veces por un patch defectuoso.
+    - El patron de fallo fue consistente en varios tipos de archivo:
+      - JSON duplicado
+      - Gradle duplicado
+      - AndroidManifest duplicado
+      - clases Kotlin duplicadas
+      - clases Swift duplicadas
+    - En iOS esto se manifesto con errores como:
+      - `invalid redeclaration of 'CadeteBackgroundTrackingModule'`
+      - `invalid redeclaration of 'CadeteBackgroundTrackingAppDelegateSubscriber'`
+      - `invalid redeclaration of 'CadeteNativeLocationService'`
+      - `consecutive statements on a line must be separated by ';'`
+
+  - Correccion aplicada:
+    - Se limpiaron los duplicados en los archivos Swift del modulo:
+      - `ios/CadeteBackgroundTrackingModule.swift`
+      - `ios/CadeteBackgroundTrackingAppDelegateSubscriber.swift`
+      - `ios/CadeteNativeLocationService.swift`
+    - Tambien se habian limpiado previamente los duplicados equivalentes en Android y archivos de configuracion del modulo.
+
+  - Validacion final realizada:
+    - `pod install` exitoso con el pod local `CadeteBackgroundTracking` instalado.
+    - `:app:compileDebugKotlin` exitoso en Android.
+    - `npx expo run:ios --device` completo, con app instalada y Metro levantado.
+
+  - Ajuste funcional importante adicional:
+    - `services/location/cadeteBackgroundLocation.native.js` ahora exporta un flag para saber si el modulo nativo esta disponible.
+    - `hooks/useCadeteLocationTracking.native.js` ya no debe iniciar `watchPositionAsync(...)` ni heartbeat JS cuando el modulo nativo existe.
+    - En modo native-first, el hook debe actuar solo como capa de estado/UI para evitar duplicar envios de ubicacion en foreground.
+
+  - Regla practica:
+    - Si un modulo local Expo falla con redeclaraciones o errores absurdos de parseo despues de un patch grande, revisar primero si el archivo completo quedo pegado dos veces.
+    - No dar por valido un modulo local solo porque el editor no marque errores; validar siempre con:
+      - `pod install`
+      - compilacion Android/Kotlin
+      - un `expo run:ios` o build nativo real
+    - Si el proyecto entra en modo native-first, cualquier watcher JS previo debe apagarse explicitamente para no competir con el servicio nativo.
+
+  ---
+
+  Resumen tecnico - Google Maps Android en Expo con plugin local explicito para forzar `com.google.android.geo.API_KEY`
+
+  - Hallazgo validado:
+    - Aunque `app.json` ya tenia `expo.android.config.googleMaps.apiKey`, el `prebuild` no estaba dejando la meta-data `com.google.android.geo.API_KEY` dentro de `android/app/src/main/AndroidManifest.xml`.
+    - En este proyecto no conviene volver a editar `android/` manualmente porque esas carpetas son generadas por Expo.
+
+  - Correccion aplicada:
+    - Se creo un config plugin local en:
+      - `plugins/with-vidkar-google-maps-key.js`
+    - Ese plugin llama explicitamente a:
+      - `AndroidConfig.GoogleMapsApiKey.withGoogleMapsApiKey(config)`
+    - El plugin se registro en `app.json` dentro de `expo.plugins`.
+
+  - Criterio tecnico validado:
+    - `react-native-maps` en Expo puede depender de auto-plugins/versioned plugins de `@expo/prebuild-config`, pero si la inyeccion no aterriza en el manifest real conviene fijarla con un plugin local explicito y reproducible.
+    - La fuente de verdad sigue siendo `app.json`; el plugin local solo garantiza que esa config llegue al manifest Android generado.
+
+  - Regla practica:
+    - Si Android vuelve a fallar por Google Maps API key en Expo, primero verificar el manifest generado tras `prebuild`.
+    - Si falta `com.google.android.geo.API_KEY`, corregir la cadena de config plugins, no el `android/` generado a mano.
+
+  ---
+
+  Resumen tecnico - Android native-first del cadete debe exponer ubicacion viva a la app, no solo estado del servicio
+
+  - Problema detectado:
+    - En Android, el servicio foreground nativo del cadete seguia corriendo, pero la app Expo no reflejaba cambios reales de ubicacion salvo cuando el usuario tocaba el boton manual de `Actualizar ubicación`.
+    - La causa no estaba en el endpoint backend ni en el boton, sino en la integracion entre el modulo nativo y la capa JS.
+
+  - Causa raiz validada:
+    - En modo `native-first`, `useCadeteLocationTracking.native.js` deja de enviar ubicacion con `watchPositionAsync(...)` y pasa a confiar en `NativeCadeteBackgroundTracking.getStatus()`.
+    - Pero el servicio Android (`CadeteTrackingService.kt`) solo persistia estado basico:
+      - `trackingActive`
+      - `trackingMode`
+      - `lastError`
+      - `lastSentAt`
+    - No persistia ni exponia:
+      - `lastKnownLocation`
+      - `lastSentLocation`
+    - Resultado: la app sabia que el servicio seguia activo, pero no tenia coordenadas nuevas para refrescar la UI con ubicacion real.
+
+  - Correccion aplicada:
+    - `CadeteTrackingService.kt` ahora persiste en `SharedPreferences` tanto:
+      - `lastKnownLocation`
+      - `lastSentLocation`
+      como JSON normalizado con lat/lng/accuracy/speed/timestamp.
+    - `getStatus(context)` del modulo nativo ahora devuelve esas ubicaciones a JS.
+    - El servicio actualiza ese estado en cada muestra de ubicacion (`handleLocationSample`) y no solo despues de un envio HTTP exitoso.
+
+  - Ajuste complementario en Expo JS:
+    - `useCadeteLocationTracking.native.js` ya no hidrata `lastLocation` solo desde cache JS/local.
+    - Ahora prioriza en este orden:
+      - `statusSnapshot.lastKnownLocation`
+      - `statusSnapshot.lastSentLocation`
+      - cache persistida previa
+    - Incluso cuando el modulo nativo esta disponible, la app mantiene un `watchPositionAsync(...)` solo para refrescar la UI local con ubicacion viva mientras la app esta activa.
+    - En ese modo el watcher NO vuelve a enviar ubicacion al backend; solo alimenta el estado visual para no duplicar trafico con el servicio nativo.
+
+  - Consideracion importante sobre foreground notification:
+    - El servicio sigue usando notificacion foreground persistente, pero ahora se refuerza semanticamente con categoria de servicio (`CATEGORY_SERVICE`).
+    - Aun asi, el problema principal reportado por el usuario no era la existencia del servicio, sino la falta de reflejo de ubicacion real en la app.
+
+  - Regla practica:
+    - En este proyecto, cuando un modulo local Expo entra en modo `native-first`, no basta con exponer `trackingActive` y `lastSentAt`.
+    - La UI necesita tambien una ubicacion viva o al menos la ultima muestra nativa util.
+    - Si un boton manual parece ser la unica forma de “despertar” la ubicacion en pantalla, revisar primero si el modulo nativo realmente esta exportando coordenadas y no solo flags de estado.
+
+  ---
+
+  Resumen tecnico - Android del cadete debe copiar el patron legacy: el servicio nativo decide y envia
+
+  - Problema detectado:
+    - El modulo Expo habia terminado con una mezcla de responsabilidades entre JS y Android nativo.
+    - Aunque el servicio Android existia, el root seguia arrancandolo y deteniendolo con `user?.modoCadete` local y el hook JS todavia conservaba parte de la logica de ubicacion/envio.
+    - Eso hacia mas fragil el flujo y se alejaba del contrato real del legacy `MyTrackingService.java`.
+
+  - Patron legacy confirmado:
+    - El servicio Android se arranca por sesion y se queda vivo.
+    - Cada ~20s consulta `POST /api/cadete/isActive` con el `userId` persistido.
+    - Si el backend responde activo:
+      - inicia foreground
+      - activa `requestLocationUpdates(...)`
+    - Si el backend responde inactivo:
+      - detiene `requestLocationUpdates(...)`
+      - baja el foreground
+    - Cada callback de ubicacion envía directamente al backend por `POST /api/location`.
+    - El cliente JS no decide el envio ni el gate final de `modoCadete`.
+
+  - Correccion aplicada en Expo:
+    - `CadeteTrackingService.kt` se reestructuro para seguir ese patron:
+      - checker nativo cada 20s
+      - gate por `/api/cadete/isActive`
+      - encendido/apagado de location updates desde el propio servicio
+      - envio HTTP al backend desde el callback nativo de ubicacion
+    - Se quitaron del servicio Android las heuristicas extra que no eran la fuente de verdad del legacy, como la mezcla de heartbeat JS/foreground state para decidir cuando enviar.
+
+  - Ajuste de wiring en Expo:
+    - `app/index.native.tsx` ya no sincroniza el servicio con `user?.modoCadete` local.
+    - Ahora lo sincroniza por sesion (`userId`) y deja que el modulo nativo consulte al backend para saber si debe trackear o no.
+    - `useCadeteLocationTracking.native.js` queda como lector de estado/UI y ya no intenta enviar ubicacion cuando el modulo nativo Android esta disponible.
+
+  - Regla practica:
+    - Si el objetivo es paridad con el legacy en Android, el flujo correcto es:
+      - JS inicia/rehidrata el servicio por sesion
+      - el servicio nativo consulta `modoCadete` al backend
+      - el servicio nativo decide si enciende tracking
+      - el servicio nativo hace el `POST /api/location`
+    - No volver a mezclar el gate final de `modoCadete` ni el envio principal en el hook JS cuando el modulo Android nativo ya existe.
+
+  Notas adicionales - En Android moderno el servicio del cadete debe subir a foreground inmediatamente al arrancar
+
+  - Hallazgo importante:
+    - Copiar literalmente el legacy `startService(...)` + `startForeground(...)` diferido no es suficiente con targetSdk moderno.
+    - Si el servicio se arranca sin `startForegroundService(...)` o tarda demasiado en llamar `startForeground(...)`, Android puede impedir que siquiera llegue al checker del endpoint.
+
+  - Ajuste aplicado:
+    - `CadeteTrackingService.start(...)` ahora usa `ContextCompat.startForegroundService(...)`.
+    - `onStartCommand(...)` sube inmediatamente el servicio a foreground con una notificacion de estado base antes de que el checker consulte `/api/cadete/isActive`.
+    - El checker mantiene viva esa foreground notification y solo prende o apaga `requestLocationUpdates(...)` segun la respuesta del backend.
+
+  - Regla practica:
+    - En este proyecto, el servicio Android del cadete debe permanecer vivo en foreground aunque aun este “esperando activacion” del backend.
+    - Lo que cambia por endpoint es el tracking de ubicacion, no la existencia del servicio una vez arrancado por sesion.
+
+  ---
+
+  Resumen tecnico - Servicio Android del cadete con foreground inmediato y trazas nativas minimas
+
+  - Hallazgo validado:
+    - El servicio del cadete podia quedar en un estado donde Android aceptaba el `startForegroundService(...)`, pero sin una subida inmediata a foreground el proceso seguia siendo fragil y dificil de diagnosticar en runtime.
+    - Ademas, hacia falta visibilidad nativa minima para confirmar si el ciclo real estaba ocurriendo:
+      - arranque del servicio
+      - consulta a `/api/cadete/isActive`
+      - activacion de `requestLocationUpdates(...)`
+      - envio a `/api/location`
+
+  - Ajuste aplicado en `modules/cadete-background-tracking/.../CadeteTrackingService.kt`:
+    - El servicio mantiene el patron native-first ya validado, pero ahora deja logs claros con tag:
+      - `CadeteTrackingService`
+    - Se agregaron trazas en puntos criticos:
+      - `onCreate()`
+      - `onStartCommand(...)`
+      - checker backend
+      - `startLocationUpdates()`
+      - cada muestra de ubicacion
+      - exito/error al consultar `modoCadete`
+      - exito/error al enviar ubicacion
+
+  - Validacion realizada:
+    - `:cadete-background-tracking:compileDebugKotlin` OK
+    - `:app:compileDebugKotlin` OK
+
+  - Regla practica:
+    - Si el tracking del cadete vuelve a fallar en Android, revisar primero `adb logcat | grep CadeteTrackingService` antes de asumir que el problema esta en Expo Router o en el hook JS.
+    - En este modulo, el hook JS no es la fuente principal del envio; el diagnostico correcto del runtime debe empezar por el servicio nativo y sus logs.
+
+---
+
+Resumen tecnico - `PedidoStepper.native.jsx`: evitar `Surface` de Paper en nodos pequenos del stepper
+
+- Problema detectado:
+  - En el flujo cadete, `components/comercio/pedidos/components/PedidoStepper.native.jsx` podia lanzar en runtime:
+    - `TypeError: Cannot read property 'forEach' of null`
+  - El stack apuntaba a la linea del circulo del stepper donde se renderizaba `Surface`.
+  - La constante local `steps` no era la causa real; el fallo quedaba asociado al render interno de `Surface` en ese contexto.
+
+- Correccion aplicada:
+  - El circulo de cada paso dejo de usar `Surface` y paso a renderizarse con `View` simple.
+  - Tambien se normalizo `currentStep` a numero valido con fallback `1` para evitar comparaciones raras si llega `null`, `undefined` o string inesperado.
+
+- Criterio tecnico validado:
+  - En elementos pequenos, puramente decorativos y repetidos como los nodos de un stepper, `Surface` no aporta valor funcional suficiente como para justificar riesgo de runtime.
+  - Si solo se necesita:
+    - fondo
+    - borde
+    - radio
+    - centrado
+    conviene usar `View` y dejar `Surface` para contenedores donde realmente importe elevation o integracion visual de Paper.
+
+- Regla practica:
+  - Si un error runtime apunta a un `Surface` dentro de un item pequeno y repetido, considerar primero reemplazarlo por `View` antes de perseguir un bug fantasma en los datos del componente.
+
+  ---
+
+  Resumen tecnico - Log nativo de `KEY_METEOR_URL` al arrancar el servicio del cadete
+
+  - Ajuste aplicado en `CadeteTrackingService.kt`:
+    - `onStartCommand(...)` ahora imprime explicitamente en logcat:
+      - el valor de la constante `KEY_METEOR_URL`
+      - y el valor persistido actual de `getStoredMeteorUrl()`
+
+  - Criterio tecnico:
+    - Para depurar el modulo nativo del cadete, no basta con saber que el servicio arrancó; tambien conviene confirmar desde logcat que la key esperada del `SharedPreferences` y la URL almacenada coinciden con el wiring JS.
+
+  - Regla practica:
+    - Si hay dudas sobre por que el servicio consulta mal el backend o no resuelve el endpoint correcto, revisar primero la linea:
+      - `KEY_METEOR_URL=... storedMeteorUrl=...`
+    - El comando util de diagnostico sigue siendo `adb logcat | grep CadeteTrackingService`.
+
+  ---
+
+  Resumen tecnico - Endpoint Android del cadete alineado con host fijo del legacy
+
+  - Hallazgo validado:
+    - El servicio Expo estaba derivando la base HTTP desde `storedMeteorUrl`, por ejemplo:
+      - `ws://www.vidkar.com:3000/websocket -> http://www.vidkar.com:3000`
+    - Pero el servicio Android legacy `MyTrackingService.java` no usa esa derivacion para tracking; consulta siempre el backend fijo:
+      - `https://www.vidkar.com/api/cadete/isActive`
+      - `https://www.vidkar.com/api/location`
+
+  - Correccion aplicada en `CadeteTrackingService.kt`:
+    - `isCadeteModeActive(...)` y `postLocation(...)` ahora usan:
+      - `LEGACY_API_BASE_URL = "https://www.vidkar.com"`
+    - Se elimino la derivacion HTTP desde `meteorUrl` dentro del servicio Android.
+    - `onStartCommand(...)` ahora loggea tambien:
+      - `legacyApiBaseUrl=https://www.vidkar.com`
+
+  - Regla practica:
+    - Para el tracking nativo Android del cadete, la fuente de verdad del host backend debe seguir el contrato legacy mientras no se rediseñe explicitamente toda la infraestructura de tracking.
+    - No asumir que `meteorUrl` del cliente es automaticamente la base correcta para los endpoints HTTP del servicio Android del cadete.
+
+  ---
+
+  Resumen tecnico - Notificacion foreground del cadete no removible salvo por el propio servicio
+
+  - Ajuste aplicado en `CadeteTrackingService.kt`:
+    - La notificacion foreground ahora se publica con endurecimiento explicito de persistencia:
+      - `setOngoing(true)`
+      - `setAutoCancel(false)`
+      - `Notification.FLAG_ONGOING_EVENT`
+      - `Notification.FLAG_NO_CLEAR`
+      - `NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE`
+    - El servicio ya no depende solo del comportamiento implicito de `startForeground`; ahora usa `ServiceCompat.startForeground(...)` con `FOREGROUND_SERVICE_TYPE_LOCATION` cuando aplica.
+
+  - Criterio funcional validado:
+    - La notificacion del modo cadete no debe poder deslizarse ni desaparecer por acciones normales del usuario.
+    - Solo debe eliminarse cuando el propio servicio lo haga explicitamente, por ejemplo si deja de aplicar el flujo de cadete y se ejecuta `stopForeground(STOP_FOREGROUND_REMOVE)`.
+
+  - Regla practica:
+    - Si esta notificacion vuelve a poder quitarse manualmente, revisar primero tres puntos en el servicio:
+      - flags `ONGOING_EVENT` y `NO_CLEAR`
+      - `setAutoCancel(false)`
+      - `ServiceCompat.startForeground(...)` con el tipo correcto de foreground service
+
+---
+
+Resumen tecnico - Tracking/foreground del cadete solo mientras `modoCadete` este activo
+
+- Problema detectado:
+  - El wiring visible del root en `app/index.native.tsx` estaba sincronizando el tracking del cadete con `Boolean(userId)` y no con `user?.modoCadete`.
+  - Efecto practico:
+    - Android podia mantener el foreground service aunque el usuario ya no estuviera en modo cadete.
+    - iOS podia seguir restaurando tracking persistido y mostrar actividad de ubicacion al minimizar aunque `modoCadete` ya no correspondiera.
+
+- Correccion aplicada en Expo root:
+  - `app/index.native.tsx` ahora espera a resolver sesion/documento de usuario antes de sincronizar el servicio.
+  - La condicion efectiva de tracking quedo alineada a:
+    - `userId` existente
+    - `ready === true`
+    - `user?.modoCadete === true`
+  - Si la sesion aun no esta rehidratada (`!connected && !userId`) o el documento de usuario todavia no esta listo (`userId && !ready`), el root no fuerza ni start ni stop prematuros.
+
+- Correccion aplicada en Android nativo:
+  - `CadeteTrackingService.kt` ya no mantiene foreground “idle” cuando el backend responde que `modoCadete` esta inactivo.
+  - Ahora, si `/api/cadete/isActive` devuelve `false`:
+    - se desactiva tracking
+    - se limpia config persistida
+    - se hace `stopForeground(STOP_FOREGROUND_REMOVE)`
+    - se hace `stopSelf()`
+  - Importante:
+    - se distinguio explicitamente `modoCadete = false` de un error transitorio al consultar backend
+    - si la validacion falla por red/backend, el servicio mantiene su estado actual y reintenta luego; no se apaga como si fuera un `false` real
+
+- Correccion aplicada en iOS nativo:
+  - `CadeteNativeLocationService.restoreTrackingIfNeeded()` ahora valida primero `shouldCadeteRemainActive()` antes de reactivar `CLLocationManager` desde config persistida.
+  - Si el backend ya no considera activo el modo cadete, limpia config y no vuelve a encender la ubicacion.
+
+- Ajuste UX inmediato al salir del modo cadete:
+  - `components/cadete/CadeteDrawerContent.native.jsx` ahora llama tambien `syncCadeteBackgroundLocation({ enabled: false })` tras `users.toggleModoCadete(false)` exitoso.
+  - Esto evita depender solo de la reactividad posterior del usuario para apagar foreground/ubicacion.
+
+- Validacion realizada:
+  - `get_errors` limpio en:
+    - `app/index.native.tsx`
+    - `components/cadete/CadeteDrawerContent.native.jsx`
+    - `modules/cadete-background-tracking/.../CadeteTrackingService.kt`
+    - `modules/cadete-background-tracking/.../CadeteNativeLocationService.swift`
+  - `./gradlew :app:compileDebugKotlin` OK tras los cambios del servicio Android.
+
+- Regla practica:
+  - En este proyecto, la condicion de foreground/location del cadete debe seguir el estado real de `modoCadete`, no solo la existencia de sesion.
+  - Si reaparece una notificacion foreground con `modoCadete` inactivo, revisar primero estos tres puntos en este orden:
+    - gating del root en `app/index.native.tsx`
+    - shutdown del servicio Android en `CadeteTrackingService.kt`
+    - restauracion persistida en `CadeteNativeLocationService.swift`
+
+---
+
+Resumen tecnico - Implementacion completa del modulo Empresa en Expo con contratos reales de Meteor
+
+- Alcance aplicado:
+  - Se dejo operativo el flujo principal de empresa bajo `app/(empresa)` con implementaciones nativas reales para:
+    - `components/empresa/EmpresaNavigator.native.jsx`
+    - `components/empresa/EmpresaDrawerContent.native.jsx`
+    - `components/empresa/components/EmpresaTopBar.native.jsx`
+    - `components/empresa/screens/MisTiendasScreen.native.jsx`
+    - `components/empresa/screens/TiendaDetailScreen.native.jsx`
+    - `components/empresa/screens/ProductoFormScreen.native.jsx`
+    - `components/empresa/screens/PedidosPreparacionScreen.native.jsx`
+  - Tambien se crearon componentes de soporte del modulo:
+    - `LocationPicker.native.jsx`
+    - `ProductoCard.native.jsx`
+    - `ProductoImage.native.jsx`
+    - `TiendaHeader.native.jsx`
+    - `EmptyProductos.native.jsx`
+    - `MapaTiendaCardBackground.native.jsx`
+
+- Decision tecnica importante:
+  - Las rutas Expo del grupo empresa dejaron de apuntar a placeholders y ahora reexportan modulos reales desde `components/empresa/screens/*`.
+  - Los archivos base no nativos (`.jsx`) se dejaron como `ScreenFallback` explicitos y no como `null`, para evitar superficies silenciosamente vacias en preview/web.
+
+- Contrato backend preservado:
+  - El modulo empresa se construyo sobre contratos ya existentes del sistema y no sobre metodos inventados.
+  - Publicaciones/colecciones usadas como fuente de verdad:
+    - `tiendas`
+    - `productosComercio`
+    - `ventasRecharge`
+    - `propertys`
+    - `TiendasComercioCollection`
+    - `ProductosComercioCollection`
+    - `VentasRechargeCollection`
+    - `ConfigCollection`
+  - Metodos reutilizados:
+    - `addEmpresa`
+    - `tiendas.update`
+    - `removeTienda`
+    - `addProducto`
+    - `comercio.editProducto`
+    - `removeProducto`
+    - `comercio.uploadProductImage`
+    - `comercio.deleteProductImage`
+    - `comercio.pedidos.avanzar`
+    - `users.toggleModoEmpresa(false)`
+
+- UX/UI validada:
+  - Se mantuvo el criterio pedido para React Native Paper:
+    - no forzar colores o `backgroundColor` sobre `Surface`/componentes Paper salvo que sea estrictamente necesario
+    - cuando hubo que customizar bloques visuales, se hizo con `View` y palette dependiente de `theme.dark`
+  - El shell de empresa usa drawer lateral, top bar propia, cards moviles y estados vacios profesionales sin reducir funcionalidad respecto al legado.
+  - `PedidosPreparacion` filtra y ordena pedidos de las tiendas reales del usuario empresa y avanza estados usando el metodo backend ya existente.
+
+- Hallazgo tecnico importante sobre archivos e imagenes:
+  - En este workspace Expo, para leer archivos locales como base64 dentro del formulario de producto no conviene importar `expo-file-system` moderno si se necesita `readAsStringAsync(...)` con `EncodingType.Base64`.
+  - La variante que valida correctamente en este proyecto es:
+    - `import * as FileSystem from 'expo-file-system/legacy'`
+  - Esto resolvio el bloqueo final de lint en `ProductoFormScreen.native.jsx`.
+
+- Validacion realizada:
+  - `get_errors` limpio en los archivos del modulo empresa y sus wrappers de ruta.
+  - `npx eslint --no-cache` limpio sobre el conjunto de archivos nuevos/modificados del modulo empresa tras ajustar imports y el uso de `expo-file-system/legacy`.
+
+- Regla practica:
+  - Si se migra otro modulo grande del legacy a Expo, primero validar contratos reales de Meteor y luego apuntar las rutas Expo a pantallas nativas reales; no dejar wrappers vivos sobre placeholders.
+  - Si un componente Expo necesita transformar una imagen local a base64 y el tipado/lint no reconoce `EncodingType` en `expo-file-system`, revisar primero la variante `expo-file-system/legacy` antes de reescribir todo el flujo de upload.
+
+---
+
+Resumen tecnico - Crash del stepper de pedidos corregido evitando `Surface` en nodos pequenos repetidos
+
+- Problema detectado:
+  - En `components/comercio/pedidos/components/PedidoStepper.native.jsx` aparecia el runtime:
+    - `TypeError: Cannot read property 'forEach' of null`
+  - El fallo quedaba asociado al render de los nodos del stepper usando `Surface` dentro de una composicion pequena y repetida.
+
+- Correccion aplicada:
+  - Los nodos visuales del stepper pasaron a renderizarse con `View` simple.
+  - Tambien se normalizo el paso activo a un numero valido mediante `resolvedCurrentStep` para no depender de valores nulos o inesperados.
+
+- Regla practica:
+  - En este proyecto, para circulos de stepper, bullets y nodos decorativos pequenos no conviene usar `Surface` de Paper si no aporta valor real de elevation o composicion.
+  - Si aparece un error runtime raro dentro de un item pequeno y repetido, probar primero con `View` antes de perseguir un bug fantasma en los datos.
+
+---
+
+Resumen tecnico - `renderHeader` de Mis Tiendas compacto y estable en altura
+
+- Problema detectado:
+  - En `components/empresa/screens/MisTiendasScreen.native.jsx`, la cabecera del `FlatList` estaba creciendo mas de lo necesario.
+  - La altura visible se inflaba por una combinacion de:
+    - `marginBottom` demasiado alto en `headerContent`
+    - `TextInput` outlined a altura completa
+    - cards de metricas con `flex` pero sin base estable, lo que podia generar wrap o distribucion vertical poco consistente en anchos pequenos
+
+- Correccion aplicada:
+  - Se introdujo `isCompactHeader` derivado de `useWindowDimensions()` para compactar la cabecera en anchos estrechos.
+  - Se redujo el espacio vertical general del header:
+    - `headerContent.marginBottom` bajo
+    - variante `headerContentCompact`
+    - variante `heroCardCompact`
+  - El buscador paso a `dense` y suma `searchInputCompact` para bajar la huella vertical sin perder legibilidad.
+  - Las metricas del hero ahora usan layout mas estable:
+    - `flexBasis: 0`
+    - `minWidth: 0`
+    - variante `metricCardCompact`
+  - Esto evita que una card de resumen fuerce una segunda linea o altere la altura total del `renderHeader` en pantallas pequenas.
+
+- Regla practica:
+  - En headers de `FlatList` con hero + metricas + buscador, no apilar espaciados redundantes si `contentContainerStyle` ya aporta separacion con los items.
+  - Si varias metricas comparten una fila, darles base flexible explicita (`flexBasis: 0`, `minWidth: 0`) antes de asumir que `flex: 1` bastara.
+  - Para buscadores en headers moviles, usar `dense` cuando el problema principal sea altura y no ancho.
+
+---
+
+Resumen tecnico - `StoreCard` de Mis Tiendas sin altura rigida ni hueco visual en el footer
+
+- Problema detectado:
+  - En `components/empresa/screens/MisTiendasScreen.native.jsx`, el card de tienda se veia demasiado alto y con aire sobrante en la parte inferior.
+  - La causa principal era el uso de `height: '100%'` sobre el `Card`, combinado con un bloque de mapa grande y un footer de acciones demasiado separado visualmente.
+
+- Correccion aplicada:
+  - Se elimino la altura rigida del `Card` y se dejo que la superficie calcule su alto por contenido real.
+  - Se agrego una variante compacta del card para la lista de una sola columna:
+    - `storeCardCompact`
+    - `mapSlotCompact`
+    - `storeCardContentCompact`
+    - `storeActionsCompact`
+  - El bloque de mapa en el card compacto bajo de `156` a `144` para mejorar proporcion visual sin perder contexto de ubicacion.
+  - El footer de acciones quedo mas cerca del contenido y sin padding superior sobrante.
+
+- Regla practica:
+  - En cards de listas moviles no usar `height: '100%'` sobre `Card` de React Native Paper salvo que exista un contenedor padre con altura controlada y realmente se necesite igualar celdas.
+  - Si una card se siente demasiado larga, compactar primero el bloque hero/mapa y el footer antes de tocar la informacion principal.
+
+---
+
+Resumen tecnico - HTTP global habilitado para cargas remotas en iOS y Android
+
+- Hallazgo validado:
+  - Android ya estaba listo para cargar recursos `http` porque el proyecto tenia `usesCleartextTraffic: true` en la configuracion nativa.
+  - El bloqueo real quedaba en iOS, donde `NSAppTransportSecurity` solo tenia excepcion puntual para `www.vidkar.com`.
+  - Si una imagen o recurso remoto llegaba por `http` desde otra IP o dominio, iOS podia bloquearlo aunque Android lo mostrara bien.
+
+- Correccion aplicada:
+  - En `app.json` se amplio `expo.ios.infoPlist.NSAppTransportSecurity` con:
+    - `NSAllowsArbitraryLoads: true`
+    - `NSAllowsLocalNetworking: true`
+  - Se alineo tambien `ios/vidkar/Info.plist` actual con esos mismos valores para que el proyecto nativo generado refleje ya el cambio.
+
+- Criterio tecnico:
+  - La fuente de verdad sigue siendo `app.json`.
+  - El ajuste en `ios/vidkar/Info.plist` sirve para dejar consistente el proyecto nativo actual, pero cualquier regeneracion o prebuild debe seguir leyendo el cambio desde Expo config.
+
+- Regla practica:
+  - Si una pantalla Expo muestra imagenes remotas que solo fallan en iOS y vienen por `http`, revisar primero `NSAppTransportSecurity` antes de tocar el componente visual.
+  - En Android, si el proyecto ya tiene `usesCleartextTraffic: true`, normalmente no hace falta otro cambio para `http` basico en `Image` o fetch.
+  - Este ajuste amplia permisos de red en iOS; si mas adelante se quiere endurecer seguridad para release, conviene volver a excepciones por dominio en lugar de mantener cargas arbitrarias globales.
+
+---
+
+Resumen tecnico - Recuperacion y rediseño profesional de `ProductoCard` en modo Empresa
+
+- Problema detectado:
+  - `components/empresa/components/ProductoCard.native.jsx` quedo corrupto tras varios intentos grandes de refactor, mezclando bloques duplicados, imports repetidos y residuos literales de patch (`+` en el codigo).
+  - El sintoma mas enganoso fue que el editor siguio reportando errores sobre offsets viejos incluso despues de reescrituras parciales; la fuente de verdad termino siendo el archivo real en disco y la validacion por terminal.
+
+- Correccion aplicada:
+  - Se rehizo el card con una composicion mas profesional para empresa, manteniendo intacta la forma de obtener la imagen mediante `ProductoImage` y el metodo legacy ya validado (`findImgbyProduct`).
+  - El card ahora prioriza:
+    - bloque visual de producto
+    - badge de disponibilidad con semantica comercial
+    - jerarquia fuerte de precio
+    - resumen de disponibilidad
+    - observaciones opcionales sin lenguaje tecnico
+  - El contenido final se depuro hasta dejar:
+    - una sola definicion de imports
+    - una sola definicion de `ProductoCard`
+    - un solo `export default ProductoCard;`
+
+- Hallazgo tecnico importante:
+  - En este proyecto, cuando un archivo JSX queda contaminado por recreaciones parciales, no basta con editar trozos visibles desde el editor.
+  - Conviene validar en disco con comandos como:
+    - `wc -l`
+    - `grep` sobre exports/imports duplicados
+    - `npx eslint --no-cache <archivo>`
+  - Si el archivo muestra mas lineas de las esperadas o varios `export default` del mismo componente, la forma segura es truncar o recrear el archivo completo antes de seguir ajustando UI.
+
+- Regla practica:
+  - Si se rediseña una card de negocio ya conectada a Meteor, primero preservar sus contratos funcionales y luego modernizar solo la superficie visual.
+  - Si una reescritura grande deja residuos de patch o contenido duplicado, verificar el archivo real en disco antes de confiar en diagnosticos viejos del editor.
+  - Para `ProductoCard` de empresa, no cambiar la estrategia de imagen actual; cualquier mejora futura debe seguir usando `ProductoImage` como fuente de verdad de media remota.
+
+---
+
+Resumen tecnico - Proyeccion minima de suscripciones Meteor en el flujo del menu principal
+
+- Alcance aplicado:
+  - Se optimizo el flujo real del menu principal en Expo para que las suscripciones Meteor devuelvan solo los campos consumidos por esa superficie y sus controles inmediatos.
+  - Archivos ajustados:
+    - `app/index.native.tsx`
+    - `components/Main/MenuPrincipal.native.jsx`
+    - `components/Main/MenuPrincipalScreen.jsx`
+    - `components/cubacel/Productos.native.jsx`
+    - `components/components/MenuIconMensajes.native.js`
+    - `components/carritoCompras/WizardConStepper.native.jsx`
+    - `components/carritoCompras/ListaPedidosRemesa.native.jsx`
+
+- Regla importante del user raiz:
+  - El `Meteor.subscribe('user', { _id: currentUserId })` del root tambien forma parte del flujo del menu principal.
+  - El shape minimo validado para no romper menu, drawer y branching principal incluye al menos:
+    - `username`
+    - `picture`
+    - `modoCadete`
+    - `modoEmpresa`
+    - `permiteRemesas`
+    - `subscipcionPelis`
+    - `profile.firstName`
+    - `profile.role`
+    - `profile.roleComercio`
+  - `picture` es critico porque el mismo documento parcial alimenta tambien los drawers de cadete y empresa.
+
+- Proyecciones seguras del menu:
+  - `MenuPrincipal.native.jsx`:
+    - `ventas` para deuda pendiente solo necesita `precio`.
+    - `ventasRecharge` para resumen de pendientes en efectivo solo necesita `createdAt`, `type`, `producto.type` y `producto.carritos.type`.
+  - `Productos.native.jsx`:
+    - `productosDtShop` puede proyectarse de forma agresiva si conserva solo los campos que realmente usa el carrusel y `CubaCelCard` (`name`, `description`, `id`, `operator.name`, `prices.retail.amount`, `benefits.*`, `ocultarFondo`, `promotions.*`).
+  - `MenuIconMensajes.native.js`:
+    - Para el popup de mensajes bastan `createdAt`, `from`, `to`, `leido`, `mensaje`.
+    - Para usuarios remitentes basta `picture`, `profile.firstName` y `profile.lastName`.
+
+- Regla critica del carrito/header:
+  - `WizardConStepper.native.jsx` y `ListaPedidosRemesa.native.jsx` NO deben recortar `carrito` y `ordenes` solo mirando el JSX visible.
+  - Aunque la UI use menos campos, el checkout reutiliza esos documentos en metodos backend que dependen de datos embebidos.
+  - Para no romper el flujo, la proyeccion conservadora validada debe preservar como minimo:
+    - en `carrito`: `type`, `cantidad`, `cobrarUSD`, `monedaACobrar`, `idUser`, `megas`, `metodoPago`, `coordenadas`, `idTienda`, `tienda`, `producto`, `extraFields`, `comentario`, `entregado` y datos de remesa/recarga usados por checkout
+    - en `ordenes`: `carritos` completos y links/url de pago (`approvalUrl`, `init_point`, `link`, `linkPago`, `url`)
+
+- Contrato tecnico validado detras de esa decision:
+  - `comercio.calcularCostosEntrega` necesita datos de tienda, coordenadas y tipo de item del carrito.
+  - `paypal.totalAPagar`, `mercadopago.totalAPagar` y `efectivo.totalAPagar` necesitan `idUser`, `cobrarUSD`, `cantidad`, `monedaACobrar` y `type`.
+  - `generarVentaEfectivo` inspecciona `producto: compra` con `carritos` embebidos.
+  - `dtshop.createTransaccion` necesita `carrito._id`, `extraFields`, `producto.id` y arrays `required*Fields` dentro de `producto`.
+
+- Criterio de implementacion importante:
+  - Si una pantalla ya recibe `user` por props desde una suscripcion proyectada, no debe volver a depender de `Meteor.user()` global para campos accesorios del render.
+  - En este flujo se corrigio `MenuPrincipalScreen.jsx` para usar `user?.username` en vez de `Meteor.user()?.username` al decidir chips administrativos de version/build.
+
+- Validacion realizada:
+  - `get_errors` limpio en todos los archivos modificados.
+  - `npx eslint --no-cache` limpio sobre los archivos del flujo del menu principal tras aplicar las proyecciones.
+
+- Regla practica:
+  - En este proyecto, optimizar `fields` en Meteor solo es seguro si se valida tambien el contrato de metodos backend que consumen esos mismos documentos, no solo el arbol JSX visible.

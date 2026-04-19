@@ -2,17 +2,16 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { usePathname, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Animated,
-  ImageBackground,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
+    Animated,
+    ImageBackground,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 import { Chip, Portal, Surface, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import Meteor from "@meteorrn/core";
 import Productos from "../cubacel/Productos";
 import DrawerOptionsAlls from "../drawer/DrawerOptionsAlls";
 import MenuHeader from "../Header/MenuHeader";
@@ -194,7 +193,7 @@ const MenuPrincipalScreen = ({
                   {getRoleLabel(user)}
                 </Chip>
               ) : null}
-              {Meteor.user()?.username === "carlosmbinf" && (
+              {user?.username === "carlosmbinf" && (
                 <Chip
                   compact
                   icon="information"
@@ -204,7 +203,7 @@ const MenuPrincipalScreen = ({
                   v{appVersion}
                 </Chip>
               )}
-              {Meteor.user()?.username === "carlosmbinf" && (
+              {user?.username === "carlosmbinf" && (
                 <Chip
                   compact
                   icon="cellphone-arrow-down"

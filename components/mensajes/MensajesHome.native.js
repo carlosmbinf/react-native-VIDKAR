@@ -1,35 +1,184 @@
-import { LinearGradient } from "expo-linear-gradient";
 import MeteorBase from "@meteorrn/core";
+import { BlurView } from "expo-blur";
+import * as ImagePicker from "expo-image-picker";
+import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
 import React from "react";
 import {
-  Appearance,
-  Dimensions,
-  FlatList,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  View,
+    Alert,
+    Appearance,
+    Dimensions,
+    FlatList,
+    Image,
+    Keyboard,
+    KeyboardAvoidingView,
+    Linking,
+    Platform,
+    StyleSheet,
+    View,
 } from "react-native";
 import {
-  ActivityIndicator,
-  Avatar,
-  IconButton,
-  Surface,
-  Text,
-  TextInput,
+    ActivityIndicator,
+    Avatar,
+    IconButton,
+    Menu,
+    Surface,
+    Text,
+    TextInput,
 } from "react-native-paper";
 
+import { getMeteorUrl } from "../../services/meteor/client.native";
 import { Mensajes as MensajesCollection } from "../collections/collections";
 import AppHeader from "../Header/AppHeader";
+import {
+    DARK_MENU_GLASS_TINT,
+    LIGHT_MENU_GLASS_TINT,
+} from "../shared/GlassMenuSurface";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
     MeteorBase
   );
 
+const MESSAGE_PAGE_SIZE = 20;
+
+const CONVERSATION_MESSAGE_FIELDS = {
+  attachmentFileId: 1,
+  attachmentFileName: 1,
+  attachmentFileSize: 1,
+  attachmentHeight: 1,
+  attachmentKind: 1,
+  attachmentMimeType: 1,
+  attachmentUrl: 1,
+  attachmentWidth: 1,
+  attachments: 1,
+  createdAt: 1,
+  from: 1,
+  imageHeight: 1,
+  imageMimeType: 1,
+  imageUrl: 1,
+  imageWidth: 1,
+  leido: 1,
+  mensaje: 1,
+  to: 1,
+  type: 1,
+};
+
+const CONVERSATION_USER_FIELDS = {
+  "profile.avatar": 1,
+  "profile.firstName": 1,
+  "profile.lastName": 1,
+  "services.facebook.picture.data.url": 1,
+};
+
+const CHAT_IMAGE_PICKER_OPTIONS = {
+  allowsEditing: true,
+  aspect: [4, 5],
+  base64: true,
+  mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  quality: 0.78,
+};
+
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
+
+const toHttpOriginFromMeteorUrl = (value) => {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  try {
+    const parsedMeteorUrl = new URL(value);
+    const protocol = parsedMeteorUrl.protocol === "wss:" ? "https:" : "http:";
+    return `${protocol}//${parsedMeteorUrl.host}`;
+  } catch (_error) {
+    return null;
+  }
+};
+
+const normalizeChatAssetUrl = (value) => {
+  if (typeof value !== "string" || !value.trim()) {
+    return "";
+  }
+
+  try {
+    const parsedAssetUrl = new URL(value);
+    const activeMeteorOrigin = toHttpOriginFromMeteorUrl(getMeteorUrl());
+
+    if (!activeMeteorOrigin) {
+      return value;
+    }
+
+    const parsedActiveOrigin = new URL(activeMeteorOrigin);
+    if (parsedActiveOrigin.host === parsedAssetUrl.host) {
+      return value;
+    }
+
+    return `${parsedActiveOrigin.origin}${parsedAssetUrl.pathname}${parsedAssetUrl.search}${parsedAssetUrl.hash}`;
+  } catch (_error) {
+    return value;
+  }
+};
+
+const getBase64SizeBytes = (base64) => {
+  if (!base64) {
+    return 0;
+  }
+
+  const padding = (base64.match(/=+$/) || [""])[0].length;
+  return Math.floor((base64.length * 3) / 4) - padding;
+};
+
+const inferMimeType = (asset) => {
+  if (typeof asset?.mimeType === "string" && asset.mimeType.trim()) {
+    return asset.mimeType;
+  }
+
+  const fileName = String(asset?.fileName || "").toLowerCase();
+  if (fileName.endsWith(".png")) {
+    return "image/png";
+  }
+
+  return "image/jpeg";
+};
+
+const requestGalleryPermission = async () => {
+  const current = await ImagePicker.getMediaLibraryPermissionsAsync();
+  if (current.granted || current.accessPrivileges === "limited") {
+    return true;
+  }
+
+  if (current.status === "denied" && !current.canAskAgain) {
+    Alert.alert(
+      "Permiso de galería bloqueado",
+      "Para enviar imágenes por el chat, habilita el acceso a Fotos en Configuración.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Abrir Configuración", onPress: () => Linking.openSettings() },
+      ],
+    );
+    return false;
+  }
+
+  const requestResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (requestResult.granted || requestResult.accessPrivileges === "limited") {
+    return true;
+  }
+
+  Alert.alert(
+    "Permiso denegado",
+    "No se puede adjuntar una imagen si la app no tiene acceso a tu galería.",
+  );
+  return false;
+};
+
+const buildChatImageMetadata = ({ recipientId }) => ({
+  type: "CHAT",
+  category: "CHAT_MESSAGE",
+  channel: "CHAT",
+  source: "MensajesHome.native",
+  sourceApp: "expo",
+  recipientId,
+});
 
 const formatTime = (value) => {
   const date = value instanceof Date ? value : new Date(value);
@@ -192,9 +341,12 @@ class MensajesHomeScreen extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
+      attachmentMenuAnchor: null,
+      attachmentMenuVisible: false,
       inputHeight: 40,
       isDarkMode: Appearance?.getColorScheme?.() === "dark",
       isSending: false,
+      isUploadingImage: false,
       keyboardHeight: 0,
       message: "",
       messageText: "",
@@ -202,6 +354,7 @@ class MensajesHomeScreen extends React.Component {
     };
 
     this.flatListRef = React.createRef();
+  this.attachmentButtonRef = React.createRef();
     this.keyboardDidHideSub = null;
     this.keyboardDidShowSub = null;
     this.keyboardWillHideSub = null;
@@ -239,7 +392,13 @@ class MensajesHomeScreen extends React.Component {
   }
 
   componentDidUpdate(prevProps) {
-    if (prevProps.myTodoTasks.length < this.props.myTodoTasks.length) {
+    const previousLatestMessageId = prevProps.myTodoTasks[0]?._id;
+    const currentLatestMessageId = this.props.myTodoTasks[0]?._id;
+
+    if (
+      prevProps.myTodoTasks.length < this.props.myTodoTasks.length &&
+      previousLatestMessageId !== currentLatestMessageId
+    ) {
       setTimeout(() => {
         this.flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       }, 100);
@@ -322,6 +481,185 @@ class MensajesHomeScreen extends React.Component {
     }
   };
 
+  openAttachmentMenu = () => {
+    if (!this.props.user || this.state.isSending) {
+      return;
+    }
+
+    const anchorNode = this.attachmentButtonRef.current;
+    if (!anchorNode?.measureInWindow) {
+      this.setState({
+        attachmentMenuAnchor: { x: 20, y: SCREEN_HEIGHT - 120 },
+        attachmentMenuVisible: true,
+      });
+      return;
+    }
+
+    anchorNode.measureInWindow((pageX, pageY, width, _height) => {
+      const menuWidth = 188;
+      const menuHeight = 64;
+      const horizontalPadding = 12;
+      const desiredX = pageX + width / 2 - menuWidth / 2;
+      const maxX = Math.max(horizontalPadding, SCREEN_WIDTH - menuWidth - horizontalPadding);
+      const x = Math.min(Math.max(horizontalPadding, desiredX), maxX);
+      const y = Math.max(12, pageY - menuHeight - 10);
+
+      this.setState({
+        attachmentMenuAnchor: { x, y },
+        attachmentMenuVisible: true,
+      });
+    });
+  };
+
+  closeAttachmentMenu = () => {
+    this.setState({ attachmentMenuAnchor: null, attachmentMenuVisible: false });
+  };
+
+  handleSelectChatImage = async () => {
+    const { messageText } = this.state;
+    const { user, userLabel } = this.props;
+
+    this.closeAttachmentMenu();
+
+    if (!user) {
+      return;
+    }
+
+    try {
+      const allowed = await requestGalleryPermission();
+      if (!allowed) {
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync(
+        CHAT_IMAGE_PICKER_OPTIONS,
+      );
+      if (result.canceled) {
+        return;
+      }
+
+      const asset = result.assets?.[0];
+      if (!asset?.base64) {
+        Alert.alert(
+          "No se pudo adjuntar la imagen",
+          "La imagen seleccionada no pudo leerse correctamente.",
+        );
+        return;
+      }
+
+      this.setState({ isSending: true, isUploadingImage: true });
+
+      const uploadResponse = await new Promise((resolve, reject) => {
+        Meteor.call(
+          "images.upload",
+          {
+            base64: asset.base64,
+            name: asset.fileName || `chat_${Date.now()}.jpg`,
+            size: asset.fileSize || getBase64SizeBytes(asset.base64),
+            type: inferMimeType(asset),
+          },
+          buildChatImageMetadata({ recipientId: user }),
+          (error, response) => (error ? reject(error) : resolve(response)),
+        );
+      });
+
+      if (!uploadResponse?.success || !uploadResponse?.url) {
+        throw new Error("No se pudo obtener la URL pública de la imagen.");
+      }
+
+      const cleanCaption = String(messageText || "").trim();
+      const pushImageUrl = normalizeChatAssetUrl(uploadResponse.url);
+
+      await MensajesCollection.insert({
+        attachmentFileId: uploadResponse.fileId,
+        attachmentFileName: uploadResponse.fileName,
+        attachmentFileSize: asset.fileSize || getBase64SizeBytes(asset.base64),
+        attachmentHeight: asset.height,
+        attachmentKind: "image",
+        attachmentMimeType: inferMimeType(asset),
+        attachmentUrl: uploadResponse.url,
+        attachmentWidth: asset.width,
+        attachments: [
+          {
+            fileId: uploadResponse.fileId,
+            fileName: uploadResponse.fileName,
+            fileSize: asset.fileSize || getBase64SizeBytes(asset.base64),
+            kind: "image",
+            mimeType: inferMimeType(asset),
+            url: uploadResponse.url,
+            width: asset.width,
+            height: asset.height,
+          },
+        ],
+        from: Meteor.userId(),
+        to: user,
+        mensaje: cleanCaption || undefined,
+        createdAt: new Date(),
+        imageFileId: uploadResponse.fileId,
+        imageFileName: uploadResponse.fileName,
+        imageHeight: asset.height,
+        imageMimeType: inferMimeType(asset),
+        imageUrl: uploadResponse.url,
+        imageWidth: asset.width,
+        leido: false,
+        type: "image",
+      });
+
+      this.setState({
+        inputHeight: 40,
+        isSending: false,
+        isUploadingImage: false,
+        message: "",
+        messageText: "",
+      });
+
+      setTimeout(() => {
+        this.flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      }, 100);
+
+      Meteor.call(
+        "enviarMensajeDirecto2",
+        user,
+        cleanCaption || "Imagen",
+        {
+          data: {
+            attachmentKind: "image",
+            attachmentUrl: pushImageUrl,
+            attachmentFileId: uploadResponse.fileId,
+            attachmentFileName: uploadResponse.fileName,
+            attachmentMimeType: inferMimeType(asset),
+            image: pushImageUrl,
+            imageUrl: pushImageUrl,
+            imageFileId: uploadResponse.fileId,
+            imageFileName: uploadResponse.fileName,
+            imageMimeType: inferMimeType(asset),
+            notificationImageUrl: pushImageUrl,
+            type: "image",
+            attachments: [
+              {
+                kind: "image",
+                url: pushImageUrl,
+                fileId: uploadResponse.fileId,
+                fileName: uploadResponse.fileName,
+                mimeType: inferMimeType(asset),
+                width: asset.width,
+                height: asset.height,
+              },
+            ],
+          },
+          title: userLabel || Meteor.user()?.username || "Chat",
+        },
+      );
+    } catch (error) {
+      console.error("Error al adjuntar imagen del chat:", error);
+      Alert.alert(
+        "No se pudo enviar la imagen",
+        error?.reason || error?.message || "Inténtalo nuevamente.",
+      );
+      this.setState({ isSending: false, isUploadingImage: false });
+    }
+  };
+
   renderAvatar = (label, avatar, size = 46) => {
     const palette = this.palette;
 
@@ -342,67 +680,6 @@ class MensajesHomeScreen extends React.Component {
         color="#ffffff"
         style={[styles.avatarText, { backgroundColor: palette.sendBackground }]}
       />
-    );
-  };
-
-  renderConversationHero = () => {
-    const { myTodoTasks, targetAvatar, user, userLabel } = this.props;
-    const palette = this.palette;
-
-    return (
-      <Surface
-        elevation={0}
-        style={[
-          styles.heroCard,
-          {
-            backgroundColor: palette.heroBackground,
-            borderColor: palette.heroBorder,
-            shadowColor: palette.shadow,
-          },
-        ]}
-      >
-        <View style={styles.heroTopRow}>
-          <View style={styles.heroAvatarWrap}>
-            {this.renderAvatar(userLabel || "Mensajes", targetAvatar, 52)}
-          </View>
-          <View style={styles.heroCopy}>
-            <Text style={[styles.heroEyebrow, { color: palette.heroMuted }]}>
-              Conversación directa
-            </Text>
-            <Text style={[styles.heroTitle, { color: palette.heroStrong }]}>
-              {userLabel || "Mensajes"}
-            </Text>
-            <Text style={[styles.heroSubtitle, { color: palette.heroMuted }]}>
-              {user
-                ? "Espacio privado para conversar con claridad y rapidez."
-                : "Selecciona una conversación para escribir y enviar mensajes."}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.heroMetaRow}>
-          <View
-            style={[
-              styles.heroPill,
-              { backgroundColor: palette.infoPillBackground },
-            ]}
-          >
-            <Text style={[styles.heroPillText, { color: palette.infoPillText }]}>
-              {myTodoTasks.length} mensaje{myTodoTasks.length === 1 ? "" : "s"}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.heroPill,
-              { backgroundColor: palette.infoPillBackground },
-            ]}
-          >
-            <Text style={[styles.heroPillText, { color: palette.infoPillText }]}>
-              {user ? "Canal activo" : "Sin destinatario"}
-            </Text>
-          </View>
-        </View>
-      </Surface>
     );
   };
 
@@ -431,14 +708,23 @@ class MensajesHomeScreen extends React.Component {
   renderMessage = ({ index, item }) => {
     const palette = this.palette;
     const previousMessage = this.props.myTodoTasks[index - 1];
+    const nextMessage = this.props.myTodoTasks[index + 1];
     const isMyMessage = item.user._id === Meteor.userId();
+    const resolvedImageUrl =
+      typeof item.attachmentUrl === "string" && item.attachmentUrl.trim()
+        ? normalizeChatAssetUrl(item.attachmentUrl)
+        : typeof item.imageUrl === "string" && item.imageUrl.trim()
+          ? normalizeChatAssetUrl(item.imageUrl)
+          : "";
+    const hasImage = Boolean(resolvedImageUrl);
+    const hasText = typeof item.text === "string" && item.text.trim();
     const showAvatar =
       index === 0 ||
       previousMessage?.user?._id !== item.user._id ||
       !isSameDay(previousMessage?.createdAt, item.createdAt);
     const shouldShowDateSeparator =
       index === this.props.myTodoTasks.length - 1 ||
-      !isSameDay(previousMessage?.createdAt, item.createdAt);
+      !isSameDay(nextMessage?.createdAt, item.createdAt);
 
     return (
       <View style={styles.messageRowBlock}>
@@ -491,14 +777,25 @@ class MensajesHomeScreen extends React.Component {
               </Text>
             ) : null}
 
-            <Text
-              style={[
-                styles.messageText,
-                { color: isMyMessage ? palette.ownText : palette.otherText },
-              ]}
-            >
-              {item.text}
-            </Text>
+            {hasImage ? (
+              <Image
+                source={{ uri: resolvedImageUrl }}
+                style={styles.messageImage}
+                resizeMode="cover"
+              />
+            ) : null}
+
+            {hasText ? (
+              <Text
+                style={[
+                  styles.messageText,
+                  hasImage ? styles.imageCaption : null,
+                  { color: isMyMessage ? palette.ownText : palette.otherText },
+                ]}
+              >
+                {item.text}
+              </Text>
+            ) : null}
 
             <View style={styles.messageFooter}>
               <Text
@@ -563,11 +860,62 @@ class MensajesHomeScreen extends React.Component {
     return <View style={styles.headerAvatarSlot}>{this.renderAvatar(userLabel, targetAvatar, 34)}</View>;
   };
 
+  handleLoadOlderMessages = () => {
+    const { hasMoreMessages, isPaginating, loading, onLoadOlderMessages, user } =
+      this.props;
+
+    if (!user || loading || isPaginating || !hasMoreMessages) {
+      return;
+    }
+
+    onLoadOlderMessages?.();
+  };
+
+  renderListFooter = () => {
+    const { hasMoreMessages, isPaginating, myTodoTasks } = this.props;
+    const palette = this.palette;
+
+    if (isPaginating) {
+      return (
+        <View style={styles.paginationLoaderWrap}>
+          <ActivityIndicator size="small" color={palette.sendBackground} />
+          <Text style={[styles.paginationLoaderText, { color: palette.subtitle }]}> 
+            Cargando mensajes anteriores...
+          </Text>
+        </View>
+      );
+    }
+
+    if (!hasMoreMessages || myTodoTasks.length === 0) {
+      return null;
+    }
+
+    return (
+      <View style={styles.paginationHintWrap}>
+        <Text style={[styles.paginationHintText, { color: palette.subtle }]}> 
+          Desplázate hacia arriba para cargar más mensajes.
+        </Text>
+      </View>
+    );
+  };
+
   render() {
     const { loading, myTodoTasks, user, userLabel } = this.props;
-    const { isDarkMode, isSending, keyboardHeight, messageText } = this.state;
+    const {
+      attachmentMenuAnchor,
+      attachmentMenuVisible,
+      isDarkMode,
+      isSending,
+      isUploadingImage,
+      keyboardHeight,
+      messageText,
+    } = this.state;
 
     const palette = getConversationPalette(isDarkMode);
+    const attachmentMenuTint = isDarkMode
+      ? DARK_MENU_GLASS_TINT
+      : LIGHT_MENU_GLASS_TINT;
+    const attachmentMenuBlurTint = isDarkMode ? "dark" : "light";
     this.palette = palette;
 
     if (loading) {
@@ -631,58 +979,32 @@ class MensajesHomeScreen extends React.Component {
             keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
           >
             <View style={styles.contentContainer}>
-              <View style={styles.heroContainer}>{this.renderConversationHero()}</View>
-
-              <Surface
-                elevation={0}
-                style={[
-                  styles.timelineSurface,
-                  {
-                    backgroundColor: palette.timelineBackground,
-                    borderColor: palette.timelineBorder,
-                    shadowColor: palette.shadow,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.timelineSurfaceOverlay,
-                    { borderBottomColor: palette.separator },
-                  ]}
-                >
-                  <Text style={[styles.timelineTitle, { color: palette.title }]}>
-                    Historial de mensajes
-                  </Text>
-                  <Text style={[styles.timelineSubtitle, { color: palette.subtitle }]}>
-                    {user
-                      ? "Todo lo que envías y recibes se mantiene tal como está, ahora con una lectura más cómoda."
-                      : "Abre una conversación para escribir y responder mensajes desde esta misma vista."}
-                  </Text>
-                </View>
-
-                <View style={styles.messagesBody}>
-                  {myTodoTasks.length === 0 ? (
-                    this.renderEmptyState()
-                  ) : (
-                    <FlatList
-                      ref={this.flatListRef}
-                      data={myTodoTasks}
-                      renderItem={this.renderMessage}
-                      keyExtractor={(item) => item._id}
-                      inverted
-                      contentContainerStyle={styles.messagesList}
-                      showsVerticalScrollIndicator={false}
-                      initialNumToRender={20}
-                      maxToRenderPerBatch={10}
-                      windowSize={10}
-                      keyboardShouldPersistTaps="handled"
-                      keyboardDismissMode={
-                        Platform.OS === "ios" ? "interactive" : "on-drag"
-                      }
-                    />
-                  )}
-                </View>
-              </Surface>
+              <View style={styles.messagesBody}>
+                {myTodoTasks.length === 0 ? (
+                  this.renderEmptyState()
+                ) : (
+                  <FlatList
+                    ref={this.flatListRef}
+                    data={myTodoTasks}
+                    renderItem={this.renderMessage}
+                    keyExtractor={(item) => item._id}
+                    inverted
+                    contentContainerStyle={styles.messagesList}
+                    showsVerticalScrollIndicator={false}
+                    initialNumToRender={MESSAGE_PAGE_SIZE}
+                    maxToRenderPerBatch={10}
+                    windowSize={10}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode={
+                      Platform.OS === "ios" ? "interactive" : "on-drag"
+                    }
+                    onEndReached={this.handleLoadOlderMessages}
+                    onEndReachedThreshold={0.18}
+                    ListFooterComponent={this.renderListFooter}
+                    maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
+                  />
+                )}
+              </View>
             </View>
 
             <View
@@ -698,6 +1020,58 @@ class MensajesHomeScreen extends React.Component {
               ]}
             >
               <View style={styles.composerContent}>
+                <Menu
+                  visible={attachmentMenuVisible && Boolean(attachmentMenuAnchor)}
+                  onDismiss={this.closeAttachmentMenu}
+                  anchor={attachmentMenuAnchor || { x: 20, y: SCREEN_HEIGHT - 120 }}
+                  contentStyle={styles.attachmentMenu}
+                >
+                  <BlurView
+                    tint={attachmentMenuBlurTint}
+                    style={[
+                      styles.attachmentMenuSurface,
+                      {
+                        backgroundColor: attachmentMenuTint,
+                        borderColor: "rgba(255,255,255,0.22)",
+                      },
+                    ]}
+                    intensity={15}
+                    experimentalBlurMethod="dimezisBlurView"
+                  >
+                    <Menu.Item
+                      leadingIcon="image-multiple"
+                      title="Fotos y videos"
+                      onPress={this.handleSelectChatImage}
+                    />
+                  </BlurView>
+                </Menu>
+
+                <View
+                  ref={this.attachmentButtonRef}
+                  collapsable={false}
+                  style={styles.attachmentAnchorContainer}
+                >
+                  <Surface
+                    elevation={0}
+                    style={[
+                      styles.attachmentButtonWrap,
+                      {
+                        backgroundColor: palette.inputBackground,
+                        borderColor: palette.inputBorder,
+                      },
+                    ]}
+                  >
+                    <IconButton
+                      icon={isUploadingImage ? "progress-upload" : "plus"}
+                      size={24}
+                      disabled={!user || isSending}
+                      onPress={this.openAttachmentMenu}
+                      iconColor={palette.sendBackground}
+                      style={styles.attachmentButton}
+                    />
+                  </Surface>
+                </View>
+
                 <View
                   style={[
                     styles.inputShell,
@@ -782,10 +1156,18 @@ const MensajesHomeNative = (props) => {
     ? params.user[0]
     : params.user;
   const targetUserId = props.user || routeUser || explicitUser || null;
+  const [messageLimit, setMessageLimit] = React.useState(MESSAGE_PAGE_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
 
-  const { loading, myTodoTasks, targetAvatar, userLabel } = Meteor.useTracker(() => {
+  React.useEffect(() => {
+    setMessageLimit(MESSAGE_PAGE_SIZE);
+    setIsLoadingMore(false);
+  }, [targetUserId]);
+
+  const { hasMoreMessages, loading, myTodoTasks, targetAvatar, userLabel } = Meteor.useTracker(() => {
     if (!targetUserId) {
       return {
+        hasMoreMessages: false,
         loading: false,
         myTodoTasks: [],
         targetAvatar: undefined,
@@ -793,37 +1175,45 @@ const MensajesHomeNative = (props) => {
       };
     }
 
+    const selector = {
+      $or: [
+        { $and: [{ from: targetUserId, to: Meteor.userId() }] },
+        { $and: [{ from: Meteor.userId(), to: targetUserId }] },
+      ],
+    };
+
+    const subscriptionLimit = messageLimit + 1;
+    const conversationUserIds = [targetUserId, Meteor.userId()].filter(Boolean);
+
     const handle = Meteor.subscribe(
       "mensajes",
+      selector,
       {
-        $or: [
-          { $and: [{ from: targetUserId, to: Meteor.userId() }] },
-          { $and: [{ from: Meteor.userId(), to: targetUserId }] },
-        ],
+        fields: CONVERSATION_MESSAGE_FIELDS,
+        limit: subscriptionLimit,
+        sort: { createdAt: -1 },
       },
-      { sort: { createdAt: -1 } },
     );
 
-    Meteor.subscribe("user", targetUserId, {
-      fields: {
-        "profile.firstName": 1,
-        "profile.lastName": 1,
-        "services.facebook.picture.data.url": 1,
-        "profile.avatar": 1,
-      },
+    Meteor.subscribe("user", { _id: { $in: conversationUserIds } }, {
+      fields: CONVERSATION_USER_FIELDS,
     });
 
     const mensajes = MensajesCollection.find(
+      selector,
       {
-        $or: [
-          { $and: [{ from: targetUserId, to: Meteor.userId() }] },
-          { $and: [{ from: Meteor.userId(), to: targetUserId }] },
-        ],
+        fields: CONVERSATION_MESSAGE_FIELDS,
+        limit: subscriptionLimit,
+        sort: { createdAt: -1 },
       },
-      { sort: { createdAt: -1 } },
     ).fetch();
 
-    const targetUser = Meteor.users.findOne(targetUserId);
+    const hasMore = mensajes.length > messageLimit;
+    const visibleMensajes = hasMore ? mensajes.slice(0, messageLimit) : mensajes;
+
+    const targetUser = Meteor.users.findOne(targetUserId, {
+      fields: CONVERSATION_USER_FIELDS,
+    });
     const targetFirstName = targetUser?.profile?.firstName || "";
     const targetLastName = targetUser?.profile?.lastName || "";
     const resolvedUserLabel =
@@ -836,12 +1226,14 @@ const MensajesHomeNative = (props) => {
           ? targetUser.services.facebook.picture.data.url
           : undefined;
 
-    const list = mensajes.map((element) => {
+    const list = visibleMensajes.map((element) => {
       if (element.to === Meteor.userId() && !element.leido) {
         MensajesCollection.update(element._id, { $set: { leido: true } });
       }
 
-      const fromUser = Meteor.users.findOne(element.from);
+      const fromUser = Meteor.users.findOne(element.from, {
+        fields: CONVERSATION_USER_FIELDS,
+      });
       const firstName = fromUser?.profile?.firstName || "";
       const lastName = fromUser?.profile?.lastName || "";
       const name = `${firstName} ${lastName}`.trim() || "Usuario";
@@ -857,10 +1249,24 @@ const MensajesHomeNative = (props) => {
 
       return {
         _id: element._id,
+        attachmentFileId: element.attachmentFileId,
+        attachmentFileName: element.attachmentFileName,
+        attachmentFileSize: element.attachmentFileSize,
+        attachmentHeight: element.attachmentHeight,
+        attachmentKind: element.attachmentKind,
+        attachmentMimeType: element.attachmentMimeType,
+        attachmentUrl: element.attachmentUrl,
+        attachmentWidth: element.attachmentWidth,
+        attachments: element.attachments,
         createdAt: element.createdAt ? new Date(element.createdAt) : new Date(),
+        imageHeight: element.imageHeight,
+        imageMimeType: element.imageMimeType,
+        imageUrl: element.imageUrl,
+        imageWidth: element.imageWidth,
         received: !!element.leido,
         sent: true,
         text: element.mensaje,
+        type: element.type || "text",
         user: {
           _id: element.from,
           avatar,
@@ -870,16 +1276,35 @@ const MensajesHomeNative = (props) => {
     });
 
     return {
+      hasMoreMessages: hasMore,
       loading: !handle.ready(),
       myTodoTasks: list,
       targetAvatar: resolvedTargetAvatar,
       userLabel: resolvedUserLabel,
     };
-  }, [targetUserId]);
+  }, [messageLimit, targetUserId]);
+
+  React.useEffect(() => {
+    if (!loading) {
+      setIsLoadingMore(false);
+    }
+  }, [loading]);
+
+  const handleLoadOlderMessages = React.useCallback(() => {
+    if (isLoadingMore || !hasMoreMessages) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+    setMessageLimit((currentLimit) => currentLimit + MESSAGE_PAGE_SIZE);
+  }, [hasMoreMessages, isLoadingMore]);
 
   return (
     <MensajesHomeScreen
       {...props}
+      hasMoreMessages={hasMoreMessages}
+      isPaginating={isLoadingMore}
+      onLoadOlderMessages={handleLoadOlderMessages}
       user={targetUserId}
       myTodoTasks={myTodoTasks}
       loading={loading}
@@ -901,62 +1326,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingHorizontal: 14,
-    paddingTop: 14,
-  },
-  heroContainer: {
-    marginBottom: 12,
-  },
-  heroCard: {
-    borderRadius: 28,
-    borderWidth: 1,
-    overflow: "hidden",
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.12,
-    shadowRadius: 22,
-  },
-  heroTopRow: {
-    alignItems: "center",
-    flexDirection: "row",
-  },
-  heroAvatarWrap: {
-    marginRight: 14,
-  },
-  heroCopy: {
-    flex: 1,
-  },
-  heroEyebrow: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.9,
-    marginBottom: 4,
-    textTransform: "uppercase",
-  },
-  heroTitle: {
-    fontSize: 21,
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-  heroSubtitle: {
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  heroMetaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 14,
-  },
-  heroPill: {
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  heroPillText: {
-    fontSize: 12,
-    fontWeight: "700",
   },
   headerAvatarSlot: {
     marginRight: 10,
@@ -967,30 +1336,6 @@ const styles = StyleSheet.create({
   avatarText: {
     borderWidth: 0,
   },
-  timelineSurface: {
-    borderRadius: 30,
-    borderWidth: 1,
-    flex: 1,
-    overflow: "hidden",
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.12,
-    shadowRadius: 28,
-  },
-  timelineSurfaceOverlay: {
-    borderBottomWidth: 1,
-    paddingBottom: 14,
-    paddingHorizontal: 18,
-    paddingTop: 18,
-  },
-  timelineTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-  timelineSubtitle: {
-    fontSize: 13,
-    lineHeight: 19,
-  },
   messagesBody: {
     flex: 1,
   },
@@ -998,7 +1343,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 12,
     paddingBottom: 20,
-    paddingTop: 18,
+    paddingTop: 12,
   },
   messageRowBlock: {
     width: "100%",
@@ -1112,6 +1457,28 @@ const styles = StyleSheet.create({
     maxWidth: 320,
     textAlign: "center",
   },
+  paginationLoaderWrap: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+    paddingBottom: 8,
+    paddingTop: 12,
+  },
+  paginationLoaderText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  paginationHintWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: 4,
+    paddingTop: 8,
+  },
+  paginationHintText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
   composerWrapper: {
     borderTopWidth: 1,
     paddingHorizontal: 14,
@@ -1130,6 +1497,34 @@ const styles = StyleSheet.create({
     minHeight: 54,
     overflow: "hidden",
   },
+  attachmentButtonWrap: {
+    alignItems: "center",
+    borderRadius: 24,
+    borderWidth: 1,
+    height: 54,
+    justifyContent: "center",
+    overflow: "hidden",
+    width: 54,
+  },
+  attachmentAnchorContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attachmentButton: {
+    margin: 0,
+  },
+  attachmentMenu: {
+    backgroundColor: "transparent",
+    borderRadius: 18,
+    overflow: "hidden",
+    padding: 0,
+    width: 188,
+  },
+  attachmentMenuSurface: {
+    borderRadius: 18,
+    borderWidth: 2,
+    overflow: "hidden",
+  },
   composerInput: {
     fontSize: 15,
     minHeight: 54,
@@ -1144,6 +1539,15 @@ const styles = StyleSheet.create({
   },
   sendButton: {
     margin: 0,
+  },
+  messageImage: {
+    borderRadius: 18,
+    height: Math.min(SCREEN_HEIGHT * 0.34, 260),
+    marginBottom: 8,
+    width: Math.min(SCREEN_WIDTH * 0.62, 220),
+  },
+  imageCaption: {
+    marginTop: 2,
   },
   loadingStateWrap: {
     alignItems: "center",

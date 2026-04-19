@@ -17,6 +17,17 @@ const Meteor =
     MeteorBase
   );
 
+const PEDIDOS_COMERCIO_FIELDS = {
+  _id: 1,
+  cadeteid: 1,
+  createdAt: 1,
+  estado: 1,
+  isCancelada: 1,
+  isCobrado: 1,
+  metodoPago: 1,
+  producto: 1,
+};
+
 const PedidosComerciosListNative = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -34,6 +45,8 @@ const PedidosComerciosListNative = () => {
     const sub = Meteor.subscribe("ventasRecharge", {
       userId,
       "producto.carritos.type": "COMERCIO",
+    }, {
+      fields: PEDIDOS_COMERCIO_FIELDS,
     });
 
     const ventasData = VentasRechargeCollection.find(
@@ -41,7 +54,7 @@ const PedidosComerciosListNative = () => {
         userId,
         "producto.carritos.type": "COMERCIO",
       },
-      { sort: { createdAt: -1 } },
+      { fields: PEDIDOS_COMERCIO_FIELDS, sort: { createdAt: -1 } },
     ).fetch();
 
     return { ready: sub.ready(), ventas: ventasData };

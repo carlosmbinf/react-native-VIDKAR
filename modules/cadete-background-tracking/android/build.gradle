@@ -1,0 +1,22 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.cadetebackgroundtracking'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.cadetebackgroundtracking"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+    consumerProguardFiles("proguard-rules.pro")
+  }
+}
+
+dependencies {
+  api 'com.google.android.gms:play-services-location:21.0.1'
+  implementation 'androidx.annotation:annotation:1.7.1'
+  implementation 'androidx.core:core-ktx:1.13.1'
+}

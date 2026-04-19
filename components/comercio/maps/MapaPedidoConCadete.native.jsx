@@ -17,6 +17,15 @@ const Meteor =
     MeteorBase
   );
 
+const MAPA_PEDIDO_TIENDA_FIELDS = {
+  cordenadas: 1,
+  coordenadas: 1,
+  descripcion: 1,
+  name: 1,
+  title: 1,
+  ubicacion: 1,
+};
+
 const MapaPedidoConCadeteNative = ({
   cadeteId,
   coordenadasDestino,
@@ -29,8 +38,13 @@ const MapaPedidoConCadeteNative = ({
       return { tienda: null, tiendaReady: false };
     }
 
-    const sub = Meteor.subscribe("tiendas", { _id: idTienda });
-    const tiendaData = TiendasComercioCollection.findOne({ _id: idTienda });
+    const sub = Meteor.subscribe("tiendas", { _id: idTienda }, {
+      fields: MAPA_PEDIDO_TIENDA_FIELDS,
+    });
+    const tiendaData = TiendasComercioCollection.findOne(
+      { _id: idTienda },
+      { fields: MAPA_PEDIDO_TIENDA_FIELDS },
+    );
 
     return {
       tienda: tiendaData,

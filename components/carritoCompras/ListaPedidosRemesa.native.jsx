@@ -32,6 +32,30 @@ const Meteor =
     MeteorBase
   );
 
+const CART_ITEM_FIELDS = {
+  cantidad: 1,
+  cobrarUSD: 1,
+  comentario: 1,
+  coordenadas: 1,
+  direccionCuba: 1,
+  entregado: 1,
+  esPorTiempo: 1,
+  extraFields: 1,
+  idTienda: 1,
+  idUser: 1,
+  megas: 1,
+  metodoPago: 1,
+  monedaACobrar: 1,
+  monedaRecibirEnCuba: 1,
+  movilARecargar: 1,
+  nombre: 1,
+  producto: 1,
+  recibirEnCuba: 1,
+  tarjetaCUP: 1,
+  tienda: 1,
+  type: 1,
+};
+
 if (
   Platform.OS === "android" &&
   UIManager.setLayoutAnimationEnabledExperimental
@@ -614,7 +638,11 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
 
   const pedidosData = Meteor.useTracker(() => {
     if (Array.isArray(items)) return items;
-    Meteor.subscribe("carrito", { idUser: userId });
+    Meteor.subscribe(
+      "carrito",
+      { idUser: userId },
+      { fields: CART_ITEM_FIELDS },
+    );
     return CarritoCollection.find({ idUser: userId }).fetch();
   }, [userId, JSON.stringify(items || null)]);
 

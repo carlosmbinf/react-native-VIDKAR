@@ -28,6 +28,21 @@ const Meteor =
     MeteorBase
   );
 
+const PROPERTY_FIELDS = {
+  active: 1,
+  clave: 1,
+  comentario: 1,
+  createdAt: 1,
+  idAdminConfigurado: 1,
+  type: 1,
+  valor: 1,
+};
+
+const PROPERTY_ADMIN_FIELDS = {
+  "profile.name": 1,
+  username: 1,
+};
+
 const ACTIVE_OPTIONS = ["TODOS", "ACTIVAS", "INACTIVAS"];
 
 const formatPropertyDate = (value) => {
@@ -422,10 +437,12 @@ const PropertyTable = () => {
       return { properties: [], ready: false };
     }
 
-    const propertySubscription = Meteor.subscribe("propertys");
+    const propertySubscription = Meteor.subscribe("propertys", {}, {
+      fields: PROPERTY_FIELDS,
+    });
     const propertyDocs = ConfigCollection.find(
       {},
-      { sort: { createdAt: -1, clave: 1 } },
+      { fields: PROPERTY_FIELDS, sort: { createdAt: -1, clave: 1 } },
     ).fetch();
     const adminIds = [
       ...new Set(
@@ -433,7 +450,9 @@ const PropertyTable = () => {
       ),
     ];
     const usersSubscription = adminIds.length
-      ? Meteor.subscribe("user", { _id: { $in: adminIds } })
+      ? Meteor.subscribe("user", { _id: { $in: adminIds } }, {
+          fields: PROPERTY_ADMIN_FIELDS,
+        })
       : null;
 
     const viewModels = propertyDocs.map((doc) => ({

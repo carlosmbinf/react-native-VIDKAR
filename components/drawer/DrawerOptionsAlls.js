@@ -1,15 +1,15 @@
 import { useMemo } from "react";
 import { ImageBackground, ScrollView, StyleSheet, View } from "react-native";
 import {
-    Avatar,
-    Button,
-    Divider,
-    Drawer,
-    IconButton,
-    Surface,
-    Text,
+  Avatar,
+  Button,
+  Divider,
+  Drawer,
+  IconButton,
+  Surface,
+  Text,
 } from "react-native-paper";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 const getUserInitials = (user) => {
   const username = user?.username?.trim();
@@ -160,6 +160,7 @@ const DrawerOptionsAlls = ({
   onClose,
   onToggleModoCadete,
 }) => {
+  const insets = useSafeAreaInsets();
   const isAdmin =
     user?.profile?.role === "admin" || user?.username === "carlosmbinf";
   const isSuperAdmin = user?.username === "carlosmbinf";
@@ -260,10 +261,19 @@ const DrawerOptionsAlls = ({
 
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: Math.max(insets.bottom, 12) },
+          ]}
           bounces={false}
         >
-          <Surface style={styles.contentSurface} elevation={0}>
+          <Surface
+            style={[
+              styles.contentSurface,
+              { paddingBottom: 16 + Math.max(insets.bottom, 8) },
+            ]}
+            elevation={0}
+          >
             <View>
               {sections.map((section, sectionIndex) => (
                 <Drawer.Section
@@ -306,7 +316,7 @@ const DrawerOptionsAlls = ({
                   icon={cadeteButtonIcon}
                   style={styles.footerButton}
                   onPress={() => onToggleModoCadete?.()}
-                  disabled
+                  disabled={false}
                 >
                   {cadeteButtonLabel}
                 </Button>

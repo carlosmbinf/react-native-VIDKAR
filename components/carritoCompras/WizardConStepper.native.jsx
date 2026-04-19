@@ -113,6 +113,39 @@ const terminosYCondiciones = {
   },
 };
 
+const CART_ITEM_FIELDS = {
+  cantidad: 1,
+  cobrarUSD: 1,
+  comentario: 1,
+  coordenadas: 1,
+  direccionCuba: 1,
+  entregado: 1,
+  esPorTiempo: 1,
+  extraFields: 1,
+  idTienda: 1,
+  idUser: 1,
+  megas: 1,
+  metodoPago: 1,
+  monedaACobrar: 1,
+  monedaRecibirEnCuba: 1,
+  movilARecargar: 1,
+  nombre: 1,
+  producto: 1,
+  recibirEnCuba: 1,
+  tarjetaCUP: 1,
+  tienda: 1,
+  type: 1,
+};
+
+const ORDER_CHECKOUT_FIELDS = {
+  approvalUrl: 1,
+  carritos: 1,
+  init_point: 1,
+  link: 1,
+  linkPago: 1,
+  url: 1,
+};
+
 const WizardConStepper = ({ initialLocation = null }) => {
   const theme = useTheme();
   const isDarkMode = theme.dark;
@@ -144,10 +177,14 @@ const WizardConStepper = ({ initialLocation = null }) => {
   const [visible, setVisible] = useState(false);
 
   const { compra } = Meteor.useTracker(() => {
-    Meteor.subscribe("ordenes", {
-      status: { $nin: ["COMPLETED", "CANCELLED"] },
-      userId,
-    });
+    Meteor.subscribe(
+      "ordenes",
+      {
+        status: { $nin: ["COMPLETED", "CANCELLED"] },
+        userId,
+      },
+      { fields: ORDER_CHECKOUT_FIELDS },
+    );
     return {
       compra: OrdenesCollection.findOne({
         status: { $nin: ["COMPLETED", "CANCELLED"] },
@@ -157,7 +194,11 @@ const WizardConStepper = ({ initialLocation = null }) => {
   }, [userId]);
 
   const pedidosRemesa = Meteor.useTracker(() => {
-    Meteor.subscribe("carrito", { idUser: userId });
+    Meteor.subscribe(
+      "carrito",
+      { idUser: userId },
+      { fields: CART_ITEM_FIELDS },
+    );
     return CarritoCollection.find({ idUser: userId }).fetch();
   }, [userId]);
 

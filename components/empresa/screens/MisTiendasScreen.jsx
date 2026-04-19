@@ -1,5 +1,12 @@
 import React from 'react';
 
-const MisTiendasScreen = () => null;
+import ScreenFallback from '../../shared/ScreenFallback';
+
+const MisTiendasScreen = () => (
+	<ScreenFallback
+		title="Mis tiendas"
+		description="La gestión de tiendas está disponible en la variante nativa de Expo."
+	/>
+);
 
 export default MisTiendasScreen;

@@ -36,6 +36,19 @@ const Meteor =
     MeteorBase
   );
 
+const SERVER_LIST_FIELDS = {
+  active: 1,
+  createdAt: 1,
+  details: 1,
+  domain: 1,
+  estado: 1,
+  ip: 1,
+  lastUpdate: 1,
+  lastupdateAsync: 1,
+  updatedAt: 1,
+  usuariosAprobados: 1,
+};
+
 const ACTIVATION_OPTIONS = ["TODOS", "ACTIVADOS", "DESACTIVADOS"];
 
 const SearchInput = ({ colors, value, onChangeText, placeholder }) => {
@@ -253,9 +266,14 @@ const ServerList = () => {
   const [showFilters, setShowFilters] = React.useState(false);
 
   const { ready, servers } = Meteor.useTracker(() => {
-    const subscriptionReady = Meteor.subscribe("servers").ready();
+    const subscriptionReady = Meteor.subscribe("servers", {}, {
+      fields: SERVER_LIST_FIELDS,
+    }).ready();
     const docs = subscriptionReady
-      ? ServersCollection.find({}, { sort: { ip: -1 } }).fetch()
+      ? ServersCollection.find(
+          {},
+          { fields: SERVER_LIST_FIELDS, sort: { ip: -1 } },
+        ).fetch()
       : [];
 
     return {

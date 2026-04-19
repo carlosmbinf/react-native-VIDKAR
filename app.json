@@ -28,8 +28,14 @@
         "CFBundleName": "Vidkar",
         "CFBundleAllowMixedLocalizations": true,
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": ["fetch", "remote-notification"],
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification",
+          "location"
+        ],
         "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSAllowsLocalNetworking": true,
           "NSExceptionDomains": {
             "www.vidkar.com": {
               "NSExceptionAllowsInsecureHTTPLoads": true,
@@ -44,6 +50,11 @@
         "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/images/adaptive-icon.png"
       },
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyD1r5uJ1PBgUaZkqKtlCgInLJtrA-Fem5g"
+        }
+      },
       "versionCode": 872,
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -53,6 +64,9 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
         "android.permission.POST_NOTIFICATIONS"
       ]
     },
@@ -64,6 +78,7 @@
     },
     "plugins": [
       "expo-router",
+      "./plugins/with-vidkar-google-maps-key.js",
       "./node_modules/@react-native-google-signin/google-signin/app.plugin.js",
       "expo-apple-authentication",
       [
@@ -90,8 +105,12 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "VIDKAR necesita acceso a tu ubicación para coordinar entregas de pedidos de comercio.",
-          "locationWhenInUsePermission": "VIDKAR necesita acceso a tu ubicación para seleccionar el punto de entrega de tus pedidos."
+          "locationAlwaysAndWhenInUsePermission": "VIDKAR necesita acceso permanente a tu ubicación para compartir la posición del cadete y coordinar entregas incluso cuando la app esté en segundo plano.",
+          "locationAlwaysPermission": "VIDKAR necesita acceso permanente a tu ubicación para mantener activo el seguimiento del cadete durante las entregas.",
+          "locationWhenInUsePermission": "VIDKAR necesita acceso a tu ubicación para seleccionar puntos de entrega y activar el modo cadete.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       [

@@ -36,6 +36,44 @@ const Meteor =
     MeteorBase
   );
 
+const UPLOAD_VENTA_FIELDS = {
+  _id: 1,
+  cobrado: 1,
+  createdAt: 1,
+  isCancelada: 1,
+  isCobrado: 1,
+  metodoPago: 1,
+  monedaCobrado: 1,
+  "producto.carritos._id": 1,
+  "producto.carritos.coordenadas": 1,
+  "producto.carritos.idTienda": 1,
+  "producto.carritos.type": 1,
+  "producto.comisiones": 1,
+};
+
+const UPLOAD_EVIDENCIA_FIELDS = {
+  _id: 1,
+  aprobado: 1,
+  base64: 1,
+  cancelada: 1,
+  cancelado: 1,
+  createdAt: 1,
+  data: 1,
+  dataB64: 1,
+  dataBase64: 1,
+  denegado: 1,
+  descripcion: 1,
+  detalles: 1,
+  estado: 1,
+  fecha: 1,
+  fechaSubida: 1,
+  isCancelada: 1,
+  rechazado: 1,
+  size: 1,
+  tamano: 1,
+  ventaId: 1,
+};
+
 const ESTADOS = {
   APROBADA: "APROBADA",
   PENDIENTE: "PENDIENTE",
@@ -254,9 +292,14 @@ const SubidaArchivos = ({ venta }) => {
       return null;
     }
 
-    const ready = Meteor.subscribe("ventasRecharge", { _id: ventaId }).ready();
+    const ready = Meteor.subscribe("ventasRecharge", { _id: ventaId }, {
+      fields: UPLOAD_VENTA_FIELDS,
+    }).ready();
     const ventaDoc = ready
-      ? VentasRechargeCollection.find({ _id: ventaId }).fetch()
+      ? VentasRechargeCollection.find(
+          { _id: ventaId },
+          { fields: UPLOAD_VENTA_FIELDS },
+        ).fetch()
       : null;
     return ventaDoc?.length > 0 ? ventaDoc[0] : null;
   }, [ventaId]);
@@ -411,10 +454,12 @@ const SubidaArchivos = ({ venta }) => {
       return [];
     }
 
-    Meteor.subscribe("evidenciasVentasEfectivoRecharge", { ventaId });
+    Meteor.subscribe("evidenciasVentasEfectivoRecharge", { ventaId }, {
+      fields: UPLOAD_EVIDENCIA_FIELDS,
+    });
     return EvidenciasVentasEfectivoCollection.find(
       { ventaId },
-      { sort: { createdAt: -1 } },
+      { fields: UPLOAD_EVIDENCIA_FIELDS, sort: { createdAt: -1 } },
     ).fetch();
   }, [ventaId]);
 

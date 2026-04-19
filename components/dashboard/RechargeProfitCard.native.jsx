@@ -24,6 +24,22 @@ moment.locale("es");
 const Meteor = MeteorBase;
 const AUTHORIZED_ANALYTICS_USERNAME = "carlosmbinf";
 
+const RECHARGE_ANALYTICS_FIELDS = {
+  _id: 1,
+  cobrado: 1,
+  createdAt: 1,
+  estado: 1,
+  isCancelada: 1,
+  isCobrado: 1,
+  metodoPago: 1,
+  monedaCobrado: 1,
+  "producto.carritos.cantidad": 1,
+  "producto.carritos.type": 1,
+  "producto.carritos.producto.prices.retail.amount": 1,
+  "producto.carritos.producto.prices.wholesale.amount": 1,
+  "producto.carritos.producto.promotions": 1,
+};
+
 const getChartWidth = (windowWidth) => Math.max(windowWidth - 72, 280);
 
 const isAuthorizedAnalyticsUser = (username) =>
@@ -247,7 +263,9 @@ const RechargeProfitCard = () => {
       isCancelada: false,
     };
 
-    const ventasHandle = Meteor.subscribe("ventasRecharge", selector);
+    const ventasHandle = Meteor.subscribe("ventasRecharge", selector, {
+      fields: RECHARGE_ANALYTICS_FIELDS,
+    });
 
     if (!ventasHandle.ready()) {
       return {
@@ -258,6 +276,7 @@ const RechargeProfitCard = () => {
     }
 
     const ventasRecharge = VentasRechargeCollection.find(selector, {
+      fields: RECHARGE_ANALYTICS_FIELDS,
       sort: { createdAt: 1 },
     }).fetch();
 

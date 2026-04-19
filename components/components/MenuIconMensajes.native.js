@@ -1,5 +1,6 @@
 import MeteorBase from "@meteorrn/core";
-import React, { useState } from "react";
+import { BlurView } from "expo-blur";
+import React, { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import {
   Avatar,
@@ -12,7 +13,6 @@ import {
   useTheme,
 } from "react-native-paper";
 
-import { BlurView } from "expo-blur";
 import { Mensajes } from "../collections/collections";
 import {
   DARK_MENU_GLASS_TINT,
@@ -23,6 +23,20 @@ const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
     MeteorBase
   );
+
+const MENSAJES_FIELDS = {
+  createdAt: 1,
+  from: 1,
+  leido: 1,
+  mensaje: 1,
+  to: 1,
+};
+
+const MESSAGE_SENDER_FIELDS = {
+  picture: 1,
+  "profile.firstName": 1,
+  "profile.lastName": 1,
+};
 
 const getConversationQuery = (otherUserId, currentUserId) => ({
   $or: [
@@ -44,19 +58,10 @@ const MessageMenuContent = ({ currentUserId, users, onOpenThread }) => (
           { sort: { createdAt: -1 } },
         );
         const unreadCount = Mensajes.find(
-          {
-            $or: [
-              {
-                $and: [
-                  { from: userId },
-                  { to: currentUserId },
-                  { leido: false },
-                ],
-              },
-            ],
-          },
+          { from: userId, to: currentUserId, leido: false },
           { sort: { createdAt: -1 } },
         ).count();
+        const messageDescription = `${lastMessage?.from === currentUserId ? "TU: " : ""}${lastMessage?.mensaje || ""}`;
 
         return (
           <View key={userId}>
@@ -64,11 +69,11 @@ const MessageMenuContent = ({ currentUserId, users, onOpenThread }) => (
               onPress={() => onOpenThread?.(userId)}
               title={
                 user?.profile
-                  ? `${user.profile.firstName} ${user.profile.lastName}`
+                  ? `${user.profile.firstName} ${user.profile.lastName}`.trim()
                   : ""
               }
               titleStyle={styles.itemTitle}
-              description={`${lastMessage?.from === currentUserId ? "TU: " : ""}${lastMessage?.mensaje || ""}`}
+              description={messageDescription}
               descriptionStyle={styles.itemDescription}
               left={(props) => (
                 <Avatar.Image
@@ -101,42 +106,47 @@ const MenuIconMensajesNative = ({ onOpenMessages }) => {
     : LIGHT_MENU_GLASS_TINT;
   const blurTint = theme.dark ? "dark" : "light";
   const currentUserId = Meteor.useTracker(() => Meteor.userId());
-  const { countMensajes, loading, users } = Meteor.useTracker(() => {
+  const { countMensajes, messagesReady, users } = Meteor.useTracker(() => {
     if (!currentUserId) {
       return {
         countMensajes: 0,
-        loading: false,
+        messagesReady: true,
         users: [],
       };
     }
 
-    Meteor.subscribe("user", {}, { fields: { _id: 1 } });
-    const messagesHandle = Meteor.subscribe("mensajes", { to: currentUserId });
-    const myTodoTasks = Mensajes.find(
+    const messagesHandle = Meteor.subscribe(
+      "mensajes",
+      { to: currentUserId },
+      { fields: MENSAJES_FIELDS },
+    );
+    const messages = Mensajes.find(
       { to: currentUserId },
       { sort: { _id: 1 } },
-    );
-    const uniqueUsers = [];
-
-    myTodoTasks.map((message) => {
-      Meteor.subscribe(
-        "user",
-        { _id: message.from },
-        { fields: { _id: 1, profile: 1, picture: 1 } },
-      );
-      if (!uniqueUsers.includes(message.from)) {
-        uniqueUsers.push(message.from);
-      }
-    });
+    ).fetch();
+    const uniqueUsers = [...new Set(messages.map((message) => message?.from).filter(Boolean))];
 
     return {
-      countMensajes: Mensajes.find({
-        $or: [{ $and: [{ to: currentUserId }, { leido: false }] }],
-      }).count(),
-      loading: !messagesHandle.ready(),
+      countMensajes: Mensajes.find({ to: currentUserId, leido: false }).count(),
+      messagesReady: messagesHandle.ready(),
       users: uniqueUsers,
     };
   }, [currentUserId]);
+  const usersKey = useMemo(() => users.join(","), [users]);
+  const usersReady = Meteor.useTracker(() => {
+    if (!currentUserId || users.length === 0) {
+      return true;
+    }
+
+    const usersHandle = Meteor.subscribe(
+      "user",
+      { _id: { $in: users } },
+      { fields: MESSAGE_SENDER_FIELDS },
+    );
+
+    return usersHandle.ready();
+  }, [currentUserId, usersKey]);
+  const loading = !messagesReady || !usersReady;
 
   const handleAnchorPress = () => {
     if (users.length === 0) {
@@ -203,20 +213,14 @@ const MenuIconMensajesNative = ({ onOpenMessages }) => {
         intensity={15}
         experimentalBlurMethod="dimezisBlurView"
       >
-        {!loading ? (
-          <MessageMenuContent
-            currentUserId={currentUserId}
-            users={users}
-            onOpenThread={(userId) => {
-              setMenuVisible(false);
-              onOpenMessages?.(userId);
-            }}
-          />
-        ) : (
-          <View style={styles.loadingContainer}>
-            <Text>Cargando mensajes...</Text>
-          </View>
-        )}
+        <MessageMenuContent
+          currentUserId={currentUserId}
+          users={users}
+          onOpenThread={(userId) => {
+            setMenuVisible(false);
+            onOpenMessages?.(userId);
+          }}
+        />
       </BlurView>
     </Menu>
   );

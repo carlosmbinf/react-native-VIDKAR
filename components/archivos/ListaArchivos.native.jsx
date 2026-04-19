@@ -12,6 +12,35 @@ const Meteor =
     MeteorBase
   );
 
+const EFECTIVO_LIST_FIELDS = {
+  _id: 1,
+  cobrado: 1,
+  comentario: 1,
+  createdAt: 1,
+  estado: 1,
+  isCancelada: 1,
+  isCobrado: 1,
+  metodoPago: 1,
+  monedaCobrado: 1,
+  precioOficial: 1,
+  "producto.carritos._id": 1,
+  "producto.carritos.comentario": 1,
+  "producto.carritos.coordenadas": 1,
+  "producto.carritos.cobrarUSD": 1,
+  "producto.carritos.entregado": 1,
+  "producto.carritos.idTienda": 1,
+  "producto.carritos.monedaACobrar": 1,
+  "producto.carritos.movilARecargar": 1,
+  "producto.carritos.nombre": 1,
+  "producto.carritos.precio": 1,
+  "producto.carritos.producto.name": 1,
+  "producto.carritos.recibirEnCuba": 1,
+  "producto.carritos.status": 1,
+  "producto.carritos.tarjetaCUP": 1,
+  "producto.carritos.type": 1,
+  "producto.comisiones": 1,
+};
+
 const ListaVentasEfectivo = () => {
   const [refreshing, setRefreshing] = useState(false);
 
@@ -52,10 +81,13 @@ const ListaVentasEfectivo = () => {
           }
         : { ...filtroBase, userId: Meteor.userId() };
 
-    const sub = Meteor.subscribe("ventasRecharge", query);
+    const sub = Meteor.subscribe("ventasRecharge", query, {
+      fields: EFECTIVO_LIST_FIELDS,
+    });
     const ready = sub.ready();
     const ventasData = ready
       ? VentasRechargeCollection.find(query, {
+          fields: EFECTIVO_LIST_FIELDS,
           sort: { createdAt: -1 },
         }).fetch()
       : [];

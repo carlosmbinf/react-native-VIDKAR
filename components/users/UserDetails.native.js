@@ -2,18 +2,18 @@ import MeteorBase from "@meteorrn/core";
 import { router, useLocalSearchParams, usePathname } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    View,
-    useWindowDimensions,
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+  useWindowDimensions,
 } from "react-native";
 import { Appbar, Surface, Text } from "react-native-paper";
 
 import {
-    PreciosCollection,
-    VentasCollection,
+  PreciosCollection,
+  VentasCollection,
 } from "../collections/collections";
 import AppHeader from "../Header/AppHeader";
 import AdminAssignmentCard from "./componentsUserDetails/AdminAssignmentCard";
@@ -21,18 +21,59 @@ import DeleteAccountCard from "./componentsUserDetails/DeleteAccountCard";
 import DevicesCard from "./componentsUserDetails/DevicesCard";
 import OptionsCardAdmin from "./componentsUserDetails/OptionsCardAdmin";
 import PersonalDataCard from "./componentsUserDetails/PersonalDataCard";
-import { canAccessPushTokenDashboards } from "./pushTokens/utils";
 import ProxyCard from "./componentsUserDetails/ProxyCard";
 import SaldoRecargasCard from "./componentsUserDetails/SaldoRecargasCard";
 import TarjetaDebitoCard from "./componentsUserDetails/TarjetaDebitoCard";
 import UserDataCard from "./componentsUserDetails/UserDataCard";
 import VentasCard from "./componentsUserDetails/VentasCard";
 import VpnCard from "./componentsUserDetails/VpnCard";
+import { canAccessPushTokenDashboards } from "./pushTokens/utils";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
     MeteorBase
   );
+
+const USER_DETAIL_FIELDS = {
+  baneado: 1,
+  bloqueadoDesbloqueadoPor: 1,
+  descuentoproxy: 1,
+  descuentovpn: 1,
+  desconectarVPN: 1,
+  fechaSubscripcion: 1,
+  isIlimitado: 1,
+  megas: 1,
+  megasGastadosinBytes: 1,
+  modoEmpresa: 1,
+  permitirAprobacionEfectivoCUP: 1,
+  permitirPagoEfectivoCUP: 1,
+  permiteRemesas: 1,
+  picture: 1,
+  profile: 1,
+  saldoRecargas: 1,
+  subscipcionPelis: 1,
+  username: 1,
+  vpn: 1,
+  vpn2mb: 1,
+  vpnMbGastados: 1,
+  vpnfechaSubscripcion: 1,
+  vpnmegas: 1,
+  vpnplus: 1,
+  vpnisIlimitado: 1,
+};
+
+const USER_DETAIL_PRICE_FIELDS = {
+  megas: 1,
+  precio: 1,
+  type: 1,
+  userId: 1,
+};
+
+const USER_PENDING_VENTAS_FIELDS = {
+  adminId: 1,
+  cobrado: 1,
+  precio: 1,
+};
 
 const UserDetails = () => {
   const params = useLocalSearchParams();
@@ -64,16 +105,22 @@ const UserDetails = () => {
     const preciosHandle = Meteor.subscribe(
       "precios",
       {},
-      { sort: { type: 1, precio: 1 } },
+      { fields: USER_DETAIL_PRICE_FIELDS, sort: { type: 1, precio: 1 } },
     );
-    const ventasHandle = Meteor.subscribe("ventas", {
-      adminId: itemId,
-      cobrado: false,
+    const ventasHandle = Meteor.subscribe(
+      "ventas",
+      {
+        adminId: itemId,
+        cobrado: false,
+      },
+      { fields: USER_PENDING_VENTAS_FIELDS },
+    );
+    const userHandle = Meteor.subscribe("user", { _id: itemId }, {
+      fields: USER_DETAIL_FIELDS,
     });
-    const userHandle = Meteor.subscribe("user", { _id: itemId });
     const precioslistData = PreciosCollection.find(
       { userId: Meteor.userId(), type: "megas" },
-      { fields: { megas: 1, precio: 1 }, sort: { precio: 1 } },
+      { fields: USER_DETAIL_PRICE_FIELDS, sort: { precio: 1 } },
     )
       .fetch()
       .map((price) => ({
@@ -85,7 +132,7 @@ const UserDetails = () => {
         userId: Meteor.userId(),
         $or: [{ type: "vpnplus" }, { type: "vpn2mb" }],
       },
-      { fields: { type: 1, megas: 1, precio: 1 }, sort: { precio: 1 } },
+      { fields: USER_DETAIL_PRICE_FIELDS, sort: { precio: 1 } },
     )
       .fetch()
       .map((price) => ({
@@ -95,7 +142,10 @@ const UserDetails = () => {
     return {
       ready:
         preciosHandle.ready() && ventasHandle.ready() && userHandle.ready(),
-      item: Meteor.users.findOne({ _id: itemId }),
+      item: Meteor.users.findOne(
+        { _id: itemId },
+        { fields: USER_DETAIL_FIELDS },
+      ),
       precioslist: precioslistData,
       preciosVPNlist: preciosVPNData,
     };
@@ -115,7 +165,10 @@ const UserDetails = () => {
     if (!item?._id) {
       return 0;
     }
-    return VentasCollection.find({ adminId: item._id, cobrado: false })
+    return VentasCollection.find(
+      { adminId: item._id, cobrado: false },
+      { fields: USER_PENDING_VENTAS_FIELDS },
+    )
       .fetch()
       .reduce((total, sale) => total + (Number(sale.precio) || 0), 0);
   };

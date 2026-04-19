@@ -43,6 +43,29 @@ const Meteor =
     MeteorBase
   );
 
+const PRODUCTOS_COMERCIO_FIELDS = {
+  _id: 1,
+  comentario: 1,
+  count: 1,
+  createdAt: 1,
+  descripcion: 1,
+  idTienda: 1,
+  monedaPrecio: 1,
+  name: 1,
+  precio: 1,
+  productoDeElaboracion: 1,
+};
+
+const TIENDAS_CLIENT_FIELDS = {
+  _id: 1,
+  cordenadas: 1,
+  coordenadas: 1,
+  createdAt: 1,
+  descripcion: 1,
+  pinColor: 1,
+  title: 1,
+};
+
 const radioOptions = [
   { label: "1 km", value: 1, icon: "map-marker-radius" },
   { label: "3 km", value: 3, icon: "map-marker-radius" },
@@ -294,7 +317,9 @@ const ProductosScreenNative = () => {
   );
 
   const { tiendasConProductos } = Meteor.useTracker(() => {
-    const subProductos = Meteor.subscribe("productosComercio", {});
+    const subProductos = Meteor.subscribe("productosComercio", {}, {
+      fields: PRODUCTOS_COMERCIO_FIELDS,
+    });
     const tiendasIds =
       tiendasCercanas.length > 0
         ? tiendasCercanas.map((tienda) => tienda._id)
@@ -305,13 +330,16 @@ const ProductosScreenNative = () => {
     }
 
     const query = { _id: { $in: tiendasIds } };
-    const subTiendas = Meteor.subscribe("tiendas", query);
+    const subTiendas = Meteor.subscribe("tiendas", query, {
+      fields: TIENDAS_CLIENT_FIELDS,
+    });
 
     if (!subTiendas.ready() || !subProductos.ready()) {
       return { loading: true, tiendasConProductos: [] };
     }
 
     const tiendas = TiendasComercioCollection.find(query, {
+      fields: TIENDAS_CLIENT_FIELDS,
       sort: { title: 1 },
     }).fetch();
 
@@ -323,7 +351,7 @@ const ProductosScreenNative = () => {
       .map((tienda) => {
         const productos = ProductosComercioCollection.find(
           { idTienda: tienda._id },
-          { sort: { name: 1 } },
+          { fields: PRODUCTOS_COMERCIO_FIELDS, sort: { name: 1 } },
         ).fetch();
         const tiendaCercana = tiendasMap.get(tienda._id);
 

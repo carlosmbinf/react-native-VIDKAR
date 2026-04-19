@@ -2,34 +2,34 @@ import MeteorBase from "@meteorrn/core";
 import moment from "moment";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
-  Animated,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
+    Alert,
+    Animated,
+    Image,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 import {
-  PanGestureHandler,
-  PinchGestureHandler,
-  State,
+    PanGestureHandler,
+    PinchGestureHandler,
+    State,
 } from "react-native-gesture-handler";
 import {
-  ActivityIndicator,
-  Badge,
-  Button,
-  Card,
-  Chip,
-  Divider,
-  IconButton,
-  Surface,
-  Text,
+    ActivityIndicator,
+    Badge,
+    Button,
+    Card,
+    Chip,
+    Divider,
+    IconButton,
+    Surface,
+    Text,
 } from "react-native-paper";
 
 import {
-  EvidenciasVentasEfectivoCollection,
-  VentasRechargeCollection,
+    EvidenciasVentasEfectivoCollection,
+    VentasRechargeCollection,
 } from "../collections/collections";
 import DrawerBottom from "../drawer/DrawerBottom.native";
 
@@ -37,6 +37,59 @@ const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
     MeteorBase
   );
+
+const EVIDENCIA_VENTA_FIELDS = {
+  _id: 1,
+  cobrado: 1,
+  comentario: 1,
+  createdAt: 1,
+  estado: 1,
+  isCancelada: 1,
+  isCobrado: 1,
+  metodoPago: 1,
+  monedaCobrado: 1,
+  precioOficial: 1,
+  "producto.carritos._id": 1,
+  "producto.carritos.cantidad": 1,
+  "producto.carritos.comentario": 1,
+  "producto.carritos.coordenadas": 1,
+  "producto.carritos.cobrarUSD": 1,
+  "producto.carritos.entregado": 1,
+  "producto.carritos.idTienda": 1,
+  "producto.carritos.monedaACobrar": 1,
+  "producto.carritos.movilARecargar": 1,
+  "producto.carritos.nombre": 1,
+  "producto.carritos.precio": 1,
+  "producto.carritos.producto.name": 1,
+  "producto.carritos.recibirEnCuba": 1,
+  "producto.carritos.status": 1,
+  "producto.carritos.tarjetaCUP": 1,
+  "producto.carritos.type": 1,
+  "producto.comisiones": 1,
+};
+
+const EVIDENCIA_FIELDS = {
+  _id: 1,
+  aprobado: 1,
+  base64: 1,
+  cancelada: 1,
+  cancelado: 1,
+  createdAt: 1,
+  data: 1,
+  dataB64: 1,
+  dataBase64: 1,
+  denegado: 1,
+  descripcion: 1,
+  detalles: 1,
+  estado: 1,
+  fecha: 1,
+  fechaSubida: 1,
+  isCancelada: 1,
+  rechazado: 1,
+  size: 1,
+  tamano: 1,
+  ventaId: 1,
+};
 
 const ESTADOS = {
   APROBADA: "APROBADA",
@@ -328,8 +381,13 @@ const AprobacionEvidenciasVenta = ({
       return null;
     }
 
-    Meteor.subscribe("ventasRecharge", { _id: ventaId });
-    return VentasRechargeCollection.findOne({ _id: ventaId }) || null;
+    Meteor.subscribe("ventasRecharge", { _id: ventaId }, {
+      fields: EVIDENCIA_VENTA_FIELDS,
+    });
+    return VentasRechargeCollection.findOne(
+      { _id: ventaId },
+      { fields: EVIDENCIA_VENTA_FIELDS },
+    ) || null;
   }, [ventaId]);
 
   const ventaActual = ventaReact || venta;
@@ -339,10 +397,12 @@ const AprobacionEvidenciasVenta = ({
       return [];
     }
 
-    Meteor.subscribe("evidenciasVentasEfectivoRecharge", { ventaId });
+    Meteor.subscribe("evidenciasVentasEfectivoRecharge", { ventaId }, {
+      fields: EVIDENCIA_FIELDS,
+    });
     return EvidenciasVentasEfectivoCollection.find(
       { ventaId },
-      { sort: { createdAt: -1 } },
+      { fields: EVIDENCIA_FIELDS, sort: { createdAt: -1 } },
     ).fetch();
   }, [ventaId]);
 

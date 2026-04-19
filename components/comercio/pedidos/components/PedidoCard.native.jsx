@@ -14,6 +14,16 @@ const Meteor =
     MeteorBase
   );
 
+const PEDIDO_CARD_TIENDA_FIELDS = {
+  _id: 1,
+  cordenadas: 1,
+  coordenadas: 1,
+  descripcion: 1,
+  name: 1,
+  title: 1,
+  ubicacion: 1,
+};
+
 const formatFecha = (date) => {
   if (!date) return "N/A";
   const parsed = new Date(date);
@@ -49,8 +59,13 @@ const PedidoCardNative = ({
       return null;
     }
 
-    Meteor.subscribe("tiendas", { _id: tienda });
-    return TiendasComercioCollection.findOne({ _id: tienda });
+    Meteor.subscribe("tiendas", { _id: tienda }, {
+      fields: PEDIDO_CARD_TIENDA_FIELDS,
+    });
+    return TiendasComercioCollection.findOne(
+      { _id: tienda },
+      { fields: PEDIDO_CARD_TIENDA_FIELDS },
+    );
   }, [tienda]);
 
   const estadosConMapa = ["CADETEENLOCAL", "ENCAMINO", "CADETEENDESTINO"];

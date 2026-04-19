@@ -12,9 +12,30 @@ const Meteor =
     MeteorBase
   );
 
+const PRODUCTOS_DT_SHOP_FIELDS = {
+  "benefits.amount.totalIncludingTax": 1,
+  "benefits.type": 1,
+  "benefits.unit": 1,
+  description: 1,
+  id: 1,
+  name: 1,
+  ocultarFondo: 1,
+  "operator.name": 1,
+  "prices.retail.amount": 1,
+  "promotions.description": 1,
+  "promotions.endDate": 1,
+  "promotions.startDate": 1,
+  "promotions.terms": 1,
+  "promotions.title": 1,
+};
+
 const Productos = ({ isDegradado = false }) => {
   const { productos, ready } = Meteor.useTracker(() => {
-    const handler = Meteor.subscribe("productosDtShop");
+    const handler = Meteor.subscribe(
+      "productosDtShop",
+      {},
+      { fields: PRODUCTOS_DT_SHOP_FIELDS },
+    );
 
     return {
       productos: handler.ready()

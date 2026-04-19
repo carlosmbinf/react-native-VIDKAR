@@ -24,6 +24,30 @@ const Meteor =
     MeteorBase
   );
 
+const REMESA_STEPPER_FIELDS = {
+  _id: 1,
+  cobrado: 1,
+  comentario: 1,
+  createdAt: 1,
+  estado: 1,
+  isCancelada: 1,
+  isCobrado: 1,
+  metodoPago: 1,
+  monedaCobrado: 1,
+  precioOficial: 1,
+  "producto.carritos._id": 1,
+  "producto.carritos.cancelado": 1,
+  "producto.carritos.comentario": 1,
+  "producto.carritos.direccionCuba": 1,
+  "producto.carritos.entregado": 1,
+  "producto.carritos.monedaRecibirEnCuba": 1,
+  "producto.carritos.nombre": 1,
+  "producto.carritos.recibirEnCuba": 1,
+  "producto.carritos.status": 1,
+  "producto.carritos.tarjetaCUP": 1,
+  "producto.carritos.type": 1,
+};
+
 const obtenerEstados = (metodoPago) => {
   if (metodoPago === "EFECTIVO") {
     return [
@@ -80,12 +104,18 @@ const VentasStepper = () => {
             $or: [{ userId: { $in: listIdSubordinados } }, { userId }],
           };
 
-    const sub = Meteor.subscribe("ventasRecharge", {
-      ...filtro,
-      "producto.carritos.entregado": false,
-      "producto.carritos.type": "REMESA",
-      isCancelada: false,
-    });
+    const sub = Meteor.subscribe(
+      "ventasRecharge",
+      {
+        ...filtro,
+        "producto.carritos.entregado": false,
+        "producto.carritos.type": "REMESA",
+        isCancelada: false,
+      },
+      {
+        fields: REMESA_STEPPER_FIELDS,
+      },
+    );
 
     return {
       loading: !sub.ready(),
@@ -96,7 +126,7 @@ const VentasStepper = () => {
           "producto.carritos.type": "REMESA",
           isCancelada: false,
         },
-        { sort: { createdAt: -1 } },
+        { fields: REMESA_STEPPER_FIELDS, sort: { createdAt: -1 } },
       ).fetch(),
     };
   }, [JSON.stringify(listIdSubordinados), userId]);
@@ -120,8 +150,11 @@ const VentasStepper = () => {
             userId: { $in: [...listIdSubordinados, userId] },
           };
 
-    Meteor.subscribe("ventasRecharge", filtro);
+    Meteor.subscribe("ventasRecharge", filtro, {
+      fields: REMESA_STEPPER_FIELDS,
+    });
     return VentasRechargeCollection.find(filtro, {
+      fields: REMESA_STEPPER_FIELDS,
       sort: { createdAt: -1 },
     }).fetch();
   }, [JSON.stringify(listIdSubordinados), userId]);
