@@ -1,3 +1,4 @@
+import MeteorBase from "@meteorrn/core";
 import React from "react";
 import {
     Alert,
@@ -22,7 +23,7 @@ import {
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ConfigCollection } from "../collections/collections";
+const Meteor = MeteorBase;
 
 const formatPropertyDate = (value) => {
   if (!value) {
@@ -210,11 +211,11 @@ const PropertyDialog = ({
     };
 
     if (isEdit && property?._id) {
-      ConfigCollection.update(property._id, { $set: payload }, callback);
+      Meteor.call("property.update", property._id, payload, callback);
       return;
     }
 
-    ConfigCollection.insert(payload, callback);
+    Meteor.call("property.insert", payload, callback);
   }, [
     active,
     canManage,
@@ -246,7 +247,7 @@ const PropertyDialog = ({
           style: "destructive",
           onPress: () => {
             setLoading(true);
-            ConfigCollection.remove(property._id, (error) => {
+            Meteor.call("property.delete", property._id, (error) => {
               setLoading(false);
 
               if (error) {

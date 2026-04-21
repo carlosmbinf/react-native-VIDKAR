@@ -970,7 +970,7 @@ const UsersHome = () => {
 
   const admins = filteredUsers.filter((user) => user.profile?.role === "admin");
   const normalUsers = filteredUsers.filter(
-    (user) => user.profile?.role === "user",
+    (user) => user.profile?.role !== "admin",
   );
 
   const peekVisible = !!peekTarget?.item;
