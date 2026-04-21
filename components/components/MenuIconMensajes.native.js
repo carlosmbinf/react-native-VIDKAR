@@ -140,8 +140,7 @@ const MenuIconMensajesNative = ({ onOpenMessages }) => {
 
     const usersHandle = Meteor.subscribe(
       "user",
-      { _id: { $in: users } },
-      { fields: MESSAGE_SENDER_FIELDS },
+      { _id: { $in: users } }
     );
 
     return usersHandle.ready();

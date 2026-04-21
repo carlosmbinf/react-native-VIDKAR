@@ -122,8 +122,8 @@ export default function IndexScreen() {
       }
 
       const subscription = Meteor.subscribe(
-        "userID",
-        currentUserId
+        "user",
+        {_id: currentUserId}
       );
 
       return {
