@@ -22,6 +22,9 @@
       "usesAppleSignIn": true,
       "buildNumber": "872",
       "bundleIdentifier": "com.vidkar",
+      "associatedDomains": [
+        "applinks:www.vidkar.com"
+      ],
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleDisplayName": "Vidkar",
@@ -59,6 +62,22 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.vidkar",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "www.vidkar.com"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.RECORD_AUDIO",

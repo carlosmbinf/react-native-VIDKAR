@@ -1,4 +1,5 @@
 import MeteorBase from "@meteorrn/core";
+import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Linking, ScrollView, StyleSheet, View } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
@@ -138,12 +139,10 @@ const CART_ITEM_FIELDS = {
 };
 
 const ORDER_CHECKOUT_FIELDS = {
-  approvalUrl: 1,
   carritos: 1,
-  init_point: 1,
   link: 1,
-  linkPago: 1,
-  url: 1,
+  status: 1,
+  userId: 1,
 };
 
 const WizardConStepper = ({ initialLocation = null }) => {
@@ -180,18 +179,19 @@ const WizardConStepper = ({ initialLocation = null }) => {
     Meteor.subscribe(
       "ordenes",
       {
-        status: { $nin: ["COMPLETED", "CANCELLED"] },
+        // status: { $nin: ["COMPLETED", "CANCELLED"] },
         userId,
       },
-      { fields: ORDER_CHECKOUT_FIELDS },
+      { ...ORDER_CHECKOUT_FIELDS },
     );
-    return {
-      compra: OrdenesCollection.findOne({
-        status: { $nin: ["COMPLETED", "CANCELLED"] },
-        userId,
-      }),
-    };
-  }, [userId]);
+
+    const compra = OrdenesCollection.findOne({
+      // status: { $nin: ["COMPLETED", "CANCELLED"] },
+      userId,
+    });
+    console.log("DEBUG - Orden encontrada para checkout:", compra);
+    return { compra };
+  });
 
   const pedidosRemesa = Meteor.useTracker(() => {
     Meteor.subscribe(
@@ -258,21 +258,13 @@ const WizardConStepper = ({ initialLocation = null }) => {
   const checkoutUrl = useMemo(() => {
     const candidates = [
       compra?.link,
-      compra?.linkPago,
-      compra?.approvalUrl,
-      compra?.init_point,
-      compra?.url,
     ];
     const url = candidates.find(
       (item) => typeof item === "string" && item.trim().length > 0,
     );
     return url ? url.trim() : null;
   }, [
-    compra?.approvalUrl,
-    compra?.init_point,
     compra?.link,
-    compra?.linkPago,
-    compra?.url,
   ]);
 
   const getTerminos = () => {
@@ -557,6 +549,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
         setCargadoPago(false);
         return;
       }
+      console.log("Total a pagar calculado:", res);
       setTotalAPagar(Number(res) || 0);
       setCargadoPago(true);
     };
@@ -737,7 +730,16 @@ const WizardConStepper = ({ initialLocation = null }) => {
     setSeEstaPagando(true);
 
     try {
-      const supported = await Linking.canOpenURL(checkoutUrl);
+      const normalizedCheckoutUrl = String(checkoutUrl).trim();
+      const isHttpCheckout = /^https?:\/\//i.test(normalizedCheckoutUrl);
+
+      if (isHttpCheckout) {
+        hideModal();
+        await WebBrowser.openBrowserAsync(normalizedCheckoutUrl);
+        return;
+      }
+
+      const supported = await Linking.canOpenURL(normalizedCheckoutUrl);
       if (!supported) {
         Alert.alert(
           "Pago no disponible",
@@ -746,7 +748,13 @@ const WizardConStepper = ({ initialLocation = null }) => {
         return;
       }
 
-      await Linking.openURL(checkoutUrl);
+      await Linking.openURL(normalizedCheckoutUrl);
+    } catch (error) {
+      console.error("[WizardConStepper] Error abriendo checkout:", error);
+      Alert.alert(
+        "No se pudo abrir el pago",
+        "El enlace de pago no pudo abrirse en este momento. Intenta nuevamente.",
+      );
     } finally {
       setTimeout(() => {
         setProcessing(false);
@@ -826,6 +834,16 @@ const WizardConStepper = ({ initialLocation = null }) => {
     (metodoPago !== "efectivo" && !checkoutUrl) ||
     (metodoPago === "efectivo" && totalAPagar <= 0);
 
+    console.log("DEBUG - finishDisabled:", {
+      processing,
+      preparingCheckout,
+      seEstaPagando,
+      bloquearPagoPorComisiones,
+      cargadoPago,
+      metodoPago,
+      checkoutUrl,
+      totalAPagar,
+    });
   const renderPaymentWarnings = () => {
     if (!tieneComercio) return null;
 
