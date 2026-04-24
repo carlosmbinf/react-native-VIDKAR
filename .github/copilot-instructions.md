@@ -87,7 +87,6 @@ Resumen tecnico - Tracking nativo del cadete como modulo local de Expo para sobr
   - Si una feature critica de background necesita mas confiabilidad que la capa JS de Expo, primero evaluar un modulo local Expo antes de editar manualmente `ios/` o `android/` generados.
   - El entrypoint JS del proyecto puede seguir coordinando estado y fallback, pero el tracking continuo del cadete debe considerarse responsabilidad del modulo nativo cuando este presente.
 
-
 Resumen técnico – Parche reproducible para RNFirebase Messaging iOS tras error de `RCTPromiseRejectBlock`
 
 - Problema detectado:
@@ -3906,10 +3905,9 @@ Resumen técnico – Límite configurable de consulta y toggle de filtros en `Ve
   - Se añadió una acción en `AppHeader` para mostrar u ocultar el panel de filtros.
   - Cuando el panel está oculto, la pantalla conserva una barra compacta con el límite activo y el conteo de filtros activos, además de un acceso para limpiar filtros si hace falta.
 
-  ---
+  ***
 
   Resumen técnico - Crash en `TiendaDetailScreen` por import inválido de `FAB` y reactividad frágil en `MenuIconMensajes`
-
   - Problema detectado:
     - `components/empresa/screens/TiendaDetailScreen.native.jsx` estaba importando `FAB` desde `react-native`.
     - En runtime eso deja `FAB` como `undefined` y dispara el error clásico:
@@ -5540,7 +5538,6 @@ Resumen tecnico - Campañas push Expo con imagen subida previamente al backend
     3. usar la `url` resultante dentro de `data`
     4. marcar la metadata del archivo con `type: 'NOTIFICACION'`
 
-
 Notas adicionales - CTA visual dentro del banner de deuda debe leerse como boton real
 
 - Ajuste UX aplicado en `components/Main/MenuPrincipalScreen.jsx`:
@@ -5805,10 +5802,9 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
       - inputs translúcidos
     - Si el login vuelve a sentirse como un panel blanco encima del fondo, revisar primero `blurCardOverlay`, `inputBackground` y si reaparecio una capa global sobre toda la pantalla.
 
-  ---
+  ***
 
   Resumen tecnico - `CubacelOfertaScreen` debe respetar el inset inferior real en Android
-
   - Problema detectado:
     - En `components/cubacel/CubacelOfertaScreen.native.jsx`, la pantalla solo aplicaba `SafeAreaView` en `left/right`.
     - Cuando Android muestra botones o barra de navegación inferior, el footer fijo puede quedar demasiado pegado o visualmente montado sobre esa zona del sistema.
@@ -5842,10 +5838,9 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
   - Regla practica:
     - Si una pantalla administrativa recibe params de filtro por navegacion contextual, la UI debe mostrarlos explicitamente y la query reactiva debe respetarlos sin romper el scope de permisos del usuario actual.
 
-  ---
+  ***
 
   Resumen tecnico - Footer inferior de `CubacelOfertaScreen` con padding por inset, sin reservar el bottom safe area en el contenedor padre
-
   - Ajuste aplicado en `components/cubacel/CubacelOfertaScreen.native.jsx`:
     - El `SafeAreaView` principal no debe consumir `bottom` en `edges` porque esa superficie padre debe poder ocupar tambien el area inferior.
     - El respiro real se deja solo en el footer fijo de acciones usando `useSafeAreaInsets()` y `paddingBottom: Math.max(insets.bottom, 18)`.
@@ -5873,10 +5868,9 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
     - Si una superficie ya tiene tarjetas, hero, formulario y footer con paddings internos, no envolver todo el screen con `left/right` safe area por defecto.
     - Usar el `SafeAreaView` raiz solo para el comportamiento que realmente deba afectar al contenedor completo.
 
-  ---
+  ***
 
   Resumen tecnico - Google Maps Android en Expo reutiliza la API key legacy del manifest nativo
-
   - Hallazgo validado:
     - El proyecto legacy ya tenia una key especifica de Google Maps Android declarada en:
       - `react-native-VIDKAR-LEGACY/android/app/src/main/AndroidManifest.xml`
@@ -5897,7 +5891,6 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
     - Si el proyecto viene de un legacy RN CLI, contrastar siempre el manifest viejo antes de inventar una key nueva o reutilizar `google-services.json`.
 
   Notas adicionales - En Expo la fuente de verdad de Google Maps debe vivir en `app.json`, no en `android/` generado
-
   - Correccion de criterio aplicada:
     - Aunque se haya localizado la key correcta en el `AndroidManifest.xml` del legacy, en este proyecto Expo no debe mantenerse manualmente dentro de `android/app/src/main/AndroidManifest.xml`.
     - La configuracion correcta queda en:
@@ -5995,10 +5988,9 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
   - Regla practica:
     - Si una heuristica de conexion deja de detectar usuarios en Expo, contrastar siempre contra los dos contratos historicos del proyecto antes de simplificar la logica a un solo campo.
 
-  ---
+  ***
 
   Resumen tecnico - Filtro de conexion por tipo en `UsersHome` y APP cuenta como conexion activa
-
   - Ajuste aplicado en `components/users/UsersHome.native.js`:
     - El filtro general de `Conexión` dejo de ser solo binario (`conectado` / `desconectado`).
     - Ahora permite filtrar por:
@@ -6023,10 +6015,9 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
     - Si el modulo ya deriva un estado compuesto de conexion, el filtro no debe volver a inferirlo con reglas paralelas dispersas.
     - Conviene centralizar el matching del filtro contra `getUserConnectionState(...)` para que chips visuales, avatar y filtros usen la misma fuente de verdad.
 
-  ---
+  ***
 
   Resumen tecnico - `MapaUsuarios` debe derivar online desde `conexiones`, no desde `user.online`
-
   - Ajuste aplicado en `components/comercio/maps/MapaUsuariosScreen.native.jsx`:
     - La pantalla del mapa ahora suscribe `conexiones` ademas de `user`.
     - El campo `online` de cada usuario se recalcula con la misma logica usada en `components/users/UsersHome.native.js`.
@@ -6044,10 +6035,9 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
     - Si una pantalla Expo necesita estado de conexion del usuario y existe la coleccion `conexiones`, no usar `user.online` como fuente primaria.
     - Reutilizar los helpers de derivacion de `UsersHome` evita inconsistencias entre listado de usuarios y mapa.
 
-  ---
+  ***
 
   Resumen tecnico - Copy de bienvenida del menu principal debe sonar institucional, no tecnico
-
   - Ajuste aplicado en `components/Main/MenuPrincipalScreen.jsx`:
     - El texto principal del hero se reemplazo por un mensaje de bienvenida mas profesional y neutral para cliente final.
 
@@ -6063,10 +6053,9 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
     - En heroes de entrada o menues principales, priorizar lenguaje institucional y de servicio.
     - Dejar el detalle tecnico o funcional para cards, modulos y CTAs especificos dentro de la pantalla.
 
-  ---
+  ***
 
   Resumen tecnico - Saludo del menu principal debe priorizar `profile.firstName`
-
   - Ajuste aplicado en `components/Main/MenuPrincipalScreen.jsx`:
     - `formatGreeting(...)` dejo de usar `username` para construir el saludo principal.
     - Ahora prioriza `user.profile.firstName` y usa fallback simple `Bienvenido` si no existe.
@@ -6079,10 +6068,9 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
   - Regla practica:
     - En copys personalizados dirigidos al usuario final, preferir `profile.firstName` antes que `username` salvo que el flujo sea estrictamente tecnico o administrativo.
 
-  ---
+  ***
 
   Resumen tecnico - Chip de rol en `MenuPrincipal` solo para administradores
-
   - Ajuste aplicado en `components/Main/MenuPrincipalScreen.jsx`:
     - El chip con `shield-account` y `getRoleLabel(user)` ya no se muestra para usuarios normales.
     - Ahora solo se renderiza cuando el usuario es admin o administrador general.
@@ -6094,10 +6082,9 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
   - Regla practica:
     - En superficies de bienvenida, mostrar metadatos de rol solo cuando aporten contexto real al flujo del usuario.
 
-  ---
+  ***
 
   Resumen tecnico - Boton de mensajes solo visible cuando existen mensajes reales
-
   - Ajuste aplicado en `components/components/MenuIconMensajes.native.js`:
     - El icono de mensajes deja de renderizarse si no hay mensajes o conversaciones disponibles para el usuario actual.
     - Tambien se oculta durante `loading` para evitar mostrar un acceso transitorio que luego desaparezca.
@@ -6109,10 +6096,9 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
   - Regla practica:
     - En menus o acciones contextuales del header, renderizar el acceso solo cuando exista contenido real detras de esa accion.
 
-  ---
+  ***
 
   Resumen tecnico - Pantalla Expo para notificaciones de conexiones VPN con alcance por admin
-
   - Alcance aplicado:
     - Se migro la funcionalidad de `imports/ui/pages/notificacionUsersConnectionVPN` del proyecto React web a Expo bajo una superficie nativa nueva:
       - `components/notificacionUsersConnectionVPN/NotificacionUsersConnectionVPN.native.jsx`
@@ -6170,10 +6156,9 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
       - publicacion `notificacionUsersConnectionVPN`
       - logica servidor en `server/observers.js` basada en `vpnplusConnected`
 
-  ---
+  ***
 
   Resumen tecnico - Notificaciones VPN con cards minimalistas y responsable editable solo por carlosmbinf
-
   - Ajuste aplicado:
     - `components/notificacionUsersConnectionVPN/NotificacionUsersConnectionVPN.native.jsx` ahora usa cards mas compactas y directas para cada regla.
     - Se elimino la composicion pesada con rail superior y bloques grandes por mensaje; la card quedo reducida a:
@@ -6204,10 +6189,9 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
       - `currentUsername === 'carlosmbinf'`
     - Si se agrega validacion backend futura, debe proteger explicitamente mutaciones de `adminIdSolicitud` y no confiar solo en el cliente Expo.
 
-  ---
+  ***
 
   Resumen tecnico - Responsable de notificaciones VPN puede ser cualquier usuario visible
-
   - Ajuste aplicado:
     - El selector de responsable en `components/notificacionUsersConnectionVPN/NotificacionRuleDialog.native.jsx` ya no se limita a admins.
     - Para `carlosmbinf`, el picker ahora puede mostrar cualquier usuario visible dentro del alcance cargado por la pantalla.
@@ -6224,10 +6208,9 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
     - En esta pantalla se eliminaron textos tecnicos visibles para el usuario final o el operador.
     - El copy debe hablar del funcionamiento del negocio y del seguimiento del servicio, no de implementacion interna, colecciones o infraestructura.
 
-  ---
+  ***
 
   Resumen tecnico - Historial de mensajes a pantalla completa con paginacion incremental de 20
-
   - Ajuste aplicado en `components/mensajes/MensajesHome.native.js`:
     - La pantalla de conversacion dejo de renderizar el card superior/resumen del chat y tambien elimino el bloque interno tipo cabecera de historial.
     - El cuerpo del chat ahora ocupa toda la superficie disponible entre `AppHeader` y el composer inferior.
@@ -6260,10 +6243,9 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
       4. deteccion de `hasMore` con `limit + 1`
       5. evitar auto-scroll cuando solo se agregan mensajes antiguos
 
-    ---
+    ***
 
     Resumen tecnico - Menu de adjuntos tipo chat para enviar imagenes
-
     - Ajuste aplicado en `components/mensajes/MensajesHome.native.js`:
       - El composer del chat ahora incluye un boton `+` con menu contextual tipo mensajeria.
       - Por el momento el menu expone solo una accion real:
@@ -6295,7 +6277,6 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
       - Si otra pantalla necesita enviar imagenes por chat, reutilizar el flujo actual `expo-image-picker -> images.upload -> mensaje type image` antes de inventar un endpoint dedicado.
 
     Notas adicionales - El menu `+` del composer debe abrir arriba del boton
-
     - Ajuste UX aplicado en `components/mensajes/MensajesHome.native.js`:
       - El menu de adjuntos ya no debe sentirse montado encima del propio boton `+`.
       - El patron aprobado es anclarlo con `anchorPosition="top"` para que aparezca por encima del composer, mas cercano al comportamiento esperado en apps de mensajeria.
@@ -6304,7 +6285,6 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
       - Si luego se agregan nuevas acciones al menu del chat, mantener la apertura superior y no dejar que el popup tape el boton ancla ni la caja de texto.
 
     Notas adicionales - El cliente de chat ya prepara adjuntos genericos aunque solo renderice imagenes
-
     - Ajuste tecnico aplicado:
       - Aunque por ahora el soporte visual completo es solo para imagenes, el mensaje que se inserta desde Expo ya guarda tambien campos genericos de adjunto:
         - `attachmentKind`
@@ -6320,10 +6300,9 @@ Resumen tecnico - `renderToHardwareTextureAndroid` no habilita blur en Expo Andr
     - Regla practica:
       - Si despues se agrega audio, video o archivo, reutilizar estos campos genericos como fuente principal y dejar `image*` como compatibilidad de la fase actual.
 
-  ---
+  ***
 
   Resumen tecnico - Push de chat con imagen reutilizando el mismo adjunto subido
-
   - Ajuste aplicado en `components/mensajes/MensajesHome.native.js`:
     - Cuando el usuario envia una foto por chat, el cliente ya no dispara la push solo con texto (`Imagen` o caption).
     - Ahora `enviarMensajeDirecto2` recibe tambien `options.data` con la metadata visual de la imagen:
@@ -6469,6 +6448,7 @@ Resumen tecnico - Geolocalizacion en segundo plano profesional para modo Cadete 
   - Esto permite que el hook de UI pueda hidratarse sin depender de que la pantalla haya estado abierta todo el tiempo.
 
   - `hooks/useCadeteLocationTracking.native.js` ya no es la fuente de verdad del tracking.
+
 - Hook de UI refactorizado:
   - Ahora:
     - lee estado del servicio background
@@ -6536,10 +6516,9 @@ Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo t
   - Si un slider horizontal vive dentro de una lista o `ScrollView` vertical, no basta con que el thumb sea arrastrable; tambien hay que coordinar el gesto con el scroll padre.
   - En este proyecto, cualquier confirmacion por slide dentro de superficies scrolleables debe poder notificar al contenedor para pausar temporalmente el scroll durante el arrastre.
 
-  ---
+  ***
 
   Resumen tecnico - Modo cadete: Surface sin fondo forzado, botones alineados al theme y slider con drag real hasta el final
-
   - Ajuste aplicado en:
     - `components/comercio/pedidos/HomePedidosComercio.native.jsx`
     - `components/comercio/pedidos/CardPedidoComercio.native.jsx`
@@ -6572,10 +6551,9 @@ Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo t
   - Regla practica:
     - En este proyecto, cuando se trabaje con React Native Paper en pantallas operativas, asumir que el soporte light/dark ya viene del componente. Solo personalizar color cuando realmente haga falta y siempre con una palette dependiente de `theme.dark`, no con hex fijos pensados para una sola apariencia.
 
-  ---
+  ***
 
   Resumen tecnico - Task de background del cadete debe registrarse antes de `expo-router`
-
   - Problema detectado:
     - El runtime de `expo-task-manager` estaba lanzando:
       - `Task "vidkar-cadete-background-location-v1" not found for app ID 'mainApplication'`
@@ -6600,10 +6578,9 @@ Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo t
     - Cualquier task de `expo-task-manager` o side effect global critico del runtime debe registrarse desde el entrypoint mas temprano posible del bundle, no desde una pantalla, layout o rama del router.
     - Si un task falla con `Task not found for app ID ...`, revisar primero si el modulo que hace `TaskManager.defineTask(...)` realmente se importa antes de `expo-router` y no solo dentro del arbol `app/`.
 
-  ---
+  ***
 
   Resumen tecnico - SecureStore en Expo no acepta `:` en las keys
-
   - Problema detectado:
     - El tracking del cadete y la cache de ubicacion estaban intentando leer/escribir claves como:
       - `cadete:background-location:config:v1`
@@ -6626,10 +6603,9 @@ Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo t
     - En este proyecto no usar `:` en claves de `expo-secure-store`.
     - Si una feature necesita versionado de key, usar separadores permitidos como `.` o `-`.
 
-  ---
+  ***
 
   Resumen tecnico - `deliveryFee` del cadete debe convertirse a la moneda cobrada del pedido
-
   - Hallazgo validado:
     - En `components/comercio/pedidos/cadetePedidoUtils.js`, `venta.producto.comisiones.costoTotalEntrega` no debe mostrarse crudo si `venta.producto.comisiones.moneda` difiere de la moneda en la que se presenta o cobra el pedido.
     - La fuente de verdad del backend para conversion de moneda ya existe y se usa en Expo en el wizard del carrito:
@@ -6643,10 +6619,9 @@ Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo t
     - Si se muestra costo de entrega, comision o subtotal derivado de `comisionesComercio`, no asumir que ya esta en la misma moneda del card o del checkout.
     - Reutilizar `moneda.convertir` con el mismo patron async ya usado en `WizardConStepper.native.jsx` en lugar de convertir manualmente o mezclar monedas en UI.
 
-  ---
+  ***
 
   Resumen tecnico - No renderizar conversiones async directamente en JSX de comercio/cadete
-
   - Hallazgo validado:
     - `convertMoney(...)` en `components/comercio/pedidos/cadetePedidoUtils.js` devuelve una `Promise` porque internamente usa `Meteor.call('moneda.convertir', ...)`.
     - Si se usa directo dentro del JSX, por ejemplo en una metrica como `Costo por KM`, React no renderiza el valor numerico y la UI queda vacia o inconsistente.
@@ -6659,10 +6634,9 @@ Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo t
     - En este proyecto no llamar helpers async dentro del render de React.
     - Si una conversion depende de `Meteor.call`, resolverla en `useEffect`, hook o view-model previo y luego pintar el resultado sincronico en la UI.
 
-  ---
+  ***
 
   Resumen tecnico - Geolocalizacion en tiempo real para modo Cadete con watcher foreground + heartbeat
-
   - Ajuste aplicado:
     - `hooks/useCadeteLocationTracking.native.js` ahora inicia un `Location.watchPositionAsync(...)` mientras la app esta activa.
     - Ademas mantiene un heartbeat cada `30s` reutilizando `sendCadeteLocationNow(...)` para garantizar envio periodico al backend incluso si no entra un cambio de posicion inmediato.
@@ -6683,10 +6657,9 @@ Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo t
     - Si en modo cadete se quiere “tiempo real” con la app abierta, no alcanza con leer estado o hacer refresh manual; hace falta un watcher foreground real.
     - Si ya existe task background, el watcher foreground debe apagarse logicamente fuera de `active` para no competir con el servicio nativo.
 
-  ---
+  ***
 
   Resumen tecnico - No solapar consultas GPS pendientes en tracking del cadete
-
   - Ajuste aplicado:
     - `services/location/cadeteBackgroundLocation.native.js` ahora serializa las llamadas que necesitan pedir una ubicacion nueva con `Location.getCurrentPositionAsync(...)`.
     - Si heartbeat, refresh manual u otro disparador vuelven a llamar `sendCadeteLocationNow(...)` mientras la consulta GPS anterior sigue pendiente, reutilizan la misma promesa en curso en vez de abrir otra lectura paralela.
@@ -6699,10 +6672,9 @@ Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo t
     - Si `sendCadeteLocationNow(...)` necesita obtener la ubicacion actual por su cuenta, no debe lanzar una segunda consulta mientras exista otra pendiente del mismo tipo.
     - Las actualizaciones que ya traen `locationOverride` desde `watchPositionAsync(...)` pueden seguir entrando por separado; el guard aplica especificamente a las consultas activas de `getCurrentPositionAsync(...)`.
 
-  ---
+  ***
 
   Resumen tecnico - Tracking del cadete no debe depender solo del montaje de la UI
-
   - Hallazgo importante:
     - Si el servicio de ubicacion del cadete solo se reinicia desde `app/index.native.tsx` cuando el shell ya resolvio al usuario, puede haber ventanas de arranque donde `userId` aun no exista y el tracking se detenga por error.
     - Eso es especialmente delicado al relanzar la app o cuando el runtime levanta el bundle por trabajo de background.
@@ -6715,10 +6687,9 @@ Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo t
     - El servicio del cadete debe poder auto-recuperarse desde su propia config persistida y no depender unicamente de que la pantalla del cadete o el shell principal lleguen a montarse.
     - En el root, no tratar `userId === null` durante bootstrap como señal suficiente para apagar el tracking; puede ser solo una sesion aun no rehidratada.
 
-  ---
+  ***
 
   Resumen tecnico - Modulo local Expo del cadete: errores de build por archivos duplicados y validacion final iOS/Android
-
   - Hallazgo validado:
     - Al crear el modulo local `modules/cadete-background-tracking`, varios archivos quedaron concatenados dos veces por un patch defectuoso.
     - El patron de fallo fue consistente en varios tipos de archivo:
@@ -6758,10 +6729,9 @@ Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo t
       - un `expo run:ios` o build nativo real
     - Si el proyecto entra en modo native-first, cualquier watcher JS previo debe apagarse explicitamente para no competir con el servicio nativo.
 
-  ---
+  ***
 
   Resumen tecnico - Google Maps Android en Expo con plugin local explicito para forzar `com.google.android.geo.API_KEY`
-
   - Hallazgo validado:
     - Aunque `app.json` ya tenia `expo.android.config.googleMaps.apiKey`, el `prebuild` no estaba dejando la meta-data `com.google.android.geo.API_KEY` dentro de `android/app/src/main/AndroidManifest.xml`.
     - En este proyecto no conviene volver a editar `android/` manualmente porque esas carpetas son generadas por Expo.
@@ -6781,10 +6751,9 @@ Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo t
     - Si Android vuelve a fallar por Google Maps API key en Expo, primero verificar el manifest generado tras `prebuild`.
     - Si falta `com.google.android.geo.API_KEY`, corregir la cadena de config plugins, no el `android/` generado a mano.
 
-  ---
+  ***
 
   Resumen tecnico - Android native-first del cadete debe exponer ubicacion viva a la app, no solo estado del servicio
-
   - Problema detectado:
     - En Android, el servicio foreground nativo del cadete seguia corriendo, pero la app Expo no reflejaba cambios reales de ubicacion salvo cuando el usuario tocaba el boton manual de `Actualizar ubicación`.
     - La causa no estaba en el endpoint backend ni en el boton, sino en la integracion entre el modulo nativo y la capa JS.
@@ -6805,7 +6774,7 @@ Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo t
     - `CadeteTrackingService.kt` ahora persiste en `SharedPreferences` tanto:
       - `lastKnownLocation`
       - `lastSentLocation`
-      como JSON normalizado con lat/lng/accuracy/speed/timestamp.
+        como JSON normalizado con lat/lng/accuracy/speed/timestamp.
     - `getStatus(context)` del modulo nativo ahora devuelve esas ubicaciones a JS.
     - El servicio actualiza ese estado en cada muestra de ubicacion (`handleLocationSample`) y no solo despues de un envio HTTP exitoso.
 
@@ -6827,10 +6796,9 @@ Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo t
     - La UI necesita tambien una ubicacion viva o al menos la ultima muestra nativa util.
     - Si un boton manual parece ser la unica forma de “despertar” la ubicacion en pantalla, revisar primero si el modulo nativo realmente esta exportando coordenadas y no solo flags de estado.
 
-  ---
+  ***
 
   Resumen tecnico - Android del cadete debe copiar el patron legacy: el servicio nativo decide y envia
-
   - Problema detectado:
     - El modulo Expo habia terminado con una mezcla de responsabilidades entre JS y Android nativo.
     - Aunque el servicio Android existia, el root seguia arrancandolo y deteniendolo con `user?.modoCadete` local y el hook JS todavia conservaba parte de la logica de ubicacion/envio.
@@ -6870,7 +6838,6 @@ Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo t
     - No volver a mezclar el gate final de `modoCadete` ni el envio principal en el hook JS cuando el modulo Android nativo ya existe.
 
   Notas adicionales - En Android moderno el servicio del cadete debe subir a foreground inmediatamente al arrancar
-
   - Hallazgo importante:
     - Copiar literalmente el legacy `startService(...)` + `startForeground(...)` diferido no es suficiente con targetSdk moderno.
     - Si el servicio se arranca sin `startForegroundService(...)` o tarda demasiado en llamar `startForeground(...)`, Android puede impedir que siquiera llegue al checker del endpoint.
@@ -6884,10 +6851,9 @@ Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo t
     - En este proyecto, el servicio Android del cadete debe permanecer vivo en foreground aunque aun este “esperando activacion” del backend.
     - Lo que cambia por endpoint es el tracking de ubicacion, no la existencia del servicio una vez arrancado por sesion.
 
-  ---
+  ***
 
   Resumen tecnico - Servicio Android del cadete con foreground inmediato y trazas nativas minimas
-
   - Hallazgo validado:
     - El servicio del cadete podia quedar en un estado donde Android aceptaba el `startForegroundService(...)`, pero sin una subida inmediata a foreground el proceso seguia siendo fragil y dificil de diagnosticar en runtime.
     - Ademas, hacia falta visibilidad nativa minima para confirmar si el ciclo real estaba ocurriendo:
@@ -6937,15 +6903,14 @@ Resumen tecnico - `PedidoStepper.native.jsx`: evitar `Surface` de Paper en nodos
     - borde
     - radio
     - centrado
-    conviene usar `View` y dejar `Surface` para contenedores donde realmente importe elevation o integracion visual de Paper.
+      conviene usar `View` y dejar `Surface` para contenedores donde realmente importe elevation o integracion visual de Paper.
 
 - Regla practica:
   - Si un error runtime apunta a un `Surface` dentro de un item pequeno y repetido, considerar primero reemplazarlo por `View` antes de perseguir un bug fantasma en los datos del componente.
 
-  ---
+  ***
 
   Resumen tecnico - Log nativo de `KEY_METEOR_URL` al arrancar el servicio del cadete
-
   - Ajuste aplicado en `CadeteTrackingService.kt`:
     - `onStartCommand(...)` ahora imprime explicitamente en logcat:
       - el valor de la constante `KEY_METEOR_URL`
@@ -6959,10 +6924,9 @@ Resumen tecnico - `PedidoStepper.native.jsx`: evitar `Surface` de Paper en nodos
       - `KEY_METEOR_URL=... storedMeteorUrl=...`
     - El comando util de diagnostico sigue siendo `adb logcat | grep CadeteTrackingService`.
 
-  ---
+  ***
 
   Resumen tecnico - Endpoint Android del cadete alineado con host fijo del legacy
-
   - Hallazgo validado:
     - El servicio Expo estaba derivando la base HTTP desde `storedMeteorUrl`, por ejemplo:
       - `ws://www.vidkar.com:3000/websocket -> http://www.vidkar.com:3000`
@@ -6981,10 +6945,9 @@ Resumen tecnico - `PedidoStepper.native.jsx`: evitar `Surface` de Paper en nodos
     - Para el tracking nativo Android del cadete, la fuente de verdad del host backend debe seguir el contrato legacy mientras no se rediseñe explicitamente toda la infraestructura de tracking.
     - No asumir que `meteorUrl` del cliente es automaticamente la base correcta para los endpoints HTTP del servicio Android del cadete.
 
-  ---
+  ***
 
   Resumen tecnico - Notificacion foreground del cadete no removible salvo por el propio servicio
-
   - Ajuste aplicado en `CadeteTrackingService.kt`:
     - La notificacion foreground ahora se publica con endurecimiento explicito de persistencia:
       - `setOngoing(true)`
@@ -7055,6 +7018,50 @@ Resumen tecnico - Tracking/foreground del cadete solo mientras `modoCadete` este
     - gating del root en `app/index.native.tsx`
     - shutdown del servicio Android en `CadeteTrackingService.kt`
     - restauracion persistida en `CadeteNativeLocationService.swift`
+
+---
+
+Resumen tecnico - Checkout Expo en efectivo debe esperar la orden base reactiva antes de generar la venta
+
+- Problema detectado:
+  - En `components/carritoCompras/WizardConStepper.native.jsx`, el paso final de `efectivo` podia habilitar el boton de generar venta apenas terminaba `Meteor.call('efectivo.createOrder', ...)`.
+  - Pero `compra` sigue dependiendo de que la orden llegue reactivamente a `OrdenesCollection` por la publicacion `ordenes`.
+  - Resultado visible: el usuario llegaba al final y recibia el mensaje:
+    - `Aún no se ha creado la orden base. Espera unos segundos e intenta nuevamente.`
+
+- Causa raiz validada:
+  - El callback de `efectivo.createOrder` confirma que el backend ya respondio, pero no garantiza que Minimongo ya tenga el documento disponible en ese mismo instante.
+  - El wizard estaba tratando como equivalentes dos hitos distintos:
+    - fin del metodo Meteor
+    - disponibilidad reactiva real de `compra`
+
+- Correccion aplicada:
+  - Se agrego un gate local `esperandoOrdenBase` solo para `metodoPago === 'efectivo'`.
+  - Cuando el wizard entra a `STEP_PAY` con efectivo, mantiene el checkout bloqueado hasta que `compra` exista de verdad en `OrdenesCollection`.
+  - Solo entonces se libera la accion final que llama `generarVentaEfectivo`.
+
+- Regla practica:
+  - En este checkout Expo, no asumir que `efectivo.createOrder` implica que `compra` ya esta lista para el siguiente paso.
+  - Si vuelve a aparecer un bloqueo parecido, revisar primero el gate entre:
+    - callback de creacion de orden
+    - llegada reactiva de `compra`
+  - No tocar PayPal o MercadoPago para este caso; el ajuste correcto vive solo en el branch de `efectivo`.
+
+---
+
+Resumen tecnico - Step 5 del carrito: total visible de comisiones y total a pagar deben seguir el resumen convertido
+
+- Hallazgo validado:
+  - En `components/carritoCompras/WizardConStepper.native.jsx`, el chip superior `Total de comisiones` podia mostrar `comisionesComercio.totalFinal`, mientras la fila correcta del resumen ya usaba `comisionesConvertidas`.
+  - Ademas, en `efectivo`, el `TOTAL A PAGAR` visible del card final debia corresponder exactamente a `subtotalProductosConvertido + comisionesConvertidas`.
+
+- Correccion aplicada:
+  - El chip `Total de comisiones` ahora usa el mismo monto visible convertido (`comisionesConvertidas`) y la misma moneda del resumen (`monedaFinalUI`).
+  - Para `metodoPago === 'efectivo'`, el `TOTAL A PAGAR` visible ahora usa `totalResumenConvertido` en lugar de depender del valor bruto interno de `totalAPagar`.
+
+- Regla practica:
+  - Si arriba y abajo vuelven a salir montos distintos de comisiones en el step 5, la fuente de verdad visual debe ser `comisionesConvertidas`.
+  - Si el usuario espera que en `efectivo` el total visible sea exactamente `subtotal + comisiones`, revisar primero `totalAPagarVisible` y no el calculo backend interno de `totalAPagar`.
 
 ---
 

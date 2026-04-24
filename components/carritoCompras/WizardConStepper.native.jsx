@@ -170,6 +170,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
   const [preparingCheckout, setPreparingCheckout] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [seEstaPagando, setSeEstaPagando] = useState(false);
+  const [esperandoOrdenBase, setEsperandoOrdenBase] = useState(false);
   const [subtotalProductosConvertido, setSubtotalProductosConvertido] =
     useState(0);
   const [totalAPagar, setTotalAPagar] = useState(0);
@@ -256,16 +257,12 @@ const WizardConStepper = ({ initialLocation = null }) => {
   }, [metodoPago, paisPago, tieneProxyVPN]);
 
   const checkoutUrl = useMemo(() => {
-    const candidates = [
-      compra?.link,
-    ];
+    const candidates = [compra?.link];
     const url = candidates.find(
       (item) => typeof item === "string" && item.trim().length > 0,
     );
     return url ? url.trim() : null;
-  }, [
-    compra?.link,
-  ]);
+  }, [compra?.link]);
 
   const getTerminos = () => {
     if (!metodoPago) return null;
@@ -303,6 +300,19 @@ const WizardConStepper = ({ initialLocation = null }) => {
     [comisionesConvertidas, subtotalProductosConvertido],
   );
 
+  const totalComisionesVisible = useMemo(
+    () => Number(comisionesConvertidas || 0),
+    [comisionesConvertidas],
+  );
+
+  const totalAPagarVisible = useMemo(() => {
+    if (metodoPago === "efectivo") {
+      return Number(totalResumenConvertido) || 0;
+    }
+
+    return Number(totalAPagar) || 0;
+  }, [metodoPago, totalAPagar, totalResumenConvertido]);
+
   useEffect(() => {
     if (!visible) return;
     if ((pedidosRemesa?.length || 0) === 0) {
@@ -318,11 +328,24 @@ const WizardConStepper = ({ initialLocation = null }) => {
   useEffect(() => {
     if (!visible) {
       setComisionesExpanded(false);
+      setEsperandoOrdenBase(false);
       setPreparingCheckout(false);
       setProcessing(false);
       setSeEstaPagando(false);
     }
   }, [visible]);
+
+  useEffect(() => {
+    if (
+      activeStep === STEP_PAY &&
+      metodoPago === "efectivo" &&
+      esperandoOrdenBase &&
+      compra
+    ) {
+      setEsperandoOrdenBase(false);
+      setPreparingCheckout(false);
+    }
+  }, [activeStep, compra, esperandoOrdenBase, metodoPago]);
 
   useEffect(() => {
     if (!initialLocation) {
@@ -627,12 +650,23 @@ const WizardConStepper = ({ initialLocation = null }) => {
         return;
       }
 
+      setEsperandoOrdenBase(true);
+
       Meteor.call(
         "efectivo.createOrder",
         userId,
         pedidosRemesa,
         comisionesComercio,
-        finishPreparing,
+        (error) => {
+          if (error) {
+            setEsperandoOrdenBase(false);
+            finishPreparing(error);
+            return;
+          }
+
+          // Espera a que la orden base llegue reactivamente a Minimongo antes
+          // de habilitar la generación final de la venta en efectivo.
+        },
       );
     });
   }, [
@@ -766,7 +800,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
   const handleGenerarVenta = () => {
     if (processing) return;
 
-    if (!compra) {
+    if (esperandoOrdenBase || !compra) {
       Alert.alert(
         "Venta no disponible",
         "Aún no se ha creado la orden base. Espera unos segundos e intenta nuevamente.",
@@ -829,21 +863,22 @@ const WizardConStepper = ({ initialLocation = null }) => {
     processing ||
     preparingCheckout ||
     seEstaPagando ||
+    esperandoOrdenBase ||
     bloquearPagoPorComisiones ||
     !cargadoPago ||
     (metodoPago !== "efectivo" && !checkoutUrl) ||
-    (metodoPago === "efectivo" && totalAPagar <= 0);
+    (metodoPago === "efectivo" && (totalAPagar <= 0 || !compra));
 
-    console.log("DEBUG - finishDisabled:", {
-      processing,
-      preparingCheckout,
-      seEstaPagando,
-      bloquearPagoPorComisiones,
-      cargadoPago,
-      metodoPago,
-      checkoutUrl,
-      totalAPagar,
-    });
+  console.log("DEBUG - finishDisabled:", {
+    processing,
+    preparingCheckout,
+    seEstaPagando,
+    bloquearPagoPorComisiones,
+    cargadoPago,
+    metodoPago,
+    checkoutUrl,
+    totalAPagar,
+  });
   const renderPaymentWarnings = () => {
     if (!tieneComercio) return null;
 
@@ -1002,7 +1037,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
                     style={styles.totalFinalChip}
                     textStyle={styles.comisionesResumenChipText}
                   >
-                    {comisionesComercio.totalFinal} {comisionesComercio.moneda}
+                    {totalComisionesVisible.toFixed(2)} {monedaFinalUI}
                   </Chip>
                 </View>
 
@@ -1273,7 +1308,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
               <Text style={styles.totalTotalLabel}>TOTAL A PAGAR</Text>
               <View style={styles.totalPill}>
                 <Text style={styles.totalPillText}>
-                  {Number(totalAPagar || 0).toFixed(2)} {monedaFinalUI}
+                  {totalAPagarVisible.toFixed(2)} {monedaFinalUI}
                 </Text>
               </View>
             </View>
