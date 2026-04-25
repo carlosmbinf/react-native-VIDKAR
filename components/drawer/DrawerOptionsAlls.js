@@ -336,7 +336,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: "#fff",
   },
   hero: {
     minHeight: 232,
@@ -421,7 +420,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 8,
     borderRadius: 18,
-    backgroundColor: "#eef2ff",
     padding: 16,
   },
   footerTitle: {
