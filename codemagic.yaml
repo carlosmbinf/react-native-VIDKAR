@@ -2,12 +2,12 @@ workflows:
   expo_android_internal:
     name: Expo Android (AAB + Internal Testing)
 
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: master
-          include: true
+    # triggering:
+    #   events:
+    #     - push
+    #   branch_patterns:
+    #     - pattern: master
+    #       include: true
 
     environment:
       android_signing:
@@ -85,12 +85,12 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
 
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: master
-          include: true
+    # triggering:
+    #   events:
+    #     - push
+    #   branch_patterns:
+    #     - pattern: master
+    #       include: true
 
     integrations:
       app_store_connect: "VidkarAPIKey"
