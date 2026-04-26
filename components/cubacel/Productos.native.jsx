@@ -1,6 +1,6 @@
 import MeteorBase from "@meteorrn/core";
 import { LinearGradient } from "expo-linear-gradient";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Text, useTheme } from "react-native-paper";
 
@@ -57,9 +57,11 @@ const TRANSPARENT_GRADIENT_COLORS = [
   "rgba(15, 23, 42, 0)",
 ];
 
+let cachedDtShopProductos = [];
+
 const Productos = ({ isDegradado = false, topBleed = 0 }) => {
   const theme = useTheme();
-  const dataReady = useDeferredScreenData();
+  const dataReady = useDeferredScreenData({ keepReadyOnBlur: true });
   const resolvedTopBleed = isDegradado ? Math.max(Number(topBleed) || 0, 0) : 0;
   const gradientColors = isDegradado
     ? getGradientColors(theme.dark)
@@ -67,7 +69,7 @@ const Productos = ({ isDegradado = false, topBleed = 0 }) => {
 
   const { productos, ready } = Meteor.useTracker(() => {
     if (!dataReady) {
-      return { productos: [], ready: false };
+      return { productos: cachedDtShopProductos, ready: false };
     }
 
     const handler = Meteor.subscribe(
@@ -76,16 +78,24 @@ const Productos = ({ isDegradado = false, topBleed = 0 }) => {
       { fields: PRODUCTOS_DT_SHOP_FIELDS },
     );
 
+    const fetchedProductos = handler.ready()
+      ? DTShopProductosCollection.find({}, { sort: { id: 1 } }).fetch()
+      : cachedDtShopProductos;
+
     return {
-      productos: handler.ready()
-        ? DTShopProductosCollection.find({}, { sort: { id: 1 } }).fetch()
-        : [],
+      productos: fetchedProductos,
       ready: handler.ready(),
     };
   }, [dataReady]);
 
+  useEffect(() => {
+    if (ready) {
+      cachedDtShopProductos = Array.isArray(productos) ? productos : [];
+    }
+  }, [productos, ready]);
+
   const sortedProductos = useMemo(() => {
-    if (!ready || !Array.isArray(productos)) {
+    if (!Array.isArray(productos) || productos.length === 0) {
       return [];
     }
 
@@ -121,7 +131,9 @@ const Productos = ({ isDegradado = false, topBleed = 0 }) => {
         typeof second?.id === "number" ? second.id : Number.MAX_SAFE_INTEGER;
       return firstId - secondId;
     });
-  }, [productos, ready]);
+  }, [productos]);
+
+  const hasProductos = sortedProductos.length > 0;
 
   return (
     <LinearGradient
@@ -137,8 +149,7 @@ const Productos = ({ isDegradado = false, topBleed = 0 }) => {
           : null,
       ]}
     >
-      {Meteor.status().status === "connected" ||
-      (ready && sortedProductos.length > 0) ? (
+      {hasProductos ? (
         <FlatList
           data={sortedProductos}
           renderItem={({ item }) => <CubaCelCard product={item} />}
@@ -151,6 +162,10 @@ const Productos = ({ isDegradado = false, topBleed = 0 }) => {
           maxToRenderPerBatch={10}
           removeClippedSubviews
         />
+      ) : ready ? (
+        <View style={styles.loaderContainer}>
+          <Text>No hay productos de Cubacel disponibles ahora mismo.</Text>
+        </View>
       ) : (
         <View style={styles.loaderContainer}>
           <ActivityIndicator animating size="large" />
@@ -163,7 +178,6 @@ const Productos = ({ isDegradado = false, topBleed = 0 }) => {
 
 const styles = StyleSheet.create({
   gradientContainer: {
-    minHeight: 214,
     overflow: "visible",
   },
   degradedContainer: {
@@ -174,6 +188,7 @@ const styles = StyleSheet.create({
   },
   loaderContainer: {
     alignItems: "center",
+    minHeight: 214,
     marginTop: 40,
     width: "100%",
   },

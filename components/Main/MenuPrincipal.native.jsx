@@ -40,6 +40,12 @@ const isPrincipalAdmin = (user) => user?.username === "carlosmbinf";
 const isAdminUser = (user) =>
   user?.profile?.role === "admin" || isPrincipalAdmin(user);
 
+const buildSortedIds = (users = []) =>
+  users
+    .map((usuario) => usuario._id)
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+
 const getCashApprovalTypes = (venta) => {
   const carritos = Array.isArray(venta?.producto?.carritos)
     ? venta?.producto?.carritos
@@ -115,17 +121,19 @@ const MenuPrincipalNative = () => {
 
     return {
       subordinadosIds: subordinadosHandle.ready()
-        ? Meteor.users
-            .find(
-              { bloqueadoDesbloqueadoPor: currentUserId },
-              { fields: { _id: 1 } },
-            )
-            .fetch()
-            .map((usuario) => usuario._id)
+        ? buildSortedIds(
+            Meteor.users
+              .find(
+                { bloqueadoDesbloqueadoPor: currentUserId },
+                { fields: { _id: 1 } },
+              )
+              .fetch(),
+          )
         : [],
       subordinadosLoading: !subordinadosHandle.ready(),
     };
   }, [currentUserId, dataReady, isAdmin, isAdminPrincipal]);
+  const subordinadosIdsKey = subordinadosIds.join(",");
 
   const { pendingDebt, pendingVentasCount } = Meteor.useTracker(() => {
     if (!dataReady || !currentUserId || !isAdmin) {
@@ -173,6 +181,14 @@ const MenuPrincipalNative = () => {
       };
     }
 
+    if (!isAdminPrincipal && subordinadosLoading) {
+      return {
+        pendingCashApprovalTypes: [],
+        pendingCashApprovalsCount: 0,
+        pendingCashApprovalsLoading: false,
+      };
+    }
+
     const cashApprovalsQuery = isAdminPrincipal
       ? {
           isCancelada: false,
@@ -205,10 +221,9 @@ const MenuPrincipalNative = () => {
 
     return {
       ...cashApprovalsSummary,
-      pendingCashApprovalsLoading:
-        !cashApprovalsHandle.ready() || subordinadosLoading,
+      pendingCashApprovalsLoading: !cashApprovalsHandle.ready(),
     };
-  }, [currentUserId, dataReady, isAdmin, isAdminPrincipal, subordinadosIds, subordinadosLoading]);
+  }, [currentUserId, dataReady, isAdmin, isAdminPrincipal, subordinadosIdsKey, subordinadosLoading]);
   const appVersionInfo = getAppVersionInfo();
 
   const handleOpenPendingVentas = () => {

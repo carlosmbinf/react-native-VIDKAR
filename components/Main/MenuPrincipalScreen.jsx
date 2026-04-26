@@ -20,6 +20,7 @@ import MenuHeader from "../Header/MenuHeader";
 import ProxyVPNPackagesHorizontal from "../proxyVPN/ProxyVPNPackagesHorizontal";
 
 const DRAWER_WIDTH = 316;
+let hasPreparedHeavyContent = false;
 
 const formatGreeting = (user) => {
   const firstName = user?.profile?.firstName?.trim();
@@ -79,15 +80,23 @@ const MenuPrincipalScreen = ({
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMounted, setDrawerMounted] = useState(false);
-  const [heavyContentReady, setHeavyContentReady] = useState(false);
+  const [heavyContentReady, setHeavyContentReady] = useState(
+    hasPreparedHeavyContent,
+  );
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const headerInset = useAppHeaderContentInset();
 
   useEffect(() => {
+    if (hasPreparedHeavyContent) {
+      setHeavyContentReady(true);
+      return undefined;
+    }
+
     let mounted = true;
     const interactionTask = InteractionManager.runAfterInteractions(() => {
       if (mounted) {
+        hasPreparedHeavyContent = true;
         setHeavyContentReady(true);
       }
     });
@@ -152,6 +161,8 @@ const MenuPrincipalScreen = ({
   const hasPendingDebt =
     user?.profile?.role === "admin" && (Number(pendingDebt) || 0) > 0;
   const cashApprovalTypeCount = pendingCashApprovalTypes.length;
+  const showCashApprovalsCard =
+    hasAdminRole && pendingCashApprovalsCount > 0;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -302,7 +313,7 @@ const MenuPrincipalScreen = ({
             ) : null}
           </Surface>
 
-          {hasAdminRole ? (
+          {showCashApprovalsCard ? (
             <Surface style={styles.cashApprovalsCard} elevation={2}>
               <View style={styles.cashApprovalsGlowPrimary} />
               <View style={styles.cashApprovalsGlowSecondary} />
