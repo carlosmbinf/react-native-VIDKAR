@@ -20,6 +20,7 @@ import {
     useTheme,
 } from "react-native-paper";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import AppHeader from "../Header/AppHeader";
 import { ServersCollection } from "../collections/collections";
 import DialogServer from "./DialogServer";
@@ -264,8 +265,13 @@ const ServerList = () => {
   const [dialogVisible, setDialogVisible] = React.useState(false);
   const [restartingId, setRestartingId] = React.useState(null);
   const [showFilters, setShowFilters] = React.useState(false);
+  const dataReady = useDeferredScreenData();
 
   const { ready, servers } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { ready: false, servers: [] };
+    }
+
     const subscriptionReady = Meteor.subscribe("servers", {}, {
       fields: SERVER_LIST_FIELDS,
     }).ready();
@@ -280,7 +286,7 @@ const ServerList = () => {
       ready: subscriptionReady,
       servers: docs.map(normalizeServerRecord),
     };
-  });
+  }, [dataReady]);
 
   const statusOptions = [
     "TODOS",

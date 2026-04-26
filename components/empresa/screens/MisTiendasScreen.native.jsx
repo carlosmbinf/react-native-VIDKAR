@@ -24,6 +24,7 @@ import {
     useTheme,
 } from "react-native-paper";
 
+import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
 import { ProductosComercioCollection, TiendasComercioCollection } from "../../collections/collections";
 import EmpresaTopBar from "../components/EmpresaTopBar.native";
 import LocationPicker from "../components/LocationPicker.native";
@@ -440,6 +441,7 @@ const MisTiendasScreen = ({ onOpenDrawer }) => {
   const isCompactHeader = width < 430;
 
   const currentUserId = Meteor.useTracker(() => Meteor.userId());
+  const dataReady = useDeferredScreenData();
   const [dialogVisible, setDialogVisible] = useState(false);
   const [editingStore, setEditingStore] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -466,6 +468,10 @@ const MisTiendasScreen = ({ onOpenDrawer }) => {
   );
 
   const { productCounts, ready, tiendas } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { productCounts: {}, ready: false, tiendas: [] };
+    }
+
     if (!currentUserId) {
       return { productCounts: {}, ready: true, tiendas: [] };
     }
@@ -505,7 +511,7 @@ const MisTiendasScreen = ({ onOpenDrawer }) => {
       ready: tiendasHandle.ready() && (!tiendaIds.length || productosHandle?.ready()),
       tiendas: tiendasResult,
     };
-  }, [currentUserId]);
+  }, [currentUserId, dataReady, storeFields]);
 
   const visibleTiendas = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();

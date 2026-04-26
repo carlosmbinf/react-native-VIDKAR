@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Appbar, Button, FAB, Surface, Text, TextInput, useTheme } from "react-native-paper";
 
+import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
 import { ProductosComercioCollection, TiendasComercioCollection } from "../../collections/collections";
 import EmpresaTopBar from "../components/EmpresaTopBar.native";
 import EmptyProductos from "../components/EmptyProductos.native";
@@ -90,8 +91,13 @@ const TiendaDetailScreen = () => {
 
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const dataReady = useDeferredScreenData();
 
   const { productos, ready, tienda } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { productos: [], ready: false, tienda: parsedTienda || null };
+    }
+
     if (!tiendaId) {
       return { productos: [], ready: true, tienda: parsedTienda || null };
     }
@@ -119,7 +125,7 @@ const TiendaDetailScreen = () => {
         parsedTienda ||
         null,
     };
-  }, [parsedTienda, tiendaId]);
+  }, [dataReady, parsedTienda, tiendaId]);
 
   const visibleProductos = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();

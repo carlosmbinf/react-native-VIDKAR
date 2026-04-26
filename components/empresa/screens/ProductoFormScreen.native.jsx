@@ -27,6 +27,7 @@ import {
     useTheme,
 } from "react-native-paper";
 
+import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
 import { ConfigCollection, ProductosComercioCollection, TiendasComercioCollection } from "../../collections/collections";
 import EmpresaTopBar from "../components/EmpresaTopBar.native";
 import { createEmpresaPalette, getEmpresaScreenMetrics } from "../styles/empresaTheme";
@@ -167,9 +168,18 @@ const ProductoFormScreen = () => {
   });
   const [selectedStoreId, setSelectedStoreId] = useState(routeStoreId || parsedProduct?.idTienda || "");
   const hydratedProductId = useRef("");
+  const dataReady = useDeferredScreenData();
 
   const { currencyOptions, product, stores } = Meteor.useTracker(() => {
     const userId = Meteor.userId();
+
+    if (!dataReady) {
+      return {
+        currencyOptions: [],
+        product: parsedProduct || null,
+        stores: [],
+      };
+    }
 
     const storesHandle = userId
       ? Meteor.subscribe("tiendas", { idUser: userId }, {
@@ -216,7 +226,7 @@ const ProductoFormScreen = () => {
             ).fetch()
           : [],
     };
-  }, [parsedProduct, routeProductId]);
+  }, [dataReady, parsedProduct, routeProductId]);
 
   useEffect(() => {
     if (!selectedStoreId && routeStoreId) {
@@ -817,7 +827,6 @@ const styles = StyleSheet.create({
   imagePanel: {
     borderRadius: 20,
     borderWidth: 1,
-    borderRadius: 20,
     overflow: "hidden",
   },
   imagePlaceholder: {

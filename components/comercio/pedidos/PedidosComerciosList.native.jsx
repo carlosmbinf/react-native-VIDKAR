@@ -5,9 +5,11 @@ import { FlatList, StyleSheet, View } from "react-native";
 import { Appbar, Menu, Surface, Text } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
 import WizardConStepper from "../../carritoCompras/WizardConStepper.native";
 import { VentasRechargeCollection } from "../../collections/collections";
 import MenuIconMensajes from "../../components/MenuIconMensajes.native";
+import BlurMenuSurface, { blurMenuContentStyle } from "../../Header/BlurMenuSurface";
 import EmptyState from "./components/EmptyState";
 import LoadingState from "./components/LoadingState";
 import PedidoCard from "./components/PedidoCard";
@@ -34,8 +36,13 @@ const PedidosComerciosListNative = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [expandedVentas, setExpandedVentas] = useState({});
   const [profileMenuVisible, setProfileMenuVisible] = useState(false);
+  const dataReady = useDeferredScreenData();
 
   const { ready, ventas } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { ready: false, ventas: [] };
+    }
+
     const userId = Meteor.userId();
 
     if (!userId) {
@@ -58,7 +65,7 @@ const PedidosComerciosListNative = () => {
     ).fetch();
 
     return { ready: sub.ready(), ventas: ventasData };
-  });
+  }, [dataReady]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -162,6 +169,7 @@ const PedidosComerciosListNative = () => {
             />
             <WizardConStepper />
             <Menu
+              anchorPosition="bottom"
               anchor={
                 <Appbar.Action
                   color="#ffffff"
@@ -169,27 +177,30 @@ const PedidosComerciosListNative = () => {
                   onPress={() => setProfileMenuVisible(true)}
                 />
               }
+              contentStyle={styles.profileMenuContent}
               onDismiss={() => setProfileMenuVisible(false)}
               visible={profileMenuVisible}
             >
-              <Menu.Item
-                leadingIcon="account"
-                onPress={() => {
-                  setProfileMenuVisible(false);
-                  router.push("/(normal)/User");
-                }}
-                title="Mi usuario"
-              />
-              <Menu.Item
-                leadingIcon="logout"
-                onPress={() => {
-                  setProfileMenuVisible(false);
-                  Meteor.logout(() => {
-                    router.replace("/(auth)/Loguin");
-                  });
-                }}
-                title="Cerrar Sesión"
-              />
+              <BlurMenuSurface>
+                <Menu.Item
+                  leadingIcon="account"
+                  onPress={() => {
+                    setProfileMenuVisible(false);
+                    router.push("/(normal)/User");
+                  }}
+                  title="Mi usuario"
+                />
+                <Menu.Item
+                  leadingIcon="logout"
+                  onPress={() => {
+                    setProfileMenuVisible(false);
+                    Meteor.logout(() => {
+                      router.replace("/(auth)/Loguin");
+                    });
+                  }}
+                  title="Cerrar Sesión"
+                />
+              </BlurMenuSurface>
             </Menu>
           </View>
         </View>
@@ -247,6 +258,10 @@ const styles = StyleSheet.create({
   rightActionRow: {
     alignItems: "center",
     flexDirection: "row",
+  },
+  profileMenuContent: {
+    ...blurMenuContentStyle,
+    width: 210,
   },
   separator: {
     height: 12,

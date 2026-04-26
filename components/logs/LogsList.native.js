@@ -24,6 +24,7 @@ import {
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import AppHeader from "../Header/AppHeader";
 import { Logs } from "../collections/collections";
 
@@ -624,6 +625,7 @@ const LogsList = () => {
   const [fetchLimit, setFetchLimit] = React.useState(100);
   const [showFilters, setShowFilters] = React.useState(false);
   const [selectedLogId, setSelectedLogId] = React.useState(null);
+  const dataReady = useDeferredScreenData();
 
   const { ready, totalFetched, logs } = Meteor.useTracker(() => {
     const currentUser = Meteor.user();
@@ -632,6 +634,10 @@ const LogsList = () => {
     const isPrincipalAdmin =
       currentUser?.username === "carlosmbinf" ||
       currentUser?.profile?.role === "admin";
+
+    if (!dataReady) {
+      return { ready: false, totalFetched: 0, logs: [] };
+    }
 
     let query = {};
     if (routeId) {
@@ -723,7 +729,7 @@ const LogsList = () => {
       totalFetched: logDocs.length,
       logs: mappedLogs,
     };
-  }, [fetchLimit, id]);
+  }, [dataReady, fetchLimit, id]);
 
   const typeOptions = React.useMemo(
     () => ["TODOS", ...new Set(logs.map((log) => log.type).filter(Boolean))],

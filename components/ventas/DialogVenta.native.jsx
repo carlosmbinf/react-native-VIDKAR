@@ -1,25 +1,27 @@
 import MeteorBase from "@meteorrn/core";
+import { BlurView } from "expo-blur";
 import React from "react";
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  useWindowDimensions,
-  View,
+    Alert,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    useWindowDimensions,
+    View,
 } from "react-native";
 import {
-  ActivityIndicator,
-  Button,
-  Chip,
-  Dialog,
-  Divider,
-  HelperText,
-  IconButton,
-  Portal,
-  Surface,
-  Text,
-  TextInput,
-  useTheme,
+    ActivityIndicator,
+    Button,
+    Chip,
+    Dialog,
+    Divider,
+    HelperText,
+    IconButton,
+    Portal,
+    Surface,
+    Text,
+    TextInput,
+    useTheme,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -262,11 +264,22 @@ const DialogVenta = ({ visible, hideDialog, ventaId }) => {
     );
   };
 
-  const sheetBackground = theme.dark
-    ? theme.colors.elevation?.level2 || theme.colors.surface
-    : "#fbfcff";
-  const heroBackground = theme.dark ? "#10213d" : "#eef3ff";
-  const heroMetaBackground = theme.dark ? "rgba(7, 18, 34, 0.68)" : "#ffffff";
+  const isDarkMode = theme.dark;
+  const sheetOverlay = isDarkMode
+    ? "rgba(6, 12, 24, 0.62)"
+    : "rgba(255, 255, 255, 0.58)";
+  const sheetBorder = isDarkMode
+    ? "rgba(226, 232, 240, 0.14)"
+    : "rgba(15, 23, 42, 0.12)";
+  const heroBackground = isDarkMode
+    ? "rgba(15, 32, 61, 0.54)"
+    : "rgba(238, 243, 255, 0.58)";
+  const heroMetaBackground = isDarkMode
+    ? "rgba(7, 18, 34, 0.42)"
+    : "rgba(255, 255, 255, 0.48)";
+  const stateCardBackground = isDarkMode
+    ? "rgba(15, 23, 42, 0.46)"
+    : "rgba(255, 255, 255, 0.5)";
   const statusColors = cobrado
     ? { background: "#d1fae5", text: "#065f46" }
     : { background: "#fff3cd", text: "#8a5a00" };
@@ -288,7 +301,9 @@ const DialogVenta = ({ visible, hideDialog, ventaId }) => {
         style={[
           styles.dialog,
           {
-            backgroundColor: sheetBackground,
+            backgroundColor: "transparent",
+            borderColor: sheetBorder,
+            borderWidth: 1,
             marginTop: Math.max(insets.top, 12),
             marginBottom: Math.max(insets.bottom, 12),
             maxHeight: dialogMaxHeight,
@@ -296,6 +311,31 @@ const DialogVenta = ({ visible, hideDialog, ventaId }) => {
           },
         ]}
       >
+        {isDarkMode ? (
+          <BlurView
+            intensity={48}
+            tint="dark"
+            style={StyleSheet.absoluteFill}
+            experimentalBlurMethod={
+              Platform.OS === "android" ? "dimezisBlurView" : undefined
+            }
+            renderToHardwareTextureAndroid={true}
+          />
+        ) : (
+          <BlurView
+            intensity={48}
+            tint="light"
+            style={StyleSheet.absoluteFill}
+            experimentalBlurMethod={
+              Platform.OS === "android" ? "dimezisBlurView" : undefined
+            }
+            renderToHardwareTextureAndroid={true}
+          />
+        )}
+        <View
+          pointerEvents="none"
+          style={[styles.dialogTint, { backgroundColor: sheetOverlay }]}
+        />
         <View style={styles.sheetHeader}>
           <View style={styles.sheetTitleBlock}>
             <Text variant="titleLarge" style={styles.sheetTitle}>
@@ -331,6 +371,7 @@ const DialogVenta = ({ visible, hideDialog, ventaId }) => {
                 style={[
                   styles.stateCard,
                   isCompactDialog ? styles.stateCardCompact : null,
+                  { backgroundColor: stateCardBackground },
                 ]}
               >
                 <Text style={styles.stateTitle}>Sin venta seleccionada</Text>
@@ -343,6 +384,7 @@ const DialogVenta = ({ visible, hideDialog, ventaId }) => {
                 style={[
                   styles.stateCard,
                   isCompactDialog ? styles.stateCardCompact : null,
+                  { backgroundColor: stateCardBackground },
                 ]}
               >
                 <ActivityIndicator size="large" color="#3f51b5" />
@@ -508,6 +550,7 @@ const DialogVenta = ({ visible, hideDialog, ventaId }) => {
                 style={[
                   styles.stateCard,
                   isCompactDialog ? styles.stateCardCompact : null,
+                  { backgroundColor: stateCardBackground },
                 ]}
               >
                 <Text style={styles.stateTitle}>Venta no disponible</Text>
@@ -591,6 +634,9 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginHorizontal: 12,
     overflow: "hidden",
+  },
+  dialogTint: {
+    ...StyleSheet.absoluteFillObject,
   },
   dialogScrollArea: {
     borderBottomWidth: 0,

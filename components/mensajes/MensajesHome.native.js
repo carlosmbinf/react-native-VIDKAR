@@ -27,6 +27,7 @@ import {
     TextInput,
 } from "react-native-paper";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { getMeteorUrl } from "../../services/meteor/client.native";
 import { Mensajes as MensajesCollection } from "../collections/collections";
 import AppHeader from "../Header/AppHeader";
@@ -1158,6 +1159,7 @@ const MensajesHomeNative = (props) => {
   const targetUserId = props.user || routeUser || explicitUser || null;
   const [messageLimit, setMessageLimit] = React.useState(MESSAGE_PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
+  const dataReady = useDeferredScreenData();
 
   React.useEffect(() => {
     setMessageLimit(MESSAGE_PAGE_SIZE);
@@ -1169,6 +1171,16 @@ const MensajesHomeNative = (props) => {
       return {
         hasMoreMessages: false,
         loading: false,
+        myTodoTasks: [],
+        targetAvatar: undefined,
+        userLabel: "",
+      };
+    }
+
+    if (!dataReady) {
+      return {
+        hasMoreMessages: false,
+        loading: true,
         myTodoTasks: [],
         targetAvatar: undefined,
         userLabel: "",
@@ -1282,7 +1294,7 @@ const MensajesHomeNative = (props) => {
       targetAvatar: resolvedTargetAvatar,
       userLabel: resolvedUserLabel,
     };
-  }, [messageLimit, targetUserId]);
+  }, [dataReady, messageLimit, targetUserId]);
 
   React.useEffect(() => {
     if (!loading) {

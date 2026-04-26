@@ -16,6 +16,7 @@ import {
     Text
 } from "react-native-paper";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import SubidaArchivos from "../archivos/SubidaArchivos.native";
 import { VentasRechargeCollection } from "../collections/collections";
 
@@ -82,9 +83,10 @@ const VentasStepper = () => {
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const userId = Meteor.userId();
   const idAdmin = Meteor.useTracker(() => Meteor.userId());
+  const dataReady = useDeferredScreenData();
 
   const listIdSubordinados = Meteor.useTracker(() => {
-    if (!idAdmin) return [];
+    if (!dataReady || !idAdmin) return [];
     Meteor.subscribe(
       "user",
       { bloqueadoDesbloqueadoPor: idAdmin },
@@ -94,9 +96,13 @@ const VentasStepper = () => {
       .find({ bloqueadoDesbloqueadoPor: idAdmin })
       .fetch()
       .map((element) => element._id);
-  }, [idAdmin]);
+  }, [dataReady, idAdmin]);
 
   const { loading, ventas } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { loading: true, ventas: [] };
+    }
+
     const filtro =
       Meteor?.user()?.username === "carlosmbinf"
         ? {}
@@ -129,9 +135,13 @@ const VentasStepper = () => {
         { fields: REMESA_STEPPER_FIELDS, sort: { createdAt: -1 } },
       ).fetch(),
     };
-  }, [JSON.stringify(listIdSubordinados), userId]);
+  }, [dataReady, JSON.stringify(listIdSubordinados), userId]);
 
   const ventasEntregadas = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return [];
+    }
+
     const filtro =
       Meteor?.user()?.username === "carlosmbinf"
         ? {
@@ -157,7 +167,7 @@ const VentasStepper = () => {
       fields: REMESA_STEPPER_FIELDS,
       sort: { createdAt: -1 },
     }).fetch();
-  }, [JSON.stringify(listIdSubordinados), userId]);
+  }, [dataReady, JSON.stringify(listIdSubordinados), userId]);
 
   const toggleExpanded = (ventaId) => {
     setExpandedVentas((current) => ({

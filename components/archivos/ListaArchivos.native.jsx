@@ -3,6 +3,7 @@ import { useState } from "react";
 import { FlatList, RefreshControl, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Button, Surface, Text } from "react-native-paper";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { VentasRechargeCollection } from "../collections/collections";
 import AppHeader from "../Header/AppHeader";
 import AprobacionEvidenciasVenta from "./AprobacionEvidenciasVenta.native";
@@ -46,9 +47,10 @@ const ListaVentasEfectivo = () => {
 
   const isAdmin = Meteor.user()?.profile?.role === "admin" || false;
   const isAdminPrincipal = Meteor.user()?.username === "carlosmbinf" || false;
+  const dataReady = useDeferredScreenData();
 
   const listIdSubordinados = Meteor.useTracker(() => {
-    if (!isAdmin) {
+    if (!dataReady || !isAdmin) {
       return [];
     }
 
@@ -61,9 +63,13 @@ const ListaVentasEfectivo = () => {
       .find({ bloqueadoDesbloqueadoPor: Meteor.userId() })
       .fetch()
       .map((user) => user._id);
-  }, [isAdmin, Meteor.userId()]);
+  }, [dataReady, isAdmin, Meteor.userId()]);
 
   const { cargando, ventas } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { cargando: true, ventas: [] };
+    }
+
     const filtroBase = {
       isCobrado: false,
       metodoPago: "EFECTIVO",
@@ -93,7 +99,7 @@ const ListaVentasEfectivo = () => {
       : [];
 
     return { cargando: !ready, ventas: ventasData };
-  }, [isAdmin, isAdminPrincipal, listIdSubordinados, Meteor.userId()]);
+  }, [dataReady, isAdmin, isAdminPrincipal, listIdSubordinados, Meteor.userId()]);
 
   const onRefresh = () => {
     setRefreshing(true);

@@ -2,11 +2,12 @@ import MeteorBase from "@meteorrn/core";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { Appbar, Menu, useTheme } from "react-native-paper";
+import { Appbar, Menu } from "react-native-paper";
 
 import AppHeader from "../../Header/AppHeader";
+import BlurMenuSurface, { blurMenuContentStyle } from "../../Header/BlurMenuSurface";
 import MenuIconMensajes from "../../components/MenuIconMensajes.native";
-import { EMPRESA_BRAND, createEmpresaPalette } from "../styles/empresaTheme";
+import { EMPRESA_BRAND } from "../styles/empresaTheme";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
@@ -22,8 +23,6 @@ const EmpresaTopBar = ({
   rightActions,
 }) => {
   const router = useRouter();
-  const theme = useTheme();
-  const palette = createEmpresaPalette(theme);
   const [menuVisible, setMenuVisible] = useState(false);
 
   const handleBack = () => {
@@ -70,29 +69,26 @@ const EmpresaTopBar = ({
 
       <Menu
         anchor={<Appbar.Action icon="dots-vertical" iconColor="#ffffff" onPress={() => setMenuVisible(true)} />}
-        contentStyle={[
-          styles.menuContent,
-          {
-            backgroundColor: palette.menu,
-            borderColor: palette.border,
-          },
-        ]}
+        anchorPosition="bottom"
+        contentStyle={styles.menuContent}
         onDismiss={() => setMenuVisible(false)}
         visible={menuVisible}
       >
-        <Menu.Item
-          leadingIcon="account-circle-outline"
-          onPress={() => {
-            setMenuVisible(false);
-            router.push("/(empresa)/User");
-          }}
-          title="Mi usuario"
-        />
-        <Menu.Item
-          leadingIcon="logout"
-          onPress={handleLogout}
-          title="Cerrar sesión"
-        />
+        <BlurMenuSurface>
+          <Menu.Item
+            leadingIcon="account-circle-outline"
+            onPress={() => {
+              setMenuVisible(false);
+              router.push("/(empresa)/User");
+            }}
+            title="Mi usuario"
+          />
+          <Menu.Item
+            leadingIcon="logout"
+            onPress={handleLogout}
+            title="Cerrar sesión"
+          />
+        </BlurMenuSurface>
       </Menu>
     </View>
   );
@@ -126,10 +122,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   menuContent: {
-    borderRadius: 18,
-    borderWidth: 1,
+    ...blurMenuContentStyle,
     minWidth: 204,
-    overflow: "hidden",
   },
 });
 

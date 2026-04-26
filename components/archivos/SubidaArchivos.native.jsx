@@ -16,13 +16,13 @@ import {
 import {
     ActivityIndicator,
     Button,
-    Card,
     Chip,
     Divider,
     IconButton,
     Snackbar,
     Text,
     TextInput,
+    useTheme,
 } from "react-native-paper";
 
 import {
@@ -78,6 +78,31 @@ const ESTADOS = {
   APROBADA: "APROBADA",
   PENDIENTE: "PENDIENTE",
   RECHAZADA: "RECHAZADA",
+};
+
+const getUploadPalette = (isDarkMode) => {
+  const android = Platform.OS === "android";
+
+  return {
+    border: isDarkMode ? "rgba(226, 232, 240, 0.14)" : "rgba(15, 23, 42, 0.1)",
+    card: isDarkMode
+      ? android
+        ? "rgba(15, 23, 42, 0.38)"
+        : "rgba(15, 23, 42, 0.5)"
+      : android
+        ? "rgba(255, 255, 255, 0.38)"
+        : "rgba(255, 255, 255, 0.58)",
+    copy: isDarkMode ? "#cbd5e1" : "#475569",
+    muted: isDarkMode ? "#94a3b8" : "#64748b",
+    soft: isDarkMode
+      ? android
+        ? "rgba(30, 41, 59, 0.3)"
+        : "rgba(30, 41, 59, 0.44)"
+      : android
+        ? "rgba(248, 250, 252, 0.32)"
+        : "rgba(248, 250, 252, 0.56)",
+    strong: isDarkMode ? "#f8fafc" : "#0f172a",
+  };
 };
 
 const mapEvidenciaDoc = (evidencia, index) => {
@@ -266,6 +291,11 @@ const buildSelectedFile = (asset, originalSizeBytes = null) => {
 };
 
 const SubidaArchivos = ({ venta }) => {
+  const theme = useTheme();
+  const uploadPalette = useMemo(
+    () => getUploadPalette(theme.dark),
+    [theme.dark],
+  );
   const ventaId = venta?._id;
   const [openSheet, setOpenSheet] = useState(false);
   const [cargando, setCargando] = useState(false);
@@ -470,9 +500,27 @@ const SubidaArchivos = ({ venta }) => {
 
   const tieneEvidencias = evidencias.length > 0;
   const uploadInhabilitado = useMemo(
-    () => !!(ventaReact?.isCobrado || ventaReact?.isCancelada),
-    [ventaReact?.isCancelada, ventaReact?.isCobrado],
+    () =>
+      !!(
+        venta?.isCobrado ||
+        venta?.isCancelada ||
+        ventaReact?.isCobrado ||
+        ventaReact?.isCancelada
+      ),
+    [
+      venta?.isCancelada,
+      venta?.isCobrado,
+      ventaReact?.isCancelada,
+      ventaReact?.isCobrado,
+    ],
   );
+
+  useEffect(() => {
+    if (uploadInhabilitado) {
+      setOpenSheet(false);
+    }
+  }, [uploadInhabilitado]);
+
   const miniBase64 = archivoSeleccionado?.base64 || evidencias[0]?.base64;
   const compressionRatio = useMemo(() => {
     if (!archivoSeleccionado?.fileSize || !archivoOriginalSize) {
@@ -786,13 +834,35 @@ const SubidaArchivos = ({ venta }) => {
 
   return (
     <>
-      <Card style={styles.ventaCard}>
-        <Card.Content>
+      <View
+        style={[
+          styles.ventaCard,
+          {
+            backgroundColor: uploadPalette.card,
+            borderColor: uploadPalette.border,
+          },
+        ]}
+      >
+        <View style={styles.ventaCardContent}>
           <View style={styles.headerRow}>
             <View style={styles.flexOne}>
-              <View style={styles.montoBlock}>
-                <View>
-                  <Text style={[styles.labelMonto, styles.montoLabelSmall]}>
+              <View
+                style={[
+                  styles.montoBlock,
+                  {
+                    backgroundColor: uploadPalette.soft,
+                    borderColor: uploadPalette.border,
+                  },
+                ]}
+              >
+                <View style={styles.montoInfo}>
+                  <Text
+                    style={[
+                      styles.labelMonto,
+                      styles.montoLabelSmall,
+                      { color: uploadPalette.muted },
+                    ]}
+                  >
                     Monto a pagar
                   </Text>
                   <Text style={[styles.montoAPagar, styles.montoStrong]}>
@@ -806,11 +876,21 @@ const SubidaArchivos = ({ venta }) => {
                   </Text>
                   {tiendaIdParaComisiones ? (
                     <>
-                      <Text style={styles.montoDetalle}>
+                      <Text
+                        style={[
+                          styles.montoDetalle,
+                          { color: uploadPalette.copy },
+                        ]}
+                      >
                         • Subtotal: {subtotalVenta.toFixed(2)}{" "}
                         {ventaReact?.monedaCobrado}
                       </Text>
-                      <Text style={styles.montoDetalle}>
+                      <Text
+                        style={[
+                          styles.montoDetalle,
+                          { color: uploadPalette.copy },
+                        ]}
+                      >
                         • Comisiones:{" "}
                         {comisionesInfo.loading
                           ? "N/A"
@@ -820,14 +900,9 @@ const SubidaArchivos = ({ venta }) => {
                     </>
                   ) : null}
                 </View>
-                <Chip
-                  compact
-                  mode="contained"
-                  style={styles.metodoChip}
-                  textStyle={styles.metodoChipText}
-                >
-                  TRANSFERENCIA
-                </Chip>
+                <View style={styles.metodoChip}>
+                  <Text style={styles.metodoChipText}>TRANSFERENCIA</Text>
+                </View>
               </View>
               {renderInfoPago()}
             </View>
@@ -840,13 +915,17 @@ const SubidaArchivos = ({ venta }) => {
                 style={styles.thumbnail}
               />
               <View style={styles.thumbTextBox}>
-                <Text style={styles.thumbLabel}>
+                <Text
+                  style={[styles.thumbLabel, { color: uploadPalette.strong }]}
+                >
                   {archivoSeleccionado
                     ? "Evidencia seleccionada"
                     : "Ultima Captura Subida"}
                 </Text>
                 {archivoSeleccionado ? (
-                  <Text style={styles.thumbSize}>
+                  <Text
+                    style={[styles.thumbSize, { color: uploadPalette.muted }]}
+                  >
                     {(
                       (archivoSeleccionado.fileSize || 0) /
                       1024 /
@@ -864,15 +943,17 @@ const SubidaArchivos = ({ venta }) => {
             <Text style={styles.evidenciasTitle}>
               Evidencias ({evidencias.length})
             </Text>
-            <Button
-              mode={tieneEvidencias ? "text" : "contained"}
-              icon={tieneEvidencias ? "plus" : "camera-plus"}
-              onPress={() => !uploadInhabilitado && setOpenSheet(true)}
-              compact
-              disabled={cargando || uploadInhabilitado}
-            >
-              {tieneEvidencias ? "Agregar" : "Subir"}
-            </Button>
+            {!uploadInhabilitado ? (
+              <Button
+                mode={tieneEvidencias ? "text" : "contained"}
+                icon={tieneEvidencias ? "plus" : "camera-plus"}
+                onPress={() => setOpenSheet(true)}
+                compact
+                disabled={cargando}
+              >
+                {tieneEvidencias ? "Agregar" : "Subir"}
+              </Button>
+            ) : null}
           </View>
 
           {tieneEvidencias ? (
@@ -916,31 +997,34 @@ const SubidaArchivos = ({ venta }) => {
               })}
             </ScrollView>
           ) : (
-            <Text style={styles.sinEvidenciasText}>
+            <Text
+              style={[styles.sinEvidenciasText, { color: uploadPalette.muted }]}
+            >
               No hay evidencias todavia.
             </Text>
           )}
-        </Card.Content>
-      </Card>
+        </View>
+      </View>
 
-      <DrawerBottom
-        open={openSheet}
-        onClose={() => !cargando && setOpenSheet(false)}
-        title="Subir Archivo"
-        side="bottom"
-        actions={[
-          {
-            icon: "upload",
-            onPress: () => !cargando && !uploadInhabilitado && subirArchivo(),
-            disabled: !archivoSeleccionado || cargando || uploadInhabilitado,
-          },
-        ]}
-      >
+      {!uploadInhabilitado ? (
+        <DrawerBottom
+          open={openSheet}
+          onClose={() => !cargando && setOpenSheet(false)}
+          title="Subir Archivo"
+          side="bottom"
+          actions={[
+            {
+              icon: "upload",
+              onPress: () => !cargando && subirArchivo(),
+              disabled: !archivoSeleccionado || cargando,
+            },
+          ]}
+        >
         <Button
           mode="outlined"
           onPress={seleccionarArchivo}
           style={styles.boton}
-          disabled={cargando || uploadInhabilitado}
+          disabled={cargando}
           icon={archivoSeleccionado ? "image-edit" : "camera"}
         >
           {archivoSeleccionado ? "Cambiar archivo" : "Seleccionar archivo"}
@@ -995,13 +1079,14 @@ const SubidaArchivos = ({ venta }) => {
         <Button
           mode="contained"
           onPress={subirArchivo}
-          disabled={!archivoSeleccionado || cargando || uploadInhabilitado}
+          disabled={!archivoSeleccionado || cargando}
           style={styles.botonSubir}
           icon="upload"
         >
           {cargando ? <ActivityIndicator color="white" /> : "Subir evidencia"}
         </Button>
-      </DrawerBottom>
+        </DrawerBottom>
+      ) : null}
 
       <DrawerBottom
         open={!!preview}
@@ -1245,12 +1330,19 @@ const styles = StyleSheet.create({
     borderColor: "#90CAF9",
     borderRadius: 16,
     borderWidth: 1,
-    flex: 1,
-    height: 30,
+    flexShrink: 0,
+    height: 28,
     justifyContent: "center",
-    maxWidth: 150,
+    minWidth: 118,
+    paddingHorizontal: 10,
   },
-  metodoChipText: { fontSize: 12 },
+  metodoChipText: {
+    color: "#334155",
+    fontSize: 11,
+    fontWeight: "800",
+    lineHeight: 14,
+  },
+  montoInfo: { flex: 1, minWidth: 0, paddingRight: 10 },
   montoAPagar: {
     color: "#2E7D32",
     fontSize: 16,
@@ -1259,8 +1351,10 @@ const styles = StyleSheet.create({
   },
   montoBlock: {
     alignItems: "center",
+    borderWidth: 1,
     borderRadius: 8,
     flexDirection: "row",
+    gap: 8,
     justifyContent: "space-between",
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1325,7 +1419,8 @@ const styles = StyleSheet.create({
     height: 50,
     width: 50,
   },
-  ventaCard: { borderRadius: 60, elevation: 2 },
+  ventaCard: { borderRadius: 32, borderWidth: 1, overflow: "hidden" },
+  ventaCardContent: { padding: 16 },
   zeroMargin: { margin: 0 },
 });
 

@@ -21,6 +21,7 @@ import {
     useTheme,
 } from "react-native-paper";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { NotificacionUsersConectadosVPNCollection } from "../collections/collections";
 import AppHeader from "../Header/AppHeader";
 import NotificacionRuleDialog from "./NotificacionRuleDialog.native";
@@ -382,6 +383,7 @@ const NotificacionUsersConnectionVPN = () => {
     visible: false,
     message: "",
   });
+  const dataReady = useDeferredScreenData();
 
   const { adminOptions, availableUsers, canManage, currentUser, ready, rules } =
     Meteor.useTracker(() => {
@@ -391,7 +393,7 @@ const NotificacionUsersConnectionVPN = () => {
       const isGeneralAdmin = currentUsername === "carlosmbinf";
       const hasAdminAccess = user?.profile?.role === "admin" || isGeneralAdmin;
 
-      if (!currentUserId) {
+      if (!dataReady || !currentUserId) {
         return {
           adminOptions: [],
           availableUsers: [],
@@ -509,7 +511,7 @@ const NotificacionUsersConnectionVPN = () => {
           (identityHandle ? identityHandle.ready() : true),
         rules: ruleViewModels,
       };
-    });
+    }, [dataReady]);
 
   const isGeneralAdmin = currentUser?.username === "carlosmbinf";
   const filteredRules = React.useMemo(() => {

@@ -1,40 +1,41 @@
 import MeteorBase from "@meteorrn/core";
-import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import { router } from "expo-router";
 import React from "react";
 import {
-  Alert,
-  FlatList,
-  Image,
-  Linking,
-  Pressable,
-  StyleSheet,
-  View,
+    Alert,
+    FlatList,
+    Image,
+    Linking,
+    Pressable,
+    StyleSheet,
+    View,
 } from "react-native";
 import {
-  ActivityIndicator,
-  Avatar,
-  Button,
-  Checkbox,
-  Chip,
-  HelperText,
-  IconButton,
-  Snackbar,
-  Surface,
-  Text,
-  TextInput,
-  useTheme,
+    ActivityIndicator,
+    Avatar,
+    Button,
+    Checkbox,
+    Chip,
+    HelperText,
+    IconButton,
+    Snackbar,
+    Surface,
+    Text,
+    TextInput,
+    useTheme,
 } from "react-native-paper";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
+import { sendMessage } from "../../services/notifications/PushMessaging.native";
 import { PushTokens } from "../collections/collections";
 import AppHeader from "../Header/AppHeader";
-import { sendMessage } from "../../services/notifications/PushMessaging.native";
 import {
-  canAccessPushTokenDashboards,
-  getPlatformMeta,
-  normalizePushTokenEntityId,
-  PUSH_TOKEN_FIELDS,
-  PUSH_TOKEN_SORT_UPDATED,
+    canAccessPushTokenDashboards,
+    getPlatformMeta,
+    normalizePushTokenEntityId,
+    PUSH_TOKEN_FIELDS,
+    PUSH_TOKEN_SORT_UPDATED,
 } from "./pushTokens/utils";
 
 const Meteor =
@@ -418,14 +419,15 @@ const PushOffersScreen = () => {
   const [feedback, setFeedback] = React.useState({ visible: false, message: "" });
   const [campaignImage, setCampaignImage] = React.useState(null);
   const [uploadedCampaignImage, setUploadedCampaignImage] = React.useState(null);
+  const dataReady = useDeferredScreenData();
 
   const { ready, currentUser, recipients } = Meteor.useTracker(() => {
     const sessionUser = Meteor.user();
     const canManage = canAccessPushTokenDashboards(sessionUser);
 
-    if (!canManage) {
+    if (!dataReady || !canManage) {
       return {
-        ready: true,
+        ready: !canManage,
         currentUser: sessionUser,
         recipients: [],
       };
@@ -540,7 +542,7 @@ const PushOffersScreen = () => {
       currentUser: sessionUser,
       recipients: normalizedRecipients,
     };
-  }, []);
+  }, [dataReady]);
 
   const canManagePushCampaigns = canAccessPushTokenDashboards(currentUser);
   const currentUserId = currentUser?._id;

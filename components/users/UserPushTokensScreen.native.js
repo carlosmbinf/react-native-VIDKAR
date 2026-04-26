@@ -2,32 +2,33 @@ import MeteorBase from "@meteorrn/core";
 import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  ScrollView,
-  StyleSheet,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 import {
-  Button,
-  Chip,
-  IconButton,
-  Surface,
-  Text,
-  TextInput,
-  useTheme,
+    Button,
+    Chip,
+    IconButton,
+    Surface,
+    Text,
+    TextInput,
+    useTheme,
 } from "react-native-paper";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { PushTokens } from "../collections/collections";
 import AppHeader from "../Header/AppHeader";
 import {
-  buildDeviceViewModel,
-  buildPushDashboard,
-  canAccessPushTokenDashboards,
-  normalizePushTokenEntityId,
-  PUSH_TOKEN_FIELDS,
-  PUSH_TOKEN_SORT_UPDATED,
+    buildDeviceViewModel,
+    buildPushDashboard,
+    canAccessPushTokenDashboards,
+    normalizePushTokenEntityId,
+    PUSH_TOKEN_FIELDS,
+    PUSH_TOKEN_SORT_UPDATED,
 } from "./pushTokens/utils";
 
 const Meteor =
@@ -355,14 +356,15 @@ const UserPushTokensScreen = () => {
   const [userSearchQuery, setUserSearchQuery] = React.useState("");
   const [deletingIds, setDeletingIds] = React.useState(() => new Set());
   const [dismissedIds, setDismissedIds] = React.useState(() => new Set());
+  const dataReady = useDeferredScreenData();
 
   const { ready, user, users, currentUser, devices } = Meteor.useTracker(() => {
     const sessionUser = Meteor.user();
     const isPrincipalAdmin = canAccessPushTokenDashboards(sessionUser);
 
-    if (!isPrincipalAdmin) {
+    if (!dataReady || !isPrincipalAdmin) {
       return {
-        ready: true,
+        ready: !isPrincipalAdmin,
         currentUser: sessionUser,
         user: null,
         users: [],
@@ -407,7 +409,7 @@ const UserPushTokensScreen = () => {
         : [],
       devices: tokenDocs,
     };
-  }, [routeUserId]);
+  }, [dataReady, routeUserId]);
   const canManagePushTokens = canAccessPushTokenDashboards(currentUser);
   const usersById = React.useMemo(
     () =>

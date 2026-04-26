@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
-import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Avatar, Divider, Surface, Text, useTheme } from "react-native-paper";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -13,7 +13,10 @@ const Meteor = /** @type {typeof MeteorBase & { useTracker: typeof import('@mete
 const CadeteDrawerContent = ({ onClose, user }) => {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { height, width } = useWindowDimensions();
   const isDark = theme.dark;
+  const isLandscapeDrawer = width > height;
+  const isCompactDrawer = isLandscapeDrawer || height < 560;
   const palette = {
     background: isDark ? "#04140b" : "#f5faf7",
     panel: isDark ? "rgba(7, 24, 15, 0.98)" : "#ffffff",
@@ -74,41 +77,45 @@ const CadeteDrawerContent = ({ onClose, user }) => {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.panel }]} edges={["top", "bottom", "left"]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.panel }]} edges={["top", "left"]}>
       <Surface elevation={4} style={[styles.panel, { backgroundColor: palette.panel }]}> 
-      <View style={[styles.header, { backgroundColor: palette.hero, borderBottomColor: palette.border }]}> 
+      <View
+        style={[
+          styles.header,
+          isCompactDrawer ? styles.headerCompact : null,
+          { backgroundColor: palette.hero, borderBottomColor: palette.border },
+        ]}
+      >
         {user?.picture ? (
-          <Avatar.Image size={58} source={{ uri: user.picture }} />
+          <Avatar.Image size={isCompactDrawer ? 46 : 58} source={{ uri: user.picture }} />
         ) : (
           <Avatar.Text
             label={user?.username?.slice(0, 2)?.toUpperCase() || "CD"}
-            size={58}
+            size={isCompactDrawer ? 46 : 58}
             style={[styles.avatarFallback, { backgroundColor: palette.brandStrong }]}
           />
         )}
 
         <View style={styles.headerCopy}>
-          <Text numberOfLines={1} style={[styles.headerTitle, { color: palette.title }]} variant="titleMedium">
+          <Text style={[styles.headerTitle, { color: palette.title }]} variant="titleMedium">
             {user?.username || "Cadete"}
           </Text>
           <Text style={[styles.headerBadge, { color: palette.brandStrong }]} variant="labelMedium">
             Modo cadete activo
           </Text>
-          <Text style={[styles.headerSubtitle, { color: palette.copy }]} variant="bodySmall">
+          <Text style={[styles.headerSubtitle, isCompactDrawer ? styles.headerSubtitleCompact : null, { color: palette.copy }]} variant="bodySmall">
             Recibe pedidos cercanos y avanza cada entrega desde esta vista.
           </Text>
         </View>
       </View>
 
       <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: 18 + Math.max(insets.bottom, 8) },
-        ]}
+        contentContainerStyle={[styles.content, isCompactDrawer ? styles.contentCompact : null]}
         showsVerticalScrollIndicator={false}
+        style={styles.scrollArea}
       >
-        <View style={styles.metricsRow}>
-          <Surface style={[styles.metricCard, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
+        <View style={[styles.metricsRow, isCompactDrawer ? styles.metricsRowCompact : null]}>
+          <Surface style={[styles.metricCard, isCompactDrawer ? styles.metricCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
             <Text style={{ color: palette.brandStrong }} variant="labelMedium">
               Estado
             </Text>
@@ -116,7 +123,7 @@ const CadeteDrawerContent = ({ onClose, user }) => {
               Disponible
             </Text>
           </Surface>
-          <Surface style={[styles.metricCard, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
+          <Surface style={[styles.metricCard, isCompactDrawer ? styles.metricCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
             <Text style={{ color: palette.brandStrong }} variant="labelMedium">
               Tracking
             </Text>
@@ -126,13 +133,13 @@ const CadeteDrawerContent = ({ onClose, user }) => {
           </Surface>
         </View>
 
-        <View style={styles.section}>
+        <View style={[styles.section, isCompactDrawer ? styles.sectionCompact : null]}>
           <Text style={[styles.sectionTitle, { color: palette.muted }]} variant="labelLarge">
             Operación
           </Text>
 
-          <Surface style={[styles.infoCard, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
-            <View style={[styles.infoCardIconWrap, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.8)" }]}> 
+          <Surface style={[styles.infoCard, isCompactDrawer ? styles.infoCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
+            <View style={[styles.infoCardIconWrap, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.8)" }]}>
               <MaterialCommunityIcons color={palette.brandStrong} name="crosshairs-gps" size={22} />
             </View>
             <View style={styles.infoCardCopy}>
@@ -149,6 +156,7 @@ const CadeteDrawerContent = ({ onClose, user }) => {
             onPress={onClose}
             style={({ pressed }) => [
               styles.navItem,
+              isCompactDrawer ? styles.navItemCompact : null,
               { backgroundColor: palette.card, borderColor: palette.border },
               pressed ? styles.navItemPressed : null,
             ]}
@@ -167,13 +175,13 @@ const CadeteDrawerContent = ({ onClose, user }) => {
           </Pressable>
         </View>
 
-        <View style={styles.section}>
+        <View style={[styles.section, isCompactDrawer ? styles.sectionCompact : null]}>
           <Text style={[styles.sectionTitle, { color: palette.muted }]} variant="labelLarge">
             Próximamente
           </Text>
 
-          <View style={[styles.comingSoonItem, { backgroundColor: palette.card, borderColor: palette.border }]}> 
-            <View style={[styles.navItemIconWrap, { backgroundColor: palette.cardSoft }]}> 
+          <View style={[styles.comingSoonItem, isCompactDrawer ? styles.comingSoonItemCompact : null, { backgroundColor: palette.card, borderColor: palette.border }]}>
+            <View style={[styles.navItemIconWrap, { backgroundColor: palette.cardSoft }]}>
               <MaterialCommunityIcons color={palette.muted} name="bell-outline" size={22} />
             </View>
             <View style={styles.navItemCopy}>
@@ -186,8 +194,8 @@ const CadeteDrawerContent = ({ onClose, user }) => {
             </View>
           </View>
 
-          <View style={[styles.comingSoonItem, { backgroundColor: palette.card, borderColor: palette.border }]}> 
-            <View style={[styles.navItemIconWrap, { backgroundColor: palette.cardSoft }]}> 
+          <View style={[styles.comingSoonItem, isCompactDrawer ? styles.comingSoonItemCompact : null, { backgroundColor: palette.card, borderColor: palette.border }]}>
+            <View style={[styles.navItemIconWrap, { backgroundColor: palette.cardSoft }]}>
               <MaterialCommunityIcons color={palette.muted} name="history" size={22} />
             </View>
             <View style={styles.navItemCopy}>
@@ -201,7 +209,7 @@ const CadeteDrawerContent = ({ onClose, user }) => {
           </View>
         </View>
 
-        <Surface style={[styles.tipCard, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
+        <Surface style={[styles.tipCard, isCompactDrawer ? styles.tipCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
           <Text style={[styles.tipTitle, { color: palette.title }]} variant="labelLarge">
             Recomendación
           </Text>
@@ -211,18 +219,36 @@ const CadeteDrawerContent = ({ onClose, user }) => {
         </Surface>
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+      <View
+        style={[
+          styles.footer,
+          {
+            backgroundColor: palette.panel,
+            paddingBottom: Math.max(insets.bottom, isLandscapeDrawer ? 4 : 8),
+          },
+        ]}
+      >
         <Divider style={{ backgroundColor: palette.border }} />
         <Pressable
           onPress={handleExitCadeteMode}
           style={({ pressed }) => [
             styles.exitButton,
+            isCompactDrawer ? styles.exitButtonCompact : null,
+            isLandscapeDrawer ? styles.exitButtonLandscape : null,
             { backgroundColor: palette.exitSoft },
             pressed ? styles.exitButtonPressed : null,
           ]}
         >
-          <MaterialCommunityIcons color={palette.exit} name="exit-run" size={22} />
-          <Text style={[styles.exitButtonText, { color: palette.exit }]} variant="labelLarge">
+          <MaterialCommunityIcons color={palette.exit} name="exit-run" size={isLandscapeDrawer ? 17 : isCompactDrawer ? 20 : 21} />
+          <Text
+            style={[
+              styles.exitButtonText,
+              isCompactDrawer ? styles.exitButtonTextCompact : null,
+              isLandscapeDrawer ? styles.exitButtonTextLandscape : null,
+              { color: palette.exit },
+            ]}
+            variant="labelLarge"
+          >
             Salir del modo cadete
           </Text>
         </Pressable>
@@ -244,6 +270,11 @@ const styles = StyleSheet.create({
     gap: 14,
     padding: 18,
   },
+  contentCompact: {
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
   comingSoonItem: {
     alignItems: "center",
     borderRadius: 22,
@@ -252,23 +283,54 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 16,
   },
+  comingSoonItemCompact: {
+    borderRadius: 18,
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
   exitButton: {
     alignItems: "center",
-    borderRadius: 20,
+    borderRadius: 15,
     flexDirection: "row",
-    gap: 12,
-    marginHorizontal: 16,
-    marginTop: 14,
-    marginBottom: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    gap: 8,
+    justifyContent: "center",
+    marginHorizontal: 12,
+    marginTop: 8,
+    minHeight: 34,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  exitButtonCompact: {
+    borderRadius: 14,
+    gap: 7,
+    marginHorizontal: 10,
+    marginTop: 6,
+    minHeight: 30,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  exitButtonLandscape: {
+    borderRadius: 13,
+    gap: 6,
+    marginTop: 4,
+    minHeight: 28,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   exitButtonPressed: {
     opacity: 0.76,
   },
   exitButtonText: {
     color: "#dc2626",
+    fontSize: 13,
     fontWeight: "800",
+  },
+  exitButtonTextCompact: {
+    fontSize: 12.5,
+  },
+  exitButtonTextLandscape: {
+    fontSize: 12,
   },
   footer: {
     marginTop: "auto",
@@ -280,6 +342,11 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingHorizontal: 20,
     paddingVertical: 22,
+  },
+  headerCompact: {
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
   },
   headerBadge: {
     color: "#16a34a",
@@ -295,6 +362,9 @@ const styles = StyleSheet.create({
     color: "#64748b",
     lineHeight: 18,
   },
+  headerSubtitleCompact: {
+    lineHeight: 17,
+  },
   headerTitle: {
     color: "#0f172a",
     fontWeight: "800",
@@ -306,6 +376,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     padding: 16,
+  },
+  infoCardCompact: {
+    borderRadius: 18,
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   infoCardCopy: {
     flex: 1,
@@ -333,9 +409,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
+  metricCardCompact: {
+    borderRadius: 15,
+    minHeight: 58,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
   metricsRow: {
     flexDirection: "row",
     gap: 12,
+  },
+  metricsRowCompact: {
+    gap: 8,
   },
   navItem: {
     alignItems: "center",
@@ -344,6 +429,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     padding: 16,
+  },
+  navItemCompact: {
+    borderRadius: 18,
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   navItemCopy: {
     flex: 1,
@@ -369,10 +460,17 @@ const styles = StyleSheet.create({
   },
   panel: {
     flex: 1,
+    height: "100%",
     width: "100%",
+  },
+  scrollArea: {
+    flex: 1,
   },
   section: {
     gap: 12,
+  },
+  sectionCompact: {
+    gap: 9,
   },
   sectionTitle: {
     fontWeight: "800",
@@ -384,6 +482,11 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     gap: 6,
     padding: 16,
+  },
+  tipCardCompact: {
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   tipText: {
     lineHeight: 20,

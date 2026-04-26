@@ -24,6 +24,7 @@ import {
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import {
     getCachedDeviceLocationSync,
     getCurrentDeviceLocation,
@@ -36,6 +37,7 @@ import {
     TiendasComercioCollection,
 } from "../collections/collections";
 import MenuIconMensajes from "../components/MenuIconMensajes.native";
+import BlurMenuSurface, { blurMenuContentStyle } from "../Header/BlurMenuSurface";
 import TiendaCard from "./TiendaCard";
 
 const Meteor =
@@ -103,6 +105,7 @@ const ProductosScreenNative = () => {
   const [profileMenuVisible, setProfileMenuVisible] = useState(false);
   const radioKmRef = React.useRef(5);
   const lastSearchSignatureRef = React.useRef(null);
+  const dataReady = useDeferredScreenData();
 
   const actualizarUbicacionBackend = React.useCallback((ubicacion) => {
     const userId = Meteor.userId();
@@ -317,6 +320,10 @@ const ProductosScreenNative = () => {
   );
 
   const { tiendasConProductos } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { loading: true, tiendasConProductos: [] };
+    }
+
     const subProductos = Meteor.subscribe("productosComercio", {}, {
       fields: PRODUCTOS_COMERCIO_FIELDS,
     });
@@ -373,7 +380,7 @@ const ProductosScreenNative = () => {
       loading: false,
       tiendasConProductos: mappedTiendas,
     };
-  }, [tiendasCercanas]);
+  }, [dataReady, tiendasCercanas]);
 
   const tiendasDisponibles = tiendasConProductos;
 
@@ -577,6 +584,7 @@ const ProductosScreenNative = () => {
             />
             <WizardConStepper initialLocation={userLocation} />
             <Menu
+              anchorPosition="bottom"
               anchor={
                 <Appbar.Action
                   color="white"
@@ -584,28 +592,30 @@ const ProductosScreenNative = () => {
                   onPress={() => setProfileMenuVisible(true)}
                 />
               }
+              contentStyle={styles.profileMenuContent}
               onDismiss={() => setProfileMenuVisible(false)}
-              style={styles.profileMenu}
               visible={profileMenuVisible}
             >
-              <Menu.Item
-                leadingIcon="account"
-                onPress={() => {
-                  setProfileMenuVisible(false);
-                  router.push("/(normal)/User");
-                }}
-                title="Mi usuario"
-              />
-              <Menu.Item
-                leadingIcon="logout"
-                onPress={() => {
-                  setProfileMenuVisible(false);
-                  Meteor.logout(() => {
-                    router.replace("/(auth)/Loguin");
-                  });
-                }}
-                title="Cerrar Sesión"
-              />
+              <BlurMenuSurface>
+                <Menu.Item
+                  leadingIcon="account"
+                  onPress={() => {
+                    setProfileMenuVisible(false);
+                    router.push("/(normal)/User");
+                  }}
+                  title="Mi usuario"
+                />
+                <Menu.Item
+                  leadingIcon="logout"
+                  onPress={() => {
+                    setProfileMenuVisible(false);
+                    Meteor.logout(() => {
+                      router.replace("/(auth)/Loguin");
+                    });
+                  }}
+                  title="Cerrar Sesión"
+                />
+              </BlurMenuSurface>
             </Menu>
           </View>
         </View>
@@ -781,11 +791,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 20,
   },
-  profileMenu: {
-    paddingRight: 30,
-    top: 80,
+  profileMenuContent: {
+    ...blurMenuContentStyle,
     width: 210,
-    zIndex: 999,
   },
   resultsInfo: {
     alignItems: "center",

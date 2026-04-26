@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
     Animated,
     ImageBackground,
+    InteractionManager,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -14,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import Productos from "../cubacel/Productos";
 import DrawerOptionsAlls from "../drawer/DrawerOptionsAlls";
+import { useAppHeaderContentInset } from "../Header/AppHeader";
 import MenuHeader from "../Header/MenuHeader";
 import ProxyVPNPackagesHorizontal from "../proxyVPN/ProxyVPNPackagesHorizontal";
 
@@ -77,8 +79,24 @@ const MenuPrincipalScreen = ({
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMounted, setDrawerMounted] = useState(false);
+  const [heavyContentReady, setHeavyContentReady] = useState(false);
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const headerInset = useAppHeaderContentInset();
+
+  useEffect(() => {
+    let mounted = true;
+    const interactionTask = InteractionManager.runAfterInteractions(() => {
+      if (mounted) {
+        setHeavyContentReady(true);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      interactionTask?.cancel?.();
+    };
+  }, []);
 
   useEffect(() => {
     if (drawerOpen) {
@@ -136,7 +154,7 @@ const MenuPrincipalScreen = ({
   const cashApprovalTypeCount = pendingCashApprovalTypes.length;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <SafeAreaView style={styles.safeArea} edges={[]}>
       <Surface style={styles.screen}>
         <ImageBackground
           source={require("../files/space-bg-shadowcodex.jpg")}
@@ -164,7 +182,10 @@ const MenuPrincipalScreen = ({
         />
 
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingTop: headerInset + 12 },
+          ]}
           bounces={false}
           overScrollMode="never"
         >
@@ -308,7 +329,7 @@ const MenuPrincipalScreen = ({
                   </Text>
                 </View>
 
-                <Surface style={styles.cashApprovalsHighlight} elevation={0}>
+                <View style={styles.cashApprovalsHighlight}>
                   <Text
                     variant="labelMedium"
                     style={styles.cashApprovalsHighlightLabel}
@@ -327,11 +348,11 @@ const MenuPrincipalScreen = ({
                   >
                     ventas
                   </Text>
-                </Surface>
+                </View>
               </View>
 
               <View style={styles.cashApprovalsStatsRow}>
-                <Surface style={styles.cashApprovalsStatCard} elevation={0}>
+                <View style={styles.cashApprovalsStatCard}>
                   <Text
                     variant="labelSmall"
                     style={styles.cashApprovalsStatLabel}
@@ -344,9 +365,9 @@ const MenuPrincipalScreen = ({
                   >
                     {pendingCashApprovalsLoading ? "..." : pendingCashApprovalsCount}
                   </Text>
-                </Surface>
+                </View>
 
-                <Surface style={styles.cashApprovalsStatCard} elevation={0}>
+                <View style={styles.cashApprovalsStatCard}>
                   <Text
                     variant="labelSmall"
                     style={styles.cashApprovalsStatLabel}
@@ -359,7 +380,7 @@ const MenuPrincipalScreen = ({
                   >
                     {pendingCashApprovalsLoading ? "..." : cashApprovalTypeCount}
                   </Text>
-                </Surface>
+                </View>
               </View>
 
               <View style={styles.cashApprovalsTypesWrap}>
@@ -381,10 +402,9 @@ const MenuPrincipalScreen = ({
                   </View>
                 ) : pendingCashApprovalTypes.length > 0 ? (
                   pendingCashApprovalTypes.map((typeSummary) => (
-                    <Surface
+                    <View
                       key={typeSummary.key}
                       style={styles.cashApprovalsTypeCard}
-                      elevation={0}
                     >
                       <View style={styles.cashApprovalsTypeIconWrap}>
                         <MaterialCommunityIcons
@@ -414,7 +434,7 @@ const MenuPrincipalScreen = ({
                       >
                         {typeSummary.count}
                       </Chip>
-                    </Surface>
+                    </View>
                   ))
                 ) : (
                   <View style={styles.cashApprovalsEmptyState}>
@@ -478,9 +498,19 @@ const MenuPrincipalScreen = ({
             </Surface>
           ) : null}
 
-          <Productos isDegradado={false} />
+          {heavyContentReady ? (
+            <>
+              <Productos isDegradado={false} />
 
-          <ProxyVPNPackagesHorizontal />
+              <ProxyVPNPackagesHorizontal />
+            </>
+          ) : (
+            <View style={styles.deferredContentPlaceholder}>
+              <Text variant="bodyMedium" style={styles.deferredContentText}>
+                Preparando servicios...
+              </Text>
+            </View>
+          )}
         </ScrollView>
 
         <Portal>
@@ -538,6 +568,16 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 32,
     gap: 18,
+  },
+  deferredContentPlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 190,
+    paddingHorizontal: 16,
+  },
+  deferredContentText: {
+    color: "rgba(255, 255, 255, 0.72)",
+    fontWeight: "700",
   },
   heroCard: {
     marginHorizontal: 16,
@@ -712,6 +752,7 @@ const styles = StyleSheet.create({
   cashApprovalsHeader: {
     flexDirection: "row",
     flexWrap: "wrap",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 14,
   },
@@ -736,10 +777,12 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   cashApprovalsHighlight: {
-    minWidth: 128,
+    width: 118,
+    minHeight: 96,
+    alignSelf: "flex-start",
     borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     backgroundColor: "rgba(15, 23, 42, 0.64)",
     borderWidth: 1,
     borderColor: "rgba(125, 211, 252, 0.16)",
@@ -750,37 +793,48 @@ const styles = StyleSheet.create({
   cashApprovalsHighlightLabel: {
     color: "#93c5fd",
     fontWeight: "700",
+    includeFontPadding: false,
+    lineHeight: 16,
   },
   cashApprovalsHighlightValue: {
     color: "#ffffff",
     fontWeight: "900",
+    includeFontPadding: false,
+    lineHeight: 36,
   },
   cashApprovalsHighlightHint: {
     color: "rgba(226, 232, 240, 0.72)",
+    includeFontPadding: false,
+    lineHeight: 14,
   },
   cashApprovalsStatsRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 12,
   },
   cashApprovalsStatCard: {
     flex: 1,
-    minWidth: 146,
+    minWidth: 0,
+    minHeight: 76,
     borderRadius: 20,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     backgroundColor: "rgba(15, 23, 42, 0.56)",
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.14)",
-    gap: 6,
+    justifyContent: "center",
+    gap: 5,
   },
   cashApprovalsStatLabel: {
     color: "rgba(191, 219, 254, 0.9)",
     fontWeight: "700",
+    includeFontPadding: false,
+    lineHeight: 15,
   },
   cashApprovalsStatValue: {
     color: "#f8fafc",
     fontWeight: "900",
+    includeFontPadding: false,
+    lineHeight: 25,
   },
   cashApprovalsTypesWrap: {
     gap: 10,

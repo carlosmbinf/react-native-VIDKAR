@@ -2,27 +2,28 @@ import MeteorBase from "@meteorrn/core";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-  Alert,
-  ImageBackground,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  View,
+    Alert,
+    ImageBackground,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 import {
-  ActivityIndicator,
-  Button,
-  Card,
-  Surface,
-  Text,
-  TextInput,
+    ActivityIndicator,
+    Button,
+    Card,
+    Surface,
+    Text,
+    TextInput,
 } from "react-native-paper";
 import {
-  SafeAreaView,
-  useSafeAreaInsets,
+    SafeAreaView,
+    useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { DTShopProductosCollection } from "../collections/collections";
 import AppHeader from "../Header/AppHeader";
 
@@ -109,11 +110,16 @@ const CubacelOfertaScreen = () => {
   const [extraFields, setExtraFields] = useState({});
   const [nombre, setNombre] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const dataReady = useDeferredScreenData();
 
   const productId =
     typeof params.productId === "string" ? params.productId : "";
 
   const { product, ready } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { product: null, ready: false };
+    }
+
     const handler = Meteor.subscribe("productosDtShop");
 
     return {
@@ -122,7 +128,7 @@ const CubacelOfertaScreen = () => {
         : null,
       ready: handler.ready(),
     };
-  }, [productId]);
+  }, [dataReady, productId]);
 
   const normalizedPromotions = useMemo(
     () => normalizeToArray(product?.promotions),

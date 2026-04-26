@@ -25,6 +25,7 @@ import {
     IconButton,
     Surface,
     Text,
+    useTheme,
 } from "react-native-paper";
 
 import {
@@ -37,6 +38,14 @@ const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
     MeteorBase
   );
+
+const getEvidencePreviewPalette = (isDarkMode) => ({
+  border: isDarkMode ? "rgba(226, 232, 240, 0.14)" : "rgba(15, 23, 42, 0.1)",
+  copy: isDarkMode ? "#cbd5e1" : "#475569",
+  muted: isDarkMode ? "#94a3b8" : "#64748b",
+  soft: isDarkMode ? "rgba(30, 41, 59, 0.44)" : "rgba(248, 250, 252, 0.56)",
+  surface: isDarkMode ? "rgba(15, 23, 42, 0.5)" : "rgba(255, 255, 255, 0.58)",
+});
 
 const EVIDENCIA_VENTA_FIELDS = {
   _id: 1,
@@ -347,6 +356,11 @@ const AprobacionEvidenciasVenta = ({
   onVentaAprobada,
   venta,
 }) => {
+  const theme = useTheme();
+  const previewPalette = useMemo(
+    () => getEvidencePreviewPalette(theme.dark),
+    [theme.dark],
+  );
   const ventaId = venta?._id;
   const [previewId, setPreviewId] = useState(null);
   const [aprobandoVenta, setAprobandoVenta] = useState(false);
@@ -1320,7 +1334,15 @@ const AprobacionEvidenciasVenta = ({
                 uri={`data:image/jpeg;base64,${preview.base64}`}
                 style={styles.previewImage}
               />
-              <View style={styles.metaBox}>
+              <View
+                style={[
+                  styles.metaBox,
+                  {
+                    backgroundColor: previewPalette.surface,
+                    borderColor: previewPalette.border,
+                  },
+                ]}
+              >
                 <View style={styles.metaRow}>
                   {preview.estado === ESTADOS.APROBADA ? (
                     <Chip
@@ -1355,19 +1377,30 @@ const AprobacionEvidenciasVenta = ({
                       Pendiente
                     </Chip>
                   ) : null}
-                  <Text style={styles.fechaText}>
+                  <Text style={[styles.fechaText, { color: previewPalette.copy }]}>
                     {preview.createdAt
                       ? moment(preview.createdAt).format("DD/MM/YYYY HH:mm")
                       : "Sin fecha"}
                   </Text>
                 </View>
                 {preview.size ? (
-                  <Text style={styles.sizeText}>
+                  <Text style={[styles.sizeText, { color: previewPalette.muted }]}>
                     Tamaño: {(preview.size / 1024 / 1024).toFixed(2)} MB
                   </Text>
                 ) : null}
                 {preview.descripcion ? (
-                  <Text style={styles.descText}>{preview.descripcion}</Text>
+                  <Text
+                    style={[
+                      styles.descText,
+                      {
+                        backgroundColor: previewPalette.soft,
+                        borderColor: previewPalette.border,
+                        color: previewPalette.copy,
+                      },
+                    ]}
+                  >
+                    {preview.descripcion}
+                  </Text>
                 ) : null}
 
                 <View style={styles.actionsRow}>
@@ -1450,9 +1483,8 @@ const styles = StyleSheet.create({
   chipPending: { borderColor: "#f1c40f" },
   chipText: { fontSize: 11 },
   descText: {
-    backgroundColor: "#f1f3f5",
     borderRadius: 6,
-    color: "#333",
+    borderWidth: 1,
     fontSize: 12,
     marginTop: 10,
     padding: 8,
@@ -1500,7 +1532,12 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
   },
-  metaBox: { marginTop: 12 },
+  metaBox: {
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 12,
+  },
   metaRow: {
     alignItems: "center",
     flexDirection: "row",

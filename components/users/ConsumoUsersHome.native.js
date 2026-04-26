@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 import { Appbar, List, Searchbar, Surface, Text } from "react-native-paper";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import AppHeader from "../Header/AppHeader";
 import UserAvatar from "./UserAvatar";
 
@@ -18,8 +19,13 @@ const formatGB = (bytes) =>
 
 const ConsumoUsersHome = () => {
   const [search, setSearch] = useState("");
+  const dataReady = useDeferredScreenData();
 
   const { loading, users } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { loading: true, users: [] };
+    }
+
     const username = Meteor.user()?.username;
     const userFilter =
       username === "carlosmbinf"
@@ -68,7 +74,7 @@ const ConsumoUsersHome = () => {
         })
         .fetch(),
     };
-  }, []);
+  }, [dataReady]);
 
   const filteredUsers = useMemo(() => {
     const term = search.toLowerCase().trim();

@@ -20,7 +20,7 @@ import {
     useTheme,
 } from "react-native-paper";
 
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { megasToGB } from "../shared/MegasConverter";
 
 const Meteor =
@@ -44,6 +44,7 @@ const ProxyPackageCard = () => {
   const isTablet = screenWidth >= 768;
   const isLargeTablet = screenWidth >= 1024;
   const proxyColor = theme.dark ? "#42A5F5" : "#2196F3";
+  const headerInset = useAppHeaderContentInset();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -523,6 +524,7 @@ const ProxyPackageCard = () => {
         title="Paquetes Proxy"
         subtitle="Internet rápido y sin límites 🚀"
         backHref="/(normal)/Main"
+        overlapContent
         showBackButton
       />
       <ScrollView
@@ -532,6 +534,7 @@ const ProxyPackageCard = () => {
         ]}
         contentContainerStyle={[
           styles.scrollContent,
+          { paddingTop: headerInset + 18 },
           isTablet && styles.scrollContentTablet,
         ]}
         showsVerticalScrollIndicator={false}

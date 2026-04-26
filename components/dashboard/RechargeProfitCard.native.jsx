@@ -13,6 +13,7 @@ import {
     useTheme,
 } from "react-native-paper";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { VentasRechargeCollection } from "../collections/collections";
 import ChartSkeleton from "./ChartSkeleton";
 import KPICard from "./KPICard";
@@ -246,15 +247,16 @@ const buildAnalytics = (ventasRecharge) => {
 const RechargeProfitCard = () => {
   const theme = useTheme();
   const { width } = useWindowDimensions();
+  const dataReady = useDeferredScreenData();
   const { analytics, currentUser, loading } = Meteor.useTracker(() => {
     const currentUser = Meteor.user();
     const canViewAnalytics = isAuthorizedAnalyticsUser(currentUser?.username);
 
-    if (!canViewAnalytics) {
+    if (!dataReady || !canViewAnalytics) {
       return {
         analytics: null,
         currentUser,
-        loading: false,
+        loading: dataReady ? false : true,
       };
     }
 
@@ -285,7 +287,7 @@ const RechargeProfitCard = () => {
       currentUser,
       loading: false,
     };
-  });
+  }, [dataReady]);
 
   const canView = isAuthorizedAnalyticsUser(currentUser?.username);
 

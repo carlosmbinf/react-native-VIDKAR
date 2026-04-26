@@ -19,6 +19,7 @@ import {
     useTheme,
 } from "react-native-paper";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import AppHeader from "../Header/AppHeader";
 import { ConfigCollection } from "../collections/collections";
 import PropertyDialog from "./PropertyDialog.native";
@@ -423,6 +424,7 @@ const PropertyTable = () => {
 
   const currentUserId = Meteor.useTracker(() => Meteor.userId());
   const currentUser = Meteor.useTracker(() => Meteor.user());
+  const dataReady = useDeferredScreenData();
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedType, setSelectedType] = React.useState("TODOS");
   const [selectedActiveState, setSelectedActiveState] = React.useState("TODOS");
@@ -433,7 +435,7 @@ const PropertyTable = () => {
   });
 
   const { properties, ready } = Meteor.useTracker(() => {
-    if (!Meteor.status?.()?.connected) {
+    if (!dataReady || !Meteor.status?.()?.connected) {
       return { properties: [], ready: false };
     }
 
@@ -477,7 +479,7 @@ const PropertyTable = () => {
         propertySubscription.ready() &&
         (usersSubscription ? usersSubscription.ready() : true),
     };
-  });
+  }, [dataReady]);
 
   const canManage =
     currentUser?.username === "carlosmbinf" ||

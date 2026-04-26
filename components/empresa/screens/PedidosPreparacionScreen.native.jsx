@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import { Alert, FlatList, RefreshControl, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Appbar, Button, Surface, Text, TextInput, useTheme } from "react-native-paper";
 
+import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
 import { TiendasComercioCollection, VentasRechargeCollection } from "../../collections/collections";
 import EmpresaTopBar from "../components/EmpresaTopBar.native";
 import SlideToConfirm from "../screens/pedidos/components/SlideToConfirm.native";
@@ -272,12 +273,17 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
   const compactCards = numColumns > 1 || width < 720;
 
   const currentUserId = Meteor.useTracker(() => Meteor.userId());
+  const dataReady = useDeferredScreenData();
   const [processingOrderId, setProcessingOrderId] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
   const { pedidos, ready, tiendaIds } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { pedidos: [], ready: false, tiendaIds: [] };
+    }
+
     if (!currentUserId) {
       return { pedidos: [], ready: true, tiendaIds: [] };
     }
@@ -362,7 +368,7 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
       ready: tiendasHandle.ready() && ventasHandle.ready(),
       tiendaIds: storeIds,
     };
-  }, [currentUserId]);
+  }, [currentUserId, dataReady]);
 
   const visiblePedidos = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();

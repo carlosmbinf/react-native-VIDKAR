@@ -20,7 +20,7 @@ import {
     useTheme,
 } from "react-native-paper";
 
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { megasToGB } from "../shared/MegasConverter";
 
 const Meteor = MeteorBase;
@@ -41,6 +41,7 @@ const VPNPackageCard = () => {
   const isTablet = screenWidth >= 768;
   const isLargeTablet = screenWidth >= 1024;
   const vpnColor = theme.dark ? "#66BB6A" : "#4CAF50";
+  const headerInset = useAppHeaderContentInset();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -514,6 +515,7 @@ const VPNPackageCard = () => {
         title="Paquetes VPN"
         subtitle="Navegación segura y privada 🔒"
         backHref="/(normal)/Main"
+        overlapContent
         showBackButton
       />
       <ScrollView
@@ -523,6 +525,7 @@ const VPNPackageCard = () => {
         ]}
         contentContainerStyle={[
           styles.scrollContent,
+          { paddingTop: headerInset + 18 },
           isTablet && styles.scrollContentTablet,
         ]}
         showsVerticalScrollIndicator={false}

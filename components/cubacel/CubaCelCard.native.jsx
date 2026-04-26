@@ -2,13 +2,14 @@ import MeteorBase from "@meteorrn/core";
 import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Animated,
-  Dimensions,
-  ImageBackground,
-  Platform,
-  Pressable,
-  StyleSheet,
-  View,
+    Animated,
+    Dimensions,
+    ImageBackground,
+    InteractionManager,
+    Platform,
+    Pressable,
+    StyleSheet,
+    View,
 } from "react-native";
 import { Button, Card, IconButton, Portal, Text } from "react-native-paper";
 
@@ -164,6 +165,9 @@ const CubaCelCard = ({ product }) => {
   const contextPromoTitle = promotion?.title || name || operadorNombre;
 
   useEffect(() => {
+    let cancelled = false;
+    let interactionTask = null;
+
     const cargarPreciosConvertidos = async () => {
       if (precioUSD === "---" || typeof precioUSD !== "number") {
         setLoadingPrecios(false);
@@ -171,6 +175,7 @@ const CubaCelCard = ({ product }) => {
       }
 
       try {
+        if (cancelled) return;
         setLoadingPrecios(true);
 
         const cup = await new Promise((resolve, reject) => {
@@ -207,16 +212,26 @@ const CubaCelCard = ({ product }) => {
           );
         });
 
+        if (cancelled) return;
         setPrecioCUP(cup);
         setPrecioUYU(uyu);
       } catch (error) {
         console.error("Error al convertir precios:", error);
       } finally {
-        setLoadingPrecios(false);
+        if (!cancelled) {
+          setLoadingPrecios(false);
+        }
       }
     };
 
-    cargarPreciosConvertidos();
+    interactionTask = InteractionManager.runAfterInteractions(() => {
+      cargarPreciosConvertidos();
+    });
+
+    return () => {
+      cancelled = true;
+      interactionTask?.cancel?.();
+    };
   }, [precioUSD]);
 
   const animatePressState = (pressed) => {

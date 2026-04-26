@@ -13,6 +13,7 @@ import {
     useTheme,
 } from "react-native-paper";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { VentasCollection } from "../collections/collections";
 import ChartSkeleton from "./ChartSkeleton";
 import CustomSegmentedButtons from "./CustomSegmentedButtons";
@@ -213,6 +214,7 @@ const renderEmptyChart = (theme, title, copy) => (
 const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
   const theme = useTheme();
   const { width } = useWindowDimensions();
+  const dataReady = useDeferredScreenData();
 
   const [labels, setLabels] = React.useState([]);
   const [vpnValues, setVpnValues] = React.useState([]);
@@ -228,6 +230,10 @@ const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
   });
 
   const { admins, currentUser, ventas } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { admins: [], currentUser: Meteor.user(), ventas: [] };
+    }
+
     Meteor.subscribe(
       "ventas",
       {},
@@ -271,7 +277,7 @@ const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
         },
       ).fetch(),
     };
-  });
+  }, [dataReady]);
 
   const ventasSummary = React.useMemo(
     () => buildVentasSummary(ventas, admins),
@@ -336,8 +342,12 @@ const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
   }, [theme.colors.error, type]);
 
   React.useEffect(() => {
+    if (!dataReady) {
+      return;
+    }
+
     fetchData();
-  }, [fetchData, refreshToken]);
+  }, [dataReady, fetchData, refreshToken]);
 
   React.useEffect(() => {
     if (selectedView === "ventas" && periodInfo.type === "HORA") {

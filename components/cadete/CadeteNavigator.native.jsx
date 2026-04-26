@@ -1,6 +1,6 @@
 import MeteorBase from "@meteorrn/core";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, StyleSheet, View } from "react-native";
+import { Animated, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Appbar, Portal, Surface } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -12,14 +12,25 @@ const Meteor = /** @type {typeof MeteorBase & { useTracker: typeof import('@mete
   MeteorBase
 );
 
-const DRAWER_WIDTH = 316;
+const PORTRAIT_DRAWER_WIDTH = 316;
+const LANDSCAPE_DRAWER_MAX_WIDTH = 380;
 
 const CadeteNavigator = () => {
   const user = Meteor.useTracker(() => Meteor.user());
+  const { height, width } = useWindowDimensions();
+  const drawerWidth = width > height
+    ? Math.min(LANDSCAPE_DRAWER_MAX_WIDTH, Math.max(340, width * 0.42))
+    : PORTRAIT_DRAWER_WIDTH;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMounted, setDrawerMounted] = useState(false);
-  const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
+  const translateX = useRef(new Animated.Value(-drawerWidth)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!drawerOpen) {
+      translateX.setValue(-drawerWidth);
+    }
+  }, [drawerOpen, drawerWidth, translateX]);
 
   useEffect(() => {
     if (drawerOpen) {
@@ -42,7 +53,7 @@ const CadeteNavigator = () => {
     Animated.parallel([
       Animated.timing(translateX, {
         duration: 200,
-        toValue: -DRAWER_WIDTH,
+        toValue: -drawerWidth,
         useNativeDriver: true,
       }),
       Animated.timing(overlayOpacity, {
@@ -55,7 +66,7 @@ const CadeteNavigator = () => {
         setDrawerMounted(false);
       }
     });
-  }, [drawerOpen, overlayOpacity, translateX]);
+  }, [drawerOpen, drawerWidth, overlayOpacity, translateX]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -88,7 +99,14 @@ const CadeteNavigator = () => {
                 />
               </Animated.View>
               <Animated.View
-                style={[styles.drawerPanel, { transform: [{ translateX }] }]}
+                style={[
+                  styles.drawerPanel,
+                  {
+                    maxWidth: drawerWidth,
+                    transform: [{ translateX }],
+                    width: drawerWidth,
+                  },
+                ]}
               >
                 <CadeteDrawerContent onClose={() => setDrawerOpen(false)} user={user} />
               </Animated.View>
@@ -106,19 +124,14 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(15, 23, 42, 0.38)",
   },
   drawerOverlayPressable: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
   drawerPanel: {
-    backgroundColor: "#ffffff",
-    bottom: 0,
-    left: 0,
-    maxWidth: DRAWER_WIDTH,
-    position: "absolute",
-    top: 0,
-    width: DRAWER_WIDTH,
+    height: "100%",
   },
   drawerPortal: {
     ...StyleSheet.absoluteFillObject,
+    flexDirection: "row",
     zIndex: 20,
   },
   safeArea: {

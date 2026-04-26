@@ -2,8 +2,9 @@ import MeteorBase from "@meteorrn/core";
 import { LinearGradient } from "expo-linear-gradient";
 import { useMemo } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
-import { ActivityIndicator, Text } from "react-native-paper";
+import { ActivityIndicator, Text, useTheme } from "react-native-paper";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { DTShopProductosCollection } from "../collections/collections";
 import CubaCelCard from "./CubaCelCard";
 
@@ -29,8 +30,46 @@ const PRODUCTOS_DT_SHOP_FIELDS = {
   "promotions.title": 1,
 };
 
-const Productos = ({ isDegradado = false }) => {
+const getGradientColors = (isDarkMode) => {
+  if (isDarkMode) {
+    return [
+      "rgba(8, 13, 26, 0.98)",
+      "rgba(15, 23, 42, 0.9)",
+      "rgba(30, 64, 175, 0.34)",
+      "rgba(15, 23, 42, 0.16)",
+      "rgba(15, 23, 42, 0)",
+    ];
+  }
+
+  return [
+    "rgba(15, 23, 42, 0.96)",
+    "rgba(30, 41, 59, 0.84)",
+    "rgba(59, 130, 246, 0.24)",
+    "rgba(238, 242, 255, 0.54)",
+    "rgba(238, 242, 255, 0)",
+  ];
+};
+
+const GRADIENT_LOCATIONS = [0, 0.32, 0.62, 0.84, 1];
+
+const TRANSPARENT_GRADIENT_COLORS = [
+  "rgba(15, 23, 42, 0)",
+  "rgba(15, 23, 42, 0)",
+];
+
+const Productos = ({ isDegradado = false, topBleed = 0 }) => {
+  const theme = useTheme();
+  const dataReady = useDeferredScreenData();
+  const resolvedTopBleed = isDegradado ? Math.max(Number(topBleed) || 0, 0) : 0;
+  const gradientColors = isDegradado
+    ? getGradientColors(theme.dark)
+    : TRANSPARENT_GRADIENT_COLORS;
+
   const { productos, ready } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { productos: [], ready: false };
+    }
+
     const handler = Meteor.subscribe(
       "productosDtShop",
       {},
@@ -43,7 +82,7 @@ const Productos = ({ isDegradado = false }) => {
         : [],
       ready: handler.ready(),
     };
-  });
+  }, [dataReady]);
 
   const sortedProductos = useMemo(() => {
     if (!ready || !Array.isArray(productos)) {
@@ -86,14 +125,17 @@ const Productos = ({ isDegradado = false }) => {
 
   return (
     <LinearGradient
-      colors={
-        isDegradado
-          ? ["#0f172a", "transparent"]
-          : ["transparent", "transparent"]
-      }
-      start={{ x: 0.5, y: 0.3 }}
-      end={{ x: 0.5, y: 0.8 }}
-      style={styles.gradientContainer}
+      colors={gradientColors}
+      locations={isDegradado ? GRADIENT_LOCATIONS : [0, 1]}
+      start={{ x: 0.5, y: 0 }}
+      end={{ x: 0.5, y: 1 }}
+      style={[
+        styles.gradientContainer,
+        isDegradado ? styles.degradedContainer : null,
+        resolvedTopBleed
+          ? { marginTop: -resolvedTopBleed, paddingTop: resolvedTopBleed }
+          : null,
+      ]}
     >
       {Meteor.status().status === "connected" ||
       (ready && sortedProductos.length > 0) ? (
@@ -121,7 +163,11 @@ const Productos = ({ isDegradado = false }) => {
 
 const styles = StyleSheet.create({
   gradientContainer: {
-    minHeight: 190,
+    minHeight: 214,
+    overflow: "visible",
+  },
+  degradedContainer: {
+    paddingBottom: 18,
   },
   list: {
     minWidth: "100%",

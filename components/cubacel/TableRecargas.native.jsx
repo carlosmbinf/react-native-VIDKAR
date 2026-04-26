@@ -17,11 +17,13 @@ import {
     Portal,
     Surface,
     Text,
+    TextInput,
     useTheme,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BlurView } from "expo-blur";
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import SubidaArchivos from "../archivos/SubidaArchivos.native";
 import {
     TransaccionRecargasCollection,
@@ -43,14 +45,10 @@ const RECARGA_VENTA_FIELDS = {
   metodoPago: 1,
   monedaCobrado: 1,
   precioOficial: 1,
-  "producto.carritos._id": 1,
-  "producto.carritos.cobrarUSD": 1,
-  "producto.carritos.comentario": 1,
-  "producto.carritos.movilARecargar": 1,
-  "producto.carritos.nombre": 1,
-  "producto.carritos.producto.promotions": 1,
-  "producto.carritos.status": 1,
-  "producto.carritos.type": 1,
+  carrito: 1,
+  "producto.carrito": 1,
+  "producto.carritos": 1,
+  "producto.type": 1,
 };
 
 const TRANSACCION_RECARGA_FIELDS = {
@@ -73,6 +71,66 @@ const chipColorEstado = (estado) => {
   }
 };
 
+const getTableStatusTone = (estado, isDarkMode) => {
+  switch (estado) {
+    case "ENTREGADA":
+      return {
+        backgroundColor: isDarkMode
+          ? "rgba(34, 197, 94, 0.16)"
+          : "rgba(236, 253, 245, 0.92)",
+        borderColor: isDarkMode
+          ? "rgba(74, 222, 128, 0.32)"
+          : "rgba(16, 185, 129, 0.28)",
+        dotColor: "#22c55e",
+        textColor: isDarkMode ? "#bbf7d0" : "#047857",
+      };
+    case "CANCELADA":
+      return {
+        backgroundColor: isDarkMode
+          ? "rgba(248, 113, 113, 0.15)"
+          : "rgba(254, 242, 242, 0.94)",
+        borderColor: isDarkMode
+          ? "rgba(248, 113, 113, 0.3)"
+          : "rgba(248, 113, 113, 0.28)",
+        dotColor: "#ef4444",
+        textColor: isDarkMode ? "#fecaca" : "#b91c1c",
+      };
+    case "PENDIENTE_PAGO":
+      return {
+        backgroundColor: isDarkMode
+          ? "rgba(251, 146, 60, 0.16)"
+          : "rgba(255, 247, 237, 0.92)",
+        borderColor: isDarkMode
+          ? "rgba(251, 146, 60, 0.3)"
+          : "rgba(251, 146, 60, 0.28)",
+        dotColor: "#f97316",
+        textColor: isDarkMode ? "#fed7aa" : "#c2410c",
+      };
+    case "PENDIENTE_ENTREGA":
+      return {
+        backgroundColor: isDarkMode
+          ? "rgba(250, 204, 21, 0.14)"
+          : "rgba(254, 252, 232, 0.92)",
+        borderColor: isDarkMode
+          ? "rgba(250, 204, 21, 0.28)"
+          : "rgba(234, 179, 8, 0.24)",
+        dotColor: "#eab308",
+        textColor: isDarkMode ? "#fef08a" : "#854d0e",
+      };
+    default:
+      return {
+        backgroundColor: isDarkMode
+          ? "rgba(148, 163, 184, 0.14)"
+          : "rgba(248, 250, 252, 0.92)",
+        borderColor: isDarkMode
+          ? "rgba(148, 163, 184, 0.24)"
+          : "rgba(148, 163, 184, 0.22)",
+        dotColor: "#94a3b8",
+        textColor: isDarkMode ? "#cbd5e1" : "#475569",
+      };
+  }
+};
+
 const estadoLabel = (estado) => {
   switch (estado) {
     case "PENDIENTE_PAGO":
@@ -89,45 +147,116 @@ const estadoLabel = (estado) => {
 };
 
 const getDialogPalette = (isDarkMode) => ({
-  accentSoft: isDarkMode ? "rgba(59, 130, 246, 0.18)" : "#eff6ff",
-  border: isDarkMode ? "rgba(148, 163, 184, 0.18)" : "rgba(15, 23, 42, 0.08)",
-  commentBg: isDarkMode ? "rgba(15, 23, 42, 0.76)" : "#f8fafc",
-  noteBg: isDarkMode ? "rgba(30, 41, 59, 0.76)" : "#f8fafc",
-  noteBorder: isDarkMode ? "rgba(148, 163, 184, 0.16)" : "#e2e8f0",
-  surface: isDarkMode ? "rgba(10, 16, 28, 0.9)" : "rgba(255, 255, 255, 0.92)",
-  surfaceAlt: isDarkMode ? "rgba(20, 27, 45, 0.92)" : "#ffffff",
+  accentSoft: isDarkMode ? "rgba(59, 130, 246, 0.24)" : "rgba(239, 246, 255, 0.56)",
+  border: isDarkMode ? "rgba(226, 232, 240, 0.16)" : "rgba(15, 23, 42, 0.12)",
+  commentBg: isDarkMode ? "rgba(15, 23, 42, 0.42)" : "rgba(248, 250, 252, 0.52)",
+  noteBg: isDarkMode ? "rgba(30, 41, 59, 0.42)" : "rgba(248, 250, 252, 0.52)",
+  noteBorder: isDarkMode ? "rgba(226, 232, 240, 0.14)" : "rgba(15, 23, 42, 0.1)",
+  surface: isDarkMode ? "rgba(10, 16, 28, 0.58)" : "rgba(255, 255, 255, 0.56)",
+  surfaceAlt: isDarkMode ? "rgba(20, 27, 45, 0.44)" : "rgba(255, 255, 255, 0.42)",
   textMuted: isDarkMode ? "#94a3b8" : "#64748b",
   textPrimary: isDarkMode ? "#f8fafc" : "#0f172a",
   textSecondary: isDarkMode ? "#cbd5e1" : "#475569",
   promoBadgeBg: isDarkMode ? "rgba(21, 128, 61, 0.24)" : "#dcfce7",
   promoBadgeText: isDarkMode ? "#bbf7d0" : "#166534",
-  warningBg: isDarkMode ? "rgba(120, 53, 15, 0.34)" : "#fff7ed",
-  warningBorder: isDarkMode ? "rgba(251, 146, 60, 0.28)" : "#fed7aa",
+  warningBg: isDarkMode ? "rgba(120, 53, 15, 0.28)" : "rgba(255, 247, 237, 0.58)",
+  warningBorder: isDarkMode ? "rgba(251, 146, 60, 0.34)" : "rgba(194, 65, 12, 0.16)",
   warningText: isDarkMode ? "#fdba74" : "#9a3412",
 });
 
-const getItemsCount = (venta) =>
-  venta?.producto?.carritos?.length ||
-  venta?.carrito?.length ||
-  venta?.producto?.carrito?.length ||
-  0;
+const getCartItemType = (carrito) =>
+  String(
+    carrito?.type ||
+      carrito?.tipo ||
+      carrito?.productType ||
+      carrito?.producto?.type ||
+      carrito?.producto?.tipo ||
+      "",
+  ).toUpperCase();
 
-const getItemsArray = (venta) =>
-  (
-    venta?.producto?.carritos ||
-    venta?.carrito ||
-    venta?.producto?.carrito ||
-    []
-  )?.filter((carrito) => carrito.type === "RECARGA") || [];
+const getRawCartItems = (venta) => {
+  const candidates = [
+    venta?.producto?.carritos,
+    venta?.carrito,
+    venta?.producto?.carrito,
+  ];
+  const items = candidates.find((candidate) => Array.isArray(candidate));
+  return items || [];
+};
+
+const getItemsArray = (venta) => {
+  const rawItems = getRawCartItems(venta);
+  const recargas = rawItems.filter(
+    (carrito) => getCartItemType(carrito) === "RECARGA",
+  );
+
+  return recargas.length > 0 ? recargas : rawItems;
+};
+
+const getItemsCount = (venta) => getItemsArray(venta).length;
+
+const normalizeSearchText = (value) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+const onlyDigits = (value) => String(value ?? "").replace(/\D/g, "");
+
+const getRechargeItemSearchValues = (item) => [
+  item?.nombre,
+  item?.movilARecargar,
+  item?.mobileNumber,
+  item?.mobile_number,
+  item?.telefono,
+  item?.phone,
+  item?.numero,
+  item?.extraFields?.nombre,
+  item?.extraFields?.mobile_number,
+  item?.extraFields?.mobileNumber,
+  item?.extraFields?.telefono,
+  item?.extraFields?.phone,
+  item?.extraFields?.numero,
+];
+
+const ventaMatchesRechargeSearch = (venta, query) => {
+  const normalizedQuery = normalizeSearchText(query);
+  const digitsQuery = onlyDigits(query);
+
+  if (!normalizedQuery && !digitsQuery) {
+    return true;
+  }
+
+  const searchValues = getItemsArray(venta).flatMap(getRechargeItemSearchValues);
+  const normalizedHaystack = normalizeSearchText(searchValues.join(" "));
+  const digitsHaystack = onlyDigits(searchValues.join(" "));
+
+  return (
+    normalizedHaystack.includes(normalizedQuery) ||
+    (digitsQuery.length > 0 && digitsHaystack.includes(digitsQuery))
+  );
+};
+
+const RECARGA_SELECTOR = {
+  $or: [
+    { "producto.carritos.type": "RECARGA" },
+    { "producto.carritos.producto.type": "RECARGA" },
+    { "producto.carrito.type": "RECARGA" },
+    { "producto.carrito.producto.type": "RECARGA" },
+    { "producto.type": "RECARGA" },
+  ],
+};
 
 const EMPTY_SELECTED_ITEMS = [];
 
-const TableRecargas = () => {
+const TableRecargas = ({ useScroll = true }) => {
   const { width, height } = useWindowDimensions();
   const isWide = width > height || width >= 768;
   const theme = useTheme();
   const isDarkMode = theme.dark;
   const { top } = useSafeAreaInsets();
+  const modalTopPadding = Math.max(top - 8, 12);
   const dialogPalette = React.useMemo(
     () => getDialogPalette(isDarkMode),
     [isDarkMode],
@@ -151,8 +280,13 @@ const TableRecargas = () => {
 
   const isAdmin = Meteor.user()?.profile?.role === "admin" || false;
   const isAdminPrincipal = Meteor.user()?.username === "carlosmbinf" || false;
+  const dataReady = useDeferredScreenData();
 
   const listIdSubordinados = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return [];
+    }
+
     if (isAdmin) {
       Meteor.subscribe(
         "user",
@@ -166,22 +300,29 @@ const TableRecargas = () => {
     }
 
     return [];
-  }, [isAdmin]);
+  }, [dataReady, isAdmin]);
 
   const { loading, ventasArr } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { loading: true, ventasArr: [] };
+    }
+
     const query = isAdminPrincipal
-      ? { "producto.carritos.type": "RECARGA" }
+      ? RECARGA_SELECTOR
       : isAdmin
         ? {
-            "producto.carritos.type": "RECARGA",
-            $or: [
-              { userId: Meteor.userId() },
-              { userId: { $in: listIdSubordinados } },
+            $and: [
+              RECARGA_SELECTOR,
+              {
+                $or: [
+                  { userId: Meteor.userId() },
+                  { userId: { $in: listIdSubordinados } },
+                ],
+              },
             ],
           }
         : {
-            "producto.carritos.type": "RECARGA",
-            userId: Meteor.userId(),
+            $and: [RECARGA_SELECTOR, { userId: Meteor.userId() }],
           };
 
     const sub = Meteor.subscribe("ventasRecharge", query, {
@@ -195,7 +336,7 @@ const TableRecargas = () => {
       loading: !sub.ready(),
       ventasArr: typeof ventas.fetch === "function" ? ventas.fetch() : [],
     };
-  }, [isAdmin, isAdminPrincipal, JSON.stringify(listIdSubordinados)]);
+  }, [dataReady, isAdmin, isAdminPrincipal, JSON.stringify(listIdSubordinados)]);
 
   const carritoIds = React.useMemo(() => {
     const ids = [];
@@ -211,7 +352,7 @@ const TableRecargas = () => {
   }, [ventasArr]);
 
   const { transacciones } = Meteor.useTracker(() => {
-    if (!carritoIds.length) {
+    if (!dataReady || !carritoIds.length) {
       return { cargandoTransacciones: false, transacciones: [] };
     }
     const sub = Meteor.subscribe("transacciones", {
@@ -227,10 +368,20 @@ const TableRecargas = () => {
         fields: TRANSACCION_RECARGA_FIELDS,
       }).fetch(),
     };
-  }, [JSON.stringify(carritoIds)]);
+  }, [dataReady, JSON.stringify(carritoIds)]);
 
   const [visible, setVisible] = React.useState(false);
   const [ventaSel, setVentaSel] = React.useState(null);
+  const [searchQuery, setSearchQuery] = React.useState("");
+
+  const filteredVentasArr = React.useMemo(
+    () =>
+      ventasArr.filter((venta) =>
+        ventaMatchesRechargeSearch(venta, searchQuery),
+      ),
+    [searchQuery, ventasArr],
+  );
+  const hasSearchQuery = normalizeSearchText(searchQuery).length > 0;
 
   const openDialog = (venta) => {
     setVentaSel(venta);
@@ -290,13 +441,74 @@ const TableRecargas = () => {
   };
   const selectedEstado = ventaSel ? deriveEstadoVenta(ventaSel) : null;
   const selectedItems = ventaSel ? getItemsArray(ventaSel) : EMPTY_SELECTED_ITEMS;
+  const shouldRequestEvidence =
+    ventaSel?.metodoPago === "EFECTIVO" &&
+    ventaSel?.isCobrado !== true &&
+    ventaSel?.isCancelada !== true;
+  const shouldShowEvidenceHistory =
+    ventaSel?.metodoPago === "EFECTIVO" && !shouldRequestEvidence;
 
-  return (
-    <ScrollView style={styles.container} scrollEnabled>
-      <Surface style={styles.surface}>
+  const content = (
+    <Surface style={styles.surface}>
         <Text variant="headlineMedium" style={styles.title}>
           Lista de Recargas
         </Text>
+
+        <View
+          style={[
+            styles.searchPanel,
+            {
+              backgroundColor: dialogPalette.surface,
+              borderColor: dialogPalette.border,
+            },
+          ]}
+        >
+          <TextInput
+            dense
+            mode="outlined"
+            label="Buscar recarga"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Teléfono o nombre de la persona"
+            left={<TextInput.Icon icon="magnify" />}
+            right={
+              searchQuery ? (
+                <TextInput.Icon
+                  icon="close"
+                  onPress={() => setSearchQuery("")}
+                />
+              ) : null
+            }
+            style={styles.searchInput}
+            contentStyle={styles.searchInputContent}
+            outlineStyle={styles.searchInputOutline}
+            outlineColor={
+              isDarkMode
+                ? "rgba(148, 163, 184, 0.24)"
+                : "rgba(15, 23, 42, 0.14)"
+            }
+            activeOutlineColor={isDarkMode ? "#60a5fa" : "#2563eb"}
+            textColor={dialogPalette.textPrimary}
+            placeholderTextColor={dialogPalette.textMuted}
+            theme={{
+              colors: {
+                background: isDarkMode
+                  ? "rgba(15, 23, 42, 0.58)"
+                  : "rgba(255, 255, 255, 0.86)",
+                onSurfaceVariant: dialogPalette.textMuted,
+              },
+            }}
+          />
+          <Text
+            style={[styles.searchMeta, { color: dialogPalette.textMuted }]}
+          >
+            {hasSearchQuery
+              ? `${filteredVentasArr.length} de ${ventasArr.length} coincidencia${
+                  filteredVentasArr.length === 1 ? "" : "s"
+                }`
+              : "Filtra por número de teléfono o nombre del cliente"}
+          </Text>
+        </View>
 
         <DataTable>
           <DataTable.Header>
@@ -335,8 +547,16 @@ const TableRecargas = () => {
             <DataTable.Row>
               <DataTable.Cell>Cargando...</DataTable.Cell>
             </DataTable.Row>
+          ) : filteredVentasArr.length === 0 ? (
+            <DataTable.Row>
+              <DataTable.Cell>
+                {hasSearchQuery
+                  ? "No hay recargas que coincidan con ese filtro."
+                  : "No hay recargas para mostrar."}
+              </DataTable.Cell>
+            </DataTable.Row>
           ) : (
-            ventasArr.map((row, index) => {
+            filteredVentasArr.map((row, index) => {
               const fecha = formatFecha(row?.createdAt);
               const metodo = row?.metodoPago || "-";
               const cobrado = money(row?.cobrado, row?.monedaCobrado);
@@ -346,6 +566,10 @@ const TableRecargas = () => {
               );
               const items = getItemsCount(row);
               const estadoDerivado = deriveEstadoVenta(row);
+              const tableStatusTone = getTableStatusTone(
+                estadoDerivado,
+                isDarkMode,
+              );
 
               return (
                 <DataTable.Row key={row?._id || index}>
@@ -357,16 +581,32 @@ const TableRecargas = () => {
                       {metodo}
                     </DataTable.Cell>
                   ) : null}
-                  <DataTable.Cell style={{ flex: flexes.estado }}>
-                    <Chip
-                      compact={!isWide}
+                  <DataTable.Cell
+                    style={[styles.tableStatusCell, { flex: flexes.estado }]}
+                  >
+                    <View
                       style={{
-                        backgroundColor: chipColorEstado(estadoDerivado),
+                        ...styles.tableStatusPill,
+                        backgroundColor: tableStatusTone.backgroundColor,
+                        borderColor: tableStatusTone.borderColor,
                       }}
-                      textStyle={{ color: "white" }}
                     >
-                      {estadoLabel(estadoDerivado)}
-                    </Chip>
+                      <View
+                        style={[
+                          styles.tableStatusDot,
+                          { backgroundColor: tableStatusTone.dotColor },
+                        ]}
+                      />
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.tableStatusText,
+                          { color: tableStatusTone.textColor },
+                        ]}
+                      >
+                        {estadoLabel(estadoDerivado)}
+                      </Text>
+                    </View>
                   </DataTable.Cell>
                   {isWide ? (
                     <DataTable.Cell numeric style={{ flex: flexes.cobrado }}>
@@ -405,7 +645,7 @@ const TableRecargas = () => {
             style={styles.modalWrapper}
             contentContainerStyle={[
               styles.containerStyle,
-              { paddingTop: Math.max(top, 16) },
+              { paddingTop: modalTopPadding },
             ]}
           >
             <BlurView
@@ -419,8 +659,8 @@ const TableRecargas = () => {
                 styles.modalBackdropTint,
                 {
                   backgroundColor: isDarkMode
-                    ? "rgba(5, 11, 24, 0.44)"
-                    : "rgba(248, 250, 252, 0.24)",
+                    ? "rgba(5, 11, 24, 0.28)"
+                    : "rgba(248, 250, 252, 0.12)",
                 },
               ]}
             />
@@ -486,7 +726,94 @@ const TableRecargas = () => {
               >
                 {ventaSel ? (
                   <View style={styles.ventaDetailContainer}>
-                    <Surface
+                    {shouldRequestEvidence ? (
+                      <View
+                        style={[
+                          styles.warningCard,
+                          {
+                            backgroundColor: dialogPalette.warningBg,
+                            borderColor: dialogPalette.warningBorder,
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.evidenceRail,
+                            { backgroundColor: dialogPalette.warningText },
+                          ]}
+                        />
+                        <View style={styles.evidenceHeader}>
+                          <View
+                            style={[
+                              styles.evidenceIcon,
+                              {
+                                backgroundColor: isDarkMode
+                                  ? "rgba(251, 146, 60, 0.16)"
+                                  : "rgba(251, 146, 60, 0.12)",
+                                borderColor: dialogPalette.warningBorder,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.evidenceIconText,
+                                { color: dialogPalette.warningText },
+                              ]}
+                            >
+                              !
+                            </Text>
+                          </View>
+                          <View style={styles.evidenceCopy}>
+                            <Text
+                              style={[
+                                styles.warningEyebrow,
+                                { color: dialogPalette.warningText },
+                              ]}
+                            >
+                              Evidencia requerida
+                            </Text>
+                            <Text
+                              style={[
+                                styles.evidenceTitle,
+                                { color: dialogPalette.textPrimary },
+                              ]}
+                            >
+                              Confirma el pago antes de autorizar
+                            </Text>
+                          </View>
+                          <View
+                            style={[
+                              styles.evidenceBadge,
+                              {
+                                backgroundColor: dialogPalette.surfaceAlt,
+                                borderColor: dialogPalette.warningBorder,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.evidenceBadgeText,
+                                { color: dialogPalette.warningText },
+                              ]}
+                            >
+                              Pago
+                            </Text>
+                          </View>
+                        </View>
+                        <Text
+                          style={[
+                            styles.warningText,
+                            { color: dialogPalette.warningText },
+                          ]}
+                        >
+                          Debe subir evidencia para corroborar el pago y
+                          autorizar la recarga.
+                        </Text>
+                        <SubidaArchivos venta={ventaSel} />
+                      </View>
+                    ) : null}
+
+                    <View
                       style={[
                         styles.summaryCard,
                         {
@@ -544,7 +871,7 @@ const TableRecargas = () => {
                       </View>
 
                       <View style={styles.summaryGrid}>
-                        <Surface
+                        <View
                           style={[
                             styles.summaryMetricCard,
                             {
@@ -569,8 +896,8 @@ const TableRecargas = () => {
                           >
                             {formatFecha(ventaSel.createdAt)}
                           </Text>
-                        </Surface>
-                        <Surface
+                        </View>
+                        <View
                           style={[
                             styles.summaryMetricCard,
                             {
@@ -595,8 +922,8 @@ const TableRecargas = () => {
                           >
                             {ventaSel.metodoPago || "-"}
                           </Text>
-                        </Surface>
-                        <Surface
+                        </View>
+                        <View
                           style={[
                             styles.summaryMetricCard,
                             {
@@ -621,9 +948,9 @@ const TableRecargas = () => {
                           >
                             {selectedItems.length}
                           </Text>
-                        </Surface>
+                        </View>
                       </View>
-                    </Surface>
+                    </View>
 
                     <View style={styles.sectionHeadingRow}>
                       <View
@@ -656,7 +983,7 @@ const TableRecargas = () => {
                     </View>
 
                     {selectedItems.length === 0 ? (
-                      <Surface
+                      <View
                         style={[
                           styles.emptyItemsCard,
                           {
@@ -673,7 +1000,7 @@ const TableRecargas = () => {
                         >
                           ⚠️ Sin recargas registradas
                         </Text>
-                      </Surface>
+                      </View>
                     ) : (
                       selectedItems.map((item, index) => {
                         const itemTransaction = transacciones?.find(
@@ -727,7 +1054,7 @@ const TableRecargas = () => {
                               };
 
                         return (
-                          <Surface
+                          <View
                             key={item._id || index}
                             style={[
                               styles.rechargeCard,
@@ -807,10 +1134,6 @@ const TableRecargas = () => {
                             <View style={styles.itemInfoGrid}>
                               {[
                                 {
-                                  label: "ID de la recarga",
-                                  value: itemTransaction?._id || "N/A",
-                                },
-                                {
                                   label: "Cliente",
                                   value: item?.nombre || "Sin especificar",
                                 },
@@ -824,7 +1147,7 @@ const TableRecargas = () => {
                                   value: money(item.cobrarUSD, "USD"),
                                 },
                               ].map((detail) => (
-                                <Surface
+                                <View
                                   key={`${item._id || index}-${detail.label}`}
                                   style={[
                                     styles.itemInfoCard,
@@ -850,11 +1173,11 @@ const TableRecargas = () => {
                                   >
                                     {detail.value}
                                   </Text>
-                                </Surface>
+                                </View>
                               ))}
                             </View>
 
-                            <Surface
+                            <View
                               style={[
                                 styles.statusCard,
                                 {
@@ -897,10 +1220,10 @@ const TableRecargas = () => {
                                   ]}
                                 >{`⚠️ Error: ${itemTransaction.status.error}`}</Text>
                               ) : null}
-                            </Surface>
+                            </View>
 
                             {item?.comentario ? (
-                              <Surface
+                              <View
                                 style={[
                                   styles.commentCard,
                                   {
@@ -923,46 +1246,51 @@ const TableRecargas = () => {
                                     { color: dialogPalette.textSecondary },
                                   ]}
                                 >{`💬 ${item.comentario}`}</Text>
-                              </Surface>
+                              </View>
                             ) : null}
-                          </Surface>
+                          </View>
                         );
                       })
                     )}
 
-                    {ventaSel?.metodoPago === "EFECTIVO" ? (
-                      <Surface
-                        style={[
-                          styles.warningCard,
-                          {
-                            backgroundColor: dialogPalette.warningBg,
-                            borderColor: dialogPalette.warningBorder,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.warningEyebrow,
-                            { color: dialogPalette.warningText },
-                          ]}
-                        >
-                          Evidencia requerida
-                        </Text>
-                        <Text
-                          style={[
-                            styles.warningText,
-                            { color: dialogPalette.warningText },
-                          ]}
-                        >
-                          Debe subir evidencia para corroborar el pago y
-                          autorizar la recarga.
-                        </Text>
+                    {shouldShowEvidenceHistory ? (
+                      <>
+                        <View style={styles.sectionHeadingRow}>
+                          <View
+                            style={[
+                              styles.sectionHeadingIcon,
+                              { backgroundColor: dialogPalette.accentSoft },
+                            ]}
+                          >
+                            <Text style={styles.sectionHeadingEmoji}>🧾</Text>
+                          </View>
+                          <View style={styles.sectionHeadingCopy}>
+                            <Text
+                              style={[
+                                styles.sectionHeadingTitle,
+                                { color: dialogPalette.textPrimary },
+                              ]}
+                            >
+                              Evidencia del pago
+                            </Text>
+                            <Text
+                              style={[
+                                styles.sectionHeadingSubtitle,
+                                { color: dialogPalette.textSecondary },
+                              ]}
+                            >
+                              Consulta la imagen subida para esta venta en
+                              efectivo sin habilitar nuevas cargas.
+                            </Text>
+                          </View>
+                        </View>
                         <SubidaArchivos venta={ventaSel} />
-                      </Surface>
+                      </>
                     ) : null}
+
                   </View>
                 ) : (
-                  <Surface
+                  <View
                     style={[
                       styles.errorCard,
                       {
@@ -974,11 +1302,11 @@ const TableRecargas = () => {
                     <Text style={styles.errorCardText}>
                       ❌ Sin datos disponibles
                     </Text>
-                  </Surface>
+                  </View>
                 )}
 
                 {ventaSel?.comentario ? (
-                  <Surface
+                  <View
                     style={[
                       styles.footerCommentCard,
                       {
@@ -1003,13 +1331,22 @@ const TableRecargas = () => {
                     >
                       💬 {ventaSel.comentario}
                     </Text>
-                  </Surface>
+                  </View>
                 ) : null}
               </ScrollView>
             </View>
           </Modal>
         </Portal>
       </Surface>
+  );
+
+  if (!useScroll) {
+    return content;
+  }
+
+  return (
+    <ScrollView style={styles.container} scrollEnabled>
+      {content}
     </ScrollView>
   );
 };
@@ -1019,14 +1356,65 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   surface: {
-    height: "100%",
+    width: "100%",
   },
   title: {
     marginBottom: 16,
     textAlign: "center",
   },
+  searchPanel: {
+    borderRadius: 22,
+    borderWidth: 1,
+    gap: 8,
+    marginBottom: 12,
+    marginHorizontal: 10,
+    padding: 12,
+  },
+  searchInput: {
+    borderRadius: 18,
+    fontSize: 14,
+    overflow: "hidden",
+  },
+  searchInputContent: {
+    minHeight: 42,
+    paddingVertical: 2,
+  },
+  searchInputOutline: {
+    borderRadius: 18,
+  },
+  searchMeta: {
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 16,
+    paddingHorizontal: 2,
+  },
   infoButton: {
     margin: 0,
+  },
+  tableStatusCell: {
+    alignItems: "flex-start",
+    justifyContent: "center",
+  },
+  tableStatusPill: {
+    alignItems: "center",
+    alignSelf: "center",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 7,
+    minHeight: 30,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+  },
+  tableStatusDot: {
+    borderRadius: 999,
+    height: 7,
+    width: 7,
+  },
+  tableStatusText: {
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.2,
   },
   modalWrapper: {
     justifyContent: "flex-start",
@@ -1047,7 +1435,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 30,
+    paddingTop: 6,
   },
   dialogTitleText: {
     fontSize: 20,
@@ -1172,11 +1560,12 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderRadius: 24,
     borderWidth: 1,
-    elevation: 1,
+    elevation: 0,
     marginBottom: 14,
     overflow: "hidden",
     padding: 16,
     position: "relative",
+    shadowOpacity: 0,
   },
   itemCardHeader: {
     alignItems: "flex-start",
@@ -1293,24 +1682,71 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   warningCard: {
-    borderRadius: 24,
+    borderRadius: 32,
     borderWidth: 1,
-    marginBottom: 8,
-    padding: 16,
+    gap: 14,
+    overflow: "hidden",
+    padding: 18,
+    position: "relative",
+  },
+  evidenceRail: {
+    borderRadius: 999,
+    bottom: 18,
+    left: 0,
+    opacity: 0.86,
+    position: "absolute",
+    top: 18,
+    width: 4,
+  },
+  evidenceHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+  },
+  evidenceIcon: {
+    alignItems: "center",
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
+  evidenceIconText: {
+    fontSize: 20,
+    fontWeight: "900",
+    lineHeight: 22,
+  },
+  evidenceCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  evidenceTitle: {
+    fontSize: 17,
+    fontWeight: "900",
+    lineHeight: 21,
+  },
+  evidenceBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  evidenceBadgeText: {
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
   },
   warningEyebrow: {
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0.8,
-    marginBottom: 6,
     textTransform: "uppercase",
   },
   warningText: {
     fontSize: 13,
-    fontWeight: "600",
-    lineHeight: 19,
-    marginBottom: 12,
-    textAlign: "center",
+    fontWeight: "700",
+    lineHeight: 20,
   },
   errorCard: {
     borderRadius: 20,

@@ -1,6 +1,6 @@
 import MeteorBase from "@meteorrn/core";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, StyleSheet, View } from "react-native";
+import { Animated, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Portal, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -13,16 +13,27 @@ const Meteor =
     MeteorBase
   );
 
-const DRAWER_WIDTH = 316;
+const PORTRAIT_DRAWER_WIDTH = 316;
+const LANDSCAPE_DRAWER_MAX_WIDTH = 380;
 
 const EmpresaNavigator = () => {
   const theme = useTheme();
   const palette = createEmpresaPalette(theme);
   const user = Meteor.useTracker(() => Meteor.user());
+  const { height, width } = useWindowDimensions();
+  const drawerWidth = width > height
+    ? Math.min(LANDSCAPE_DRAWER_MAX_WIDTH, Math.max(340, width * 0.42))
+    : PORTRAIT_DRAWER_WIDTH;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMounted, setDrawerMounted] = useState(false);
-  const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
+  const translateX = useRef(new Animated.Value(-drawerWidth)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!drawerOpen) {
+      translateX.setValue(-drawerWidth);
+    }
+  }, [drawerOpen, drawerWidth, translateX]);
 
   useEffect(() => {
     if (drawerOpen) {
@@ -45,7 +56,7 @@ const EmpresaNavigator = () => {
     Animated.parallel([
       Animated.timing(translateX, {
         duration: 200,
-        toValue: -DRAWER_WIDTH,
+        toValue: -drawerWidth,
         useNativeDriver: true,
       }),
       Animated.timing(overlayOpacity, {
@@ -58,7 +69,7 @@ const EmpresaNavigator = () => {
         setDrawerMounted(false);
       }
     });
-  }, [drawerOpen, overlayOpacity, translateX]);
+  }, [drawerOpen, drawerWidth, overlayOpacity, translateX]);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]} edges={[]}>
@@ -81,10 +92,11 @@ const EmpresaNavigator = () => {
                 style={[
                   styles.drawerPanel,
                   {
-                    backgroundColor: palette.panel,
                     borderRightColor: palette.border,
                     shadowColor: palette.shadowColor,
+                    maxWidth: drawerWidth,
                     transform: [{ translateX }],
+                    width: drawerWidth,
                   },
                 ]}
               >
@@ -104,25 +116,21 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(21, 15, 44, 0.38)",
   },
   drawerOverlayPressable: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
   drawerPanel: {
     borderRightWidth: 1,
-    bottom: 0,
-    left: 0,
-    maxWidth: DRAWER_WIDTH,
-    position: "absolute",
+    height: "100%",
     shadowOffset: {
       width: 12,
       height: 0,
     },
     shadowOpacity: 0.14,
     shadowRadius: 22,
-    top: 0,
-    width: DRAWER_WIDTH,
   },
   drawerPortal: {
     ...StyleSheet.absoluteFillObject,
+    flexDirection: "row",
     zIndex: 20,
   },
   safeArea: {

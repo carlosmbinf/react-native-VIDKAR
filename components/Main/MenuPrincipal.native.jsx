@@ -2,11 +2,12 @@ import MeteorBase from "@meteorrn/core";
 import { router } from "expo-router";
 import { Alert } from "react-native";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { getAppVersionInfo } from "../../services/app/appVersion";
 import { syncCadeteBackgroundLocation } from "../../services/location/cadeteBackgroundLocation.native";
 import {
-  VentasCollection,
-  VentasRechargeCollection,
+    VentasCollection,
+    VentasRechargeCollection,
 } from "../collections/collections";
 import MenuPrincipalScreen from "./MenuPrincipalScreen.jsx";
 
@@ -96,9 +97,10 @@ const MenuPrincipalNative = () => {
   const currentUserId = user?._id;
   const isAdmin = isAdminUser(user);
   const isAdminPrincipal = isPrincipalAdmin(user);
+  const dataReady = useDeferredScreenData();
 
   const { subordinadosIds, subordinadosLoading } = Meteor.useTracker(() => {
-    if (!isAdmin || !currentUserId || isAdminPrincipal) {
+    if (!dataReady || !isAdmin || !currentUserId || isAdminPrincipal) {
       return {
         subordinadosIds: [],
         subordinadosLoading: false,
@@ -123,10 +125,10 @@ const MenuPrincipalNative = () => {
         : [],
       subordinadosLoading: !subordinadosHandle.ready(),
     };
-  }, [currentUserId, isAdmin, isAdminPrincipal]);
+  }, [currentUserId, dataReady, isAdmin, isAdminPrincipal]);
 
   const { pendingDebt, pendingVentasCount } = Meteor.useTracker(() => {
-    if (!currentUserId || !isAdmin) {
+    if (!dataReady || !currentUserId || !isAdmin) {
       return {
         pendingDebt: 0,
         pendingVentasCount: 0,
@@ -156,14 +158,14 @@ const MenuPrincipalNative = () => {
       ),
       pendingVentasCount: pendingVentas.length,
     };
-  }, [currentUserId, isAdmin]);
+  }, [currentUserId, dataReady, isAdmin]);
 
   const {
     pendingCashApprovalTypes,
     pendingCashApprovalsCount,
     pendingCashApprovalsLoading,
   } = Meteor.useTracker(() => {
-    if (!currentUserId || !isAdmin) {
+    if (!dataReady || !currentUserId || !isAdmin) {
       return {
         pendingCashApprovalTypes: [],
         pendingCashApprovalsCount: 0,
@@ -206,7 +208,7 @@ const MenuPrincipalNative = () => {
       pendingCashApprovalsLoading:
         !cashApprovalsHandle.ready() || subordinadosLoading,
     };
-  }, [currentUserId, isAdmin, isAdminPrincipal, subordinadosIds, subordinadosLoading]);
+  }, [currentUserId, dataReady, isAdmin, isAdminPrincipal, subordinadosIds, subordinadosLoading]);
   const appVersionInfo = getAppVersionInfo();
 
   const handleOpenPendingVentas = () => {

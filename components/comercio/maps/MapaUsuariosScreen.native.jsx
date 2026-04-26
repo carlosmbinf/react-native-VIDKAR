@@ -19,6 +19,7 @@ import {
     useTheme,
 } from "react-native-paper";
 
+import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
 import AppHeader from "../../Header/AppHeader";
 import { Online } from "../../collections/collections";
 import MapaUsuarios from "./MapaUsuarios";
@@ -443,8 +444,13 @@ const MapaUsuariosScreen = () => {
   const [selectedUserId, setSelectedUserId] = React.useState(null);
   const [currentLocation, setCurrentLocation] = React.useState(null);
   const [resolvingLocation, setResolvingLocation] = React.useState(false);
+  const dataReady = useDeferredScreenData();
 
   const { ready, users } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { ready: false, users: [] };
+    }
+
     const handle = Meteor.subscribe("user", LOCATION_SELECTOR, {
       fields: LOCATION_FIELDS,
     });
@@ -509,7 +515,7 @@ const MapaUsuariosScreen = () => {
         (handle?.ready?.() ?? false) && (connectionsHandle?.ready?.() ?? false),
       users: normalizedUsers,
     };
-  }, []);
+  }, [dataReady]);
 
   const filteredUsers = React.useMemo(() => {
     const search = normalizeString(searchQuery);
@@ -745,9 +751,9 @@ const MapaUsuariosScreen = () => {
                   Cobertura geográfica disponible
                 </Text>
                 <Text variant="bodySmall" style={{ color: colors.copy }}>
-                  El mapa se centra automáticamente en los usuarios filtrados y
-                  mantiene acceso rápido a tu ubicación actual para contraste
-                  operativo.
+                  El mapa respeta el zoom y el desplazamiento que hagas. Usa
+                  Ver todos dentro del mapa cuando necesites encuadrar todos
+                  los usuarios al mismo tiempo.
                 </Text>
               </View>
               <Button

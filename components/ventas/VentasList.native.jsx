@@ -21,6 +21,7 @@ import {
     useTheme,
 } from "react-native-paper";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import AppHeader from "../Header/AppHeader";
 import { VentasCollection } from "../collections/collections";
 import DialogVenta from "./DialogVenta.native";
@@ -224,6 +225,7 @@ const VentasList = () => {
   const [selectedUser, setSelectedUser] = React.useState("TODOS");
   const [selectedPago, setSelectedPago] = React.useState(initialPagoFilter);
   const [updatingIds, setUpdatingIds] = React.useState([]);
+  const dataReady = useDeferredScreenData();
 
   React.useEffect(() => {
     setSelectedPago(initialPagoFilter);
@@ -234,6 +236,16 @@ const VentasList = () => {
       const currentUser = Meteor.user();
       const currentUserId = currentUser?._id;
       const currentUsernameValue = currentUser?.username || "";
+
+      if (!dataReady) {
+        return {
+          currentUsername: currentUsernameValue,
+          ready: false,
+          routeUsername: "",
+          ventas: [],
+        };
+      }
+
       const ventasQuery = buildVentasQuery({
         currentUserId,
         currentUsername: currentUsernameValue,
@@ -291,7 +303,7 @@ const VentasList = () => {
         routeUsername: routeUserDoc?.username || "",
         ventas: mappedVentas,
       };
-    }, [fetchLimit, routeId]);
+    }, [dataReady, fetchLimit, routeId]);
 
   const isGeneralAdmin = currentUsername === "carlosmbinf";
   const routeContextLabel = React.useMemo(() => {

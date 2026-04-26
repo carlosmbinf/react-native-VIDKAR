@@ -2,18 +2,19 @@ import MeteorBase from "@meteorrn/core";
 import { router, useLocalSearchParams, usePathname } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  View,
-  useWindowDimensions,
+    ActivityIndicator,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    View,
+    useWindowDimensions,
 } from "react-native";
 import { Appbar, Surface, Text } from "react-native-paper";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import {
-  PreciosCollection,
-  VentasCollection,
+    PreciosCollection,
+    VentasCollection,
 } from "../collections/collections";
 import AppHeader from "../Header/AppHeader";
 import AdminAssignmentCard from "./componentsUserDetails/AdminAssignmentCard";
@@ -90,9 +91,10 @@ const UserDetails = () => {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
   const currentWidth = width;
+  const dataReady = useDeferredScreenData();
 
   const { ready, item, precioslist, preciosVPNlist } = Meteor.useTracker(() => {
-    if (!itemId) {
+    if (!dataReady || !itemId) {
       return {
         ready: false,
         item: null,
@@ -149,7 +151,7 @@ const UserDetails = () => {
       precioslist: precioslistData,
       preciosVPNlist: preciosVPNData,
     };
-  }, [itemId, refreshKey]);
+  }, [dataReady, itemId, refreshKey]);
 
   const accentColor = useMemo(() => {
     const seed = item?.username || item?._id || "U";

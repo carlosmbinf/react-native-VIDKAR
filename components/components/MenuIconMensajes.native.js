@@ -1,22 +1,27 @@
 import MeteorBase from "@meteorrn/core";
 import { BlurView } from "expo-blur";
-import React, { useMemo, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  Avatar,
-  Badge,
-  Divider,
-  IconButton,
-  List,
-  Menu,
-  Text,
-  useTheme,
+    InteractionManager,
+    ScrollView,
+    StyleSheet,
+    View,
+} from "react-native";
+import {
+    Avatar,
+    Badge,
+    Divider,
+    IconButton,
+    List,
+    Menu,
+    Text,
+    useTheme,
 } from "react-native-paper";
 
 import { Mensajes } from "../collections/collections";
 import {
-  DARK_MENU_GLASS_TINT,
-  LIGHT_MENU_GLASS_TINT,
+    DARK_MENU_GLASS_TINT,
+    LIGHT_MENU_GLASS_TINT,
 } from "../shared/GlassMenuSurface";
 
 const Meteor =
@@ -100,14 +105,30 @@ const MessageMenuContent = ({ currentUserId, users, onOpenThread }) => (
 
 const MenuIconMensajesNative = ({ onOpenMessages }) => {
   const [menuVisible, setMenuVisible] = useState(false);
+  const [readyToSubscribe, setReadyToSubscribe] = useState(false);
   const theme = useTheme();
   const menuTintColor = theme.dark
     ? DARK_MENU_GLASS_TINT
     : LIGHT_MENU_GLASS_TINT;
   const blurTint = theme.dark ? "dark" : "light";
   const currentUserId = Meteor.useTracker(() => Meteor.userId());
+
+  useEffect(() => {
+    let mounted = true;
+    const interactionTask = InteractionManager.runAfterInteractions(() => {
+      if (mounted) {
+        setReadyToSubscribe(true);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      interactionTask?.cancel?.();
+    };
+  }, []);
+
   const { countMensajes, messagesReady, users } = Meteor.useTracker(() => {
-    if (!currentUserId) {
+    if (!readyToSubscribe || !currentUserId) {
       return {
         countMensajes: 0,
         messagesReady: true,
@@ -131,17 +152,16 @@ const MenuIconMensajesNative = ({ onOpenMessages }) => {
       messagesReady: messagesHandle.ready(),
       users: uniqueUsers,
     };
-  }, [currentUserId]);
+  }, [currentUserId, readyToSubscribe]);
   const usersKey = useMemo(() => users.join(","), [users]);
   const usersReady = Meteor.useTracker(() => {
     if (!currentUserId || users.length === 0) {
       return true;
     }
 
-    const usersHandle = Meteor.subscribe(
-      "user",
-      { _id: { $in: users } }
-    );
+    const usersHandle = Meteor.subscribe("user", { _id: { $in: users } }, {
+      fields: MESSAGE_SENDER_FIELDS,
+    });
 
     return usersHandle.ready();
   }, [currentUserId, usersKey]);
@@ -180,7 +200,7 @@ const MenuIconMensajesNative = ({ onOpenMessages }) => {
       </View>
     );
 
-  if (!currentUserId) {
+  if (!readyToSubscribe || !currentUserId) {
     return null;
   }
 

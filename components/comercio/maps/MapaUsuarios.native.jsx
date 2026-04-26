@@ -159,18 +159,6 @@ const MapaUsuarios = ({
     );
   }, [currentLocation]);
 
-  React.useEffect(() => {
-    if (!coordinates.length) {
-      return;
-    }
-
-    const timeoutId = setTimeout(() => {
-      fitToUsers();
-    }, 180);
-
-    return () => clearTimeout(timeoutId);
-  }, [fitToUsers, coordinates.length]);
-
   if (!coordinates.length && !loading) {
     return (
       <Surface style={[styles.emptyState, { backgroundColor: colors.surface }]}>

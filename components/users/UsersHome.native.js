@@ -3,26 +3,27 @@ import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Animated,
-  Dimensions,
-  FlatList,
-  Platform,
-  Pressable,
-  StyleSheet,
-  useWindowDimensions,
-  View,
+    Animated,
+    Dimensions,
+    FlatList,
+    Platform,
+    Pressable,
+    StyleSheet,
+    useWindowDimensions,
+    View,
 } from "react-native";
 import {
-  Appbar,
-  Button,
-  Chip,
-  Portal,
-  Searchbar,
-  Surface,
-  Text,
-  useTheme,
+    Appbar,
+    Button,
+    Chip,
+    Portal,
+    Searchbar,
+    Surface,
+    Text,
+    useTheme,
 } from "react-native-paper";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import AppHeader from "../Header/AppHeader";
 import { Online, PushTokens } from "../collections/collections";
 import ServiceProgressPill from "../shared/ServiceProgressPill";
@@ -824,8 +825,13 @@ const UsersHome = () => {
   const [peekSourceId, setPeekSourceId] = useState(null);
   const [peekTarget, setPeekTarget] = useState(null);
   const peekProgress = useRef(new Animated.Value(0)).current;
+  const dataReady = useDeferredScreenData();
 
   const { loading, users, connections, pushTokens } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { loading: true, users: [], connections: [], pushTokens: [] };
+    }
+
     const username = Meteor.user()?.username;
     const userFilter =
       username === "carlosmbinf"
@@ -912,7 +918,7 @@ const UsersHome = () => {
           ).fetch()
         : [],
     };
-  }, [canViewPushTokens]);
+  }, [canViewPushTokens, dataReady]);
 
   const filteredUsers = useMemo(() => {
     const term = search.toLowerCase().trim();

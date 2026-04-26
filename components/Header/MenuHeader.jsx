@@ -1,15 +1,11 @@
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { Appbar, Menu, useTheme } from "react-native-paper";
+import { Appbar, Menu } from "react-native-paper";
 
-import { BlurView } from "expo-blur";
 import WizardConStepper from "../carritoCompras/WizardConStepper.native";
 import MenuIconMensajes from "../components/MenuIconMensajes.native";
-import {
-  DARK_MENU_GLASS_TINT,
-  LIGHT_MENU_GLASS_TINT,
-} from "../shared/GlassMenuSurface";
 import AppHeader, { DEFAULT_HEADER_COLOR } from "./AppHeader";
+import BlurMenuSurface, { blurMenuContentStyle } from "./BlurMenuSurface";
 
 const MenuHeader = ({
   backgroundColor = DEFAULT_HEADER_COLOR,
@@ -21,18 +17,13 @@ const MenuHeader = ({
   onLogout,
 }) => {
   const [menuVisible, setMenuVisible] = useState(false);
-  const theme = useTheme();
-  const blurTint = theme.dark ? "dark" : "light";
-  const menuTintColor = theme.dark
-    ? DARK_MENU_GLASS_TINT
-    : LIGHT_MENU_GLASS_TINT;
 
   const closeMenu = () => setMenuVisible(false);
 
   return (
     <AppHeader
       backgroundColor={backgroundColor}
-      includeSafeAreaTop={false}
+      overlapContent
       title={title || "VIDKAR"}
       subtitle={subtitle}
       titleStyle={styles.title}
@@ -57,18 +48,7 @@ const MenuHeader = ({
             contentStyle={styles.menuContent}
             anchorPosition="bottom"
           >
-            <BlurView
-              tint={blurTint}
-              style={{
-                borderRadius: 25,
-                overflow: "hidden",
-                backgroundColor: menuTintColor,
-                borderWidth: 2,
-                borderColor: "rgba(255,255,255,0.22)",
-              }}
-              intensity={15}
-              experimentalBlurMethod="dimezisBlurView"
-            >
+            <BlurMenuSurface>
               <Menu.Item
                 leadingIcon="account-circle-outline"
                 title="Mi usuario"
@@ -85,7 +65,7 @@ const MenuHeader = ({
                   onLogout?.();
                 }}
               />
-            </BlurView>
+            </BlurMenuSurface>
           </Menu>
         </View>
       }
@@ -106,10 +86,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   menuContent: {
-    backgroundColor: "transparent",
-    overflow: "visible",
-    padding: 0,
-    borderRadius: 25,
+    ...blurMenuContentStyle,
   },
 });
 

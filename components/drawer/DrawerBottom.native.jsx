@@ -1,8 +1,10 @@
+import { BlurView } from "expo-blur";
 import { useEffect, useRef, useState } from "react";
 import {
     Animated,
     Dimensions,
     PanResponder,
+    Platform,
     Pressable,
     StyleSheet,
     View,
@@ -135,12 +137,44 @@ const DrawerBottom = ({
               style={[
                 styles.bottomSurface,
                 {
-                  backgroundColor: theme.colors.background,
+                  backgroundColor: "transparent",
                   maxHeight: maxSheetHeight,
                 },
                 surfaceStyle,
               ]}
             >
+              {theme.dark ? (
+                <BlurView
+                  intensity={42}
+                  tint="dark"
+                  style={StyleSheet.absoluteFill}
+                  experimentalBlurMethod={
+                    Platform.OS === "android" ? "dimezisBlurView" : undefined
+                  }
+                  renderToHardwareTextureAndroid={true}
+                />
+              ) : (
+                <BlurView
+                  intensity={42}
+                  tint="light"
+                  style={StyleSheet.absoluteFill}
+                  experimentalBlurMethod={
+                    Platform.OS === "android" ? "dimezisBlurView" : undefined
+                  }
+                  renderToHardwareTextureAndroid={true}
+                />
+              )}
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.sheetTint,
+                  {
+                    backgroundColor: theme.dark
+                      ? "rgba(6, 12, 24, 0.68)"
+                      : "rgba(255, 255, 255, 0.62)",
+                  },
+                ]}
+              />
               <View style={styles.handleZone}>
                 <View
                   style={[
@@ -207,6 +241,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: "flex-end",
     zIndex: 9999,
+  },
+  sheetTint: {
+    ...StyleSheet.absoluteFillObject,
   },
   title: {
     flex: 1,

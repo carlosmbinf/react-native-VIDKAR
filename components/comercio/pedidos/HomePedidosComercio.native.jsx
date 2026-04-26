@@ -5,6 +5,7 @@ import { RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } fro
 import { ActivityIndicator, Button, Chip, Surface, Text, useTheme } from "react-native-paper";
 
 import useCadeteLocationTracking from "../../../hooks/useCadeteLocationTracking";
+import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
 import {
     ColaCadetesPorTiendasComercioCollection,
     PedidosAsignadosComercioCollection,
@@ -68,8 +69,9 @@ const HomePedidosComercio = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [sliderInteractionActive, setSliderInteractionActive] = useState(false);
   const currentUserId = Meteor.useTracker(() => Meteor.userId());
+  const dataReady = useDeferredScreenData();
   const cadeteData = Meteor.useTracker(() => {
-    if (!currentUserId) {
+    if (!dataReady || !currentUserId) {
       return {
         pedidosConVentas: [],
         queueEntries: [],
@@ -131,7 +133,7 @@ const HomePedidosComercio = () => {
         queueHandle.ready() &&
         (!ventasHandle || ventasHandle.ready()),
     };
-  }, [currentUserId]);
+  }, [currentUserId, dataReady]);
 
   const tracking = useCadeteLocationTracking({
     enabled: Boolean(currentUserId),

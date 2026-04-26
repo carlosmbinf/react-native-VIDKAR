@@ -4,23 +4,23 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Linking, ScrollView, StyleSheet, View } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
 import {
-  ActivityIndicator,
-  Badge,
-  Button,
-  Card,
-  Chip,
-  Divider,
-  IconButton,
-  Modal,
-  Portal,
-  Text,
-  useTheme,
+    ActivityIndicator,
+    Badge,
+    Button,
+    Card,
+    Chip,
+    Divider,
+    IconButton,
+    Modal,
+    Portal,
+    Text,
+    useTheme,
 } from "react-native-paper";
 
 import { getCachedDeviceLocationSync } from "../../services/location/deviceLocationCache.native";
 import {
-  CarritoCollection,
-  OrdenesCollection,
+    CarritoCollection,
+    OrdenesCollection,
 } from "../collections/collections";
 import ListaPedidosRemesa from "./ListaPedidosRemesa.native";
 import MapLocationPicker from "./MapLocationPicker.native";
@@ -138,6 +138,11 @@ const CART_ITEM_FIELDS = {
   type: 1,
 };
 
+const CART_BADGE_FIELDS = {
+  _id: 1,
+  idUser: 1,
+};
+
 const ORDER_CHECKOUT_FIELDS = {
   carritos: 1,
   link: 1,
@@ -177,31 +182,50 @@ const WizardConStepper = ({ initialLocation = null }) => {
   const [visible, setVisible] = useState(false);
 
   const { compra } = Meteor.useTracker(() => {
-    Meteor.subscribe(
+    if (!visible || !userId) {
+      return { compra: null };
+    }
+
+    const ordenesHandle = Meteor.subscribe(
       "ordenes",
       {
         // status: { $nin: ["COMPLETED", "CANCELLED"] },
         userId,
       },
-      { ...ORDER_CHECKOUT_FIELDS },
+      { fields: ORDER_CHECKOUT_FIELDS },
     );
 
-    const compra = OrdenesCollection.findOne({
-      // status: { $nin: ["COMPLETED", "CANCELLED"] },
-      userId,
-    });
-    console.log("DEBUG - Orden encontrada para checkout:", compra);
+    const compra = ordenesHandle.ready()
+      ? OrdenesCollection.findOne(
+          {
+            // status: { $nin: ["COMPLETED", "CANCELLED"] },
+            userId,
+          },
+          { fields: ORDER_CHECKOUT_FIELDS },
+        )
+      : null;
     return { compra };
-  });
+  }, [userId, visible]);
 
   const pedidosRemesa = Meteor.useTracker(() => {
-    Meteor.subscribe(
+    if (!userId) {
+      return [];
+    }
+
+    const cartFields = visible ? CART_ITEM_FIELDS : CART_BADGE_FIELDS;
+    const carritoHandle = Meteor.subscribe(
       "carrito",
       { idUser: userId },
-      { fields: CART_ITEM_FIELDS },
+      { fields: cartFields },
     );
-    return CarritoCollection.find({ idUser: userId }).fetch();
-  }, [userId]);
+
+    return carritoHandle.ready()
+      ? CarritoCollection.find(
+          { idUser: userId },
+          { fields: cartFields },
+        ).fetch()
+      : [];
+  }, [userId, visible]);
 
   const permitirPagoEfectivoCUP = Boolean(
     Meteor.user()?.permitirPagoEfectivoCUP,
@@ -360,6 +384,14 @@ const WizardConStepper = ({ initialLocation = null }) => {
   useEffect(() => {
     let cancelled = false;
 
+    if (!visible) {
+      setCargandoConversionResumen(false);
+      setErrorConversionResumen(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const hayCarrito = Array.isArray(pedidosRemesa) && pedidosRemesa.length > 0;
     const hayMetodo = Boolean(metodoPago);
     const monedaFinal = String(monedaFinalUI || "")
@@ -457,9 +489,15 @@ const WizardConStepper = ({ initialLocation = null }) => {
     monedaFinalUI,
     pedidosRemesa,
     totalComisionesUI,
+    visible,
   ]);
 
   useEffect(() => {
+    if (!visible) {
+      setCargandoComisiones(false);
+      return;
+    }
+
     if (!tieneComercio) {
       setComisionesComercio(null);
       setErrorComisiones(null);
@@ -501,9 +539,20 @@ const WizardConStepper = ({ initialLocation = null }) => {
         setComisionesComercio(costos || null);
       },
     );
-  }, [comercioCoordsSignature, monedaFinalUI, pedidosRemesa, tieneComercio]);
+  }, [
+    comercioCoordsSignature,
+    monedaFinalUI,
+    pedidosRemesa,
+    tieneComercio,
+    visible,
+  ]);
 
   useEffect(() => {
+    if (!visible) {
+      setCargandoPaises(false);
+      return;
+    }
+
     if (!metodoPago) {
       setPaisesPagoData([]);
       setPaisPago(null);
@@ -555,9 +604,14 @@ const WizardConStepper = ({ initialLocation = null }) => {
         );
       },
     );
-  }, [metodoPago, tieneProxyVPN]);
+  }, [metodoPago, tieneProxyVPN, visible]);
 
   useEffect(() => {
+    if (!visible) {
+      setCargadoPago(false);
+      return;
+    }
+
     if (!metodoPago) {
       setCargadoPago(false);
       setTotalAPagar(0);
@@ -572,7 +626,6 @@ const WizardConStepper = ({ initialLocation = null }) => {
         setCargadoPago(false);
         return;
       }
-      console.log("Total a pagar calculado:", res);
       setTotalAPagar(Number(res) || 0);
       setCargadoPago(true);
     };
@@ -606,10 +659,10 @@ const WizardConStepper = ({ initialLocation = null }) => {
       comisionesComercio,
       callback,
     );
-  }, [comisionesComercio, metodoPago, monedaFinalUI, pedidosRemesa]);
+  }, [comisionesComercio, metodoPago, monedaFinalUI, pedidosRemesa, visible]);
 
   useEffect(() => {
-    if (activeStep !== STEP_PAY || !metodoPago) return;
+    if (!visible || activeStep !== STEP_PAY || !metodoPago) return;
 
     setPreparingCheckout(true);
     Meteor.call("cancelarOrdenesPaypalIncompletas", userId, (cancelError) => {
@@ -676,6 +729,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
     pedidosRemesa,
     totalAPagar,
     userId,
+    visible,
   ]);
 
   const hideModal = () => setVisible(false);
@@ -869,16 +923,6 @@ const WizardConStepper = ({ initialLocation = null }) => {
     (metodoPago !== "efectivo" && !checkoutUrl) ||
     (metodoPago === "efectivo" && (totalAPagar <= 0 || !compra));
 
-  console.log("DEBUG - finishDisabled:", {
-    processing,
-    preparingCheckout,
-    seEstaPagando,
-    bloquearPagoPorComisiones,
-    cargadoPago,
-    metodoPago,
-    checkoutUrl,
-    totalAPagar,
-  });
   const renderPaymentWarnings = () => {
     if (!tieneComercio) return null;
 

@@ -20,12 +20,13 @@ import {
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import SubidaArchivos from "../archivos/SubidaArchivos.native";
 import {
     EvidenciasVentasEfectivoCollection,
     VentasRechargeCollection,
 } from "../collections/collections";
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { chipTextColorEstado } from "../shared/saleDetailDialog.utils";
 
 const Meteor =
@@ -42,12 +43,10 @@ const PROXY_VPN_VENTA_FIELDS = {
   isCobrado: 1,
   metodoPago: 1,
   monedaCobrado: 1,
-  "producto.carritos._id": 1,
-  "producto.carritos.cobrarUSD": 1,
-  "producto.carritos.comentario": 1,
-  "producto.carritos.entregado": 1,
-  "producto.carritos.megas": 1,
-  "producto.carritos.type": 1,
+  carrito: 1,
+  "producto.carrito": 1,
+  "producto.carritos": 1,
+  "producto.type": 1,
 };
 
 const PROXY_VPN_EVIDENCIA_FIELDS = {
@@ -84,6 +83,66 @@ const chipColorEstado = (estado) => {
       return "#dc3545";
     default:
       return "#6c757d";
+  }
+};
+
+const getTableStatusTone = (estado, isDarkMode) => {
+  switch (estado) {
+    case "ENTREGADO":
+      return {
+        backgroundColor: isDarkMode
+          ? "rgba(34, 197, 94, 0.16)"
+          : "rgba(236, 253, 245, 0.92)",
+        borderColor: isDarkMode
+          ? "rgba(74, 222, 128, 0.32)"
+          : "rgba(16, 185, 129, 0.28)",
+        dotColor: "#22c55e",
+        textColor: isDarkMode ? "#bbf7d0" : "#047857",
+      };
+    case "CANCELADO":
+      return {
+        backgroundColor: isDarkMode
+          ? "rgba(248, 113, 113, 0.15)"
+          : "rgba(254, 242, 242, 0.94)",
+        borderColor: isDarkMode
+          ? "rgba(248, 113, 113, 0.3)"
+          : "rgba(248, 113, 113, 0.28)",
+        dotColor: "#ef4444",
+        textColor: isDarkMode ? "#fecaca" : "#b91c1c",
+      };
+    case "PENDIENTE_PAGO":
+      return {
+        backgroundColor: isDarkMode
+          ? "rgba(251, 146, 60, 0.16)"
+          : "rgba(255, 247, 237, 0.92)",
+        borderColor: isDarkMode
+          ? "rgba(251, 146, 60, 0.3)"
+          : "rgba(251, 146, 60, 0.28)",
+        dotColor: "#f97316",
+        textColor: isDarkMode ? "#fed7aa" : "#c2410c",
+      };
+    case "PENDIENTE_ENTREGA":
+      return {
+        backgroundColor: isDarkMode
+          ? "rgba(250, 204, 21, 0.14)"
+          : "rgba(254, 252, 232, 0.92)",
+        borderColor: isDarkMode
+          ? "rgba(250, 204, 21, 0.28)"
+          : "rgba(234, 179, 8, 0.24)",
+        dotColor: "#eab308",
+        textColor: isDarkMode ? "#fef08a" : "#854d0e",
+      };
+    default:
+      return {
+        backgroundColor: isDarkMode
+          ? "rgba(148, 163, 184, 0.14)"
+          : "rgba(248, 250, 252, 0.92)",
+        borderColor: isDarkMode
+          ? "rgba(148, 163, 184, 0.24)"
+          : "rgba(148, 163, 184, 0.22)",
+        dotColor: "#94a3b8",
+        textColor: isDarkMode ? "#cbd5e1" : "#475569",
+      };
   }
 };
 
@@ -125,18 +184,18 @@ const getTypeIcon = (type) => {
 };
 
 const getDialogPalette = (isDarkMode) => ({
-  accentSoft: isDarkMode ? "rgba(59, 130, 246, 0.18)" : "#eff6ff",
-  border: isDarkMode ? "rgba(148, 163, 184, 0.18)" : "rgba(15, 23, 42, 0.08)",
-  commentBg: isDarkMode ? "rgba(15, 23, 42, 0.76)" : "#f8fafc",
-  noteBg: isDarkMode ? "rgba(30, 41, 59, 0.76)" : "#f8fafc",
-  noteBorder: isDarkMode ? "rgba(148, 163, 184, 0.16)" : "#e2e8f0",
-  surface: isDarkMode ? "rgba(10, 16, 28, 0.9)" : "rgba(255, 255, 255, 0.92)",
-  surfaceAlt: isDarkMode ? "rgba(20, 27, 45, 0.92)" : "#ffffff",
+  accentSoft: isDarkMode ? "rgba(59, 130, 246, 0.2)" : "rgba(239, 246, 255, 0.44)",
+  border: isDarkMode ? "rgba(226, 232, 240, 0.14)" : "rgba(15, 23, 42, 0.1)",
+  commentBg: isDarkMode ? "rgba(15, 23, 42, 0.34)" : "rgba(248, 250, 252, 0.4)",
+  noteBg: isDarkMode ? "rgba(30, 41, 59, 0.34)" : "rgba(248, 250, 252, 0.4)",
+  noteBorder: isDarkMode ? "rgba(226, 232, 240, 0.14)" : "rgba(15, 23, 42, 0.1)",
+  surface: isDarkMode ? "rgba(10, 16, 28, 0.5)" : "rgba(255, 255, 255, 0.42)",
+  surfaceAlt: isDarkMode ? "rgba(20, 27, 45, 0.34)" : "rgba(255, 255, 255, 0.3)",
   textMuted: isDarkMode ? "#94a3b8" : "#64748b",
   textPrimary: isDarkMode ? "#f8fafc" : "#0f172a",
   textSecondary: isDarkMode ? "#cbd5e1" : "#475569",
-  warningBg: isDarkMode ? "rgba(120, 53, 15, 0.34)" : "#fff7ed",
-  warningBorder: isDarkMode ? "rgba(251, 146, 60, 0.28)" : "#fed7aa",
+  warningBg: isDarkMode ? "rgba(120, 53, 15, 0.22)" : "rgba(255, 247, 237, 0.42)",
+  warningBorder: isDarkMode ? "rgba(251, 146, 60, 0.3)" : "rgba(194, 65, 12, 0.14)",
   warningText: isDarkMode ? "#fdba74" : "#9a3412",
 });
 
@@ -145,19 +204,58 @@ const megasToGB = (megas) => {
   return `${(megas / 1024).toFixed(2)} GB`;
 };
 
-const getItemsCount = (venta) =>
-  venta?.producto?.carritos?.length || venta?.carrito?.length || 0;
-const getItemsArray = (venta) =>
-  (venta?.producto?.carritos || venta?.carrito || []).filter(
-    (carrito) => carrito.type === "PROXY" || carrito.type === "VPN",
+const PROXY_VPN_TYPES = new Set(["PROXY", "VPN"]);
+
+const getCartItemType = (carrito) =>
+  String(
+    carrito?.type ||
+      carrito?.tipo ||
+      carrito?.productType ||
+      carrito?.producto?.type ||
+      carrito?.producto?.tipo ||
+      "",
+  ).toUpperCase();
+
+const getRawCartItems = (venta) => {
+  const candidates = [
+    venta?.producto?.carritos,
+    venta?.carrito,
+    venta?.producto?.carrito,
+  ];
+  const items = candidates.find((candidate) => Array.isArray(candidate));
+  return items || [];
+};
+
+const getItemsArray = (venta) => {
+  const rawItems = getRawCartItems(venta);
+  const proxyVpnItems = rawItems.filter((carrito) =>
+    PROXY_VPN_TYPES.has(getCartItemType(carrito)),
   );
+
+  return proxyVpnItems.length > 0 ? proxyVpnItems : rawItems;
+};
+
+const getItemsCount = (venta) => getItemsArray(venta).length;
+
+const PROXY_VPN_SELECTOR = {
+  $or: [
+    { "producto.carritos.type": { $in: ["PROXY", "VPN"] } },
+    { "producto.carritos.producto.type": { $in: ["PROXY", "VPN"] } },
+    { "producto.carrito.type": { $in: ["PROXY", "VPN"] } },
+    { "producto.carrito.producto.type": { $in: ["PROXY", "VPN"] } },
+    { "producto.type": { $in: ["PROXY", "VPN"] } },
+  ],
+};
+
 const EMPTY_SELECTED_ITEMS = [];
 
 const TableProxyVPNHistory = () => {
   const { height, width } = useWindowDimensions();
   const isWide = width > height || width >= 768;
   const theme = useTheme();
+  const headerInset = useAppHeaderContentInset();
   const { top } = useSafeAreaInsets();
+  const modalTopPadding = Math.max(top - 8, 12);
   const dialogPalette = React.useMemo(
     () => getDialogPalette(theme.dark),
     [theme.dark],
@@ -180,9 +278,10 @@ const TableProxyVPNHistory = () => {
 
   const isAdmin = Meteor.user()?.profile?.role === "admin" || false;
   const isAdminPrincipal = Meteor.user()?.username === "carlosmbinf" || false;
+  const dataReady = useDeferredScreenData();
 
   const listIdSubordinados = Meteor.useTracker(() => {
-    if (!isAdmin) return [];
+    if (!dataReady || !isAdmin) return [];
     Meteor.subscribe(
       "user",
       { bloqueadoDesbloqueadoPor: Meteor.userId() },
@@ -192,22 +291,29 @@ const TableProxyVPNHistory = () => {
       .find({ bloqueadoDesbloqueadoPor: Meteor.userId() })
       .fetch()
       .map((element) => element._id);
-  }, [isAdmin]);
+  }, [dataReady, isAdmin]);
 
   const { loading, ventasArr } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { loading: true, ventasArr: [] };
+    }
+
     const query = isAdminPrincipal
-      ? { "producto.carritos.type": { $in: ["PROXY", "VPN"] } }
+      ? PROXY_VPN_SELECTOR
       : isAdmin
         ? {
-            "producto.carritos.type": { $in: ["PROXY", "VPN"] },
-            $or: [
-              { userId: Meteor.userId() },
-              { userId: { $in: listIdSubordinados } },
+            $and: [
+              PROXY_VPN_SELECTOR,
+              {
+                $or: [
+                  { userId: Meteor.userId() },
+                  { userId: { $in: listIdSubordinados } },
+                ],
+              },
             ],
           }
         : {
-            "producto.carritos.type": { $in: ["PROXY", "VPN"] },
-            userId: Meteor.userId(),
+            $and: [PROXY_VPN_SELECTOR, { userId: Meteor.userId() }],
           };
 
     const sub = Meteor.subscribe("ventasRecharge", query, {
@@ -221,7 +327,7 @@ const TableProxyVPNHistory = () => {
       loading: !sub.ready(),
       ventasArr: typeof ventas.fetch === "function" ? ventas.fetch() : [],
     };
-  }, [JSON.stringify(listIdSubordinados), isAdmin, isAdminPrincipal]);
+  }, [dataReady, JSON.stringify(listIdSubordinados), isAdmin, isAdminPrincipal]);
 
   const carritoIds = React.useMemo(() => {
     const ids = [];
@@ -234,7 +340,7 @@ const TableProxyVPNHistory = () => {
   }, [ventasArr]);
 
   Meteor.useTracker(() => {
-    if (!carritoIds.length) {
+    if (!dataReady || !carritoIds.length) {
       return { cargandoEvidencias: false, evidencias: [] };
     }
     const sub = Meteor.subscribe("evidenciasVentasEfectivoRecharge", {
@@ -250,7 +356,7 @@ const TableProxyVPNHistory = () => {
         fields: PROXY_VPN_EVIDENCIA_FIELDS,
       }).fetch(),
     };
-  }, [JSON.stringify(carritoIds)]);
+  }, [dataReady, JSON.stringify(carritoIds)]);
 
   const [ventaSel, setVentaSel] = React.useState(null);
   const [visible, setVisible] = React.useState(false);
@@ -282,17 +388,78 @@ const TableProxyVPNHistory = () => {
   };
   const selectedEstado = ventaSel ? deriveEstadoVenta(ventaSel) : null;
   const selectedItems = ventaSel ? getItemsArray(ventaSel) : EMPTY_SELECTED_ITEMS;
+  const shouldRequestEvidence =
+    ventaSel?.metodoPago === "EFECTIVO" &&
+    ventaSel?.isCobrado !== true &&
+    ventaSel?.isCancelada !== true;
+  const shouldShowEvidenceHistory =
+    ventaSel?.metodoPago === "EFECTIVO" && !shouldRequestEvidence;
 
   const getTipoPredominante = (venta) => {
     const carritos = getItemsArray(venta);
     if (!carritos.length) return "-";
-    const hasProxy = carritos.some((carrito) => carrito.type === "PROXY");
-    const hasVPN = carritos.some((carrito) => carrito.type === "VPN");
+    const hasProxy = carritos.some(
+      (carrito) => getCartItemType(carrito) === "PROXY",
+    );
+    const hasVPN = carritos.some(
+      (carrito) => getCartItemType(carrito) === "VPN",
+    );
     if (hasProxy && hasVPN) return "MIXTO";
     if (hasProxy) return "PROXY";
     if (hasVPN) return "VPN";
     return "-";
   };
+
+  const historySummary = React.useMemo(() => {
+    return ventasArr.reduce(
+      (acc, venta) => {
+        const estado = deriveEstadoVenta(venta);
+        acc.total += 1;
+
+        if (estado === "ENTREGADO") {
+          acc.pagadas += 1;
+        } else if (estado === "CANCELADO") {
+          acc.canceladas += 1;
+        } else {
+          acc.pendientes += 1;
+        }
+
+        return acc;
+      },
+      { canceladas: 0, pagadas: 0, pendientes: 0, total: 0 },
+    );
+  }, [ventasArr]);
+
+  const overviewMetrics = [
+    {
+      label: "Registros",
+      tone: theme.dark
+        ? "rgba(148, 163, 184, 0.14)"
+        : "rgba(248, 250, 252, 0.94)",
+      value: historySummary.total,
+    },
+    {
+      label: "Pagadas",
+      tone: theme.dark
+        ? "rgba(34, 197, 94, 0.14)"
+        : "rgba(236, 253, 245, 0.94)",
+      value: historySummary.pagadas,
+    },
+    {
+      label: "Canceladas",
+      tone: theme.dark
+        ? "rgba(248, 113, 113, 0.14)"
+        : "rgba(254, 242, 242, 0.94)",
+      value: historySummary.canceladas,
+    },
+    {
+      label: "Pendientes",
+      tone: theme.dark
+        ? "rgba(251, 146, 60, 0.14)"
+        : "rgba(255, 247, 237, 0.94)",
+      value: historySummary.pendientes,
+    },
+  ];
 
   return (
     <Surface style={styles.surface}>
@@ -300,14 +467,164 @@ const TableProxyVPNHistory = () => {
         title="Historial Proxy/VPN"
         subtitle="Compras, estados y evidencias"
         backHref="/(normal)/Main"
+        overlapContent
         showBackButton
       />
-      <ScrollView style={styles.container} scrollEnabled>
-        <Text variant="headlineMedium" style={styles.title}>
-          📊 Historial Proxy/VPN
-        </Text>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[
+          styles.containerContent,
+          { paddingTop: headerInset + 14 },
+        ]}
+        scrollEnabled
+      >
+        <View
+          style={[
+            styles.overviewCard,
+            {
+              backgroundColor: dialogPalette.surface,
+              borderColor: dialogPalette.border,
+            },
+          ]}
+        >
+          <View style={styles.overviewHeader}>
+            <View style={styles.overviewCopy}>
+              <Text
+                style={[
+                  styles.overviewEyebrow,
+                  { color: dialogPalette.textMuted },
+                ]}
+              >
+                Resumen operativo
+              </Text>
+              <Text
+                style={[
+                  styles.overviewTitle,
+                  { color: dialogPalette.textPrimary },
+                ]}
+              >
+                Compras Proxy y VPN
+              </Text>
+              <Text
+                style={[
+                  styles.overviewSubtitle,
+                  { color: dialogPalette.textSecondary },
+                ]}
+              >
+                Revisa estados, pagos y accesos al detalle con una lectura más
+                limpia desde el primer vistazo.
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.overviewBadge,
+                {
+                  backgroundColor: dialogPalette.surfaceAlt,
+                  borderColor: dialogPalette.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.overviewBadgeValue,
+                  { color: dialogPalette.textPrimary },
+                ]}
+              >
+                {historySummary.total}
+              </Text>
+              <Text
+                style={[
+                  styles.overviewBadgeLabel,
+                  { color: dialogPalette.textMuted },
+                ]}
+              >
+                movimientos
+              </Text>
+            </View>
+          </View>
 
-        <DataTable>
+          <View style={styles.overviewMetricsRow}>
+            {overviewMetrics.map((metric) => (
+              <View
+                key={metric.label}
+                style={[
+                  styles.overviewMetric,
+                  {
+                    backgroundColor: metric.tone,
+                    borderColor: dialogPalette.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.overviewMetricLabel,
+                    { color: dialogPalette.textMuted },
+                  ]}
+                >
+                  {metric.label}
+                </Text>
+                <Text
+                  style={[
+                    styles.overviewMetricValue,
+                    { color: dialogPalette.textPrimary },
+                  ]}
+                >
+                  {metric.value}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View
+          style={[
+            styles.tableShell,
+            {
+              backgroundColor: dialogPalette.surface,
+              borderColor: dialogPalette.border,
+            },
+          ]}
+        >
+          <View style={styles.tableHeaderRow}>
+            <View style={styles.tableHeaderCopy}>
+              <Text
+                style={[
+                  styles.tableEyebrow,
+                  { color: dialogPalette.textMuted },
+                ]}
+              >
+                Historial
+              </Text>
+              <Text
+                style={[
+                  styles.tableTitle,
+                  { color: dialogPalette.textPrimary },
+                ]}
+              >
+                Registros recientes
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.tableHeaderBadge,
+                {
+                  backgroundColor: dialogPalette.surfaceAlt,
+                  borderColor: dialogPalette.border,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.tableHeaderBadgeText,
+                  { color: dialogPalette.textSecondary },
+                ]}
+              >
+                {loading ? "Actualizando" : `${ventasArr.length} filas`}
+              </Text>
+            </View>
+          </View>
+
+          <DataTable>
           <DataTable.Header>
             <DataTable.Title style={{ flex: flexes.fecha }}>
               Fecha
@@ -356,6 +673,10 @@ const TableProxyVPNHistory = () => {
               const cobrado = money(row?.cobrado, row?.monedaCobrado);
               const items = getItemsCount(row);
               const estadoDerivado = deriveEstadoVenta(row);
+              const tableStatusTone = getTableStatusTone(
+                estadoDerivado,
+                theme.dark,
+              );
 
               return (
                 <DataTable.Row key={row?._id || index}>
@@ -374,16 +695,32 @@ const TableProxyVPNHistory = () => {
                       </Chip>
                     </DataTable.Cell>
                   ) : null}
-                  <DataTable.Cell style={{ flex: flexes.estado }}>
-                    <Chip
-                      compact={!isWide}
+                  <DataTable.Cell
+                    style={[styles.tableStatusCell, { flex: flexes.estado }]}
+                  >
+                    <View
                       style={{
-                        backgroundColor: chipColorEstado(estadoDerivado),
+                        ...styles.tableStatusPill,
+                        backgroundColor: tableStatusTone.backgroundColor,
+                        borderColor: tableStatusTone.borderColor,
                       }}
-                      textStyle={styles.estadoChipTableText}
                     >
-                      {estadoLabel(estadoDerivado)}
-                    </Chip>
+                      <View
+                        style={[
+                          styles.tableStatusDot,
+                          { backgroundColor: tableStatusTone.dotColor },
+                        ]}
+                      />
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.tableStatusText,
+                          { color: tableStatusTone.textColor },
+                        ]}
+                      >
+                        {estadoLabel(estadoDerivado)}
+                      </Text>
+                    </View>
                   </DataTable.Cell>
                   {isWide ? (
                     <DataTable.Cell numeric style={{ flex: flexes.cobrado }}>
@@ -407,7 +744,8 @@ const TableProxyVPNHistory = () => {
               );
             })
           )}
-        </DataTable>
+          </DataTable>
+        </View>
 
         <Portal>
           <Modal
@@ -416,7 +754,7 @@ const TableProxyVPNHistory = () => {
             style={styles.modalWrapper}
             contentContainerStyle={[
               styles.modalContainer,
-              { paddingTop: Math.max(top, 16) },
+              { paddingTop: modalTopPadding },
             ]}
           >
             <BlurView
@@ -430,8 +768,8 @@ const TableProxyVPNHistory = () => {
                 styles.modalBackdrop,
                 {
                   backgroundColor: theme.dark
-                    ? "rgba(5, 11, 24, 0.44)"
-                    : "rgba(248, 250, 252, 0.24)",
+                    ? "rgba(5, 11, 24, 0.28)"
+                    : "rgba(248, 250, 252, 0.12)",
                 },
               ]}
             />
@@ -447,7 +785,94 @@ const TableProxyVPNHistory = () => {
               >
                 {ventaSel ? (
                   <View style={styles.ventaDetailContainer}>
-                    <Surface
+                    {shouldRequestEvidence ? (
+                      <View
+                        style={[
+                          styles.uploadBox,
+                          {
+                            backgroundColor: dialogPalette.warningBg,
+                            borderColor: dialogPalette.warningBorder,
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.evidenceRail,
+                            { backgroundColor: dialogPalette.warningText },
+                          ]}
+                        />
+                        <View style={styles.evidenceHeader}>
+                          <View
+                            style={[
+                              styles.evidenceIcon,
+                              {
+                                backgroundColor: theme.dark
+                                  ? "rgba(251, 146, 60, 0.16)"
+                                  : "rgba(251, 146, 60, 0.12)",
+                                borderColor: dialogPalette.warningBorder,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.evidenceIconText,
+                                { color: dialogPalette.warningText },
+                              ]}
+                            >
+                              !
+                            </Text>
+                          </View>
+                          <View style={styles.evidenceCopy}>
+                            <Text
+                              style={[
+                                styles.warningEyebrow,
+                                { color: dialogPalette.warningText },
+                              ]}
+                            >
+                              Evidencia requerida
+                            </Text>
+                            <Text
+                              style={[
+                                styles.evidenceTitle,
+                                { color: dialogPalette.textPrimary },
+                              ]}
+                            >
+                              Confirma el pago antes de activar
+                            </Text>
+                          </View>
+                          <View
+                            style={[
+                              styles.evidenceBadge,
+                              {
+                                backgroundColor: dialogPalette.surfaceAlt,
+                                borderColor: dialogPalette.warningBorder,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.evidenceBadgeText,
+                                { color: dialogPalette.warningText },
+                              ]}
+                            >
+                              Pago
+                            </Text>
+                          </View>
+                        </View>
+                        <Text
+                          style={[
+                            styles.uploadText,
+                            { color: dialogPalette.warningText },
+                          ]}
+                        >
+                          Debe subir evidencia para corroborar el pago y
+                          autorizar la activación.
+                        </Text>
+                        <SubidaArchivos venta={ventaSel} />
+                      </View>
+                    ) : null}
+
+                    <View
                       style={[
                         styles.summaryCard,
                         {
@@ -505,7 +930,7 @@ const TableProxyVPNHistory = () => {
                       </View>
 
                       <View style={styles.summaryGrid}>
-                        <Surface
+                        <View
                           style={[
                             styles.summaryMetricCard,
                             {
@@ -530,8 +955,8 @@ const TableProxyVPNHistory = () => {
                           >
                             {formatFecha(ventaSel.createdAt)}
                           </Text>
-                        </Surface>
-                        <Surface
+                        </View>
+                        <View
                           style={[
                             styles.summaryMetricCard,
                             {
@@ -556,8 +981,8 @@ const TableProxyVPNHistory = () => {
                           >
                             {ventaSel.metodoPago || "-"}
                           </Text>
-                        </Surface>
-                        <Surface
+                        </View>
+                        <View
                           style={[
                             styles.summaryMetricCard,
                             {
@@ -582,9 +1007,9 @@ const TableProxyVPNHistory = () => {
                           >
                             {selectedItems.length}
                           </Text>
-                        </Surface>
+                        </View>
                       </View>
-                    </Surface>
+                    </View>
 
                     <View style={styles.sectionHeadingRow}>
                       <View
@@ -617,7 +1042,7 @@ const TableProxyVPNHistory = () => {
                     </View>
 
                     {selectedItems.length === 0 ? (
-                      <Surface
+                      <View
                         style={[
                           styles.warningBox,
                           {
@@ -634,10 +1059,22 @@ const TableProxyVPNHistory = () => {
                         >
                           ⚠️ Sin paquetes registrados
                         </Text>
-                      </Surface>
+                      </View>
                     ) : (
                       selectedItems.map((item, index) => {
-                        const typeColor = getTypeColor(item.type);
+                        const rawItemType =
+                          getCartItemType(item) ||
+                          String(ventaSel?.producto?.type || "").toUpperCase();
+                        const itemType = PROXY_VPN_TYPES.has(rawItemType)
+                          ? rawItemType
+                          : "PAQUETE";
+                        const itemLabel =
+                          itemType === "VPN"
+                            ? "Paquete VPN"
+                            : itemType === "PROXY"
+                              ? "Paquete Proxy"
+                              : "Paquete Proxy/VPN";
+                        const typeColor = getTypeColor(itemType);
                         const isEntregado = item.entregado === true;
                         const statusTone = isEntregado
                           ? {
@@ -659,7 +1096,7 @@ const TableProxyVPNHistory = () => {
                               textColor: theme.dark ? "#fde68a" : "#92400e",
                             };
                         return (
-                          <Surface
+                          <View
                             key={item._id || index}
                             style={[
                               styles.packageCard,
@@ -684,7 +1121,7 @@ const TableProxyVPNHistory = () => {
                                     { color: dialogPalette.textPrimary },
                                   ]}
                                 >
-                                  {item?.nombre || "Sin cliente especificado"}
+                                  {item?.nombre || itemLabel}
                                 </Text>
                                 <Text
                                   style={[
@@ -692,22 +1129,24 @@ const TableProxyVPNHistory = () => {
                                     { color: dialogPalette.textSecondary },
                                   ]}
                                 >
-                                  {item.type === "PROXY"
-                                    ? "Servicio proxy listo para activación"
-                                    : "Servicio VPN listo para activación"}
+                                  {itemType === "VPN"
+                                    ? "Servicio VPN listo para activación"
+                                    : itemType === "PROXY"
+                                      ? "Servicio proxy listo para activación"
+                                      : "Servicio listo para activación"}
                                 </Text>
                               </View>
                               <View style={styles.itemCardHeaderActions}>
                                 <Chip
                                   compact
-                                  icon={getTypeIcon(item.type)}
+                                  icon={getTypeIcon(itemType)}
                                   style={[
                                     styles.typeChip,
                                     { backgroundColor: typeColor },
                                   ]}
                                   textStyle={styles.typeChipText}
                                 >
-                                  {item.type}
+                                  {itemType}
                                 </Chip>
                                 <Chip
                                   compact
@@ -731,10 +1170,6 @@ const TableProxyVPNHistory = () => {
                             <View style={styles.itemInfoGrid}>
                               {[
                                 {
-                                  label: "ID del paquete",
-                                  value: item._id || "N/A",
-                                },
-                                {
                                   label: "Cliente",
                                   value: item?.nombre || "Sin especificar",
                                 },
@@ -747,7 +1182,7 @@ const TableProxyVPNHistory = () => {
                                   value: money(item.cobrarUSD, "CUP"),
                                 },
                               ].map((detail) => (
-                                <Surface
+                                <View
                                   key={`${item._id || index}-${detail.label}`}
                                   style={[
                                     styles.itemInfoCard,
@@ -773,11 +1208,11 @@ const TableProxyVPNHistory = () => {
                                   >
                                     {detail.value}
                                   </Text>
-                                </Surface>
+                                </View>
                               ))}
                             </View>
 
-                            <Surface
+                            <View
                               style={[
                                 styles.statusCard,
                                 {
@@ -802,10 +1237,10 @@ const TableProxyVPNHistory = () => {
                               >
                                 Entregado: {isEntregado ? "Sí" : "No"}
                               </Text>
-                            </Surface>
+                            </View>
 
                             {item?.comentario ? (
-                              <Surface
+                              <View
                                 style={[
                                   styles.commentBox,
                                   {
@@ -830,46 +1265,51 @@ const TableProxyVPNHistory = () => {
                                 >
                                   💬 {item.comentario}
                                 </Text>
-                              </Surface>
+                              </View>
                             ) : null}
-                          </Surface>
+                          </View>
                         );
                       })
                     )}
 
-                    {ventaSel?.metodoPago === "EFECTIVO" ? (
-                      <Surface
-                        style={[
-                          styles.uploadBox,
-                          {
-                            backgroundColor: dialogPalette.warningBg,
-                            borderColor: dialogPalette.warningBorder,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.warningEyebrow,
-                            { color: dialogPalette.warningText },
-                          ]}
-                        >
-                          Evidencia requerida
-                        </Text>
-                        <Text
-                          style={[
-                            styles.uploadText,
-                            { color: dialogPalette.warningText },
-                          ]}
-                        >
-                          Debe subir evidencia para corroborar el pago y
-                          autorizar la activación.
-                        </Text>
+                    {shouldShowEvidenceHistory ? (
+                      <>
+                        <View style={styles.sectionHeadingRow}>
+                          <View
+                            style={[
+                              styles.sectionHeadingIcon,
+                              { backgroundColor: dialogPalette.accentSoft },
+                            ]}
+                          >
+                            <Text style={styles.sectionHeadingEmoji}>🧾</Text>
+                          </View>
+                          <View style={styles.sectionHeadingCopy}>
+                            <Text
+                              style={[
+                                styles.sectionHeadingTitle,
+                                { color: dialogPalette.textPrimary },
+                              ]}
+                            >
+                              Evidencia del pago
+                            </Text>
+                            <Text
+                              style={[
+                                styles.sectionHeadingSubtitle,
+                                { color: dialogPalette.textSecondary },
+                              ]}
+                            >
+                              Consulta la imagen subida para esta venta en
+                              efectivo sin habilitar nuevas cargas.
+                            </Text>
+                          </View>
+                        </View>
                         <SubidaArchivos venta={ventaSel} />
-                      </Surface>
+                      </>
                     ) : null}
+
                   </View>
                 ) : (
-                  <Surface
+                  <View
                     style={[
                       styles.errorBox,
                       {
@@ -881,7 +1321,7 @@ const TableProxyVPNHistory = () => {
                     <Text style={styles.errorText}>
                       ❌ Sin datos disponibles
                     </Text>
-                  </Surface>
+                  </View>
                 )}
               </ScrollView>
             </View>
@@ -894,8 +1334,128 @@ const TableProxyVPNHistory = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  containerContent: {
+    paddingBottom: 24,
+    paddingHorizontal: 12,
+    paddingTop: 14,
+  },
   surface: { height: "100%" },
-  title: { fontWeight: "bold", marginBottom: 16, textAlign: "center" },
+  overviewCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    marginBottom: 14,
+    padding: 18,
+  },
+  overviewHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+  },
+  overviewCopy: {
+    flex: 1,
+    gap: 6,
+  },
+  overviewEyebrow: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  overviewTitle: {
+    fontSize: 22,
+    fontWeight: "900",
+    lineHeight: 28,
+  },
+  overviewSubtitle: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  overviewBadge: {
+    alignItems: "center",
+    borderRadius: 20,
+    borderWidth: 1,
+    minWidth: 92,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  overviewBadgeValue: {
+    fontSize: 24,
+    fontWeight: "900",
+    lineHeight: 28,
+  },
+  overviewBadgeLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+    textAlign: "center",
+  },
+  overviewMetricsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 16,
+  },
+  overviewMetric: {
+    borderRadius: 18,
+    borderWidth: 1,
+    flexGrow: 1,
+    minWidth: 132,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+  },
+  overviewMetricLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+    marginBottom: 6,
+    textTransform: "uppercase",
+  },
+  overviewMetricValue: {
+    fontSize: 18,
+    fontWeight: "900",
+    lineHeight: 22,
+  },
+  tableShell: {
+    borderRadius: 24,
+    borderWidth: 1,
+    overflow: "hidden",
+    paddingHorizontal: 14,
+    paddingTop: 14,
+  },
+  tableHeaderRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  tableHeaderCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  tableEyebrow: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  tableTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    lineHeight: 22,
+  },
+  tableHeaderBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  tableHeaderBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+  },
   emptyState: {
     alignItems: "center",
     backgroundColor: "#e9ecef",
@@ -903,8 +1463,32 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   emptyText: { color: "#6c757d", fontSize: 14, textAlign: "center" },
-  estadoChipTableText: { color: "white" },
   zeroMargin: { margin: 0 },
+  tableStatusCell: {
+    alignItems: "flex-start",
+    justifyContent: "center",
+  },
+  tableStatusPill: {
+    alignItems: "center",
+    alignSelf: "center",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 7,
+    minHeight: 30,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+  },
+  tableStatusDot: {
+    borderRadius: 999,
+    height: 7,
+    width: 7,
+  },
+  tableStatusText: {
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.2,
+  },
   modalBackdrop: { ...StyleSheet.absoluteFillObject },
   modalContainer: {
     flex: 1,
@@ -922,7 +1506,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 28,
+    paddingTop: 6,
   },
   dialogTitleText: { fontSize: 20, fontWeight: "800" },
   dialogBody: {
@@ -1008,10 +1592,11 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderRadius: 24,
     borderWidth: 1,
-    elevation: 1,
+    elevation: 0,
     marginBottom: 14,
     overflow: "hidden",
     padding: 16,
+    shadowOpacity: 0,
   },
   itemCardHeader: {
     alignItems: "flex-start",
@@ -1093,24 +1678,71 @@ const styles = StyleSheet.create({
   },
   commentText: { fontSize: 13, fontStyle: "italic", lineHeight: 19 },
   uploadBox: {
-    borderRadius: 24,
+    borderRadius: 32,
     borderWidth: 1,
-    marginBottom: 8,
-    padding: 16,
+    gap: 14,
+    overflow: "hidden",
+    padding: 18,
+    position: "relative",
+  },
+  evidenceRail: {
+    borderRadius: 999,
+    bottom: 18,
+    left: 0,
+    opacity: 0.86,
+    position: "absolute",
+    top: 18,
+    width: 4,
+  },
+  evidenceHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+  },
+  evidenceIcon: {
+    alignItems: "center",
+    borderRadius: 18,
+    borderWidth: 1,
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
+  evidenceIconText: {
+    fontSize: 20,
+    fontWeight: "900",
+    lineHeight: 22,
+  },
+  evidenceCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  evidenceTitle: {
+    fontSize: 17,
+    fontWeight: "900",
+    lineHeight: 21,
+  },
+  evidenceBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  evidenceBadgeText: {
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
   },
   warningEyebrow: {
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0.8,
-    marginBottom: 6,
     textTransform: "uppercase",
   },
   uploadText: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "700",
     lineHeight: 19,
-    marginBottom: 12,
-    textAlign: "center",
   },
   errorBox: {
     borderRadius: 20,

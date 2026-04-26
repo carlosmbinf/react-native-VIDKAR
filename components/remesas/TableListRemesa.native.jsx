@@ -8,18 +8,17 @@ import {
     View,
 } from "react-native";
 import {
-    Button,
     Chip,
     DataTable,
-    Dialog,
     Divider,
     IconButton,
-    Portal,
     Surface,
     Text,
 } from "react-native-paper";
 
+import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { VentasRechargeCollection } from "../collections/collections";
+import DrawerBottom from "../drawer/DrawerBottom.native";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -134,9 +133,10 @@ const TableListRemesa = () => {
 
   const isAdmin = Meteor.user()?.profile?.role === "admin" || false;
   const isAdminPrincipal = Meteor.user()?.username === "carlosmbinf" || false;
+  const dataReady = useDeferredScreenData();
 
   const listIdSubordinados = Meteor.useTracker(() => {
-    if (!isAdmin) return [];
+    if (!dataReady || !isAdmin) return [];
     Meteor.subscribe(
       "user",
       { bloqueadoDesbloqueadoPor: Meteor.userId() },
@@ -146,9 +146,13 @@ const TableListRemesa = () => {
       .find({ bloqueadoDesbloqueadoPor: Meteor.userId() })
       .fetch()
       .map((element) => element._id);
-  }, [Meteor.userId()]);
+  }, [dataReady, isAdmin, Meteor.userId()]);
 
   const { loading, ventas } = Meteor.useTracker(() => {
+    if (!dataReady) {
+      return { loading: true, ventas: [] };
+    }
+
     const sub = Meteor.subscribe(
       "ventasRecharge",
       {
@@ -175,7 +179,7 @@ const TableListRemesa = () => {
       sort: { createdAt: -1 },
     });
     return { loading: !sub.ready(), ventas: docs.fetch() };
-  }, [JSON.stringify(listIdSubordinados), isAdmin, isAdminPrincipal]);
+  }, [dataReady, JSON.stringify(listIdSubordinados), isAdmin, isAdminPrincipal]);
 
   const [ventaSel, setVentaSel] = React.useState(null);
   const [visible, setVisible] = React.useState(false);
@@ -193,8 +197,7 @@ const TableListRemesa = () => {
   const formatFecha = (date) => (date ? new Date(date).toLocaleString() : "-");
   const money = (value, moneda) => `${value ?? 0} ${moneda ?? ""}`.trim();
 
-  const maxDialogHeight = Math.floor(height * 0.9);
-  const maxScrollHeight = Math.max(200, maxDialogHeight - 140);
+  const maxScrollHeight = Math.max(240, Math.floor(height * 0.68));
 
   return (
     <ScrollView style={styles.container}>
@@ -293,213 +296,194 @@ const TableListRemesa = () => {
           )}
         </DataTable>
 
-        <Portal>
-          <Dialog
-            visible={visible}
-            onDismiss={closeDialog}
-            style={{ maxHeight: maxDialogHeight }}
+        <DrawerBottom
+          open={visible}
+          onClose={closeDialog}
+          overlayOpacity={0.34}
+          title="Detalles de la Venta"
+        >
+          <ScrollView
+            style={[styles.drawerScroll, { maxHeight: maxScrollHeight }]}
+            contentContainerStyle={styles.drawerScrollContent}
+            keyboardShouldPersistTaps="handled"
+            refreshControl={
+              <RefreshControl refreshing={false} onRefresh={() => {}} />
+            }
           >
-            <Dialog.Content>
-              <ScrollView
-                style={{ maxHeight: maxScrollHeight }}
-                contentContainerStyle={{ paddingBottom: 8 }}
-                keyboardShouldPersistTaps="handled"
-                refreshControl={
-                  <RefreshControl refreshing={false} onRefresh={() => {}} />
-                }
-              >
-                {ventaSel ? (
-                  <View style={styles.dialogContent}>
-                    <View style={styles.topBlock}>
-                      <Text style={styles.line}>
-                        <Text style={styles.bold}>ID de la Venta: </Text>
-                        {ventaSel._id}
-                      </Text>
-                      <Divider style={styles.bottomDivider} />
-                      <Text style={styles.line}>
-                        📅 <Text style={styles.bold}>Fecha:</Text>{" "}
-                        {formatFecha(ventaSel.createdAt)}
-                      </Text>
-                      <Text style={styles.line}>
-                        💳 <Text style={styles.bold}>Método de pago:</Text>{" "}
-                        {ventaSel.metodoPago || "-"}
-                      </Text>
-                      <View style={styles.estadoRow}>
-                        <Text style={styles.line}>
-                          📊 <Text style={styles.bold}>Estado:</Text>
+            {ventaSel ? (
+              <View style={styles.dialogContent}>
+                <View style={styles.topBlock}>
+                  <Text style={styles.line}>
+                    <Text style={styles.bold}>ID de la Venta: </Text>
+                    {ventaSel._id}
+                  </Text>
+                  <Divider style={styles.bottomDivider} />
+                  <Text style={styles.line}>
+                    📅 <Text style={styles.bold}>Fecha:</Text>{" "}
+                    {formatFecha(ventaSel.createdAt)}
+                  </Text>
+                  <Text style={styles.line}>
+                    💳 <Text style={styles.bold}>Método de pago:</Text>{" "}
+                    {ventaSel.metodoPago || "-"}
+                  </Text>
+                  <View style={styles.estadoRow}>
+                    <Text style={styles.line}>
+                      📊 <Text style={styles.bold}>Estado:</Text>
+                    </Text>
+                    <Chip
+                      compact
+                      style={[
+                        styles.estadoDialogChip,
+                        {
+                          backgroundColor: chipColorEstado(
+                            deriveEstadoVenta(ventaSel),
+                          ),
+                        },
+                      ]}
+                      textStyle={styles.estadoDialogText}
+                    >
+                      {estadoLabel(deriveEstadoVenta(ventaSel))}
+                    </Chip>
+                  </View>
+                  <Text style={styles.line}>
+                    💰 <Text style={styles.bold}>Cobrado:</Text>{" "}
+                    {money(ventaSel.cobrado, ventaSel.monedaCobrado)}
+                  </Text>
+                  <Text style={styles.line}>
+                    💸 <Text style={styles.bold}>Enviado:</Text>{" "}
+                    {money(
+                      ventaSel.precioOficial,
+                      ventaSel.monedaPrecioOficial,
+                    )}
+                  </Text>
+                </View>
+
+                <Divider />
+
+                <Text variant="titleMedium" style={styles.itemsTitle}>
+                  {`💰 Cantidad de Remesas (${getItemsArray(ventaSel).length})`}
+                </Text>
+
+                {getItemsArray(ventaSel).length === 0 ? (
+                  <Surface style={styles.warningBox}>
+                    <Text style={styles.warningText}>
+                      ⚠️ Sin remesas registradas
+                    </Text>
+                  </Surface>
+                ) : (
+                  getItemsArray(ventaSel).map((item, index) => {
+                    const isCompleted = item?.entregado === true;
+                    return (
+                      <Surface
+                        key={item._id || index}
+                        style={[
+                          styles.itemCard,
+                          {
+                            borderLeftColor: isCompleted
+                              ? "#28a745"
+                              : "#ffc107",
+                          },
+                        ]}
+                      >
+                        <Text style={styles.itemTitle}>
+                          💰 Remesa #{index + 1}
                         </Text>
-                        <Chip
-                          compact
+                        <Text style={styles.itemLine}>
+                          👤 <Text style={styles.bold}>Beneficiario:</Text>{" "}
+                          {item?.nombre || "Sin especificar"}
+                        </Text>
+                        <Text style={styles.itemLine}>
+                          💳 <Text style={styles.bold}>Tarjeta CUP:</Text>{" "}
+                          {item?.tarjetaCUP || "Sin especificar"}
+                        </Text>
+                        <Text style={styles.itemLine}>
+                          💰 <Text style={styles.bold}>Monto a entregar:</Text>{" "}
+                          {money(
+                            item?.recibirEnCuba,
+                            item?.monedaRecibirEnCuba,
+                          )}
+                        </Text>
+                        <Text style={styles.itemLine}>
+                          💸 <Text style={styles.bold}>Precio USD:</Text>{" "}
+                          {money(item?.precioDolar, "USD")}
+                        </Text>
+                        {item?.direccionCuba ? (
+                          <Text style={styles.itemLine}>
+                            📍 <Text style={styles.bold}>Dirección:</Text>{" "}
+                            {item.direccionCuba}
+                          </Text>
+                        ) : null}
+                        <Surface
                           style={[
-                            styles.estadoDialogChip,
+                            styles.stateCard,
                             {
-                              backgroundColor: chipColorEstado(
-                                deriveEstadoVenta(ventaSel),
-                              ),
+                              backgroundColor: isCompleted
+                                ? "#d4edda"
+                                : "#fff3cd",
                             },
                           ]}
-                          textStyle={styles.estadoDialogText}
                         >
-                          {estadoLabel(deriveEstadoVenta(ventaSel))}
-                        </Chip>
-                      </View>
-                      <Text style={styles.line}>
-                        💰 <Text style={styles.bold}>Cobrado:</Text>{" "}
-                        {money(ventaSel.cobrado, ventaSel.monedaCobrado)}
-                      </Text>
-                      <Text style={styles.line}>
-                        💸 <Text style={styles.bold}>Enviado:</Text>{" "}
-                        {money(
-                          ventaSel.precioOficial,
-                          ventaSel.monedaPrecioOficial,
-                        )}
-                      </Text>
-                    </View>
-
-                    <Divider />
-
-                    <Text variant="titleMedium" style={styles.itemsTitle}>
-                      {`💰 Cantidad de Remesas (${getItemsArray(ventaSel).length})`}
-                    </Text>
-
-                    {getItemsArray(ventaSel).length === 0 ? (
-                      <Surface style={styles.warningBox}>
-                        <Text style={styles.warningText}>
-                          ⚠️ Sin remesas registradas
-                        </Text>
-                      </Surface>
-                    ) : (
-                      getItemsArray(ventaSel).map((item, index) => {
-                        const isCompleted = item?.entregado === true;
-                        return (
-                          <Surface
-                            key={item._id || index}
+                          <Text
                             style={[
-                              styles.itemCard,
+                              styles.stateTitle,
                               {
-                                borderLeftColor: isCompleted
-                                  ? "#28a745"
-                                  : "#ffc107",
+                                color: isCompleted ? "#155724" : "#856404",
                               },
                             ]}
                           >
-                            <Text style={styles.itemTitle}>
-                              💰 Remesa #{index + 1}
+                            {isCompleted ? "✅" : "⏳"} Estado de la Remesa
+                          </Text>
+                          <Text
+                            style={{
+                              color: isCompleted ? "#155724" : "#856404",
+                            }}
+                          >
+                            Entregado: {isCompleted ? "Sí" : "No"}
+                          </Text>
+                        </Surface>
+                        {item?.metodoPago ? (
+                          <Chip
+                            compact
+                            style={styles.paymentChip}
+                            textStyle={styles.whiteChipText}
+                            icon="credit-card"
+                          >
+                            {item.metodoPago}
+                          </Chip>
+                        ) : null}
+                        {item?.comentario ? (
+                          <Surface style={styles.commentBox}>
+                            <Text style={styles.commentText}>
+                              💬 {item.comentario}
                             </Text>
-                            <Text style={styles.itemLine}>
-                              👤 <Text style={styles.bold}>Beneficiario:</Text>{" "}
-                              {item?.nombre || "Sin especificar"}
-                            </Text>
-                            <Text style={styles.itemLine}>
-                              💳 <Text style={styles.bold}>Tarjeta CUP:</Text>{" "}
-                              {item?.tarjetaCUP || "Sin especificar"}
-                            </Text>
-                            <Text style={styles.itemLine}>
-                              💰{" "}
-                              <Text style={styles.bold}>Monto a entregar:</Text>{" "}
-                              {money(
-                                item?.recibirEnCuba,
-                                item?.monedaRecibirEnCuba,
-                              )}
-                            </Text>
-                            <Text style={styles.itemLine}>
-                              💸 <Text style={styles.bold}>Precio USD:</Text>{" "}
-                              {money(item?.precioDolar, "USD")}
-                            </Text>
-                            {item?.direccionCuba ? (
-                              <Text style={styles.itemLine}>
-                                📍 <Text style={styles.bold}>Dirección:</Text>{" "}
-                                {item.direccionCuba}
-                              </Text>
-                            ) : null}
-                            <Surface
-                              style={[
-                                styles.stateCard,
-                                {
-                                  backgroundColor: isCompleted
-                                    ? "#d4edda"
-                                    : "#fff3cd",
-                                },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.stateTitle,
-                                  {
-                                    color: isCompleted ? "#155724" : "#856404",
-                                  },
-                                ]}
-                              >
-                                {isCompleted ? "✅" : "⏳"} Estado de la Remesa
-                              </Text>
-                              <Text
-                                style={{
-                                  color: isCompleted ? "#155724" : "#856404",
-                                }}
-                              >
-                                Entregado: {isCompleted ? "Sí" : "No"}
-                              </Text>
-                            </Surface>
-                            {item?.metodoPago ? (
-                              <Chip
-                                compact
-                                style={styles.paymentChip}
-                                textStyle={styles.whiteChipText}
-                                icon="credit-card"
-                              >
-                                {item.metodoPago}
-                              </Chip>
-                            ) : null}
-                            {item?.comentario ? (
-                              <Surface style={styles.commentBox}>
-                                <Text style={styles.commentText}>
-                                  💬 {item.comentario}
-                                </Text>
-                              </Surface>
-                            ) : null}
                           </Surface>
-                        );
-                      })
-                    )}
-
-                    {ventaSel?.comentario ? (
-                      <Text style={styles.generalComment}>
-                        💬 {ventaSel.comentario}
-                      </Text>
-                    ) : null}
-                  </View>
-                ) : (
-                  <Surface style={styles.errorBox}>
-                    <Text style={styles.errorText}>
-                      ❌ Sin datos disponibles
-                    </Text>
-                  </Surface>
+                        ) : null}
+                      </Surface>
+                    );
+                  })
                 )}
-              </ScrollView>
-            </Dialog.Content>
-            <Dialog.Actions style={styles.actions}>
-              <Button
-                mode="contained"
-                onPress={closeDialog}
-                style={styles.closeButton}
-              >
-                Cerrar
-              </Button>
-            </Dialog.Actions>
-          </Dialog>
-        </Portal>
+
+                {ventaSel?.comentario ? (
+                  <Text style={styles.generalComment}>
+                    💬 {ventaSel.comentario}
+                  </Text>
+                ) : null}
+              </View>
+            ) : (
+              <Surface style={styles.errorBox}>
+                <Text style={styles.errorText}>❌ Sin datos disponibles</Text>
+              </Surface>
+            )}
+          </ScrollView>
+        </DrawerBottom>
       </Surface>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  actions: {
-    paddingHorizontal: 16,
-  },
   bold: { fontWeight: "bold" },
   bottomDivider: { marginBottom: 6 },
-  closeButton: { borderRadius: 8 },
   commentBox: {
     backgroundColor: "#e9ecef",
     borderRadius: 6,
@@ -512,6 +496,12 @@ const styles = StyleSheet.create({
   },
   container: { flex: 1 },
   dialogContent: { borderRadius: 8 },
+  drawerScroll: {
+    width: "100%",
+  },
+  drawerScrollContent: {
+    paddingBottom: 8,
+  },
   errorBox: {
     backgroundColor: "#f8d7da",
     borderRadius: 8,
