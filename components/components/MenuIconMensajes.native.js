@@ -2,26 +2,26 @@ import MeteorBase from "@meteorrn/core";
 import { BlurView } from "expo-blur";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    InteractionManager,
-    ScrollView,
-    StyleSheet,
-    View,
+  InteractionManager,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import {
-    Avatar,
-    Badge,
-    Divider,
-    IconButton,
-    List,
-    Menu,
-    Text,
-    useTheme,
+  Avatar,
+  Badge,
+  Divider,
+  IconButton,
+  List,
+  Menu,
+  Text,
+  useTheme,
 } from "react-native-paper";
 
 import { Mensajes } from "../collections/collections";
 import {
-    DARK_MENU_GLASS_TINT,
-    LIGHT_MENU_GLASS_TINT,
+  DARK_MENU_GLASS_TINT,
+  LIGHT_MENU_GLASS_TINT,
 } from "../shared/GlassMenuSurface";
 
 const Meteor =
@@ -41,6 +41,7 @@ const MESSAGE_SENDER_FIELDS = {
   picture: 1,
   "profile.firstName": 1,
   "profile.lastName": 1,
+  "profile.role": 1,
 };
 
 const getConversationQuery = (otherUserId, currentUserId) => ({
