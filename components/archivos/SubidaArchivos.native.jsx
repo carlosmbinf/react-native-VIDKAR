@@ -44,10 +44,7 @@ const UPLOAD_VENTA_FIELDS = {
   isCobrado: 1,
   metodoPago: 1,
   monedaCobrado: 1,
-  "producto.carritos._id": 1,
-  "producto.carritos.coordenadas": 1,
-  "producto.carritos.idTienda": 1,
-  "producto.carritos.type": 1,
+  "producto.carritos": 1,
   "producto.comisiones": 1,
 };
 
@@ -763,7 +760,12 @@ const SubidaArchivos = ({ venta }) => {
         <View style={styles.tarjetaRow}>
           <View style={styles.flexOne}>
             <Text style={styles.tarjetaLabel}>Tarjeta destino (CUP)</Text>
-            <Text style={styles.tarjetaNumero}>{tarjetaCUP || "—"}</Text>
+            <View style={styles.tarjetaValueBox}>
+              <Text style={styles.tarjetaNumero}>{tarjetaCUP || "—"}</Text>
+              <Text style={styles.tarjetaHint}>
+                Copia este número y usa la tarjeta como destino del pago.
+              </Text>
+            </View>
           </View>
           <IconButton
             icon="content-copy"
@@ -792,10 +794,24 @@ const SubidaArchivos = ({ venta }) => {
           </View>
 
           {loadingCuentaInfo ? (
-            <ActivityIndicator size="small" style={styles.marginTop8} />
+            <View style={styles.cuentaLoadingBox}>
+              <View style={styles.cuentaLoadingRow}>
+                <ActivityIndicator size="small" />
+                <Text style={styles.cuentaLoadingText}>
+                  Consultando los datos bancarios para esta moneda...
+                </Text>
+              </View>
+              <View style={styles.cuentaLoadingLine} />
+              <View style={styles.cuentaLoadingMeta} />
+            </View>
           ) : cuentaBancaria ? (
             <>
-              <Text style={styles.cuentaBancariaTexto}>{cuentaBancaria}</Text>
+              <View style={styles.cuentaBancariaValueBox}>
+                <Text style={styles.cuentaBancariaTexto}>{cuentaBancaria}</Text>
+                <Text style={styles.cuentaBancariaCopyHint}>
+                  Puedes copiar el texto completo o tocar una cuenta detectada.
+                </Text>
+              </View>
               {cuentasExtraidas.length > 0 ? (
                 <View style={styles.chipsContainer}>
                   <Text style={styles.chipsLabel}>Cuentas detectadas:</Text>
@@ -819,9 +835,11 @@ const SubidaArchivos = ({ venta }) => {
               ) : null}
             </>
           ) : (
-            <Text style={styles.cuentaBancariaSinDatos}>
-              No hay datos de cuenta configurados para {moneda}
-            </Text>
+            <View style={styles.cuentaSinDatosBox}>
+              <Text style={styles.cuentaBancariaSinDatos}>
+                No hay datos de cuenta configurados para {moneda}
+              </Text>
+            </View>
           )}
         </View>
       </View>
@@ -901,7 +919,11 @@ const SubidaArchivos = ({ venta }) => {
                   ) : null}
                 </View>
                 <View style={styles.metodoChip}>
-                  <Text style={styles.metodoChipText}>TRANSFERENCIA</Text>
+                  <Text style={styles.metodoChipText}>
+                    {ventaReact?.monedaCobrado === "CUP"
+                      ? "TARJETA CUP"
+                      : "TRANSFERENCIA"}
+                  </Text>
                 </View>
               </View>
               {renderInfoPago()}
@@ -920,7 +942,7 @@ const SubidaArchivos = ({ venta }) => {
                 >
                   {archivoSeleccionado
                     ? "Evidencia seleccionada"
-                    : "Ultima Captura Subida"}
+                    : "Última evidencia subida"}
                 </Text>
                 {archivoSeleccionado ? (
                   <Text
@@ -1270,25 +1292,37 @@ const styles = StyleSheet.create({
     marginLeft: -4,
   },
   cuentaBancariaContainer: {
-    alignItems: "flex-start",
-    borderColor: "#eeeeee",
-    borderTopWidth: 1,
-    flexDirection: "row",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(255,255,255,0.12)",
+    borderRadius: 14,
+    borderWidth: 1,
     marginTop: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  cuentaBancariaCopyHint: {
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 8,
+    opacity: 0.7,
   },
   cuentaBancariaSinDatos: {
-    color: "#999",
+    color: "#cbd5e1",
     fontSize: 11,
     fontStyle: "italic",
-    marginTop: 4,
   },
   cuentaBancariaTexto: {
+    color: "#e2e8f0",
     fontSize: 11,
-    fontWeight: "400",
-    lineHeight: 16,
-    marginTop: 4,
-    opacity: 0.7,
+    fontWeight: "500",
+    lineHeight: 17,
+  },
+  cuentaBancariaValueBox: {
+    backgroundColor: "rgba(15,23,42,0.22)",
+    borderRadius: 12,
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
   },
   cuentaChip: { borderColor: "#0066cc", height: 32 },
   cuentaChipText: { color: "#0066cc", fontSize: 11, fontWeight: "600" },
@@ -1296,7 +1330,46 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 4,
+    marginBottom: 2,
+  },
+  cuentaLoadingBox: {
+    backgroundColor: "rgba(15,23,42,0.22)",
+    borderRadius: 12,
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+  },
+  cuentaLoadingLine: {
+    backgroundColor: "rgba(226,232,240,0.18)",
+    borderRadius: 999,
+    height: 10,
+    marginTop: 12,
+    width: "86%",
+  },
+  cuentaLoadingMeta: {
+    backgroundColor: "rgba(226,232,240,0.12)",
+    borderRadius: 999,
+    height: 8,
+    marginTop: 8,
+    width: "58%",
+  },
+  cuentaLoadingRow: {
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  cuentaLoadingText: {
+    color: "#cbd5e1",
+    flex: 1,
+    fontSize: 11,
+    lineHeight: 16,
+    marginLeft: 10,
+  },
+  cuentaSinDatosBox: {
+    backgroundColor: "rgba(15,23,42,0.16)",
+    borderRadius: 12,
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
   },
   evidenciasHeaderRow: {
     alignItems: "center",
@@ -1342,7 +1415,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 14,
   },
-  montoInfo: { flex: 1, minWidth: 0, paddingRight: 10 },
+  montoInfo: { flex: 1, minWidth: 0, paddingRight: 10, borderRadius: 30 },
   montoAPagar: {
     color: "#2E7D32",
     fontSize: 16,
@@ -1352,7 +1425,7 @@ const styles = StyleSheet.create({
   montoBlock: {
     alignItems: "center",
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 30,
     flexDirection: "row",
     gap: 8,
     justifyContent: "space-between",
@@ -1390,7 +1463,14 @@ const styles = StyleSheet.create({
   },
   snackbar: { marginBottom: 16 },
   tarjetaLabel: { fontSize: 11, fontWeight: "600" },
+  tarjetaHint: {
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 8,
+    opacity: 0.72,
+  },
   tarjetaNumero: {
+    color: "#f8fafc",
     fontSize: 13,
     fontWeight: "700",
     letterSpacing: 0.5,
@@ -1398,11 +1478,21 @@ const styles = StyleSheet.create({
   },
   tarjetaRow: {
     alignItems: "center",
-    borderColor: "#eeeeee",
-    borderTopWidth: 1,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(255,255,255,0.12)",
+    borderRadius: 14,
+    borderWidth: 1,
     flexDirection: "row",
     marginTop: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  tarjetaValueBox: {
+    backgroundColor: "rgba(15,23,42,0.22)",
+    borderRadius: 12,
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
   },
   thumbLabel: { color: "#333", fontSize: 12, fontWeight: "600" },
   thumbRow: {
@@ -1419,7 +1509,7 @@ const styles = StyleSheet.create({
     height: 50,
     width: 50,
   },
-  ventaCard: { borderRadius: 32, borderWidth: 1, overflow: "hidden" },
+  ventaCard: { borderRadius: 60, borderWidth: 1, overflow: "hidden" },
   ventaCardContent: { padding: 16 },
   zeroMargin: { margin: 0 },
 });

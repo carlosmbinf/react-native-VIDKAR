@@ -1,9 +1,10 @@
 import { BlurView } from "expo-blur";
-import { useRouter } from "expo-router";
 import React from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import { Appbar } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import useSafeBack, { useCanNavigateBack } from "../navigation/useSafeBack";
 
 export const DEFAULT_HEADER_COLOR = "#0f172a";
 export const APP_HEADER_HEIGHT = 56;
@@ -52,7 +53,8 @@ const AppHeader = ({
   title,
   titleStyle,
 }) => {
-  const router = useRouter();
+  const canNavigateBack = useCanNavigateBack();
+  const safeBack = useSafeBack(backHref);
   const resolvedHeaderHeight = useAppHeaderContentInset(includeSafeAreaTop);
   const topInset = resolvedHeaderHeight - APP_HEADER_HEIGHT;
 
@@ -62,21 +64,14 @@ const AppHeader = ({
       return;
     }
 
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-
-    if (backHref) {
-      router.replace(backHref);
-    }
-  }, [backHref, onBack, router]);
+    safeBack();
+  }, [onBack, safeBack]);
 
   const shouldShowBackButton =
     !left &&
     (typeof showBackButton === "boolean"
-      ? showBackButton && (router.canGoBack() || Boolean(backHref))
-      : router.canGoBack());
+      ? showBackButton && (canNavigateBack || Boolean(backHref))
+      : canNavigateBack || Boolean(backHref));
 
   const resolvedLeft =
     left ||

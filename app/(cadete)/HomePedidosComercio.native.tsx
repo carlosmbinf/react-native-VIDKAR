@@ -1,3 +1,3 @@
-import HomePedidosComercio from "../../components/comercio/pedidos/HomePedidosComercio";
+import HomePedidosComercio from "../../components/comercio/pedidos/HomePedidosComercio.native";
 
 export default HomePedidosComercio;

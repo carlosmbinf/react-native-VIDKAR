@@ -1,10 +1,10 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StyleSheet, View } from "react-native";
-import { Text } from "react-native-paper";
+import { Text, Surface } from "react-native-paper";
 
 const EmptyStateNative = () => {
   return (
-    <View style={styles.emptyContainer}>
+    <Surface style={styles.emptyContainer}>
       <MaterialCommunityIcons color="#BDBDBD" name="cart-off" size={64} />
       <Text style={styles.emptyTitle} variant="titleLarge">
         No tienes pedidos
@@ -12,14 +12,14 @@ const EmptyStateNative = () => {
       <Text style={styles.emptySubtitle} variant="bodyMedium">
         Tus pedidos de comercios aparecerán aquí
       </Text>
-    </View>
+    </Surface>
   );
 };
 
 const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: "center",
-    backgroundColor: "#F5F5F5",
+    // backgroundColor: "#F5F5F5",
     flex: 1,
     justifyContent: "center",
     padding: 32,

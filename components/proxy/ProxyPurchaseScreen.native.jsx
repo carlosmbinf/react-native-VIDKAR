@@ -1,5 +1,5 @@
 import MeteorBase from "@meteorrn/core";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import {
@@ -15,6 +15,7 @@ import {
 } from "react-native-paper";
 
 import AppHeader from "../Header/AppHeader";
+import useSafeBack from "../navigation/useSafeBack";
 import { megasToGB } from "../shared/MegasConverter";
 
 const Meteor = MeteorBase;
@@ -25,7 +26,7 @@ const parseNumber = (value, fallback = 0) => {
 };
 
 const ProxyPurchaseScreen = () => {
-  const router = useRouter();
+  const safeBack = useSafeBack("/(normal)/ProxyPackages");
   const params = useLocalSearchParams();
   const [loading, setLoading] = useState(false);
   const [precioCalculado, setPrecioCalculado] = useState(null);
@@ -43,14 +44,14 @@ const ProxyPurchaseScreen = () => {
   useEffect(() => {
     if (!paquete) {
       Alert.alert("Error", "No se recibió información del paquete");
-      router.back();
+      safeBack();
       return;
     }
 
     const user = Meteor.user();
     if (!user) {
       Alert.alert("Error", "Debes iniciar sesión para continuar");
-      router.back();
+      safeBack();
       return;
     }
 
@@ -74,7 +75,7 @@ const ProxyPurchaseScreen = () => {
         setLoading(false);
       },
     );
-  }, [paquete, router]);
+  }, [paquete, safeBack]);
 
   const handleConfirmarCompra = () => {
     if (!paquete || !precioCalculado) {
@@ -108,7 +109,7 @@ const ProxyPurchaseScreen = () => {
           "El paquete ha sido agregado al carrito. Abre el carrito para completar tu compra.",
           [
             {
-              onPress: () => router.back(),
+              onPress: safeBack,
               style: "cancel",
               text: "Continuar comprando",
             },
@@ -212,7 +213,7 @@ const ProxyPurchaseScreen = () => {
           <Card.Actions style={styles.actions}>
             <Button
               mode="outlined"
-              onPress={() => router.back()}
+              onPress={safeBack}
               disabled={loading}
               style={styles.cancelButton}
             >

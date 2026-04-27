@@ -38,6 +38,7 @@ import {
 } from "../collections/collections";
 import MenuIconMensajes from "../components/MenuIconMensajes.native";
 import BlurMenuSurface, { blurMenuContentStyle } from "../Header/BlurMenuSurface";
+import useSafeBack, { useCanNavigateBack } from "../navigation/useSafeBack";
 import TiendaCard from "./TiendaCard";
 
 const Meteor =
@@ -89,6 +90,8 @@ const meteorCallAsync = (methodName, ...args) =>
 
 const ProductosScreenNative = () => {
   const router = useRouter();
+  const canNavigateBack = useCanNavigateBack();
+  const safeBack = useSafeBack("/(normal)/Main");
   const insets = useSafeAreaInsets();
   const initialCachedLocationRef = React.useRef(getCachedDeviceLocationSync());
   const [searchQuery, setSearchQuery] = useState("");
@@ -544,14 +547,10 @@ const ProductosScreenNative = () => {
       >
         <View style={styles.appbarContent}>
           <View style={styles.leftActionRow}>
-            {router.canGoBack() ? (
+            {canNavigateBack ? (
               <Appbar.BackAction
                 color="white"
-                onPress={() => {
-                  if (router.canGoBack()) {
-                    router.back();
-                  }
-                }}
+                onPress={safeBack}
               />
             ) : null}
           </View>

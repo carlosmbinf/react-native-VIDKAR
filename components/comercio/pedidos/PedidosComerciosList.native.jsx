@@ -1,8 +1,8 @@
 import MeteorBase from "@meteorrn/core";
 import { useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
-import { Appbar, Menu, Surface, Text } from "react-native-paper";
+import { ActivityIndicator, Appbar, Menu, Surface, Text } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
@@ -10,6 +10,7 @@ import WizardConStepper from "../../carritoCompras/WizardConStepper.native";
 import { VentasRechargeCollection } from "../../collections/collections";
 import MenuIconMensajes from "../../components/MenuIconMensajes.native";
 import BlurMenuSurface, { blurMenuContentStyle } from "../../Header/BlurMenuSurface";
+import useSafeBack from "../../navigation/useSafeBack";
 import EmptyState from "./components/EmptyState";
 import LoadingState from "./components/LoadingState";
 import PedidoCard from "./components/PedidoCard";
@@ -19,23 +20,37 @@ const Meteor =
     MeteorBase
   );
 
-const PEDIDOS_COMERCIO_FIELDS = {
+const PEDIDOS_COMERCIO_SUMMARY_FIELDS = {
   _id: 1,
-  cadeteid: 1,
   createdAt: 1,
   estado: 1,
   isCancelada: 1,
   isCobrado: 1,
   metodoPago: 1,
-  producto: 1,
+  "producto.carritos": 1,
+  userId: 1,
 };
+
+const hasCommerceItems = (venta) => {
+  const carritos = Array.isArray(venta?.producto?.carritos)
+    ? venta.producto.carritos
+    : [];
+
+  return carritos.some((item) => item?.type === "COMERCIO");
+};
+
+const INITIAL_RENDER_COUNT = 4;
+const RENDER_BATCH_SIZE = 4;
 
 const PedidosComerciosListNative = () => {
   const router = useRouter();
+  const safeBack = useSafeBack("/(normal)/ComerciosList");
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [expandedVentas, setExpandedVentas] = useState({});
   const [profileMenuVisible, setProfileMenuVisible] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_RENDER_COUNT);
+  const [loadingMore, setLoadingMore] = useState(false);
   const dataReady = useDeferredScreenData();
 
   const { ready, ventas } = Meteor.useTracker(() => {
@@ -53,19 +68,44 @@ const PedidosComerciosListNative = () => {
       userId,
       "producto.carritos.type": "COMERCIO",
     }, {
-      fields: PEDIDOS_COMERCIO_FIELDS,
+      fields: PEDIDOS_COMERCIO_SUMMARY_FIELDS,
     });
 
     const ventasData = VentasRechargeCollection.find(
-      {
-        userId,
-        "producto.carritos.type": "COMERCIO",
-      },
-      { fields: PEDIDOS_COMERCIO_FIELDS, sort: { createdAt: -1 } },
-    ).fetch();
+      { userId },
+      { fields: PEDIDOS_COMERCIO_SUMMARY_FIELDS, sort: { createdAt: -1 } },
+    ).fetch().filter(hasCommerceItems);
 
     return { ready: sub.ready(), ventas: ventasData };
   }, [dataReady]);
+
+  useEffect(() => {
+    if (!ventas.length) {
+      setVisibleCount(INITIAL_RENDER_COUNT);
+      setLoadingMore(false);
+      return;
+    }
+
+    setVisibleCount((current) => {
+      const nextBase = Math.min(INITIAL_RENDER_COUNT, ventas.length);
+      if (!current || current < nextBase) {
+        return nextBase;
+      }
+
+      return Math.min(current, ventas.length);
+    });
+
+    if (loadingMore && visibleCount >= ventas.length) {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, ventas.length, visibleCount]);
+
+  const visibleVentas = useMemo(
+    () => ventas.slice(0, Math.min(visibleCount, ventas.length)),
+    [ventas, visibleCount],
+  );
+
+  const canLoadMore = visibleCount < ventas.length;
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -80,6 +120,21 @@ const PedidosComerciosListNative = () => {
     }));
   }, []);
 
+  const handleLoadMore = useCallback(() => {
+    if (!ready || loadingMore || !canLoadMore) {
+      return;
+    }
+
+    setLoadingMore(true);
+
+    setTimeout(() => {
+      setVisibleCount((current) =>
+        Math.min(current + RENDER_BATCH_SIZE, ventas.length),
+      );
+      setLoadingMore(false);
+    }, 220);
+  }, [canLoadMore, loadingMore, ready, ventas.length]);
+
   const getStepFromStatus = useCallback((venta) => {
     if (venta.isCancelada === true) {
       return -1;
@@ -87,9 +142,9 @@ const PedidosComerciosListNative = () => {
 
     const steps = {
       PREPARANDO: 1,
-      CADETEENDESTINO: 4,
       CADETEENLOCAL: 2,
       ENCAMINO: 3,
+      CADETEENDESTINO: 4,
       ENTREGADO: 5,
     };
 
@@ -122,16 +177,21 @@ const PedidosComerciosListNative = () => {
     [ventas.length],
   );
 
-  if (!ready) {
-    return <LoadingState />;
-  }
+  const listFooterComponent = useCallback(() => {
+    if (!loadingMore) {
+      return <View style={styles.listFooterSpacer} />;
+    }
 
-  if (ventas.length === 0) {
-    return <EmptyState />;
-  }
+    return (
+      <View style={styles.listFooterLoading}>
+        <ActivityIndicator color="#7c3aed" size="small" />
+        <Text style={styles.listFooterText}>Cargando más pedidos...</Text>
+      </View>
+    );
+  }, [loadingMore]);
 
-  return (
-    <Surface style={styles.surface}>
+  const renderAppbar = useCallback(
+    () => (
       <Appbar
         style={[
           styles.appbar,
@@ -144,14 +204,7 @@ const PedidosComerciosListNative = () => {
         <View style={styles.appbarRow}>
           <Appbar.BackAction
             color="#ffffff"
-            onPress={() => {
-              if (router.canGoBack()) {
-                router.back();
-                return;
-              }
-
-              router.replace("/(normal)/ComerciosList");
-            }}
+            onPress={safeBack}
           />
 
           <View style={styles.rightActionRow}>
@@ -205,20 +258,51 @@ const PedidosComerciosListNative = () => {
           </View>
         </View>
       </Appbar>
+    ),
+    [insets.top, profileMenuVisible, router, safeBack],
+  );
+
+  if (!ready) {
+    return (
+      <Surface style={styles.surface}>
+        {renderAppbar()}
+        <LoadingState />
+      </Surface>
+    );
+  }
+
+  if (ventas.length === 0) {
+    return (
+      <Surface style={styles.surface}>
+        {renderAppbar()}
+        <EmptyState />
+      </Surface>
+    );
+  }
+
+  return (
+    <Surface style={styles.surface}>
+      {renderAppbar()}
 
       <FlatList
+        alwaysBounceVertical
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={<EmptyState />}
+        ListFooterComponent={listFooterComponent}
         ListHeaderComponent={listHeaderComponent}
         contentContainerStyle={styles.flatListContent}
-        data={ventas}
+        data={visibleVentas}
         initialNumToRender={5}
         keyExtractor={(item) => item._id}
         maxToRenderPerBatch={5}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.35}
         onRefresh={handleRefresh}
         refreshing={refreshing}
-        removeClippedSubviews
+        removeClippedSubviews={false}
         renderItem={renderItem}
+        showsVerticalScrollIndicator
+        style={styles.list}
         updateCellsBatchingPeriod={50}
         windowSize={10}
       />
@@ -238,8 +322,27 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   flatListContent: {
+    flexGrow: 1,
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 72,
+  },
+  list: {
+    flex: 1,
+  },
+  listFooterLoading: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    paddingBottom: 18,
+    paddingTop: 6,
+  },
+  listFooterSpacer: {
+    height: 14,
+  },
+  listFooterText: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 12,
+    marginLeft: 10,
   },
   headerSection: {
     borderRadius: 12,

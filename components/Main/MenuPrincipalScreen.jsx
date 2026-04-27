@@ -1,4 +1,5 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { LinearGradient } from "expo-linear-gradient";
 import { usePathname, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -43,6 +44,22 @@ const formatDebtAmount = (amount) => {
   return `${numericAmount.toFixed(2)} CUP`;
 };
 
+const getPendingEvidenceStatusText = (count, loading) => {
+  if (loading) {
+    return "Buscando compras que aún necesitan comprobante";
+  }
+
+  if (count === 0) {
+    return "No tienes compras pendientes de evidencia por ahora.";
+  }
+
+  if (count === 1) {
+    return "Tienes 1 compra esperando comprobante para continuar.";
+  }
+
+  return `Tienes ${count} compras esperando comprobante para continuar.`;
+};
+
 const getCashApprovalsStatusText = (count, loading) => {
   if (loading) {
     return "Actualizando aprobaciones en tiempo real";
@@ -67,11 +84,14 @@ const MenuPrincipalScreen = ({
   appVersion = "0.0.0",
   buildNumber = "0",
   pendingDebt = 0,
+  pendingEvidenceCount = 0,
+  pendingEvidenceLoading = false,
   pendingVentasCount = 0,
   pendingCashApprovalTypes = [],
   pendingCashApprovalsCount = 0,
   pendingCashApprovalsLoading = false,
   onOpenCashApprovals = () => {},
+  onOpenPendingEvidence = () => {},
   onOpenPendingVentas = () => {},
   onLogout = () => {},
   onToggleModoCadete = () => {},
@@ -163,6 +183,7 @@ const MenuPrincipalScreen = ({
   const cashApprovalTypeCount = pendingCashApprovalTypes.length;
   const showCashApprovalsCard =
     hasAdminRole && pendingCashApprovalsCount > 0;
+  const showPendingEvidenceCard = pendingEvidenceCount > 0;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -313,199 +334,293 @@ const MenuPrincipalScreen = ({
             ) : null}
           </Surface>
 
-          {showCashApprovalsCard ? (
-            <Surface style={styles.cashApprovalsCard} elevation={2}>
-              <View style={styles.cashApprovalsGlowPrimary} />
-              <View style={styles.cashApprovalsGlowSecondary} />
+          {showPendingEvidenceCard ? (
+            <Surface style={styles.evidenceHubCard} elevation={2}>
+              <View style={styles.evidenceHubGlowPrimary} />
+              <View style={styles.evidenceHubGlowSecondary} />
 
-              <View style={styles.cashApprovalsHeader}>
-                <View style={styles.cashApprovalsTitleWrap}>
-                  <Text
-                    variant="labelSmall"
-                    style={styles.cashApprovalsEyebrow}
-                  >
-                    Aprobaciones de ventas en efectivo
+              <View style={styles.evidenceHubHeader}>
+                <View style={styles.evidenceHubTitleWrap}>
+                  <Text variant="labelSmall" style={styles.evidenceHubEyebrow}>
+                    Subida de evidencias
                   </Text>
-                  <Text
-                    variant="titleLarge"
-                    style={styles.cashApprovalsTitle}
-                  >
-                    Resumen pendiente por validar
+                  <Text variant="titleLarge" style={styles.evidenceHubTitle}>
+                    Bandeja rápida de comprobantes
                   </Text>
-                  <Text variant="bodyMedium" style={styles.cashApprovalsCopy}>
-                    {getCashApprovalsStatusText(
-                      pendingCashApprovalsCount,
-                      pendingCashApprovalsLoading,
+                  <Text variant="bodyMedium" style={styles.evidenceHubCopy}>
+                    {getPendingEvidenceStatusText(
+                      pendingEvidenceCount,
+                      pendingEvidenceLoading,
                     )}
                   </Text>
                 </View>
 
-                <View style={styles.cashApprovalsHighlight}>
+                <View style={styles.evidenceHubHighlight}>
                   <Text
                     variant="labelMedium"
-                    style={styles.cashApprovalsHighlightLabel}
+                    style={styles.evidenceHubHighlightLabel}
                   >
-                    Por revisar
+                    Pendientes
                   </Text>
                   <Text
                     variant="headlineMedium"
-                    style={styles.cashApprovalsHighlightValue}
+                    style={styles.evidenceHubHighlightValue}
                   >
-                    {pendingCashApprovalsLoading ? "..." : pendingCashApprovalsCount}
+                    {pendingEvidenceLoading ? "..." : pendingEvidenceCount}
                   </Text>
                   <Text
                     variant="labelSmall"
-                    style={styles.cashApprovalsHighlightHint}
+                    style={styles.evidenceHubHighlightHint}
                   >
-                    ventas
+                    compras
                   </Text>
                 </View>
               </View>
 
-              <View style={styles.cashApprovalsStatsRow}>
-                <View style={styles.cashApprovalsStatCard}>
-                  <Text
-                    variant="labelSmall"
-                    style={styles.cashApprovalsStatLabel}
-                  >
-                    Ventas pendientes
-                  </Text>
-                  <Text
-                    variant="titleLarge"
-                    style={styles.cashApprovalsStatValue}
-                  >
-                    {pendingCashApprovalsLoading ? "..." : pendingCashApprovalsCount}
-                  </Text>
-                </View>
-
-                <View style={styles.cashApprovalsStatCard}>
-                  <Text
-                    variant="labelSmall"
-                    style={styles.cashApprovalsStatLabel}
-                  >
-                    Tipos presentes
-                  </Text>
-                  <Text
-                    variant="titleLarge"
-                    style={styles.cashApprovalsStatValue}
-                  >
-                    {pendingCashApprovalsLoading ? "..." : cashApprovalTypeCount}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.cashApprovalsTypesWrap}>
-                {pendingCashApprovalsLoading ? (
-                  <View style={styles.cashApprovalsEmptyState}>
-                    <Text
-                      variant="bodyMedium"
-                      style={styles.cashApprovalsEmptyTitle}
-                    >
-                      Cargando resumen de aprobaciones...
-                    </Text>
-                    <Text
-                      variant="bodySmall"
-                      style={styles.cashApprovalsEmptyCopy}
-                    >
-                      Estamos revisando las ventas en efectivo pendientes para
-                      mostrarte el desglose actualizado.
-                    </Text>
-                  </View>
-                ) : pendingCashApprovalTypes.length > 0 ? (
-                  pendingCashApprovalTypes.map((typeSummary) => (
-                    <View
-                      key={typeSummary.key}
-                      style={styles.cashApprovalsTypeCard}
-                    >
-                      <View style={styles.cashApprovalsTypeIconWrap}>
-                        <MaterialCommunityIcons
-                          color="#c7d2fe"
-                          name={typeSummary.icon}
-                          size={18}
-                        />
-                      </View>
-                      <View style={styles.cashApprovalsTypeContent}>
-                        <Text
-                          variant="labelLarge"
-                          style={styles.cashApprovalsTypeTitle}
-                        >
-                          {typeSummary.label}
-                        </Text>
-                        <Text
-                          variant="bodySmall"
-                          style={styles.cashApprovalsTypeMeta}
-                        >
-                          {formatCashApprovalSalesLabel(typeSummary.count)}
-                        </Text>
-                      </View>
-                      <Chip
-                        compact
-                        style={styles.cashApprovalsTypeChip}
-                        textStyle={styles.cashApprovalsTypeChipText}
-                      >
-                        {typeSummary.count}
-                      </Chip>
-                    </View>
-                  ))
-                ) : (
-                  <View style={styles.cashApprovalsEmptyState}>
-                    <Text
-                      variant="bodyMedium"
-                      style={styles.cashApprovalsEmptyTitle}
-                    >
-                      Todo en orden por ahora
-                    </Text>
-                    <Text
-                      variant="bodySmall"
-                      style={styles.cashApprovalsEmptyCopy}
-                    >
-                      Cuando aparezcan nuevas ventas en efectivo por aprobar o
-                      rechazar, verás aquí el resumen en tiempo real.
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.cashApprovalsFooter}>
-                <View style={styles.cashApprovalsFooterCopyWrap}>
+              <View style={styles.evidenceHubFooter}>
+                <View style={styles.evidenceHubFooterCopyWrap}>
                   <Text
                     variant="labelMedium"
-                    style={styles.cashApprovalsFooterLabel}
+                    style={styles.evidenceHubFooterLabel}
                   >
                     Acceso directo
                   </Text>
                   <Text
                     variant="bodySmall"
-                    style={styles.cashApprovalsFooterCopy}
+                    style={styles.evidenceHubFooterCopy}
                   >
-                    Revisa evidencias y decide cada venta desde la bandeja de
-                    aprobaciones.
+                    Reúne recargas, proxy, VPN y comercio en una sola pantalla para revisar el monto y subir el comprobante.
                   </Text>
                 </View>
 
                 <Pressable
                   accessibilityRole="button"
-                  onPress={onOpenCashApprovals}
+                  onPress={onOpenPendingEvidence}
                   style={({ pressed }) => [
-                    styles.cashApprovalsActionButton,
-                    pressed ? styles.cashApprovalsActionButtonPressed : null,
+                    styles.evidenceHubActionButton,
+                    pressed ? styles.evidenceHubActionButtonPressed : null,
                   ]}
                 >
-                  <Text
-                    variant="labelLarge"
-                    style={styles.cashApprovalsActionText}
-                  >
-                    Ir a aprobaciones
+                  <Text variant="labelLarge" style={styles.evidenceHubActionText}>
+                    Abrir bandeja
                   </Text>
-                  <View style={styles.cashApprovalsActionIconWrap}>
+                  <View style={styles.evidenceHubActionIconWrap}>
                     <MaterialCommunityIcons
-                      color="#eef2ff"
+                      color="#fef3c7"
                       name="arrow-right"
                       size={18}
                     />
                   </View>
                 </Pressable>
               </View>
+            </Surface>
+          ) : null}
+
+          {showCashApprovalsCard ? (
+            <Surface style={styles.cashApprovalsCard} elevation={2}>
+              <LinearGradient
+                colors={[
+                  "#17113bf8",
+                  "#231b53f5",
+                  "#2d1f64f2",
+                ]}
+                end={{ x: 1, y: 1 }}
+                locations={[0, 0.58, 1]}
+                start={{ x: 0, y: 0 }}
+                style={styles.cashApprovalsGradient}
+              >
+                <View style={styles.cashApprovalsGlowPrimary} />
+                <View style={styles.cashApprovalsGlowSecondary} />
+
+                <View style={styles.cashApprovalsHeader}>
+                  <View style={styles.cashApprovalsTitleWrap}>
+                    <Text
+                      variant="labelSmall"
+                      style={styles.cashApprovalsEyebrow}
+                    >
+                      Aprobaciones de ventas en efectivo
+                    </Text>
+                    <Text
+                      variant="titleLarge"
+                      style={styles.cashApprovalsTitle}
+                    >
+                      Resumen pendiente por validar
+                    </Text>
+                    <Text variant="bodyMedium" style={styles.cashApprovalsCopy}>
+                      {getCashApprovalsStatusText(
+                        pendingCashApprovalsCount,
+                        pendingCashApprovalsLoading,
+                      )}
+                    </Text>
+                  </View>
+
+                  <View style={styles.cashApprovalsHighlight}>
+                    <Text
+                      variant="labelMedium"
+                      style={styles.cashApprovalsHighlightLabel}
+                    >
+                      Por revisar
+                    </Text>
+                    <Text
+                      variant="headlineMedium"
+                      style={styles.cashApprovalsHighlightValue}
+                    >
+                      {pendingCashApprovalsLoading ? "..." : pendingCashApprovalsCount}
+                    </Text>
+                    <Text
+                      variant="labelSmall"
+                      style={styles.cashApprovalsHighlightHint}
+                    >
+                      ventas
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.cashApprovalsStatsRow}>
+                  <View style={styles.cashApprovalsStatCard}>
+                    <Text
+                      variant="labelSmall"
+                      style={styles.cashApprovalsStatLabel}
+                    >
+                      Ventas pendientes
+                    </Text>
+                    <Text
+                      variant="titleLarge"
+                      style={styles.cashApprovalsStatValue}
+                    >
+                      {pendingCashApprovalsLoading ? "..." : pendingCashApprovalsCount}
+                    </Text>
+                  </View>
+
+                  <View style={styles.cashApprovalsStatCard}>
+                    <Text
+                      variant="labelSmall"
+                      style={styles.cashApprovalsStatLabel}
+                    >
+                      Tipos presentes
+                    </Text>
+                    <Text
+                      variant="titleLarge"
+                      style={styles.cashApprovalsStatValue}
+                    >
+                      {pendingCashApprovalsLoading ? "..." : cashApprovalTypeCount}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.cashApprovalsTypesWrap}>
+                  {pendingCashApprovalsLoading ? (
+                    <View style={styles.cashApprovalsEmptyState}>
+                      <Text
+                        variant="bodyMedium"
+                        style={styles.cashApprovalsEmptyTitle}
+                      >
+                        Cargando resumen de aprobaciones...
+                      </Text>
+                      <Text
+                        variant="bodySmall"
+                        style={styles.cashApprovalsEmptyCopy}
+                      >
+                        Estamos revisando las ventas en efectivo pendientes para
+                        mostrarte el desglose actualizado.
+                      </Text>
+                    </View>
+                  ) : pendingCashApprovalTypes.length > 0 ? (
+                    pendingCashApprovalTypes.map((typeSummary) => (
+                      <View
+                        key={typeSummary.key}
+                        style={styles.cashApprovalsTypeCard}
+                      >
+                        <View style={styles.cashApprovalsTypeIconWrap}>
+                          <MaterialCommunityIcons
+                            color="#c7d2fe"
+                            name={typeSummary.icon}
+                            size={18}
+                          />
+                        </View>
+                        <View style={styles.cashApprovalsTypeContent}>
+                          <Text
+                            variant="labelLarge"
+                            style={styles.cashApprovalsTypeTitle}
+                          >
+                            {typeSummary.label}
+                          </Text>
+                          <Text
+                            variant="bodySmall"
+                            style={styles.cashApprovalsTypeMeta}
+                          >
+                            {formatCashApprovalSalesLabel(typeSummary.count)}
+                          </Text>
+                        </View>
+                        <Chip
+                          compact
+                          style={styles.cashApprovalsTypeChip}
+                          textStyle={styles.cashApprovalsTypeChipText}
+                        >
+                          {typeSummary.count}
+                        </Chip>
+                      </View>
+                    ))
+                  ) : (
+                    <View style={styles.cashApprovalsEmptyState}>
+                      <Text
+                        variant="bodyMedium"
+                        style={styles.cashApprovalsEmptyTitle}
+                      >
+                        Todo en orden por ahora
+                      </Text>
+                      <Text
+                        variant="bodySmall"
+                        style={styles.cashApprovalsEmptyCopy}
+                      >
+                        Cuando aparezcan nuevas ventas en efectivo por aprobar o
+                        rechazar, verás aquí el resumen en tiempo real.
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.cashApprovalsFooter}>
+                  <View style={styles.cashApprovalsFooterCopyWrap}>
+                    <Text
+                      variant="labelMedium"
+                      style={styles.cashApprovalsFooterLabel}
+                    >
+                      Acceso directo
+                    </Text>
+                    <Text
+                      variant="bodySmall"
+                      style={styles.cashApprovalsFooterCopy}
+                    >
+                      Revisa evidencias y decide cada venta desde la bandeja de
+                      aprobaciones.
+                    </Text>
+                  </View>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={onOpenCashApprovals}
+                    style={({ pressed }) => [
+                      styles.cashApprovalsActionButton,
+                      pressed ? styles.cashApprovalsActionButtonPressed : null,
+                    ]}
+                  >
+                    <Text
+                      variant="labelLarge"
+                      style={styles.cashApprovalsActionText}
+                    >
+                      Ir a aprobaciones
+                    </Text>
+                    <View style={styles.cashApprovalsActionIconWrap}>
+                      <MaterialCommunityIcons
+                        color="#eef2ff"
+                        name="arrow-right"
+                        size={18}
+                      />
+                    </View>
+                  </Pressable>
+                </View>
+              </LinearGradient>
             </Surface>
           ) : null}
 
@@ -732,33 +847,168 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(255, 241, 242, 0.12)",
   },
+  evidenceHubActionButton: {
+    alignItems: "center",
+    backgroundColor: "rgba(245, 158, 11, 0.18)",
+    borderColor: "rgba(253, 230, 138, 0.24)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    paddingLeft: 14,
+    paddingRight: 8,
+    paddingVertical: 8,
+  },
+  evidenceHubActionButtonPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.985 }],
+  },
+  evidenceHubActionIconWrap: {
+    alignItems: "center",
+    backgroundColor: "rgba(251, 191, 36, 0.16)",
+    borderRadius: 14,
+    height: 28,
+    justifyContent: "center",
+    width: 28,
+  },
+  evidenceHubActionText: {
+    color: "#fef3c7",
+    fontWeight: "800",
+  },
+  evidenceHubCard: {
+    backgroundColor: "#241a08",
+    borderColor: "rgba(251, 191, 36, 0.28)",
+    borderRadius: 26,
+    borderWidth: 1,
+    gap: 18,
+    marginHorizontal: 16,
+    overflow: "hidden",
+    padding: 20,
+  },
+  evidenceHubCopy: {
+    color: "rgba(254, 243, 199, 0.78)",
+    lineHeight: 22,
+  },
+  evidenceHubEyebrow: {
+    color: "#fbbf24",
+    fontWeight: "800",
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+  },
+  evidenceHubFooter: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+    justifyContent: "space-between",
+  },
+  evidenceHubFooterCopy: {
+    color: "rgba(254, 243, 199, 0.68)",
+    lineHeight: 19,
+  },
+  evidenceHubFooterCopyWrap: {
+    flex: 1,
+    gap: 4,
+    minWidth: 210,
+  },
+  evidenceHubFooterLabel: {
+    color: "#fde68a",
+    fontWeight: "800",
+  },
+  evidenceHubGlowPrimary: {
+    backgroundColor: "rgba(245, 158, 11, 0.16)",
+    borderRadius: 999,
+    height: 220,
+    left: -42,
+    position: "absolute",
+    top: -92,
+    width: 220,
+  },
+  evidenceHubGlowSecondary: {
+    backgroundColor: "rgba(217, 119, 6, 0.18)",
+    borderRadius: 999,
+    bottom: -90,
+    height: 190,
+    position: "absolute",
+    right: -66,
+    width: 190,
+  },
+  evidenceHubHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+    justifyContent: "space-between",
+  },
+  evidenceHubHighlight: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(69, 45, 10, 0.64)",
+    borderColor: "rgba(251, 191, 36, 0.2)",
+    borderRadius: 22,
+    borderWidth: 1,
+    gap: 2,
+    justifyContent: "center",
+    minHeight: 96,
+    minWidth: 118,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  evidenceHubHighlightHint: {
+    color: "rgba(254, 243, 199, 0.7)",
+    includeFontPadding: false,
+    lineHeight: 14,
+  },
+  evidenceHubHighlightLabel: {
+    color: "#fbbf24",
+    fontWeight: "700",
+    includeFontPadding: false,
+    lineHeight: 16,
+  },
+  evidenceHubHighlightValue: {
+    color: "#ffffff",
+    fontWeight: "900",
+    includeFontPadding: false,
+    lineHeight: 36,
+  },
+  evidenceHubTitle: {
+    color: "#fffbeb",
+    fontWeight: "900",
+    lineHeight: 28,
+  },
+  evidenceHubTitleWrap: {
+    flex: 1,
+    gap: 6,
+    minWidth: 220,
+  },
   cashApprovalsCard: {
     marginHorizontal: 16,
     overflow: "hidden",
     borderRadius: 26,
-    padding: 20,
-    backgroundColor: "#0d1538",
     borderWidth: 1,
-    borderColor: "rgba(129, 140, 248, 0.16)",
+    borderColor: "rgba(196, 181, 253, 0.18)",
+  },
+  cashApprovalsGradient: {
     gap: 18,
+    padding: 20,
   },
   cashApprovalsGlowPrimary: {
     position: "absolute",
-    width: 220,
-    height: 220,
+    width: 260,
+    height: 260,
     borderRadius: 999,
-    backgroundColor: "rgba(56, 189, 248, 0.12)",
-    top: -96,
-    left: -36,
+    backgroundColor: "rgba(124, 58, 237, 0.38)",
+    top: -112,
+    left: -50,
   },
   cashApprovalsGlowSecondary: {
     position: "absolute",
-    width: 200,
-    height: 200,
+    width: 250,
+    height: 250,
     borderRadius: 999,
-    backgroundColor: "rgba(129, 140, 248, 0.18)",
-    right: -70,
-    bottom: -96,
+    backgroundColor: "rgba(168, 85, 247, 0.42)",
+    right: -86,
+    bottom: -112,
   },
   cashApprovalsHeader: {
     flexDirection: "row",
@@ -773,7 +1023,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   cashApprovalsEyebrow: {
-    color: "#93c5fd",
+    color: "#c4b5fd",
     letterSpacing: 0.7,
     textTransform: "uppercase",
     fontWeight: "800",
@@ -784,7 +1034,7 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   cashApprovalsCopy: {
-    color: "rgba(226, 232, 240, 0.82)",
+    color: "rgba(237, 233, 254, 0.8)",
     lineHeight: 22,
   },
   cashApprovalsHighlight: {
@@ -794,15 +1044,15 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: "rgba(15, 23, 42, 0.64)",
+    backgroundColor: "rgba(24, 18, 60, 0.66)",
     borderWidth: 1,
-    borderColor: "rgba(125, 211, 252, 0.16)",
+    borderColor: "rgba(196, 181, 253, 0.18)",
     alignItems: "center",
     justifyContent: "center",
     gap: 2,
   },
   cashApprovalsHighlightLabel: {
-    color: "#93c5fd",
+    color: "rgba(221, 214, 254, 0.88)",
     fontWeight: "700",
     includeFontPadding: false,
     lineHeight: 16,
@@ -814,7 +1064,7 @@ const styles = StyleSheet.create({
     lineHeight: 36,
   },
   cashApprovalsHighlightHint: {
-    color: "rgba(226, 232, 240, 0.72)",
+    color: "rgba(237, 233, 254, 0.72)",
     includeFontPadding: false,
     lineHeight: 14,
   },
@@ -829,9 +1079,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "rgba(15, 23, 42, 0.56)",
+    backgroundColor: "rgba(24, 18, 60, 0.62)",
     borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.14)",
+    borderColor: "rgba(196, 181, 253, 0.12)",
     justifyContent: "center",
     gap: 5,
   },
@@ -857,9 +1107,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 13,
     borderRadius: 20,
-    backgroundColor: "rgba(15, 23, 42, 0.58)",
+    backgroundColor: "rgba(24, 18, 60, 0.66)",
     borderWidth: 1,
-    borderColor: "rgba(99, 102, 241, 0.14)",
+    borderColor: "rgba(196, 181, 253, 0.12)",
   },
   cashApprovalsTypeIconWrap: {
     width: 38,
@@ -867,7 +1117,7 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(79, 70, 229, 0.18)",
+    backgroundColor: "rgba(91, 33, 182, 0.24)",
   },
   cashApprovalsTypeContent: {
     flex: 1,
@@ -893,7 +1143,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     paddingHorizontal: 16,
     paddingVertical: 18,
-    backgroundColor: "rgba(15, 23, 42, 0.52)",
+    backgroundColor: "rgba(24, 18, 60, 0.58)",
     borderWidth: 1,
     borderColor: "rgba(148, 163, 184, 0.14)",
     gap: 6,
@@ -934,7 +1184,7 @@ const styles = StyleSheet.create({
     paddingRight: 8,
     paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: "rgba(129, 140, 248, 0.18)",
+    backgroundColor: "rgba(109, 40, 217, 0.24)",
     borderWidth: 1,
     borderColor: "rgba(199, 210, 254, 0.18)",
   },

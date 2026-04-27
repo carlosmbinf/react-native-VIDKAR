@@ -9,6 +9,11 @@ import {
     VentasCollection,
     VentasRechargeCollection,
 } from "../collections/collections";
+import {
+  buildPendingEvidenceAggregate,
+  buildPendingEvidenceQuery,
+  PENDING_EVIDENCE_FIELDS,
+} from "../archivos/evidencePendingUtils";
 import MenuPrincipalScreen from "./MenuPrincipalScreen.jsx";
 
 const Meteor =
@@ -29,10 +34,19 @@ const PENDING_DEBT_FIELDS = {
 };
 
 const PENDING_CASH_APPROVAL_FIELDS = {
+  cobrado: 1,
   createdAt: 1,
+  estado: 1,
+  isCancelada: 1,
+  isCobrado: 1,
+  metodoPago: 1,
+  monedaCobrado: 1,
+  userId: 1,
+  "producto.carritos": 1,
   type: 1,
-  "producto.carritos.type": 1,
+  "producto.status": 1,
   "producto.type": 1,
+  "producto.userId": 1,
 };
 
 const isPrincipalAdmin = (user) => user?.username === "carlosmbinf";
@@ -169,6 +183,34 @@ const MenuPrincipalNative = () => {
   }, [currentUserId, dataReady, isAdmin]);
 
   const {
+    pendingEvidenceCount,
+    pendingEvidenceLoading,
+  } = Meteor.useTracker(() => {
+    if (!dataReady || !currentUserId) {
+      return {
+        pendingEvidenceCount: 0,
+        pendingEvidenceLoading: false,
+      };
+    }
+
+    const query = buildPendingEvidenceQuery(currentUserId);
+    const handle = Meteor.subscribe("ventasRecharge", query, {
+      fields: PENDING_EVIDENCE_FIELDS,
+    });
+    const pendingEvidenceVentas = handle.ready()
+      ? VentasRechargeCollection.find(query, {
+          fields: PENDING_EVIDENCE_FIELDS,
+          sort: { createdAt: -1 },
+        }).fetch()
+      : [];
+
+    return {
+      ...buildPendingEvidenceAggregate(pendingEvidenceVentas),
+      pendingEvidenceLoading: !handle.ready(),
+    };
+  }, [currentUserId, dataReady]);
+
+  const {
     pendingCashApprovalTypes,
     pendingCashApprovalsCount,
     pendingCashApprovalsLoading,
@@ -244,6 +286,10 @@ const MenuPrincipalNative = () => {
     router.push("/(normal)/ListaArchivos");
   };
 
+  const handleOpenPendingEvidence = () => {
+    router.push("/(normal)/EvidenciasPendientes");
+  };
+
   const handleToggleModoCadete = () => {
     const nextState = !user?.modoCadete;
 
@@ -300,11 +346,14 @@ const MenuPrincipalNative = () => {
       appVersion={appVersionInfo.version}
       buildNumber={appVersionInfo.buildNumber}
       pendingDebt={pendingDebt}
+      pendingEvidenceCount={pendingEvidenceCount}
+      pendingEvidenceLoading={pendingEvidenceLoading}
       pendingVentasCount={pendingVentasCount}
       pendingCashApprovalTypes={pendingCashApprovalTypes}
       pendingCashApprovalsCount={pendingCashApprovalsCount}
       pendingCashApprovalsLoading={pendingCashApprovalsLoading}
       onOpenCashApprovals={handleOpenCashApprovals}
+      onOpenPendingEvidence={handleOpenPendingEvidence}
       onOpenPendingVentas={handleOpenPendingVentas}
       onToggleModoCadete={handleToggleModoCadete}
       onLogout={() => {

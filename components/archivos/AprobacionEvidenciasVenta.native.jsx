@@ -58,23 +58,12 @@ const EVIDENCIA_VENTA_FIELDS = {
   metodoPago: 1,
   monedaCobrado: 1,
   precioOficial: 1,
-  "producto.carritos._id": 1,
-  "producto.carritos.cantidad": 1,
-  "producto.carritos.comentario": 1,
-  "producto.carritos.coordenadas": 1,
-  "producto.carritos.cobrarUSD": 1,
-  "producto.carritos.entregado": 1,
-  "producto.carritos.idTienda": 1,
-  "producto.carritos.monedaACobrar": 1,
-  "producto.carritos.movilARecargar": 1,
-  "producto.carritos.nombre": 1,
-  "producto.carritos.precio": 1,
-  "producto.carritos.producto.name": 1,
-  "producto.carritos.recibirEnCuba": 1,
-  "producto.carritos.status": 1,
-  "producto.carritos.tarjetaCUP": 1,
-  "producto.carritos.type": 1,
+  userId: 1,
+  "producto.carritos": 1,
   "producto.comisiones": 1,
+  "producto.status": 1,
+  "producto.type": 1,
+  "producto.userId": 1,
 };
 
 const EVIDENCIA_FIELDS = {
@@ -152,6 +141,11 @@ const formatCurrency = (amount, currency = "CUP") => {
   return `${number.toLocaleString("es-CU", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${currency}`;
 };
 
+const toSafeNumber = (value, fallback = 0) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : fallback;
+};
+
 const megasToGB = (megas) => {
   if (!megas || megas === 0) {
     return "0 GB";
@@ -159,6 +153,93 @@ const megasToGB = (megas) => {
 
   const gb = megas / 1024;
   return gb >= 1 ? `${gb.toFixed(0)} GB` : `${megas} MB`;
+};
+
+const extractRechargeAmount = (carrito) => {
+  const destinationAmount = carrito?.producto?.destination?.amount;
+  if (destinationAmount !== undefined && destinationAmount !== null) {
+    return destinationAmount;
+  }
+
+  const rawText = `${carrito?.producto?.description || ""} ${carrito?.comentario || ""}`;
+  const match = rawText.match(/\d+/);
+  return match ? match[0] : null;
+};
+
+const normalizeMobile = (mobile) => {
+  if (!mobile) {
+    return null;
+  }
+
+  const rawValue = String(mobile).trim();
+  if (!rawValue) {
+    return null;
+  }
+
+  return rawValue.startsWith("+") ? rawValue : `+${rawValue}`;
+};
+
+const getProductSummaryLabel = (carrito) => {
+  const type = carrito?.type;
+
+  if (type === "PROXY" || type === "VPN") {
+    const isUnlimited = carrito?.esPorTiempo === true || carrito?.megas === null;
+    return `${type} ${isUnlimited ? "Ilimitado" : megasToGB(carrito?.megas)}`;
+  }
+
+  if (type === "RECARGA") {
+    const amount = extractRechargeAmount(carrito);
+    const mobile = normalizeMobile(
+      carrito?.movilARecargar || carrito?.extraFields?.mobile_number,
+    );
+    const amountLabel = amount ? `Recarga ${amount} CUP` : "Recarga";
+    return mobile ? `${amountLabel} · ${mobile}` : amountLabel;
+  }
+
+  if (type === "REMESA") {
+    const amount = toSafeNumber(carrito?.recibirEnCuba, 0);
+    const currency = carrito?.monedaRecibirEnCuba || "CUP";
+    return amount > 0 ? `Remesa ${amount} ${currency}` : "Remesa";
+  }
+
+  if (type === "COMERCIO") {
+    return carrito?.producto?.name || carrito?.nombre || "Producto";
+  }
+
+  return type || "Producto";
+};
+
+const mergeVentaDocuments = (baseVenta, reactiveVenta) => {
+  if (!baseVenta) {
+    return reactiveVenta || null;
+  }
+
+  if (!reactiveVenta) {
+    return baseVenta;
+  }
+
+  const baseProducto = baseVenta?.producto || {};
+  const reactiveProducto = reactiveVenta?.producto || {};
+  const reactiveCarritos = Array.isArray(reactiveProducto?.carritos)
+    ? reactiveProducto.carritos
+    : [];
+  const baseCarritos = Array.isArray(baseProducto?.carritos)
+    ? baseProducto.carritos
+    : [];
+
+  return {
+    ...baseVenta,
+    ...reactiveVenta,
+    producto: {
+      ...baseProducto,
+      ...reactiveProducto,
+      carritos: reactiveCarritos.length > 0 ? reactiveCarritos : baseCarritos,
+      status: reactiveProducto.status || baseProducto.status,
+      type: reactiveProducto.type || baseProducto.type,
+      userId: reactiveProducto.userId || baseProducto.userId,
+    },
+    userId: reactiveVenta.userId || baseVenta.userId || reactiveProducto.userId || baseProducto.userId,
+  };
 };
 
 const PRODUCT_COLORS = {
@@ -395,16 +476,24 @@ const AprobacionEvidenciasVenta = ({
       return null;
     }
 
-    Meteor.subscribe("ventasRecharge", { _id: ventaId }, {
+    const ventaHandle = Meteor.subscribe("ventasRecharge", { _id: ventaId }, {
       fields: EVIDENCIA_VENTA_FIELDS,
     });
+
+    if (!ventaHandle.ready()) {
+      return null;
+    }
+
     return VentasRechargeCollection.findOne(
       { _id: ventaId },
       { fields: EVIDENCIA_VENTA_FIELDS },
     ) || null;
   }, [ventaId]);
 
-  const ventaActual = ventaReact || venta;
+  const ventaActual = useMemo(
+    () => mergeVentaDocuments(venta, ventaReact),
+    [venta, ventaReact],
+  );
 
   const evidenciasSubsc = Meteor.useTracker(() => {
     if (!ventaId) {
@@ -486,6 +575,27 @@ const AprobacionEvidenciasVenta = ({
       );
     return items.join(" • ") || "Sin productos";
   }, [carritosAgrupados]);
+
+  const productSummaryItems = useMemo(() => {
+    const carritos = Array.isArray(ventaActual?.producto?.carritos)
+      ? ventaActual.producto.carritos
+      : [];
+    const summaryMap = new Map();
+
+    carritos.forEach((carrito) => {
+      const label = getProductSummaryLabel(carrito);
+      if (!label) {
+        return;
+      }
+
+      const quantity = Math.max(1, toSafeNumber(carrito?.cantidad, 1));
+      summaryMap.set(label, (summaryMap.get(label) || 0) + quantity);
+    });
+
+    return Array.from(summaryMap.entries()).map(([label, quantity]) =>
+      quantity > 1 ? `${quantity}x ${label}` : label,
+    );
+  }, [ventaActual]);
 
   const tiendaIdParaComisiones = useMemo(() => {
     const item = carritosAgrupados?.comercio?.[0];
@@ -1102,6 +1212,38 @@ const AprobacionEvidenciasVenta = ({
         </View>
       </View>
 
+      {productSummaryItems.length > 0 ? (
+        <View style={styles.productSummaryRow}>
+          <IconButton
+            icon="text-box-outline"
+            size={16}
+            iconColor="#666"
+            style={styles.summaryIcon}
+          />
+          <View style={styles.productSummaryChips}>
+            {productSummaryItems.slice(0, 3).map((item) => (
+              <Chip
+                key={item}
+                compact
+                style={styles.productSummaryChip}
+                textStyle={styles.productSummaryChipText}
+              >
+                {item}
+              </Chip>
+            ))}
+            {productSummaryItems.length > 3 ? (
+              <Chip
+                compact
+                style={styles.productSummaryMoreChip}
+                textStyle={styles.productSummaryChipText}
+              >
+                +{productSummaryItems.length - 3} mas
+              </Chip>
+            ) : null}
+          </View>
+        </View>
+      ) : null}
+
       {tiendaIdParaComisiones ? (
         <View style={styles.summaryBar}>
           <View style={styles.summaryItem}>
@@ -1588,6 +1730,34 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 4,
+  },
+  productSummaryChip: {
+    // backgroundColor: "#eef4ff",
+    borderRadius: 999,
+    marginBottom: 8,
+    marginRight: 8,
+  },
+  productSummaryChipText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  productSummaryChips: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  productSummaryMoreChip: {
+    backgroundColor: "#f1f5f9",
+    borderRadius: 999,
+    marginBottom: 8,
+    marginRight: 8,
+  },
+  productSummaryRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingTop: 2,
+    paddingBottom: 6,
   },
   summaryIcon: { margin: 0, padding: 0 },
   summaryInlineStrong: { fontWeight: "700" },

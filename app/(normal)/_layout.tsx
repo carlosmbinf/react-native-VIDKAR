@@ -31,6 +31,7 @@ export default function NormalLayout() {
       <Stack.Screen name="Mensajes" />
       <Stack.Screen name="Mensaje" />
       <Stack.Screen name="Ventas" />
+      <Stack.Screen name="EvidenciasPendientes" />
       <Stack.Screen name="PropertyList" />
     </Stack>
   );

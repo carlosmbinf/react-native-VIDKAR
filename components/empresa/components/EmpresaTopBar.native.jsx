@@ -7,6 +7,7 @@ import { Appbar, Menu } from "react-native-paper";
 import AppHeader from "../../Header/AppHeader";
 import BlurMenuSurface, { blurMenuContentStyle } from "../../Header/BlurMenuSurface";
 import MenuIconMensajes from "../../components/MenuIconMensajes.native";
+import useSafeBack from "../../navigation/useSafeBack";
 import { EMPRESA_BRAND } from "../styles/empresaTheme";
 
 const Meteor =
@@ -23,17 +24,11 @@ const EmpresaTopBar = ({
   rightActions,
 }) => {
   const router = useRouter();
+  const safeBack = useSafeBack(backHref);
   const [menuVisible, setMenuVisible] = useState(false);
 
   const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-
-    if (backHref) {
-      router.replace(backHref);
-    }
+    safeBack();
   };
 
   const handleLogout = () => {

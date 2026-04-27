@@ -24,22 +24,12 @@ const EFECTIVO_LIST_FIELDS = {
   metodoPago: 1,
   monedaCobrado: 1,
   precioOficial: 1,
-  "producto.carritos._id": 1,
-  "producto.carritos.comentario": 1,
-  "producto.carritos.coordenadas": 1,
-  "producto.carritos.cobrarUSD": 1,
-  "producto.carritos.entregado": 1,
-  "producto.carritos.idTienda": 1,
-  "producto.carritos.monedaACobrar": 1,
-  "producto.carritos.movilARecargar": 1,
-  "producto.carritos.nombre": 1,
-  "producto.carritos.precio": 1,
-  "producto.carritos.producto.name": 1,
-  "producto.carritos.recibirEnCuba": 1,
-  "producto.carritos.status": 1,
-  "producto.carritos.tarjetaCUP": 1,
-  "producto.carritos.type": 1,
+  userId: 1,
+  "producto.carritos": 1,
   "producto.comisiones": 1,
+  "producto.status": 1,
+  "producto.type": 1,
+  "producto.userId": 1,
 };
 
 const ListaVentasEfectivo = () => {
@@ -108,7 +98,11 @@ const ListaVentasEfectivo = () => {
 
   return (
     <View style={styles.screen}>
-      <AppHeader title="Aprobaciones de ventas efectivo" />
+      <AppHeader
+        title="Aprobaciones de ventas efectivo"
+        showBackButton
+        backHref="/(normal)/Main"
+      />
       {cargando ? (
         <Surface style={styles.centrado}>
           <ActivityIndicator size="large" />

@@ -1,11 +1,12 @@
+import { memo } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import MeteorBase from "@meteorrn/core";
 import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, View } from "react-native";
-import { Card, Divider, IconButton, Surface, Text } from "react-native-paper";
+import { ActivityIndicator, Card, Divider, IconButton, Surface, Text } from "react-native-paper";
 
 import SubidaArchivos from "../../../archivos/SubidaArchivos.native";
-import { TiendasComercioCollection } from "../../../collections/collections";
+import { VentasRechargeCollection } from "../../../collections/collections";
 import MapaPedidoConCadete from "../../maps/MapaPedidoConCadete";
 import PedidoStepper from "./PedidoStepper";
 
@@ -14,14 +15,28 @@ const Meteor =
     MeteorBase
   );
 
-const PEDIDO_CARD_TIENDA_FIELDS = {
+const PEDIDO_CARD_DETAIL_FIELDS = {
   _id: 1,
-  cordenadas: 1,
-  coordenadas: 1,
-  descripcion: 1,
-  name: 1,
-  title: 1,
-  ubicacion: 1,
+  cadeteid: 1,
+  userId: 1,
+  "producto.carritos": 1,
+};
+
+const mergeVentaWithDetail = (ventaBase, ventaDetalle) => {
+  if (!ventaDetalle) {
+    return ventaBase;
+  }
+
+  return {
+    ...ventaBase,
+    ...ventaDetalle,
+    producto: {
+      ...(ventaBase?.producto || {}),
+      ...(ventaDetalle?.producto || {}),
+      carritos:
+        ventaDetalle?.producto?.carritos || ventaBase?.producto?.carritos || [],
+    },
+  };
 };
 
 const formatFecha = (date) => {
@@ -36,6 +51,227 @@ const formatFecha = (date) => {
   });
 };
 
+const PedidoCardExpandedContent = ({
+  isCanceled,
+  isPendientePago,
+  necesitaEvidencia,
+  venta,
+}) => {
+  const { detailReady, ventaDetalle } = Meteor.useTracker(() => {
+    const ventaId = venta?._id;
+
+    if (!ventaId) {
+      return {
+        detailReady: false,
+        ventaDetalle: null,
+      };
+    }
+
+    const detailHandle = Meteor.subscribe("ventasRecharge", { _id: ventaId }, {
+      fields: PEDIDO_CARD_DETAIL_FIELDS,
+    });
+    const ventaDoc = VentasRechargeCollection.findOne(
+      { _id: ventaId },
+      { fields: PEDIDO_CARD_DETAIL_FIELDS },
+    );
+
+    return {
+      detailReady: detailHandle.ready(),
+      ventaDetalle: ventaDoc || null,
+    };
+  }, [venta?._id]);
+
+  const ventaCompleta = mergeVentaWithDetail(venta, ventaDetalle);
+  const carritos = ventaCompleta?.producto?.carritos || [];
+  const totalProductos = carritos.length;
+  const primeraCompra = carritos[0];
+  const tienda = primeraCompra?.idTienda;
+  const coordenadas = primeraCompra?.coordenadas;
+  const comentarioPedido = primeraCompra?.comentario;
+  const cadeteId = ventaCompleta?.cadeteid;
+  const detailLoading = !detailReady && !ventaDetalle;
+  const estadosConMapa = ["CADETEENLOCAL", "ENCAMINO", "CADETEENDESTINO"];
+  const mostrarMapa =
+    !isCanceled &&
+    cadeteId &&
+    ventaCompleta?.estado &&
+    estadosConMapa.includes(ventaCompleta.estado) &&
+    tienda &&
+    coordenadas;
+
+  return (
+    <View
+      style={[
+        styles.expandedContent,
+        mostrarMapa ? styles.expandedContentWithMap : null,
+      ]}
+    >
+      {mostrarMapa ? (
+        <View style={styles.mapWrapper}>
+          <MapaPedidoConCadete
+            cadeteId={cadeteId}
+            coordenadasDestino={coordenadas}
+            idTienda={tienda}
+          />
+
+          <LinearGradient
+            colors={[
+              "rgba(0, 0, 0, 0.7)",
+              "rgba(0, 0, 0, 0.7)",
+              "transparent",
+            ]}
+            locations={[0, 0.6, 1]}
+            pointerEvents="none"
+            style={styles.gradientOverlay}
+          />
+        </View>
+      ) : null}
+
+      {isCanceled ? (
+        <Surface elevation={1} style={styles.alertCancelada}>
+          <IconButton
+            icon="close-circle"
+            iconColor="#D32F2F"
+            size={20}
+            style={styles.alertIconButton}
+          />
+          <Text style={styles.alertCanceladaText}>
+            ❌ Este pedido ha sido cancelado y no se procesará
+          </Text>
+        </Surface>
+      ) : null}
+
+      {!mostrarMapa && !isCanceled && ventaCompleta?.estado === "PREPARANDO" ? (
+        <Surface elevation={1} style={styles.alertInfo}>
+          <IconButton
+            icon="clock-outline"
+            iconColor="#2196F3"
+            size={20}
+            style={styles.alertIconButton}
+          />
+          <Text style={styles.alertInfoText}>
+            📦 El pedido está siendo preparado. El seguimiento en tiempo real estará disponible cuando el cadete recoja el pedido.
+          </Text>
+        </Surface>
+      ) : null}
+
+      {!mostrarMapa && !isCanceled && ventaCompleta?.estado === "ENTREGADO" ? (
+        <Surface elevation={1} style={styles.alertSuccess}>
+          <IconButton
+            icon="check-circle"
+            iconColor="#4CAF50"
+            size={20}
+            style={styles.alertIconButton}
+          />
+          <Text style={styles.alertSuccessText}>
+            Pedido entregado exitosamente
+          </Text>
+        </Surface>
+      ) : null}
+
+      {necesitaEvidencia ? (
+        <Surface elevation={2} style={styles.evidenciaCard}>
+          <View style={styles.evidenciaHeader}>
+            <IconButton color="#FF9800" icon="file-upload" size={24} />
+            <Text style={styles.evidenciaTitle}>
+              📤 Subir Evidencia de Pago
+            </Text>
+          </View>
+
+          <Text style={styles.evidenciaSubtitle}>
+            Debe subir el comprobante del pago para que el administrador confirme la transacción y proceda con la entrega del pedido.
+          </Text>
+
+          <Divider style={styles.evidenciaDivider} />
+
+          <SubidaArchivos venta={ventaCompleta} />
+        </Surface>
+      ) : null}
+
+      {isPendientePago && !isCanceled && !necesitaEvidencia ? (
+        <Surface elevation={1} style={styles.alertPendientePago}>
+          <IconButton
+            icon="alert-circle"
+            iconColor="#FF9800"
+            size={20}
+            style={styles.alertIconButton}
+          />
+          <Text style={styles.alertPendientePagoText}>
+            ⏳ Esperando confirmación de pago
+          </Text>
+        </Surface>
+      ) : null}
+
+      {detailLoading ? (
+        <Surface elevation={1} style={styles.detailLoadingCard}>
+          <ActivityIndicator color="#FF6F00" size="small" />
+          <Text style={styles.detailLoadingText}>
+            Cargando detalle del pedido...
+          </Text>
+        </Surface>
+      ) : (
+        <>
+          <Divider style={styles.divider} />
+
+          <View style={styles.productosSection}>
+            <Text style={styles.sectionTitle} variant="titleSmall">
+              📦 Productos del Pedido ({totalProductos})
+            </Text>
+
+            {carritos.map((item, index) => (
+              <View key={`${ventaCompleta._id}-${index}`} style={styles.productoRow}>
+                <View style={styles.productoInfo}>
+                  <Text
+                    numberOfLines={1}
+                    style={styles.productoNombre}
+                    variant="bodyMedium"
+                  >
+                    •{" "}
+                    {item.producto?.name || item.nombre || "Producto sin nombre"}
+                  </Text>
+                  {item.producto?.descripcion ? (
+                    <Text
+                      numberOfLines={1}
+                      style={styles.productoDescripcion}
+                      variant="bodySmall"
+                    >
+                      {item.producto.descripcion}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={styles.productoCantidad} variant="bodySmall">
+                  x{item.cantidad || 1}
+                </Text>
+                <Text style={styles.productoPrecio} variant="bodyMedium">
+                  {parseFloat(item.cobrarUSD || item.producto?.precio || 0).toFixed(2)}{" "}
+                  {item.monedaACobrar}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {comentarioPedido ? (
+            <>
+              <Divider style={styles.divider} />
+
+              <View style={styles.comentarioSection}>
+                <MaterialCommunityIcons
+                  color="#616161"
+                  name="comment-text-outline"
+                  size={16}
+                />
+                <Text style={styles.comentarioText} variant="bodySmall">
+                  {comentarioPedido}
+                </Text>
+              </View>
+            </>
+          ) : null}
+        </>
+      )}
+    </View>
+  );
+};
+
 const PedidoCardNative = ({
   currentStep,
   isExpanded,
@@ -46,36 +282,6 @@ const PedidoCardNative = ({
   const isPendientePago = venta?.isCobrado === false;
   const necesitaEvidencia =
     !venta?.isCobrado && !isCanceled && venta?.metodoPago === "EFECTIVO";
-  const carritos = venta?.producto?.carritos || [];
-  const totalProductos = carritos.length;
-  const primeraCompra = carritos[0];
-  const tienda = primeraCompra?.idTienda;
-  const coordenadas = primeraCompra?.coordenadas;
-  const comentarioPedido = primeraCompra?.comentario;
-  const cadeteId = venta?.cadeteid;
-
-  const tiendaData = Meteor.useTracker(() => {
-    if (!tienda) {
-      return null;
-    }
-
-    Meteor.subscribe("tiendas", { _id: tienda }, {
-      fields: PEDIDO_CARD_TIENDA_FIELDS,
-    });
-    return TiendasComercioCollection.findOne(
-      { _id: tienda },
-      { fields: PEDIDO_CARD_TIENDA_FIELDS },
-    );
-  }, [tienda]);
-
-  const estadosConMapa = ["CADETEENLOCAL", "ENCAMINO", "CADETEENDESTINO"];
-  const mostrarMapa =
-    !isCanceled &&
-    cadeteId &&
-    venta?.estado &&
-    estadosConMapa.includes(venta.estado) &&
-    tienda &&
-    coordenadas;
 
   return (
     <Surface elevation={8} style={styles.card}>
@@ -106,180 +312,53 @@ const PedidoCardNative = ({
         <PedidoStepper currentStep={currentStep} isCanceled={isCanceled} />
 
         {isExpanded ? (
-          <View
-            style={[
-              styles.expandedContent,
-              mostrarMapa ? styles.expandedContentWithMap : null,
-            ]}
-          >
-            {mostrarMapa ? (
-              <View style={styles.mapWrapper}>
-                <MapaPedidoConCadete
-                  cadeteId={cadeteId}
-                  coordenadasDestino={coordenadas}
-                  idTienda={tienda}
-                />
-
-                <LinearGradient
-                  colors={[
-                    "rgba(0, 0, 0, 0.7)",
-                    "rgba(0, 0, 0, 0.7)",
-                    "transparent",
-                  ]}
-                  locations={[0, 0.6, 1]}
-                  pointerEvents="none"
-                  style={styles.gradientOverlay}
-                />
-              </View>
-            ) : null}
-
-            {isCanceled ? (
-              <Surface elevation={1} style={styles.alertCancelada}>
-                <IconButton
-                  icon="close-circle"
-                  iconColor="#D32F2F"
-                  size={20}
-                  style={styles.alertIconButton}
-                />
-                <Text style={styles.alertCanceladaText}>
-                  ❌ Este pedido ha sido cancelado y no se procesará
-                </Text>
-              </Surface>
-            ) : null}
-
-            {!mostrarMapa &&
-            !isCanceled &&
-            cadeteId &&
-            venta?.estado === "PREPARANDO" ? (
-              <Surface elevation={1} style={styles.alertInfo}>
-                <IconButton
-                  icon="clock-outline"
-                  iconColor="#2196F3"
-                  size={20}
-                  style={styles.alertIconButton}
-                />
-                <Text style={styles.alertInfoText}>
-                  📦 El pedido está siendo preparado. El seguimiento en tiempo
-                  real estará disponible cuando el cadete recoja el pedido.
-                </Text>
-              </Surface>
-            ) : null}
-
-            {!mostrarMapa && !isCanceled && venta?.estado === "ENTREGADO" ? (
-              <Surface elevation={1} style={styles.alertSuccess}>
-                <IconButton
-                  icon="check-circle"
-                  iconColor="#4CAF50"
-                  size={20}
-                  style={styles.alertIconButton}
-                />
-                <Text style={styles.alertSuccessText}>
-                  Pedido entregado exitosamente
-                </Text>
-              </Surface>
-            ) : null}
-
-            {necesitaEvidencia ? (
-              <Surface elevation={2} style={styles.evidenciaCard}>
-                <View style={styles.evidenciaHeader}>
-                  <IconButton color="#FF9800" icon="file-upload" size={24} />
-                  <Text style={styles.evidenciaTitle}>
-                    📤 Subir Evidencia de Pago
-                  </Text>
-                </View>
-
-                <Text style={styles.evidenciaSubtitle}>
-                  Debe subir el comprobante de pago en efectivo para que el
-                  administrador confirme la transacción y proceda con la entrega
-                  del pedido.
-                </Text>
-
-                <Divider style={styles.evidenciaDivider} />
-
-                <SubidaArchivos venta={venta} />
-              </Surface>
-            ) : null}
-
-            {isPendientePago && !isCanceled && !necesitaEvidencia ? (
-              <Surface elevation={1} style={styles.alertPendientePago}>
-                <IconButton
-                  icon="alert-circle"
-                  iconColor="#FF9800"
-                  size={20}
-                  style={styles.alertIconButton}
-                />
-                <Text style={styles.alertPendientePagoText}>
-                  ⏳ Esperando confirmación de pago
-                </Text>
-              </Surface>
-            ) : null}
-
-            <Divider style={styles.divider} />
-
-            <View style={styles.productosSection}>
-              <Text style={styles.sectionTitle} variant="titleSmall">
-                📦 Productos del Pedido ({totalProductos})
-              </Text>
-
-              {carritos.map((item, index) => (
-                <View key={`${venta._id}-${index}`} style={styles.productoRow}>
-                  <View style={styles.productoInfo}>
-                    <Text
-                      numberOfLines={1}
-                      style={styles.productoNombre}
-                      variant="bodyMedium"
-                    >
-                      •{" "}
-                      {item.producto?.name ||
-                        item.nombre ||
-                        "Producto sin nombre"}
-                    </Text>
-                    {item.producto?.descripcion ? (
-                      <Text
-                        numberOfLines={1}
-                        style={styles.productoDescripcion}
-                        variant="bodySmall"
-                      >
-                        {item.producto.descripcion}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Text style={styles.productoCantidad} variant="bodySmall">
-                    x{item.cantidad || 1}
-                  </Text>
-                  <Text style={styles.productoPrecio} variant="bodyMedium">
-                    {parseFloat(
-                      item.cobrarUSD || item.producto?.precio || 0,
-                    ).toFixed(2)}{" "}
-                    {item.monedaACobrar}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            {comentarioPedido ? (
-              <>
-                <Divider style={styles.divider} />
-
-                <View style={styles.comentarioSection}>
-                  <MaterialCommunityIcons
-                    color="#616161"
-                    name="comment-text-outline"
-                    size={16}
-                  />
-                  <Text style={styles.comentarioText} variant="bodySmall">
-                    {comentarioPedido}
-                  </Text>
-                </View>
-              </>
-            ) : null}
-          </View>
+          <PedidoCardExpandedContent
+            isCanceled={isCanceled}
+            isPendientePago={isPendientePago}
+            necesitaEvidencia={necesitaEvidencia}
+            venta={venta}
+          />
         ) : null}
       </View>
     </Surface>
   );
 };
 
+const arePedidoCardPropsEqual = (prevProps, nextProps) => {
+    if (prevProps.currentStep !== nextProps.currentStep) {
+      return false;
+    }
+
+    if (prevProps.isExpanded !== nextProps.isExpanded) {
+      return false;
+    }
+
+    const prevVenta = prevProps.venta;
+    const nextVenta = nextProps.venta;
+
+    if (prevVenta === nextVenta) {
+      return true;
+    }
+
+    if (!prevVenta || !nextVenta) {
+      return false;
+    }
+
+    if (
+      prevVenta._id !== nextVenta._id ||
+      prevVenta.createdAt !== nextVenta.createdAt ||
+      prevVenta.estado !== nextVenta.estado ||
+      prevVenta.isCancelada !== nextVenta.isCancelada ||
+      prevVenta.isCobrado !== nextVenta.isCobrado ||
+      prevVenta.metodoPago !== nextVenta.metodoPago
+    ) {
+      return false;
+    }
+
+    return true;
+  };
+
+export default memo(PedidoCardNative, arePedidoCardPropsEqual);
 const styles = StyleSheet.create({
   alertCancelada: {
     alignItems: "center",
@@ -373,6 +452,20 @@ const styles = StyleSheet.create({
     flex: 1,
     fontStyle: "italic",
     marginLeft: 8,
+  },
+  detailLoadingCard: {
+    alignItems: "center",
+    borderRadius: 10,
+    flexDirection: "row",
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  detailLoadingText: {
+    color: "#616161",
+    fontSize: 13,
+    fontWeight: "600",
+    marginLeft: 10,
   },
   divider: {
     marginVertical: 12,
@@ -499,5 +592,3 @@ const styles = StyleSheet.create({
     zIndex: 11,
   },
 });
-
-export default PedidoCardNative;
