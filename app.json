@@ -79,6 +79,17 @@
     "plugins": [
       "expo-router",
       "./plugins/with-vidkar-google-maps-key.js",
+      [
+        "./plugins/with-vidkar-watch-app.js",
+        {
+          "targetName": "VidkarWatch",
+          "displayName": "Vidkar",
+          "bundleIdentifier": "com.vidkar.watchkitapp",
+          "deploymentTarget": "10.0",
+          "sourceDir": "watchos/VidkarWatch",
+          "icon": "./assets/images/icon.png"
+        }
+      ],
       "./node_modules/@react-native-google-signin/google-signin/app.plugin.js",
       "expo-apple-authentication",
       [
