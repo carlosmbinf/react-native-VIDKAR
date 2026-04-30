@@ -149,6 +149,18 @@
       "router": {},
       "meteorUrl": "ws://www.vidkar.com:3000/websocket",
       "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "VidkarWatch",
+                  "bundleIdentifier": "com.vidkar.watchkitapp"
+                }
+              ]
+            }
+          }
+        },
         "projectId": "8e109c94-83e2-410e-ab33-a31cd79c543c"
       }
     },

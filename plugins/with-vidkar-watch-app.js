@@ -59,6 +59,33 @@ function resolveOptions(config, options = {}) {
   };
 }
 
+function ensureEasAppExtensionConfig(config, options) {
+  config.extra = config.extra || {};
+  config.extra.eas = config.extra.eas || {};
+  config.extra.eas.build = config.extra.eas.build || {};
+  config.extra.eas.build.experimental =
+    config.extra.eas.build.experimental || {};
+  config.extra.eas.build.experimental.ios =
+    config.extra.eas.build.experimental.ios || {};
+
+  const iosExperimental = config.extra.eas.build.experimental.ios;
+  iosExperimental.appExtensions = iosExperimental.appExtensions || [];
+
+  const existingExtension = iosExperimental.appExtensions.find(
+    (extension) => extension.targetName === options.targetName,
+  );
+
+  if (existingExtension) {
+    existingExtension.bundleIdentifier = options.bundleIdentifier;
+    return;
+  }
+
+  iosExperimental.appExtensions.push({
+    targetName: options.targetName,
+    bundleIdentifier: options.bundleIdentifier,
+  });
+}
+
 function buildWatchInfoPlist(config, options) {
   return {
     CFBundleDevelopmentRegion: "$(DEVELOPMENT_LANGUAGE)",
@@ -331,6 +358,10 @@ function applyWatchBuildSettings(config, project, targetUuid, options) {
     };
 
     delete buildConfiguration.buildSettings.IPHONEOS_DEPLOYMENT_TARGET;
+    delete buildConfiguration.buildSettings.CODE_SIGN_IDENTITY;
+    delete buildConfiguration.buildSettings["CODE_SIGN_IDENTITY[sdk=watchos*]"];
+    delete buildConfiguration.buildSettings.PROVISIONING_PROFILE_SPECIFIER;
+    delete buildConfiguration.buildSettings["PROVISIONING_PROFILE_SPECIFIER[sdk=watchos*]"];
 
     if (teamId) {
       buildConfiguration.buildSettings.DEVELOPMENT_TEAM = teamId;
@@ -572,6 +603,8 @@ const withWatchXcodeTarget = (config, options) => {
 
 const withVidkarWatchApp = (config, props = {}) => {
   const options = resolveOptions(config, props);
+
+  ensureEasAppExtensionConfig(config, options);
 
   config = withWatchFiles(config, options);
   config = withWatchXcodeTarget(config, options);
