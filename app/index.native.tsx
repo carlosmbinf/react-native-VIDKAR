@@ -13,10 +13,14 @@ import PushNotificationDialogHost from "../components/shared/PushNotificationDia
 import UpdateRequired from "../components/update/UpdateRequired";
 import { syncCadeteBackgroundLocation } from "../services/location/cadeteBackgroundLocation.native";
 import {
-  registerPushTokenForActiveSession,
-  registerPushTokenForUser,
-  setupPushListeners,
+    registerPushTokenForActiveSession,
+    registerPushTokenForUser,
+    setupPushListeners,
 } from "../services/notifications/PushMessaging.native";
+import {
+    clearWatchUserSnapshot,
+    syncCurrentUserWithWatch,
+} from "../services/watch/watchConnectivity.native";
 
 const Meteor = MeteorBase as unknown as {
   useTracker: <T>(reactiveFn: () => T) => T;
@@ -35,14 +39,22 @@ const METEOR_CONNECTION_TIMEOUT_MS = 10_000;
 const METEOR_CONNECTION_POLL_MS = 500;
 
 const ROOT_USER_FIELDS = {
+  createdAt: 1,
+  emails: 1,
   modoCadete: 1,
   modoEmpresa: 1,
+  name: 1,
   permiteRemesas: 1,
+  phone: 1,
   picture: 1,
   "profile.firstName": 1,
+  "profile.lastName": 1,
+  "profile.name": 1,
+  "profile.picture": 1,
   "profile.role": 1,
   "profile.roleComercio": 1,
   subscipcionPelis: 1,
+  telefono: 1,
   username: 1,
 };
 
@@ -123,7 +135,8 @@ export default function IndexScreen() {
 
       const subscription = Meteor.subscribe(
         "user",
-        {_id: currentUserId}
+        { _id: currentUserId },
+        { fields: ROOT_USER_FIELDS },
       );
 
       return {
@@ -310,6 +323,27 @@ export default function IndexScreen() {
       );
     });
   }, [userId]);
+
+  React.useEffect(() => {
+    if (Platform.OS !== "ios") {
+      return;
+    }
+
+    if (!userId) {
+      clearWatchUserSnapshot().catch((error) => {
+        console.warn("[WatchConnectivity] No se pudo limpiar el usuario del Watch:", error);
+      });
+      return;
+    }
+
+    if (!ready || !user) {
+      return;
+    }
+
+    syncCurrentUserWithWatch(user).catch((error) => {
+      console.warn("[WatchConnectivity] No se pudo sincronizar el usuario con el Watch:", error);
+    });
+  }, [ready, user, userId]);
 
   if (userId && !ready) {
     return (
