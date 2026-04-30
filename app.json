@@ -2,7 +2,7 @@
   "expo": {
     "name": "Vidkar",
     "slug": "vidkar",
-    "version": "4.0.968",
+    "version": "4.0.875",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "splash": {
@@ -20,7 +20,7 @@
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "buildNumber": "968",
+      "buildNumber": "872",
       "bundleIdentifier": "com.vidkar",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
@@ -79,18 +79,6 @@
     "plugins": [
       "expo-router",
       "./plugins/with-vidkar-google-maps-key.js",
-      [
-        "./plugins/with-vidkar-watch-app.js",
-        {
-          "targetName": "VidkarWatch",
-          "displayName": "Vidkar",
-          "bundleIdentifier": "com.vidkar.watchkitapp",
-          "deploymentTarget": "8.0",
-          "developmentTeam": "4TWB6RN383",
-          "sourceDir": "watchos/VidkarWatch",
-          "icon": "./assets/images/icon.png"
-        }
-      ],
       "./node_modules/@react-native-google-signin/google-signin/app.plugin.js",
       "expo-apple-authentication",
       [
@@ -149,18 +137,6 @@
       "router": {},
       "meteorUrl": "ws://www.vidkar.com:3000/websocket",
       "eas": {
-        "build": {
-          "experimental": {
-            "ios": {
-              "appExtensions": [
-                {
-                  "targetName": "VidkarWatch",
-                  "bundleIdentifier": "com.vidkar.watchkitapp"
-                }
-              ]
-            }
-          }
-        },
         "projectId": "8e109c94-83e2-410e-ab33-a31cd79c543c"
       }
     },
