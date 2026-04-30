@@ -154,13 +154,21 @@ workflows:
           echo "Version: $VERSION_NAME"
           echo "Build: $VERSION_CODE"
 
-          # Detectar ruta correcta automáticamente
-          INFO_PLIST=$(find . -name "Info.plist" | grep -E "Runner|Vidkar" | head -n 1)
+          # Mantener app iOS y Watch app con la misma version/build.
+          INFO_PLISTS=(
+            "Vidkar/Info.plist"
+            "VidkarWatch/Info.plist"
+          )
 
-          echo "Usando plist: $INFO_PLIST"
-
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION_NAME" "$INFO_PLIST"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION_CODE" "$INFO_PLIST"
+          for INFO_PLIST in "${INFO_PLISTS[@]}"; do
+            if [ -f "$INFO_PLIST" ]; then
+              echo "Actualizando plist: $INFO_PLIST"
+              /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION_NAME" "$INFO_PLIST"
+              /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION_CODE" "$INFO_PLIST"
+            else
+              echo "No existe $INFO_PLIST, se omite"
+            fi
+          done
 
       # 🔐 Aplicar perfiles/certificados ya resueltos por Codemagic
       - name: Setup signing
@@ -169,12 +177,15 @@ workflows:
 
       - name: Build IPA
         script: |
+          set -o pipefail
+          mkdir -p build/ios/logs
           xcode-project build-ipa \
             --workspace "ios/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME"
+            --scheme "$XCODE_SCHEME" 2>&1 | tee build/ios/logs/build-ipa.log
 
     artifacts:
       - build/ios/ipa/*.ipa
+      - build/ios/logs/*.log
 
     publishing:
       app_store_connect:
@@ -301,12 +312,21 @@ workflows:
           echo "iOS Version: $VERSION_NAME"
           echo "iOS Build: $VERSION_CODE"
 
-          INFO_PLIST=$(find . -name "Info.plist" | grep -E "Runner|Vidkar" | head -n 1)
+          # Mantener app iOS y Watch app con la misma version/build.
+          INFO_PLISTS=(
+            "Vidkar/Info.plist"
+            "VidkarWatch/Info.plist"
+          )
 
-          echo "Usando plist: $INFO_PLIST"
-
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION_NAME" "$INFO_PLIST"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION_CODE" "$INFO_PLIST"
+          for INFO_PLIST in "${INFO_PLISTS[@]}"; do
+            if [ -f "$INFO_PLIST" ]; then
+              echo "Actualizando plist: $INFO_PLIST"
+              /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION_NAME" "$INFO_PLIST"
+              /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION_CODE" "$INFO_PLIST"
+            else
+              echo "No existe $INFO_PLIST, se omite"
+            fi
+          done
 
       - name: Setup signing
         script: |
@@ -314,13 +334,16 @@ workflows:
 
       - name: Build IPA
         script: |
+          set -o pipefail
+          mkdir -p build/ios/logs
           xcode-project build-ipa \
             --workspace "ios/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME"
+            --scheme "$XCODE_SCHEME" 2>&1 | tee build/ios/logs/build-ipa.log
 
     artifacts:
       - android/app/build/outputs/**/*.aab
       - build/ios/ipa/*.ipa
+      - build/ios/logs/*.log
 
     publishing:
       google_play:

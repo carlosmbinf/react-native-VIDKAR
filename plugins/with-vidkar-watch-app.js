@@ -406,6 +406,54 @@ function ensureEmbeddedWatchAppCodeSignOnCopy(project, targetName) {
   }
 }
 
+function buildSchemeReference({ targetUuid, buildableName, blueprintName }) {
+  return `            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "${targetUuid}"
+               BuildableName = "${buildableName}"
+               BlueprintName = "${blueprintName}"
+               ReferencedContainer = "container:${blueprintName}.xcodeproj">
+            </BuildableReference>`;
+}
+
+function replaceLaunchRunnableWithMainApp(schemeXml, mainTargetName, mainTargetUuid) {
+  const mainReference = buildSchemeReference({
+    targetUuid: mainTargetUuid,
+    buildableName: `${mainTargetName}.app`,
+    blueprintName: mainTargetName,
+  });
+
+  return schemeXml.replace(
+    /(<LaunchAction[\s\S]*?<BuildableProductRunnable[\s\S]*?>)[\s\S]*?(\s*<\/BuildableProductRunnable>)/,
+    `$1\n${mainReference}\n      $2`,
+  );
+}
+
+function ensureMainSchemeLaunchesMainApp(projectRoot, mainTargetName, mainTargetUuid) {
+  const schemePath = path.join(
+    projectRoot,
+    `${mainTargetName}.xcodeproj`,
+    "xcshareddata",
+    "xcschemes",
+    `${mainTargetName}.xcscheme`,
+  );
+
+  if (!fs.existsSync(schemePath)) {
+    return;
+  }
+
+  const schemeXml = fs.readFileSync(schemePath, "utf8");
+  const nextSchemeXml = replaceLaunchRunnableWithMainApp(
+    schemeXml,
+    mainTargetName,
+    mainTargetUuid,
+  );
+
+  if (nextSchemeXml !== schemeXml) {
+    fs.writeFileSync(schemePath, nextSchemeXml);
+  }
+}
+
 function ensureWatchAppEmbedded(project, targetName) {
   const appTargetUuid = project.getFirstTarget().uuid;
   const appTarget = project.pbxNativeTargetSection()[appTargetUuid];
@@ -601,6 +649,42 @@ const withWatchXcodeTarget = (config, options) => {
   });
 };
 
+const withMainSchemeRunnable = (config) => {
+  return withDangerousMod(config, [
+    "ios",
+    async (config) => {
+      if (config.modRequest.introspect) {
+        return config;
+      }
+
+      const platformProjectRoot = config.modRequest.platformProjectRoot;
+      const mainTargetName = config.modRequest.projectName;
+      const projectPath = path.join(
+        platformProjectRoot,
+        `${mainTargetName}.xcodeproj`,
+        "project.pbxproj",
+      );
+
+      if (!fs.existsSync(projectPath)) {
+        return config;
+      }
+
+      const xcode = require("xcode");
+      const project = xcode.project(projectPath);
+      project.parseSync();
+
+      const mainTargetUuid = project.getFirstTarget().uuid;
+      ensureMainSchemeLaunchesMainApp(
+        platformProjectRoot,
+        mainTargetName,
+        mainTargetUuid,
+      );
+
+      return config;
+    },
+  ]);
+};
+
 const withVidkarWatchApp = (config, props = {}) => {
   const options = resolveOptions(config, props);
 
@@ -608,6 +692,7 @@ const withVidkarWatchApp = (config, props = {}) => {
 
   config = withWatchFiles(config, options);
   config = withWatchXcodeTarget(config, options);
+  config = withMainSchemeRunnable(config);
 
   return config;
 };
