@@ -104,6 +104,7 @@ workflows:
       cocoapods: default
       vars:
         BUNDLE_ID: "com.vidkar"
+        WATCH_BUNDLE_ID: "com.vidkar.watchkitapp"
         XCODE_WORKSPACE: "Vidkar.xcworkspace"
         XCODE_SCHEME: "Vidkar"
 
@@ -155,6 +156,15 @@ workflows:
 
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION_NAME" "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION_CODE" "$INFO_PLIST"
+
+      - name: Fetch Watch signing files
+        script: |
+          app-store-connect fetch-signing-files "$WATCH_BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create \
+            --delete-stale-profiles
+
+          keychain add-certificates
 
       # 🔐 Aplicar perfiles/certificados ya resueltos por Codemagic
       - name: Setup signing
@@ -214,6 +224,7 @@ workflows:
       cocoapods: default
       vars:
         BUNDLE_ID: "com.vidkar"
+        WATCH_BUNDLE_ID: "com.vidkar.watchkitapp"
         XCODE_WORKSPACE: "Vidkar.xcworkspace"
         XCODE_SCHEME: "Vidkar"
 
@@ -297,6 +308,15 @@ workflows:
 
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION_NAME" "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION_CODE" "$INFO_PLIST"
+
+      - name: Fetch Watch signing files
+        script: |
+          app-store-connect fetch-signing-files "$WATCH_BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create \
+            --delete-stale-profiles
+
+          keychain add-certificates
 
       - name: Setup signing
         script: |
