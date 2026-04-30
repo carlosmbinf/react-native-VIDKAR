@@ -2,14 +2,16 @@
   "name": "Vidkar",
   "main": "./index.js",
   "version": "1.0.0",
+  "packageManager": "npm@10.9.7",
   "scripts": {
     "start": "expo start",
+    "postinstall": "node ./scripts/patch-apple-targets-watch-prebuild.js",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "build": "expo prebuild"
+    "build": "node ./scripts/patch-apple-targets-watch-prebuild.js && expo prebuild"
   },
   "dependencies": {
     "@bacons/apple-targets": "^4.0.6",
