@@ -176,6 +176,27 @@ workflows:
         script: |
           xcode-project use-profiles
 
+      - name: Debug resolved signing
+        script: |
+          set -euo pipefail
+
+          xcodebuild \
+            -workspace "ios/$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -showBuildSettings 2>/dev/null | \
+            awk '
+              /TARGETNAME = / { target=$3 }
+              /PRODUCT_BUNDLE_IDENTIFIER = / { bundle=$3 }
+              /CODE_SIGN_STYLE = / { signStyle=$3 }
+              /DEVELOPMENT_TEAM = / { team=$3 }
+              /PROVISIONING_PROFILE_SPECIFIER = / { profile=substr($0, index($0,$3)) }
+              /CODE_SIGN_IDENTITY = / {
+                identity=substr($0, index($0,$3));
+                print "TARGET=" target " | BUNDLE=" bundle " | STYLE=" signStyle " | TEAM=" team " | PROFILE=" profile " | IDENTITY=" identity;
+                bundle=""; signStyle=""; team=""; profile=""; identity="";
+              }
+            '
+
       - name: Build IPA
         script: |
           set -euo pipefail
@@ -205,9 +226,7 @@ workflows:
             -archivePath "$ARCHIVE_PATH" \
             archive \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            CODE_SIGN_STYLE=Manual 2>&1 | tee "$LOG_DIR/xcodebuild-archive.log"
+            DEVELOPMENT_TEAM="$TEAM_ID" 2>&1 | tee "$LOG_DIR/xcodebuild-archive.log"
 
           xcodebuild \
             -exportArchive \
@@ -365,6 +384,27 @@ workflows:
         script: |
           xcode-project use-profiles
 
+      - name: Debug resolved signing
+        script: |
+          set -euo pipefail
+
+          xcodebuild \
+            -workspace "ios/$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -showBuildSettings 2>/dev/null | \
+            awk '
+              /TARGETNAME = / { target=$3 }
+              /PRODUCT_BUNDLE_IDENTIFIER = / { bundle=$3 }
+              /CODE_SIGN_STYLE = / { signStyle=$3 }
+              /DEVELOPMENT_TEAM = / { team=$3 }
+              /PROVISIONING_PROFILE_SPECIFIER = / { profile=substr($0, index($0,$3)) }
+              /CODE_SIGN_IDENTITY = / {
+                identity=substr($0, index($0,$3));
+                print "TARGET=" target " | BUNDLE=" bundle " | STYLE=" signStyle " | TEAM=" team " | PROFILE=" profile " | IDENTITY=" identity;
+                bundle=""; signStyle=""; team=""; profile=""; identity="";
+              }
+            '
+
       - name: Build IPA
         script: |
           set -euo pipefail
@@ -394,9 +434,7 @@ workflows:
             -archivePath "$ARCHIVE_PATH" \
             archive \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            CODE_SIGN_STYLE=Manual 2>&1 | tee "$LOG_DIR/xcodebuild-archive.log"
+            DEVELOPMENT_TEAM="$TEAM_ID" 2>&1 | tee "$LOG_DIR/xcodebuild-archive.log"
 
           xcodebuild \
             -exportArchive \
