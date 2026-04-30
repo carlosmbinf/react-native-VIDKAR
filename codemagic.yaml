@@ -99,6 +99,8 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.vidkar
+      groups:
+        - vidkar
       node: 22
       xcode: latest
       cocoapods: default
@@ -159,10 +161,17 @@ workflows:
 
       - name: Fetch Watch signing files
         script: |
+          if [ -z "$CERTIFICATE_PRIVATE_KEY" ]; then
+            echo "CERTIFICATE_PRIVATE_KEY is required to create/fetch Watch signing files from App Store Connect."
+            echo "Add it to the Codemagic environment group 'vidkar' as a secret variable."
+            exit 1
+          fi
+
           app-store-connect fetch-signing-files "$WATCH_BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create \
-            --delete-stale-profiles
+            --delete-stale-profiles \
+            --certificate-key "@env:CERTIFICATE_PRIVATE_KEY"
 
           keychain add-certificates
 
@@ -311,10 +320,17 @@ workflows:
 
       - name: Fetch Watch signing files
         script: |
+          if [ -z "$CERTIFICATE_PRIVATE_KEY" ]; then
+            echo "CERTIFICATE_PRIVATE_KEY is required to create/fetch Watch signing files from App Store Connect."
+            echo "Add it to the Codemagic environment group 'vidkar' as a secret variable."
+            exit 1
+          fi
+
           app-store-connect fetch-signing-files "$WATCH_BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create \
-            --delete-stale-profiles
+            --delete-stale-profiles \
+            --certificate-key "@env:CERTIFICATE_PRIVATE_KEY"
 
           keychain add-certificates
 
