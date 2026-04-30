@@ -230,6 +230,9 @@ workflows:
             COMPILER_INDEX_STORE_ENABLE=NO \
             DEVELOPMENT_TEAM="$TEAM_ID" 2>&1 | tee "$LOG_DIR/xcodebuild-archive.log"
 
+          chmod +x ./scripts/codemagic/strip-watchkit-stub.sh
+          ./scripts/codemagic/strip-watchkit-stub.sh "$ARCHIVE_PATH"
+
           xcodebuild \
             -exportArchive \
             -archivePath "$ARCHIVE_PATH" \
@@ -440,6 +443,9 @@ workflows:
             archive \
             COMPILER_INDEX_STORE_ENABLE=NO \
             DEVELOPMENT_TEAM="$TEAM_ID" 2>&1 | tee "$LOG_DIR/xcodebuild-archive.log"
+
+          chmod +x ./scripts/codemagic/strip-watchkit-stub.sh
+          ./scripts/codemagic/strip-watchkit-stub.sh "$ARCHIVE_PATH"
 
           xcodebuild \
             -exportArchive \
