@@ -22,6 +22,7 @@
       "usesAppleSignIn": true,
       "buildNumber": "872",
       "bundleIdentifier": "com.vidkar",
+      "appleTeamId": "4TWB6RN383",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleDisplayName": "Vidkar",
@@ -78,6 +79,7 @@
     },
     "plugins": [
       "expo-router",
+      "@bacons/apple-targets",
       "./plugins/with-vidkar-google-maps-key.js",
       "./node_modules/@react-native-google-signin/google-signin/app.plugin.js",
       "expo-apple-authentication",
@@ -137,7 +139,19 @@
       "router": {},
       "meteorUrl": "ws://www.vidkar.com:3000/websocket",
       "eas": {
-        "projectId": "8e109c94-83e2-410e-ab33-a31cd79c543c"
+        "projectId": "8e109c94-83e2-410e-ab33-a31cd79c543c",
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "VidkarWatch",
+                  "bundleIdentifier": "com.vidkar.watchkitapp"
+                }
+              ]
+            }
+          }
+        }
       }
     },
     "owner": "carlosmbinf"

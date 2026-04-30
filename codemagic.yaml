@@ -99,6 +99,7 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.vidkar
+        # Codemagic also fetches matching com.vidkar.* profiles; keep a profile for com.vidkar.watchkitapp available.
       node: 22
       xcode: latest
       cocoapods: default
@@ -106,6 +107,8 @@ workflows:
         BUNDLE_ID: "com.vidkar"
         XCODE_WORKSPACE: "Vidkar.xcworkspace"
         XCODE_SCHEME: "Vidkar"
+        WATCH_TARGET: "VidkarWatch"
+        WATCH_BUNDLE_ID: "com.vidkar.watchkitapp"
 
     cache:
       cache_paths:
@@ -148,13 +151,37 @@ workflows:
           echo "Version: $VERSION_NAME"
           echo "Build: $VERSION_CODE"
 
-          # Detectar ruta correcta automáticamente
-          INFO_PLIST=$(find . -name "Info.plist" | grep -E "Runner|Vidkar" | head -n 1)
+          INFO_PLIST="Vidkar/Info.plist"
 
           echo "Usando plist: $INFO_PLIST"
 
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION_NAME" "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION_CODE" "$INFO_PLIST"
+
+          perl -pi -e "s/CURRENT_PROJECT_VERSION = [^;]+;/CURRENT_PROJECT_VERSION = $VERSION_CODE;/g" Vidkar.xcodeproj/project.pbxproj
+          perl -pi -e "s/MARKETING_VERSION = [^;]+;/MARKETING_VERSION = $VERSION_NAME;/g" Vidkar.xcodeproj/project.pbxproj
+
+      - name: Validate Apple Watch target
+        script: |
+          cd ios
+
+          test -f "../targets/$WATCH_TARGET/expo-target.config.js"
+          grep -q "$WATCH_TARGET.app in Embed Watch Content" Vidkar.xcodeproj/project.pbxproj
+          grep -q "PRODUCT_BUNDLE_IDENTIFIER = $WATCH_BUNDLE_ID;" Vidkar.xcodeproj/project.pbxproj
+
+          xcodebuild \
+            -project Vidkar.xcodeproj \
+            -target "$WATCH_TARGET" \
+            -configuration Release \
+            -sdk watchsimulator \
+            build CODE_SIGNING_ALLOWED=NO
+
+          xcodebuild \
+            -project Vidkar.xcodeproj \
+            -target "$WATCH_TARGET" \
+            -configuration Release \
+            -sdk watchos \
+            -showBuildSettings | grep -E "PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|CURRENT_PROJECT_VERSION|MARKETING_VERSION|WKCompanion|WATCHOS_DEPLOYMENT_TARGET"
 
       # 🔐 Aplicar perfiles/certificados ya resueltos por Codemagic
       - name: Setup signing
@@ -205,6 +232,7 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.vidkar
+        # Codemagic also fetches matching com.vidkar.* profiles; keep a profile for com.vidkar.watchkitapp available.
       groups:
         - google_credentials
         - vidkar
@@ -216,6 +244,8 @@ workflows:
         BUNDLE_ID: "com.vidkar"
         XCODE_WORKSPACE: "Vidkar.xcworkspace"
         XCODE_SCHEME: "Vidkar"
+        WATCH_TARGET: "VidkarWatch"
+        WATCH_BUNDLE_ID: "com.vidkar.watchkitapp"
 
     cache:
       cache_paths:
@@ -291,12 +321,37 @@ workflows:
           echo "iOS Version: $VERSION_NAME"
           echo "iOS Build: $VERSION_CODE"
 
-          INFO_PLIST=$(find . -name "Info.plist" | grep -E "Runner|Vidkar" | head -n 1)
+          INFO_PLIST="Vidkar/Info.plist"
 
           echo "Usando plist: $INFO_PLIST"
 
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION_NAME" "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION_CODE" "$INFO_PLIST"
+
+          perl -pi -e "s/CURRENT_PROJECT_VERSION = [^;]+;/CURRENT_PROJECT_VERSION = $VERSION_CODE;/g" Vidkar.xcodeproj/project.pbxproj
+          perl -pi -e "s/MARKETING_VERSION = [^;]+;/MARKETING_VERSION = $VERSION_NAME;/g" Vidkar.xcodeproj/project.pbxproj
+
+      - name: Validate Apple Watch target
+        script: |
+          cd ios
+
+          test -f "../targets/$WATCH_TARGET/expo-target.config.js"
+          grep -q "$WATCH_TARGET.app in Embed Watch Content" Vidkar.xcodeproj/project.pbxproj
+          grep -q "PRODUCT_BUNDLE_IDENTIFIER = $WATCH_BUNDLE_ID;" Vidkar.xcodeproj/project.pbxproj
+
+          xcodebuild \
+            -project Vidkar.xcodeproj \
+            -target "$WATCH_TARGET" \
+            -configuration Release \
+            -sdk watchsimulator \
+            build CODE_SIGNING_ALLOWED=NO
+
+          xcodebuild \
+            -project Vidkar.xcodeproj \
+            -target "$WATCH_TARGET" \
+            -configuration Release \
+            -sdk watchos \
+            -showBuildSettings | grep -E "PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|CURRENT_PROJECT_VERSION|MARKETING_VERSION|WKCompanion|WATCHOS_DEPLOYMENT_TARGET"
 
       - name: Setup signing
         script: |
