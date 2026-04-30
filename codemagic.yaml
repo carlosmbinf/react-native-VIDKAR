@@ -102,6 +102,7 @@ workflows:
           - expo_profile_watchkitapp
         certificates:
           - com.vidkar_distribution_certificates
+          - com.vidkar.watchkitapp_distribution_certificates
       groups:
         - vidkar
       node: 22
@@ -256,6 +257,7 @@ workflows:
           - expo_profile_watchkitapp
         certificates:
           - com.vidkar_distribution_certificates
+          - com.vidkar.watchkitapp_distribution_certificates
       groups:
         - google_credentials
         - vidkar
