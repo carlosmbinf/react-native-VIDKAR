@@ -2,7 +2,7 @@
   "expo": {
     "name": "Vidkar",
     "slug": "vidkar",
-    "version": "4.0.875",
+    "version": "4.0.968",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "splash": {
@@ -20,7 +20,7 @@
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "buildNumber": "872",
+      "buildNumber": "968",
       "bundleIdentifier": "com.vidkar",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
