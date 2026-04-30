@@ -17,7 +17,8 @@ const pkg = {
 const DEFAULT_TARGET_NAME = "VidkarWatch";
 const DEFAULT_DISPLAY_NAME = "Vidkar";
 const DEFAULT_DEPLOYMENT_TARGET = "8.0";
-const WATCH_APP_PRODUCT_TYPE = '"com.apple.product-type.application.watchapp2"';
+const WATCH_APP_TARGET_TYPE = "application";
+const WATCH_APP_PRODUCT_TYPE = '"com.apple.product-type.application"';
 
 const WATCH_ICON_SPECS = [
   { size: 24, scale: 2, role: "notificationCenter", subtype: "38mm" },
@@ -28,7 +29,7 @@ const WATCH_ICON_SPECS = [
   { size: 44, scale: 2, role: "appLauncher", subtype: "40mm" },
   { size: 86, scale: 2, role: "quickLook", subtype: "38mm" },
   { size: 98, scale: 2, role: "quickLook", subtype: "42mm" },
-  { size: 108, scale: 2, role: "quickLook", subtype: "44mm" },
+  { size: 50, scale: 2, role: "quickLook", subtype: "44mm" },
   { size: 1024, scale: 1, idiom: "watch-marketing" },
 ];
 
@@ -516,6 +517,24 @@ function addFileToTargetOnce(project, filePath, targetUuid, groupId, kind) {
   }
 }
 
+function addSwiftSourcesToTarget(project, targetUuid, groupId, targetName, sourceRoot) {
+  if (!fs.existsSync(sourceRoot)) {
+    return;
+  }
+
+  const swiftFiles = findSwiftFiles(sourceRoot);
+
+  for (const relativeFilePath of swiftFiles) {
+    addFileToTargetOnce(
+      project,
+      `${targetName}/${relativeFilePath}`,
+      targetUuid,
+      groupId,
+      "source",
+    );
+  }
+}
+
 function findSwiftFiles(rootDir, relativeRoot = "") {
   return fs.readdirSync(rootDir, { withFileTypes: true }).flatMap((entry) => {
     const relativePath = path.join(relativeRoot, entry.name);
@@ -576,13 +595,17 @@ const withWatchXcodeTarget = (config, options) => {
   return withXcodeProject(config, (config) => {
     const project = config.modResults;
     ensureDependencySections(project);
+    const watchRoot = path.join(
+      config.modRequest.platformProjectRoot,
+      options.targetName,
+    );
 
     const existingTarget = getNativeTargetByName(project, options.targetName);
     const createdTarget = existingTarget
       ? null
       : project.addTarget(
           options.targetName,
-          "watch2_app",
+          WATCH_APP_TARGET_TYPE,
           options.targetName,
           options.bundleIdentifier,
         );
@@ -621,6 +644,13 @@ const withWatchXcodeTarget = (config, options) => {
       targetUuid,
       groupId,
       "file",
+    );
+    addSwiftSourcesToTarget(
+      project,
+      targetUuid,
+      groupId,
+      options.targetName,
+      watchRoot,
     );
 
     pruneDuplicateWatchBuildPhases(project, targetUuid);
