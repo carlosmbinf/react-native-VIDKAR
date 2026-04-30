@@ -97,8 +97,11 @@ workflows:
 
     environment:
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.vidkar
+        provisioning_profiles:
+          - expo_profile
+          - expo_profile_watchkitapp
+        certificates:
+          - com.vidkar_distribution_certificates
       groups:
         - vidkar
       node: 22
@@ -159,22 +162,6 @@ workflows:
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION_NAME" "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION_CODE" "$INFO_PLIST"
 
-      - name: Fetch Watch signing files
-        script: |
-          if [ -z "$CERTIFICATE_PRIVATE_KEY" ]; then
-            echo "CERTIFICATE_PRIVATE_KEY is required to create/fetch Watch signing files from App Store Connect."
-            echo "Add it to the Codemagic environment group 'vidkar' as a secret variable."
-            exit 1
-          fi
-
-          app-store-connect fetch-signing-files "$WATCH_BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create \
-            --delete-stale-profiles \
-            --certificate-key "@env:CERTIFICATE_PRIVATE_KEY"
-
-          keychain add-certificates
-
       # 🔐 Aplicar perfiles/certificados ya resueltos por Codemagic
       - name: Setup signing
         script: |
@@ -222,8 +209,11 @@ workflows:
       android_signing:
         - keystore_reference
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.vidkar
+        provisioning_profiles:
+          - expo_profile
+          - expo_profile_watchkitapp
+        certificates:
+          - com.vidkar_distribution_certificates
       groups:
         - google_credentials
         - vidkar
@@ -317,22 +307,6 @@ workflows:
 
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION_NAME" "$INFO_PLIST"
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION_CODE" "$INFO_PLIST"
-
-      - name: Fetch Watch signing files
-        script: |
-          if [ -z "$CERTIFICATE_PRIVATE_KEY" ]; then
-            echo "CERTIFICATE_PRIVATE_KEY is required to create/fetch Watch signing files from App Store Connect."
-            echo "Add it to the Codemagic environment group 'vidkar' as a secret variable."
-            exit 1
-          fi
-
-          app-store-connect fetch-signing-files "$WATCH_BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create \
-            --delete-stale-profiles \
-            --certificate-key "@env:CERTIFICATE_PRIVATE_KEY"
-
-          keychain add-certificates
 
       - name: Setup signing
         script: |
