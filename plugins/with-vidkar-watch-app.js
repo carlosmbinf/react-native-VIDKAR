@@ -17,6 +17,7 @@ const pkg = {
 const DEFAULT_TARGET_NAME = "VidkarWatch";
 const DEFAULT_DISPLAY_NAME = "Vidkar";
 const DEFAULT_DEPLOYMENT_TARGET = "8.0";
+const WATCH_APP_PRODUCT_TYPE = '"com.apple.product-type.application.watchapp2"';
 
 const WATCH_ICON_SPECS = [
   { size: 24, scale: 2, role: "notificationCenter", subtype: "38mm" },
@@ -581,13 +582,23 @@ const withWatchXcodeTarget = (config, options) => {
       ? null
       : project.addTarget(
           options.targetName,
-          "application",
+          "watch2_app",
           options.targetName,
           options.bundleIdentifier,
         );
     const targetUuid = existingTarget?.[0] || createdTarget.uuid;
     project.pbxNativeTargetSection()[targetUuid].productType =
-      '"com.apple.product-type.application"';
+      WATCH_APP_PRODUCT_TYPE;
+
+    const productReferenceId =
+      project.pbxNativeTargetSection()[targetUuid].productReference;
+    const fileReferences = project.pbxFileReferenceSection();
+    const productReference = fileReferences?.[productReferenceId];
+
+    if (productReference) {
+      productReference.explicitFileType = '"wrapper.application"';
+      delete productReference.lastKnownFileType;
+    }
     const groupId = ensureTopLevelGroup(project, options.targetName);
 
     ensureBuildPhase(project, targetUuid, "PBXSourcesBuildPhase", "Sources");
