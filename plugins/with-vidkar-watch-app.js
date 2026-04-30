@@ -608,22 +608,6 @@ const withWatchXcodeTarget = (config, options) => {
     ensureWatchAppEmbedded(project, options.targetName);
     applyWatchBuildSettings(config, project, targetUuid, options);
 
-    const sourceRoot = path.resolve(
-      config.modRequest.projectRoot,
-      options.sourceDir,
-    );
-    if (fs.existsSync(sourceRoot)) {
-      for (const swiftFile of findSwiftFiles(sourceRoot)) {
-        addFileToTargetOnce(
-          project,
-          path.posix.join(options.targetName, swiftFile.replace(/\\/g, "/")),
-          targetUuid,
-          groupId,
-          "source",
-        );
-      }
-    }
-
     addFileToTargetOnce(
       project,
       `${options.targetName}/Assets.xcassets`,
