@@ -85,7 +85,7 @@
           "targetName": "VidkarWatch",
           "displayName": "Vidkar",
           "bundleIdentifier": "com.vidkar.watchkitapp",
-          "deploymentTarget": "10.0",
+          "deploymentTarget": "8.0",
           "sourceDir": "watchos/VidkarWatch",
           "icon": "./assets/images/icon.png"
         }

@@ -16,7 +16,7 @@ const pkg = {
 
 const DEFAULT_TARGET_NAME = "VidkarWatch";
 const DEFAULT_DISPLAY_NAME = "Vidkar";
-const DEFAULT_DEPLOYMENT_TARGET = "10.0";
+const DEFAULT_DEPLOYMENT_TARGET = "8.0";
 
 const WATCH_ICON_SPECS = [
   { size: 24, scale: 2, role: "notificationCenter", subtype: "38mm" },
@@ -167,7 +167,10 @@ function ensureBuildPhase(project, targetUuid, isa, name) {
   const phaseSection = project.hash.project.objects[isa] || {};
   const existing = target.buildPhases.find((phase) => {
     const phaseObject = phaseSection[phase.value];
-    return phaseObject && stripQuotes(phaseObject.name) === name;
+    return (
+      phaseObject &&
+      (stripQuotes(phaseObject.name) === name || stripQuotes(phase.comment) === name)
+    );
   });
 
   if (existing) {
@@ -176,6 +179,114 @@ function ensureBuildPhase(project, targetUuid, isa, name) {
 
   const { uuid } = project.addBuildPhase([], isa, name, targetUuid);
   return uuid;
+}
+
+function getBuildPhaseObject(project, phase) {
+  const buildPhaseTypes = [
+    "PBXSourcesBuildPhase",
+    "PBXResourcesBuildPhase",
+    "PBXFrameworksBuildPhase",
+    "PBXCopyFilesBuildPhase",
+  ];
+
+  for (const isa of buildPhaseTypes) {
+    const section = project.hash.project.objects[isa] || {};
+    const phaseObject = section[phase.value];
+
+    if (phaseObject) {
+      return { isa, section, phaseObject };
+    }
+  }
+
+  return null;
+}
+
+function getBuildPhaseName(phase, phaseObject) {
+  return stripQuotes(phaseObject.name) || stripQuotes(phase.comment);
+}
+
+function pruneDuplicateWatchBuildPhases(project, targetUuid) {
+  const target = project.pbxNativeTargetSection()[targetUuid];
+  const phaseKeys = new Map();
+  const removedPhaseIds = new Set();
+
+  for (const phase of target.buildPhases || []) {
+    const resolvedPhase = getBuildPhaseObject(project, phase);
+
+    if (!resolvedPhase) {
+      continue;
+    }
+
+    const phaseName = getBuildPhaseName(phase, resolvedPhase.phaseObject);
+    const shouldDedupe = ["Sources", "Resources", "Frameworks"].includes(phaseName);
+
+    if (!shouldDedupe) {
+      continue;
+    }
+
+    const key = `${resolvedPhase.isa}:${phaseName}`;
+    const current = phaseKeys.get(key);
+    const currentFileCount = current?.phaseObject.files?.length || 0;
+    const nextFileCount = resolvedPhase.phaseObject.files?.length || 0;
+
+    if (!current) {
+      phaseKeys.set(key, { phase, ...resolvedPhase });
+      continue;
+    }
+
+    if (currentFileCount === 0 && nextFileCount > 0) {
+      removedPhaseIds.add(current.phase.value);
+      phaseKeys.set(key, { phase, ...resolvedPhase });
+    } else {
+      removedPhaseIds.add(phase.value);
+    }
+  }
+
+  if (removedPhaseIds.size === 0) {
+    return;
+  }
+
+  target.buildPhases = target.buildPhases.filter(
+    (phase) => !removedPhaseIds.has(phase.value),
+  );
+
+  for (const removedPhaseId of removedPhaseIds) {
+    const resolvedPhase = getBuildPhaseObject(project, { value: removedPhaseId });
+
+    if (resolvedPhase) {
+      delete resolvedPhase.section[removedPhaseId];
+      delete resolvedPhase.section[`${removedPhaseId}_comment`];
+    }
+  }
+}
+
+function ensureDependencySections(project) {
+  project.hash.project.objects.PBXTargetDependency =
+    project.hash.project.objects.PBXTargetDependency || {};
+  project.hash.project.objects.PBXContainerItemProxy =
+    project.hash.project.objects.PBXContainerItemProxy || {};
+}
+
+function hasTargetDependency(project, targetUuid, dependencyTargetUuid) {
+  const target = project.pbxNativeTargetSection()[targetUuid];
+  const dependencies = target?.dependencies || [];
+  const dependencySection = project.hash.project.objects.PBXTargetDependency || {};
+
+  return dependencies.some((dependency) => {
+    const dependencyObject = dependencySection[dependency.value];
+    return dependencyObject?.target === dependencyTargetUuid;
+  });
+}
+
+function ensureTargetDependency(project, targetUuid, dependencyTargetUuid) {
+  const target = project.pbxNativeTargetSection()[targetUuid];
+
+  if (!target || hasTargetDependency(project, targetUuid, dependencyTargetUuid)) {
+    return;
+  }
+
+  ensureDependencySections(project);
+  project.addTargetDependency(targetUuid, [dependencyTargetUuid]);
 }
 
 function getBuildConfigurationsForTarget(project, targetUuid) {
@@ -210,7 +321,7 @@ function applyWatchBuildSettings(config, project, targetUuid, options) {
       PRODUCT_NAME: '"$(TARGET_NAME)"',
       SDKROOT: "watchos",
       SKIP_INSTALL: "YES",
-      SUPPORTED_PLATFORMS: "watchos",
+      SUPPORTED_PLATFORMS: '"watchos watchsimulator"',
       SWIFT_VERSION: "5.0",
       TARGETED_DEVICE_FAMILY: "4",
       WATCHOS_DEPLOYMENT_TARGET: options.deploymentTarget,
@@ -341,6 +452,8 @@ const withWatchFiles = (config, options) => {
 const withWatchXcodeTarget = (config, options) => {
   return withXcodeProject(config, (config) => {
     const project = config.modResults;
+    ensureDependencySections(project);
+
     const existingTarget = getNativeTargetByName(project, options.targetName);
     const createdTarget = existingTarget
       ? null
@@ -358,6 +471,7 @@ const withWatchXcodeTarget = (config, options) => {
     ensureBuildPhase(project, targetUuid, "PBXSourcesBuildPhase", "Sources");
     ensureBuildPhase(project, targetUuid, "PBXResourcesBuildPhase", "Resources");
     ensureBuildPhase(project, targetUuid, "PBXFrameworksBuildPhase", "Frameworks");
+    ensureTargetDependency(project, project.getFirstTarget().uuid, targetUuid);
     ensureWatchAppEmbedded(project, options.targetName);
     applyWatchBuildSettings(config, project, targetUuid, options);
 
@@ -391,6 +505,8 @@ const withWatchXcodeTarget = (config, options) => {
       groupId,
       "file",
     );
+
+    pruneDuplicateWatchBuildPhases(project, targetUuid);
 
     const projectSection =
       project.pbxProjectSection()[project.getFirstProject().uuid];
