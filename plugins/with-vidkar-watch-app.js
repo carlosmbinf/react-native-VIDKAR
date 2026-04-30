@@ -39,6 +39,8 @@ function resolveOptions(config, options = {}) {
   const targetName = options.targetName || DEFAULT_TARGET_NAME;
   const displayName = options.displayName || config.name || DEFAULT_DISPLAY_NAME;
   const iosBundleIdentifier = config.ios?.bundleIdentifier;
+  const developmentTeam =
+    options.developmentTeam || IOSConfig.DevelopmentTeam.getDevelopmentTeam(config);
 
   if (!iosBundleIdentifier) {
     throw new Error("with-vidkar-watch-app requiere expo.ios.bundleIdentifier.");
@@ -52,6 +54,7 @@ function resolveOptions(config, options = {}) {
       options.bundleIdentifier || `${iosBundleIdentifier}.watchkitapp`,
     companionBundleIdentifier: iosBundleIdentifier,
     deploymentTarget: options.deploymentTarget || DEFAULT_DEPLOYMENT_TARGET,
+    developmentTeam,
     icon: options.icon || config.ios?.icon || config.icon,
   };
 }
@@ -301,7 +304,7 @@ function getBuildConfigurationsForTarget(project, targetUuid) {
 }
 
 function applyWatchBuildSettings(config, project, targetUuid, options) {
-  const teamId = IOSConfig.DevelopmentTeam.getDevelopmentTeam(config);
+  const teamId = options.developmentTeam;
   const buildNumber = IOSConfig.Version.getBuildNumber(config);
   const version = IOSConfig.Version.getVersion(config);
 
@@ -335,6 +338,43 @@ function applyWatchBuildSettings(config, project, targetUuid, options) {
   }
 }
 
+function ensureBuildFileAttribute(buildFile, attribute) {
+  buildFile.settings = buildFile.settings || {};
+  const attributes = Array.isArray(buildFile.settings.ATTRIBUTES)
+    ? buildFile.settings.ATTRIBUTES
+    : [];
+
+  if (!attributes.includes(attribute)) {
+    attributes.push(attribute);
+  }
+
+  buildFile.settings.ATTRIBUTES = attributes;
+}
+
+function ensureEmbeddedWatchAppCodeSignOnCopy(project, targetName) {
+  const appTargetUuid = project.getFirstTarget().uuid;
+  const appTarget = project.pbxNativeTargetSection()[appTargetUuid];
+  const copyPhaseSection = project.hash.project.objects.PBXCopyFilesBuildPhase || {};
+  const buildFileSection = project.pbxBuildFileSection();
+  const embeddedProductName = `${targetName}.app`;
+
+  for (const phase of appTarget.buildPhases || []) {
+    const phaseObject = copyPhaseSection[phase.value];
+
+    if (!phaseObject || stripQuotes(phaseObject.name) !== "Embed Watch Content") {
+      continue;
+    }
+
+    for (const file of phaseObject.files || []) {
+      const buildFile = buildFileSection[file.value];
+
+      if (stripQuotes(buildFile?.fileRef_comment) === embeddedProductName) {
+        ensureBuildFileAttribute(buildFile, "CodeSignOnCopy");
+      }
+    }
+  }
+}
+
 function ensureWatchAppEmbedded(project, targetName) {
   const appTargetUuid = project.getFirstTarget().uuid;
   const appTarget = project.pbxNativeTargetSection()[appTargetUuid];
@@ -356,6 +396,7 @@ function ensureWatchAppEmbedded(project, targetName) {
   });
 
   if (hasEmbeddedWatchApp) {
+    ensureEmbeddedWatchAppCodeSignOnCopy(project, targetName);
     return;
   }
 
@@ -367,6 +408,8 @@ function ensureWatchAppEmbedded(project, targetName) {
     "watch2_app",
     '"$(CONTENTS_FOLDER_PATH)/Watch"',
   );
+
+  ensureEmbeddedWatchAppCodeSignOnCopy(project, targetName);
 }
 
 function addFileToTargetOnce(project, filePath, targetUuid, groupId, kind) {
@@ -516,10 +559,9 @@ const withWatchXcodeTarget = (config, options) => {
     projectSection.attributes.TargetAttributes[targetUuid] = {
       CreatedOnToolsVersion: "15.0",
       ProvisioningStyle: "Automatic",
-      ...(IOSConfig.DevelopmentTeam.getDevelopmentTeam(config)
+      ...(options.developmentTeam
         ? {
-            DevelopmentTeam:
-              IOSConfig.DevelopmentTeam.getDevelopmentTeam(config),
+            DevelopmentTeam: options.developmentTeam,
           }
         : {}),
     };
