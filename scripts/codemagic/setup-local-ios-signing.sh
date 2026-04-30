@@ -48,10 +48,19 @@ decode_profile() {
   printf '%s\n%s\n' "$uuid" "$name"
 }
 
+read_profile_info() {
+  local profile_path="$1"
+  local prefix="$2"
+  local output
+
+  output="$(decode_profile "$profile_path" "$prefix")"
+
+  PROFILE_UUID="${output%%$'\n'*}"
+  PROFILE_NAME="${output#*$'\n'}"
+}
+
 require_file "$APP_CERT_PATH"
 require_file "$WATCH_CERT_PATH"
-require_file "$APP_PROFILE_PATH"
-require_file "$WATCH_PROFILE_PATH"
 
 if [ -z "$APP_CERT_PASSWORD" ]; then
   echo "Falta APPLE_DIST_CERT_PASSWORD en el entorno de Codemagic."
@@ -85,15 +94,21 @@ security set-key-partition-list \
   -k "$KEYCHAIN_PASSWORD" \
   "$KEYCHAIN_PATH" >/dev/null
 
-mapfile -t APP_PROFILE_INFO < <(decode_profile "$APP_PROFILE_PATH" "app_profile")
-mapfile -t WATCH_PROFILE_INFO < <(decode_profile "$WATCH_PROFILE_PATH" "watch_profile")
+APP_PROFILE_UUID=""
+APP_PROFILE_NAME=""
+WATCH_PROFILE_UUID=""
+WATCH_PROFILE_NAME=""
 
-APP_PROFILE_UUID="${APP_PROFILE_INFO[0]}"
-APP_PROFILE_NAME="${APP_PROFILE_INFO[1]}"
-WATCH_PROFILE_UUID="${WATCH_PROFILE_INFO[0]}"
-WATCH_PROFILE_NAME="${WATCH_PROFILE_INFO[1]}"
+if [ -f "$APP_PROFILE_PATH" ] && [ -f "$WATCH_PROFILE_PATH" ]; then
+  read_profile_info "$APP_PROFILE_PATH" "app_profile"
+  APP_PROFILE_UUID="$PROFILE_UUID"
+  APP_PROFILE_NAME="$PROFILE_NAME"
 
-cat > "$EXPORT_OPTIONS_PLIST" <<EOF
+  read_profile_info "$WATCH_PROFILE_PATH" "watch_profile"
+  WATCH_PROFILE_UUID="$PROFILE_UUID"
+  WATCH_PROFILE_NAME="$PROFILE_NAME"
+
+  cat > "$EXPORT_OPTIONS_PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -116,6 +131,29 @@ cat > "$EXPORT_OPTIONS_PLIST" <<EOF
 </dict>
 </plist>
 EOF
+else
+  echo "No se encontraron perfiles locales versionados. Se intentará usar provisioning profiles gestionados por Codemagic."
+
+  if ! command -v xcode-project >/dev/null 2>&1; then
+    echo "xcode-project no está disponible y tampoco hay perfiles locales en el repo."
+    exit 1
+  fi
+
+  xcode-project use-profiles
+
+  if [ ! -f "$EXPORT_OPTIONS_PLIST" ]; then
+    echo "Codemagic no generó $EXPORT_OPTIONS_PLIST tras xcode-project use-profiles."
+    exit 1
+  fi
+
+  APP_PROFILE_NAME="$(/usr/libexec/PlistBuddy -c "Print :provisioningProfiles:$BUNDLE_ID" "$EXPORT_OPTIONS_PLIST" 2>/dev/null || true)"
+  WATCH_PROFILE_NAME="$(/usr/libexec/PlistBuddy -c "Print :provisioningProfiles:$WATCH_BUNDLE_ID" "$EXPORT_OPTIONS_PLIST" 2>/dev/null || true)"
+
+  if [ -z "$APP_PROFILE_NAME" ] || [ -z "$WATCH_PROFILE_NAME" ]; then
+    echo "Codemagic no resolvió los perfiles esperados para $BUNDLE_ID y $WATCH_BUNDLE_ID."
+    exit 1
+  fi
+fi
 
 export PROJECT_PATH TEAM_ID APP_PROFILE_NAME WATCH_PROFILE_NAME KEYCHAIN_PATH
 
@@ -160,8 +198,8 @@ project.save
 RUBY
 
 echo "Perfiles instalados:"
-echo "- $APP_PROFILE_NAME ($APP_PROFILE_UUID) -> $BUNDLE_ID"
-echo "- $WATCH_PROFILE_NAME ($WATCH_PROFILE_UUID) -> $WATCH_BUNDLE_ID"
+echo "- $APP_PROFILE_NAME ${APP_PROFILE_UUID:+($APP_PROFILE_UUID)} -> $BUNDLE_ID"
+echo "- $WATCH_PROFILE_NAME ${WATCH_PROFILE_UUID:+($WATCH_PROFILE_UUID)} -> $WATCH_BUNDLE_ID"
 
 echo "Identidades disponibles:"
 security find-identity -v -p codesigning "$KEYCHAIN_PATH"
