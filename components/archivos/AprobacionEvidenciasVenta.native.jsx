@@ -725,6 +725,35 @@ const AprobacionEvidenciasVenta = ({
     );
   };
 
+  const applyPreviewEvidenceLocalUpdate = ({
+    nextFields,
+    onSuccess,
+    serverFallbackMessage,
+  }) => {
+    if (!preview) {
+      console.warn(
+        "[AprobacionEvidenciasVenta] No hay evidencia en preview para aplicar el cambio local.",
+      );
+      return;
+    }
+
+    EvidenciasVentasEfectivoCollection.update(
+      preview._id,
+      { $set: nextFields },
+      (updateError) => {
+        if (updateError) {
+          Alert.alert(
+            "Error",
+            updateError.reason || serverFallbackMessage,
+          );
+          return;
+        }
+
+        onSuccess?.();
+      },
+    );
+  };
+
   const handleRechazarVenta = () => {
     if (rechazandoVenta || ventaYaEntregada || ventaRechazada) {
       return;
@@ -789,8 +818,8 @@ const AprobacionEvidenciasVenta = ({
         }
 
         if (success) {
-          EvidenciasVentasEfectivoCollection.update(preview._id, {
-            $set: {
+          applyPreviewEvidenceLocalUpdate({
+            nextFields: {
               aprobado: true,
               cancelada: false,
               cancelado: false,
@@ -799,9 +828,13 @@ const AprobacionEvidenciasVenta = ({
               isCancelada: false,
               rechazado: false,
             },
+            onSuccess: () => {
+              Alert.alert("Listo", "Evidencia aprobada.");
+              onAprobar?.(preview || { _id: previewId });
+            },
+            serverFallbackMessage:
+              "La evidencia fue aprobada en el servidor, pero no se pudo refrescar localmente.",
           });
-          Alert.alert("Listo", "Evidencia aprobada.");
-          onAprobar?.(preview || { _id: previewId });
         }
       },
     );
@@ -826,8 +859,8 @@ const AprobacionEvidenciasVenta = ({
         }
 
         if (success) {
-          EvidenciasVentasEfectivoCollection.update(preview._id, {
-            $set: {
+          applyPreviewEvidenceLocalUpdate({
+            nextFields: {
               aprobado: false,
               cancelada: true,
               cancelado: true,
@@ -836,9 +869,13 @@ const AprobacionEvidenciasVenta = ({
               isCancelada: true,
               rechazado: true,
             },
+            onSuccess: () => {
+              onRechazar?.(preview || { _id: previewId });
+              Alert.alert("Listo", "Evidencia rechazada.");
+            },
+            serverFallbackMessage:
+              "La evidencia fue rechazada en el servidor, pero no se pudo refrescar localmente.",
           });
-          onRechazar?.(preview || { _id: previewId });
-          Alert.alert("Listo", "Evidencia rechazada.");
         }
       },
     );
