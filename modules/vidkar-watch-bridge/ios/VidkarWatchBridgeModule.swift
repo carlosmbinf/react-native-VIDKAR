@@ -6,6 +6,7 @@ private final class VidkarWatchBridgeSession: NSObject, WCSessionDelegate {
   static let shared = VidkarWatchBridgeSession()
 
   private var lastUserContext: [String: Any] = [:]
+  var onMessage: (([String: Any]) -> Void)?
 
   private override init() {
     super.init()
@@ -106,13 +107,27 @@ private final class VidkarWatchBridgeSession: NSObject, WCSessionDelegate {
       return
     }
 
-    replyHandler(["ok": true])
+    DispatchQueue.main.async { [weak self] in
+      self?.onMessage?(message)
+    }
+    replyHandler(["ok": true, "received": true])
   }
 }
 
 public final class VidkarWatchBridgeModule: Module {
   public func definition() -> ModuleDefinition {
     Name("VidkarWatchBridge")
+    Events("onWatchMessage")
+
+    OnStartObserving {
+      VidkarWatchBridgeSession.shared.onMessage = { [weak self] payload in
+        self?.sendEvent("onWatchMessage", payload)
+      }
+    }
+
+    OnStopObserving {
+      VidkarWatchBridgeSession.shared.onMessage = nil
+    }
 
     AsyncFunction("activate") { () -> [String: Any] in
       VidkarWatchBridgeSession.shared.activate()

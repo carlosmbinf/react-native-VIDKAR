@@ -105,6 +105,15 @@ export const syncCurrentUserWithWatch = async (user) => {
   return NativeVidkarWatchBridge.updateUserContext(snapshot);
 };
 
+export const syncWatchDashboard = async (payload) => {
+  if (!hasWatchBridge || !payload) {
+    return { supported: false };
+  }
+
+  await NativeVidkarWatchBridge.activate();
+  return NativeVidkarWatchBridge.updateUserContext(payload);
+};
+
 export const clearWatchUserSnapshot = async () => {
   if (!hasWatchBridge) {
     return { supported: false };
@@ -130,4 +139,21 @@ export const sendWatchMessage = async (payload) => {
 
   await NativeVidkarWatchBridge.activate();
   return NativeVidkarWatchBridge.sendMessage(payload);
+};
+
+export const subscribeToWatchMessages = (listener) => {
+  if (
+    !hasWatchBridge ||
+    typeof listener !== "function" ||
+    typeof NativeVidkarWatchBridge.addListener !== "function"
+  ) {
+    return () => {};
+  }
+
+  const subscription = NativeVidkarWatchBridge.addListener(
+    "onWatchMessage",
+    listener,
+  );
+
+  return () => subscription?.remove?.();
 };

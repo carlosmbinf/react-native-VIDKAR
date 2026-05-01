@@ -789,6 +789,18 @@ const AprobacionEvidenciasVenta = ({
         }
 
         if (success) {
+          EvidenciasVentasEfectivoCollection.update(preview._id, {
+            $set: {
+              aprobado: true,
+              cancelada: false,
+              cancelado: false,
+              denegado: false,
+              estado: ESTADOS.APROBADA,
+              isCancelada: false,
+              rechazado: false,
+            },
+          });
+          Alert.alert("Listo", "Evidencia aprobada.");
           onAprobar?.(preview || { _id: previewId });
         }
       },
@@ -814,6 +826,17 @@ const AprobacionEvidenciasVenta = ({
         }
 
         if (success) {
+          EvidenciasVentasEfectivoCollection.update(preview._id, {
+            $set: {
+              aprobado: false,
+              cancelada: true,
+              cancelado: true,
+              denegado: true,
+              estado: ESTADOS.RECHAZADA,
+              isCancelada: true,
+              rechazado: true,
+            },
+          });
           onRechazar?.(preview || { _id: previewId });
           Alert.alert("Listo", "Evidencia rechazada.");
         }
