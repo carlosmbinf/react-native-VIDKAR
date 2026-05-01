@@ -10,6 +10,15 @@ const hasWatchBridge = Boolean(
     NativeVidkarWatchBridge?.clearUserContext,
 );
 
+const pushContextToWatch = async (payload) => {
+  if (!hasWatchBridge || !payload) {
+    return { supported: false };
+  }
+
+  await NativeVidkarWatchBridge.activate();
+  return NativeVidkarWatchBridge.updateUserContext(payload);
+};
+
 const toStringOrNull = (value) => {
   if (typeof value !== "string") {
     return null;
@@ -90,19 +99,21 @@ export const readWatchConnectivityStatus = async () => {
 };
 
 export const syncCurrentUserWithWatch = async (user) => {
-  if (!hasWatchBridge) {
+  const snapshot = buildWatchUserSnapshot(user);
+  return snapshot ? pushContextToWatch(snapshot) : clearWatchUserSnapshot();
+};
+
+export const syncWatchDashboard = async (payload) => {
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    Array.isArray(payload) ||
+    Object.keys(payload).length === 0
+  ) {
     return { supported: false };
   }
 
-  await NativeVidkarWatchBridge.activate();
-
-  const snapshot = buildWatchUserSnapshot(user);
-
-  if (!snapshot) {
-    return NativeVidkarWatchBridge.clearUserContext();
-  }
-
-  return NativeVidkarWatchBridge.updateUserContext(snapshot);
+  return pushContextToWatch(payload);
 };
 
 export const clearWatchUserSnapshot = async () => {
@@ -130,4 +141,27 @@ export const sendWatchMessage = async (payload) => {
 
   await NativeVidkarWatchBridge.activate();
   return NativeVidkarWatchBridge.sendMessage(payload);
+};
+
+export const subscribeToWatchMessages = (listener) => {
+  if (
+    !hasWatchBridge ||
+    typeof listener !== "function" ||
+    typeof NativeVidkarWatchBridge.addListener !== "function"
+  ) {
+    return () => {};
+  }
+
+  const subscription = NativeVidkarWatchBridge.addListener(
+    "onWatchMessage",
+    listener,
+  );
+
+  return () => {
+    try {
+      subscription?.remove?.();
+    } catch (error) {
+      console.warn("[WatchConnectivity] No se pudo cerrar el listener del Watch:", error);
+    }
+  };
 };
