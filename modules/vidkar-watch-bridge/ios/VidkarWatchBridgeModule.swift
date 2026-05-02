@@ -21,13 +21,26 @@ private final class VidkarWatchBridgeSession: NSObject, WCSessionDelegate {
     isSupported ? WCSession.default : nil
   }
 
+  private func userContextDebugInfo(_ userContext: [String: Any]) -> String {
+    let currentUser = userContext["currentUser"] as? [String: Any]
+    let users = userContext["users"] as? [[String: Any]]
+    let approvals = userContext["pendingApprovals"] as? [[String: Any]]
+    let currentUserId = currentUser?["id"] as? String ?? "nil"
+    let currentUsername = currentUser?["username"] as? String ?? "nil"
+
+    return "currentUserId=\(currentUserId) username=\(currentUsername) users=\(users?.count ?? 0) approvals=\(approvals?.count ?? 0) keys=\(Array(userContext.keys).sorted())"
+  }
+
   func activate() -> [String: Any] {
     guard let session else {
+      print("[VidkarWatchBridge] activate unsupported")
       return status(extra: ["supported": false])
     }
 
     session.delegate = self
     session.activate()
+
+    print("[VidkarWatchBridge] activate state=\(session.activationState.rawValue) paired=\(session.isPaired) reachable=\(session.isReachable) installed=\(session.isWatchAppInstalled)")
 
     return status(extra: ["supported": true])
   }
@@ -54,17 +67,20 @@ private final class VidkarWatchBridgeSession: NSObject, WCSessionDelegate {
 
   func updateUserContext(_ userContext: [String: Any]) throws -> [String: Any] {
     guard let session else {
+      print("[VidkarWatchBridge] updateUserContext skipped: no session")
       return status(extra: ["sent": false])
     }
 
     lastUserContext = userContext
+    print("[VidkarWatchBridge] updateUserContext \(userContextDebugInfo(userContext))")
     try session.updateApplicationContext(["type": "userSnapshot", "user": userContext])
 
     return status(extra: ["sent": true])
   }
 
   func clearUserContext() throws -> [String: Any] {
-    try updateUserContext([:])
+    print("[VidkarWatchBridge] clearUserContext")
+    return try updateUserContext([:])
   }
 
   func transferUserInfo(_ payload: [String: Any]) -> [String: Any] {
@@ -78,18 +94,23 @@ private final class VidkarWatchBridgeSession: NSObject, WCSessionDelegate {
 
   func sendMessage(_ payload: [String: Any], reply: @escaping ([String: Any]) -> Void, reject: @escaping (String, String) -> Void) {
     guard let session else {
+      print("[VidkarWatchBridge] sendMessage skipped: no session type=\(payload["type"] as? String ?? "nil")")
       reject("watch_unavailable", "WatchConnectivity no esta disponible en este dispositivo.")
       return
     }
 
     guard session.isReachable else {
+      print("[VidkarWatchBridge] sendMessage skipped: unreachable type=\(payload["type"] as? String ?? "nil")")
       reject("watch_unreachable", "El Apple Watch no esta alcanzable ahora mismo.")
       return
     }
 
+    print("[VidkarWatchBridge] sendMessage type=\(payload["type"] as? String ?? "nil")")
     session.sendMessage(payload, replyHandler: { response in
+      print("[VidkarWatchBridge] sendMessage reply type=\(payload["type"] as? String ?? "nil") response=\(response)")
       reply(response)
     }, errorHandler: { error in
+      print("[VidkarWatchBridge] sendMessage error type=\(payload["type"] as? String ?? "nil") error=\(error.localizedDescription)")
       reject("watch_message_failed", error.localizedDescription)
     })
   }
@@ -113,6 +134,7 @@ private final class VidkarWatchBridgeSession: NSObject, WCSessionDelegate {
 
   func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
     if message["type"] as? String == "requestUserSnapshot" {
+      print("[VidkarWatchBridge] requestUserSnapshot reply \(userContextDebugInfo(lastUserContext))")
       replyHandler(["type": "userSnapshot", "user": lastUserContext])
       return
     }

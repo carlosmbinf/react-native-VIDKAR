@@ -148,8 +148,22 @@ const buildRechargeBalanceSnapshot = (data: any) => {
   };
 };
 
+const getWatchPayloadDebugInfo = (payload: any) => ({
+  currentUserId: payload?.currentUser?.id ?? null,
+  currentUsername: payload?.currentUser?.username ?? null,
+  debtorsCount: Array.isArray(payload?.debtors) ? payload.debtors.length : 0,
+  pendingApprovalsCount: Array.isArray(payload?.pendingApprovals)
+    ? payload.pendingApprovals.length
+    : 0,
+  rechargeBalanceAmount: payload?.rechargeBalance?.amount ?? null,
+  syncedAt: payload?.syncedAt ?? null,
+  usersCount: Array.isArray(payload?.users) ? payload.users.length : 0,
+});
+
 export default function WatchSyncHost() {
   const [rechargeBalance, setRechargeBalance] = React.useState<any>(null);
+  const lastImmediateUserIdRef = React.useRef<string | null>(null);
+  const previousUserIdRef = React.useRef<string | null | undefined>(undefined);
 
   const { ready, user, userId } = Meteor.useTracker(
     (): {
@@ -178,6 +192,49 @@ export default function WatchSyncHost() {
       };
     },
   );
+
+  React.useEffect(() => {
+    if (Platform.OS !== "ios") {
+      return;
+    }
+
+    const previousUserId = previousUserIdRef.current;
+    previousUserIdRef.current = userId;
+
+    console.log(
+      "[WatchSyncHost] userId change check",
+      JSON.stringify({ previousUserId, userId }),
+    );
+
+    if (previousUserId === undefined) {
+      return;
+    }
+
+    if (!previousUserId && userId) {
+      return;
+    }
+
+    if (previousUserId !== userId) {
+      console.log(
+        "[WatchSyncHost] clearing watch snapshot because userId changed",
+        JSON.stringify({ previousUserId, userId }),
+      );
+      setRechargeBalance(null);
+      clearWatchUserSnapshot()
+        .then((result) => {
+          console.log(
+            "[WatchSyncHost] clear result after userId change",
+            JSON.stringify(result),
+          );
+        })
+        .catch((error) => {
+          console.warn(
+            "[WatchConnectivity] No se pudo limpiar el usuario anterior del Watch:",
+            error,
+          );
+        });
+    }
+  }, [userId]);
 
   React.useEffect(() => {
     if (
@@ -230,6 +287,59 @@ export default function WatchSyncHost() {
       clearInterval(intervalId);
     };
   }, [ready, user?.username, userId]);
+
+  React.useEffect(() => {
+    if (Platform.OS !== "ios") {
+      return;
+    }
+
+    if (!userId) {
+      lastImmediateUserIdRef.current = null;
+      return;
+    }
+
+    if (!user) {
+      console.log(
+        "[WatchSyncHost] immediate snapshot waiting",
+        JSON.stringify({ hasUser: Boolean(user), ready, userId }),
+      );
+      return;
+    }
+
+    if (lastImmediateUserIdRef.current === userId) {
+      return;
+    }
+
+    lastImmediateUserIdRef.current = userId;
+    const immediatePayload = buildWatchDashboardPayload({
+      connections: [],
+      currentUser: user,
+      rechargeBalance: null,
+      users: [user] as any,
+    });
+
+    console.log(
+      "[WatchSyncHost] syncing immediate user snapshot",
+      JSON.stringify({
+        ...getWatchPayloadDebugInfo(immediatePayload),
+        rootSubscriptionReady: ready,
+      }),
+    );
+
+    syncWatchDashboard(immediatePayload)
+      .then((result) => {
+        console.log(
+          "[WatchSyncHost] immediate snapshot result",
+          JSON.stringify(result),
+        );
+      })
+      .catch((error) => {
+        console.warn(
+          "[WatchConnectivity] No se pudo sincronizar el snapshot inmediato con el Watch:",
+          error,
+        );
+      });
+  }, [ready, user, userId]);
 
   const { watchPayload, watchReady } = Meteor.useTracker(() => {
     if (Platform.OS !== "ios" || !userId || !ready || !user) {
@@ -746,20 +856,54 @@ export default function WatchSyncHost() {
       return;
     }
 
+    console.log(
+      "[WatchSyncHost] sync effect",
+      JSON.stringify({
+        hasPayload: Boolean(watchPayload),
+        ready,
+        userId,
+        username: user?.username ?? null,
+        watchReady,
+      }),
+    );
+
     if (!userId) {
-      clearWatchUserSnapshot().catch((error) => {
-        console.warn("[WatchConnectivity] No se pudo limpiar el usuario del Watch:", error);
-      });
+      console.log("[WatchSyncHost] clearing watch snapshot because session is empty");
+      clearWatchUserSnapshot()
+        .then((result) => {
+          console.log("[WatchSyncHost] empty session clear result", JSON.stringify(result));
+        })
+        .catch((error) => {
+          console.warn("[WatchConnectivity] No se pudo limpiar el usuario del Watch:", error);
+        });
       return;
     }
 
     if (!ready || !user || !watchReady || !watchPayload) {
+      console.log(
+        "[WatchSyncHost] sync skipped while waiting",
+        JSON.stringify({
+          hasPayload: Boolean(watchPayload),
+          hasUser: Boolean(user),
+          ready,
+          userId,
+          watchReady,
+        }),
+      );
       return;
     }
 
-    syncWatchDashboard(watchPayload).catch((error) => {
-      console.warn("[WatchConnectivity] No se pudo sincronizar el dashboard con el Watch:", error);
-    });
+    console.log(
+      "[WatchSyncHost] syncing payload",
+      JSON.stringify(getWatchPayloadDebugInfo(watchPayload)),
+    );
+    syncWatchDashboard(watchPayload)
+      .then((result) => {
+        console.log("[WatchSyncHost] sync result", JSON.stringify(result));
+      })
+      .catch((error) => {
+        console.warn("[WatchConnectivity] No se pudo sincronizar el dashboard con el Watch:", error);
+      });
   }, [ready, user, userId, watchPayload, watchReady]);
 
   return null;

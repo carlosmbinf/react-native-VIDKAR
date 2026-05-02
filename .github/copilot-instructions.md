@@ -7476,3 +7476,97 @@ Resumen tecnico - Saldo de recargas visible en Watch solo para `carlosmbinf`
 - Regla practica:
   - Si otra metrica administrativa debe aparecer en el Watch, primero agregarla al payload sincronizado desde el iPhone y luego al modelo Swift; no intentar llamar Meteor desde watchOS.
   - Para datos privados de administrador principal, mantener el gate visible por `username === 'carlosmbinf'` en la UI del Watch aunque el iPhone ya controle el payload.
+
+---
+
+Resumen tecnico - Watch debe limpiar contexto cuando cambia el usuario autenticado
+
+- Problema detectado:
+  - Al cerrar sesion en el iPhone y entrar con otro usuario, el Apple Watch podia seguir mostrando datos del usuario anterior.
+  - La causa practica es que `VidkarWatchBridge` mantiene `lastUserContext` para responder `requestUserSnapshot`, y el Watch tambien conserva cache local del ultimo `WatchDashboardContext`.
+  - Si el nuevo snapshot tarda en estar listo, el reloj puede pedir contexto y recibir todavia el usuario viejo.
+
+- Correccion aplicada:
+  - `components/watch/WatchSyncHost.native.tsx` ahora guarda el `userId` anterior en un `useRef`.
+  - Cuando `userId` cambia, limpia inmediatamente el snapshot del Watch con `clearWatchUserSnapshot()` y resetea datos derivados como `rechargeBalance`.
+  - Luego, cuando las suscripciones del nuevo usuario estan listas, se sincroniza el nuevo dashboard como de costumbre.
+  - `targets/VidkarWatch/Session/WatchSessionManager.swift` ahora interpreta un snapshot vacio (`user: {}`) como orden explicita de limpieza.
+  - Esa limpieza borra `context`, cache de `UserDefaults`, previews de evidencias y cambios locales pendientes, evitando que el reloj conserve el usuario anterior.
+  - `services/watch/watchConnectivity.native.js` envia el clear tanto por application context como por mensaje vivo cuando el Watch esta alcanzable.
+  - Ademas, el Watch ya no hidrata automaticamente el ultimo `WatchDashboardContext` guardado al iniciar; borra esa cache en `init` y espera un snapshot actual del iPhone.
+  - Si llega un snapshot con otro `currentUser`, tambien limpia caches volatiles de previews y cambios pendientes antes de aplicar el nuevo contexto.
+
+- Regla practica:
+  - En integraciones WatchConnectivity, no basta con enviar el nuevo payload cuando este listo; tambien hay que invalidar el contexto anterior al detectar cambio de identidad.
+  - En watchOS, un payload vacio no debe tratarse como dato invalido; en este proyecto significa `sin sesion activa` y debe borrar cache local.
+  - No mostrar automaticamente `Datos guardados` como usuario activo al arrancar el Watch; para datos de identidad, el snapshot vigente debe venir del iPhone.
+  - Si el Watch parece “aferrarse” a un usuario viejo, revisar primero el cache del bridge (`lastUserContext`) y la limpieza al cambiar `Meteor.userId()` antes de depurar las vistas Swift.
+
+Notas adicionales - Trazas end-to-end para diagnosticar cambio de usuario en Watch
+
+- Ajuste aplicado:
+  - Se agregaron logs compactos con prefijos estables en los cuatro puntos del pipeline:
+    - `components/watch/WatchSyncHost.native.tsx` -> estado de sesion Meteor, clear por cambio de `userId`, espera de subscriptions y sync del payload.
+    - `services/watch/watchConnectivity.native.js` -> `updateUserContext`, envio live, dedupe, clear y estado `reachable`.
+    - `modules/vidkar-watch-bridge/ios/VidkarWatchBridgeModule.swift` -> `lastUserContext`, respuesta a `requestUserSnapshot`, `sendMessage`, activacion y reachability nativa.
+    - `targets/VidkarWatch/Session/WatchSessionManager.swift` -> recepcion de application context/live message, clear de contexto, decode del payload y cambio de `currentUser`.
+
+- Criterio tecnico:
+  - Los logs no deben imprimir payloads completos de usuarios o evidencias; deben mostrar ids, usernames, conteos y keys para diagnostico sin inundar consola ni exponer datos innecesarios.
+  - Para rastrear un cambio de usuario, seguir este orden de prefijos:
+    1. `[WatchSyncHost]`
+    2. `[WatchConnectivity]`
+    3. `[VidkarWatchBridge]`
+    4. `[VidkarWatch]`
+
+- Regla practica:
+  - Si el Watch no refleja el usuario nuevo, revisar primero si aparece el clear en `[WatchSyncHost]` y si luego `[VidkarWatchBridge] requestUserSnapshot reply` sigue devolviendo el `currentUserId` viejo.
+  - Si el bridge ya responde el usuario nuevo pero la UI no cambia, revisar `[VidkarWatch] handlePayload decoded` y `[VidkarWatch] currentUser changed`.
+  - Si no hay logs del Watch, validar que el target Watch actualizado este realmente instalado; refrescar JS del iPhone no actualiza el codigo Swift de watchOS.
+
+Notas adicionales - Snapshot inmediato del usuario antes del dashboard completo
+
+- Hallazgo validado con logs:
+  - Al iniciar con `carlosmbinf`, el Watch recibia primero un clear y luego un payload completo con `currentUser`.
+  - Al cerrar sesion, tambien llegaba el clear correctamente, aunque podia entrar antes algun application context viejo ya encolado por WatchConnectivity.
+  - Al iniciar con otro usuario como `cronos`, el Watch no mostraba nuevos logs, lo que indica que no estaba recibiendo snapshot nuevo desde el iPhone.
+
+- Ajuste aplicado:
+  - `components/watch/WatchSyncHost.native.tsx` ahora envia un snapshot minimo inmediato apenas `Meteor.user()` existe para el nuevo usuario.
+  - Este envio ya no espera `ready === true` de la suscripcion raiz, porque en usuarios normales o admins no principales eso podia demorar o bloquear el primer reflejo de identidad en el Watch.
+  - Ese snapshot se construye con `buildWatchDashboardPayload(...)`, pero solo contiene:
+    - `currentUser`
+    - `users: [currentUser]`
+    - sin depender de deudas, evidencias, conexiones ni aprobaciones.
+  - Luego, cuando todas las suscripciones del dashboard completo terminan, se vuelve a ejecutar el sync normal con el payload completo.
+
+- Regla practica:
+  - El cambio visible de identidad en el Watch no debe depender de que terminen las suscripciones pesadas del dashboard ni del `ready` de la suscripcion root si `Meteor.user()` ya esta disponible.
+  - Para cambio de usuario, primero sincronizar un payload minimo de identidad y despues enriquecerlo con el dashboard completo cuando este listo.
+  - Si el Watch vuelve a quedar sin logs tras login de un usuario normal, buscar primero `[WatchSyncHost] immediate snapshot waiting` y `[WatchSyncHost] syncing immediate user snapshot` en el log del iPhone.
+
+Notas adicionales - Payload WatchConnectivity debe ser property-list-safe y el primer login no debe limpiar en paralelo
+
+- Hallazgo validado con logs:
+  - Para usuarios como `prueba`, el iPhone si construia y trataba de enviar el snapshot minimo (`currentUsername: prueba`).
+  - El fallo real era:
+    - `La carga útil contiene un tipo incompatible.`
+  - Eso viene de `WCSession.updateApplicationContext(...)` cuando el diccionario contiene valores no compatibles con property list, por ejemplo `null`/`NSNull`, `NaN`, funciones u objetos no serializables.
+
+- Correccion aplicada:
+  - `services/watch/watchConnectivity.native.js` sanea recursivamente el payload antes de enviarlo al bridge nativo:
+    - elimina `null` / `undefined`
+    - elimina numeros no finitos
+    - convierte `Date` a ISO string
+    - limpia arrays y objetos anidados
+  - El debug log `[WatchConnectivity] sanitized payload` muestra cuantos paths fueron descartados y hasta 12 ejemplos.
+
+- Ajuste de carrera aplicado:
+  - `components/watch/WatchSyncHost.native.tsx` ya no ejecuta `clearWatchUserSnapshot()` en el primer render conocido del host.
+  - Tampoco limpia cuando el cambio observado es `null -> userId`, porque ese caso representa un login nuevo despues de una sesion vacia y el snapshot inmediato debe ganar.
+  - Antes, si `previousUserId` empezaba como `null` y entraba un usuario nuevo, el clear podia competir en paralelo con el snapshot inmediato y terminar enviando `user: {}` despues del payload correcto.
+
+- Regla practica:
+  - Todo payload que vaya a `WCSession.updateApplicationContext`, `sendMessage` o `transferUserInfo` debe ser property-list-safe antes de cruzar al modulo Swift.
+  - Si vuelve a aparecer `La carga útil contiene un tipo incompatible`, revisar primero el saneamiento del payload y no el decoder Swift del Watch.
+  - En cambios de sesion, distinguir entre primer usuario conocido del host, login despues de sesion vacia (`null -> userId`) y cambio real entre dos usuarios; solo el cambio real o logout necesitan clear explicito.

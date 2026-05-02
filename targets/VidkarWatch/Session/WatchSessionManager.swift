@@ -14,7 +14,8 @@ final class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
     override init() {
         super.init()
-        loadCachedContext()
+        print("[VidkarWatch] init clearing cached dashboard context")
+        UserDefaults.standard.removeObject(forKey: cacheKey)
     }
 
     func activate() {
@@ -26,6 +27,7 @@ final class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         let session = WCSession.default
         session.delegate = self
         session.activate()
+        print("[VidkarWatch] activate requested activationState=\(session.activationState.rawValue) reachable=\(session.isReachable)")
     }
 
     func requestUserSnapshot(completion: (() -> Void)? = nil) {
@@ -37,24 +39,29 @@ final class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         let session = WCSession.default
         guard session.activationState == .activated else {
             statusText = "Conectando con el iPhone"
+            print("[VidkarWatch] requestUserSnapshot skipped: activationState=\(session.activationState.rawValue)")
             completion?()
             return
         }
 
         guard session.isReachable else {
             statusText = context == nil ? "Abre VIDKAR en el iPhone" : "Usando datos guardados"
+            print("[VidkarWatch] requestUserSnapshot skipped: unreachable hasContext=\(context != nil)")
             completion?()
             return
         }
 
         statusText = "Actualizando"
+        print("[VidkarWatch] requestUserSnapshot sending currentUser=\(context?.currentUser?.safeId ?? "nil")")
         session.sendMessage(["type": "requestUserSnapshot"], replyHandler: { [weak self] response in
+            print("[VidkarWatch] requestUserSnapshot response keys=\(Array(response.keys).sorted())")
             self?.handlePayload(response)
             DispatchQueue.main.async {
                 completion?()
             }
         }, errorHandler: { [weak self] _ in
             DispatchQueue.main.async {
+                print("[VidkarWatch] requestUserSnapshot failed")
                 self?.statusText = self?.context == nil ? "No se pudo conectar" : "Usando datos guardados"
                 completion?()
             }
@@ -252,24 +259,29 @@ final class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         DispatchQueue.main.async { [weak self] in
             if let error {
+                print("[VidkarWatch] activation error=\(error.localizedDescription)")
                 self?.statusText = error.localizedDescription
                 return
             }
 
+            print("[VidkarWatch] activation complete state=\(activationState.rawValue) reachable=\(session.isReachable)")
             self?.statusText = activationState == .activated ? "Conectado al iPhone" : "Esperando al iPhone"
             self?.requestUserSnapshot()
         }
     }
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
+        print("[VidkarWatch] didReceiveApplicationContext keys=\(Array(applicationContext.keys).sorted())")
         handlePayload(applicationContext)
     }
 
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any] = [:]) {
+        print("[VidkarWatch] didReceiveUserInfo keys=\(Array(userInfo.keys).sorted())")
         handlePayload(userInfo)
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String : Any]) {
+        print("[VidkarWatch] didReceiveMessage type=\(message["type"] as? String ?? "nil") keys=\(Array(message.keys).sorted())")
         handleIncomingRealtimeMessage(message)
     }
 
@@ -278,12 +290,14 @@ final class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         didReceiveMessage message: [String : Any],
         replyHandler: @escaping ([String : Any]) -> Void
     ) {
+        print("[VidkarWatch] didReceiveMessageWithReply type=\(message["type"] as? String ?? "nil") keys=\(Array(message.keys).sorted())")
         handleIncomingRealtimeMessage(message)
         replyHandler(["ok": true, "received": true])
     }
 
     func sessionReachabilityDidChange(_ session: WCSession) {
         DispatchQueue.main.async { [weak self] in
+            print("[VidkarWatch] reachability changed reachable=\(session.isReachable)")
             self?.statusText = session.isReachable ? "iPhone disponible" : "iPhone no disponible"
         }
     }
@@ -333,16 +347,33 @@ final class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
 
     private func handlePayload(_ payload: [String: Any]) {
         let rawContext = payload["user"] as? [String: Any] ?? payload
+        print("[VidkarWatch] handlePayload rawKeys=\(Array(rawContext.keys).sorted()) isEmpty=\(rawContext.isEmpty)")
+
+        if rawContext.isEmpty {
+            print("[VidkarWatch] handlePayload clearing empty context")
+            DispatchQueue.main.async { [weak self] in
+                self?.clearContext()
+            }
+            return
+        }
 
         guard JSONSerialization.isValidJSONObject(rawContext),
               let data = try? JSONSerialization.data(withJSONObject: rawContext),
               let nextContext = try? JSONDecoder().decode(WatchDashboardContext.self, from: data) else {
+            print("[VidkarWatch] handlePayload decode failed rawKeys=\(Array(rawContext.keys).sorted())")
             return
         }
+
+        print("[VidkarWatch] handlePayload decoded currentUser=\(nextContext.currentUser?.safeId ?? "nil") username=\(nextContext.currentUser?.username ?? "nil") users=\(nextContext.users?.count ?? 0) approvals=\(nextContext.pendingApprovals?.count ?? 0)")
 
         DispatchQueue.main.async { [weak self] in
             guard let self else {
                 return
+            }
+
+            if self.context?.currentUser?.safeId != nextContext.currentUser?.safeId {
+                print("[VidkarWatch] currentUser changed old=\(self.context?.currentUser?.safeId ?? "nil") new=\(nextContext.currentUser?.safeId ?? "nil")")
+                self.clearVolatileSessionState()
             }
 
             let resolvedContext = self.mergePendingOptionChanges(into: nextContext)
@@ -354,16 +385,24 @@ final class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
-    private func loadCachedContext() {
-        guard let data = UserDefaults.standard.data(forKey: cacheKey),
-              let cachedContext = try? JSONDecoder().decode(WatchDashboardContext.self, from: data),
-              cachedContext.hasContent else {
-            return
-        }
+    private func clearContext() {
+        print("[VidkarWatch] clearContext")
+        context = nil
+        evidenceImageUrlById.removeAll()
+        evidencePreviewErrorById.removeAll()
+        evidencePreviewLoadingIds.removeAll()
+        pendingOptionChanges.removeAll()
+        lastSyncText = "Sin sincronizar"
+        statusText = "Sin sesión activa"
+        UserDefaults.standard.removeObject(forKey: cacheKey)
+    }
 
-        context = cachedContext
-        statusText = "Datos guardados"
-        lastSyncText = Self.formatSyncDate(cachedContext.syncedAt)
+    private func clearVolatileSessionState() {
+        print("[VidkarWatch] clearVolatileSessionState")
+        evidenceImageUrlById.removeAll()
+        evidencePreviewErrorById.removeAll()
+        evidencePreviewLoadingIds.removeAll()
+        pendingOptionChanges.removeAll()
     }
 
     private func saveCachedContext(_ context: WatchDashboardContext) {
