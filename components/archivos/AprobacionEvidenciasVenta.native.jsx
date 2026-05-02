@@ -2,35 +2,36 @@ import MeteorBase from "@meteorrn/core";
 import moment from "moment";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-    Alert,
-    Animated,
-    Image,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View,
+  Alert,
+  Animated,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import {
-    PanGestureHandler,
-    PinchGestureHandler,
-    State,
+  PanGestureHandler,
+  PinchGestureHandler,
+  State,
 } from "react-native-gesture-handler";
 import {
-    ActivityIndicator,
-    Badge,
-    Button,
-    Card,
-    Chip,
-    Divider,
-    IconButton,
-    Surface,
-    Text,
-    useTheme,
+  ActivityIndicator,
+  Badge,
+  Button,
+  Card,
+  Chip,
+  Divider,
+  IconButton,
+  Surface,
+  Text,
+  useTheme,
 } from "react-native-paper";
 
+import { buildEvidenceImageUrl } from "../../services/meteor/evidenceImages";
 import {
-    EvidenciasVentasEfectivoCollection,
-    VentasRechargeCollection,
+  EvidenciasVentasEfectivoCollection,
+  VentasRechargeCollection,
 } from "../collections/collections";
 import DrawerBottom from "../drawer/DrawerBottom.native";
 
@@ -69,13 +70,9 @@ const EVIDENCIA_VENTA_FIELDS = {
 const EVIDENCIA_FIELDS = {
   _id: 1,
   aprobado: 1,
-  base64: 1,
   cancelada: 1,
   cancelado: 1,
   createdAt: 1,
-  data: 1,
-  dataB64: 1,
-  dataBase64: 1,
   denegado: 1,
   descripcion: 1,
   detalles: 1,
@@ -122,14 +119,10 @@ const mapEvidenciaDoc = (evidencia, index) => {
     _id: evidencia._id,
     _idx: index,
     aprobado,
-    base64:
-      evidencia.base64 ||
-      evidencia.dataBase64 ||
-      evidencia.data ||
-      evidencia.dataB64,
     createdAt: evidencia.createdAt || evidencia.fecha || null,
     descripcion: evidencia.descripcion || "",
     estado,
+    imageUrl: buildEvidenceImageUrl(evidencia._id),
     raw: evidencia,
     rechazado,
     size: evidencia.size || 0,
@@ -153,6 +146,31 @@ const megasToGB = (megas) => {
 
   const gb = megas / 1024;
   return gb >= 1 ? `${gb.toFixed(0)} GB` : `${megas} MB`;
+};
+
+const isUnlimitedProxyVpnItem = (carrito) =>
+  carrito?.esPorTiempo === true ||
+  !carrito?.megas ||
+  carrito?.megas === null ||
+  carrito?.megas === 999999;
+
+const normalizeMeteorMethodCallback = (firstArg, secondArg) => {
+  if (
+    firstArg &&
+    typeof firstArg === "object" &&
+    (Object.prototype.hasOwnProperty.call(firstArg, "error") ||
+      Object.prototype.hasOwnProperty.call(firstArg, "success"))
+  ) {
+    return {
+      error: firstArg.error,
+      success: firstArg.success,
+    };
+  }
+
+  return {
+    error: firstArg,
+    success: secondArg,
+  };
 };
 
 const extractRechargeAmount = (carrito) => {
@@ -183,7 +201,7 @@ const getProductSummaryLabel = (carrito) => {
   const type = carrito?.type;
 
   if (type === "PROXY" || type === "VPN") {
-    const isUnlimited = carrito?.esPorTiempo === true || carrito?.megas === null;
+    const isUnlimited = isUnlimitedProxyVpnItem(carrito);
     return `${type} ${isUnlimited ? "Ilimitado" : megasToGB(carrito?.megas)}`;
   }
 
@@ -511,7 +529,7 @@ const AprobacionEvidenciasVenta = ({
 
   const evidencias = useMemo(() => {
     const raw = Array.isArray(evidenciasSubsc) ? evidenciasSubsc : [];
-    return raw.map(mapEvidenciaDoc).filter((evidencia) => !!evidencia.base64);
+    return raw.map(mapEvidenciaDoc).filter((evidencia) => !!evidencia.imageUrl);
   }, [evidenciasSubsc]);
 
   const preview = useMemo(() => {
@@ -684,7 +702,7 @@ const AprobacionEvidenciasVenta = ({
   }
 
   const handleAprobarVenta = () => {
-    if (!canApproveSale || aprobandoVenta) {
+    if (!canApproveSale || aprobandoVenta || !ventaActual) {
       return;
     }
 
@@ -701,6 +719,7 @@ const AprobacionEvidenciasVenta = ({
               ventaActual._id,
               {},
               (err, res) => {
+                console.log("Resultado de aprobar venta:", { err, res });
                 setAprobandoVenta(false);
                 if (err) {
                   Alert.alert(
@@ -741,6 +760,7 @@ const AprobacionEvidenciasVenta = ({
       preview._id,
       { $set: nextFields },
       (updateError) => {
+        console.log("Resultado de actualización local de evidencia:", { updateError });
         if (updateError) {
           Alert.alert(
             "Error",
@@ -767,14 +787,10 @@ const AprobacionEvidenciasVenta = ({
         {
           onPress: () => {
             setRechazandoVenta(true);
-            VentasRechargeCollection.update(
+            Meteor.call(
+              "efectivo.cancelarVenta",
               ventaId,
-              {
-                $set: {
-                  isCancelada: true,
-                },
-              },
-              (err) => {
+              (err, res) => {
                 setRechazandoVenta(false);
                 if (err) {
                   Alert.alert(
@@ -784,7 +800,15 @@ const AprobacionEvidenciasVenta = ({
                   return;
                 }
 
-                Alert.alert("Listo", "Venta rechazada.");
+                VentasRechargeCollection.update(ventaId, {
+                  $set: {
+                    estado: "RECHAZADA",
+                    isCancelada: true,
+                    isCobrado: false,
+                  },
+                });
+
+                Alert.alert("Listo", res?.message || "Venta rechazada.");
                 onVentaAprobada?.({
                   _id: ventaActual._id,
                   estado: "RECHAZADA",
@@ -808,28 +832,29 @@ const AprobacionEvidenciasVenta = ({
       "archivos.aprobarEvidencia",
       preview._id,
       null,
-      (error, success) => {
-        if (error) {
+      (firstArg, secondArg) => {
+        const { error, success } = normalizeMeteorMethodCallback(
+          firstArg,
+          secondArg,
+        );
+        console.log("Resultado de aprobar evidencia:", { success, error });
+        if (!success) {
           Alert.alert(
             "Error",
-            error.reason || "No se pudo aprobar la evidencia.",
+            error?.reason || "No se pudo aprobar la evidencia.",
           );
           return;
         }
 
         if (success) {
+
           applyPreviewEvidenceLocalUpdate({
             nextFields: {
               aprobado: true,
-              cancelada: false,
-              cancelado: false,
               denegado: false,
-              estado: ESTADOS.APROBADA,
-              isCancelada: false,
-              rechazado: false,
             },
             onSuccess: () => {
-              Alert.alert("Listo", "Evidencia aprobada.");
+              Alert.alert("Listo", success?.message || "Evidencia aprobada.");
               onAprobar?.(preview || { _id: previewId });
             },
             serverFallbackMessage:
@@ -849,11 +874,16 @@ const AprobacionEvidenciasVenta = ({
       "archivos.denegarEvidencia",
       preview._id,
       null,
-      (error, success) => {
-        if (error) {
+      (firstArg, secondArg) => {
+        const { error, success } = normalizeMeteorMethodCallback(
+          firstArg,
+          secondArg,
+        );
+        console.log("Resultado de rechazar evidencia:", { success, error });
+        if (!success) {
           Alert.alert(
             "Error",
-            error.reason || "No se pudo rechazar la evidencia.",
+            error?.reason || "No se pudo rechazar la evidencia.",
           );
           return;
         }
@@ -862,12 +892,7 @@ const AprobacionEvidenciasVenta = ({
           applyPreviewEvidenceLocalUpdate({
             nextFields: {
               aprobado: false,
-              cancelada: true,
-              cancelado: true,
               denegado: true,
-              estado: ESTADOS.RECHAZADA,
-              isCancelada: true,
-              rechazado: true,
             },
             onSuccess: () => {
               onRechazar?.(preview || { _id: previewId });
@@ -903,7 +928,7 @@ const AprobacionEvidenciasVenta = ({
     }
 
     if (type === "PROXY" || type === "VPN") {
-      const esPorTiempo = carrito.esPorTiempo || carrito.megas === null;
+      const esPorTiempo = isUnlimitedProxyVpnItem(carrito);
       return (
         <Surface
           key={carrito._id}
@@ -1197,7 +1222,7 @@ const AprobacionEvidenciasVenta = ({
     return null;
   };
 
-  const miniBase64 = evidencias[0]?.base64;
+  const miniEvidenceImageUrl = evidencias[0]?.imageUrl;
   const cargando = !evidenciasSubsc;
 
   if (!ventaActual) {
@@ -1375,10 +1400,10 @@ const AprobacionEvidenciasVenta = ({
         <Card.Content>
           <Divider style={styles.divider} />
 
-          {miniBase64 ? (
+          {miniEvidenceImageUrl ? (
             <Surface style={styles.evidencePreview} elevation={2}>
               <Image
-                source={{ uri: `data:image/jpeg;base64,${miniBase64}` }}
+                source={{ uri: miniEvidenceImageUrl }}
                 style={styles.evidenceThumb}
               />
               <View style={styles.evidenceInfoBox}>
@@ -1434,7 +1459,7 @@ const AprobacionEvidenciasVenta = ({
               contentContainerStyle={styles.scrollRow}
             >
               {evidencias.map((evidencia) => {
-                const uri = `data:image/jpeg;base64,${evidencia.base64}`;
+                const uri = evidencia.imageUrl;
                 const isLoading = loadingIds.includes(evidencia._id);
                 const borderStyle = evidencia.rechazado
                   ? styles.borderRechazado
@@ -1533,7 +1558,7 @@ const AprobacionEvidenciasVenta = ({
           {preview ? (
             <View style={styles.previewWrapper}>
               <ZoomableImage
-                uri={`data:image/jpeg;base64,${preview.base64}`}
+                uri={preview.imageUrl}
                 style={styles.previewImage}
               />
               <View

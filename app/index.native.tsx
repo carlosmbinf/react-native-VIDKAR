@@ -6,12 +6,6 @@ import { Platform, StatusBar, StyleSheet } from "react-native";
 import { ActivityIndicator, Surface, Text, useTheme } from "react-native-paper";
 
 import CadeteNavigator from "../components/cadete/CadeteNavigator";
-import {
-  EvidenciasVentasEfectivoCollection,
-  Online,
-  VentasCollection,
-  VentasRechargeCollection,
-} from "../components/collections/collections";
 import EmpresaNavigator from "../components/empresa/EmpresaNavigator";
 import Loguin from "../components/loguin/Loguin.native";
 import MenuPrincipal from "../components/Main/MenuPrincipal.native";
@@ -24,20 +18,7 @@ import {
     setupPushListeners,
 } from "../services/notifications/PushMessaging.native";
 import {
-    subscribeToWatchMessages,
-    clearWatchUserSnapshot,
-    syncWatchDashboard,
-} from "../services/watch/watchConnectivity.native";
-import {
-  buildAdminScopedUserFilter,
-  buildWatchApprovalQuery,
-  buildWatchDashboardPayload,
-  WATCH_APPROVAL_EVIDENCE_FIELDS,
-  WATCH_APPROVAL_VENTA_FIELDS,
-  WATCH_CONNECTION_FIELDS,
-  WATCH_DEBT_FIELDS,
-  WATCH_LIST_USER_FIELDS,
-  WATCH_ROOT_USER_FIELDS,
+    WATCH_ROOT_USER_FIELDS,
 } from "../services/watch/watchDashboard";
 
 const Meteor = MeteorBase as unknown as {
@@ -57,15 +38,6 @@ const METEOR_CONNECTION_TIMEOUT_MS = 10_000;
 const METEOR_CONNECTION_POLL_MS = 500;
 
 const ROOT_USER_FIELDS = WATCH_ROOT_USER_FIELDS;
-const WATCH_ALLOWED_TOGGLE_KEYS = new Set([
-  "desconectarVPN",
-  "modoEmpresa",
-  "permitirAprobacionEfectivoCUP",
-  "permitirPagoEfectivoCUP",
-  "permiteRemesas",
-  "subscipcionPelis",
-]);
-
 const resolveCurrentBuildNumber = () => {
   const nativeBuildNumber = parseInt(Application.nativeBuildVersion ?? "", 10);
 
@@ -155,140 +127,6 @@ export default function IndexScreen() {
       };
     },
   );
-
-  const { watchPayload, watchReady } = Meteor.useTracker(() => {
-    if (Platform.OS !== "ios" || !userId || !ready || !user) {
-      return { watchPayload: null, watchReady: false };
-    }
-
-    const isAdmin = user?.profile?.role === "admin";
-    const isPrincipalAdmin = user?.username === "carlosmbinf";
-    const visibleUserFilter = isAdmin
-      ? buildAdminScopedUserFilter(user)
-      : { _id: userId };
-
-    const visibleUsersHandle = Meteor.subscribe("user", visibleUserFilter, {
-      fields: WATCH_LIST_USER_FIELDS,
-    });
-    const visibleUsers = Meteor.users
-      .find(visibleUserFilter, {
-        fields: WATCH_LIST_USER_FIELDS,
-        sort: {
-          "profile.firstName": 1,
-          "profile.lastName": 1,
-          username: 1,
-        },
-      })
-      .fetch();
-    const visibleUserIds = visibleUsers
-      .map((watchUser: any) => watchUser?._id)
-      .filter(Boolean);
-
-    const connectionsHandle =
-      visibleUserIds.length > 0
-        ? Meteor.subscribe(
-            "conexiones",
-            { userId: { $in: visibleUserIds } },
-            { fields: WATCH_CONNECTION_FIELDS },
-          )
-        : null;
-    const connections =
-      visibleUserIds.length > 0
-        ? Online.find(
-            { userId: { $in: visibleUserIds } },
-            { fields: WATCH_CONNECTION_FIELDS },
-          ).fetch()
-        : [];
-
-    const debtHandle =
-      visibleUserIds.length > 0
-        ? Meteor.subscribe(
-            "ventas",
-            { adminId: { $in: visibleUserIds }, cobrado: false },
-            { fields: WATCH_DEBT_FIELDS },
-          )
-        : null;
-    const debtSales =
-      visibleUserIds.length > 0
-        ? VentasCollection.find(
-            { adminId: { $in: visibleUserIds }, cobrado: false },
-            { fields: WATCH_DEBT_FIELDS },
-          ).fetch()
-        : [];
-
-    const subordinateHandle =
-      isAdmin && !isPrincipalAdmin
-        ? Meteor.subscribe(
-            "user",
-            { bloqueadoDesbloqueadoPor: userId },
-            { fields: { _id: 1 } },
-          )
-        : null;
-    const subordinateIds =
-      isAdmin && !isPrincipalAdmin
-        ? Meteor.users
-            .find(
-              { bloqueadoDesbloqueadoPor: userId },
-              { fields: { _id: 1 } },
-            )
-            .fetch()
-            .map((subordinateUser: any) => subordinateUser?._id)
-            .filter(Boolean)
-        : [];
-
-    const approvalQuery = buildWatchApprovalQuery({
-      currentUser: user,
-      subordinateIds,
-    });
-    const approvalVentasHandle = Meteor.subscribe("ventasRecharge", approvalQuery, {
-      fields: WATCH_APPROVAL_VENTA_FIELDS,
-    });
-    const approvalVentas = VentasRechargeCollection.find(approvalQuery, {
-      fields: WATCH_APPROVAL_VENTA_FIELDS,
-      sort: { createdAt: -1 },
-    }).fetch();
-    const approvalVentaIds = approvalVentas
-      .map((approvalVenta: any) => approvalVenta?._id)
-      .filter(Boolean);
-
-    const approvalEvidencesHandle =
-      approvalVentaIds.length > 0
-        ? Meteor.subscribe(
-            "evidenciasVentasEfectivoRecharge",
-            { ventaId: { $in: approvalVentaIds } },
-            { fields: WATCH_APPROVAL_EVIDENCE_FIELDS },
-          )
-        : null;
-    const approvalEvidences =
-      approvalVentaIds.length > 0
-        ? EvidenciasVentasEfectivoCollection.find(
-            { ventaId: { $in: approvalVentaIds } },
-            { fields: WATCH_APPROVAL_EVIDENCE_FIELDS },
-          ).fetch()
-        : [];
-
-    const allReady =
-      visibleUsersHandle.ready() &&
-      (connectionsHandle ? connectionsHandle.ready() : true) &&
-      (debtHandle ? debtHandle.ready() : true) &&
-      (subordinateHandle ? subordinateHandle.ready() : true) &&
-      approvalVentasHandle.ready() &&
-      (approvalEvidencesHandle ? approvalEvidencesHandle.ready() : true);
-
-    return {
-      watchPayload: allReady
-        ? buildWatchDashboardPayload({
-            approvalEvidences,
-            approvalVentas,
-            connections,
-            currentUser: user,
-            debtSales,
-            users: visibleUsers,
-          })
-        : null,
-      watchReady: allReady,
-    };
-  }, [ready, user, userId]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -465,83 +303,6 @@ export default function IndexScreen() {
       );
     });
   }, [userId]);
-
-  const handleWatchMessage = React.useCallback(
-    (message: any) => {
-      if (Platform.OS !== "ios" || !message || !userId) {
-        return;
-      }
-
-      if (message?.type !== "toggleUserOption") {
-        return;
-      }
-
-      const targetUserId =
-        typeof message?.userId === "string" ? message.userId : null;
-      const toggleKey =
-        typeof message?.key === "string" ? message.key : null;
-      const nextValue = Boolean(message?.value);
-      const isPrincipalAdmin = user?.username === "carlosmbinf";
-      const isAdmin =
-        isPrincipalAdmin || user?.profile?.role === "admin";
-
-      if (
-        !targetUserId ||
-        !toggleKey ||
-        !isAdmin ||
-        !WATCH_ALLOWED_TOGGLE_KEYS.has(toggleKey)
-      ) {
-        return;
-      }
-
-      if (toggleKey !== "desconectarVPN" && !isPrincipalAdmin) {
-        return;
-      }
-
-      Meteor.users.update(
-        targetUserId,
-        { $set: { [toggleKey]: nextValue } },
-        (error: any) => {
-          if (error) {
-            console.warn(
-              "[WatchConnectivity] No se pudo aplicar el cambio solicitado desde el Watch:",
-              error,
-            );
-          }
-        },
-      );
-    },
-    [user?.profile?.role, user?.username, userId],
-  );
-
-  React.useEffect(() => {
-    if (Platform.OS !== "ios") {
-      return;
-    }
-
-    return subscribeToWatchMessages(handleWatchMessage);
-  }, [handleWatchMessage]);
-
-  React.useEffect(() => {
-    if (Platform.OS !== "ios") {
-      return;
-    }
-
-    if (!userId) {
-      clearWatchUserSnapshot().catch((error) => {
-        console.warn("[WatchConnectivity] No se pudo limpiar el usuario del Watch:", error);
-      });
-      return;
-    }
-
-    if (!ready || !user || !watchReady || !watchPayload) {
-      return;
-    }
-
-    syncWatchDashboard(watchPayload).catch((error) => {
-      console.warn("[WatchConnectivity] No se pudo sincronizar el dashboard con el Watch:", error);
-    });
-  }, [ready, user, userId, watchPayload, watchReady]);
 
   if (userId && !ready) {
     return (

@@ -1,7 +1,7 @@
-import { memo } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import MeteorBase from "@meteorrn/core";
 import { LinearGradient } from "expo-linear-gradient";
+import { memo } from "react";
 import { StyleSheet, View } from "react-native";
 import { ActivityIndicator, Card, Divider, IconButton, Surface, Text } from "react-native-paper";
 
@@ -57,12 +57,16 @@ const PedidoCardExpandedContent = ({
   necesitaEvidencia,
   venta,
 }) => {
-  const { detailReady, ventaDetalle } = Meteor.useTracker(() => {
+  const { detailReady, isAdmin, ventaDetalle } = Meteor.useTracker(() => {
     const ventaId = venta?._id;
+    const currentUser = Meteor.user();
 
     if (!ventaId) {
       return {
         detailReady: false,
+        isAdmin:
+          currentUser?.profile?.role === "admin" ||
+          currentUser?.username === "carlosmbinf",
         ventaDetalle: null,
       };
     }
@@ -77,6 +81,9 @@ const PedidoCardExpandedContent = ({
 
     return {
       detailReady: detailHandle.ready(),
+      isAdmin:
+        currentUser?.profile?.role === "admin" ||
+        currentUser?.username === "carlosmbinf",
       ventaDetalle: ventaDoc || null,
     };
   }, [venta?._id]);
@@ -169,7 +176,7 @@ const PedidoCardExpandedContent = ({
         </Surface>
       ) : null}
 
-      {necesitaEvidencia ? (
+      {necesitaEvidencia && isAdmin ? (
         <Surface elevation={2} style={styles.evidenciaCard}>
           <View style={styles.evidenciaHeader}>
             <IconButton color="#FF9800" icon="file-upload" size={24} />

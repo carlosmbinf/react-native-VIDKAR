@@ -15,6 +15,9 @@ const ADMIN_OPTIONS_FIELDS = {
   permitirPagoEfectivoCUP: 1,
   permiteRemesas: 1,
   subscipcionPelis: 1,
+  vpn: 1,
+  vpn2mbConnected: 1,
+  vpnplusConnected: 1,
 };
 
 const OptionsCardAdmin = ({ item, styles, accentColor }) => {
@@ -39,6 +42,10 @@ const OptionsCardAdmin = ({ item, styles, accentColor }) => {
   const currentUser = userDoc || item || {};
   const isCarlos = Meteor.user()?.username === "carlosmbinf";
   const headerAccent = accentColor || "#263238";
+  const hasActiveConnectedVpn =
+    currentUser?.vpn === true &&
+    (currentUser?.vpnplusConnected === true ||
+      currentUser?.vpn2mbConnected === true);
 
   const toggleFlag = (key, current) => {
     const targetId = userDoc?._id || item?._id;
@@ -81,6 +88,7 @@ const OptionsCardAdmin = ({ item, styles, accentColor }) => {
           onToggle={() =>
             toggleFlag("desconectarVPN", currentUser?.desconectarVPN)
           }
+          disabled={!hasActiveConnectedVpn}
         />
 
         {isCarlos ? (

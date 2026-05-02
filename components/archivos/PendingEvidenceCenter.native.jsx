@@ -9,9 +9,9 @@ import { VentasRechargeCollection } from "../collections/collections";
 import useSafeBack from "../navigation/useSafeBack";
 import PendingEvidenceSaleCardNative from "./PendingEvidenceSaleCard.native";
 import {
-  buildPendingEvidenceAggregate,
-  buildPendingEvidenceQuery,
-  PENDING_EVIDENCE_FIELDS,
+    buildPendingEvidenceAggregate,
+    buildPendingEvidenceQuery,
+    PENDING_EVIDENCE_FIELDS,
 } from "./evidencePendingUtils";
 
 const Meteor =
@@ -211,6 +211,7 @@ const styles = StyleSheet.create({
   heroCard: {
     backgroundColor: "#111c44",
     borderRadius: 26,
+    marginBottom: 14,
     marginHorizontal: 16,
     overflow: "hidden",
     padding: 20,

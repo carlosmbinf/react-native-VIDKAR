@@ -55,11 +55,13 @@ const USER_DETAIL_FIELDS = {
   subscipcionPelis: 1,
   username: 1,
   vpn: 1,
+  vpn2mbConnected: 1,
   vpn2mb: 1,
   vpnMbGastados: 1,
   vpnfechaSubscripcion: 1,
   vpnmegas: 1,
   vpnplus: 1,
+  vpnplusConnected: 1,
   vpnisIlimitado: 1,
 };
 
@@ -460,15 +462,13 @@ const UserDetails = () => {
                 </View>
               </>
             )}
-            {Meteor.user()?.profile?.role === "admin" ? (
-              <View style={[styles.cardItem, computedCardWidth]}>
-                <OptionsCardAdmin
-                  item={item}
-                  styles={styles}
-                  accentColor={accentColor}
-                />
-              </View>
-            ) : null}
+            <View style={[styles.cardItem, computedCardWidth]}>
+              <OptionsCardAdmin
+                item={item}
+                styles={styles}
+                accentColor={accentColor}
+              />
+            </View>
             {item?._id === currentUserId ? (
               <View style={[styles.cardItem, computedCardWidth]}>
                 <DeleteAccountCard userId={item._id} username={item.username} />

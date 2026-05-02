@@ -111,7 +111,15 @@ const getUsageTone = (ratioValue, palette = {}) => {
   };
 };
 
-const ServiceProgressPill = ({ label, palette, ratio, rightText, width }) => {
+const ServiceProgressPill = ({
+  centerText,
+  isUnlimitedMobile,
+  label,
+  palette,
+  ratio,
+  rightText,
+  width,
+}) => {
   const theme = useTheme();
   const safeRatio = clamp01(ratio);
   const tone = getUsageTone(safeRatio, palette);
@@ -179,17 +187,44 @@ const ServiceProgressPill = ({ label, palette, ratio, rightText, width }) => {
         >
           {label}
         </Chip>
-        <Text
-          numberOfLines={1}
-          style={[
-            styles.pillText,
-            {
-              color: theme.dark ? "#e2e8f0" : "#0f172a",
-            },
-          ]}
-        >
-          {rightText}
-        </Text>
+        {isUnlimitedMobile ? (
+          <>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.centerValueText,
+                {
+                  color: theme.dark ? "#e2e8f0" : "#0f172a",
+                },
+              ]}
+            >
+              {centerText || rightText}
+            </Text>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.pillUnlimitedText,
+                {
+                  color: theme.dark ? "#e2e8f0" : "#0f172a",
+                },
+              ]}
+            >
+              {rightText}
+            </Text>
+          </>
+        ) : (
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.pillText,
+              {
+                color: theme.dark ? "#e2e8f0" : "#0f172a",
+              },
+            ]}
+          >
+            {rightText}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -240,11 +275,29 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "800",
   },
+  centerValueText: {
+    fontSize: 10,
+    fontWeight: "700",
+    left: 0,
+    opacity: 0.92,
+    pointerEvents: "none",
+    position: "absolute",
+    right: 0,
+    textAlign: "center",
+  },
   pillText: {
     flex: 1,
     fontSize: 10,
     fontWeight: "600",
     opacity: 0.82,
+    textAlign: "right",
+  },
+  pillUnlimitedText: {
+    flex: 1,
+    fontSize: 10,
+    fontWeight: "700",
+    opacity: 0.88,
+    paddingLeft: 56,
     textAlign: "right",
   },
 });

@@ -1,4 +1,6 @@
-const BYTES_IN_MB = 1024 * 1024;
+import { buildEvidenceImageUrl } from "../meteor/evidenceImages";
+
+const BYTES_IN_MB_BINARY = 1024 * 1024;
 
 export const WATCH_ROOT_USER_FIELDS = {
   baneado: 1,
@@ -55,6 +57,7 @@ export const WATCH_DEBT_FIELDS = {
   adminId: 1,
   cobrado: 1,
   precio: 1,
+  userId: 1,
 };
 
 export const WATCH_APPROVAL_VENTA_FIELDS = {
@@ -75,11 +78,28 @@ export const WATCH_APPROVAL_EVIDENCE_FIELDS = {
   aprobado: 1,
   cancelada: 1,
   cancelado: 1,
+  createdAt: 1,
+  descripcion: 1,
+  detalles: 1,
   denegado: 1,
   estado: 1,
+  fecha: 1,
+  fechaSubida: 1,
   isCancelada: 1,
   rechazado: 1,
   ventaId: 1,
+};
+
+export const WATCH_PENDING_EVIDENCE_FIELDS = {
+  _id: 1,
+  createdAt: 1,
+  isCancelada: 1,
+  isCobrado: 1,
+  metodoPago: 1,
+  userId: 1,
+  "producto.carritos": 1,
+  "producto.type": 1,
+  type: 1,
 };
 
 const WATCH_OPTION_DEFINITIONS = [
@@ -257,10 +277,10 @@ const formatMegas = (value) => {
   const megas = toNumber(value);
 
   if (megas >= 1024) {
-    return `${(megas / 1024).toFixed(megas >= 10 * 1024 ? 0 : 1)} GB`;
+    return `${(megas / 1024).toFixed(megas >= 10 * 1024 ? 2 : 2)} GB`;
   }
 
-  return `${Math.round(megas)} MB`;
+  return `${megas.toFixed(2)} MB`;
 };
 
 const buildConnectionState = (user, connections = []) => {
@@ -311,7 +331,7 @@ const buildUsageSnapshot = (user, connections) => {
     user?.isIlimitado,
     user?.fechaSubscripcion,
   );
-  const proxyUsedMB = toNumber(user?.megasGastadosinBytes) / BYTES_IN_MB;
+  const proxyUsedMB = toNumber(user?.megasGastadosinBytes) / BYTES_IN_MB_BINARY;
   const proxyTotalMB = toNumber(user?.megas);
   const proxyProgress = proxyUnlimited
     ? 0
@@ -319,13 +339,13 @@ const buildUsageSnapshot = (user, connections) => {
       ? clamp01(proxyUsedMB / proxyTotalMB)
       : 0;
 
-  const vpnEnabled = Boolean(user?.vpn || user?.vpnplus || user?.vpn2mb);
+  const vpnEnabled = user?.vpn === true;
   const vpnUnlimited = isActiveUnlimited(
     vpnEnabled,
     user?.vpnisIlimitado,
     user?.vpnfechaSubscripcion,
   );
-  const vpnUsedMB = toNumber(user?.vpnMbGastados);
+  const vpnUsedMB = toNumber(user?.vpnMbGastados) / BYTES_IN_MB_BINARY;
   const vpnTotalMB = toNumber(user?.vpnmegas);
   const vpnProgress = vpnUnlimited
     ? 0
@@ -345,9 +365,11 @@ const buildUsageSnapshot = (user, connections) => {
         : "Inactivo",
       totalLabel: proxyUnlimited ? "Sin límite" : formatMegas(proxyTotalMB),
       usedLabel: formatMegas(proxyUsedMB),
+      isUnlimited: proxyUnlimited,
+      unlimitedUsageLabel: `${(proxyUsedMB / 1024).toFixed(2)} GB`,
     },
     vpn: {
-      active: connectionState.hasVpnConnection,
+      active: vpnEnabled && connectionState.hasVpnConnection,
       enabled: vpnEnabled,
       progress: vpnProgress,
       statusLabel: vpnEnabled
@@ -357,6 +379,8 @@ const buildUsageSnapshot = (user, connections) => {
         : "Inactivo",
       totalLabel: vpnUnlimited ? "Sin límite" : formatMegas(vpnTotalMB),
       usedLabel: formatMegas(vpnUsedMB),
+      isUnlimited: vpnUnlimited,
+      unlimitedUsageLabel: `${(vpnUsedMB / 1024).toFixed(2)} GB`,
     },
   };
 };
@@ -367,7 +391,9 @@ const buildOptionsSnapshot = (user, currentViewer) => {
   const isAdmin =
     isPrincipalAdmin || toStringOrNull(currentViewer?.profile?.role) === "admin";
 
-  return WATCH_OPTION_DEFINITIONS.map((option) => ({
+  return WATCH_OPTION_DEFINITIONS.filter((option) =>
+    isPrincipalAdmin ? true : option.key === "desconectarVPN",
+  ).map((option) => ({
     description: option.description,
     editable:
       option.scope === "principal" ? isPrincipalAdmin : option.scope === "admin" ? isAdmin : false,
@@ -391,6 +417,82 @@ const buildDebtMap = (debtSales = []) =>
     return accumulator;
   }, new Map());
 
+const buildDebtorSummaries = (debtSales = [], usersById = new Map()) => {
+  const debtorsById = debtSales.reduce((accumulator, sale) => {
+    const debtorId = normalizeUserId(sale?.adminId);
+    if (!debtorId) {
+      return accumulator;
+    }
+
+    const currentValue = accumulator.get(debtorId) || {
+      amount: 0,
+      salesCount: 0,
+    };
+
+    accumulator.set(debtorId, {
+      amount: currentValue.amount + toNumber(sale?.precio),
+      salesCount: currentValue.salesCount + 1,
+    });
+
+    return accumulator;
+  }, new Map());
+
+  return Array.from(debtorsById.entries())
+    .map(([debtorId, summary]) => {
+      const userProfile = usersById.get(debtorId) || null;
+      return {
+        amount: summary.amount,
+        amountLabel: formatMoney(summary.amount, "CUP"),
+        displayName: userProfile?.displayName || "Usuario pendiente",
+        id: debtorId,
+        salesCount: summary.salesCount,
+        username: userProfile?.username || null,
+      };
+    })
+    .filter((debtor) => debtor.amount > 0)
+    .sort((left, right) => {
+      if (right.amount !== left.amount) {
+        return right.amount - left.amount;
+      }
+
+      return left.displayName.localeCompare(right.displayName, "es");
+    });
+};
+
+const buildWatchEvidenceItem = (evidenceDoc) => {
+  const evidenceId = normalizeUserId(evidenceDoc?._id);
+  if (!evidenceId) {
+    return null;
+  }
+
+  const approved = Boolean(evidenceDoc?.aprobado);
+  const rejected = Boolean(
+    evidenceDoc?.rechazado ||
+      evidenceDoc?.denegado ||
+      evidenceDoc?.cancelada ||
+      evidenceDoc?.cancelado ||
+      evidenceDoc?.isCancelada ||
+      evidenceDoc?.estado === "RECHAZADA",
+  );
+
+  return {
+    approved,
+    createdAt: toStringOrNull(
+      evidenceDoc?.createdAt instanceof Date
+        ? evidenceDoc.createdAt.toISOString()
+        : evidenceDoc?.createdAt || evidenceDoc?.fecha || evidenceDoc?.fechaSubida,
+    ),
+    description:
+      toStringOrNull(evidenceDoc?.descripcion) ??
+      toStringOrNull(evidenceDoc?.detalles),
+    hasPreview: true,
+    id: evidenceId,
+    imageUrl: buildEvidenceImageUrl(evidenceId),
+    rejected,
+    statusLabel: rejected ? "Rechazada" : approved ? "Aprobada" : "Pendiente",
+  };
+};
+
 const buildEvidenceBySaleMap = (evidences = []) =>
   evidences.reduce((accumulator, evidenceDoc) => {
     const saleId = normalizeUserId(evidenceDoc?.ventaId);
@@ -400,6 +502,7 @@ const buildEvidenceBySaleMap = (evidences = []) =>
 
     const currentValue = accumulator.get(saleId) || {
       approvedCount: 0,
+      evidences: [],
       rejectedCount: 0,
       totalCount: 0,
     };
@@ -414,14 +517,73 @@ const buildEvidenceBySaleMap = (evidences = []) =>
         evidenceDoc?.estado === "RECHAZADA",
     );
 
+    const evidenceItem = buildWatchEvidenceItem(evidenceDoc);
+
     accumulator.set(saleId, {
       approvedCount: currentValue.approvedCount + (approved ? 1 : 0),
+      evidences: evidenceItem
+        ? [...currentValue.evidences, evidenceItem]
+        : currentValue.evidences,
       rejectedCount: currentValue.rejectedCount + (rejected ? 1 : 0),
       totalCount: currentValue.totalCount + 1,
     });
 
     return accumulator;
   }, new Map());
+
+const getVentaProductTypes = (venta) => {
+  const items = Array.isArray(venta?.producto?.carritos)
+    ? venta.producto.carritos
+    : [];
+  const types = new Set(items.map((item) => item?.type).filter(Boolean));
+
+  if (types.size === 0) {
+    const fallbackType = venta?.producto?.type || venta?.type;
+    if (fallbackType) {
+      types.add(fallbackType);
+    }
+  }
+
+  return Array.from(types);
+};
+
+export const buildWatchPendingEvidenceQuery = (userId) => ({
+  isCancelada: { $ne: true },
+  isCobrado: { $ne: true },
+  metodoPago: "EFECTIVO",
+  userId,
+});
+
+const buildPendingEvidenceSummary = (ventas = []) => {
+  const countsByType = ventas.reduce((accumulator, venta) => {
+    getVentaProductTypes(venta).forEach((type) => {
+      if (!PRODUCT_TYPE_LABELS[type]) {
+        return;
+      }
+
+      accumulator[type] = (accumulator[type] || 0) + 1;
+    });
+
+    return accumulator;
+  }, {});
+
+  return {
+    count: ventas.length,
+    types: Object.entries(countsByType)
+      .map(([type, count]) => ({
+        count,
+        key: type,
+        label: PRODUCT_TYPE_LABELS[type],
+      }))
+      .sort((left, right) => {
+        if (right.count !== left.count) {
+          return right.count - left.count;
+        }
+
+        return left.label.localeCompare(right.label, "es");
+      }),
+  };
+};
 
 const getApprovalTitle = (sale) => {
   const items = Array.isArray(sale?.producto?.carritos) ? sale.producto.carritos : [];
@@ -515,6 +677,7 @@ const buildApprovalItem = (sale, context) => {
       sale?.createdAt instanceof Date ? sale.createdAt.toISOString() : sale?.createdAt,
     ),
     evidenceCount: evidenceMeta.totalCount,
+    evidences: evidenceMeta.evidences || [],
     id: saleId,
     rejectedEvidenceCount: evidenceMeta.rejectedCount,
     title: getApprovalTitle(sale),
@@ -523,15 +686,18 @@ const buildApprovalItem = (sale, context) => {
   };
 };
 
-export const buildAdminScopedUserFilter = (currentUser) => {
+export const buildAdminScopedUserFilter = (currentUser, currentUserId = null) => {
   const currentUsername = toStringOrNull(currentUser?.username);
   if (currentUsername === "carlosmbinf") {
     return {};
   }
 
+  const resolvedCurrentUserId =
+    normalizeUserId(currentUserId) ?? normalizeUserId(currentUser?._id);
+
   return {
     $or: [
-      { bloqueadoDesbloqueadoPor: normalizeUserId(currentUser?._id) },
+      { bloqueadoDesbloqueadoPor: resolvedCurrentUserId },
       { bloqueadoDesbloqueadoPor: { $exists: false } },
       { bloqueadoDesbloqueadoPor: { $in: [""] } },
     ],
@@ -577,6 +743,8 @@ export const buildWatchDashboardPayload = ({
   connections = [],
   currentUser = null,
   debtSales = [],
+  pendingEvidenceVentas = [],
+  rechargeBalance = null,
   users = [],
 }) => {
   const debtMap = buildDebtMap(debtSales);
@@ -595,6 +763,15 @@ export const buildWatchDashboardPayload = ({
       return userProfile;
     });
 
+  const debtors = buildDebtorSummaries(debtSales, usersById);
+  const debtorsTotalAmount = debtors.reduce(
+    (total, debtor) => total + toNumber(debtor.amount),
+    0,
+  );
+  const debtorsSalesCount = debtors.reduce(
+    (total, debtor) => total + toNumber(debtor.salesCount),
+    0,
+  );
   const evidenceBySaleMap = buildEvidenceBySaleMap(approvalEvidences);
   const pendingApprovals = approvalVentas
     .map((sale) =>
@@ -611,10 +788,17 @@ export const buildWatchDashboardPayload = ({
       currentViewer: currentUser,
       debtMap,
     }),
+    debtors,
+    pendingEvidence: buildPendingEvidenceSummary(pendingEvidenceVentas),
     pendingApprovals,
+    rechargeBalance,
     stats: {
       adminCount: normalizedUsers.filter((user) => user.isAdmin).length,
+      debtorsCount: debtors.length,
+      debtorsSalesCount,
       pendingApprovalsCount: pendingApprovals.length,
+      pendingDebtAmount: debtorsTotalAmount,
+      pendingDebtLabel: formatMoney(debtorsTotalAmount, "CUP"),
       userCount: normalizedUsers.length,
     },
     syncedAt: new Date().toISOString(),

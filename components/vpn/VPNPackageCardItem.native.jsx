@@ -1,10 +1,10 @@
 import { Dimensions, StyleSheet, View } from "react-native";
 import {
-  Button,
-  IconButton,
-  Paragraph,
-  Surface,
-  Title,
+    Button,
+    IconButton,
+    Paragraph,
+    Surface,
+    Title,
 } from "react-native-paper";
 
 import { megasToGB } from "../shared/MegasConverter";
@@ -207,6 +207,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 15,
   },
   packageCardHorizontal: {
+    alignSelf: "stretch",
+    height: "100%",
     marginBottom: 0,
     marginRight: 16,
   },

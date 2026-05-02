@@ -1,14 +1,16 @@
 import { Stack } from "expo-router";
 import React, { useMemo } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
-  MD3DarkTheme,
-  MD3LightTheme,
-  PaperProvider,
-  Portal,
+    MD3DarkTheme,
+    MD3LightTheme,
+    PaperProvider,
+    Portal,
 } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import WatchSyncHost from "../components/watch/WatchSyncHost.native";
 import { useColorScheme } from "../hooks/use-color-scheme";
 
 export default function RootLayout() {
@@ -31,6 +33,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <PaperProvider theme={theme}>
           <Portal.Host>
+            {Platform.OS === "ios" ? <WatchSyncHost /> : null}
             <Stack screenOptions={{ headerShown: false }} />
           </Portal.Host>
         </PaperProvider>

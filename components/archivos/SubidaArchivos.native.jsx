@@ -25,6 +25,7 @@ import {
     useTheme,
 } from "react-native-paper";
 
+import { buildEvidenceImageUrl } from "../../services/meteor/evidenceImages";
 import {
     EvidenciasVentasEfectivoCollection,
     VentasRechargeCollection,
@@ -51,13 +52,9 @@ const UPLOAD_VENTA_FIELDS = {
 const UPLOAD_EVIDENCIA_FIELDS = {
   _id: 1,
   aprobado: 1,
-  base64: 1,
   cancelada: 1,
   cancelado: 1,
   createdAt: 1,
-  data: 1,
-  dataB64: 1,
-  dataBase64: 1,
   denegado: 1,
   descripcion: 1,
   detalles: 1,
@@ -129,15 +126,11 @@ const mapEvidenciaDoc = (evidencia, index) => {
     _id: evidencia._id,
     _idx: index,
     aprobado,
-    base64:
-      evidencia.base64 ||
-      evidencia.dataBase64 ||
-      evidencia.data ||
-      evidencia.dataB64,
     createdAt:
       evidencia.createdAt || evidencia.fecha || evidencia.fechaSubida || null,
     descripcion: evidencia.descripcion || evidencia.detalles || "",
     estado,
+    imageUrl: buildEvidenceImageUrl(evidencia._id),
     raw: evidencia,
     rechazado,
     size: evidencia.size || evidencia.tamano || 0,
@@ -492,7 +485,7 @@ const SubidaArchivos = ({ venta }) => {
 
   const evidencias = useMemo(() => {
     const raw = Array.isArray(evidenciasSubsc) ? evidenciasSubsc : [];
-    return raw.map(mapEvidenciaDoc).filter((evidencia) => !!evidencia.base64);
+    return raw.map(mapEvidenciaDoc).filter((evidencia) => !!evidencia.imageUrl);
   }, [evidenciasSubsc]);
 
   const tieneEvidencias = evidencias.length > 0;
@@ -518,7 +511,9 @@ const SubidaArchivos = ({ venta }) => {
     }
   }, [uploadInhabilitado]);
 
-  const miniBase64 = archivoSeleccionado?.base64 || evidencias[0]?.base64;
+  const miniEvidenceUri = archivoSeleccionado?.base64
+    ? `data:image/jpeg;base64,${archivoSeleccionado.base64}`
+    : evidencias[0]?.imageUrl;
   const compressionRatio = useMemo(() => {
     if (!archivoSeleccionado?.fileSize || !archivoOriginalSize) {
       return null;
@@ -757,12 +752,29 @@ const SubidaArchivos = ({ venta }) => {
     const moneda = ventaReact?.monedaCobrado;
     if (moneda === "CUP") {
       return (
-        <View style={styles.tarjetaRow}>
+        <View
+          style={[
+            styles.tarjetaRow,
+            {
+              backgroundColor: uploadPalette.soft,
+              borderColor: uploadPalette.border,
+            },
+          ]}
+        >
           <View style={styles.flexOne}>
-            <Text style={styles.tarjetaLabel}>Tarjeta destino (CUP)</Text>
-            <View style={styles.tarjetaValueBox}>
-              <Text style={styles.tarjetaNumero}>{tarjetaCUP || "—"}</Text>
-              <Text style={styles.tarjetaHint}>
+            <Text style={[styles.tarjetaLabel, { color: uploadPalette.copy }]}>
+              Tarjeta destino (CUP)
+            </Text>
+            <View
+              style={[
+                styles.tarjetaValueBox,
+                { backgroundColor: uploadPalette.surface },
+              ]}
+            >
+              <Text style={[styles.tarjetaNumero, { color: uploadPalette.strong }]}>
+                {tarjetaCUP || "—"}
+              </Text>
+              <Text style={[styles.tarjetaHint, { color: uploadPalette.muted }]}>
                 Copia este número y usa la tarjeta como destino del pago.
               </Text>
             </View>
@@ -918,8 +930,20 @@ const SubidaArchivos = ({ venta }) => {
                     </>
                   ) : null}
                 </View>
-                <View style={styles.metodoChip}>
-                  <Text style={styles.metodoChipText}>
+                <View
+                  style={[
+                    styles.metodoChip,
+                    theme.dark
+                      ? styles.metodoChipDark
+                      : styles.metodoChipLight,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.metodoChipText,
+                      theme.dark ? styles.metodoChipTextDark : null,
+                    ]}
+                  >
                     {ventaReact?.monedaCobrado === "CUP"
                       ? "TARJETA CUP"
                       : "TRANSFERENCIA"}
@@ -930,10 +954,10 @@ const SubidaArchivos = ({ venta }) => {
             </View>
           </View>
 
-          {miniBase64 ? (
+          {miniEvidenceUri ? (
             <View style={styles.thumbRow}>
               <Image
-                source={{ uri: `data:image/jpeg;base64,${miniBase64}` }}
+                source={{ uri: miniEvidenceUri }}
                 style={styles.thumbnail}
               />
               <View style={styles.thumbTextBox}>
@@ -961,70 +985,114 @@ const SubidaArchivos = ({ venta }) => {
           ) : null}
 
           <Divider style={styles.marginVertical8} />
-          <View style={styles.evidenciasHeaderRow}>
-            <Text style={styles.evidenciasTitle}>
-              Evidencias ({evidencias.length})
-            </Text>
-            {!uploadInhabilitado ? (
-              <Button
-                mode={tieneEvidencias ? "text" : "contained"}
-                icon={tieneEvidencias ? "plus" : "camera-plus"}
-                onPress={() => setOpenSheet(true)}
-                compact
-                disabled={cargando}
-              >
-                {tieneEvidencias ? "Agregar" : "Subir"}
-              </Button>
-            ) : null}
-          </View>
+          <View
+            style={[
+              styles.evidenciasSection,
+              {
+                backgroundColor: uploadPalette.soft,
+                borderColor: uploadPalette.border,
+              },
+            ]}
+          >
+            <View style={styles.evidenciasHeaderRow}>
+              <View style={styles.evidenciasHeaderCopy}>
+                <Text style={[styles.evidenciasTitle, { color: uploadPalette.strong }]}>
+                  Evidencias ({evidencias.length})
+                </Text>
+                <Text style={[styles.evidenciasSubtitle, { color: uploadPalette.muted }]}>
+                  {tieneEvidencias
+                    ? "Toca una imagen para revisarla o agregar un nuevo comprobante."
+                    : "Sube el comprobante para que la operación pueda revisarse."}
+                </Text>
+              </View>
+              {!uploadInhabilitado ? (
+                <Button
+                  mode={tieneEvidencias ? "contained-tonal" : "contained"}
+                  icon={tieneEvidencias ? "plus" : "camera-plus"}
+                  onPress={() => setOpenSheet(true)}
+                  compact
+                  contentStyle={styles.evidenciaActionContent}
+                  style={styles.evidenciaActionButton}
+                  disabled={cargando}
+                >
+                  {tieneEvidencias ? "Agregar" : "Subir"}
+                </Button>
+              ) : null}
+            </View>
 
-          {tieneEvidencias ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.evidenciasScroll}
-            >
-              {evidencias.map((evidencia) => {
-                const uri = `data:image/jpeg;base64,${evidencia.base64}`;
-                const borderStyle = evidencia.rechazado
-                  ? styles.rechazadoBorder
-                  : evidencia.aprobado
-                    ? styles.aprobadoBorder
-                    : styles.pendienteBorder;
-                const badgeText = evidencia.rechazado
-                  ? "CANC"
-                  : evidencia.aprobado
-                    ? "OK"
-                    : "PEND";
-                return (
-                  <Pressable
-                    key={evidencia._id}
-                    style={[styles.evidenciaThumbContainer, borderStyle]}
-                    onPress={() => setPreview(evidencia)}
-                  >
-                    <Image source={{ uri }} style={styles.evidenciaThumb} />
-                    <View style={styles.badgeEstado}>
-                      <Text
-                        style={[
-                          styles.badgeEstadoText,
-                          evidencia.aprobado && styles.badgeEstadoOk,
-                          evidencia.rechazado && styles.badgeEstadoDenied,
-                        ]}
-                      >
-                        {badgeText}
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          ) : (
-            <Text
-              style={[styles.sinEvidenciasText, { color: uploadPalette.muted }]}
-            >
-              No hay evidencias todavia.
-            </Text>
-          )}
+            {tieneEvidencias ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.evidenciasScroll}
+              >
+                {evidencias.map((evidencia) => {
+                  const uri = evidencia.imageUrl;
+                  const borderStyle = evidencia.rechazado
+                    ? styles.rechazadoBorder
+                    : evidencia.aprobado
+                      ? styles.aprobadoBorder
+                      : styles.pendienteBorder;
+                  const badgeText = evidencia.rechazado
+                    ? "CANC"
+                    : evidencia.aprobado
+                      ? "OK"
+                      : "PEND";
+                  return (
+                    <Pressable
+                      key={evidencia._id}
+                      style={[
+                        styles.evidenciaThumbContainer,
+                        borderStyle,
+                        { backgroundColor: uploadPalette.surface },
+                      ]}
+                      onPress={() => setPreview(evidencia)}
+                    >
+                      <Image source={{ uri }} style={styles.evidenciaThumb} />
+                      <View style={styles.badgeEstado}>
+                        <Text
+                          style={[
+                            styles.badgeEstadoText,
+                            evidencia.aprobado && styles.badgeEstadoOk,
+                            evidencia.rechazado && styles.badgeEstadoDenied,
+                          ]}
+                        >
+                          {badgeText}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <View
+                style={[
+                  styles.emptyEvidenceState,
+                  {
+                    backgroundColor: uploadPalette.card,
+                    borderColor: uploadPalette.border,
+                  },
+                ]}
+              >
+                <View style={styles.emptyEvidenceIconWrap}>
+                  <IconButton
+                    icon="image-plus"
+                    size={18}
+                    iconColor={theme.dark ? "#a5b4fc" : "#4f46e5"}
+                    style={styles.zeroMargin}
+                  />
+                </View>
+                <View style={styles.emptyEvidenceCopy}>
+                  <Text style={[styles.emptyEvidenceTitle, { color: uploadPalette.strong }]}>
+                    Todavía no hay comprobantes
+                  </Text>
+                  <Text style={[styles.sinEvidenciasText, { color: uploadPalette.muted }]}>
+                    Sube una imagen clara del pago para continuar con la revisión.
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
         </View>
       </View>
 
@@ -1053,20 +1121,28 @@ const SubidaArchivos = ({ venta }) => {
         </Button>
 
         {archivoSeleccionado ? (
-          <View style={styles.archivoPreview}>
-            <Text style={styles.archivoInfo}>
+          <View
+            style={[
+              styles.archivoPreview,
+              {
+                backgroundColor: uploadPalette.soft,
+                borderColor: uploadPalette.border,
+              },
+            ]}
+          >
+            <Text style={[styles.archivoInfo, { color: uploadPalette.strong }]}>
               📸 {archivoSeleccionado.fileName || "imagen.jpg"}
             </Text>
             <View style={styles.archivoMetaRow}>
               <View style={styles.flexOne}>
-                <Text style={styles.archivoMetaLabel}>Tamaño optimizado</Text>
-                <Text style={styles.archivoTamaño}>
+                <Text style={[styles.archivoMetaLabel, { color: uploadPalette.muted }]}>Tamaño optimizado</Text>
+                <Text style={[styles.archivoTamaño, { color: uploadPalette.strong }]}>
                   {formatFileSize(archivoSeleccionado.fileSize)}
                 </Text>
               </View>
               <View style={styles.archivoMetaEnd}>
-                <Text style={styles.archivoMetaLabel}>Dimensiones</Text>
-                <Text style={styles.archivoTamaño}>
+                <Text style={[styles.archivoMetaLabel, { color: uploadPalette.muted }]}>Dimensiones</Text>
+                <Text style={[styles.archivoTamaño, { color: uploadPalette.strong }]}>
                   {archivoSeleccionado.width}×{archivoSeleccionado.height}
                 </Text>
               </View>
@@ -1128,7 +1204,7 @@ const SubidaArchivos = ({ venta }) => {
         {preview ? (
           <View style={styles.previewWrapper}>
             <Image
-              source={{ uri: `data:image/jpeg;base64,${preview.base64}` }}
+              source={{ uri: preview.imageUrl }}
               style={styles.previewImage}
               resizeMode="contain"
             />
@@ -1372,24 +1448,68 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   evidenciasHeaderRow: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 4,
+    gap: 12,
   },
-  evidenciasScroll: { paddingVertical: 6 },
-  evidenciasTitle: { fontSize: 13, fontWeight: "600" },
+  evidenciasHeaderCopy: { flex: 1, gap: 3, paddingRight: 8 },
+  evidenciasScroll: { paddingTop: 10, paddingBottom: 4 },
+  evidenciasSection: {
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 4,
+    padding: 12,
+  },
+  evidenciasSubtitle: {
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  evidenciasTitle: { fontSize: 13, fontWeight: "700" },
+  evidenciaActionButton: {
+    alignSelf: "center",
+    borderRadius: 14,
+  },
+  evidenciaActionContent: {
+    height: 34,
+    paddingHorizontal: 4,
+  },
   evidenciaThumb: { height: "100%", width: "100%" },
   evidenciaThumbContainer: {
     alignItems: "center",
     backgroundColor: "#fafafa",
-    borderRadius: 10,
-    height: 62,
+    borderRadius: 14,
+    height: 74,
     justifyContent: "center",
     marginRight: 10,
     overflow: "hidden",
     position: "relative",
-    width: 62,
+    width: 74,
+  },
+  emptyEvidenceCopy: { flex: 1, minWidth: 0 },
+  emptyEvidenceIconWrap: {
+    alignItems: "center",
+    backgroundColor: "rgba(99,102,241,0.12)",
+    borderRadius: 14,
+    height: 38,
+    justifyContent: "center",
+    width: 38,
+  },
+  emptyEvidenceState: {
+    alignItems: "flex-start",
+    borderRadius: 16,
+    borderStyle: "dashed",
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  emptyEvidenceTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 3,
   },
   flexOne: { flex: 1 },
   headerRow: { alignItems: "center", flexDirection: "row" },
@@ -1399,12 +1519,10 @@ const styles = StyleSheet.create({
   marginVertical8: { marginVertical: 8 },
   metodoChip: {
     alignItems: "center",
-    backgroundColor: "#E3F2FD",
-    borderColor: "#90CAF9",
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     flexShrink: 0,
-    height: 28,
+    height: 30,
     justifyContent: "center",
     minWidth: 118,
     paddingHorizontal: 10,
@@ -1414,6 +1532,17 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "800",
     lineHeight: 14,
+  },
+  metodoChipDark: {
+    backgroundColor: "rgba(99, 102, 241, 0.18)",
+    borderColor: "rgba(165, 180, 252, 0.22)",
+  },
+  metodoChipLight: {
+    backgroundColor: "#E3F2FD",
+    borderColor: "#90CAF9",
+  },
+  metodoChipTextDark: {
+    color: "#e0e7ff",
   },
   montoInfo: { flex: 1, minWidth: 0, paddingRight: 10, borderRadius: 30 },
   montoAPagar: {
@@ -1425,7 +1554,7 @@ const styles = StyleSheet.create({
   montoBlock: {
     alignItems: "center",
     borderWidth: 1,
-    borderRadius: 30,
+    borderRadius: 22,
     flexDirection: "row",
     gap: 8,
     justifyContent: "space-between",
@@ -1456,10 +1585,8 @@ const styles = StyleSheet.create({
   previewWrapper: { paddingBottom: 10 },
   rechazadoBorder: { borderColor: "#e74c3c", borderWidth: 2 },
   sinEvidenciasText: {
-    color: "#777",
     fontSize: 11,
-    fontStyle: "italic",
-    marginTop: 4,
+    lineHeight: 16,
   },
   snackbar: { marginBottom: 16 },
   tarjetaLabel: { fontSize: 11, fontWeight: "600" },
@@ -1509,8 +1636,8 @@ const styles = StyleSheet.create({
     height: 50,
     width: 50,
   },
-  ventaCard: { borderRadius: 60, borderWidth: 1, overflow: "hidden" },
-  ventaCardContent: { padding: 16 },
+  ventaCard: { borderRadius: 24, borderWidth: 1, overflow: "hidden" },
+  ventaCardContent: { padding: 14 },
   zeroMargin: { margin: 0 },
 });
 

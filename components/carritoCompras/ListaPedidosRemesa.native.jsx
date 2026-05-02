@@ -69,6 +69,25 @@ const megasToGB = (value) => {
   return `${(amount / 1024).toFixed(amount >= 1024 ? 0 : 2)} GB`;
 };
 
+const isUnlimitedProxyVpnItem = (item) => {
+  if (item?.type !== "PROXY" && item?.type !== "VPN") {
+    return false;
+  }
+
+  const megas = Number(item?.megas || 0);
+  return (
+    item?.esPorTiempo === true ||
+    item?.producto?.esPorTiempo === true ||
+    item?.megas === null ||
+    !Number.isFinite(megas) ||
+    megas <= 0 ||
+    megas === 999999
+  );
+};
+
+const getProxyVpnCapacityLabel = (item) =>
+  isUnlimitedProxyVpnItem(item) ? "Ilimitado" : megasToGB(item?.megas);
+
 const normalizeToArray = (value) => {
   if (Array.isArray(value)) {
     return value.filter(Boolean);
@@ -857,7 +876,8 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
     const isProxy = item.type === "PROXY";
     const color = isProxy ? "#2196F3" : "#4CAF50";
     const label = isProxy ? "PROXY" : "VPN";
-    const esIlimitado = item.esPorTiempo === true || item.megas === null;
+    const esIlimitado = isUnlimitedProxyVpnItem(item);
+    const capacityLabel = getProxyVpnCapacityLabel(item);
     return (
       <CompactCartCard
         color={color}
@@ -935,8 +955,8 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
           {
             accentColor: color,
             icon: esIlimitado ? "calendar-range" : "database",
-            label: esIlimitado ? "Duración" : "Capacidad",
-            value: esIlimitado ? "30 días" : megasToGB(item.megas),
+            label: esIlimitado ? "Límite" : "Capacidad",
+            value: capacityLabel,
           },
           {
             accentColor: color,

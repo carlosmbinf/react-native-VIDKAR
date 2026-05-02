@@ -3,24 +3,24 @@ import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-    Animated,
-    Dimensions,
-    FlatList,
-    Platform,
-    Pressable,
-    StyleSheet,
-    useWindowDimensions,
-    View,
+  Animated,
+  Dimensions,
+  FlatList,
+  Platform,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import {
-    Appbar,
-    Button,
-    Chip,
-    Portal,
-    Searchbar,
-    Surface,
-    Text,
-    useTheme,
+  Appbar,
+  Button,
+  Chip,
+  Portal,
+  Searchbar,
+  Surface,
+  Text,
+  useTheme,
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
@@ -227,6 +227,23 @@ const getDisplayName = (user) => {
   return composed || user?.username || "Usuario";
 };
 
+const normalizeIdentityText = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
+const isCarlosPrincipalUser = (user) => {
+  const username = normalizeIdentityText(user?.username);
+  if (username === "carlosmbinf") {
+    return true;
+  }
+
+  const fullName = normalizeIdentityText(
+    `${user?.profile?.firstName || ""} ${user?.profile?.lastName || ""}`,
+  );
+  return fullName === "carlos medina";
+};
+
 const getPushState = (user, pushTokens) => {
   const tokens = Array.isArray(pushTokens) ? pushTokens : [];
   const userTokens = tokens.filter(
@@ -336,6 +353,7 @@ const getServiceSnapshot = (item) => {
           ? `${formatGB(proxyLimiteMB)} GB`
           : "Activo"
       : "Inactivo",
+    proxyCenterText: proxyActivo ? `${proxyConsumidoGB.toFixed(1)} GB` : "0.0 GB",
     proxyPorMegas,
     proxyProgress,
     proxyRightText: proxyActivo
@@ -349,6 +367,7 @@ const getServiceSnapshot = (item) => {
           ? `${formatGB(vpnLimiteMB)} GB`
           : "Activo"
       : "Inactivo",
+    vpnCenterText: vpnActivo ? `${vpnConsumidoGB.toFixed(1)} GB` : "0.0 GB",
     vpnPorMegas,
     vpnProgress,
     vpnRightText: vpnActivo
@@ -587,24 +606,44 @@ const UserCardContent = ({
       <View style={styles.itemDescription}>
         <View style={styles.servicesContainer}>
           <ServiceProgressPill
+            centerText={
+              serviceSnapshot.vpnActivo && item?.vpnisIlimitado
+                ? serviceSnapshot.vpnCenterText
+                : undefined
+            }
+            isUnlimitedMobile={serviceSnapshot.vpnActivo && item?.vpnisIlimitado}
             label="VPN"
             ratio={
               serviceSnapshot.vpnActivo && serviceSnapshot.vpnPorMegas
                 ? serviceSnapshot.vpnProgress
                 : 0
             }
-            rightText={serviceSnapshot.vpnRightText}
+            rightText={
+              serviceSnapshot.vpnActivo && item?.vpnisIlimitado
+                ? "Ilimitado"
+                : serviceSnapshot.vpnRightText
+            }
             palette={{ fill: "#2E7D32" }}
             width="100%"
           />
           <ServiceProgressPill
+            centerText={
+              serviceSnapshot.proxyActivo && item?.isIlimitado
+                ? serviceSnapshot.proxyCenterText
+                : undefined
+            }
+            isUnlimitedMobile={serviceSnapshot.proxyActivo && item?.isIlimitado}
             label="PROXY"
             ratio={
               serviceSnapshot.proxyActivo && serviceSnapshot.proxyPorMegas
                 ? serviceSnapshot.proxyProgress
                 : 0
             }
-            rightText={serviceSnapshot.proxyRightText}
+            rightText={
+              serviceSnapshot.proxyActivo && item?.isIlimitado
+                ? "Ilimitado"
+                : serviceSnapshot.proxyRightText
+            }
             palette={{ fill: "#1565C0" }}
             width="100%"
           />
@@ -920,12 +959,21 @@ const UsersHome = () => {
     };
   }, [canViewPushTokens, dataReady]);
 
+  const currentUsername = Meteor.user()?.username;
+  const shouldHideCarlosFromUsersList =
+    (currentUsername || "").toLowerCase() !== "carlosmbinf";
+
   const filteredUsers = useMemo(() => {
     const term = search.toLowerCase().trim();
     return users.filter((user) => {
       if (!user?.profile) {
         return false;
       }
+
+      if (shouldHideCarlosFromUsersList && isCarlosPrincipalUser(user)) {
+        return false;
+      }
+
       if (term) {
         const username = user.username?.toLowerCase() || "";
         const firstName = user.profile?.firstName?.toLowerCase() || "";
@@ -971,6 +1019,7 @@ const UsersHome = () => {
     canViewPushTokens,
     pushTokens,
     search,
+    shouldHideCarlosFromUsersList,
     users,
   ]);
 

@@ -91,7 +91,8 @@ const VPNPurchaseScreen = () => {
         descuentoAdmin: parseNumber(precioCalculado?.descuento),
         esPorTiempo: !!paquete.esPorTiempo,
         megas: paquete.megas,
-        precioBaseProxyVPN: precioCalculado?.precioBase,
+        precioBaseProxyVPN: parseNumber(precioCalculado?.precioBase),
+        producto: paquete,
         type: "VPN",
       },
       (error) => {

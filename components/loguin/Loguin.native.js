@@ -5,24 +5,24 @@ import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    Alert,
-    Dimensions,
-    ImageBackground,
-    Keyboard,
-    KeyboardAvoidingView,
-    NativeModules,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    View,
+  Alert,
+  Dimensions,
+  ImageBackground,
+  Keyboard,
+  KeyboardAvoidingView,
+  NativeModules,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import { Button, Text, TextInput, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
-    connectToMeteor,
-    ensureMeteorConnection,
-    getMeteorUrl,
+  connectToMeteor,
+  ensureMeteorConnection,
+  getMeteorUrl,
 } from "../../services/meteor/client";
 import { registerPushTokenForActiveSession } from "../../services/notifications/PushMessaging.native";
 import { ConfigCollection } from "../collections/collections";

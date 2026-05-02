@@ -7320,3 +7320,159 @@ Resumen tecnico - Proyeccion minima de suscripciones Meteor en el flujo del menu
 
 - Regla practica:
   - En este proyecto, optimizar `fields` en Meteor solo es seguro si se valida tambien el contrato de metodos backend que consumen esos mismos documentos, no solo el arbol JSX visible.
+
+---
+
+Resumen tecnico - Aprobacion/rechazo de ventas desde Expo y Watch debe usar metodos Meteor
+
+- Hallazgo validado al contrastar Expo, Watch y el backend React/Meteor:
+  - La aprobacion real de una venta con evidencia no debe resolverse con update directo sobre `VentasRechargeCollection`.
+  - La fuente de verdad de aprobacion es el metodo servidor:
+    - `Meteor.call('ventas.aprobarVenta', ventaId, {})`
+  - Ese metodo no solo marca `isCobrado`; tambien procesa carritos, activa recargas/Proxy/VPN, marca items entregados, registra logs y dispara notificaciones.
+
+- Ajuste aplicado en Expo/Watch:
+  - `components/archivos/AprobacionEvidenciasVenta.native.jsx` mantiene aprobacion por `ventas.aprobarVenta`.
+  - El rechazo de venta dejo de hacer update directo como accion principal y ahora usa:
+    - `Meteor.call('efectivo.cancelarVenta', ventaId)`
+  - `components/watch/WatchSyncHost.native.tsx` aplica el mismo contrato para mensajes `rejectSale` recibidos desde Apple Watch.
+
+- Criterio tecnico importante:
+  - Los `VentasRechargeCollection.update(...)` que quedan despues del callback exitoso solo son refresco local de Minimongo/UI.
+  - No deben considerarse la mutacion de negocio principal.
+  - Watch debe responder al reloj solo despues de que el metodo Meteor termine, para no mostrar exito si el servidor rechazo la operacion.
+
+- Regla practica:
+  - Si se toca el flujo de aprobacion/rechazo de ventas con evidencia, no reemplazar los metodos Meteor por updates directos de coleccion.
+  - Aprobacion: `ventas.aprobarVenta`.
+  - Rechazo/cancelacion: `efectivo.cancelarVenta`.
+  - El update local posterior solo es aceptable como optimizacion visual tras exito confirmado del servidor.
+
+---
+
+Resumen tecnico - Carrito Proxy/VPN debe mostrar paquetes por tiempo como ilimitados
+
+- Problema detectado:
+  - En `components/carritoCompras/ListaPedidosRemesa.native.jsx`, algunos items `PROXY`/`VPN` por tiempo llegaban al carrito con `megas` vacio o `0`.
+  - El card interpretaba ese valor como capacidad real y mostraba `0 GB`, aunque funcionalmente el paquete era ilimitado por 30 dias.
+
+- Correccion aplicada:
+  - `isUnlimitedProxyVpnItem(...)` ahora solo aplica a tipos `PROXY`/`VPN` y considera ilimitado cuando:
+    - `esPorTiempo === true`
+    - `producto.esPorTiempo === true`
+    - `megas === null`
+    - `megas` no es numerico
+    - `megas <= 0`
+    - `megas === 999999`
+  - El resumen de la card usa `getProxyVpnCapacityLabel(...)` para que badge, metrica y texto visible no vuelvan a divergir.
+
+- Regla practica:
+  - En cards del carrito, `0 GB` no debe mostrarse para paquetes Proxy/VPN por tiempo.
+  - Si el item no trae limite de megas util, mostrar `Ilimitado` y mantener el contexto de duracion (`ILIMITADO - 30 dias`) en el badge principal.
+
+---
+
+Resumen tecnico - Callbacks MeteorRN de evidencias pueden llegar como wrapper `{ error, success }`
+
+- Problema detectado:
+  - En `components/archivos/AprobacionEvidenciasVenta.native.jsx`, aprobar evidencia ya estaba recibiendo el callback de `Meteor.call` con forma wrapper:
+    - `{ error: undefined, success: { ... } }`
+  - Rechazar evidencia seguia tratandolo como callback clasico `(error, result)`.
+  - Resultado: una respuesta valida del servidor podia interpretarse como error y mostrar un `Alert` con mensaje `INVALID`.
+
+- Correccion aplicada:
+  - Se centralizo `normalizeMeteorMethodCallback(...)` para aceptar ambas formas:
+    - wrapper MeteorRN `{ error, success }`
+    - callback clasico `(error, result)`
+  - El mismo criterio se aplico en:
+    - `components/archivos/AprobacionEvidenciasVenta.native.jsx`
+    - `components/watch/WatchSyncHost.native.tsx`
+
+- Regla practica:
+  - En acciones de evidencia (`archivos.aprobarEvidencia` / `archivos.denegarEvidencia`) no asumir una sola firma de callback en MeteorRN.
+  - Antes de mostrar error o responder al Watch, normalizar la respuesta para evitar tratar un success wrapper como fallo.
+
+---
+
+Resumen tecnico - Compra Proxy/VPN en Expo debe enviar `producto` completo al carrito
+
+- Problema detectado:
+  - La web nueva agregaba paquetes Proxy/VPN al carrito enviando `producto: selectedPackage` en `Meteor.call('carrito.addProxyVPN', ...)`.
+  - En Expo, `ProxyPurchaseScreen.native.jsx` y `VPNPurchaseScreen.native.jsx` llamaban al mismo metodo, pero omitian `producto`.
+  - Como el backend persiste literalmente ese parametro dentro de `CarritoCollection`, los carritos creados desde la app quedaban con `producto: {}` aunque la web guardaba el documento completo del paquete.
+
+- Correccion aplicada:
+  - Las pantallas de confirmacion de Proxy y VPN ahora envian:
+    - `producto: paquete`
+    - `precioBaseProxyVPN` normalizado a numero
+  - Esto preserva en el carrito campos necesarios para flujos posteriores, especialmente en paquetes por tiempo/ilimitados:
+    - `_id`
+    - `type`
+    - `megas`
+    - `comentario`
+    - `detalles`
+    - `createdAt`
+    - `esPorTiempo`
+
+- Regla practica:
+  - Si se toca el flujo de compra Proxy/VPN en Expo, mantener paridad con la web: `carrito.addProxyVPN` debe recibir el paquete completo en `producto`.
+  - No confiar solo en campos top-level como `megas`, `comentario` o `esPorTiempo`, porque el checkout, historial y cards posteriores pueden necesitar el documento original embebido.
+
+---
+
+Resumen tecnico - Checkout Proxy/VPN en Expo no debe proyectar carrito ni orden cuando genera venta
+
+- Problema detectado:
+  - Aunque la compra Proxy/VPN ya enviaba `producto: paquete` al carrito, la venta generada desde Expo seguia quedando distinta a la web.
+  - La causa estaba en `components/carritoCompras/WizardConStepper.native.jsx`:
+    - al abrir el wizard, `pedidosRemesa` se leia desde `CarritoCollection` con una proyeccion limitada
+    - `compra` se leia desde `OrdenesCollection` con `ORDER_CHECKOUT_FIELDS`
+  - Luego `efectivo.createOrder` persiste literalmente el array `carritos` que recibe del cliente, y `generarVentaEfectivo` embebe literalmente la orden `compra`.
+  - Resultado: la orden/venta creada desde Expo perdia campos como `idOrder`, `type`, `comisiones`, `idAdmin`, `megas`, `precioBaseProxyVPN`, `descuentoAdmin`, `producto`, `createdAt`, etc.
+
+- Contrato web validado:
+  - `imports/ui/compraVentas/Ventas/DialogVenta.jsx` no proyecta `carrito` ni `ordenes` en el flujo de checkout.
+  - La web llama:
+    - `Meteor.call('efectivo.createOrder', userId, pedidosRemesa, comisionesComercio, ...)`
+    - `Meteor.call('generarVentaEfectivo', { producto: compra, precioOficial, comisionesComercio }, ...)`
+  - Como `pedidosRemesa` y `compra` llegan completos, la venta final conserva el shape correcto.
+
+- Correccion aplicada en Expo:
+  - Con el wizard cerrado, el badge del carrito puede seguir usando proyeccion minima (`_id`, `idUser`).
+  - Con el wizard abierto, `CarritoCollection` se suscribe y consulta sin `fields` para que `pedidosRemesa` llegue completo.
+  - `OrdenesCollection` tambien se suscribe y consulta sin proyeccion durante checkout.
+  - La orden activa se filtra igual que la web por:
+    - `userId`
+    - `status: { $nin: ['COMPLETED', 'CANCELLED'] }`
+
+- Regla practica:
+  - En este checkout, no optimizar `fields` de `carrito` u `ordenes` durante el flujo abierto si esos documentos se enviaran a metodos Meteor que los persisten o procesan.
+  - `efectivo.createOrder`, `creandoOrden`, `mercadopago.createOrder` y `generarVentaEfectivo` dependen del documento completo que el cliente les pasa.
+  - Si vuelve a aparecer una venta con `producto.carritos.producto: {}` o una orden sin `idOrder/type/comisiones`, revisar primero las proyecciones del wizard antes de tocar backend.
+
+---
+
+Resumen tecnico - Saldo de recargas visible en Watch solo para `carlosmbinf`
+
+- Alcance aplicado:
+  - La pantalla principal del Apple Watch ahora puede mostrar un card compacto de `Saldo Disponible Recargas` inspirado en el card iOS de usuarios.
+  - El card se renderiza solo cuando el usuario sincronizado tiene:
+    - `username === 'carlosmbinf'`
+
+- Contrato de datos aplicado:
+  - El Watch no consulta Meteor directamente.
+  - `components/watch/WatchSyncHost.native.tsx` consulta el saldo desde el iPhone usando:
+    - `Meteor.call('dtshop.getBalance', ...)`
+  - El resultado se normaliza y viaja dentro del snapshot del dashboard como:
+    - `rechargeBalance.amount`
+    - `rechargeBalance.currency`
+    - `rechargeBalance.updatedAt`
+
+- Archivos Watch involucrados:
+  - `targets/VidkarWatch/Models/WatchModels.swift` define `WatchRechargeBalanceSnapshot`.
+  - `targets/VidkarWatch/Views/WatchComponents.swift` renderiza `WatchRechargeBalanceCard`.
+  - `targets/VidkarWatch/Views/WatchDashboardViews.swift` monta el card en `ContentView` solo para el usuario principal.
+
+- Regla practica:
+  - Si otra metrica administrativa debe aparecer en el Watch, primero agregarla al payload sincronizado desde el iPhone y luego al modelo Swift; no intentar llamar Meteor desde watchOS.
+  - Para datos privados de administrador principal, mantener el gate visible por `username === 'carlosmbinf'` en la UI del Watch aunque el iPhone ya controle el payload.

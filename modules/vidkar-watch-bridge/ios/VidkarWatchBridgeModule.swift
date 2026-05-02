@@ -6,6 +6,7 @@ private final class VidkarWatchBridgeSession: NSObject, WCSessionDelegate {
   static let shared = VidkarWatchBridgeSession()
 
   private var lastUserContext: [String: Any] = [:]
+  private var pendingReplyHandlers: [String: ([String: Any]) -> Void] = [:]
   var onMessage: (([String: Any]) -> Void)?
 
   private override init() {
@@ -93,6 +94,15 @@ private final class VidkarWatchBridgeSession: NSObject, WCSessionDelegate {
     })
   }
 
+  func replyToMessage(_ replyId: String, response: [String: Any]) -> [String: Any] {
+    guard let replyHandler = pendingReplyHandlers.removeValue(forKey: replyId) else {
+      return status(extra: ["replied": false, "reason": "reply_not_found"])
+    }
+
+    replyHandler(response)
+    return status(extra: ["replied": true])
+  }
+
   func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {}
 
   func sessionDidBecomeInactive(_ session: WCSession) {}
@@ -107,10 +117,36 @@ private final class VidkarWatchBridgeSession: NSObject, WCSessionDelegate {
       return
     }
 
-    DispatchQueue.main.async { [weak self] in
-      self?.onMessage?(message)
+    guard let onMessage else {
+      replyHandler([
+        "ok": false,
+        "error": "iphone_listener_unavailable",
+        "message": "Abre VIDKAR en el iPhone para aplicar cambios.",
+      ])
+      return
     }
-    replyHandler(["ok": true, "received": true])
+
+    let replyId = UUID().uuidString
+    pendingReplyHandlers[replyId] = replyHandler
+
+    var enrichedMessage = message
+    enrichedMessage["_replyId"] = replyId
+
+    DispatchQueue.main.async { [weak self] in
+      self?.onMessage?(enrichedMessage)
+    }
+
+    DispatchQueue.main.asyncAfter(deadline: .now() + 25) { [weak self] in
+      guard let pendingReplyHandler = self?.pendingReplyHandlers.removeValue(forKey: replyId) else {
+        return
+      }
+
+      pendingReplyHandler([
+        "ok": false,
+        "error": "iphone_handler_timeout",
+        "message": "VIDKAR no respondio a tiempo.",
+      ])
+    }
   }
 }
 
@@ -155,6 +191,10 @@ public final class VidkarWatchBridgeModule: Module {
       }, reject: { code, message in
         promise.reject(code, message)
       })
+    }
+
+    AsyncFunction("replyToMessage") { (replyId: String, response: [String: Any]) -> [String: Any] in
+      VidkarWatchBridgeSession.shared.replyToMessage(replyId, response: response)
     }
   }
 }

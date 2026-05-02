@@ -3,11 +3,17 @@ import { Platform } from "react-native";
 
 const NativeVidkarWatchBridge = requireOptionalNativeModule("VidkarWatchBridge");
 
+let lastDashboardFingerprint = null;
+
 const hasWatchBridge = Boolean(
   Platform.OS === "ios" &&
     NativeVidkarWatchBridge?.activate &&
     NativeVidkarWatchBridge?.updateUserContext &&
     NativeVidkarWatchBridge?.clearUserContext,
+);
+
+const hasWatchReplyBridge = Boolean(
+  hasWatchBridge && NativeVidkarWatchBridge?.replyToMessage,
 );
 
 const pushContextToWatch = async (payload) => {
@@ -17,6 +23,43 @@ const pushContextToWatch = async (payload) => {
 
   await NativeVidkarWatchBridge.activate();
   return NativeVidkarWatchBridge.updateUserContext(payload);
+};
+
+const getPayloadFingerprint = (payload) => {
+  try {
+    return JSON.stringify(payload);
+  } catch {
+    return null;
+  }
+};
+
+const pushLiveContextToWatch = async (payload) => {
+  if (!hasWatchBridge || !payload) {
+    return { liveSent: false, supported: false };
+  }
+
+  try {
+    await NativeVidkarWatchBridge.activate();
+    const currentStatus = await NativeVidkarWatchBridge.status();
+
+    if (!currentStatus?.reachable) {
+      return { ...currentStatus, liveSent: false };
+    }
+
+    await NativeVidkarWatchBridge.sendMessage({
+      type: "userSnapshot",
+      user: payload,
+    });
+
+    return { ...currentStatus, liveSent: true };
+  } catch (error) {
+    return {
+      liveError:
+        error instanceof Error ? error.message : String(error ?? "unknown_error"),
+      liveSent: false,
+      supported: true,
+    };
+  }
 };
 
 const toStringOrNull = (value) => {
@@ -113,7 +156,26 @@ export const syncWatchDashboard = async (payload) => {
     return { supported: false };
   }
 
-  return pushContextToWatch(payload);
+  const fingerprint = getPayloadFingerprint(payload);
+  if (fingerprint && fingerprint === lastDashboardFingerprint) {
+    return { deduped: true, supported: hasWatchBridge };
+  }
+
+  const contextResult = await pushContextToWatch(payload);
+  const liveResult = await pushLiveContextToWatch(payload);
+
+  if (fingerprint) {
+    lastDashboardFingerprint = fingerprint;
+  }
+
+  return {
+    ...contextResult,
+    liveSent: Boolean(liveResult?.liveSent),
+    reachable:
+      typeof liveResult?.reachable === "boolean"
+        ? liveResult.reachable
+        : contextResult?.reachable,
+  };
 };
 
 export const clearWatchUserSnapshot = async () => {
@@ -121,6 +183,7 @@ export const clearWatchUserSnapshot = async () => {
     return { supported: false };
   }
 
+  lastDashboardFingerprint = null;
   await NativeVidkarWatchBridge.activate();
   return NativeVidkarWatchBridge.clearUserContext();
 };
@@ -141,6 +204,15 @@ export const sendWatchMessage = async (payload) => {
 
   await NativeVidkarWatchBridge.activate();
   return NativeVidkarWatchBridge.sendMessage(payload);
+};
+
+export const replyToWatchMessage = async (replyId, response) => {
+  if (!hasWatchReplyBridge || !replyId || !response) {
+    return { supported: false };
+  }
+
+  await NativeVidkarWatchBridge.activate();
+  return NativeVidkarWatchBridge.replyToMessage(replyId, response);
 };
 
 export const subscribeToWatchMessages = (listener) => {

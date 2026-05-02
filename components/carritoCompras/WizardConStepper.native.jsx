@@ -114,40 +114,9 @@ const terminosYCondiciones = {
   },
 };
 
-const CART_ITEM_FIELDS = {
-  cantidad: 1,
-  cobrarUSD: 1,
-  comentario: 1,
-  coordenadas: 1,
-  direccionCuba: 1,
-  entregado: 1,
-  esPorTiempo: 1,
-  extraFields: 1,
-  idTienda: 1,
-  idUser: 1,
-  megas: 1,
-  metodoPago: 1,
-  monedaACobrar: 1,
-  monedaRecibirEnCuba: 1,
-  movilARecargar: 1,
-  nombre: 1,
-  producto: 1,
-  recibirEnCuba: 1,
-  tarjetaCUP: 1,
-  tienda: 1,
-  type: 1,
-};
-
 const CART_BADGE_FIELDS = {
   _id: 1,
   idUser: 1,
-};
-
-const ORDER_CHECKOUT_FIELDS = {
-  carritos: 1,
-  link: 1,
-  status: 1,
-  userId: 1,
 };
 
 const WizardConStepper = ({ initialLocation = null }) => {
@@ -186,23 +155,18 @@ const WizardConStepper = ({ initialLocation = null }) => {
       return { compra: null };
     }
 
+    const orderSelector = {
+      status: { $nin: ["COMPLETED", "CANCELLED"] },
+      userId,
+    };
+
     const ordenesHandle = Meteor.subscribe(
       "ordenes",
-      {
-        // status: { $nin: ["COMPLETED", "CANCELLED"] },
-        userId,
-      },
-      { fields: ORDER_CHECKOUT_FIELDS },
+      orderSelector,
     );
 
     const compra = ordenesHandle.ready()
-      ? OrdenesCollection.findOne(
-          {
-            // status: { $nin: ["COMPLETED", "CANCELLED"] },
-            userId,
-          },
-          { fields: ORDER_CHECKOUT_FIELDS },
-        )
+      ? OrdenesCollection.findOne(orderSelector)
       : null;
     return { compra };
   }, [userId, visible]);
@@ -212,17 +176,17 @@ const WizardConStepper = ({ initialLocation = null }) => {
       return [];
     }
 
-    const cartFields = visible ? CART_ITEM_FIELDS : CART_BADGE_FIELDS;
+    const cartOptions = visible ? {} : { fields: CART_BADGE_FIELDS };
     const carritoHandle = Meteor.subscribe(
       "carrito",
       { idUser: userId },
-      { fields: cartFields },
+      cartOptions,
     );
 
     return carritoHandle.ready()
       ? CarritoCollection.find(
           { idUser: userId },
-          { fields: cartFields },
+          cartOptions,
         ).fetch()
       : [];
   }, [userId, visible]);
