@@ -3,7 +3,7 @@ import { memo, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import CalendarPicker from 'react-native-calendar-picker';
 import { Dropdown } from 'react-native-element-dropdown';
-import { Button, Card, Chip, Divider, ProgressBar, Surface, Switch, Text, Title } from 'react-native-paper';
+import { Button, Card, Chip, Divider, ProgressBar, Surface, Switch, Text, Title, useTheme } from 'react-native-paper';
 import { Logs } from '../../collections/collections';
 
 const BYTES_IN_MB_BINARY = 1048576;
@@ -14,6 +14,7 @@ const formatGBFromMB = (mb) => ((Number(mb) || 0) / 1024).toFixed(2);
 const formatLimitDate = (moment, date) => (date ? moment.utc(date).format('DD-MM-YYYY') : 'Fecha límite sin especificar');
 
 const VpnCardAdmin = ({ item, styles, preciosVPNlist = [], handleReiniciarConsumoVPN, handleVPNStatus, accentColor, canEdit, onRequestView }) => {
+	const theme = useTheme();
 	const moment = require('moment');
 	const [valuevpn, setValuevpn] = useState(null);
 	const [valuevpnlabel, setValuevpnlabel] = useState(null);
@@ -21,11 +22,23 @@ const VpnCardAdmin = ({ item, styles, preciosVPNlist = [], handleReiniciarConsum
 	const [isFocusvpn, setIsFocusvpn] = useState(false);
 	const currentItem = item || {};
 	const consumoMB = useMemo(() => Number(currentItem.vpnMbGastados || 0) / BYTES_IN_MB_BINARY, [currentItem.vpnMbGastados]);
+
+	if (!item) {
+		return null;
+	}
+
 	const limiteMB = Number(currentItem.vpnmegas || 0);
 	const restanteMB = Math.max(0, limiteMB - consumoMB);
 	const progress = currentItem.vpnisIlimitado || !limiteMB ? 0 : clamp01(consumoMB / limiteMB);
 	const headerAccent = accentColor || '#4CAF50';
 	const statusActivo = currentItem.vpn === true;
+	const palette = {
+		copy: theme.dark ? '#cbd5e1' : '#475569',
+		label: theme.dark ? '#94a3b8' : '#64748b',
+		panel: theme.dark ? 'rgba(30, 41, 59, 0.72)' : 'rgba(248, 250, 252, 0.96)',
+		panelBorder: theme.dark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(15, 23, 42, 0.08)',
+		title: theme.dark ? '#f8fafc' : '#0f172a',
+	};
 	const limitLabel = currentItem.vpnisIlimitado ? 'Por tiempo' : limiteMB ? `${formatGBFromMB(limiteMB)} GB` : 'No configurado';
 	const helper = !statusActivo
 		? 'El servicio está deshabilitado. Contacta a soporte si necesitas reactivarlo.'
@@ -35,16 +48,12 @@ const VpnCardAdmin = ({ item, styles, preciosVPNlist = [], handleReiniciarConsum
 				? `Restante aprox.: ${formatGBFromMB(restanteMB)} GB`
 				: 'No hay un límite asignado aún.';
 
-	if (!item) {
-		return null;
-	}
-
 	return (
-		<Card elevation={12} style={[styles.cards, ui.cardShell]} testID="vpn-admin-card">
+		<Card elevation={4} style={styles.cards} testID="vpn-admin-card">
 			<View style={[ui.accentBar, { backgroundColor: headerAccent }]} />
 			<Card.Content style={ui.content}>
 				<View style={ui.headerRow}>
-					<Title style={[styles.title, ui.headerTitle]}>VPN</Title>
+					<Title style={[styles.title, ui.headerTitle, { color: palette.title }]}>VPN</Title>
 					<View style={ui.headerRight}>
 						<Chip compact icon={statusActivo ? 'check-circle' : 'close-circle'} style={[ui.statusChip, { backgroundColor: statusActivo ? '#2e7d32' : '#c62828' }]} selectedColor="#fff">
 							{statusActivo ? 'Activa' : 'Inactiva'}
@@ -57,26 +66,26 @@ const VpnCardAdmin = ({ item, styles, preciosVPNlist = [], handleReiniciarConsum
 					</View>
 				</View>
 
-				<Text style={ui.helper}>{helper}</Text>
+				<Text style={[ui.helper, { color: palette.copy }]}>{helper}</Text>
 				<Divider style={ui.divider} />
 
 				<View style={ui.kpiRow}>
-					<View style={ui.kpiItem}>
-						<Text style={ui.kpiLabel}>Plan</Text>
-						<Text style={ui.kpiValue}>{getPlanLabel(item)}</Text>
+					<View style={[ui.kpiItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+						<Text style={[ui.kpiLabel, { color: palette.label }]}>Plan</Text>
+						<Text style={[ui.kpiValue, { color: palette.title }]}>{getPlanLabel(item)}</Text>
 					</View>
-					<View style={ui.kpiItem}>
-						<Text style={ui.kpiLabel}>{item.vpnisIlimitado ? 'Tipo' : 'Límite'}</Text>
-						<Text style={ui.kpiValue}>{limitLabel}</Text>
+					<View style={[ui.kpiItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+						<Text style={[ui.kpiLabel, { color: palette.label }]}>{item.vpnisIlimitado ? 'Tipo' : 'Límite'}</Text>
+						<Text style={[ui.kpiValue, { color: palette.title }]}>{limitLabel}</Text>
 					</View>
-					<View style={ui.kpiItem}>
-						<Text style={ui.kpiLabel}>Consumo</Text>
-						<Text style={ui.kpiValue}>{Number(formatGBFromMB(consumoMB)).toFixed(2)} GB</Text>
+					<View style={[ui.kpiItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+						<Text style={[ui.kpiLabel, { color: palette.label }]}>Consumo</Text>
+						<Text style={[ui.kpiValue, { color: palette.title }]}>{Number(formatGBFromMB(consumoMB)).toFixed(2)} GB</Text>
 					</View>
 					{!item.vpnisIlimitado && limiteMB ? (
-						<View style={ui.kpiItem}>
-							<Text style={ui.kpiLabel}>Restante</Text>
-							<Text style={ui.kpiValue}>{formatGBFromMB(restanteMB)} GB</Text>
+						<View style={[ui.kpiItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+							<Text style={[ui.kpiLabel, { color: palette.label }]}>Restante</Text>
+							<Text style={[ui.kpiValue, { color: palette.title }]}>{formatGBFromMB(restanteMB)} GB</Text>
 						</View>
 					) : null}
 				</View>
@@ -84,8 +93,8 @@ const VpnCardAdmin = ({ item, styles, preciosVPNlist = [], handleReiniciarConsum
 				{!item.vpnisIlimitado && limiteMB ? (
 					<View style={ui.progressWrap}>
 						<View style={ui.progressMeta}>
-							<Text style={ui.progressText}>{formatGBFromMB(consumoMB)} / {formatGBFromMB(limiteMB)} GB</Text>
-							<Text style={ui.progressText}>{Math.round(progress * 100)}%</Text>
+							<Text style={[ui.progressText, { color: palette.label }]}>{formatGBFromMB(consumoMB)} / {formatGBFromMB(limiteMB)} GB</Text>
+							<Text style={[ui.progressText, { color: palette.label }]}>{Math.round(progress * 100)}%</Text>
 						</View>
 						<ProgressBar progress={progress} color={progress > 0.8 ? '#F57C00' : '#4CAF50'} />
 					</View>
@@ -93,12 +102,12 @@ const VpnCardAdmin = ({ item, styles, preciosVPNlist = [], handleReiniciarConsum
 
 				<Divider style={ui.divider} />
 				<View style={ui.rowBetween}>
-					<Text style={ui.mutedLabel}>Por tiempo</Text>
+					<Text style={[ui.mutedLabel, { color: palette.copy }]}>Por tiempo</Text>
 					<Switch value={!!item.vpnisIlimitado} onValueChange={() => Meteor.users.update(item._id, { $set: { vpnisIlimitado: !item.vpnisIlimitado } })} />
 				</View>
 
 				{item.vpnisIlimitado ? (
-					<Surface style={[ui.panel, ui.panelDark]}>
+					<Surface style={[ui.panel, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
 						<CalendarPicker
 							format="YYYY-MM-DD"
 							minDate={new Date()}
@@ -133,7 +142,7 @@ const VpnCardAdmin = ({ item, styles, preciosVPNlist = [], handleReiniciarConsum
 						/>
 					</Surface>
 				) : (
-					<Surface style={ui.panel}>
+					<Surface style={[ui.panel, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
 						{valuevpn || isFocusvpn ? <Text style={[styles.label, isFocusvpn && { color: 'blue' }]}>VPN • Megas • Precio</Text> : null}
 						<Dropdown
 							style={[styles.dropdown, isFocusvpn && { borderColor: 'blue' }]}
@@ -179,7 +188,7 @@ const VpnCardAdmin = ({ item, styles, preciosVPNlist = [], handleReiniciarConsum
 				)}
 
 				<View style={ui.section}>
-					<Text style={ui.sectionTitle}>Acciones</Text>
+					<Text style={[ui.sectionTitle, { color: palette.title }]}>Acciones</Text>
 					<View style={ui.actionsRow}>
 						<Button icon="backup-restore" disabled={!item.vpnMbGastados} style={btnStyles.action} mode="outlined" onPress={handleReiniciarConsumoVPN}>
 							Reiniciar Consumo
@@ -199,25 +208,23 @@ const btnStyles = StyleSheet.create({
 });
 
 const ui = StyleSheet.create({
-	cardShell: { overflow: 'hidden' },
 	accentBar: { height: 4, width: '100%' },
-	content: { paddingTop: 10 },
+	content: { paddingBottom: 18, paddingTop: 16 },
 	headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 	headerTitle: { textAlign: 'left', paddingBottom: 0 },
 	statusChip: { alignSelf: 'flex-start' },
 	divider: { marginVertical: 10, opacity: 0.2 },
 	rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-	mutedLabel: { opacity: 0.75, fontWeight: '600' },
+	mutedLabel: { fontWeight: '700' },
 	section: { marginTop: 14 },
-	sectionTitle: { textAlign: 'center', fontWeight: '700', opacity: 0.9 },
-	panel: { width: '100%', elevation: 3, borderRadius: 16, padding: 12, marginTop: 16 },
-	panelDark: { backgroundColor: '#546e7a', padding: 0, elevation: 0 },
+	sectionTitle: { textAlign: 'center', fontWeight: '800' },
+	panel: { width: '100%', borderRadius: 18, borderWidth: 1, padding: 12, marginTop: 16 },
 	actionsRow: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap' },
 	headerRight: { flexDirection: 'row', alignItems: 'center' },
-	helper: { marginTop: 8, opacity: 0.75, fontSize: 12, lineHeight: 16 },
+	helper: { marginTop: 8, fontSize: 12, lineHeight: 17 },
 	kpiRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },
-	kpiItem: { flexGrow: 1, flexBasis: '30%', paddingVertical: 6 },
-	kpiLabel: { fontSize: 12, opacity: 0.65, fontWeight: '600' },
+	kpiItem: { borderRadius: 16, borderWidth: 1, flexGrow: 1, flexBasis: '30%', paddingHorizontal: 12, paddingVertical: 10 },
+	kpiLabel: { fontSize: 11, fontWeight: '900', letterSpacing: 0.4, textTransform: 'uppercase' },
 	kpiValue: { marginTop: 2, fontSize: 14, fontWeight: '800' },
 	progressWrap: { marginTop: 10 },
 	progressMeta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },

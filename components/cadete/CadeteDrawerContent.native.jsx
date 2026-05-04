@@ -5,6 +5,7 @@ import { Avatar, Divider, Surface, Text, useTheme } from "react-native-paper";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { syncCadeteBackgroundLocation } from "../../services/location/cadeteBackgroundLocation.native";
+import DrawerBlurShell from "../drawer/DrawerBlurShell";
 
 const Meteor = /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
   MeteorBase
@@ -77,8 +78,12 @@ const CadeteDrawerContent = ({ onClose, user }) => {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.panel }]} edges={["top", "left"]}>
-      <Surface elevation={4} style={[styles.panel, { backgroundColor: palette.panel }]}> 
+    <SafeAreaView style={styles.safeArea} edges={["top", "left"]}>
+      <DrawerBlurShell
+        elevation={4}
+        overlayColor={isDark ? "rgba(4, 20, 11, 0.72)" : "rgba(245, 250, 247, 0.58)"}
+        style={styles.panel}
+      >
       <View
         style={[
           styles.header,
@@ -223,7 +228,7 @@ const CadeteDrawerContent = ({ onClose, user }) => {
         style={[
           styles.footer,
           {
-            backgroundColor: palette.panel,
+            backgroundColor: "transparent",
             paddingBottom: Math.max(insets.bottom, isLandscapeDrawer ? 4 : 8),
           },
         ]}
@@ -253,7 +258,7 @@ const CadeteDrawerContent = ({ onClose, user }) => {
           </Text>
         </Pressable>
       </View>
-      </Surface>
+      </DrawerBlurShell>
     </SafeAreaView>
   );
 };
@@ -459,6 +464,9 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   panel: {
+    backgroundColor: "transparent",
+    borderRightColor: "rgba(255,255,255,0.14)",
+    borderRightWidth: 1,
     flex: 1,
     height: "100%",
     width: "100%",

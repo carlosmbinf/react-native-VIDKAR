@@ -3,9 +3,10 @@ import Meteor from '@meteorrn/core';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Keyboard, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Card, Dialog, Paragraph, Portal, Text, TextInput } from 'react-native-paper';
+import { Button, Card, Dialog, Paragraph, Portal, Text, TextInput, useTheme } from 'react-native-paper';
 
 const DeleteAccountCard = ({ userId, username }) => {
+	const theme = useTheme();
 	const [loading, setLoading] = useState(false);
 	const [dialogVisible, setDialogVisible] = useState(false);
 	const [confirmText, setConfirmText] = useState('');
@@ -73,26 +74,42 @@ const DeleteAccountCard = ({ userId, username }) => {
 		});
 	};
 
+	const palette = {
+		border: theme.dark ? 'rgba(248, 113, 113, 0.28)' : 'rgba(220, 38, 38, 0.18)',
+		copy: theme.dark ? '#fecaca' : '#7f1d1d',
+		muted: theme.dark ? '#fca5a5' : '#991b1b',
+		panel: theme.dark ? 'rgba(127, 29, 29, 0.28)' : 'rgba(254, 242, 242, 0.96)',
+		surface: theme.dark ? 'rgba(69, 10, 10, 0.76)' : '#ffffff',
+		title: theme.dark ? '#fee2e2' : '#991b1b',
+		warningPanel: theme.dark ? 'rgba(154, 52, 18, 0.26)' : 'rgba(255, 247, 237, 0.96)',
+	};
+
 	return (
-		<Card style={ui.card} elevation={3}>
-			<Card.Content>
+		<Card style={[ui.card, { backgroundColor: palette.surface, borderColor: palette.border }]} elevation={4}>
+			<View style={ui.accentBar} />
+			<Card.Content style={ui.content}>
 				<View style={ui.header}>
-					<MaterialCommunityIcons name="account-remove" size={28} color="#D32F2F" />
-					<Text style={ui.title}>Zona Peligrosa</Text>
+					<View style={ui.iconWrap}>
+						<MaterialCommunityIcons name="account-remove" size={26} color="#EF4444" />
+					</View>
+					<View style={ui.headerCopy}>
+						<Text style={ui.eyebrow}>Acción irreversible</Text>
+						<Text style={[ui.title, { color: palette.title }]}>Zona peligrosa</Text>
+					</View>
 				</View>
 
-				<View style={ui.warningBox}>
+				<View style={[ui.warningBox, { backgroundColor: palette.warningPanel, borderColor: palette.border }]}>
 					<MaterialCommunityIcons name="alert-circle" size={20} color="#F57C00" />
-					<Text style={ui.warningText}>Esta acción es <Text style={ui.bold}>irreversible</Text></Text>
+					<Text style={[ui.warningText, { color: palette.muted }]}>Esta acción es <Text style={ui.bold}>irreversible</Text></Text>
 				</View>
 
-				<Paragraph style={ui.description}>Al eliminar su cuenta se borrarán <Text style={ui.bold}>permanentemente</Text> todos sus datos y configuraciones.</Paragraph>
+				<Paragraph style={[ui.description, { color: palette.copy }]}>Al eliminar su cuenta se borrarán <Text style={ui.bold}>permanentemente</Text> todos sus datos y configuraciones.</Paragraph>
 
-				<View style={ui.listContainer}>
+				<View style={[ui.listContainer, { backgroundColor: palette.panel, borderColor: palette.border }]}>
 					{['Todos sus datos personales', 'Historial de consumo y registros', 'Mensajes y conversaciones', 'Archivos y configuraciones'].map((text) => (
 						<View style={ui.listItem} key={text}>
-							<MaterialCommunityIcons name="check-circle" size={18} color="#666" />
-							<Text style={ui.listText}>{text}</Text>
+							<MaterialCommunityIcons name="check-circle" size={18} color="#EF4444" />
+							<Text style={[ui.listText, { color: palette.copy }]}>{text}</Text>
 						</View>
 					))}
 				</View>
@@ -150,15 +167,20 @@ const DeleteAccountCard = ({ userId, username }) => {
 };
 
 const ui = StyleSheet.create({
-	card: { borderRadius: 16, borderLeftWidth: 4, borderLeftColor: '#D32F2F' },
-	header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-	title: { fontSize: 18, fontWeight: 'bold', color: '#D32F2F', marginLeft: 12 },
-	warningBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF3E0', padding: 12, borderRadius: 8, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: '#F57C00' },
-	warningText: { fontSize: 14, color: '#E65100', marginLeft: 8 },
-	description: { fontSize: 14, color: '#777', marginBottom: 12, lineHeight: 20 },
-	listContainer: { marginBottom: 20 },
+	accentBar: { backgroundColor: '#EF4444', height: 4, width: '100%' },
+	card: { borderRadius: 24, borderWidth: 1, overflow: 'hidden' },
+	content: { gap: 14, paddingBottom: 18, paddingTop: 16 },
+	eyebrow: { color: '#EF4444', fontSize: 11, fontWeight: '900', letterSpacing: 0.6, textTransform: 'uppercase' },
+	header: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+	headerCopy: { flex: 1, gap: 2 },
+	iconWrap: { alignItems: 'center', backgroundColor: 'rgba(239, 68, 68, 0.14)', borderRadius: 18, height: 46, justifyContent: 'center', width: 46 },
+	title: { fontSize: 20, fontWeight: '900' },
+	warningBox: { alignItems: 'center', borderRadius: 16, borderWidth: 1, flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 10 },
+	warningText: { fontSize: 14, fontWeight: '700', marginLeft: 8 },
+	description: { fontSize: 14, lineHeight: 20, marginBottom: 0 },
+	listContainer: { borderRadius: 18, borderWidth: 1, gap: 10, padding: 12 },
 	listItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-	listText: { fontSize: 13, color: '#666', marginLeft: 8 },
+	listText: { fontSize: 13, fontWeight: '700', marginLeft: 8 },
 	bold: { fontWeight: 'bold', color: '#D32F2F' },
 	deleteButton: { borderRadius: 8, marginTop: 8, marginBottom: 24, marginLeft: 24, marginRight: 24 },
 	deleteButtonLabel: { fontSize: 15, fontWeight: 'bold', letterSpacing: 0.5 },

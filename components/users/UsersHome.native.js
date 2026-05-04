@@ -3,24 +3,24 @@ import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Animated,
-  Dimensions,
-  FlatList,
-  Platform,
-  Pressable,
-  StyleSheet,
-  useWindowDimensions,
-  View,
+    Animated,
+    Dimensions,
+    FlatList,
+    Platform,
+    Pressable,
+    StyleSheet,
+    useWindowDimensions,
+    View,
 } from "react-native";
 import {
-  Appbar,
-  Button,
-  Chip,
-  Portal,
-  Searchbar,
-  Surface,
-  Text,
-  useTheme,
+    Appbar,
+    Button,
+    Chip,
+    Portal,
+    Searchbar,
+    Surface,
+    Text,
+    useTheme,
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
@@ -1091,8 +1091,8 @@ const UsersHome = () => {
     }
 
     router.push({
-      pathname: "/(normal)/Logs",
-      params: { id: user._id },
+      pathname: "/(normal)/UserLogsTimeline",
+      params: { id: user._id, username: user.username || "" },
     });
   };
 
@@ -1664,7 +1664,7 @@ const UsersHome = () => {
                           { color: theme.dark ? "#f8fafc" : "#0f172a" },
                         ]}
                       >
-                        Ver logs
+                        Línea de tiempo
                       </Text>
                       <Text
                         style={[
@@ -1672,7 +1672,7 @@ const UsersHome = () => {
                           { color: theme.dark ? "#aeb6c5" : "#64748b" },
                         ]}
                       >
-                        Abrir historial donde participa como admin o afectado
+                        Ver eventos ordenados por fecha
                       </Text>
                     </View>
                     <Text

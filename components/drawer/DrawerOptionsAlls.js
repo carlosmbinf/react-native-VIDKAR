@@ -1,15 +1,17 @@
 import { useMemo } from "react";
 import { ImageBackground, ScrollView, StyleSheet, View } from "react-native";
 import {
-  Avatar,
-  Button,
-  Divider,
-  Drawer,
-  IconButton,
-  Surface,
-  Text,
+    Avatar,
+    Button,
+    Divider,
+    Drawer,
+    IconButton,
+    Surface,
+    Text,
 } from "react-native-paper";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+
+import DrawerBlurShell from "./DrawerBlurShell";
 
 const getUserInitials = (user) => {
   const username = user?.username?.trim();
@@ -215,7 +217,7 @@ const DrawerOptionsAlls = ({
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <Surface style={styles.container} elevation={4}>
+      <DrawerBlurShell style={styles.container}>
         <ImageBackground
           source={require("../files/space-bg-shadowcodex.jpg")}
           resizeMode="cover"
@@ -263,14 +265,14 @@ const DrawerOptionsAlls = ({
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: Math.max(insets.bottom, 12) },
+            { paddingBottom: 12 },
           ]}
           bounces={false}
         >
           <Surface
             style={[
               styles.contentSurface,
-              { paddingBottom: 16 + Math.max(insets.bottom, 8) },
+              { paddingBottom: 16 },
             ]}
             elevation={0}
           >
@@ -302,29 +304,36 @@ const DrawerOptionsAlls = ({
                 </Drawer.Section>
               ))}
             </View>
-
-            {canToggleCadete ? (
-              <Surface style={styles.footerCard} elevation={0}>
-                <Text variant="titleSmall" style={styles.footerTitle}>
-                  Modo cadete
-                </Text>
-                <Text variant="bodySmall" style={styles.footerCopy}>
-                  {cadeteHelperCopy}
-                </Text>
-                <Button
-                  mode={user?.modoCadete ? "contained-tonal" : "contained"}
-                  icon={cadeteButtonIcon}
-                  style={styles.footerButton}
-                  onPress={() => onToggleModoCadete?.()}
-                  disabled={false}
-                >
-                  {cadeteButtonLabel}
-                </Button>
-              </Surface>
-            ) : null}
           </Surface>
         </ScrollView>
-      </Surface>
+
+        {canToggleCadete ? (
+          <View
+            style={[
+              styles.footerDock,
+              { paddingBottom: Math.max(insets.bottom, 12) },
+            ]}
+          >
+            <Surface style={styles.footerCard} elevation={0}>
+              <Text variant="titleSmall" style={styles.footerTitle}>
+                Modo cadete
+              </Text>
+              <Text variant="bodySmall" style={styles.footerCopy}>
+                {cadeteHelperCopy}
+              </Text>
+              <Button
+                mode={user?.modoCadete ? "contained-tonal" : "contained"}
+                icon={cadeteButtonIcon}
+                style={styles.footerButton}
+                onPress={() => onToggleModoCadete?.()}
+                disabled={false}
+              >
+                {cadeteButtonLabel}
+              </Button>
+            </Surface>
+          </View>
+        ) : null}
+      </DrawerBlurShell>
     </SafeAreaView>
   );
 };
@@ -401,6 +410,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentSurface: {
+    backgroundColor: "transparent",
     flexGrow: 1,
     minHeight: "100%",
     justifyContent: "space-between",
@@ -416,9 +426,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginHorizontal: 8,
   },
+  footerDock: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
   footerCard: {
-    marginHorizontal: 16,
-    marginTop: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
     borderRadius: 18,
     padding: 16,
   },

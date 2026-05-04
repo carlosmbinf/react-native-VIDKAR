@@ -1,13 +1,14 @@
 import { memo } from "react";
 import { StyleSheet, View } from "react-native";
 import {
-	Button,
-	Card,
-	Chip,
-	Divider,
-	Surface,
-	Text,
-	Title,
+    Button,
+    Card,
+    Chip,
+    Divider,
+    Surface,
+    Text,
+    Title,
+    useTheme,
 } from "react-native-paper";
 
 const ACCENT = "#1E88E5";
@@ -72,6 +73,7 @@ const getDebtDescriptor = (debt) => {
 };
 
 const VentasCard = ({ deuda, styles, onPressDetalles, accentColor }) => {
+  const theme = useTheme();
   let deudaValue = 0;
   try {
     deudaValue = Number(deuda?.() ?? 0);
@@ -85,10 +87,17 @@ const VentasCard = ({ deuda, styles, onPressDetalles, accentColor }) => {
   const level = getDebtLevel(deudaValue);
   const descriptor = getDebtDescriptor(deudaValue);
   const headerAccent = accentColor || ACCENT;
+  const palette = {
+    caption: theme.dark ? "#94a3b8" : "#64748b",
+    copy: theme.dark ? "#cbd5e1" : "#475569",
+    meta: theme.dark ? "rgba(30, 41, 59, 0.72)" : "rgba(248, 250, 252, 0.96)",
+    metaBorder: theme.dark ? "rgba(148, 163, 184, 0.14)" : "rgba(15, 23, 42, 0.08)",
+    title: theme.dark ? "#f8fafc" : "#0f172a",
+  };
 
   return (
     <Surface
-      elevation={5}
+      elevation={4}
       style={[styles.cards, ui.cardShell]}
       testID="ventas-card"
     >
@@ -96,8 +105,8 @@ const VentasCard = ({ deuda, styles, onPressDetalles, accentColor }) => {
       <Card.Content style={ui.content}>
         <View style={ui.headerRow}>
           <View style={ui.headerCopy}>
-            <Text style={ui.eyebrow}>Cobros del usuario</Text>
-            <Title style={[ui.title, { color: ACCENT }]}>
+            <Text style={[ui.eyebrow, { color: palette.caption }]}>Cobros del usuario</Text>
+            <Title style={[ui.title, { color: palette.title }]}>
               Ventas pendientes
             </Title>
           </View>
@@ -107,23 +116,23 @@ const VentasCard = ({ deuda, styles, onPressDetalles, accentColor }) => {
         </View>
         <Divider style={ui.divider} />
         <View style={ui.amountBlock}>
-          <Text style={ui.caption}>Saldo pendiente por cobrar</Text>
+          <Text style={[ui.caption, { color: palette.caption }]}>Saldo pendiente por cobrar</Text>
           <Text style={[ui.amount, { color: level.color }]}>
             {formatCUP(deudaValue)}
           </Text>
-          <Text style={ui.helper}>{descriptor.helper}</Text>
+          <Text style={[ui.helper, { color: palette.copy }]}>{descriptor.helper}</Text>
         </View>
-        <View style={ui.metaStrip}>
+        <View style={[ui.metaStrip, { backgroundColor: palette.meta, borderColor: palette.metaBorder }]}>
           <View style={ui.metaItem}>
-            <Text style={ui.metaLabel}>Estado</Text>
+            <Text style={[ui.metaLabel, { color: palette.caption }]}>Estado</Text>
             <Text style={[ui.metaValue, { color: level.color }]}>
               {descriptor.statusLabel}
             </Text>
           </View>
-          <View style={ui.metaDivider} />
+          <View style={[ui.metaDivider, { backgroundColor: palette.metaBorder }]} />
           <View style={ui.metaItem}>
-            <Text style={ui.metaLabel}>Acción sugerida</Text>
-            <Text style={ui.metaValue}>Revisar ventas no cobradas</Text>
+            <Text style={[ui.metaLabel, { color: palette.caption }]}>Acción sugerida</Text>
+            <Text style={[ui.metaValue, { color: palette.title }]}>Revisar ventas no cobradas</Text>
           </View>
         </View>
         <View style={ui.actionsRow}>
@@ -148,7 +157,6 @@ const ui = StyleSheet.create({
   accentBar: { height: 4, width: "100%" },
   content: { paddingTop: 10 },
   eyebrow: {
-    color: "#64748B",
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.6,
@@ -161,16 +169,16 @@ const ui = StyleSheet.create({
     justifyContent: "space-between",
   },
   title: { fontSize: 20, fontWeight: "700" },
-  chip: { backgroundColor: "#263238", alignSelf: "flex-start" },
+  chip: { backgroundColor: "#263238", borderRadius: 999, alignSelf: "flex-start" },
   chipText: { color: "#fff", fontWeight: "600" },
   divider: { marginVertical: 8, opacity: 0.2 },
   amountBlock: { marginTop: 4 },
-  caption: { opacity: 0.7, fontSize: 13 },
+  caption: { fontSize: 13, fontWeight: "700" },
   amount: { fontSize: 28, fontWeight: "800", letterSpacing: 0.5, marginTop: 2 },
-  helper: { color: "#64748B", fontSize: 12, lineHeight: 18, marginTop: 8 },
+  helper: { fontSize: 12, lineHeight: 18, marginTop: 8 },
   metaStrip: {
     alignItems: "stretch",
-    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
     borderRadius: 14,
     flexDirection: "row",
     marginTop: 14,
@@ -179,13 +187,12 @@ const ui = StyleSheet.create({
   },
   metaItem: { flex: 1, gap: 2 },
   metaLabel: {
-    color: "#64748B",
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.4,
     textTransform: "uppercase",
   },
-  metaValue: { color: "#0F172A", fontSize: 13, fontWeight: "700" },
+  metaValue: { fontSize: 13, fontWeight: "700" },
   metaDivider: {
     backgroundColor: "rgba(15, 23, 42, 0.08)",
     marginHorizontal: 12,

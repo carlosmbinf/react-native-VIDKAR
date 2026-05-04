@@ -2,7 +2,7 @@ import MeteorBase from '@meteorrn/core';
 import { memo, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
-import { Button, Card, Chip, Divider, HelperText, Text } from 'react-native-paper';
+import { Button, Card, Chip, Divider, HelperText, Text, useTheme } from 'react-native-paper';
 
 const Meteor =
 	/** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
@@ -24,6 +24,7 @@ const buildAdminLabel = (admin) => {
 };
 
 const AdminAssignmentCard = ({ item, styles, accentColor }) => {
+	const theme = useTheme();
 	const itemId = item?._id || null;
 	const initialAdminValue = item?.bloqueadoDesbloqueadoPor || EMPTY_ADMIN_VALUE;
 	const currentUserId = Meteor.userId();
@@ -35,6 +36,13 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 	const [saving, setSaving] = useState(false);
 	const [feedback, setFeedback] = useState({ message: '', type: 'info' });
 	const headerAccent = accentColor || '#7c3aed';
+	const palette = {
+		chip: theme.dark ? 'rgba(124, 58, 237, 0.24)' : '#ede9fe',
+		chipText: theme.dark ? '#ddd6fe' : '#5b21b6',
+		copy: theme.dark ? '#cbd5e1' : '#475569',
+		label: theme.dark ? '#94a3b8' : '#64748b',
+		title: theme.dark ? '#f8fafc' : '#0f172a',
+	};
 
 	const { loading, userDoc, admins } = Meteor.useTracker(() => {
 		if (!itemId) {
@@ -144,18 +152,19 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 	}
 
 	return (
-		<Card elevation={12} style={[styles.cards, ui.cardShell]} testID="admin-assignment-card">
+		<Card elevation={4} style={styles.cards} testID="admin-assignment-card">
 			<View style={[ui.accentBar, { backgroundColor: headerAccent }]} />
 			<Card.Content style={ui.content}>
-				<Text style={ui.title}>Administración</Text>
+				<Text style={[ui.eyebrow, { color: palette.label }]}>Responsable operativo</Text>
+				<Text style={[ui.title, { color: palette.title }]}>Administración</Text>
 				<Divider style={ui.divider} />
 
 				<View style={ui.headerBlock}>
-					<Text style={ui.label}>Administrado por</Text>
-					<Chip compact icon="shield-account" style={ui.currentChip}>
+					<Text style={[ui.label, { color: palette.label }]}>Administrado por</Text>
+					<Chip compact icon="shield-account" style={[ui.currentChip, { backgroundColor: palette.chip }]} textStyle={{ color: palette.chipText, fontWeight: '800' }}>
 						{buildAdminLabel(currentAdmin)}
 					</Chip>
-					<Text style={ui.helper}>
+					<Text style={[ui.helper, { color: palette.copy }]}>
 						Selecciona el administrador responsable de este usuario.
 					</Text>
 				</View>
@@ -163,7 +172,7 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 				<Divider style={ui.dividerSection} />
 
 				{loading ? (
-					<Text style={ui.loadingCopy}>Cargando administradores del sistema...</Text>
+					<Text style={[ui.loadingCopy, { color: palette.copy }]}>Cargando administradores del sistema...</Text>
 				) : (
 					<>
 						{showFloatingLabel ? (
@@ -223,23 +232,21 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 };
 
 const ui = StyleSheet.create({
-	cardShell: { overflow: 'hidden' },
 	accentBar: { height: 4, width: '100%' },
-	content: { paddingTop: 10 },
+	content: { paddingBottom: 18, paddingTop: 16 },
+	eyebrow: { fontSize: 11, fontWeight: '900', letterSpacing: 0.6, textTransform: 'uppercase' },
 	title: {
-		paddingTop: 6,
-		textAlign: 'center',
-		paddingBottom: 6,
+		fontSize: 20,
 		fontWeight: '800',
-		opacity: 0.85,
+		marginTop: 3,
 	},
 	divider: { marginVertical: 8, opacity: 0.2 },
 	dividerSection: { marginVertical: 12, opacity: 0.12 },
 	headerBlock: { gap: 8 },
-	label: { fontSize: 12, fontWeight: '700', opacity: 0.65, textTransform: 'uppercase' },
-	currentChip: { alignSelf: 'flex-start', backgroundColor: '#ede9fe' },
-	helper: { fontSize: 12, lineHeight: 18, opacity: 0.72 },
-	loadingCopy: { fontSize: 13, opacity: 0.72, textAlign: 'center', paddingVertical: 8 },
+	label: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
+	currentChip: { alignSelf: 'flex-start', borderRadius: 999 },
+	helper: { fontSize: 12, lineHeight: 18 },
+	loadingCopy: { fontSize: 13, textAlign: 'center', paddingVertical: 8 },
 	feedback: { marginTop: 6, marginBottom: 0 },
 	actions: { marginTop: 10 },
 	actionButton: { borderRadius: 18 },

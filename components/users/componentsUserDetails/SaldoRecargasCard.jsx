@@ -1,7 +1,7 @@
 import Meteor from '@meteorrn/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Card, Chip, IconButton, Text } from 'react-native-paper';
+import { ActivityIndicator, Card, Chip, IconButton, Text, useTheme } from 'react-native-paper';
 
 const extractNumber = (data) => {
 	if (data == null) {
@@ -47,6 +47,7 @@ const parseBalances = (data) => {
 };
 
 const SaldoRecargasCard = ({ refreshKey = 0, accentColor, styles }) => {
+	const theme = useTheme();
 	const [saldoRaw, setSaldoRaw] = useState(null);
 	const [saldo, setSaldo] = useState(null);
 	const [balances, setBalances] = useState([]);
@@ -124,39 +125,48 @@ const SaldoRecargasCard = ({ refreshKey = 0, accentColor, styles }) => {
 
 	const currency = balances.length === 1 ? balances[0].currency : saldoRaw?.currency || saldoRaw?.unit || 'USD';
 	const headerAccent = accentColor || '#1E88E5';
+	const palette = {
+		amount: theme.dark ? '#f8fafc' : '#0f172a',
+		copy: theme.dark ? '#cbd5e1' : '#475569',
+		muted: theme.dark ? '#94a3b8' : '#64748b',
+		panel: theme.dark ? 'rgba(30, 41, 59, 0.72)' : 'rgba(248, 250, 252, 0.96)',
+		primarySoft: theme.dark ? 'rgba(59, 130, 246, 0.22)' : 'rgba(219, 234, 254, 0.95)',
+		primaryText: theme.dark ? '#dbeafe' : '#1565C0',
+		title: theme.dark ? '#f8fafc' : '#0f172a',
+	};
 
 	return (
-		<Card elevation={12} style={[styles?.cards, ui.card, ui.cardShell]} testID="saldo-recargas-card">
+		<Card elevation={4} style={[styles?.cards, ui.cardShell]} testID="saldo-recargas-card">
 			<View style={[ui.accentBar, { backgroundColor: headerAccent }]} />
 			<Card.Title
 				title="Saldo Disponible Recargas"
 				subtitle={lastUpdated ? `Actualizado: ${lastUpdated.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}` : 'Obteniendo saldo...'}
 				right={(props) => <IconButton {...props} icon="refresh" onPress={() => fetchBalance(true)} disabled={loading} accessibilityLabel="Refrescar saldo" />}
-				titleStyle={ui.title}
-				subtitleStyle={ui.subtitle}
+				titleStyle={[ui.title, { color: palette.title }]}
+				subtitleStyle={[ui.subtitle, { color: palette.muted }]}
 			/>
 			<Card.Content style={ui.content}>
 				{loading ? (
-					<View style={ui.loadingBox}>
+					<View style={[ui.stateBox, { backgroundColor: palette.panel }]}>
 						<ActivityIndicator />
-						<Text style={ui.loadingText}>Consultando saldo...</Text>
+						<Text style={[ui.loadingText, { color: palette.copy }]}>Consultando saldo...</Text>
 					</View>
 				) : error ? (
-					<View style={ui.errorBox}>
+					<View style={[ui.stateBox, ui.errorBox]}>
 						<Text style={ui.errorText}>Error: {error}</Text>
-						<Text style={ui.retryHint}>Pulsa el icono para intentar nuevamente.</Text>
+						<Text style={[ui.retryHint, { color: palette.muted }]}>Pulsa el icono para intentar nuevamente.</Text>
 					</View>
 				) : saldo != null ? (
-					<View style={ui.valueWrapper}>
-						<Text style={ui.amount}>{formatAmount(saldo)}</Text>
-						<Text style={ui.symbol}>{balances.length > 1 ? 'TOTAL' : currency}</Text>
+					<View style={[ui.valueWrapper, { backgroundColor: palette.panel }]}>
+						<Text style={[ui.amount, { color: palette.amount }]}>{formatAmount(saldo)}</Text>
+						<Text style={[ui.symbol, { color: palette.muted }]}>{balances.length > 1 ? 'TOTAL' : currency}</Text>
 					</View>
 				) : (
-					<Text style={ui.noData}>No se pudo interpretar el saldo.</Text>
+					<Text style={[ui.noData, { color: palette.muted }]}>No se pudo interpretar el saldo.</Text>
 				)}
 
 				<View style={ui.metaRow}>
-					<Chip compact icon="history" style={ui.chip} textStyle={ui.chipText}>
+					<Chip compact icon="history" style={[ui.chip, { backgroundColor: palette.primarySoft }]} textStyle={[ui.chipText, { color: palette.primaryText }]}>
 						Auto en {cooldown}s
 					</Chip>
 				</View>
@@ -166,24 +176,23 @@ const SaldoRecargasCard = ({ refreshKey = 0, accentColor, styles }) => {
 };
 
 const ui = StyleSheet.create({
-	card: { marginBottom: 20, borderRadius: 20 },
 	cardShell: { overflow: 'hidden' },
 	accentBar: { height: 4, width: '100%' },
 	title: { fontSize: 16, fontWeight: '600' },
 	subtitle: { fontSize: 11 },
-	content: { paddingTop: 4 },
-	loadingBox: { alignItems: 'center', paddingVertical: 16 },
-	loadingText: { fontSize: 11, color: '#666', marginTop: 8 },
-	errorBox: { paddingVertical: 6 },
+	content: { gap: 12, paddingBottom: 16, paddingTop: 4 },
+	stateBox: { alignItems: 'center', borderRadius: 18, paddingVertical: 18 },
+	loadingText: { fontSize: 12, fontWeight: '700', marginTop: 8 },
+	errorBox: { backgroundColor: 'rgba(239, 68, 68, 0.12)', paddingHorizontal: 12 },
 	errorText: { fontSize: 12, color: '#d32f2f', fontWeight: '600' },
-	retryHint: { fontSize: 10, color: '#888', marginTop: 4 },
-	valueWrapper: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', marginVertical: 4 },
-	symbol: { fontSize: 16, fontWeight: '600', marginRight: 6 },
-	amount: { fontSize: 24, fontWeight: '700', letterSpacing: -1 },
-	noData: { fontSize: 12, textAlign: 'center', color: '#777' },
+	retryHint: { fontSize: 10, marginTop: 4 },
+	valueWrapper: { alignItems: 'center', borderRadius: 20, flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 18 },
+	symbol: { fontSize: 15, fontWeight: '800', marginLeft: 8 },
+	amount: { fontSize: 28, fontWeight: '900', letterSpacing: -0.5 },
+	noData: { fontSize: 12, textAlign: 'center' },
 	metaRow: { flexDirection: 'row', justifyContent: 'center', gap: 12 },
-	chip: { backgroundColor: '#E3F2FD' },
-	chipText: { color: '#1565C0', fontWeight: '700' },
+	chip: { borderRadius: 999 },
+	chipText: { fontWeight: '800' },
 });
 
 export default SaldoRecargasCard;

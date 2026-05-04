@@ -2,7 +2,7 @@ import Meteor from '@meteorrn/core';
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
-import { Button, Card, Text, TextInput } from 'react-native-paper';
+import { Button, Card, Text, TextInput, useTheme } from 'react-native-paper';
 
 const onlyDigits = (value) => String(value || '').replace(/\D/g, '');
 const formatCardNumber = (value) => onlyDigits(value).replace(/(.{4})/g, '$1 ').trim();
@@ -15,6 +15,7 @@ const normalizeCardWithSpaces = (value) => {
 };
 
 const TarjetaDebitoCard = ({ item, styles, accentColor }) => {
+	const theme = useTheme();
 	const [loading, setLoading] = useState(true);
 	const [tarjeta, setTarjeta] = useState(null);
 	const [input, setInput] = useState('');
@@ -97,14 +98,21 @@ const TarjetaDebitoCard = ({ item, styles, accentColor }) => {
 	}
 
 	const headerAccent = accentColor || '#263238';
+  const palette = {
+    copy: theme.dark ? '#cbd5e1' : '#475569',
+    input: theme.dark ? 'rgba(30, 41, 59, 0.78)' : 'rgba(248, 250, 252, 0.96)',
+    title: theme.dark ? '#f8fafc' : '#0f172a',
+  };
 
 	return (
-		<Card style={[styles.cards, ui.cardShell, { borderRadius: 16 }]} testID="tarjeta-debito-card">
+		<Card elevation={4} style={styles.cards} testID="tarjeta-debito-card">
 			<View style={[ui.accentBar, { backgroundColor: headerAccent }]} />
 			<Card.Content style={ui.content}>
-				<Text style={styles.title}>Tarjeta de Débito (CUP)</Text>
+				<Text style={ui.eyebrow}>Datos de transferencia</Text>
+				<Text style={[styles.title, ui.title, { color: palette.title }]}>Tarjeta de Débito (CUP)</Text>
+				<Text style={[ui.subtitle, { color: palette.copy }]}>Destino usado para pagos y coordinación administrativa del usuario.</Text>
 				{!tarjeta ? (
-					<View style={{ marginTop: 8 }}>
+					<View style={ui.formBlock}>
 						<TextInput
 							mode="outlined"
 							label="Número de tarjeta"
@@ -112,15 +120,16 @@ const TarjetaDebitoCard = ({ item, styles, accentColor }) => {
 							onChangeText={(value) => setInput(onlyDigits(value))}
 							keyboardType="number-pad"
 							maxLength={19}
-							style={{ marginTop: 8 }}
+							style={[ui.input, { backgroundColor: palette.input }]}
 						/>
-						<Button mode="contained" onPress={handleSave} loading={saving} disabled={saving || onlyDigits(input).length !== 16} style={{ marginTop: 10 }}>
+						<Button mode="contained" onPress={handleSave} loading={saving} disabled={saving || onlyDigits(input).length !== 16} style={ui.saveBtn}>
 							Guardar tarjeta
 						</Button>
 					</View>
 				) : (
 					<>
 						<View style={ui.visualCard}>
+							<View style={ui.cardGlow} />
 							<Text style={ui.brand}>CUP</Text>
 							<Text style={ui.cardNumber}>{tarjeta}</Text>
 							<View style={ui.cardFooter}>
@@ -145,17 +154,24 @@ const TarjetaDebitoCard = ({ item, styles, accentColor }) => {
 };
 
 const ui = StyleSheet.create({
-	cardShell: { overflow: 'hidden' },
 	accentBar: { height: 4, width: '100%' },
-	content: { paddingTop: 10 },
+	content: { gap: 12, paddingBottom: 18, paddingTop: 16 },
+	eyebrow: { color: '#64748b', fontSize: 11, fontWeight: '900', letterSpacing: 0.6, textTransform: 'uppercase' },
+	title: { marginTop: -6 },
+	subtitle: { fontSize: 13, lineHeight: 18 },
+	formBlock: { gap: 12, marginTop: 4 },
+	input: { borderRadius: 16 },
+	saveBtn: { borderRadius: 14 },
 	visualCard: {
-		marginTop: 12,
+		marginTop: 2,
 		padding: 18,
 		borderRadius: 18,
 		backgroundColor: '#0F172A',
 		minHeight: 190,
 		justifyContent: 'space-between',
+		overflow: 'hidden',
 	},
+	cardGlow: { backgroundColor: 'rgba(59, 130, 246, 0.28)', borderRadius: 80, height: 140, position: 'absolute', right: -38, top: -48, width: 140 },
 	brand: { color: '#93C5FD', fontWeight: '800', letterSpacing: 1.2, fontSize: 16 },
 	cardNumber: { color: '#F8FAFC', fontSize: 24, fontWeight: '700', letterSpacing: 2.2, marginTop: 18 },
 	cardFooter: { flexDirection: 'row', justifyContent: 'space-between', gap: 16, marginTop: 24 },

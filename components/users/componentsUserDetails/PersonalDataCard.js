@@ -1,6 +1,6 @@
 import { memo } from 'react';
-import { View } from 'react-native';
-import { Avatar, Card, Chip, Divider, HelperText, Text, Title } from 'react-native-paper';
+import { StyleSheet, View } from 'react-native';
+import { Avatar, Card, Chip, HelperText, Text, useTheme } from 'react-native-paper';
 
 const parseProfileNames = (profile = {}) => {
 	const rawFirst = (profile.firstName || '').trim();
@@ -38,6 +38,7 @@ const computeCompleteness = ({ firstGiven, lastName }) => {
 };
 
 const PersonalDataCard = ({ item, styles }) => {
+ const theme = useTheme();
 	if (!item) {
 		return null;
 	}
@@ -46,64 +47,71 @@ const PersonalDataCard = ({ item, styles }) => {
 	const { firstGiven, secondGiven, lastName, fullName } = parseProfileNames(profile);
 	const completeness = computeCompleteness({ firstGiven, lastName });
 	const accentColor = hashColor(fullName || item._id || 'U');
+	const palette = {
+		label: theme.dark ? '#94a3b8' : '#64748b',
+		muted: theme.dark ? '#cbd5e1' : '#475569',
+		panel: theme.dark ? 'rgba(30, 41, 59, 0.72)' : 'rgba(248, 250, 252, 0.96)',
+		panelBorder: theme.dark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(15, 23, 42, 0.08)',
+		title: theme.dark ? '#f8fafc' : '#0f172a',
+	};
+	const completionOk = completeness.percent === 100;
 
 	return (
-		<Card elevation={12} style={[styles.cards, { overflow: 'hidden' }]} testID="personal-data-card">
+		<Card elevation={4} style={styles.cards} testID="personal-data-card">
 			<View style={{ height: 4, backgroundColor: accentColor, width: '100%' }} />
-			<Card.Content style={{ paddingTop: 10 }}>
-				<View style={[styles.element, { paddingBottom: 4 }]}> 
-					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+			<Card.Content style={ui.content}>
+				<View style={ui.headerRow}>
+					<View style={ui.avatarFrame}>
 						{item.picture ? (
-							<View style={{ marginRight: 12 }}>
-								<Avatar.Image size={50} source={{ uri: item.picture }} />
-							</View>
+							<Avatar.Image size={58} source={{ uri: item.picture }} />
 						) : (
-							<Avatar.Text size={52} label={getInitials(fullName || item.username)} style={{ backgroundColor: accentColor, marginRight: 12 }} />
+							<Avatar.Text size={58} label={getInitials(fullName || item.username)} style={{ backgroundColor: accentColor }} />
 						)}
-						<View style={{ flex: 1, alignItems: 'flex-start' }}>
-							<Title style={[styles.title, { marginBottom: 4, textAlign: 'left', alignSelf: 'flex-start' }]} numberOfLines={1} testID="pd-fullname">
-								{fullName || 'Nombre no definido'}
-							</Title>
-							<Chip
-								compact
-								icon={completeness.percent === 100 ? 'check-circle' : 'progress-alert'}
-								selectedColor={completeness.percent === 100 ? '#2E7D32' : '#FF8F00'}
-								style={{
-									backgroundColor: completeness.percent === 100 ? '#E8F5E9' : '#FFF8E1',
-									marginBottom: 4,
-								}}
-								textStyle={{ fontSize: 11 }}
-								testID="pd-completeness"
-							>
-								{completeness.percent === 100 ? 'Completo' : `Incompleto (${completeness.percent}%)`}
-							</Chip>
-						</View>
 					</View>
+					<View style={ui.headerCopy}>
+						<Text style={[ui.eyebrow, { color: palette.label }]}>Identidad personal</Text>
+						<Text style={[ui.name, { color: palette.title }]} numberOfLines={1} testID="pd-fullname">
+							{fullName || 'Nombre no definido'}
+						</Text>
+						<Text style={[ui.username, { color: palette.muted }]} numberOfLines={1}>
+							@{item.username || 'usuario'}
+						</Text>
+					</View>
+					<Chip
+						compact
+						icon={completionOk ? 'check-circle' : 'progress-alert'}
+						style={[
+							ui.completenessChip,
+							{ backgroundColor: completionOk ? 'rgba(34, 197, 94, 0.14)' : 'rgba(245, 158, 11, 0.16)' },
+						]}
+						textStyle={[ui.completenessChipText, { color: completionOk ? '#16a34a' : '#d97706' }]}
+						testID="pd-completeness"
+					>
+						{completionOk ? 'Completo' : `${completeness.percent}%`}
+					</Chip>
 				</View>
 
-				<Divider style={{ marginVertical: 8 }} />
-
-				<View style={{ gap: 6 }}>
-					<View style={{ flexDirection: 'row' }}>
-						<Text style={{ width: 100, fontSize: 13, opacity: 0.6 }}>Nombre</Text>
-						<Text style={[styles.data, { flex: 1 }]}>{firstGiven || '—'}</Text>
+				<View style={ui.infoGrid}>
+					<View style={[ui.infoItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+						<Text style={[ui.infoLabel, { color: palette.label }]}>Nombre</Text>
+						<Text style={[ui.infoValue, { color: palette.title }]}>{firstGiven || '—'}</Text>
 					</View>
-					<View style={{ flexDirection: 'row' }}>
-						<Text style={{ width: 100, fontSize: 13, opacity: 0.6 }}>Segundo</Text>
-						<Text style={[styles.data, { flex: 1 }]}>{secondGiven || '—'}</Text>
+					<View style={[ui.infoItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+						<Text style={[ui.infoLabel, { color: palette.label }]}>Segundo</Text>
+						<Text style={[ui.infoValue, { color: palette.title }]}>{secondGiven || '—'}</Text>
 					</View>
-					<View style={{ flexDirection: 'row' }}>
-						<Text style={{ width: 100, fontSize: 13, opacity: 0.6 }}>Apellidos</Text>
-						<Text style={[styles.data, { flex: 1 }]}>{lastName || '—'}</Text>
+					<View style={[ui.infoItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+						<Text style={[ui.infoLabel, { color: palette.label }]}>Apellidos</Text>
+						<Text style={[ui.infoValue, { color: palette.title }]}>{lastName || '—'}</Text>
 					</View>
-					<View style={{ flexDirection: 'row' }}>
-						<Text style={{ width: 100, fontSize: 13, opacity: 0.6 }}>Móvil</Text>
-						<Text style={[styles.data, { flex: 1 }]}>{item.movil || item.mobile || item.phone || '—'}</Text>
+					<View style={[ui.infoItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+						<Text style={[ui.infoLabel, { color: palette.label }]}>Móvil</Text>
+						<Text style={[ui.infoValue, { color: palette.title }]}>{item.movil || item.mobile || item.phone || '—'}</Text>
 					</View>
 				</View>
 
 				{completeness.percent < 100 ? (
-					<HelperText type="info" visible style={{ marginTop: 8, fontSize: 11, opacity: 0.75 }}>
+					<HelperText type="info" visible style={ui.helper}>
 						Completa los campos faltantes: {completeness.missing.join(', ')}
 					</HelperText>
 				) : null}
@@ -111,5 +119,80 @@ const PersonalDataCard = ({ item, styles }) => {
 		</Card>
 	);
 };
+
+const ui = StyleSheet.create({
+	avatarFrame: {
+		borderRadius: 22,
+		overflow: 'hidden',
+	},
+	completenessChip: {
+		alignSelf: 'flex-start',
+		borderRadius: 999,
+	},
+	completenessChipText: {
+		fontSize: 11,
+		fontWeight: '800',
+	},
+	content: {
+		gap: 16,
+		paddingBottom: 18,
+		paddingTop: 16,
+	},
+	eyebrow: {
+		fontSize: 11,
+		fontWeight: '900',
+		letterSpacing: 0.6,
+		textTransform: 'uppercase',
+	},
+	headerCopy: {
+		flex: 1,
+		gap: 3,
+		minWidth: 0,
+	},
+	headerRow: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		gap: 12,
+	},
+	helper: {
+		fontSize: 11,
+		marginTop: -4,
+		opacity: 0.75,
+	},
+	infoGrid: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 10,
+	},
+	infoItem: {
+		borderRadius: 16,
+		borderWidth: 1,
+		flexBasis: '47%',
+		flexGrow: 1,
+		gap: 4,
+		minWidth: 128,
+		paddingHorizontal: 12,
+		paddingVertical: 10,
+	},
+	infoLabel: {
+		fontSize: 10,
+		fontWeight: '900',
+		letterSpacing: 0.4,
+		textTransform: 'uppercase',
+	},
+	infoValue: {
+		fontSize: 14,
+		fontWeight: '800',
+	},
+	name: {
+		fontSize: 20,
+		fontWeight: '900',
+		lineHeight: 25,
+	},
+	username: {
+		fontSize: 13,
+		fontWeight: '700',
+	},
+});
 
 export default memo(PersonalDataCard);

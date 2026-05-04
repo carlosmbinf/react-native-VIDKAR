@@ -6,6 +6,7 @@ import { Avatar, Divider, Surface, Text, useTheme } from "react-native-paper";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductosComercioCollection, TiendasComercioCollection } from "../collections/collections";
+import DrawerBlurShell from "../drawer/DrawerBlurShell";
 import { createEmpresaPalette } from "./styles/empresaTheme";
 
 const Meteor =
@@ -164,8 +165,12 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.panel }]} edges={["top", "left"]}>
-      <Surface style={[styles.panel, { backgroundColor: palette.panel }]}> 
+    <SafeAreaView style={styles.safeArea} edges={["top", "left"]}>
+      <DrawerBlurShell
+        elevation={4}
+        overlayColor={theme.dark ? "rgba(15, 23, 42, 0.72)" : "rgba(255, 255, 255, 0.58)"}
+        style={styles.panel}
+      >
       <View
         style={[
           styles.header,
@@ -290,7 +295,7 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
         style={[
           styles.footer,
           {
-            backgroundColor: palette.panel,
+            backgroundColor: "transparent",
             paddingBottom: Math.max(insets.bottom, isLandscapeDrawer ? 4 : 8),
           },
         ]}
@@ -320,7 +325,7 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
           </Pressable>
         </View>
       </View>
-      </Surface>
+      </DrawerBlurShell>
     </SafeAreaView>
   );
 };
@@ -491,6 +496,9 @@ const styles = StyleSheet.create({
     opacity: 0.78,
   },
   panel: {
+    backgroundColor: "transparent",
+    borderRightColor: "rgba(255,255,255,0.14)",
+    borderRightWidth: 1,
     flex: 1,
     height: "100%",
     width: "100%",

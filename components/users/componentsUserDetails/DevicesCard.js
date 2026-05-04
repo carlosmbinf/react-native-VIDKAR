@@ -5,11 +5,11 @@ import { Button, Card, Chip, Surface, Text, useTheme } from "react-native-paper"
 
 import { PushTokens } from "../../collections/collections";
 import {
-  buildDeviceViewModel,
-  buildPushDashboard,
-  canAccessPushTokenDashboards,
-  PUSH_TOKEN_FIELDS,
-  PUSH_TOKEN_SORT_UPDATED,
+    buildDeviceViewModel,
+    buildPushDashboard,
+    canAccessPushTokenDashboards,
+    PUSH_TOKEN_FIELDS,
+    PUSH_TOKEN_SORT_UPDATED,
 } from "../pushTokens/utils";
 
 const Meteor =
@@ -17,19 +17,19 @@ const Meteor =
     MeteorBase
   );
 
-const MetricCard = ({ label, value, accentColor, compact }) => (
+const MetricCard = ({ label, value, accentColor, compact, palette }) => (
   <Surface
     elevation={0}
     style={[
       styles.metricCard,
       compact ? styles.metricCardCompact : null,
-      { borderColor: accentColor },
+      { backgroundColor: palette.panel, borderColor: accentColor },
     ]}
   >
-    <Text variant="labelSmall" style={styles.metricLabel}>
+    <Text variant="labelSmall" style={[styles.metricLabel, { color: palette.label }]}>
       {label}
     </Text>
-    <Text variant="titleMedium" style={styles.metricValue}>
+    <Text variant="titleMedium" style={[styles.metricValue, { color: palette.title }]}>
       {value}
     </Text>
   </Surface>
@@ -43,6 +43,12 @@ const DevicesCard = ({
   onOpenDevices,
 }) => {
   const theme = useTheme();
+  const palette = {
+    copy: theme.dark ? "#cbd5e1" : "#475569",
+    label: theme.dark ? "#94a3b8" : "#64748b",
+    panel: theme.dark ? "rgba(30, 41, 59, 0.72)" : "rgba(248, 250, 252, 0.96)",
+    title: theme.dark ? "#f8fafc" : "#0f172a",
+  };
   const canViewPushDashboard = Meteor.useTracker(
     () => canAccessPushTokenDashboards(Meteor.user()),
     [],
@@ -108,13 +114,13 @@ const DevicesCard = ({
         <Card.Content style={styles.content}>
           <View style={styles.headerRow}>
             <View style={styles.headerCopy}>
-              <Text variant="labelMedium" style={styles.eyebrow}>
+              <Text variant="labelMedium" style={[styles.eyebrow, { color: palette.label }]}>
                 Dashboard de dispositivos
               </Text>
-              <Text variant="headlineSmall" style={styles.title}>
+              <Text variant="headlineSmall" style={[styles.title, { color: palette.title }]}>
                 Push tokens registrados
               </Text>
-              <Text variant="bodyMedium" style={styles.subtitle}>
+              <Text variant="bodyMedium" style={[styles.subtitle, { color: palette.copy }]}>
                 Vista rápida del parque de dispositivos del usuario, con foco en
                 volumen, Android y sincronización reciente.
               </Text>
@@ -136,54 +142,58 @@ const DevicesCard = ({
               label="Total"
               value={dashboard.totalDevices}
               accentColor="rgba(59, 130, 246, 0.22)"
+              palette={palette}
             />
             <MetricCard
               label="Android"
               value={dashboard.androidDevices}
               accentColor="rgba(16, 185, 129, 0.22)"
+              palette={palette}
             />
             <MetricCard
               label="iOS"
               value={dashboard.iosDevices}
               accentColor="rgba(168, 85, 247, 0.22)"
+              palette={palette}
             />
             <MetricCard
               label="Versión Android"
               value={dashboard.androidVersionSummary}
               accentColor="rgba(245, 158, 11, 0.22)"
               compact
+              palette={palette}
             />
           </View>
 
-          <Surface elevation={0} style={styles.summaryStrip}>
+          <Surface elevation={0} style={[styles.summaryStrip, { backgroundColor: palette.panel }]}>
             <View style={styles.summaryItem}>
-              <Text variant="labelSmall" style={styles.summaryLabel}>
+              <Text variant="labelSmall" style={[styles.summaryLabel, { color: palette.label }]}>
                 Última actualización
               </Text>
-              <Text variant="titleSmall" style={styles.summaryValue}>
+              <Text variant="titleSmall" style={[styles.summaryValue, { color: palette.title }]}>
                 {dashboard.latestActivityLabel}
               </Text>
             </View>
             <View style={styles.summaryItem}>
-              <Text variant="labelSmall" style={styles.summaryLabel}>
+              <Text variant="labelSmall" style={[styles.summaryLabel, { color: palette.label }]}>
                 Plataforma reciente
               </Text>
-              <Text variant="titleSmall" style={styles.summaryValue}>
+              <Text variant="titleSmall" style={[styles.summaryValue, { color: palette.title }]}>
                 {dashboard.latestPlatformLabel}
               </Text>
             </View>
             <View style={styles.summaryItem}>
-              <Text variant="labelSmall" style={styles.summaryLabel}>
+              <Text variant="labelSmall" style={[styles.summaryLabel, { color: palette.label }]}>
                 Proveedores
               </Text>
-              <Text variant="titleSmall" style={styles.summaryValue}>
+              <Text variant="titleSmall" style={[styles.summaryValue, { color: palette.title }]}>
                 {dashboard.providerCount}
               </Text>
             </View>
           </Surface>
 
           <View style={styles.footerRow}>
-            <Text variant="bodySmall" style={styles.footerCopy}>
+            <Text variant="bodySmall" style={[styles.footerCopy, { color: palette.copy }]}>
               Revisa el detalle completo, filtra por token y elimina registros
               obsoletos desde la vista dedicada.
             </Text>
