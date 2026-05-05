@@ -423,7 +423,7 @@ const TimelineItem = React.memo(({ colors, isDark, isFirst, isLast, item, onPres
   prevProps.item?.message === nextProps.item?.message &&
   prevProps.item?.adminDisplay === nextProps.item?.adminDisplay &&
   prevProps.item?.userDisplay === nextProps.item?.userDisplay
-));
+);
 
 const EmptyTimeline = ({ colors, hasLogs, onClearFilters }) => (
   <Surface style={[styles.emptyCard, { backgroundColor: colors.cardSurface }]} elevation={0}>
