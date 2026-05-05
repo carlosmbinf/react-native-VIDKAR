@@ -1,9 +1,10 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
+import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
-import { Alert, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Avatar, Divider, Surface, Text, useTheme } from "react-native-paper";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductosComercioCollection, TiendasComercioCollection } from "../collections/collections";
 import DrawerBlurShell from "../drawer/DrawerBlurShell";
@@ -165,46 +166,67 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "left"]}>
+    <View style={styles.safeArea}>
       <DrawerBlurShell
         elevation={4}
         overlayColor={theme.dark ? "rgba(15, 23, 42, 0.72)" : "rgba(255, 255, 255, 0.58)"}
         style={styles.panel}
       >
-      <View
-        style={[
-          styles.header,
-          isCompactDrawer ? styles.headerCompact : null,
-          {
-            backgroundColor: palette.hero,
-            borderBottomColor: palette.border,
-          },
-        ]}
-      >
-        {user?.picture ? (
-          <Avatar.Image size={isCompactDrawer ? 46 : 58} source={{ uri: user.picture }} />
-        ) : (
-          <Avatar.Text
-            label={user?.profile?.firstName?.slice(0, 2)?.toUpperCase() || user?.username?.slice(0, 2)?.toUpperCase() || "EM"}
-            size={isCompactDrawer ? 46 : 58}
-            style={{ backgroundColor: palette.brand }}
-          />
-        )}
+      <View style={styles.headerFrame}>
+        <BlurView
+          intensity={24}
+          tint={theme.dark ? "dark" : "light"}
+          style={StyleSheet.absoluteFill}
+          experimentalBlurMethod={
+            Platform.OS === "android" ? "dimezisBlurView" : undefined
+          }
+          renderToHardwareTextureAndroid={true}
+        />
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            styles.headerOverlay,
+            {
+              backgroundColor: theme.dark
+                ? "rgba(30, 41, 59, 0.26)"
+                : "rgba(255, 255, 255, 0.22)",
+              borderColor: palette.border,
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.header,
+            isCompactDrawer ? styles.headerCompact : null,
+            { paddingTop: Math.max(insets.top, isCompactDrawer ? 12 : 16) },
+          ]}
+        >
+          {user?.picture ? (
+            <Avatar.Image size={isCompactDrawer ? 46 : 58} source={{ uri: user.picture }} />
+          ) : (
+            <Avatar.Text
+              label={user?.profile?.firstName?.slice(0, 2)?.toUpperCase() || user?.username?.slice(0, 2)?.toUpperCase() || "EM"}
+              size={isCompactDrawer ? 46 : 58}
+              style={{ backgroundColor: palette.brand }}
+            />
+          )}
 
-        <View style={styles.headerCopy}>
-          <Text style={{ color: palette.title }} variant="titleMedium">
-            {user?.profile?.firstName || user?.username || "Empresa"}
-          </Text>
-          <View style={[styles.statusPill, isCompactDrawer ? styles.statusPillCompact : null, { backgroundColor: palette.brandSoft }]}>
-            <Text style={{ color: palette.brandStrong }} variant="labelMedium">
-              Modo empresa activo
+          <View style={styles.headerCopy}>
+            <Text style={{ color: palette.title }} variant="titleMedium">
+              {user?.profile?.firstName || user?.username || "Empresa"}
             </Text>
+            <View style={[styles.statusPill, isCompactDrawer ? styles.statusPillCompact : null, { backgroundColor: palette.brandSoft }]}>
+              <Text style={{ color: palette.brandStrong }} variant="labelMedium">
+                Modo empresa activo
+              </Text>
+            </View>
+            {!isLandscapeDrawer ? (
+              <Text style={[isCompactDrawer ? styles.headerDescriptionCompact : null, { color: palette.copy }]} variant="bodySmall">
+                Gestiona tus tiendas, productos y pedidos de preparación desde este espacio.
+              </Text>
+            ) : null}
           </View>
-          {!isLandscapeDrawer ? (
-            <Text style={[isCompactDrawer ? styles.headerDescriptionCompact : null, { color: palette.copy }]} variant="bodySmall">
-              Gestiona tus tiendas, productos y pedidos de preparación desde este espacio.
-            </Text>
-          ) : null}
         </View>
       </View>
 
@@ -326,7 +348,7 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
         </View>
       </View>
       </DrawerBlurShell>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -396,9 +418,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingTop: 4,
   },
+  headerFrame: {
+    borderBottomLeftRadius: 26,
+    borderBottomRightRadius: 26,
+    marginBottom: 2,
+    overflow: "hidden",
+    position: "relative",
+  },
   header: {
     alignItems: "center",
-    borderBottomWidth: 1,
     flexDirection: "row",
     gap: 14,
     paddingHorizontal: 20,
@@ -412,6 +440,11 @@ const styles = StyleSheet.create({
   headerCopy: {
     flex: 1,
     gap: 4,
+  },
+  headerOverlay: {
+    borderBottomLeftRadius: 26,
+    borderBottomRightRadius: 26,
+    borderWidth: 1,
   },
   headerDescriptionCompact: {
     lineHeight: 17,

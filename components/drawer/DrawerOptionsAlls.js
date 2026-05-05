@@ -1,5 +1,6 @@
+import { BlurView } from "expo-blur";
 import { useMemo } from "react";
-import { ImageBackground, ScrollView, StyleSheet, View } from "react-native";
+import { ImageBackground, Platform, ScrollView, StyleSheet, View } from "react-native";
 import {
     Avatar,
     Button,
@@ -9,7 +10,7 @@ import {
     Surface,
     Text,
 } from "react-native-paper";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import DrawerBlurShell from "./DrawerBlurShell";
 
@@ -216,15 +217,35 @@ const DrawerOptionsAlls = ({
   }, [isAdmin, isSuperAdmin, user]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
+    <View style={styles.safeArea}>
       <DrawerBlurShell style={styles.container}>
         <ImageBackground
           source={require("../files/space-bg-shadowcodex.jpg")}
           resizeMode="cover"
-          style={styles.hero}
+          style={[
+            styles.hero,
+            { minHeight: Math.max(252, 232 + insets.top) },
+          ]}
           imageStyle={styles.heroImage}
         >
-          <View style={styles.heroOverlay}>
+          <BlurView
+            intensity={24}
+            tint="dark"
+            style={StyleSheet.absoluteFill}
+            experimentalBlurMethod={
+              Platform.OS === "android" ? "dimezisBlurView" : undefined
+            }
+            renderToHardwareTextureAndroid={true}
+          />
+          <View
+            style={[
+              styles.heroOverlay,
+              {
+                paddingTop: Math.max(insets.top, 14),
+                paddingBottom: 26,
+              },
+            ]}
+          >
             <View style={styles.heroActions}>
               <Text variant="labelLarge" style={styles.heroCaption}>
                 VIDKAR
@@ -334,7 +355,7 @@ const DrawerOptionsAlls = ({
           </View>
         ) : null}
       </DrawerBlurShell>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -354,7 +375,9 @@ const styles = StyleSheet.create({
   },
   heroOverlay: {
     flex: 1,
-    backgroundColor: "#0f172a",
+    backgroundColor: "rgba(15, 23, 42, 0.34)",
+    borderBottomColor: "rgba(255, 255, 255, 0.12)",
+    borderBottomWidth: 1,
     paddingHorizontal: 18,
     paddingBottom: 18,
   },
@@ -388,7 +411,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
-    marginTop: 8,
+    marginTop: 10,
   },
   roleIcon: {
     backgroundColor: "rgba(255, 255, 255, 0.12)",

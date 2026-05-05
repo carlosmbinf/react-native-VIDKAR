@@ -1,8 +1,9 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
-import { Alert, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { BlurView } from "expo-blur";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Avatar, Divider, Surface, Text, useTheme } from "react-native-paper";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { syncCadeteBackgroundLocation } from "../../services/location/cadeteBackgroundLocation.native";
 import DrawerBlurShell from "../drawer/DrawerBlurShell";
@@ -78,39 +79,61 @@ const CadeteDrawerContent = ({ onClose, user }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "left"]}>
+    <View style={styles.safeArea}>
       <DrawerBlurShell
         elevation={4}
         overlayColor={isDark ? "rgba(4, 20, 11, 0.72)" : "rgba(245, 250, 247, 0.58)"}
         style={styles.panel}
       >
-      <View
-        style={[
+      <View style={styles.headerFrame}>
+        <BlurView
+          intensity={24}
+          tint={isDark ? "dark" : "light"}
+          style={StyleSheet.absoluteFill}
+          experimentalBlurMethod={
+            Platform.OS === "android" ? "dimezisBlurView" : undefined
+          }
+          renderToHardwareTextureAndroid={true}
+        />
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            styles.headerOverlay,
+            {
+              backgroundColor: isDark
+                ? "rgba(18, 74, 44, 0.24)"
+                : "rgba(255, 255, 255, 0.22)",
+              borderColor: palette.border,
+            },
+          ]}
+        />
+        <View style={[
           styles.header,
           isCompactDrawer ? styles.headerCompact : null,
-          { backgroundColor: palette.hero, borderBottomColor: palette.border },
-        ]}
-      >
-        {user?.picture ? (
-          <Avatar.Image size={isCompactDrawer ? 46 : 58} source={{ uri: user.picture }} />
-        ) : (
-          <Avatar.Text
-            label={user?.username?.slice(0, 2)?.toUpperCase() || "CD"}
-            size={isCompactDrawer ? 46 : 58}
-            style={[styles.avatarFallback, { backgroundColor: palette.brandStrong }]}
-          />
-        )}
+          { paddingTop: Math.max(insets.top, isCompactDrawer ? 12 : 16) },
+        ]}>
+          {user?.picture ? (
+            <Avatar.Image size={isCompactDrawer ? 46 : 58} source={{ uri: user.picture }} />
+          ) : (
+            <Avatar.Text
+              label={user?.username?.slice(0, 2)?.toUpperCase() || "CD"}
+              size={isCompactDrawer ? 46 : 58}
+              style={[styles.avatarFallback, { backgroundColor: palette.brandStrong }]}
+            />
+          )}
 
-        <View style={styles.headerCopy}>
-          <Text style={[styles.headerTitle, { color: palette.title }]} variant="titleMedium">
-            {user?.username || "Cadete"}
-          </Text>
-          <Text style={[styles.headerBadge, { color: palette.brandStrong }]} variant="labelMedium">
-            Modo cadete activo
-          </Text>
-          <Text style={[styles.headerSubtitle, isCompactDrawer ? styles.headerSubtitleCompact : null, { color: palette.copy }]} variant="bodySmall">
-            Recibe pedidos cercanos y avanza cada entrega desde esta vista.
-          </Text>
+          <View style={styles.headerCopy}>
+            <Text style={[styles.headerTitle, { color: palette.title }]} variant="titleMedium">
+              {user?.username || "Cadete"}
+            </Text>
+            <Text style={[styles.headerBadge, { color: palette.brandStrong }]} variant="labelMedium">
+              Modo cadete activo
+            </Text>
+            <Text style={[styles.headerSubtitle, isCompactDrawer ? styles.headerSubtitleCompact : null, { color: palette.copy }]} variant="bodySmall">
+              Recibe pedidos cercanos y avanza cada entrega desde esta vista.
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -259,7 +282,7 @@ const CadeteDrawerContent = ({ onClose, user }) => {
         </Pressable>
       </View>
       </DrawerBlurShell>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -340,9 +363,15 @@ const styles = StyleSheet.create({
   footer: {
     marginTop: "auto",
   },
+  headerFrame: {
+    borderBottomLeftRadius: 26,
+    borderBottomRightRadius: 26,
+    marginBottom: 2,
+    overflow: "hidden",
+    position: "relative",
+  },
   header: {
     alignItems: "center",
-    borderBottomWidth: 1,
     flexDirection: "row",
     gap: 14,
     paddingHorizontal: 20,
@@ -358,6 +387,11 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.2,
     textTransform: "uppercase",
+  },
+  headerOverlay: {
+    borderBottomLeftRadius: 26,
+    borderBottomRightRadius: 26,
+    borderWidth: 1,
   },
   headerCopy: {
     flex: 1,
