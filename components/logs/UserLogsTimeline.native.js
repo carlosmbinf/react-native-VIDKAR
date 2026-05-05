@@ -299,11 +299,9 @@ const TimelineDetailsDialog = ({ colors, isDark, log, onDismiss, visible }) => {
   );
 };
 
-const TimelineItem = ({ colors, index, isDark, item, onPress, total }) => {
+const TimelineItem = React.memo(({ colors, isDark, isFirst, isLast, item, onPress }) => {
   const tone = getLogTone(item.type, isDark);
   const date = formatTimelineDate(item.createdAt);
-  const isFirst = index === 0;
-  const isLast = index === total - 1;
 
   return (
     <Pressable
@@ -413,7 +411,19 @@ const TimelineItem = ({ colors, index, isDark, item, onPress, total }) => {
       </View>
     </Pressable>
   );
-};
+}, (prevProps, nextProps) =>
+  prevProps.colors === nextProps.colors &&
+  prevProps.isDark === nextProps.isDark &&
+  prevProps.isFirst === nextProps.isFirst &&
+  prevProps.isLast === nextProps.isLast &&
+  prevProps.onPress === nextProps.onPress &&
+  prevProps.item?._id === nextProps.item?._id &&
+  prevProps.item?.createdAt === nextProps.item?.createdAt &&
+  prevProps.item?.type === nextProps.item?.type &&
+  prevProps.item?.message === nextProps.item?.message &&
+  prevProps.item?.adminDisplay === nextProps.item?.adminDisplay &&
+  prevProps.item?.userDisplay === nextProps.item?.userDisplay
+));
 
 const EmptyTimeline = ({ colors, hasLogs, onClearFilters }) => (
   <Surface style={[styles.emptyCard, { backgroundColor: colors.cardSurface }]} elevation={0}>
@@ -481,15 +491,16 @@ const UserLogsTimeline = () => {
     [isDark, theme.colors.elevation, theme.colors.surface],
   );
 
-  const { hasMore, logs, ready, targetUser, totalFetched } = Meteor.useTracker(() => {
+  const { hasMore, isLoadingInitial, isLoadingMore, logs, targetUser, totalFetched } = Meteor.useTracker(() => {
     const currentUserId = Meteor.userId();
     const targetUserId = routeId || currentUserId;
 
     if (!dataReady || !targetUserId) {
       return {
         hasMore: false,
+        isLoadingInitial: true,
+        isLoadingMore: false,
         logs: [],
-        ready: false,
         targetUser: null,
         totalFetched: 0,
       };
@@ -505,13 +516,11 @@ const UserLogsTimeline = () => {
       limit: fetchLimit + 1,
     });
 
-    const logDocs = logsHandle.ready()
-      ? Logs.find(query, {
-          fields: LOG_FIELDS,
-          sort: { createdAt: -1 },
-          limit: fetchLimit + 1,
-        }).fetch()
-      : [];
+    const logDocs = Logs.find(query, {
+      fields: LOG_FIELDS,
+      sort: { createdAt: -1 },
+      limit: fetchLimit + 1,
+    }).fetch();
 
     const visibleDocs = logDocs.slice(0, fetchLimit);
     const userIds = [
@@ -527,6 +536,9 @@ const UserLogsTimeline = () => {
           { fields: USER_FIELDS },
         )
       : { ready: () => true };
+
+    const usersReady = usersHandle.ready();
+    const hasVisibleLogs = visibleDocs.length > 0;
 
     const mappedLogs = visibleDocs.map((log) => {
       const affectedUser = log.userAfectado
@@ -554,8 +566,9 @@ const UserLogsTimeline = () => {
 
     return {
       hasMore: logDocs.length > fetchLimit,
+      isLoadingInitial: (!logsHandle.ready() || !usersReady) && !hasVisibleLogs,
+      isLoadingMore: (!logsHandle.ready() || !usersReady) && hasVisibleLogs,
       logs: mappedLogs,
-      ready: logsHandle.ready() && usersHandle.ready(),
       targetUser: Meteor.users.findOne(targetUserId, { fields: USER_FIELDS }),
       totalFetched: visibleDocs.length,
     };
@@ -596,18 +609,23 @@ const UserLogsTimeline = () => {
     setSelectedType("TODOS");
   };
 
-  const renderTimelineItem = ({ item, index }) => (
-    <TimelineItem
-      colors={palette}
-      index={index}
-      isDark={isDark}
-      item={item}
-      onPress={setSelectedLogId}
-      total={filteredLogs.length}
-    />
+  const renderTimelineItem = React.useCallback(
+    ({ item, index }) => (
+      <TimelineItem
+        colors={palette}
+        isDark={isDark}
+        isFirst={index === 0}
+        isLast={index === filteredLogs.length - 1}
+        item={item}
+        onPress={setSelectedLogId}
+      />
+    ),
+    [filteredLogs.length, isDark, palette],
   );
 
-  if (!ready) {
+  const keyExtractor = React.useCallback((item) => item._id, []);
+
+  if (isLoadingInitial) {
     return (
       <View style={[styles.screen, { backgroundColor: palette.screen }]}>
         <AppHeader
@@ -643,15 +661,19 @@ const UserLogsTimeline = () => {
 
       <FlatList
         data={filteredLogs}
-        keyExtractor={(item) => item._id}
+        keyExtractor={keyExtractor}
         renderItem={renderTimelineItem}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={12}
+        maxToRenderPerBatch={10}
+        removeClippedSubviews
+        windowSize={7}
         contentContainerStyle={[
           styles.listContent,
           { paddingTop: headerInset + 12 },
         ]}
         onEndReached={() => {
-          if (hasMore) {
+          if (hasMore && !isLoadingMore) {
             setFetchLimit((current) => current + PAGE_SIZE);
           }
         }}
@@ -741,7 +763,14 @@ const UserLogsTimeline = () => {
           />
         }
         ListFooterComponent={
-          hasMore ? (
+          isLoadingMore ? (
+            <View style={styles.footerLoadMore}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={[styles.footerLoadMoreText, { color: palette.muted }]}>
+                Cargando más registros…
+              </Text>
+            </View>
+          ) : hasMore ? (
             <View style={styles.footerLoadMore}>
               <Button mode="outlined" onPress={() => setFetchLimit((current) => current + PAGE_SIZE)}>
                 Cargar más eventos
@@ -1040,8 +1069,13 @@ const styles = StyleSheet.create({
   },
   footerLoadMore: {
     alignItems: "center",
+    gap: 8,
     paddingBottom: 8,
     paddingTop: 18,
+  },
+  footerLoadMoreText: {
+    fontSize: 12,
+    fontWeight: "700",
   },
   endOfTimeline: {
     fontSize: 12,
