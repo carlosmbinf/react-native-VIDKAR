@@ -1,6 +1,7 @@
-console.info("[AppEntry] Cargando entrypoint global antes de expo-router");
-
 import "./services/location/cadeteBackgroundLocation.native";
 import "./services/notifications/PushMessaging.native";
+import "./services/watch/watchSyncService.native";
 
 import "expo-router/entry";
+
+console.info("[AppEntry] Servicios globales cargados antes de expo-router");
