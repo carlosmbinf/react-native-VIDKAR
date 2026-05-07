@@ -7570,3 +7570,201 @@ Notas adicionales - Payload WatchConnectivity debe ser property-list-safe y el p
   - Todo payload que vaya a `WCSession.updateApplicationContext`, `sendMessage` o `transferUserInfo` debe ser property-list-safe antes de cruzar al modulo Swift.
   - Si vuelve a aparecer `La carga útil contiene un tipo incompatible`, revisar primero el saneamiento del payload y no el decoder Swift del Watch.
   - En cambios de sesion, distinguir entre primer usuario conocido del host, login despues de sesion vacia (`null -> userId`) y cambio real entre dos usuarios; solo el cambio real o logout necesitan clear explicito.
+
+---
+
+Resumen tecnico - Catalogo de Peliculas en Expo usando contrato real de backend
+
+- Alcance aplicado:
+  - `app/(normal)/PeliculasVideos.tsx` dejo de usar `ScreenFallback` y ahora apunta a `components/downloadVideos/DownloadVideosHome`.
+  - Se creo `components/downloadVideos/DownloadVideosHome.native.jsx` como pantalla nativa real de catalogo audiovisual.
+  - `components/downloadVideos/DownloadVideosHome.js` quedo como fallback profesional para web/previews.
+  - `components/collections/collections.js` ahora expone `PelisCollection = new Mongo.Collection('pelisRegister')` para consumir la publicacion Meteor existente.
+
+- Contrato backend validado:
+  - La coleccion fuente de verdad es `pelisRegister`.
+  - La publicacion principal es `Meteor.subscribe('pelis', selector, option)` y acepta `fields`, `sort` y `limit`.
+  - El detalle completo se obtiene con `Meteor.call('getPelicula', id)`.
+  - El conteo de vistas se incrementa con `Meteor.call('addVistas', id)`.
+  - Las imagenes no vienen como binario en el documento; se sirven por HTTP usando:
+    - `/imagenesPeliculas?calidad=low|mid|hig&&idPeli=<id>`
+  - El video se reproduce desde `urlPeliHTTPS` cuando existe, con fallback a `urlPeli`.
+  - El trailer se toma de `urlTrailer`.
+
+- Visibilidad del drawer:
+  - Peliculas se movio al bloque `Opciones de administradores` en `components/drawer/DrawerOptionsAlls.js`.
+  - Ya no depende de `user.subscipcionPelis` para aparecer en el drawer de Expo.
+  - La pantalla tambien valida el rol y muestra acceso restringido si entra un usuario no admin por ruta directa.
+
+- UX/UI aplicada:
+  - La pantalla usa una composicion estilo streaming/Netflix:
+    - hero con imagen de pelicula destacada
+    - buscador superior
+    - chips de genero
+    - filas horizontales por populares, recientes y generos
+    - cards poster con vistas, ano y genero
+    - dialogo de detalle con acciones `Reproducir` y `Trailer`
+  - Se usa una paleta oscura con acento rojo y superficies con radio contenido para mantener una lectura profesional.
+  - No se agrego un player nativo nuevo; `Reproducir` abre la URL real del backend con `Linking.openURL(...)` y antes llama `addVistas`.
+
+- Reglas practicas:
+  - Si se vuelve a tocar este modulo, no inventar una coleccion nueva: usar `PelisCollection` sobre `pelisRegister`.
+  - Para imagenes de peliculas en Expo, construir URL absoluta hacia `/imagenesPeliculas` usando el origen HTTP derivado de Meteor, con produccion apuntando a `https://www.vidkar.com`.
+  - Las queries deben contemplar que `mostrar` puede venir como boolean `true` o string `'true'`, porque el legacy uso ambas formas.
+  - Mantener Peliculas como acceso de administradores si el requerimiento sigue siendo gestion interna; no devolverlo a `Servicios VidKar` sin validar producto/roles.
+
+---
+
+Resumen tecnico - Reproductor interno de Peliculas con `expo-video` y tema Paper
+
+- Ajuste aplicado:
+  - `Reproducir` en el catalogo de peliculas ya no abre el enlace externo con `Linking.openURL(...)`.
+  - Ahora navega a una pantalla interna nueva:
+    - `app/(normal)/PeliculaPlayer.tsx`
+    - `components/downloadVideos/PeliculaPlayer.native.jsx`
+  - La reproduccion se hace dentro de la app usando `expo-video`:
+    - `useVideoPlayer(...)`
+    - `VideoView`
+    - controles nativos
+    - soporte de pantalla completa desde la vista de video.
+
+- Contrato backend preservado:
+  - La pantalla player carga el detalle completo con `Meteor.call('getPelicula', id)`.
+  - El stream usa `urlPeliHTTPS` con fallback a `urlPeli`.
+  - El conteo de vistas sigue usando `Meteor.call('addVistas', id)` y se dispara una sola vez al preparar la reproduccion.
+  - El trailer sigue saliendo de `urlTrailer` y puede abrirse externamente porque no forma parte del reproductor principal de pelicula.
+
+- Theme y superficies:
+  - `DownloadVideosHome.native.jsx` dejo de fijar una paleta oscura unica para toda la pantalla.
+  - Las superficies principales ahora derivan de `theme.colors` de React Native Paper:
+    - `background`
+    - `surface`
+    - `surfaceVariant`/elevation cuando aplica
+    - `onSurface`
+    - `onSurfaceVariant`
+  - Se mantiene un acento rojo cinematografico, pero adaptado a modo claro/oscuro y sin convertir toda la pantalla en dark mode forzado.
+
+- Criterio tecnico importante:
+  - En este modulo, las imagenes/hero pueden conservar texto blanco encima del poster por legibilidad cinematografica.
+  - Pero las secciones administrativas, busqueda, dialogs, filas y paneles deben respetar el theme real y no usar colores hardcodeados de modo oscuro.
+
+- Regla practica:
+  - Si se vuelve a tocar Peliculas, no reintroducir `Linking.openURL` para reproducir la pelicula principal.
+  - La reproduccion principal debe pasar por `PeliculaPlayer.native.jsx` y `expo-video`.
+  - Si luego se implementan subtitulos visuales dentro del player, validar primero la compatibilidad real de `expo-video` con tracks externos antes de prometerlos en UI.
+
+---
+
+Resumen tecnico - CocoaPods/xcodeproj no soporta `objectVersion = 70` en este entorno
+
+- Problema detectado:
+  - `npm run ios` fallaba durante `pod install` con:
+    - `[Xcodeproj] Unable to find compatibility version string for object version \`70\``
+  - El fallo ocurria antes de compilar la app, dentro de CocoaPods leyendo `ios/Vidkar.xcodeproj/project.pbxproj`.
+
+- Causa raiz validada:
+  - El CocoaPods instalado por Homebrew usa `xcodeproj 1.27.0`.
+  - Esa version de `xcodeproj` reconoce object versions como `63` y `77`, pero no tiene entrada de compatibilidad para `70`.
+  - El proyecto iOS generado tenia:
+    - `objectVersion = 70;`
+
+- Correccion aplicada:
+  - Se agrego el config plugin local:
+    - `plugins/with-vidkar-xcode-object-version.js`
+  - El plugin corre como `withDangerousMod` de iOS y reemplaza de forma reproducible:
+    - `objectVersion = 70;`
+    - por `objectVersion = 77;`
+  - Tambien se parcheo el proyecto nativo actual en:
+    - `ios/Vidkar.xcodeproj/project.pbxproj`
+
+- Validacion realizada:
+  - `npx expo config --json` resolvio correctamente el plugin y lo registro en `pluginHistory`.
+  - `pod install --repo-update` completo correctamente e instalo `ExpoVideo`.
+  - `npm run ios` supero `pod install`, compilo, instalo/arranco la app y llego a logs JS del runtime.
+
+- Consideracion operativa:
+  - Los warnings repetidos de `expo-notifications` en simulador iOS sobre push token no son fallo de build; Apple recomienda dispositivo real para validar token push.
+  - Los warnings de schema de `app.json` sobre `newArchEnabled` y `edgeToEdgeEnabled` ya existian y no bloquearon `expo config` ni el build local.
+
+- Regla practica:
+  - Si vuelve a aparecer el error de `object version 70` despues de un prebuild o regeneracion de `ios/`, revisar primero que el plugin local siga registrado en `app.json`.
+  - No editar solo el `.pbxproj` a mano como solucion definitiva; el plugin es la fuente reproducible para que el parche sobreviva a regeneraciones de Expo.
+
+---
+
+Resumen tecnico - Headers de Peliculas con glass del menu principal y filtros arriba
+
+- Ajuste aplicado:
+  - `components/downloadVideos/DownloadVideosHome.native.jsx` dejo de pasar un color de superficie claro/oscuro al header.
+  - El catalogo de peliculas ahora usa `DEFAULT_HEADER_COLOR` y `overlapContent`, igualando el glass oscuro/transparente del menu principal.
+  - `components/downloadVideos/PeliculaPlayer.native.jsx` aplica el mismo patron para el reproductor interno de pelicula.
+
+- Reordenamiento UX:
+  - El bloque de busqueda y chips de genero del catalogo ahora se renderiza arriba, antes del hero de pelicula destacada.
+  - El scroll del catalogo reserva el inset real del header con `useAppHeaderContentInset()` para que el filtro quede visible y no se meta debajo del toolbar transparente.
+  - En el reproductor, el hero respeta el inset del header dentro de su contenido para conservar la sensacion de header flotante sin tapar el titulo.
+
+- Verificacion de alcance:
+  - La busqueda de `Appbar.Header` en `components/**/*.jsx` confirmo que el unico header manual queda encapsulado en `components/Header/AppHeader.jsx`.
+  - Por tanto, las pantallas activas que usan `AppHeader` ya heredan el blur base; el problema visible en Peliculas era el tinte de superficie y la posicion del bloque de filtro.
+
+- Regla practica:
+  - En pantallas cinematograficas o con hero visual, no pasar `theme.colors.surface` como color de header si se espera la transparencia del menu principal.
+  - Usar `DEFAULT_HEADER_COLOR` + `overlapContent` y reservar inset solo en el contenido que realmente deba quedar debajo del header.
+  - Si una pantalla usa filtros principales, colocarlos arriba del hero cuando el usuario necesita filtrar antes de consumir el catalogo.
+
+---
+
+Resumen tecnico - Filtros sobre hero y detalle en bottom drawer para Peliculas
+
+- Ajuste UX aplicado:
+  - `components/downloadVideos/DownloadVideosHome.native.jsx` ahora renderiza el buscador y chips de genero directamente encima de la foto del hero.
+  - La posicion aprobada del filtro queda debajo del label `VIDKAR CINEMA` y antes del titulo de la pelicula destacada.
+  - Esto mantiene el filtro como parte de la experiencia cinematografica inicial, no como bloque administrativo separado encima del catalogo.
+
+- Detalle de pelicula:
+  - El detalle dejo de usar `Dialog` de React Native Paper.
+  - Ahora se usa un bottom drawer custom con `Portal + Animated` que aparece desde abajo.
+  - El drawer abre en estado parcial para mostrar lo esencial:
+    - imagen hero
+    - titulo
+    - metadata
+    - acciones principales
+  - Al deslizar hacia arriba, el drawer se expande y muestra todo el detalle disponible.
+  - Al deslizar hacia abajo desde expandido, vuelve al estado parcial; desde parcial puede cerrarse.
+
+- Optimizacion de datos:
+  - La suscripcion principal del catalogo sigue siendo una sola `Meteor.subscribe('pelis', selector, option)` con `fields` proyectados.
+  - No se agregan nuevas suscripciones para abrir el detalle.
+  - El detalle completo se obtiene bajo demanda con `Meteor.call('getPelicula', movieId)` solo cuando el usuario abre una pelicula.
+  - Los detalles ya cargados se cachean localmente en memoria para no repetir llamadas al backend si se reabre la misma pelicula durante la sesion.
+
+- Regla practica:
+  - En este modulo, los filtros del catalogo deben vivir visualmente dentro del hero cuando exista pelicula destacada.
+  - Para detalles cinematicos en movil, preferir bottom drawer progresivo antes que dialog centrado si el contenido puede crecer.
+  - Si se agregan mas campos al detalle, no ampliar la publicacion principal sin necesidad; primero evaluar si deben llegar por `getPelicula` bajo demanda.
+
+---
+
+Resumen tecnico - Reproductor de Peliculas debe ser la primera superficie de la pantalla
+
+- Ajuste UX aplicado:
+  - `components/downloadVideos/PeliculaPlayer.native.jsx` ya no muestra un hero de metadata antes del video.
+  - El reproductor ahora aparece arriba como primera superficie real de la pantalla, inmediatamente bajo el header glass.
+  - La informacion de la pelicula se movio debajo del video como ficha compacta con:
+    - titulo
+    - ano
+    - vistas
+    - formato
+    - resumen
+    - acciones principales
+
+- Criterio visual:
+  - En una pantalla de reproduccion, el video debe mandar visualmente.
+  - La metadata debe acompañar y explicar, no desplazar el reproductor hacia abajo.
+  - El player se presenta sobre fondo negro edge-to-edge para que se sienta como superficie audiovisual principal.
+
+- Regla practica:
+  - Si se vuelve a iterar `PeliculaPlayer`, no reintroducir un hero informativo encima del `VideoView`.
+  - Cualquier mejora de ficha, reparto, trailer o controles debe vivir debajo del reproductor o como overlay ligero que no tape controles nativos.
+  - Mantener el header con `DEFAULT_HEADER_COLOR + overlapContent` para conservar el glass del menu principal sin ocupar espacio extra sobre el video.

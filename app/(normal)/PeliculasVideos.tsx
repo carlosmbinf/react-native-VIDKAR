@@ -1,11 +1,5 @@
-import ScreenFallback from '../../components/shared/ScreenFallback';
+import DownloadVideosHome from "../../components/downloadVideos/DownloadVideosHome.native";
 
 export default function PeliculasVideosScreen() {
-	return (
-		<ScreenFallback
-			title="Pelis y Series"
-			legacyPath="components/downloadVideos"
-			description="Ruta espejo reservada para el catálogo audiovisual del drawer legacy."
-		/>
-	);
+  return <DownloadVideosHome />;
 }
