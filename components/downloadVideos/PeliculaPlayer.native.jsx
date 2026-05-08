@@ -6,8 +6,12 @@ import {
   Alert,
   ImageBackground,
   Linking,
+  Modal,
+  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
+  StatusBar,
   View,
   useWindowDimensions,
 } from "react-native";
@@ -15,8 +19,12 @@ import {
   ActivityIndicator,
   Button,
   Chip,
+  Dialog,
+  Divider,
   IconButton,
+  Portal,
   ProgressBar,
+  RadioButton,
   Surface,
   Text,
   useTheme,
@@ -37,6 +45,10 @@ const Meteor =
 
 const DEFAULT_MEDIA_ORIGIN = "https://www.vidkar.com";
 const SUBTITLE_DISABLE_TRACK_ID = -1;
+const PLAYER_MODE_INLINE = "inline";
+const PLAYER_MODE_FULLSCREEN = "fullscreen";
+const PLAYER_MODE_PIP = "pip";
+const SUBTITLE_EXTERNAL_TRACK_ID = "external";
 const VLC_BUFFER_OPTIONS = Object.freeze([
   "--network-caching=1500",
   "--live-caching=1500",
@@ -272,6 +284,18 @@ const getTrackName = (track) => {
   return "Subtítulo";
 };
 
+const getPlayerModeLabel = (mode) => {
+  if (mode === PLAYER_MODE_FULLSCREEN) {
+    return "Pantalla completa";
+  }
+
+  if (mode === PLAYER_MODE_PIP) {
+    return "Picture-in-Picture";
+  }
+
+  return "Reproductor";
+};
+
 const PeliculaPlayer = () => {
   const theme = useTheme();
   const palette = React.useMemo(() => getPalette(theme), [theme]);
@@ -295,6 +319,9 @@ const PeliculaPlayer = () => {
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [videoInfo, setVideoInfo] = React.useState(null);
   const [selectedTextTrack, setSelectedTextTrack] = React.useState(undefined);
+  const [externalSubtitleEnabled, setExternalSubtitleEnabled] = React.useState(true);
+  const [subtitleDialogVisible, setSubtitleDialogVisible] = React.useState(false);
+  const [playerMode, setPlayerMode] = React.useState(PLAYER_MODE_INLINE);
   const [playback, setPlayback] = React.useState({
     currentTime: 0,
     duration: 0,
@@ -329,6 +356,9 @@ const PeliculaPlayer = () => {
     setIsPlaying(false);
     setVideoInfo(null);
     setSelectedTextTrack(undefined);
+    setExternalSubtitleEnabled(true);
+    setSubtitleDialogVisible(false);
+    setPlayerMode(PLAYER_MODE_INLINE);
     setPlayback({
       currentTime: 0,
       duration: 0,
@@ -366,10 +396,11 @@ const PeliculaPlayer = () => {
 
   const streamUrl = React.useMemo(() => resolveMovieStreamUrl(movie), [movie]);
   const posterUrl = React.useMemo(() => getMovieImageUrl(movie?._id, "hig"), [movie?._id]);
-  const subtitleUri = React.useMemo(
+  const detectedSubtitleUri = React.useMemo(
     () => resolveMovieSubtitleUri(movie, mediaOrigin),
     [mediaOrigin, movie]
   );
+  const activeSubtitleUri = externalSubtitleEnabled ? detectedSubtitleUri : null;
   const genres = React.useMemo(() => normalizeList(movie?.clasificacion, 10), [movie?.clasificacion]);
   const actors = React.useMemo(() => normalizeList(movie?.actors, 6), [movie?.actors]);
   const isWide = width >= 720;
@@ -390,15 +421,36 @@ const PeliculaPlayer = () => {
     : durationMs > 0
       ? clamp(playback.currentTime / durationMs, 0, 1)
       : 0;
-  const hasSubtitle = Boolean(subtitleUri || selectableTextTracks.length);
+  const hasSubtitle = Boolean(detectedSubtitleUri || selectableTextTracks.length);
+  const subtitleOptions = React.useMemo(() => {
+    const options = [{ id: SUBTITLE_DISABLE_TRACK_ID, label: "Sin subtítulos" }];
+
+    if (detectedSubtitleUri) {
+      options.push({ id: SUBTITLE_EXTERNAL_TRACK_ID, label: "Subtítulo externo" });
+    }
+
+    selectableTextTracks.forEach((track, index) => {
+      options.push({
+        id: track.id,
+        label: getTrackName(track) || `Pista ${index + 1}`,
+      });
+    });
+
+    return options;
+  }, [detectedSubtitleUri, selectableTextTracks]);
+  const selectedSubtitleOption = detectedSubtitleUri
+    ? externalSubtitleEnabled
+      ? SUBTITLE_EXTERNAL_TRACK_ID
+      : SUBTITLE_DISABLE_TRACK_ID
+    : selectedTextTrack ?? SUBTITLE_DISABLE_TRACK_ID;
 
   React.useEffect(() => {
-    if (subtitleUri || selectedTextTrack !== undefined || !selectableTextTracks.length) {
+    if (detectedSubtitleUri || selectedTextTrack !== undefined || !selectableTextTracks.length) {
       return;
     }
 
     setSelectedTextTrack(selectableTextTracks[0].id);
-  }, [selectedTextTrack, selectableTextTracks, subtitleUri]);
+  }, [detectedSubtitleUri, selectedTextTrack, selectableTextTracks]);
 
   React.useEffect(() => {
     if (!movie?._id || !streamUrl || viewsRegisteredRef.current) {
@@ -423,8 +475,8 @@ const PeliculaPlayer = () => {
   }, [streamUrl]);
 
   const activeTextTrackLabel = React.useMemo(() => {
-    if (subtitleUri) {
-      return "Subtítulos externos activos";
+    if (detectedSubtitleUri) {
+      return externalSubtitleEnabled ? "Subtítulo externo activo" : "Subtítulos desactivados";
     }
 
     if (selectedTextTrack === SUBTITLE_DISABLE_TRACK_ID) {
@@ -440,7 +492,13 @@ const PeliculaPlayer = () => {
     }
 
     return "Sin subtítulos";
-  }, [availableTextTracks, selectableTextTracks.length, selectedTextTrack, subtitleUri]);
+  }, [
+    availableTextTracks,
+    detectedSubtitleUri,
+    externalSubtitleEnabled,
+    selectableTextTracks.length,
+    selectedTextTrack,
+  ]);
 
   const handleLoad = React.useCallback((event) => {
     setVideoInfo(event);
@@ -551,27 +609,278 @@ const PeliculaPlayer = () => {
     [durationMs, playback.currentTime]
   );
 
-  const handleCycleSubtitleTrack = React.useCallback(() => {
-    if (subtitleUri || !availableTextTracks.length) {
+  const handleSelectSubtitleTrack = React.useCallback((trackId) => {
+    if (trackId === SUBTITLE_EXTERNAL_TRACK_ID) {
+      setExternalSubtitleEnabled(true);
+      setSelectedTextTrack(undefined);
+      setSubtitleDialogVisible(false);
       return;
     }
 
-    const cycleTracks = [
-      { id: SUBTITLE_DISABLE_TRACK_ID, name: "Desactivados" },
-      ...selectableTextTracks,
-    ];
-    const currentTrackId =
-      selectedTextTrack !== undefined
-        ? selectedTextTrack
-        : selectableTextTracks[0]?.id ?? SUBTITLE_DISABLE_TRACK_ID;
-    const currentIndex = Math.max(
-      cycleTracks.findIndex((track) => track.id === currentTrackId),
-      0
-    );
-    const nextTrack = cycleTracks[(currentIndex + 1) % cycleTracks.length];
+    setExternalSubtitleEnabled(false);
+    setSelectedTextTrack(trackId);
+    setSubtitleDialogVisible(false);
+  }, []);
 
-    setSelectedTextTrack(nextTrack.id);
-  }, [availableTextTracks.length, selectableTextTracks, selectedTextTrack, subtitleUri]);
+  const handleOpenFullscreen = React.useCallback(() => {
+    if (!streamUrl) {
+      return;
+    }
+
+    setPlayerMode(PLAYER_MODE_FULLSCREEN);
+  }, [streamUrl]);
+
+  const handleClosePlayerOverlay = React.useCallback(() => {
+    setPlayerMode(PLAYER_MODE_INLINE);
+  }, []);
+
+  const handleEnterPictureInPicture = React.useCallback(() => {
+    if (!streamUrl) {
+      return;
+    }
+
+    const nativePipMethod =
+      playerRef.current?.startPictureInPicture ||
+      playerRef.current?.enterPictureInPicture ||
+      playerRef.current?.presentPictureInPicture;
+
+    if (typeof nativePipMethod === "function") {
+      try {
+        nativePipMethod.call(playerRef.current);
+        return;
+      } catch (_error) {
+        // Falls back to the in-app floating player below.
+      }
+    }
+
+    setPlayerMode(PLAYER_MODE_PIP);
+  }, [streamUrl]);
+
+  const renderPlayerSurface = React.useCallback(
+    (mode = PLAYER_MODE_INLINE) => {
+      const isFullscreenMode = mode === PLAYER_MODE_FULLSCREEN;
+      const isPipMode = mode === PLAYER_MODE_PIP;
+
+      if (!streamUrl || !vlcSource) {
+        return (
+          <View style={styles.unavailableBox}>
+            <IconButton icon="link-off" size={38} iconColor={palette.accent} />
+            <Text variant="titleMedium" style={[styles.centerTitle, { color: palette.text }]}>
+              Sin enlace de reproducción
+            </Text>
+            <Text variant="bodyMedium" style={[styles.centerCopy, { color: palette.muted }]}>
+              Esta película todavía no tiene una URL de video disponible.
+            </Text>
+          </View>
+        );
+      }
+
+      return (
+        <View
+          style={[
+            styles.videoFrame,
+            isFullscreenMode && styles.videoFrameFullscreen,
+            isPipMode && styles.videoFramePip,
+          ]}
+        >
+          <VLCPlayer
+            key={`${movie?._id || "movie"}:${reloadToken}:${mode}`}
+            ref={playerRef}
+            style={styles.video}
+            source={vlcSource}
+            autoplay
+            paused={paused}
+            subtitleUri={activeSubtitleUri || undefined}
+            textTrack={
+              !activeSubtitleUri && selectedTextTrack !== undefined
+                ? selectedTextTrack
+                : undefined
+            }
+            playInBackground
+            videoAspectRatio="16:9"
+            resizeMode="contain"
+            acceptInvalidCertificates={false}
+            onLoad={handleLoad}
+            onProgress={handleProgress}
+            onBuffering={handleBuffering}
+            onPlaying={handlePlaying}
+            onPaused={handlePaused}
+            onEnd={handleEnded}
+            onError={handleError}
+          />
+
+          {!hasRenderedFrame && posterUrl ? (
+            <ImageBackground
+              pointerEvents="none"
+              source={{ uri: posterUrl }}
+              style={styles.posterOverlay}
+              imageStyle={styles.posterOverlayImage}
+            >
+              <LinearGradient
+                colors={["rgba(0,0,0,0.32)", "rgba(0,0,0,0.78)"]}
+                style={StyleSheet.absoluteFill}
+              />
+              <ActivityIndicator color="#fff" />
+              <Text variant="labelLarge" style={styles.posterLoading}>
+                Preparando reproducción
+              </Text>
+            </ImageBackground>
+          ) : null}
+
+          {buffering && hasRenderedFrame ? (
+            <View style={styles.bufferStatusPill} pointerEvents="none">
+              <ActivityIndicator color="#fff" size={14} />
+              <Text variant="labelSmall" style={styles.bufferStatusText}>
+                Buffer
+              </Text>
+            </View>
+          ) : null}
+
+          {playerError ? (
+            <View style={styles.playerOverlayBottom}>
+              <Surface
+                style={[styles.playerErrorBox, { backgroundColor: "rgba(9, 17, 31, 0.86)" }]}
+                elevation={0}
+              >
+                <Text variant="titleSmall" style={styles.playerErrorTitle}>
+                  Reproducción interrumpida
+                </Text>
+                <Text variant="bodySmall" style={styles.playerErrorCopy}>
+                  {playerError}
+                </Text>
+                <Button
+                  mode="contained"
+                  icon="refresh"
+                  buttonColor={palette.accent}
+                  textColor={palette.onAccent}
+                  onPress={handleRetryPlayback}
+                >
+                  Reintentar
+                </Button>
+              </Surface>
+            </View>
+          ) : null}
+
+          <View style={styles.playerBadgeRow} pointerEvents="box-none">
+            <Chip
+              compact
+              icon="play-circle-outline"
+              style={styles.playerBadge}
+              textStyle={styles.playerBadgeText}
+            >
+              {getPlayerModeLabel(mode)}
+            </Chip>
+            {hasSubtitle ? (
+              <Chip
+                compact
+                icon="subtitles-outline"
+                style={styles.playerBadge}
+                textStyle={styles.playerBadgeText}
+              >
+                {activeTextTrackLabel}
+              </Chip>
+            ) : null}
+          </View>
+
+          <View style={styles.playerActionRail}>
+            <IconButton
+              icon={paused ? "play" : "pause"}
+              size={20}
+              mode="contained"
+              containerColor="rgba(15, 23, 42, 0.82)"
+              iconColor="#fff"
+              onPress={handleTogglePlayback}
+            />
+            <IconButton
+              icon="subtitles-outline"
+              size={20}
+              mode="contained"
+              containerColor="rgba(15, 23, 42, 0.82)"
+              iconColor="#fff"
+              disabled={!hasSubtitle}
+              onPress={() => setSubtitleDialogVisible(true)}
+            />
+            {!isFullscreenMode ? (
+              <IconButton
+                icon="fullscreen"
+                size={20}
+                mode="contained"
+                containerColor="rgba(15, 23, 42, 0.82)"
+                iconColor="#fff"
+                onPress={handleOpenFullscreen}
+              />
+            ) : (
+              <IconButton
+                icon="fullscreen-exit"
+                size={20}
+                mode="contained"
+                containerColor="rgba(15, 23, 42, 0.82)"
+                iconColor="#fff"
+                onPress={handleClosePlayerOverlay}
+              />
+            )}
+            {!isPipMode ? (
+              <IconButton
+                icon="picture-in-picture-bottom-right-outline"
+                size={20}
+                mode="contained"
+                containerColor="rgba(15, 23, 42, 0.82)"
+                iconColor="#fff"
+                onPress={handleEnterPictureInPicture}
+              />
+            ) : (
+              <IconButton
+                icon="close"
+                size={20}
+                mode="contained"
+                containerColor="rgba(15, 23, 42, 0.82)"
+                iconColor="#fff"
+                onPress={handleClosePlayerOverlay}
+              />
+            )}
+          </View>
+
+          {isPipMode ? (
+            <View style={styles.pipTitleBar} pointerEvents="none">
+              <Text variant="labelMedium" style={styles.pipTitle} numberOfLines={1}>
+                {getMovieTitle(movie)}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      );
+    },
+    [
+      activeSubtitleUri,
+      activeTextTrackLabel,
+      buffering,
+      handleClosePlayerOverlay,
+      handleEnded,
+      handleEnterPictureInPicture,
+      handleError,
+      handleLoad,
+      handleOpenFullscreen,
+      handlePaused,
+      handlePlaying,
+      handleProgress,
+      handleRetryPlayback,
+      handleTogglePlayback,
+      hasRenderedFrame,
+      hasSubtitle,
+      movie,
+      palette.accent,
+      palette.muted,
+      palette.onAccent,
+      palette.text,
+      paused,
+      playerError,
+      posterUrl,
+      reloadToken,
+      selectedTextTrack,
+      streamUrl,
+      vlcSource,
+    ]
+  );
 
   if (!currentUser) {
     return (
@@ -685,103 +994,31 @@ const PeliculaPlayer = () => {
               style={StyleSheet.absoluteFill}
             />
             <Surface style={styles.playerShell} elevation={0}>
-              {streamUrl && vlcSource ? (
-                <View style={styles.videoFrame}>
-                  <VLCPlayer
-                    key={`${movie?._id || "movie"}:${reloadToken}`}
-                    ref={playerRef}
-                    style={styles.video}
-                    source={vlcSource}
-                    autoplay
-                    paused={paused}
-                    subtitleUri={subtitleUri || undefined}
-                    textTrack={!subtitleUri && selectedTextTrack !== undefined ? selectedTextTrack : undefined}
-                    playInBackground
-                    videoAspectRatio="16:9"
-                    resizeMode="contain"
-                    acceptInvalidCertificates={false}
-                    onLoad={handleLoad}
-                    onProgress={handleProgress}
-                    onBuffering={handleBuffering}
-                    onPlaying={handlePlaying}
-                    onPaused={handlePaused}
-                    onEnd={handleEnded}
-                    onError={handleError}
-                  />
-
-                  {!hasRenderedFrame && posterUrl ? (
-                    <ImageBackground
-                      pointerEvents="none"
-                      source={{ uri: posterUrl }}
-                      style={styles.posterOverlay}
-                      imageStyle={styles.posterOverlayImage}
-                    >
-                      <LinearGradient
-                        colors={["rgba(0,0,0,0.32)", "rgba(0,0,0,0.78)"]}
-                        style={StyleSheet.absoluteFill}
-                      />
-                      <ActivityIndicator color="#fff" />
-                      <Text variant="labelLarge" style={styles.posterLoading}>
-                        Preparando reproducción VLC
-                      </Text>
-                    </ImageBackground>
-                  ) : null}
-
-                  {buffering ? (
-                    <View style={styles.playerOverlayCenter}>
-                      <ActivityIndicator color="#fff" />
-                      <Text variant="labelLarge" style={styles.overlayCopy}>
-                        Ajustando buffer optimizado
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {playerError ? (
-                    <View style={styles.playerOverlayBottom}>
-                      <Surface style={[styles.playerErrorBox, { backgroundColor: "rgba(9, 17, 31, 0.86)" }]} elevation={0}>
-                        <Text variant="titleSmall" style={styles.playerErrorTitle}>
-                          Reproducción interrumpida
-                        </Text>
-                        <Text variant="bodySmall" style={styles.playerErrorCopy}>
-                          {playerError}
-                        </Text>
-                        <Button
-                          mode="contained"
-                          icon="refresh"
-                          buttonColor={palette.accent}
-                          textColor={palette.onAccent}
-                          onPress={handleRetryPlayback}
-                        >
-                          Reintentar
-                        </Button>
-                      </Surface>
-                    </View>
-                  ) : null}
-
-                  <View style={styles.playerBadgeRow}>
-                    <Chip compact icon="play-circle-outline" style={styles.playerBadge} textStyle={styles.playerBadgeText}>
-                      VLC interno
-                    </Chip>
-                    <Chip compact icon="motion-play-outline" style={styles.playerBadge} textStyle={styles.playerBadgeText}>
-                      Segundo plano
-                    </Chip>
-                    {hasSubtitle ? (
-                      <Chip compact icon="subtitles-outline" style={styles.playerBadge} textStyle={styles.playerBadgeText}>
-                        Subtítulos
-                      </Chip>
-                    ) : null}
-                  </View>
-                </View>
+              {playerMode === PLAYER_MODE_INLINE ? (
+                renderPlayerSurface(PLAYER_MODE_INLINE)
               ) : (
-                <View style={styles.unavailableBox}>
-                  <IconButton icon="link-off" size={38} iconColor={palette.accent} />
-                  <Text variant="titleMedium" style={[styles.centerTitle, { color: palette.text }]}>
-                    Sin enlace de reproducción
+                <Pressable
+                  style={styles.detachedPlayerPlaceholder}
+                  onPress={handleClosePlayerOverlay}
+                >
+                  <IconButton
+                    icon={
+                      playerMode === PLAYER_MODE_FULLSCREEN
+                        ? "fullscreen"
+                        : "picture-in-picture-bottom-right-outline"
+                    }
+                    size={34}
+                    iconColor="#fff"
+                  />
+                  <Text variant="titleMedium" style={styles.detachedPlayerTitle}>
+                    {playerMode === PLAYER_MODE_FULLSCREEN
+                      ? "Reproduciendo en pantalla completa"
+                      : "Reproduciendo en Picture-in-Picture"}
                   </Text>
-                  <Text variant="bodyMedium" style={[styles.centerCopy, { color: palette.muted }]}>
-                    Esta película todavía no tiene una URL de video disponible.
+                  <Text variant="bodySmall" style={styles.detachedPlayerCopy}>
+                    Toca aquí para devolver el reproductor a esta pantalla.
                   </Text>
-                </View>
+                </Pressable>
               )}
             </Surface>
           </ImageBackground>
@@ -874,6 +1111,27 @@ const PeliculaPlayer = () => {
             </View>
 
             <View style={styles.primaryActionsRow}>
+              <Button
+                mode="contained"
+                icon="fullscreen"
+                buttonColor={palette.accent}
+                textColor={palette.onAccent}
+                disabled={!streamUrl}
+                onPress={handleOpenFullscreen}
+                style={styles.primaryActionButton}
+              >
+                Pantalla completa
+              </Button>
+              <Button
+                mode="outlined"
+                icon="picture-in-picture-bottom-right-outline"
+                textColor={palette.text}
+                style={[styles.primaryActionButton, { borderColor: palette.border }]}
+                disabled={!streamUrl}
+                onPress={handleEnterPictureInPicture}
+              >
+                Picture-in-Picture
+              </Button>
               <Button
                 mode="contained"
                 icon="refresh"
@@ -997,15 +1255,15 @@ const PeliculaPlayer = () => {
                 </View>
               </View>
 
-              {!subtitleUri && selectableTextTracks.length ? (
+              {hasSubtitle ? (
                 <Button
                   mode="outlined"
                   icon="subtitles-outline"
                   textColor={palette.text}
                   style={{ borderColor: palette.border }}
-                  onPress={handleCycleSubtitleTrack}
+                  onPress={() => setSubtitleDialogVisible(true)}
                 >
-                  Cambiar subtítulo
+                  Seleccionar subtítulos
                 </Button>
               ) : (
                 <Button
@@ -1022,6 +1280,102 @@ const PeliculaPlayer = () => {
           </View>
         </View>
       </ScrollView>
+
+      <Portal>
+        <Dialog
+          visible={subtitleDialogVisible && playerMode !== PLAYER_MODE_FULLSCREEN}
+          onDismiss={() => setSubtitleDialogVisible(false)}
+          style={[styles.subtitleDialog, { backgroundColor: palette.surface }]}
+        >
+          <Dialog.Title style={{ color: palette.text }}>Subtítulos</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={[styles.subtitleDialogCopy, { color: palette.muted }]}>
+              Selecciona la pista que quieres ver durante la reproducción.
+            </Text>
+            <RadioButton.Group
+              value={String(selectedSubtitleOption)}
+              onValueChange={(value) => {
+                const normalizedValue =
+                  value === SUBTITLE_EXTERNAL_TRACK_ID ? value : Number(value);
+                handleSelectSubtitleTrack(normalizedValue);
+              }}
+            >
+              {subtitleOptions.map((option, index) => (
+                <View key={String(option.id)}>
+                  {index > 0 ? <Divider /> : null}
+                  <RadioButton.Item
+                    label={option.label}
+                    value={String(option.id)}
+                    labelStyle={{ color: palette.text }}
+                    color={palette.accent}
+                    uncheckedColor={palette.muted}
+                  />
+                </View>
+              ))}
+            </RadioButton.Group>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setSubtitleDialogVisible(false)} textColor={palette.text}>
+              Cerrar
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      <Modal
+        visible={playerMode === PLAYER_MODE_FULLSCREEN}
+        animationType="fade"
+        presentationStyle="fullScreen"
+        supportedOrientations={["portrait", "landscape", "landscape-left", "landscape-right"]}
+        onRequestClose={handleClosePlayerOverlay}
+      >
+        <StatusBar hidden />
+        <View style={styles.fullscreenRoot}>
+          {renderPlayerSurface(PLAYER_MODE_FULLSCREEN)}
+          {subtitleDialogVisible ? (
+            <View style={styles.fullscreenSubtitleOverlay}>
+              <Pressable
+                style={StyleSheet.absoluteFill}
+                onPress={() => setSubtitleDialogVisible(false)}
+              />
+              <Surface style={styles.fullscreenSubtitleSheet} elevation={4}>
+                <Text variant="titleMedium" style={styles.fullscreenSubtitleTitle}>
+                  Subtítulos
+                </Text>
+                {subtitleOptions.map((option) => (
+                  <Pressable
+                    key={String(option.id)}
+                    style={styles.fullscreenSubtitleItem}
+                    onPress={() => handleSelectSubtitleTrack(option.id)}
+                  >
+                    <IconButton
+                      icon={
+                        String(option.id) === String(selectedSubtitleOption)
+                          ? "radiobox-marked"
+                          : "radiobox-blank"
+                      }
+                      size={18}
+                      iconColor="#fff"
+                      style={styles.fullscreenSubtitleIcon}
+                    />
+                    <Text variant="bodyMedium" style={styles.fullscreenSubtitleLabel}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </Surface>
+            </View>
+          ) : null}
+        </View>
+      </Modal>
+
+      {playerMode === PLAYER_MODE_PIP ? (
+        <Portal>
+          <View style={styles.pipOverlay} pointerEvents="box-none">
+            {renderPlayerSurface(PLAYER_MODE_PIP)}
+          </View>
+        </Portal>
+      ) : null}
     </View>
   );
 };
@@ -1078,6 +1432,20 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     position: "relative",
   },
+  videoFrameFullscreen: {
+    flex: 1,
+    width: "100%",
+    minHeight: 0,
+    aspectRatio: undefined,
+  },
+  videoFramePip: {
+    width: "100%",
+    minHeight: 0,
+    aspectRatio: 16 / 9,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.22)",
+  },
   video: {
     flex: 1,
     width: "100%",
@@ -1096,17 +1464,23 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "700",
   },
-  playerOverlayCenter: {
-    ...StyleSheet.absoluteFillObject,
+  bufferStatusPill: {
+    position: "absolute",
+    right: 14,
+    bottom: 14,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    paddingHorizontal: 24,
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    backgroundColor: "rgba(15,23,42,0.74)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.18)",
   },
-  overlayCopy: {
+  bufferStatusText: {
     color: "#fff",
-    fontWeight: "700",
-    textAlign: "center",
+    fontWeight: "800",
   },
   playerOverlayBottom: {
     position: "absolute",
@@ -1131,10 +1505,16 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 16,
     left: 16,
-    right: 16,
+    right: 76,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+  },
+  playerActionRail: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    gap: 5,
   },
   playerBadge: {
     backgroundColor: "rgba(9, 17, 31, 0.72)",
@@ -1150,6 +1530,95 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 24,
     gap: 8,
+  },
+  detachedPlayerPlaceholder: {
+    minHeight: 236,
+    aspectRatio: 16 / 9,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 20,
+    backgroundColor: "rgba(0,0,0,0.72)",
+  },
+  detachedPlayerTitle: {
+    color: "#fff",
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  detachedPlayerCopy: {
+    color: "rgba(255,255,255,0.76)",
+    textAlign: "center",
+  },
+  fullscreenRoot: {
+    flex: 1,
+    backgroundColor: "#000",
+    justifyContent: "center",
+  },
+  fullscreenSubtitleOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.24)",
+  },
+  fullscreenSubtitleSheet: {
+    margin: 18,
+    borderRadius: 24,
+    padding: 14,
+    backgroundColor: "rgba(15,23,42,0.94)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.16)",
+  },
+  fullscreenSubtitleTitle: {
+    color: "#fff",
+    fontWeight: "900",
+    marginBottom: 6,
+  },
+  fullscreenSubtitleItem: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  fullscreenSubtitleIcon: {
+    margin: 0,
+  },
+  fullscreenSubtitleLabel: {
+    color: "#fff",
+    flex: 1,
+  },
+  pipOverlay: {
+    position: "absolute",
+    right: 14,
+    bottom: Platform.OS === "ios" ? 34 : 18,
+    width: 280,
+    maxWidth: "72%",
+    borderRadius: 24,
+    overflow: "hidden",
+    backgroundColor: "#000",
+    shadowColor: "#000",
+    shadowOpacity: 0.38,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 14,
+  },
+  pipTitleBar: {
+    position: "absolute",
+    left: 12,
+    right: 70,
+    bottom: 10,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: "rgba(15,23,42,0.72)",
+  },
+  pipTitle: {
+    color: "#fff",
+    fontWeight: "800",
+  },
+  subtitleDialog: {
+    borderRadius: 26,
+  },
+  subtitleDialogCopy: {
+    marginBottom: 8,
+    lineHeight: 20,
   },
   contentArea: {
     paddingHorizontal: 16,
