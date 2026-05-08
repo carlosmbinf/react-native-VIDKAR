@@ -4926,6 +4926,43 @@ Resumen técnico – `StoreCard` con altura estable para descripciones de hasta 
 
 ---
 
+Resumen tecnico - `react-native-vlc-media-player` muta `source` y rompe en React Native moderno
+
+- Problema detectado:
+  - `components/downloadVideos/PeliculaPlayer.native.jsx` estaba pasando `source` a `VLCPlayer` sin errores propios de lint, pero el runtime lanzaba:
+    - `You attempted to set the key isNetwork with the value true on an object that is meant to be immutable and has been frozen`
+  - La causa real no estaba en la pantalla sino dentro de:
+    - `node_modules/react-native-vlc-media-player/VLCPlayer.js`
+  - Ese componente muta directamente el prop recibido:
+    - `source.isNetwork = ...`
+    - `source.autoplay = ...`
+    - `source.initOptions.push(...)`
+
+- Causa raiz validada:
+  - En el stack actual (`React 19` + `React Native 0.81`), el objeto recibido por props puede llegar congelado/inmutable.
+  - Si una libreria de tercero intenta escribir sobre ese objeto en render, el fallo aparece inmediatamente aunque el componente padre no este mutando nada.
+
+- Correccion aplicada:
+  - Se parcheo `node_modules/react-native-vlc-media-player/VLCPlayer.js` para clonar el `source` resuelto antes de modificarlo.
+  - La copia tambien normaliza `initOptions` como array mutable nuevo y deja de reutilizar el array original.
+
+- Persistencia del parche:
+  - Se creo el script:
+    - `scripts/patch-vlc-media-player.js`
+  - `package.json` ahora lo ejecuta en `postinstall` junto al patch ya existente del proyecto.
+  - El script es idempotente: si detecta el parche aplicado, no vuelve a tocar el archivo.
+
+- Validacion realizada:
+  - `node ./scripts/patch-vlc-media-player.js` -> `Parche ya aplicado.`
+  - `npx eslint --no-cache scripts/patch-vlc-media-player.js components/downloadVideos/PeliculaPlayer.native.jsx` sin errores.
+
+- Regla practica:
+  - Si una libreria RN de tercero muta `props` en runtime, no intentar compensarlo desde la pantalla con mas `useMemo` o clones parciales; el arreglo correcto esta en el paquete que hace la mutacion.
+  - Si el proyecto depende de un hotfix en `node_modules`, dejar siempre un `postinstall` reproducible para que el arreglo sobreviva a reinstalaciones.
+  - El warning de UIKit/MobileVLCKit sobre `VLCOpenGLES2VideoView` apunta a internals nativos de VLC en iOS y es un problema distinto del crash por objeto congelado; no mezclar ambos diagnosticos.
+
+---
+
 Resumen técnico – Safe area real en drawers de Expo
 
 - Ajuste aplicado:
@@ -7615,6 +7652,39 @@ Resumen tecnico - Catalogo de Peliculas en Expo usando contrato real de backend
 
 ---
 
+Resumen tecnico - Logs de WatchConnectivity comentados sin tocar trazas de WatchSyncService
+
+- Ajuste aplicado:
+  - Se comentaron todos los `console.log` y `console.warn` que usan el prefijo exacto `[WatchConnectivity]` en runtime dentro de:
+    - `services/watch/watchConnectivity.native.js`
+    - `services/watch/watchSyncService.native.js`
+
+- Criterio tecnico validado:
+  - Solo se silenciaron las trazas asociadas al bridge de conectividad del Watch.
+  - No se tocaron los logs con prefijo `[WatchSyncService]`, porque esos siguen siendo el canal de diagnostico de mas alto nivel para el flujo de sincronizacion y sesion.
+
+- Regla practica:
+  - Si luego se quiere reactivar diagnostico fino del bridge, basta con descomentar especificamente los bloques marcados de `[WatchConnectivity]` sin reintroducir ruido en los logs generales del servicio.
+  - Si se necesita un apagado mas sistematico en el futuro, conviene encapsular estas trazas en un helper de debug o en un flag de entorno en lugar de volver a dispersar `console.*` activos por el modulo.
+
+---
+
+Resumen tecnico - Logs de WatchSyncService comentados en runtime
+
+- Ajuste aplicado:
+  - Se comentaron todos los `console.log` con el prefijo exacto `[WatchSyncService]` en:
+    - `services/watch/watchSyncService.native.js`
+
+- Criterio tecnico validado:
+  - Se mantuvieron comentadas por separado las trazas ya apagadas de `[WatchConnectivity]` y no se altero la logica de sincronizacion, limpieza de snapshot ni el wiring del servicio.
+  - El cambio fue solo de ruido de consola, no de comportamiento.
+
+- Regla practica:
+  - Si luego hace falta volver a depurar el ciclo de sincronizacion del Watch, basta con descomentar puntualmente los bloques `[WatchSyncService]` necesarios.
+  - Si el proyecto vuelve a necesitar un control mas fino del logging, conviene mover estos prefijos a una compuerta de debug central en lugar de alternarlos manualmente archivo por archivo.
+
+---
+
 Resumen tecnico - Reproductor interno de Peliculas con `expo-video` y tema Paper
 
 - Ajuste aplicado:
@@ -7768,3 +7838,356 @@ Resumen tecnico - Reproductor de Peliculas debe ser la primera superficie de la 
   - Si se vuelve a iterar `PeliculaPlayer`, no reintroducir un hero informativo encima del `VideoView`.
   - Cualquier mejora de ficha, reparto, trailer o controles debe vivir debajo del reproductor o como overlay ligero que no tape controles nativos.
   - Mantener el header con `DEFAULT_HEADER_COLOR + overlapContent` para conservar el glass del menu principal sin ocupar espacio extra sobre el video.
+
+---
+
+Resumen tecnico - Controles ocultables y subtitulos en vivo en `PeliculaPlayer`
+
+- Problema detectado:
+  - La pantalla de reproduccion tenia controles/badges fijos encima del video y el rail derecho interrumpia la imagen.
+  - La botonera inferior de la ficha (`Pantalla completa`, `Picture-in-Picture`, `Recargar stream`, `Trailer`) podia pisarse en anchos moviles por usar botones largos con `minWidth` alto.
+  - Los subtitulos externos podian aparecer como seleccionados pero no verse si se trataba `textSubtitle` como URL directa o si el cambio de pista forzaba un remount del player.
+
+- Correccion aplicada:
+  - `components/downloadVideos/PeliculaPlayer.native.jsx` ahora permite ocultar/mostrar los controles superpuestos del video tocando la superficie o usando el boton de ojo.
+  - Cuando los controles estan ocultos, solo queda un boton pequeno para recuperarlos y el video queda limpio.
+  - La botonera inferior se compacto con labels cortos y layout responsive para evitar solapes.
+  - El subtitulo externo se resuelve contra `/getsubtitle?idPeli=<id>` siguiendo el contrato real de la web.
+  - El `key` del `VLCPlayer` no debe incluir la opcion de subtitulo seleccionada; cambiar subtitulos debe actualizar `subtitleUri` o `textTrack` en caliente sin reiniciar el stream.
+
+- Regla practica:
+  - Los overlays del reproductor deben ser ocultables; no dejar chips o acciones permanentes encima del video si pueden tapar contenido.
+  - En botones de accion dentro de cards moviles, evitar labels largos + `minWidth` grande cuando la fila puede envolver.
+  - Para subtitulos externos en VLC, no asumir que `textSubtitle` es una URL; en este proyecto es contenido VTT guardado en backend y se sirve por `/getsubtitle`.
+  - Si los subtitulos no se ven, revisar primero el endpoint y la URL generada antes de reintroducir remounts del reproductor.
+
+---
+
+Resumen tecnico - `PeliculaPlayer` debe comportarse como pantalla de video pura
+
+- Ajuste aplicado:
+  - `components/downloadVideos/PeliculaPlayer.native.jsx` ya no renderiza header, hero, ficha ni paneles inferiores cuando la pelicula esta disponible.
+  - La superficie principal queda reducida al reproductor y a una salida minima con boton de regreso flotante.
+
+- Problemas corregidos:
+  - Existia una imagen redundante por detras del reproductor (`playerBackdrop`) y otra capa de poster dentro del stage.
+  - `addVistas` se disparaba apenas existia `streamUrl`, antes de que VLC cargara metadatos reales.
+  - Cambiar subtitulos remonteaba el `VLCPlayer` porque el `key` dependia de `selectedSubtitleOption` y porque el flujo hacia `null -> subtitleUri` forzaba reconfiguracion innecesaria.
+
+- Correccion aplicada:
+  - Se elimino la capa de fondo con imagen detras del reproductor.
+  - La carga visual previa del player ahora usa solo overlay neutro con spinner sobre fondo negro.
+  - El conteo de vistas ahora se hace en `handleLoad` y solo una vez por pelicula cuando VLC ya devolvio metadatos con `duration > 0`.
+  - El `key` del `VLCPlayer` ya no depende de la opcion de subtitulo; solo cambia por recarga o modo del reproductor.
+  - `subtitleUri` y `textTrack` se actualizan en caliente sin remount del stream.
+  - Los subtitulos externos de peliculas deben resolverse igual que en la web: `/getsubtitle?idPeli=<id>`, porque `textSubtitle` es contenido VTT guardado en backend, no una URL remota que deba pasarse directo al player.
+
+- Regla practica:
+  - Si una pantalla de reproduccion ya tiene drawer o detalle externo, no duplicar ficha informativa debajo del video.
+  - Para medir una vista real de pelicula, no sumar acceso al entrar a la pantalla; esperar al evento `onLoad` del player.
+  - Si un cambio de subtitulo provoca buffering o reinicio, revisar primero el `key` del player y cualquier estado intermedio que fuerce remount del componente nativo.
+  - Si se toca la resolucion de subtitulos, contrastar contra `react-download/imports/ui/pages/pelis/PeliDetails.jsx`: la web usa `onLoadedMetadata` para vistas y `<track src="/getsubtitle?idPeli=...">` para subtitulos.
+
+---
+
+Resumen tecnico - `PeliculaPlayer` bloquea landscape y usa controles tipo Netflix
+
+- Ajuste aplicado:
+  - `components/downloadVideos/PeliculaPlayer.native.jsx` ahora bloquea la orientacion en horizontal al montar la pantalla usando `expo-screen-orientation`.
+  - Al desmontar, restaura `OrientationLock.DEFAULT` para no dejar el resto de la app forzado en landscape.
+  - Se instalo `expo-screen-orientation` como dependencia directa del proyecto.
+
+- UX del reproductor:
+  - Se retiro la estructura anterior de chips superiores y rail vertical derecho.
+  - El overlay activo ahora sigue un patron mas cercano a Netflix:
+    - video en fondo negro como superficie principal
+    - boton de regreso flotante
+    - barra de progreso roja en la parte inferior
+    - controles inferiores con pausa/play, retroceder 10s, adelantar 10s, subtitulos y pantalla completa
+    - titulo centrado sobre la fila inferior
+  - Los controles siguen ocultandose automaticamente durante reproduccion y pueden reaparecer al tocar la pantalla.
+
+- Criterio tecnico:
+  - El cambio de subtitulos no debe afectar el `key` del `VLCPlayer`; solo debe actualizar `subtitleUri` o `textTrack`.
+  - El boton de pantalla completa puede seguir usando el modal existente, pero la pantalla base ya entra en landscape para que la experiencia inicial sea de reproductor horizontal.
+
+- Regla practica:
+  - Si se vuelve a tocar esta pantalla, no reintroducir badges/chips superiores ni un rail vertical de acciones porque compiten con el lenguaje visual tipo Netflix pedido para el reproductor.
+  - Si se agregan nuevas acciones de video, ubicarlas en la fila inferior o en un menu contextual, no como controles permanentes sobre los laterales del video.
+
+---
+
+Resumen tecnico - Peliculas con hero detras del header, filtros legibles y player sin estados externos
+
+- Ajuste aplicado:
+  - `components/downloadVideos/DownloadVideosHome.native.jsx` ahora deja que el hero de la pelicula destacada empiece detras del `AppHeader` con blur.
+  - El inset del header se aplica al contenido interno del hero, no al `ScrollView`, para que la imagen sea visible bajo el glass del toolbar.
+  - Los filtros del hero aumentaron contraste en fondo, borde, texto y chips para que se lean sobre imagenes claras u oscuras.
+
+- Drawer de detalle:
+  - `MovieDetailBottomDrawer` mantiene comportamiento bottom sheet en movil vertical.
+  - En anchos grandes/horizontal se centra con ancho maximo para no ocupar toda la pantalla.
+  - Esto evita que el detalle se sienta demasiado ancho en landscape y conserva una lectura mas parecida a panel cinematografico.
+
+- Player:
+  - `PeliculaPlayer.native.jsx` ya no muestra chip de `Buffer`; el buffer no debe ser un estado visual permanente fuera de los controles.
+  - Los errores de reproduccion y la accion `Reintentar` viven centrados dentro del escenario negro del player.
+  - Si falla la carga inicial de la pelicula, tambien se muestra una superficie de error dentro del mismo escenario de reproduccion, no como card externa separada.
+
+- Regla practica:
+  - En Peliculas, el primer componente visual debe ser la imagen/hero y el header debe flotar encima con blur.
+  - No volver a poner `paddingTop: headerInset` en el contenedor completo del scroll si se busca ese efecto.
+  - Cualquier estado del player que requiera accion del usuario debe mostrarse dentro de la superficie de video, preferiblemente centrado, no como componente aparte fuera del reproductor.
+
+---
+
+Resumen tecnico - Drawers laterales completamente scrolleables en horizontal y con header/footer fijos en vertical
+
+- Ajuste aplicado:
+  - `components/drawer/DrawerOptionsAlls.js`
+  - `components/cadete/CadeteDrawerContent.native.jsx`
+  - `components/empresa/EmpresaDrawerContent.native.jsx`
+  ahora cambian su estructura segun la orientacion del dispositivo.
+
+- Comportamiento final validado:
+  - En vertical:
+    - se conserva el patron existente
+    - header fijo arriba
+    - cuerpo central con `ScrollView`
+    - footer fijo abajo
+  - En horizontal:
+    - el drawer completo pasa a ser una sola superficie scrolleable
+    - header, contenido y footer viajan dentro del mismo `ScrollView`
+    - esto evita que header + footer consuman casi todo el alto util y dejen poco espacio real para el menu
+
+- Criterio tecnico importante:
+  - En `DrawerOptionsAlls.js` fue necesario introducir `useWindowDimensions()` porque el drawer normal no tenia deteccion propia de landscape.
+  - En los drawers de cadete y empresa ya existia `isLandscapeDrawer`, pero faltaba usarlo para cambiar la estructura del render y no solo compactar estilos.
+  - En horizontal, los footers ya no deben depender de `marginTop: 'auto'`; pasan a comportarse como bloques normales dentro del flujo scrolleable.
+
+- Regla practica:
+  - Si otro drawer lateral del proyecto sufre el mismo problema en landscape, aplicar esta misma regla:
+    - horizontal -> un solo `ScrollView` para toda la superficie
+    - vertical -> header/footer estaticos y solo el cuerpo con scroll
+  - No intentar resolver este caso solo compactando paddings; el problema real aparece por la estructura fija del drawer, no solo por densidad visual.
+
+---
+
+Resumen tecnico - Migracion de pantalla Precios web a Expo respetando herencia por admin
+
+- Alcance aplicado:
+  - `app/(normal)/Precios.tsx` ahora apunta a una pantalla nativa real:
+    - `components/precios/PreciosScreen.native.jsx`
+  - `components/precios/PreciosScreen.jsx` queda como fallback profesional para web/previews.
+  - La ruta se registro en `app/(normal)/_layout.tsx` y el drawer de administradores en `components/drawer/DrawerOptionsAlls.js` expone la entrada `Precios`.
+
+- Contrato legacy preservado:
+  - La coleccion fuente de verdad sigue siendo `PreciosCollection` sobre `precios`.
+  - La pantalla usa la publicacion existente:
+    - `Meteor.subscribe('precios', selector, option)`
+  - Crear y eliminar precios sigue haciendose con operaciones directas sobre `PreciosCollection`, igual que la web:
+    - `PreciosCollection.insert(...)`
+    - `PreciosCollection.remove(...)`
+
+- Logica de herencia validada desde la web:
+  - `carlosmbinf` puede crear precios independientes y ver todos los precios.
+  - Los demas admins trabajan con precios propios por `userId` y deben partir de una oferta oficial para crear su precio de venta.
+  - Cuando un admin hereda una oferta oficial, el documento nuevo conserva:
+    - `type`
+    - `megas` cuando aplica
+    - `comentario`
+    - `detalles`
+    - `heredaDe` apuntando al precio oficial
+  - La oferta oficial ya heredada por el admin no debe volver a aparecer como disponible para crear otro precio propio.
+
+- Tipos de precio soportados:
+  - `megas` -> Proxy por capacidad
+  - `fecha-proxy` -> Proxy ilimitado por 30 dias
+  - `vpnplus` -> VPN por capacidad
+  - `fecha-vpn` -> VPN ilimitado por 30 dias
+  - `vpn2mb` -> VPN 2MB, conservado por compatibilidad con legacy
+
+- Criterio UX aplicado:
+  - La UI no muestra textos tecnicos como nombres de colecciones, `userId` o `heredaDe`.
+  - El copy se expresa en lenguaje de negocio:
+    - oferta base
+    - precio de venta
+    - mensaje comercial
+    - condiciones visibles
+    - responsable
+  - Para admins que no son `carlosmbinf`, el flujo explica que deben elegir una oferta oficial y definir su propio importe.
+  - Para `carlosmbinf`, el flujo explica que puede crear ofertas oficiales y revisar precios de administradores.
+
+- Regla practica:
+  - Si se toca este modulo, no reemplazar la herencia de precios por metodos nuevos sin revisar primero la web legacy.
+  - El campo `heredaDe` es importante para impedir duplicados de ofertas oficiales por admin.
+  - Los precios por fecha no deben pedir megas; deben guardarse con `megas: null` y mostrarse como ilimitados por 30 dias.
+  - Mantener la diferencia operativa entre `carlosmbinf` y los demas admins tanto en la query como en el dialogo de creacion.
+
+---
+
+Resumen tecnico - PiP nativo Android para el reproductor VLC de Peliculas
+
+- Alcance aplicado:
+  - El reproductor real de peliculas en Expo sigue usando `react-native-vlc-media-player` dentro de `components/downloadVideos/PeliculaPlayer.native.jsx`.
+  - `playInBackground` de VLC no equivale a Picture-in-Picture nativo, por lo que el PiP Android se resolvio a nivel de `MainActivity`.
+
+- Arquitectura implementada:
+  - Se creo el modulo local Expo `modules/vidkar-pip` con el modulo nativo Android `VidkarPip`.
+  - El modulo expone estado simple hacia JS:
+    - `setPlayerActive(active)`
+    - `getStatus()`
+  - `PeliculaPlayer.native.jsx` marca el player como activo solo cuando hay stream valido, usuario/admin y sin error de carga; al desmontar lo apaga.
+  - `MainActivity` entra a PiP en `onUserLeaveHint()` solo si `VidkarPipState.isPlayerActive()` es verdadero.
+
+- Configuracion reproducible:
+  - Se creo el config plugin `plugins/with-vidkar-android-pip.js` para que Expo prebuild regenere:
+    - imports y overrides de PiP en `MainActivity.kt`
+    - `android:supportsPictureInPicture="true"`
+    - `android:resizeableActivity="true"`
+    - `smallestScreenSize` dentro de `android:configChanges`
+  - La fuente de verdad es el plugin y `app.json`, no los archivos generados bajo `android/`.
+  - Android `minSdkVersion` debe mantenerse en `26` porque `react-native-vlc-media-player` lo requiere.
+
+- Limitacion importante:
+  - Esta solucion cubre PiP nativo Android.
+  - En iOS, PiP nativo real con el player VLC actual no queda resuelto por este cambio; para PiP iOS habria que evaluar una ruta con `AVPlayer`/`expo-video` o un modulo nativo especifico compatible con `AVPictureInPictureController`.
+
+- Regla practica:
+  - Si se toca el reproductor de peliculas y se quiere mantener PiP Android, no eliminar el llamado a `setNativePipPlayerActive(...)` ni el modulo local `vidkar-pip`.
+  - Si se regenera `android/`, validar que el plugin vuelva a inyectar `onUserLeaveHint()` y las flags de manifest antes de probar PiP en dispositivo.
+
+---
+
+Resumen tecnico - Precios con glass, agrupacion por administradores y cards expandibles
+
+- Ajuste aplicado:
+  - `components/precios/PreciosScreen.native.jsx` ahora usa el `AppHeader` con glass/blur solapado al contenido, alineado con el patron visual del menu principal.
+  - El dialogo de creacion de ofertas se convirtio en una superficie glass real con `BlurView`, overlay translúcido y soporte Android mediante `experimentalBlurMethod="dimezisBlurView"`.
+
+- Organizacion de datos:
+  - El listado ya no muestra precios como una lista plana.
+  - Ahora agrupa las ofertas por el administrador que las creo, mostrando un bloque por responsable y el conteo de ofertas preparadas.
+  - La busqueda tambien contempla el nombre del administrador creador.
+  - Se agrego filtro horizontal por administrador para revisar rapidamente los precios de un responsable concreto.
+
+- Comparacion de precios heredados:
+  - Cuando un precio viene de una oferta base (`heredaDe`), la card muestra la comparacion de negocio:
+    - precio oficial
+    - precio propio del administrador
+  - La referencia oficial se resuelve desde el mapa local de precios oficiales/cargados, sin cambiar el contrato backend.
+
+- Cards solapadas y expansion:
+  - Las cards dentro de cada grupo se renderizan con solape visual para dar sensacion de stack.
+  - La informacion larga (`comentario` y `detalles`) queda oculta por defecto.
+  - Al tocar una card, se expande con `LayoutAnimation` para mostrar mensaje comercial y condiciones visibles.
+
+- Regla practica:
+  - En pantallas nuevas o redisenadas que pidan efecto premium, usar blur de forma consistente:
+    - `AppHeader` con `overlapContent` para headers glass.
+    - `BlurView` con tint literal (`dark`/`light`) y `dimezisBlurView` en Android para dialogos o overlays.
+  - Para precios heredados, no mostrar solo el precio final; si existe oferta base, mostrar siempre la comparacion entre oferta oficial y precio propio.
+  - Si el listado puede pertenecer a varios administradores, agrupar por responsable antes de agregar mas filtros o duplicar pantallas.
+
+---
+
+Resumen tecnico - Precios compactos, responsivos y acciones en submenu
+
+- Ajuste aplicado:
+  - `components/precios/PreciosScreen.native.jsx` dejo de usar solape negativo fuerte entre cards de precios.
+  - Las ofertas ahora se organizan en una grilla responsiva por administrador, con separacion pequena positiva y ancho controlado por pantalla.
+  - La densidad de las cards se redujo para que el listado sea mas operativo en telefono y tablet.
+
+- Patron responsive:
+  - La pantalla usa un helper local `getPricesLayout(width)` inspirado en el patron ya validado de `UsersHome`.
+  - El helper calcula:
+    - cantidad de columnas
+    - ancho maximo de card
+    - gap de grilla
+    - modo compacto
+  - No hardcodear `numColumns` ni anchos fijos dispersos si se vuelve a ajustar este modulo.
+
+- Acciones secundarias:
+  - El boton visible `Eliminar` salio del cuerpo de la card.
+  - Las acciones viven ahora en un submenu por card con:
+    - `Editar`
+    - `Eliminar`
+  - Esto permite mantener la card pequena y dejar las acciones destructivas o administrativas fuera de la lectura principal.
+
+- Edicion de precios:
+  - El dialogo de precios ahora puede crear y editar ofertas usando el mismo contrato de `PreciosCollection`.
+  - En edicion, la oferta base heredada se conserva para mantener claro el historial comercial.
+  - Los admins normales solo deben editar precios dentro de su alcance; `carlosmbinf` conserva el alcance principal.
+
+- Regla de rendimiento:
+  - No agregar suscripciones por card ni por grupo de administrador.
+  - La pantalla debe seguir resolviendo creadores con una suscripcion agregada por IDs y `fields` minimos.
+  - Si se agregan nuevos datos visibles en las cards, primero extender las proyecciones existentes (`PRICE_FIELDS` / `USER_FIELDS`) de forma conservadora antes de abrir nuevas suscripciones.
+
+- Regla practica:
+  - En listados administrativos densos, primero compactar jerarquia visual y mover acciones a submenu antes de aumentar el tamano de la card.
+  - Si una card requiere detalles largos como comentarios o condiciones, mantenerlos detras de expansion con `LayoutAnimation` en vez de renderizarlos siempre.
+
+---
+
+Resumen tecnico - Player de peliculas con estados exclusivos de carga e interrupcion
+
+- Problema detectado:
+  - En `components/downloadVideos/PeliculaPlayer.native.jsx`, el overlay `Preparando reproduccion` seguia renderizandose por `!hasRenderedFrame` aunque ya existiera `playerError`.
+  - Eso provocaba que el card `Reproduccion interrumpida` apareciera encima de un spinner de carga, mezclando dos estados incompatibles.
+  - Ademas, `onError` de VLC podia mostrar interrupcion inmediatamente durante el arranque del stream, antes de darle margen real a la carga inicial.
+
+- Correccion aplicada:
+  - Se agrego un timeout minimo de `30s` antes de mostrar interrupcion si todavia no existe un frame renderizado.
+  - `onError` antes del primer frame ya no muestra el card inmediatamente; guarda el error pendiente y deja que el timeout decida.
+  - El overlay de carga ahora solo se muestra cuando no hay frame y no existe `playerError`.
+  - El card de interrupcion se centro usando `StyleSheet.absoluteFillObject`, padding horizontal y ancho maximo fijo para evitar que quede pegado al lado izquierdo en landscape.
+
+- Regla practica:
+  - En el reproductor, los estados visuales deben ser exclusivos:
+    - preparando/cargando
+    - reproduciendo
+    - reproduccion interrumpida
+  - No renderizar loading detras de un error.
+  - Si VLC reporta error antes de renderizar el primer frame, no declarar interrupcion antes de esperar al menos `PLAYBACK_INTERRUPTION_TIMEOUT_MS`.
+  - Limpiar cualquier timeout de interrupcion cuando el player empieza a reproducir, progresa con tiempo real, finaliza o se reintenta.
+
+---
+
+Resumen tecnico - Drawer de detalle de peliculas con apertura inmediata y gesto en toda la superficie
+
+- Problema detectado:
+  - En `components/downloadVideos/DownloadVideosHome.native.jsx`, el drawer de detalle se abria esperando a `Meteor.call('getPelicula', ...)` cuando no habia cache local.
+  - Aunque `selectedMovie` ya traia suficiente informacion del catalogo para pintar casi todo el drawer, se hacia `setMovieDetail(null)` y eso hacia percibir una carga innecesaria.
+  - Ademas, el drag del drawer solo estaba montado sobre la barrita superior (`drawerHandleZone`), no sobre el resto de la superficie.
+
+- Correccion aplicada:
+  - `openMovieDetail(...)` ahora siembra el drawer inmediatamente con `movie` cuando no existe detalle cacheado, y deja `getPelicula` completando el payload en background.
+  - Se agrego `activeDetailMovieIdRef` para evitar que una respuesta tardia de otra pelicula pise el drawer activo.
+  - El gesto del bottom drawer se movio al `Animated.View` completo.
+  - Para no romper el scroll interno cuando el drawer esta expandido, el `PanResponder` solo toma el gesto si:
+    - el drawer aun no esta expandido, o
+    - el scroll interno esta en top y el usuario arrastra hacia abajo.
+
+- Regla practica:
+  - Si el catalogo ya trae suficiente metadata para un detalle inicial, no dejar el drawer vacio esperando una segunda llamada al backend.
+  - Abrir primero con los datos ya visibles y completar despues el detalle profundo en background.
+  - Si un bottom drawer tiene scroll interno, el drag global debe coordinarse con el `contentOffset.y`; no basta con ampliar el area del gesto sin esa compuerta o se rompe la navegacion vertical.
+
+Notas adicionales - `openMovieDetail(...)` no debe mezclar apertura y fetch remoto
+
+- Ajuste funcional aplicado:
+  - En `components/downloadVideos/DownloadVideosHome.native.jsx`, el `onPress` del card ya no debe ejecutar `Meteor.call('getPelicula', ...)` como parte del mismo flujo de apertura.
+  - La apertura instantanea correcta es:
+    1. `setSelectedMovie(movie)`
+    2. sembrar `movieDetail` con `cachedMovieDetail || movie`
+    3. abrir el drawer de inmediato
+    4. pedir el detalle completo despues, en un `useEffect` disparado por `selectedMovie`
+
+- Criterio tecnico validado:
+  - Aunque React procese el `setState` antes del callback Meteor, meter el fetch remoto dentro del mismo `openMovieDetail(...)` sigue acoplando la percepcion de apertura a un trabajo innecesario del mismo gesto.
+  - Separar la apertura del fetch elimina esa sensacion de demora y deja el drawer listo con el snapshot del card desde el primer frame visible.
+
+- Regla practica:
+  - Si un drawer o bottom sheet ya tiene suficiente data local para una primera renderizacion util, nunca mezclar el fetch profundo con el handler de apertura.
+  - El fetch complementario debe vivir en un efecto posterior asociado al item seleccionado, no en el `onPress` original.

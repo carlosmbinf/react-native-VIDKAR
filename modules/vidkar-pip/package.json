@@ -1,0 +1,14 @@
+{
+  "name": "vidkar-pip",
+  "version": "1.0.0",
+  "description": "Modulo local Expo para coordinar Picture-in-Picture nativo del reproductor VIDKAR en Android.",
+  "license": "UNLICENSED",
+  "author": "VIDKAR",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "peerDependencies": {
+    "expo": "*",
+    "react-native": "*"
+  }
+}

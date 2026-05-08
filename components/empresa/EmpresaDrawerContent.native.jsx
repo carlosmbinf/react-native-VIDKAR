@@ -165,13 +165,8 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
     );
   };
 
-  return (
-    <View style={styles.safeArea}>
-      <DrawerBlurShell
-        elevation={4}
-        overlayColor={theme.dark ? "rgba(15, 23, 42, 0.72)" : "rgba(255, 255, 255, 0.58)"}
-        style={styles.panel}
-      >
+  const headerNode = (
+    <>
       <View style={styles.headerFrame}>
         <BlurView
           intensity={24}
@@ -231,122 +226,156 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
       </View>
 
       <Divider />
+    </>
+  );
 
-      <ScrollView
-        contentContainerStyle={[styles.content, isCompactDrawer ? styles.contentCompact : null]}
-        showsVerticalScrollIndicator={false}
-        style={styles.scrollArea}
-      >
-        <Text style={[styles.sectionLabel, { color: palette.muted }]} variant="labelMedium">
-          Operación
-        </Text>
+  const contentNode = (
+    <View style={[styles.content, isCompactDrawer ? styles.contentCompact : null]}>
+      <Text style={[styles.sectionLabel, { color: palette.muted }]} variant="labelMedium">
+        Operación
+      </Text>
 
-        <View style={[styles.metricsRow, isCompactDrawer ? styles.metricsRowCompact : null]}>
-          <DrawerMetric compact={isCompactDrawer} icon="storefront-outline" label="Tiendas" palette={palette} value={tiendasCount} />
-          <DrawerMetric compact={isCompactDrawer} icon="package-variant-closed" label="Productos" palette={palette} value={productosCount} />
-          <DrawerMetric compact={isCompactDrawer} icon="clipboard-list-outline" label="Estado" palette={palette} value="Activa" />
-        </View>
+      <View style={[styles.metricsRow, isCompactDrawer ? styles.metricsRowCompact : null]}>
+        <DrawerMetric compact={isCompactDrawer} icon="storefront-outline" label="Tiendas" palette={palette} value={tiendasCount} />
+        <DrawerMetric compact={isCompactDrawer} icon="package-variant-closed" label="Productos" palette={palette} value={productosCount} />
+        <DrawerMetric compact={isCompactDrawer} icon="clipboard-list-outline" label="Estado" palette={palette} value="Activa" />
+      </View>
 
-        <View style={[styles.actionGroup, isCompactDrawer ? styles.actionGroupCompact : null]}>
-          <DrawerAction
-            compact={isCompactDrawer}
-            description="Revisa, prepara y deja listos los pedidos antes de que el cadete los recoja."
-            icon="clipboard-list-outline"
-            label="Pedidos de preparación"
-            onPress={() => navigateTo("/(empresa)/PedidosPreparacion")}
-            palette={palette}
-          />
-          <DrawerAction
-            compact={isCompactDrawer}
-            description="Administra tus tiendas, su ubicación y el catálogo asociado a cada una."
-            icon="storefront-outline"
-            label="Mis tiendas"
-            onPress={() => navigateTo("/(empresa)/MisTiendas")}
-            palette={palette}
-          />
-        </View>
+      <View style={[styles.actionGroup, isCompactDrawer ? styles.actionGroupCompact : null]}>
+        <DrawerAction
+          compact={isCompactDrawer}
+          description="Revisa, prepara y deja listos los pedidos antes de que el cadete los recoja."
+          icon="clipboard-list-outline"
+          label="Pedidos de preparación"
+          onPress={() => navigateTo("/(empresa)/PedidosPreparacion")}
+          palette={palette}
+        />
+        <DrawerAction
+          compact={isCompactDrawer}
+          description="Administra tus tiendas, su ubicación y el catálogo asociado a cada una."
+          icon="storefront-outline"
+          label="Mis tiendas"
+          onPress={() => navigateTo("/(empresa)/MisTiendas")}
+          palette={palette}
+        />
+      </View>
 
-        <Text style={[styles.sectionLabel, { color: palette.muted }]} variant="labelMedium">
-          Cuenta
-        </Text>
+      <Text style={[styles.sectionLabel, { color: palette.muted }]} variant="labelMedium">
+        Cuenta
+      </Text>
 
-        <View style={[styles.actionGroup, isCompactDrawer ? styles.actionGroupCompact : null]}>
-          <DrawerAction
-            compact={isCompactDrawer}
-            description="Consulta tus datos de usuario dentro del entorno empresa."
-            icon="account-outline"
-            label="Mi usuario"
-            onPress={() => navigateTo("/(empresa)/User")}
-            palette={palette}
-          />
-          <DrawerAction
-            compact={isCompactDrawer}
-            description="Abre el historial de conversaciones desde el modo empresa."
-            icon="chat-processing-outline"
-            label="Mensajes"
-            onPress={() => navigateTo("/(empresa)/Mensaje")}
-            palette={palette}
-          />
-        </View>
+      <View style={[styles.actionGroup, isCompactDrawer ? styles.actionGroupCompact : null]}>
+        <DrawerAction
+          compact={isCompactDrawer}
+          description="Consulta tus datos de usuario dentro del entorno empresa."
+          icon="account-outline"
+          label="Mi usuario"
+          onPress={() => navigateTo("/(empresa)/User")}
+          palette={palette}
+        />
+        <DrawerAction
+          compact={isCompactDrawer}
+          description="Abre el historial de conversaciones desde el modo empresa."
+          icon="chat-processing-outline"
+          label="Mensajes"
+          onPress={() => navigateTo("/(empresa)/Mensaje")}
+          palette={palette}
+        />
+      </View>
 
-        <Surface
-          style={[
-            styles.tipCard,
-            isCompactDrawer ? styles.tipCardCompact : null,
-            {
-              backgroundColor: palette.cardSoft,
-              borderColor: palette.border,
-            },
-          ]}
-        >
-          <View style={[styles.tipIconWrap, { backgroundColor: palette.brandSoft }]}> 
-            <MaterialCommunityIcons color={palette.brandStrong} name="lightbulb-on-outline" size={20} />
-          </View>
-          <View style={styles.tipCopy}>
-            <Text style={{ color: palette.title }} variant="titleSmall">
-              Mantén tu operación ordenada
-            </Text>
-            <Text style={{ color: palette.copy }} variant="bodySmall">
-              Mantén bien descritas tus tiendas y productos para que el flujo de preparación y entrega sea más claro para el cliente y para el cadete.
-            </Text>
-          </View>
-        </Surface>
-      </ScrollView>
-
-      <View
+      <Surface
         style={[
-          styles.footer,
+          styles.tipCard,
+          isCompactDrawer ? styles.tipCardCompact : null,
           {
-            backgroundColor: "transparent",
-            paddingBottom: Math.max(insets.bottom, isLandscapeDrawer ? 4 : 8),
+            backgroundColor: palette.cardSoft,
+            borderColor: palette.border,
           },
         ]}
       >
-        <Divider />
-        <View style={[styles.footerActions, isLandscapeDrawer ? styles.footerActionsLandscape : null]}>
-          <Pressable
-            onPress={handleExitEmpresaMode}
-            style={({ pressed }) => [
-              styles.modeExitButton,
-              isLandscapeDrawer ? styles.modeExitButtonLandscape : null,
-              { backgroundColor: palette.cardSoft },
-              pressed ? styles.modeExitButtonPressed : null,
-            ]}
-          >
-            <MaterialCommunityIcons color={palette.brandStrong} name="exit-run" size={isLandscapeDrawer ? 17 : 19} />
-            <Text
-              style={[
-                styles.modeExitButtonLabel,
-                isLandscapeDrawer ? styles.modeExitButtonLabelLandscape : null,
-                { color: palette.brandStrong },
-              ]}
-              variant="labelLarge"
-            >
-              Salir del modo empresa
-            </Text>
-          </Pressable>
+        <View style={[styles.tipIconWrap, { backgroundColor: palette.brandSoft }]}> 
+          <MaterialCommunityIcons color={palette.brandStrong} name="lightbulb-on-outline" size={20} />
         </View>
+        <View style={styles.tipCopy}>
+          <Text style={{ color: palette.title }} variant="titleSmall">
+            Mantén tu operación ordenada
+          </Text>
+          <Text style={{ color: palette.copy }} variant="bodySmall">
+            Mantén bien descritas tus tiendas y productos para que el flujo de preparación y entrega sea más claro para el cliente y para el cadete.
+          </Text>
+        </View>
+      </Surface>
+    </View>
+  );
+
+  const footerNode = (
+    <View
+      style={[
+        styles.footer,
+        isLandscapeDrawer ? styles.footerScrollable : null,
+        {
+          backgroundColor: "transparent",
+          paddingBottom: Math.max(insets.bottom, isLandscapeDrawer ? 4 : 8),
+        },
+      ]}
+    >
+      <Divider />
+      <View style={[styles.footerActions, isLandscapeDrawer ? styles.footerActionsLandscape : null]}>
+        <Pressable
+          onPress={handleExitEmpresaMode}
+          style={({ pressed }) => [
+            styles.modeExitButton,
+            isLandscapeDrawer ? styles.modeExitButtonLandscape : null,
+            { backgroundColor: palette.cardSoft },
+            pressed ? styles.modeExitButtonPressed : null,
+          ]}
+        >
+          <MaterialCommunityIcons color={palette.brandStrong} name="exit-run" size={isLandscapeDrawer ? 17 : 19} />
+          <Text
+            style={[
+              styles.modeExitButtonLabel,
+              isLandscapeDrawer ? styles.modeExitButtonLabelLandscape : null,
+              { color: palette.brandStrong },
+            ]}
+            variant="labelLarge"
+          >
+            Salir del modo empresa
+          </Text>
+        </Pressable>
       </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.safeArea}>
+      <DrawerBlurShell
+        elevation={4}
+        overlayColor={theme.dark ? "rgba(15, 23, 42, 0.72)" : "rgba(255, 255, 255, 0.58)"}
+        style={styles.panel}
+      >
+        {isLandscapeDrawer ? (
+          <ScrollView
+            contentContainerStyle={styles.drawerScrollableContent}
+            showsVerticalScrollIndicator={false}
+            style={styles.scrollArea}
+          >
+            {headerNode}
+            {contentNode}
+            {footerNode}
+          </ScrollView>
+        ) : (
+          <>
+            {headerNode}
+            <ScrollView
+              contentContainerStyle={[styles.content, isCompactDrawer ? styles.contentCompact : null]}
+              showsVerticalScrollIndicator={false}
+              style={styles.scrollArea}
+            >
+              {contentNode}
+            </ScrollView>
+            {footerNode}
+          </>
+        )}
       </DrawerBlurShell>
     </View>
   );
@@ -406,8 +435,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
+  drawerScrollableContent: {
+    flexGrow: 1,
+  },
   footer: {
     marginTop: "auto",
+  },
+  footerScrollable: {
+    marginTop: 0,
   },
   footerActions: {
     paddingBottom: 0,

@@ -67,29 +67,19 @@ const sanitizeWatchPayload = (payload) => {
   );
 
   if (droppedPaths.length > 0) {
-    console.log(
-      "[WatchConnectivity] sanitized payload",
-      JSON.stringify({
-        droppedCount: droppedPaths.length,
-        droppedPaths: droppedPaths.slice(0, 12),
-      }),
-    );
+    // console.log(
+    //   "[WatchConnectivity] sanitized payload",
+    //   JSON.stringify({
+    //     droppedCount: droppedPaths.length,
+    //     droppedPaths: droppedPaths.slice(0, 12),
+    //   }),
+    // );
   }
 
   return sanitizedPayload && typeof sanitizedPayload === "object"
     ? sanitizedPayload
     : {};
 };
-
-const getWatchPayloadDebugInfo = (payload) => ({
-  currentUserId: payload?.currentUser?.id ?? null,
-  currentUsername: payload?.currentUser?.username ?? null,
-  keys: payload && typeof payload === "object" ? Object.keys(payload) : [],
-  pendingApprovalsCount: Array.isArray(payload?.pendingApprovals)
-    ? payload.pendingApprovals.length
-    : 0,
-  usersCount: Array.isArray(payload?.users) ? payload.users.length : 0,
-});
 
 const hasWatchBridge = Boolean(
   Platform.OS === "ios" &&
@@ -104,21 +94,21 @@ const hasWatchReplyBridge = Boolean(
 
 const pushContextToWatch = async (payload) => {
   if (!hasWatchBridge || !payload) {
-    console.log(
-      "[WatchConnectivity] pushContextToWatch skipped",
-      JSON.stringify({ hasPayload: Boolean(payload), hasWatchBridge }),
-    );
+    // console.log(
+    //   "[WatchConnectivity] pushContextToWatch skipped",
+    //   JSON.stringify({ hasPayload: Boolean(payload), hasWatchBridge }),
+    // );
     return { supported: false };
   }
 
   await NativeVidkarWatchBridge.activate();
-  console.log(
-    "[WatchConnectivity] updateUserContext",
-    JSON.stringify(getWatchPayloadDebugInfo(payload)),
-  );
+  // console.log(
+  //   "[WatchConnectivity] updateUserContext",
+  //   JSON.stringify(getWatchPayloadDebugInfo(payload)),
+  // );
   const sanitizedPayload = sanitizeWatchPayload(payload);
   const result = await NativeVidkarWatchBridge.updateUserContext(sanitizedPayload);
-  console.log("[WatchConnectivity] updateUserContext result", JSON.stringify(result));
+  // console.log("[WatchConnectivity] updateUserContext result", JSON.stringify(result));
   return result;
 };
 
@@ -132,10 +122,10 @@ const getPayloadFingerprint = (payload) => {
 
 const pushLiveContextToWatch = async (payload) => {
   if (!hasWatchBridge || !payload) {
-    console.log(
-      "[WatchConnectivity] pushLiveContextToWatch skipped",
-      JSON.stringify({ hasPayload: Boolean(payload), hasWatchBridge }),
-    );
+    // console.log(
+    //   "[WatchConnectivity] pushLiveContextToWatch skipped",
+    //   JSON.stringify({ hasPayload: Boolean(payload), hasWatchBridge }),
+    // );
     return { liveSent: false, supported: false };
   }
 
@@ -143,13 +133,13 @@ const pushLiveContextToWatch = async (payload) => {
     await NativeVidkarWatchBridge.activate();
     const currentStatus = await NativeVidkarWatchBridge.status();
 
-    console.log(
-      "[WatchConnectivity] live status before send",
-      JSON.stringify({
-        ...currentStatus,
-        payload: getWatchPayloadDebugInfo(payload),
-      }),
-    );
+    // console.log(
+    //   "[WatchConnectivity] live status before send",
+    //   JSON.stringify({
+    //     ...currentStatus,
+    //     payload: getWatchPayloadDebugInfo(payload),
+    //   }),
+    // );
 
     if (!currentStatus?.reachable) {
       return { ...currentStatus, liveSent: false };
@@ -162,14 +152,14 @@ const pushLiveContextToWatch = async (payload) => {
       user: sanitizedPayload,
     });
 
-    console.log(
-      "[WatchConnectivity] live userSnapshot sent",
-      JSON.stringify(getWatchPayloadDebugInfo(payload)),
-    );
+    // console.log(
+    //   "[WatchConnectivity] live userSnapshot sent",
+    //   JSON.stringify(getWatchPayloadDebugInfo(payload)),
+    // );
 
     return { ...currentStatus, liveSent: true };
   } catch (error) {
-    console.warn("[WatchConnectivity] live userSnapshot failed", error);
+    // console.warn("[WatchConnectivity] live userSnapshot failed", error);
     return {
       liveError:
         error instanceof Error ? error.message : String(error ?? "unknown_error"),
@@ -276,17 +266,17 @@ export const syncWatchDashboard = async (payload) => {
   const sanitizedPayload = sanitizeWatchPayload(payload);
   const fingerprint = getPayloadFingerprint(sanitizedPayload);
   if (fingerprint && fingerprint === lastDashboardFingerprint) {
-    console.log(
-      "[WatchConnectivity] syncWatchDashboard deduped",
-      JSON.stringify(getWatchPayloadDebugInfo(payload)),
-    );
+    // console.log(
+    //   "[WatchConnectivity] syncWatchDashboard deduped",
+    //   JSON.stringify(getWatchPayloadDebugInfo(payload)),
+    // );
     return { deduped: true, supported: hasWatchBridge };
   }
 
-  console.log(
-    "[WatchConnectivity] syncWatchDashboard start",
-    JSON.stringify(getWatchPayloadDebugInfo(sanitizedPayload)),
-  );
+  // console.log(
+  //   "[WatchConnectivity] syncWatchDashboard start",
+  //   JSON.stringify(getWatchPayloadDebugInfo(sanitizedPayload)),
+  // );
 
   const contextResult = await pushContextToWatch(sanitizedPayload);
   const liveResult = await pushLiveContextToWatch(sanitizedPayload);
@@ -307,17 +297,17 @@ export const syncWatchDashboard = async (payload) => {
 
 export const clearWatchUserSnapshot = async () => {
   if (!hasWatchBridge) {
-    console.log("[WatchConnectivity] clear skipped: bridge unavailable");
+    // console.log("[WatchConnectivity] clear skipped: bridge unavailable");
     return { supported: false };
   }
 
   lastDashboardFingerprint = null;
   await NativeVidkarWatchBridge.activate();
-  console.log("[WatchConnectivity] clearUserContext start");
+  // console.log("[WatchConnectivity] clearUserContext start");
   const contextResult = await NativeVidkarWatchBridge.clearUserContext();
-  console.log("[WatchConnectivity] clearUserContext result", JSON.stringify(contextResult));
+  // console.log("[WatchConnectivity] clearUserContext result", JSON.stringify(contextResult));
   const liveResult = await pushLiveContextToWatch({});
-  console.log("[WatchConnectivity] clear live result", JSON.stringify(liveResult));
+  // console.log("[WatchConnectivity] clear live result", JSON.stringify(liveResult));
 
   return {
     ...contextResult,
@@ -373,8 +363,8 @@ export const subscribeToWatchMessages = (listener) => {
   return () => {
     try {
       subscription?.remove?.();
-    } catch (error) {
-      console.warn("[WatchConnectivity] No se pudo cerrar el listener del Watch:", error);
+    } catch (_error) {
+      // console.warn("[WatchConnectivity] No se pudo cerrar el listener del Watch:", error);
     }
   };
 };

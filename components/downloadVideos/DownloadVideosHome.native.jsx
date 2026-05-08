@@ -182,7 +182,7 @@ const getPalette = (theme) => {
   };
 };
 
-const HeroBackdrop = ({ movie, palette, children }) => {
+const HeroBackdrop = ({ movie, palette, children, contentTopInset = 0 }) => {
   const imageUrl = getMovieImageUrl(movie?._id, "hig");
 
   return (
@@ -192,7 +192,7 @@ const HeroBackdrop = ({ movie, palette, children }) => {
         locations={[0, 0.58, 1]}
         style={StyleSheet.absoluteFill}
       />
-      <View style={styles.heroContent}>{children}</View>
+      <View style={[styles.heroContent, { paddingTop: contentTopInset }]}>{children}</View>
     </ImageBackground>
   );
 };
@@ -319,14 +319,15 @@ const HeroMovieFilters = ({
             selected={selected}
             showSelectedCheck={false}
             icon={selected ? "movie-open" : undefined}
+            selectedColor={selected ? palette.onAccent : "#ffffff"}
             style={[
               styles.heroGenreChip,
               {
-                backgroundColor: selected ? palette.accent : "rgba(255,255,255,0.14)",
-                borderColor: selected ? palette.accent : "rgba(255,255,255,0.18)",
+                backgroundColor: selected ? palette.accent : "rgba(255,255,255,0.28)",
+                borderColor: selected ? palette.accent : "rgba(255,255,255,0.44)",
               },
             ]}
-            textStyle={{ color: selected ? palette.onAccent : "rgba(255,255,255,0.82)" }}
+            textStyle={[styles.heroGenreChipText, { color: selected ? palette.onAccent : "#ffffff" }]}
             onPress={() => setSelectedGenre(item)}
           >
             {item}
@@ -346,13 +347,18 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
   const streamUrl = resolveMovieStreamUrl(resolvedMovie);
   const imageUrl = getMovieImageUrl(resolvedMovie?._id, "hig");
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
+  const { height, width } = useWindowDimensions();
+  const drawerMaxWidth = Math.min(width, 760);
+  const isCenteredDrawer = width > 820;
+  const drawerSideInset = isCenteredDrawer ? Math.max((width - drawerMaxWidth) / 2, 0) : 0;
   const sheetHeight = Math.max(420, height - Math.max(insets.top, 12) - 18);
   const collapsedHeight = Math.min(370, Math.max(310, height * 0.42));
   const collapsedTranslateY = Math.max(sheetHeight - collapsedHeight, 0);
   const hiddenTranslateY = sheetHeight + 48;
   const translateY = React.useRef(new Animated.Value(hiddenTranslateY)).current;
   const currentYRef = React.useRef(hiddenTranslateY);
+  const gestureStartYRef = React.useRef(hiddenTranslateY);
+  const scrollOffsetRef = React.useRef(0);
   const [expanded, setExpanded] = React.useState(false);
 
   const snapTo = React.useCallback(
@@ -390,14 +396,20 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
   const panResponder = React.useMemo(
     () =>
       PanResponder.create({
+        onPanResponderGrant: () => {
+          gestureStartYRef.current = currentYRef.current;
+        },
         onMoveShouldSetPanResponder: (_event, gestureState) =>
-          Math.abs(gestureState.dy) > 8 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+          Math.abs(gestureState.dy) > 8 &&
+          Math.abs(gestureState.dy) > Math.abs(gestureState.dx) &&
+          (!expanded || (scrollOffsetRef.current <= 0 && gestureState.dy > 0)),
+        onPanResponderTerminationRequest: () => false,
         onPanResponderMove: (_event, gestureState) => {
-          const nextY = Math.min(hiddenTranslateY, Math.max(0, currentYRef.current + gestureState.dy));
+          const nextY = Math.min(hiddenTranslateY, Math.max(0, gestureStartYRef.current + gestureState.dy));
           translateY.setValue(nextY);
         },
         onPanResponderRelease: (_event, gestureState) => {
-          const nextY = Math.min(hiddenTranslateY, Math.max(0, currentYRef.current + gestureState.dy));
+          const nextY = Math.min(hiddenTranslateY, Math.max(0, gestureStartYRef.current + gestureState.dy));
 
           if (gestureState.vy > 1.1 || nextY > collapsedTranslateY + 120) {
             if (currentYRef.current <= 24) {
@@ -417,7 +429,7 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
           snapTo(collapsedTranslateY);
         },
       }),
-    [collapsedTranslateY, dismissWithAnimation, hiddenTranslateY, snapTo, translateY],
+    [collapsedTranslateY, dismissWithAnimation, expanded, hiddenTranslateY, snapTo, translateY],
   );
 
   if (!visible || !resolvedMovie) {
@@ -428,16 +440,20 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
     <Portal>
       <Pressable style={styles.drawerBackdrop} onPress={dismissWithAnimation} />
       <Animated.View
+        {...panResponder.panHandlers}
         style={[
           styles.bottomDrawer,
           {
             height: sheetHeight,
+            left: isCenteredDrawer ? drawerSideInset : 0,
+            right: isCenteredDrawer ? undefined : 0,
+            width: isCenteredDrawer ? drawerMaxWidth : undefined,
             backgroundColor: palette.surfaceElevated,
             transform: [{ translateY }],
           },
         ]}
       >
-        <View style={styles.drawerHandleZone} {...panResponder.panHandlers}>
+        <View style={styles.drawerHandleZone}>
           <View style={[styles.drawerHandle, { backgroundColor: palette.border }]} />
           <View style={styles.drawerHandleTextRow}>
             <Text variant="labelMedium" style={[styles.drawerHint, { color: palette.subtle }]}>
@@ -450,6 +466,10 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
         <ScrollView
           scrollEnabled={expanded}
           showsVerticalScrollIndicator={expanded}
+          scrollEventThrottle={16}
+          onScroll={(event) => {
+            scrollOffsetRef.current = Math.max(event.nativeEvent.contentOffset.y || 0, 0);
+          }}
           contentContainerStyle={[styles.drawerScrollContent, { paddingBottom: Math.max(insets.bottom, 18) + 18 }]}
         >
           <ImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.drawerHero} imageStyle={styles.drawerHeroImage}>
@@ -528,6 +548,7 @@ const DownloadVideosHome = () => {
   const [movieDetail, setMovieDetail] = React.useState(null);
   const [detailLoading, setDetailLoading] = React.useState(false);
   const movieDetailsCacheRef = React.useRef(new Map());
+  const activeDetailMovieIdRef = React.useRef(null);
 
   const baseSelector = React.useMemo(
     () => ({
@@ -620,6 +641,7 @@ const DownloadVideosHome = () => {
 
   const openMovieDetail = React.useCallback((movie) => {
     setSelectedMovie(movie);
+    activeDetailMovieIdRef.current = movie._id;
     const cachedMovieDetail = movieDetailsCacheRef.current.get(movie._id);
 
     if (cachedMovieDetail) {
@@ -628,25 +650,55 @@ const DownloadVideosHome = () => {
       return;
     }
 
-    setMovieDetail(null);
-    setDetailLoading(true);
-
-    Meteor.call("getPelicula", movie._id, (...args) => {
-      const { error, result } = normalizeMeteorCallback(args);
-      setDetailLoading(false);
-
-      if (error) {
-        Alert.alert("No se pudo cargar", error.reason || error.message || "No fue posible obtener los detalles de la pelicula.");
-        return;
-      }
-
-      const resolvedResult = result || movie;
-      movieDetailsCacheRef.current.set(movie._id, resolvedResult);
-      setMovieDetail(resolvedResult);
-    });
+    setMovieDetail(movie);
+    setDetailLoading(false);
   }, []);
 
+  React.useEffect(() => {
+    if (!selectedMovie?._id) {
+      return undefined;
+    }
+
+    const activeMovieId = selectedMovie._id;
+    const cachedMovieDetail = movieDetailsCacheRef.current.get(activeMovieId);
+
+    if (cachedMovieDetail) {
+      setMovieDetail(cachedMovieDetail);
+      setDetailLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setDetailLoading(true);
+
+    const requestId = requestAnimationFrame(() => {
+      Meteor.call("getPelicula", activeMovieId, (...args) => {
+        if (cancelled || activeDetailMovieIdRef.current !== activeMovieId) {
+          return;
+        }
+
+        const { error, result } = normalizeMeteorCallback(args);
+        setDetailLoading(false);
+
+        if (error) {
+          Alert.alert("No se pudo cargar", error.reason || error.message || "No fue posible obtener los detalles de la pelicula.");
+          return;
+        }
+
+        const resolvedResult = result || selectedMovie;
+        movieDetailsCacheRef.current.set(activeMovieId, resolvedResult);
+        setMovieDetail(resolvedResult);
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(requestId);
+    };
+  }, [selectedMovie]);
+
   const closeMovieDetail = React.useCallback(() => {
+    activeDetailMovieIdRef.current = null;
     setSelectedMovie(null);
     setMovieDetail(null);
     setDetailLoading(false);
@@ -727,13 +779,10 @@ const DownloadVideosHome = () => {
       />
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: headerInset },
-        ]}
+        contentContainerStyle={styles.scrollContent}
       >
         {featuredMovie ? (
-          <HeroBackdrop movie={featuredMovie} palette={palette}>
+          <HeroBackdrop movie={featuredMovie} palette={palette} contentTopInset={headerInset + 20}>
             <View style={styles.heroMetaBlock}>
               <Text variant="labelLarge" style={[styles.heroEyebrow, { color: "#ffb4ba" }]}>VIDKAR CINEMA</Text>
               <HeroMovieFilters
@@ -830,8 +879,8 @@ const styles = StyleSheet.create({
     maxWidth: 560,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
-    backgroundColor: "rgba(2,6,23,0.58)",
+    borderColor: "rgba(255,255,255,0.34)",
+    backgroundColor: "rgba(2,6,23,0.72)",
     overflow: "hidden",
   },
   heroSearchInputRow: {
@@ -856,6 +905,11 @@ const styles = StyleSheet.create({
   heroGenreChip: {
     borderRadius: 999,
     borderWidth: 1,
+    minHeight: 36,
+  },
+  heroGenreChipText: {
+    fontSize: 15,
+    fontWeight: "900",
   },
   heroTitle: {
     color: "#fff",
@@ -1032,8 +1086,6 @@ const styles = StyleSheet.create({
   },
   bottomDrawer: {
     position: "absolute",
-    left: 0,
-    right: 0,
     bottom: 0,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,

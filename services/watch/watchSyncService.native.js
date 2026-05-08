@@ -147,18 +147,6 @@ const buildRechargeBalanceSnapshot = (data) => {
   };
 };
 
-const getWatchPayloadDebugInfo = (payload) => ({
-  currentUserId: payload?.currentUser?.id ?? null,
-  currentUsername: payload?.currentUser?.username ?? null,
-  debtorsCount: Array.isArray(payload?.debtors) ? payload.debtors.length : 0,
-  pendingApprovalsCount: Array.isArray(payload?.pendingApprovals)
-    ? payload.pendingApprovals.length
-    : 0,
-  rechargeBalanceAmount: payload?.rechargeBalance?.amount ?? null,
-  syncedAt: payload?.syncedAt ?? null,
-  usersCount: Array.isArray(payload?.users) ? payload.users.length : 0,
-});
-
 const setRechargeBalance = (nextRechargeBalance) => {
   rechargeBalance = nextRechargeBalance;
   rechargeBalanceDependency.changed();
@@ -185,10 +173,10 @@ const fetchRechargeBalance = () => {
     const { error, success } = normalizeMeteorMethodCallback(firstArg, secondArg);
 
     if (error) {
-      console.warn(
-        "[WatchConnectivity] No se pudo consultar el saldo de recargas:",
-        error,
-      );
+      // console.warn(
+      //   "[WatchConnectivity] No se pudo consultar el saldo de recargas:",
+      //   error,
+      // );
       return;
     }
 
@@ -224,13 +212,13 @@ const syncRechargeBalancePolling = ({ ready, user, userId }) => {
 const clearWatchSnapshot = (reason) => {
   clearWatchUserSnapshot()
     .then((result) => {
-      console.log(
-        "[WatchSyncService] clear result",
-        JSON.stringify({ reason, result }),
-      );
+      // console.log(
+      //   "[WatchSyncService] clear result",
+      //   JSON.stringify({ reason, result }),
+      // );
     })
     .catch((error) => {
-      console.warn("[WatchConnectivity] No se pudo limpiar el usuario del Watch:", error);
+      // console.warn("[WatchConnectivity] No se pudo limpiar el usuario del Watch:", error);
     });
 };
 
@@ -238,10 +226,10 @@ const syncIdentityChange = (userId) => {
   const previous = previousUserId;
   previousUserId = userId;
 
-  console.log(
-    "[WatchSyncService] userId change check",
-    JSON.stringify({ previousUserId: previous, userId }),
-  );
+  // console.log(
+  //   "[WatchSyncService] userId change check",
+  //   JSON.stringify({ previousUserId: previous, userId }),
+  // );
 
   if (previous === undefined) {
     return;
@@ -252,10 +240,10 @@ const syncIdentityChange = (userId) => {
   }
 
   if (previous !== userId) {
-    console.log(
-      "[WatchSyncService] clearing watch snapshot because userId changed",
-      JSON.stringify({ previousUserId: previous, userId }),
-    );
+    // console.log(
+    //   "[WatchSyncService] clearing watch snapshot because userId changed",
+    //   JSON.stringify({ previousUserId: previous, userId }),
+    // );
     setRechargeBalance(null);
     clearWatchSnapshot("userId_changed");
   }
@@ -268,10 +256,10 @@ const syncImmediateUserSnapshot = ({ ready, user, userId }) => {
   }
 
   if (!user) {
-    console.log(
-      "[WatchSyncService] immediate snapshot waiting",
-      JSON.stringify({ hasUser: Boolean(user), ready, userId }),
-    );
+    // console.log(
+    //   "[WatchSyncService] immediate snapshot waiting",
+    //   JSON.stringify({ hasUser: Boolean(user), ready, userId }),
+    // );
     return;
   }
 
@@ -287,23 +275,23 @@ const syncImmediateUserSnapshot = ({ ready, user, userId }) => {
     users: [user],
   });
 
-  console.log(
-    "[WatchSyncService] syncing immediate user snapshot",
-    JSON.stringify({
-      ...getWatchPayloadDebugInfo(immediatePayload),
-      rootSubscriptionReady: ready,
-    }),
-  );
+  // console.log(
+  //   "[WatchSyncService] syncing immediate user snapshot",
+  //   JSON.stringify({
+  //     ...getWatchPayloadDebugInfo(immediatePayload),
+  //     rootSubscriptionReady: ready,
+  //   }),
+  // );
 
   syncWatchDashboard(immediatePayload)
     .then((result) => {
-      console.log("[WatchSyncService] immediate snapshot result", JSON.stringify(result));
+      // console.log("[WatchSyncService] immediate snapshot result", JSON.stringify(result));
     })
     .catch((error) => {
-      console.warn(
-        "[WatchConnectivity] No se pudo sincronizar el snapshot inmediato con el Watch:",
-        error,
-      );
+      // console.warn(
+      //   "[WatchConnectivity] No se pudo sincronizar el snapshot inmediato con el Watch:",
+      //   error,
+      // );
     });
 };
 
@@ -484,7 +472,7 @@ const sendReplyToWatch = (replyId, response) => {
   }
 
   replyToWatchMessage(replyId, response).catch((error) => {
-    console.warn("[WatchConnectivity] No se pudo responder al Watch:", error);
+    // console.warn("[WatchConnectivity] No se pudo responder al Watch:", error);
   });
 };
 
@@ -538,7 +526,7 @@ const handleWatchMessage = (message) => {
           error: failureCode,
           message: getWatchErrorMessage(error, failureMessage),
         });
-        console.warn(`[WatchConnectivity] ${failureMessage}`, error);
+        // console.warn(`[WatchConnectivity] ${failureMessage}`, error);
         return;
       }
 
@@ -581,10 +569,10 @@ const handleWatchMessage = (message) => {
 
     const imageUrl = buildEvidenceImageUrl(evidenceId);
 
-    console.log(
-      "[WatchConnectivity] Evidence preview request:",
-      JSON.stringify({ evidenceId, imageUrl }),
-    );
+    // console.log(
+    //   "[WatchConnectivity] Evidence preview request:",
+    //   JSON.stringify({ evidenceId, imageUrl }),
+    // );
 
     if (!imageUrl) {
       sendWatchMessage({
@@ -610,10 +598,10 @@ const handleWatchMessage = (message) => {
           error: "evidence_preview_send_failed",
           message: getWatchErrorMessage(error, "No se pudo enviar la evidencia al Watch."),
         });
-        console.warn(
-          "[WatchConnectivity] No se pudo enviar la URL de evidencia al Watch:",
-          error,
-        );
+        // console.warn(
+        //   "[WatchConnectivity] No se pudo enviar la URL de evidencia al Watch:",
+        //   error,
+        // );
       });
     return;
   }
@@ -634,7 +622,7 @@ const handleWatchMessage = (message) => {
             error: "approve_sale_failed",
             message: getWatchErrorMessage(error, "No se pudo aprobar la venta."),
           });
-          console.warn("[WatchConnectivity] No se pudo aprobar la venta desde el Watch:", error);
+          // console.warn("[WatchConnectivity] No se pudo aprobar la venta desde el Watch:", error);
           return;
         }
 
@@ -661,7 +649,7 @@ const handleWatchMessage = (message) => {
           error: "reject_sale_failed",
           message: getWatchErrorMessage(error, "No se pudo rechazar la venta."),
         });
-        console.warn("[WatchConnectivity] No se pudo rechazar la venta desde el Watch:", error);
+        // console.warn("[WatchConnectivity] No se pudo rechazar la venta desde el Watch:", error);
         return;
       }
 
@@ -709,10 +697,10 @@ const handleWatchMessage = (message) => {
         error: "toggle_failed",
         message: getWatchErrorMessage(error, "No se pudo aplicar el cambio."),
       });
-      console.warn(
-        "[WatchConnectivity] No se pudo aplicar el cambio solicitado desde el Watch:",
-        error,
-      );
+      // console.warn(
+      //   "[WatchConnectivity] No se pudo aplicar el cambio solicitado desde el Watch:",
+      //   error,
+      // );
       return;
     }
 
@@ -746,21 +734,21 @@ const runDashboardAutorun = () => {
       userId,
     });
 
-    console.log(
-      "[WatchSyncService] sync effect",
-      JSON.stringify({
-        hasPayload: Boolean(watchPayload),
-        ready,
-        userId,
-        username: user?.username ?? null,
-        watchReady,
-      }),
-    );
+    // console.log(
+    //   "[WatchSyncService] sync effect",
+    //   JSON.stringify({
+    //     hasPayload: Boolean(watchPayload),
+    //     ready,
+    //     userId,
+    //     username: user?.username ?? null,
+    //     watchReady,
+    //   }),
+    // );
 
     if (!userId) {
       if (!emptySessionAlreadyCleared) {
         emptySessionAlreadyCleared = true;
-        console.log("[WatchSyncService] clearing watch snapshot because session is empty");
+        // console.log("[WatchSyncService] clearing watch snapshot because session is empty");
         clearWatchSnapshot("empty_session");
       }
       return;
@@ -769,29 +757,29 @@ const runDashboardAutorun = () => {
     emptySessionAlreadyCleared = false;
 
     if (!ready || !user || !watchReady || !watchPayload) {
-      console.log(
-        "[WatchSyncService] sync skipped while waiting",
-        JSON.stringify({
-          hasPayload: Boolean(watchPayload),
-          hasUser: Boolean(user),
-          ready,
-          userId,
-          watchReady,
-        }),
-      );
+      // console.log(
+      //   "[WatchSyncService] sync skipped while waiting",
+      //   JSON.stringify({
+      //     hasPayload: Boolean(watchPayload),
+      //     hasUser: Boolean(user),
+      //     ready,
+      //     userId,
+      //     watchReady,
+      //   }),
+      // );
       return;
     }
 
-    console.log(
-      "[WatchSyncService] syncing payload",
-      JSON.stringify(getWatchPayloadDebugInfo(watchPayload)),
-    );
+    // console.log(
+    //   "[WatchSyncService] syncing payload",
+    //   JSON.stringify(getWatchPayloadDebugInfo(watchPayload)),
+    // );
     syncWatchDashboard(watchPayload)
       .then((result) => {
-        console.log("[WatchSyncService] sync result", JSON.stringify(result));
+        // console.log("[WatchSyncService] sync result", JSON.stringify(result));
       })
       .catch((error) => {
-        console.warn("[WatchConnectivity] No se pudo sincronizar el dashboard con el Watch:", error);
+        // console.warn("[WatchConnectivity] No se pudo sincronizar el dashboard con el Watch:", error);
       });
   });
 };
@@ -806,7 +794,7 @@ export const startWatchConnectivityService = () => {
   }
 
   serviceStarted = true;
-  console.log("[WatchSyncService] starting WatchConnectivity service");
+  // console.log("[WatchSyncService] starting WatchConnectivity service");
   messageCleanup = subscribeToWatchMessages(handleWatchMessage);
   runDashboardAutorun();
 
@@ -818,7 +806,7 @@ export const stopWatchConnectivityService = () => {
     return;
   }
 
-  console.log("[WatchSyncService] stopping WatchConnectivity service");
+  // console.log("[WatchSyncService] stopping WatchConnectivity service");
   serviceStarted = false;
   stopRechargeBalancePolling();
   messageCleanup?.();

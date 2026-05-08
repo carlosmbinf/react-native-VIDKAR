@@ -1,6 +1,6 @@
 import { BlurView } from "expo-blur";
 import { useMemo } from "react";
-import { ImageBackground, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { ImageBackground, Platform, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import {
     Avatar,
     Button,
@@ -104,6 +104,11 @@ const buildAdminItems = () => [
     href: "/(normal)/NotificacionUsersConnectionVPN",
   },
   {
+    label: "Precios",
+    icon: "tag-multiple-outline",
+    href: "/(normal)/Precios",
+  },
+  {
     label: "Ventas",
     icon: "cash-register",
     href: "/(normal)/Ventas",
@@ -161,6 +166,8 @@ const DrawerOptionsAlls = ({
   onToggleModoCadete,
 }) => {
   const insets = useSafeAreaInsets();
+  const { height, width } = useWindowDimensions();
+  const isLandscapeDrawer = width > height;
   const isAdmin =
     user?.profile?.role === "admin" || user?.username === "carlosmbinf";
   const isSuperAdmin = user?.username === "carlosmbinf";
@@ -213,144 +220,168 @@ const DrawerOptionsAlls = ({
     return result.filter((section) => section.items.length > 0);
   }, [isAdmin, isSuperAdmin, user]);
 
+  const headerNode = (
+    <ImageBackground
+      source={require("../files/space-bg-shadowcodex.jpg")}
+      resizeMode="cover"
+      style={[
+        styles.hero,
+        isLandscapeDrawer ? styles.heroLandscape : null,
+        { minHeight: Math.max(isLandscapeDrawer ? 208 : 252, (isLandscapeDrawer ? 188 : 232) + insets.top) },
+      ]}
+      imageStyle={styles.heroImage}
+    >
+      <BlurView
+        intensity={24}
+        tint="dark"
+        style={StyleSheet.absoluteFill}
+        experimentalBlurMethod={
+          Platform.OS === "android" ? "dimezisBlurView" : undefined
+        }
+        renderToHardwareTextureAndroid={true}
+      />
+      <View
+        style={[
+          styles.heroOverlay,
+          isLandscapeDrawer ? styles.heroOverlayLandscape : null,
+          {
+            paddingTop: Math.max(insets.top, 14),
+            paddingBottom: isLandscapeDrawer ? 18 : 26,
+          },
+        ]}
+      >
+        <View style={styles.heroActions}>
+          <Text variant="labelLarge" style={styles.heroCaption}>
+            VIDKAR
+          </Text>
+          <IconButton icon="close" iconColor="#fff" onPress={onClose} />
+        </View>
+        <Avatar.Text
+          size={isLandscapeDrawer ? 62 : 72}
+          label={getUserInitials(user)}
+          style={styles.avatar}
+          labelStyle={styles.avatarLabel}
+        />
+        <Text
+          variant="titleLarge"
+          style={styles.username}
+          numberOfLines={1}
+        >
+          {user?.username || "Usuario Expo"}
+        </Text>
+        <View style={styles.roleRow}>
+          <Avatar.Icon
+            size={28}
+            icon={getRoleIcon(user)}
+            style={styles.roleIcon}
+            color="#fff"
+          />
+          <Text variant="bodyMedium" style={styles.roleLabel}>
+            {getRoleLabel(user)}
+          </Text>
+        </View>
+      </View>
+    </ImageBackground>
+  );
+
+  const menuNode = (
+    <Surface
+      style={[
+        styles.contentSurface,
+        isLandscapeDrawer ? styles.contentSurfaceScrollable : null,
+        { paddingBottom: 16 },
+      ]}
+      elevation={0}
+    >
+      <View>
+        {sections.map((section, sectionIndex) => (
+          <Drawer.Section
+            key={section.title}
+            title={section.title}
+            style={styles.section}
+          >
+            {section.items.map((item) => {
+              const isActive = currentPath === item.href;
+
+              return (
+                <Drawer.Item
+                  key={item.href}
+                  label={item.label}
+                  icon={item.icon}
+                  active={isActive}
+                  style={styles.item}
+                  theme={{ colors: { secondaryContainer: "#e8eaf6" } }}
+                  onPress={() => onNavigate?.(item.href)}
+                />
+              );
+            })}
+            {sectionIndex < sections.length - 1 ? (
+              <Divider style={styles.divider} />
+            ) : null}
+          </Drawer.Section>
+        ))}
+      </View>
+    </Surface>
+  );
+
+  const footerNode = canToggleCadete ? (
+    <View
+      style={[
+        styles.footerDock,
+        isLandscapeDrawer ? styles.footerDockScrollable : null,
+        { paddingBottom: Math.max(insets.bottom, 12) },
+      ]}
+    >
+      <Surface style={styles.footerCard} elevation={0}>
+        <Text variant="titleSmall" style={styles.footerTitle}>
+          Modo cadete
+        </Text>
+        <Text variant="bodySmall" style={styles.footerCopy}>
+          {cadeteHelperCopy}
+        </Text>
+        <Button
+          mode={user?.modoCadete ? "contained-tonal" : "contained"}
+          icon={cadeteButtonIcon}
+          style={styles.footerButton}
+          onPress={() => onToggleModoCadete?.()}
+          disabled={false}
+        >
+          {cadeteButtonLabel}
+        </Button>
+      </Surface>
+    </View>
+  ) : null;
+
   return (
     <View style={styles.safeArea}>
       <DrawerBlurShell style={styles.container}>
-        <ImageBackground
-          source={require("../files/space-bg-shadowcodex.jpg")}
-          resizeMode="cover"
-          style={[
-            styles.hero,
-            { minHeight: Math.max(252, 232 + insets.top) },
-          ]}
-          imageStyle={styles.heroImage}
-        >
-          <BlurView
-            intensity={24}
-            tint="dark"
-            style={StyleSheet.absoluteFill}
-            experimentalBlurMethod={
-              Platform.OS === "android" ? "dimezisBlurView" : undefined
-            }
-            renderToHardwareTextureAndroid={true}
-          />
-          <View
-            style={[
-              styles.heroOverlay,
-              {
-                paddingTop: Math.max(insets.top, 14),
-                paddingBottom: 26,
-              },
-            ]}
+        {isLandscapeDrawer ? (
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.drawerScrollableContent}
+            bounces={false}
+            showsVerticalScrollIndicator={false}
           >
-            <View style={styles.heroActions}>
-              <Text variant="labelLarge" style={styles.heroCaption}>
-                VIDKAR
-              </Text>
-              <IconButton icon="close" iconColor="#fff" onPress={onClose} />
-            </View>
-            <Avatar.Text
-              size={72}
-              label={getUserInitials(user)}
-              style={styles.avatar}
-              labelStyle={styles.avatarLabel}
-            />
-            <Text
-              variant="titleLarge"
-              style={styles.username}
-              numberOfLines={1}
+            {headerNode}
+            {menuNode}
+            {footerNode}
+          </ScrollView>
+        ) : (
+          <>
+            {headerNode}
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={[
+                styles.scrollContent,
+                { paddingBottom: 12 },
+              ]}
+              bounces={false}
             >
-              {user?.username || "Usuario Expo"}
-            </Text>
-            <View style={styles.roleRow}>
-              <Avatar.Icon
-                size={28}
-                icon={getRoleIcon(user)}
-                style={styles.roleIcon}
-                color="#fff"
-              />
-              <Text variant="bodyMedium" style={styles.roleLabel}>
-                {getRoleLabel(user)}
-              </Text>
-            </View>
-            {/* <Text variant="bodySmall" style={styles.heroCopy}>
-              Menú alineado con el drawer legacy y visibilidad por rol.
-            </Text> */}
-          </View>
-        </ImageBackground>
-
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: 12 },
-          ]}
-          bounces={false}
-        >
-          <Surface
-            style={[
-              styles.contentSurface,
-              { paddingBottom: 16 },
-            ]}
-            elevation={0}
-          >
-            <View>
-              {sections.map((section, sectionIndex) => (
-                <Drawer.Section
-                  key={section.title}
-                  title={section.title}
-                  style={styles.section}
-                >
-                  {section.items.map((item) => {
-                    const isActive = currentPath === item.href;
-
-                    return (
-                      <Drawer.Item
-                        key={item.href}
-                        label={item.label}
-                        icon={item.icon}
-                        active={isActive}
-                        style={styles.item}
-                        theme={{ colors: { secondaryContainer: "#e8eaf6" } }}
-                        onPress={() => onNavigate?.(item.href)}
-                      />
-                    );
-                  })}
-                  {sectionIndex < sections.length - 1 ? (
-                    <Divider style={styles.divider} />
-                  ) : null}
-                </Drawer.Section>
-              ))}
-            </View>
-          </Surface>
-        </ScrollView>
-
-        {canToggleCadete ? (
-          <View
-            style={[
-              styles.footerDock,
-              { paddingBottom: Math.max(insets.bottom, 12) },
-            ]}
-          >
-            <Surface style={styles.footerCard} elevation={0}>
-              <Text variant="titleSmall" style={styles.footerTitle}>
-                Modo cadete
-              </Text>
-              <Text variant="bodySmall" style={styles.footerCopy}>
-                {cadeteHelperCopy}
-              </Text>
-              <Button
-                mode={user?.modoCadete ? "contained-tonal" : "contained"}
-                icon={cadeteButtonIcon}
-                style={styles.footerButton}
-                onPress={() => onToggleModoCadete?.()}
-                disabled={false}
-              >
-                {cadeteButtonLabel}
-              </Button>
-            </Surface>
-          </View>
-        ) : null}
+              {menuNode}
+            </ScrollView>
+            {footerNode}
+          </>
+        )}
       </DrawerBlurShell>
     </View>
   );
@@ -367,6 +398,9 @@ const styles = StyleSheet.create({
   hero: {
     minHeight: 232,
   },
+  heroLandscape: {
+    minHeight: 188,
+  },
   heroImage: {
     opacity: 0.3,
   },
@@ -377,6 +411,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     paddingHorizontal: 18,
     paddingBottom: 18,
+  },
+  heroOverlayLandscape: {
+    paddingHorizontal: 16,
   },
   heroActions: {
     flexDirection: "row",
@@ -426,6 +463,10 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
+  drawerScrollableContent: {
+    flexGrow: 1,
+    paddingBottom: 6,
+  },
   scrollView: {
     flex: 1,
   },
@@ -435,6 +476,13 @@ const styles = StyleSheet.create({
     minHeight: "100%",
     justifyContent: "space-between",
     paddingBottom: 30,
+  },
+  contentSurfaceScrollable: {
+    flexGrow: 0,
+    justifyContent: "flex-start",
+    minHeight: 0,
+    paddingTop: 8,
+    paddingBottom: 18,
   },
   section: {
     paddingHorizontal: 8,
@@ -449,6 +497,9 @@ const styles = StyleSheet.create({
   footerDock: {
     paddingHorizontal: 16,
     paddingTop: 8,
+  },
+  footerDockScrollable: {
+    paddingTop: 4,
   },
   footerCard: {
     backgroundColor: "rgba(255, 255, 255, 0.16)",

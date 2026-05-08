@@ -78,6 +78,206 @@ const CadeteDrawerContent = ({ onClose, user }) => {
     );
   };
 
+  const headerNode = (
+    <View style={styles.headerFrame}>
+      <BlurView
+        intensity={24}
+        tint={isDark ? "dark" : "light"}
+        style={StyleSheet.absoluteFill}
+        experimentalBlurMethod={
+          Platform.OS === "android" ? "dimezisBlurView" : undefined
+        }
+        renderToHardwareTextureAndroid={true}
+      />
+      <View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          styles.headerOverlay,
+          {
+            backgroundColor: isDark
+              ? "rgba(18, 74, 44, 0.24)"
+              : "rgba(255, 255, 255, 0.22)",
+            borderColor: palette.border,
+          },
+        ]}
+      />
+      <View style={[
+        styles.header,
+        isCompactDrawer ? styles.headerCompact : null,
+        { paddingTop: Math.max(insets.top, isCompactDrawer ? 12 : 16) },
+      ]}>
+        {user?.picture ? (
+          <Avatar.Image size={isCompactDrawer ? 46 : 58} source={{ uri: user.picture }} />
+        ) : (
+          <Avatar.Text
+            label={user?.username?.slice(0, 2)?.toUpperCase() || "CD"}
+            size={isCompactDrawer ? 46 : 58}
+            style={[styles.avatarFallback, { backgroundColor: palette.brandStrong }]}
+          />
+        )}
+
+        <View style={styles.headerCopy}>
+          <Text style={[styles.headerTitle, { color: palette.title }]} variant="titleMedium">
+            {user?.username || "Cadete"}
+          </Text>
+          <Text style={[styles.headerBadge, { color: palette.brandStrong }]} variant="labelMedium">
+            Modo cadete activo
+          </Text>
+          <Text style={[styles.headerSubtitle, isCompactDrawer ? styles.headerSubtitleCompact : null, { color: palette.copy }]} variant="bodySmall">
+            Recibe pedidos cercanos y avanza cada entrega desde esta vista.
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  const contentNode = (
+    <View style={[styles.content, isCompactDrawer ? styles.contentCompact : null]}>
+      <View style={[styles.metricsRow, isCompactDrawer ? styles.metricsRowCompact : null]}>
+        <Surface style={[styles.metricCard, isCompactDrawer ? styles.metricCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
+          <Text style={{ color: palette.brandStrong }} variant="labelMedium">
+            Estado
+          </Text>
+          <Text style={{ color: palette.title }} variant="titleSmall">
+            Disponible
+          </Text>
+        </Surface>
+        <Surface style={[styles.metricCard, isCompactDrawer ? styles.metricCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
+          <Text style={{ color: palette.brandStrong }} variant="labelMedium">
+            Tracking
+          </Text>
+          <Text style={{ color: palette.title }} variant="titleSmall">
+            Activo
+          </Text>
+        </Surface>
+      </View>
+
+      <View style={[styles.section, isCompactDrawer ? styles.sectionCompact : null]}>
+        <Text style={[styles.sectionTitle, { color: palette.muted }]} variant="labelLarge">
+          Operación
+        </Text>
+
+        <Surface style={[styles.infoCard, isCompactDrawer ? styles.infoCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
+          <View style={[styles.infoCardIconWrap, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.8)" }]}>
+            <MaterialCommunityIcons color={palette.brandStrong} name="crosshairs-gps" size={22} />
+          </View>
+          <View style={styles.infoCardCopy}>
+            <Text style={[styles.infoCardTitle, { color: palette.title }]} variant="titleSmall">
+              Asignación automática
+            </Text>
+            <Text style={[styles.infoCardText, { color: palette.copy }]} variant="bodySmall">
+              La cola de tiendas y la asignación de pedidos dependen de tu ubicación activa.
+            </Text>
+          </View>
+        </Surface>
+
+        <Pressable
+          onPress={onClose}
+          style={({ pressed }) => [
+            styles.navItem,
+            isCompactDrawer ? styles.navItemCompact : null,
+            { backgroundColor: palette.card, borderColor: palette.border },
+            pressed ? styles.navItemPressed : null,
+          ]}
+        >
+          <View style={[styles.navItemIconWrap, { backgroundColor: palette.cardSoft }]}> 
+            <MaterialCommunityIcons color={palette.brandStrong} name="package-variant-closed" size={22} />
+          </View>
+          <View style={styles.navItemCopy}>
+            <Text style={[styles.navItemTitle, { color: palette.title }]} variant="titleSmall">
+              Mis pedidos
+            </Text>
+            <Text style={[styles.navItemText, { color: palette.copy }]} variant="bodySmall">
+              Vista operativa principal para recoger, trasladar y entregar pedidos.
+            </Text>
+          </View>
+        </Pressable>
+      </View>
+
+      <View style={[styles.section, isCompactDrawer ? styles.sectionCompact : null]}>
+        <Text style={[styles.sectionTitle, { color: palette.muted }]} variant="labelLarge">
+          Próximamente
+        </Text>
+
+        <View style={[styles.comingSoonItem, isCompactDrawer ? styles.comingSoonItemCompact : null, { backgroundColor: palette.card, borderColor: palette.border }]}>
+          <View style={[styles.navItemIconWrap, { backgroundColor: palette.cardSoft }]}> 
+            <MaterialCommunityIcons color={palette.muted} name="bell-outline" size={22} />
+          </View>
+          <View style={styles.navItemCopy}>
+            <Text style={[styles.navItemTitle, { color: palette.title }]} variant="titleSmall">
+              Notificaciones
+            </Text>
+            <Text style={[styles.navItemText, { color: palette.copy }]} variant="bodySmall">
+              Próximamente podrás ajustar recordatorios y alertas del flujo de entrega.
+            </Text>
+          </View>
+        </View>
+
+        <View style={[styles.comingSoonItem, isCompactDrawer ? styles.comingSoonItemCompact : null, { backgroundColor: palette.card, borderColor: palette.border }]}>
+          <View style={[styles.navItemIconWrap, { backgroundColor: palette.cardSoft }]}> 
+            <MaterialCommunityIcons color={palette.muted} name="history" size={22} />
+          </View>
+          <View style={styles.navItemCopy}>
+            <Text style={[styles.navItemTitle, { color: palette.title }]} variant="titleSmall">
+              Historial
+            </Text>
+            <Text style={[styles.navItemText, { color: palette.copy }]} variant="bodySmall">
+              El historial de rutas y entregas quedará disponible desde este menú.
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <Surface style={[styles.tipCard, isCompactDrawer ? styles.tipCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
+        <Text style={[styles.tipTitle, { color: palette.title }]} variant="labelLarge">
+          Recomendación
+        </Text>
+        <Text style={[styles.tipText, { color: palette.copy }]} variant="bodySmall">
+          Mantén la app abierta y actualiza tu ubicación si cambias de zona para seguir disponible cerca de las tiendas.
+        </Text>
+      </Surface>
+    </View>
+  );
+
+  const footerNode = (
+    <View
+      style={[
+        styles.footer,
+        isLandscapeDrawer ? styles.footerScrollable : null,
+        {
+          backgroundColor: "transparent",
+          paddingBottom: Math.max(insets.bottom, isLandscapeDrawer ? 4 : 8),
+        },
+      ]}
+    >
+      <Divider style={{ backgroundColor: palette.border }} />
+      <Pressable
+        onPress={handleExitCadeteMode}
+        style={({ pressed }) => [
+          styles.exitButton,
+          isCompactDrawer ? styles.exitButtonCompact : null,
+          isLandscapeDrawer ? styles.exitButtonLandscape : null,
+          { backgroundColor: palette.exitSoft },
+          pressed ? styles.exitButtonPressed : null,
+        ]}
+      >
+        <MaterialCommunityIcons color={palette.exit} name="exit-run" size={isLandscapeDrawer ? 17 : isCompactDrawer ? 20 : 21} />
+        <Text
+          style={[
+            styles.exitButtonText,
+            isCompactDrawer ? styles.exitButtonTextCompact : null,
+            isLandscapeDrawer ? styles.exitButtonTextLandscape : null,
+            { color: palette.exit },
+          ]}
+          variant="labelLarge"
+        >
+          Salir del modo cadete
+        </Text>
+      </Pressable>
+    </View>
+  );
+
   return (
     <View style={styles.safeArea}>
       <DrawerBlurShell
@@ -85,202 +285,29 @@ const CadeteDrawerContent = ({ onClose, user }) => {
         overlayColor={isDark ? "rgba(4, 20, 11, 0.72)" : "rgba(245, 250, 247, 0.58)"}
         style={styles.panel}
       >
-      <View style={styles.headerFrame}>
-        <BlurView
-          intensity={24}
-          tint={isDark ? "dark" : "light"}
-          style={StyleSheet.absoluteFill}
-          experimentalBlurMethod={
-            Platform.OS === "android" ? "dimezisBlurView" : undefined
-          }
-          renderToHardwareTextureAndroid={true}
-        />
-        <View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            styles.headerOverlay,
-            {
-              backgroundColor: isDark
-                ? "rgba(18, 74, 44, 0.24)"
-                : "rgba(255, 255, 255, 0.22)",
-              borderColor: palette.border,
-            },
-          ]}
-        />
-        <View style={[
-          styles.header,
-          isCompactDrawer ? styles.headerCompact : null,
-          { paddingTop: Math.max(insets.top, isCompactDrawer ? 12 : 16) },
-        ]}>
-          {user?.picture ? (
-            <Avatar.Image size={isCompactDrawer ? 46 : 58} source={{ uri: user.picture }} />
-          ) : (
-            <Avatar.Text
-              label={user?.username?.slice(0, 2)?.toUpperCase() || "CD"}
-              size={isCompactDrawer ? 46 : 58}
-              style={[styles.avatarFallback, { backgroundColor: palette.brandStrong }]}
-            />
-          )}
-
-          <View style={styles.headerCopy}>
-            <Text style={[styles.headerTitle, { color: palette.title }]} variant="titleMedium">
-              {user?.username || "Cadete"}
-            </Text>
-            <Text style={[styles.headerBadge, { color: palette.brandStrong }]} variant="labelMedium">
-              Modo cadete activo
-            </Text>
-            <Text style={[styles.headerSubtitle, isCompactDrawer ? styles.headerSubtitleCompact : null, { color: palette.copy }]} variant="bodySmall">
-              Recibe pedidos cercanos y avanza cada entrega desde esta vista.
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={[styles.content, isCompactDrawer ? styles.contentCompact : null]}
-        showsVerticalScrollIndicator={false}
-        style={styles.scrollArea}
-      >
-        <View style={[styles.metricsRow, isCompactDrawer ? styles.metricsRowCompact : null]}>
-          <Surface style={[styles.metricCard, isCompactDrawer ? styles.metricCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
-            <Text style={{ color: palette.brandStrong }} variant="labelMedium">
-              Estado
-            </Text>
-            <Text style={{ color: palette.title }} variant="titleSmall">
-              Disponible
-            </Text>
-          </Surface>
-          <Surface style={[styles.metricCard, isCompactDrawer ? styles.metricCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
-            <Text style={{ color: palette.brandStrong }} variant="labelMedium">
-              Tracking
-            </Text>
-            <Text style={{ color: palette.title }} variant="titleSmall">
-              Activo
-            </Text>
-          </Surface>
-        </View>
-
-        <View style={[styles.section, isCompactDrawer ? styles.sectionCompact : null]}>
-          <Text style={[styles.sectionTitle, { color: palette.muted }]} variant="labelLarge">
-            Operación
-          </Text>
-
-          <Surface style={[styles.infoCard, isCompactDrawer ? styles.infoCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
-            <View style={[styles.infoCardIconWrap, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.8)" }]}>
-              <MaterialCommunityIcons color={palette.brandStrong} name="crosshairs-gps" size={22} />
-            </View>
-            <View style={styles.infoCardCopy}>
-              <Text style={[styles.infoCardTitle, { color: palette.title }]} variant="titleSmall">
-                Asignación automática
-              </Text>
-              <Text style={[styles.infoCardText, { color: palette.copy }]} variant="bodySmall">
-                La cola de tiendas y la asignación de pedidos dependen de tu ubicación activa.
-              </Text>
-            </View>
-          </Surface>
-
-          <Pressable
-            onPress={onClose}
-            style={({ pressed }) => [
-              styles.navItem,
-              isCompactDrawer ? styles.navItemCompact : null,
-              { backgroundColor: palette.card, borderColor: palette.border },
-              pressed ? styles.navItemPressed : null,
-            ]}
+        {isLandscapeDrawer ? (
+          <ScrollView
+            contentContainerStyle={styles.drawerScrollableContent}
+            showsVerticalScrollIndicator={false}
+            style={styles.scrollArea}
           >
-            <View style={[styles.navItemIconWrap, { backgroundColor: palette.cardSoft }]}> 
-              <MaterialCommunityIcons color={palette.brandStrong} name="package-variant-closed" size={22} />
-            </View>
-            <View style={styles.navItemCopy}>
-              <Text style={[styles.navItemTitle, { color: palette.title }]} variant="titleSmall">
-                Mis pedidos
-              </Text>
-              <Text style={[styles.navItemText, { color: palette.copy }]} variant="bodySmall">
-                Vista operativa principal para recoger, trasladar y entregar pedidos.
-              </Text>
-            </View>
-          </Pressable>
-        </View>
-
-        <View style={[styles.section, isCompactDrawer ? styles.sectionCompact : null]}>
-          <Text style={[styles.sectionTitle, { color: palette.muted }]} variant="labelLarge">
-            Próximamente
-          </Text>
-
-          <View style={[styles.comingSoonItem, isCompactDrawer ? styles.comingSoonItemCompact : null, { backgroundColor: palette.card, borderColor: palette.border }]}>
-            <View style={[styles.navItemIconWrap, { backgroundColor: palette.cardSoft }]}>
-              <MaterialCommunityIcons color={palette.muted} name="bell-outline" size={22} />
-            </View>
-            <View style={styles.navItemCopy}>
-              <Text style={[styles.navItemTitle, { color: palette.title }]} variant="titleSmall">
-                Notificaciones
-              </Text>
-              <Text style={[styles.navItemText, { color: palette.copy }]} variant="bodySmall">
-                Próximamente podrás ajustar recordatorios y alertas del flujo de entrega.
-              </Text>
-            </View>
-          </View>
-
-          <View style={[styles.comingSoonItem, isCompactDrawer ? styles.comingSoonItemCompact : null, { backgroundColor: palette.card, borderColor: palette.border }]}>
-            <View style={[styles.navItemIconWrap, { backgroundColor: palette.cardSoft }]}>
-              <MaterialCommunityIcons color={palette.muted} name="history" size={22} />
-            </View>
-            <View style={styles.navItemCopy}>
-              <Text style={[styles.navItemTitle, { color: palette.title }]} variant="titleSmall">
-                Historial
-              </Text>
-              <Text style={[styles.navItemText, { color: palette.copy }]} variant="bodySmall">
-                El historial de rutas y entregas quedará disponible desde este menú.
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <Surface style={[styles.tipCard, isCompactDrawer ? styles.tipCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
-          <Text style={[styles.tipTitle, { color: palette.title }]} variant="labelLarge">
-            Recomendación
-          </Text>
-          <Text style={[styles.tipText, { color: palette.copy }]} variant="bodySmall">
-            Mantén la app abierta y actualiza tu ubicación si cambias de zona para seguir disponible cerca de las tiendas.
-            </Text>
-        </Surface>
-      </ScrollView>
-
-      <View
-        style={[
-          styles.footer,
-          {
-            backgroundColor: "transparent",
-            paddingBottom: Math.max(insets.bottom, isLandscapeDrawer ? 4 : 8),
-          },
-        ]}
-      >
-        <Divider style={{ backgroundColor: palette.border }} />
-        <Pressable
-          onPress={handleExitCadeteMode}
-          style={({ pressed }) => [
-            styles.exitButton,
-            isCompactDrawer ? styles.exitButtonCompact : null,
-            isLandscapeDrawer ? styles.exitButtonLandscape : null,
-            { backgroundColor: palette.exitSoft },
-            pressed ? styles.exitButtonPressed : null,
-          ]}
-        >
-          <MaterialCommunityIcons color={palette.exit} name="exit-run" size={isLandscapeDrawer ? 17 : isCompactDrawer ? 20 : 21} />
-          <Text
-            style={[
-              styles.exitButtonText,
-              isCompactDrawer ? styles.exitButtonTextCompact : null,
-              isLandscapeDrawer ? styles.exitButtonTextLandscape : null,
-              { color: palette.exit },
-            ]}
-            variant="labelLarge"
-          >
-            Salir del modo cadete
-          </Text>
-        </Pressable>
-      </View>
+            {headerNode}
+            {contentNode}
+            {footerNode}
+          </ScrollView>
+        ) : (
+          <>
+            {headerNode}
+            <ScrollView
+              contentContainerStyle={[styles.content, isCompactDrawer ? styles.contentCompact : null]}
+              showsVerticalScrollIndicator={false}
+              style={styles.scrollArea}
+            >
+              {contentNode}
+            </ScrollView>
+            {footerNode}
+          </>
+        )}
       </DrawerBlurShell>
     </View>
   );
@@ -302,6 +329,9 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  drawerScrollableContent: {
+    flexGrow: 1,
   },
   comingSoonItem: {
     alignItems: "center",
@@ -362,6 +392,9 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: "auto",
+  },
+  footerScrollable: {
+    marginTop: 0,
   },
   headerFrame: {
     borderBottomLeftRadius: 26,
