@@ -82,6 +82,7 @@
       "@bacons/apple-targets",
       "./plugins/with-vidkar-google-maps-key.js",
       "./plugins/with-vidkar-xcode-object-version.js",
+      "./plugins/with-vidkar-vlc-media-player.js",
       "./node_modules/@react-native-google-signin/google-signin/app.plugin.js",
       "expo-apple-authentication",
       [
