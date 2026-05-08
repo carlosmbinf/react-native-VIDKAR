@@ -858,6 +858,7 @@ const PeliculaPlayer = () => {
       handleEnded,
       handleEnterPictureInPicture,
       handleError,
+      handleBuffering,
       handleLoad,
       handleOpenFullscreen,
       handlePaused,
