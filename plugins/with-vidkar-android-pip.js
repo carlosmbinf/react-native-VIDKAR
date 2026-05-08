@@ -1,27 +1,29 @@
 const fs = require("fs");
 const path = require("path");
 const { withAndroidManifest, withDangerousMod } = require("@expo/config-plugins");
-const PIP_IMPORTS = `import android.app.PictureInPictureParams
-import android.content.res.Configuration
-import android.util.Rational
-import expo.modules.vidkarpip.VidkarPipState`;
-
 const PIP_METHODS = `  override fun onUserLeaveHint() {
     super.onUserLeaveHint()
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && VidkarPipState.isPlayerActive() && !isInPictureInPictureMode) {
-      val params = PictureInPictureParams.Builder()
-        .setAspectRatio(Rational(16, 9))
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && expo.modules.vidkarpip.VidkarPipState.isPlayerActive() && !isInPictureInPictureMode) {
+      val params = android.app.PictureInPictureParams.Builder()
+        .setAspectRatio(android.util.Rational(16, 9))
         .build()
 
       enterPictureInPictureMode(params)
     }
   }
 
-  override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+  override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
     super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-    VidkarPipState.setInPictureInPicture(isInPictureInPictureMode)
+    expo.modules.vidkarpip.VidkarPipState.setInPictureInPicture(isInPictureInPictureMode)
   }`;
+
+const removeStalePipImports = (contents) =>
+  contents
+    .replace(/\nimport android\.app\.PictureInPictureParams\n/g, "\n")
+    .replace(/\nimport android\.content\.res\.Configuration\n/g, "\n")
+    .replace(/\nimport android\.util\.Rational\n/g, "\n")
+    .replace(/\nimport expo\.modules\.vidkarpip\.VidkarPipState\n/g, "\n");
 
 const ensureConfigChange = (activity, value) => {
   const currentValue = activity.$["android:configChanges"] || "";
@@ -64,17 +66,17 @@ const withAndroidPipMainActivity = (config) =>
 
     let contents = fs.readFileSync(mainActivityPath, "utf8");
 
-    if (!contents.includes("import expo.modules.vidkarpip.VidkarPipState")) {
-      contents = contents.replace(
-        "import expo.modules.splashscreen.SplashScreenManager\n",
-        `import expo.modules.splashscreen.SplashScreenManager\n${PIP_IMPORTS}\n`
-      );
-    }
+    contents = removeStalePipImports(contents);
 
     if (!contents.includes("override fun onUserLeaveHint()")) {
       contents = contents.replace(
         "\n  /**\n    * Align the back button behavior with Android S",
         `\n${PIP_METHODS}\n\n  /**\n    * Align the back button behavior with Android S`
+      );
+    } else if (!contents.includes("expo.modules.vidkarpip.VidkarPipState.isPlayerActive()")) {
+      contents = contents.replace(
+        /\n  override fun onUserLeaveHint\(\)[\s\S]*?\n  override fun onPictureInPictureModeChanged\([\s\S]*?\n  }\n/,
+        `\n${PIP_METHODS}\n`
       );
     }
 

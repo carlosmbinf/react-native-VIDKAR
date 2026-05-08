@@ -561,7 +561,6 @@ const DownloadVideosHome = () => {
   const { currentUser, loading, movies } = Meteor.useTracker(() => {
     const user = Meteor.user();
     const handle = Meteor.subscribe("pelis", baseSelector, {
-      fields: MOVIE_FIELDS,
       sort: { vistas: -1, nombrePeli: 1 },
       limit: MOVIE_LIMIT,
     });

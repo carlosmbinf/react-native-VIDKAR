@@ -7620,7 +7620,7 @@ Resumen tecnico - Catalogo de Peliculas en Expo usando contrato real de backend
 
 - Contrato backend validado:
   - La coleccion fuente de verdad es `pelisRegister`.
-  - La publicacion principal es `Meteor.subscribe('pelis', selector, option)` y acepta `fields`, `sort` y `limit`.
+  - La publicacion principal es `Meteor.subscribe('pelis', selector, option)`, pero no debe recibir `fields` desde el cliente en este modulo.
   - El detalle completo se obtiene con `Meteor.call('getPelicula', id)`.
   - El conteo de vistas se incrementa con `Meteor.call('addVistas', id)`.
   - Las imagenes no vienen como binario en el documento; se sirven por HTTP usando:
@@ -7649,6 +7649,24 @@ Resumen tecnico - Catalogo de Peliculas en Expo usando contrato real de backend
   - Para imagenes de peliculas en Expo, construir URL absoluta hacia `/imagenesPeliculas` usando el origen HTTP derivado de Meteor, con produccion apuntando a `https://www.vidkar.com`.
   - Las queries deben contemplar que `mostrar` puede venir como boolean `true` o string `'true'`, porque el legacy uso ambas formas.
   - Mantener Peliculas como acceso de administradores si el requerimiento sigue siendo gestion interna; no devolverlo a `Servicios VidKar` sin validar producto/roles.
+
+Notas adicionales - Publicacion `pelis` sin observer reactivo por fallo de polling Mongo
+
+- Problema detectado:
+  - El backend Meteor puede fallar al observar `pelisRegister` con el error:
+    - `Exception while polling query ... TypeError: this.documents?.clear is not a function`
+  - Primero se detecto con `projection`, que aparecia cuando el cliente enviaba `fields` dentro de `Meteor.subscribe('pelis', selector, option)`.
+  - Luego se confirmo que tambien falla sin `projection`, solo con `sort + limit`, por el `PollingObserveDriver` del cursor reactivo sobre `pelisRegister`.
+
+- Correccion aplicada:
+  - `components/downloadVideos/DownloadVideosHome.native.jsx` ya no manda `fields: MOVIE_FIELDS` en la suscripcion `pelis`.
+  - La proyeccion se conserva solo en `PelisCollection.find(...)` del cliente para mantener el view-model liviano sin provocar projection server-side.
+  - En backend web, `server/publicaciones.js` publica `pelis` como snapshot manual con `this.added('pelisRegister', ...)` y `this.ready()`, evitando devolver el cursor reactivo directo.
+
+- Regla practica:
+  - No reintroducir `fields`/projection en `Meteor.subscribe('pelis', ...)` mientras se use la publicacion generica `pelis` con `sort + limit`.
+  - No volver a implementar `pelis` como `return PelisCollection.find(selector, option)` mientras el driver actual siga fallando con `PollingObserveDriver`.
+  - Si se requiere optimizacion real de payload, crear o validar una publicacion/metodo especifico en backend antes de tocar de nuevo esta suscripcion.
 
 ---
 
@@ -7804,7 +7822,7 @@ Resumen tecnico - Filtros sobre hero y detalle en bottom drawer para Peliculas
   - Al deslizar hacia abajo desde expandido, vuelve al estado parcial; desde parcial puede cerrarse.
 
 - Optimizacion de datos:
-  - La suscripcion principal del catalogo sigue siendo una sola `Meteor.subscribe('pelis', selector, option)` con `fields` proyectados.
+  - La suscripcion principal del catalogo sigue siendo una sola `Meteor.subscribe('pelis', selector, option)` sin `fields` enviados al backend.
   - No se agregan nuevas suscripciones para abrir el detalle.
   - El detalle completo se obtiene bajo demanda con `Meteor.call('getPelicula', movieId)` solo cuando el usuario abre una pelicula.
   - Los detalles ya cargados se cachean localmente en memoria para no repetir llamadas al backend si se reabre la misma pelicula durante la sesion.
@@ -8191,3 +8209,49 @@ Notas adicionales - `openMovieDetail(...)` no debe mezclar apertura y fetch remo
 - Regla practica:
   - Si un drawer o bottom sheet ya tiene suficiente data local para una primera renderizacion util, nunca mezclar el fetch profundo con el handler de apertura.
   - El fetch complementario debe vivir en un efecto posterior asociado al item seleccionado, no en el `onPress` original.
+
+---
+
+Resumen tecnico - AAB Android y PiP deben generarse con nombres Kotlin fully-qualified
+
+- Problema detectado:
+  - La construccion Android AAB fallaba en `:app:compileReleaseKotlin` dentro de `android/app/src/main/java/com/vidkar/MainActivity.kt`.
+  - Los errores eran referencias no resueltas generadas por el bloque de Picture-in-Picture:
+    - `VidkarPipState`
+    - `PictureInPictureParams`
+    - `Rational`
+    - `Configuration`
+    - y un override invalido de `onPictureInPictureModeChanged` por no resolver correctamente el tipo `Configuration`.
+
+- Causa raiz validada:
+  - El codigo de PiP no debe corregirse manualmente en `android/`, porque Expo prebuild puede regenerar `MainActivity.kt`.
+  - La fuente de verdad era el config plugin:
+    - `plugins/with-vidkar-android-pip.js`
+  - El plugin dependia de insertar imports Kotlin fragiles; cuando esos imports no quedaban presentes o eran removidos por regeneracion, el codigo generado usaba nombres cortos que Kotlin no podia resolver en release.
+
+- Correccion aplicada:
+  - `with-vidkar-android-pip.js` ahora genera el bloque PiP con nombres fully-qualified:
+    - `expo.modules.vidkarpip.VidkarPipState`
+    - `android.app.PictureInPictureParams.Builder`
+    - `android.util.Rational`
+    - `android.content.res.Configuration`
+  - Se agrego limpieza de imports PiP obsoletos para evitar mezclar el patron viejo con el nuevo.
+  - El plugin tambien reemplaza bloques PiP generados previamente si detecta la version vieja basada en nombres cortos.
+
+- Validacion realizada:
+  - `node -c plugins/with-vidkar-android-pip.js` OK.
+  - `npx expo config --json` OK.
+  - `npm run build` / `expo prebuild` regenero Android correctamente.
+  - `./gradlew :vidkar-pip:compileReleaseKotlin :app:compileReleaseKotlin` OK.
+  - `./gradlew :app:compileReleaseKotlin` OK despues del prebuild.
+  - `./gradlew :app:bundleRelease` ya no falla por Kotlin/PiP; avanza hasta `:app:signReleaseBundle`.
+
+- Nuevo bloqueo operativo confirmado:
+  - El AAB local queda bloqueado despues de compilar por firma:
+    - `Failed to read key undefined from store "vidkar-android/my-release.jks": Keystore was tampered with, or password was incorrect`
+  - Esto ya no corresponde al codigo de PiP ni a Kotlin; es un problema de configuracion/credenciales del keystore release.
+
+- Regla practica:
+  - Para cambios nativos Android generados por Expo, corregir siempre el config plugin y no solo el archivo dentro de `android/`.
+  - En plugins que inyectan Kotlin en archivos generados, preferir nombres fully-qualified cuando el bloque es corto y depende de imports que pueden romperse por prebuild.
+  - Si `bundleRelease` pasa `compileReleaseKotlin` y falla en `signReleaseBundle`, depurar credenciales de firma antes de volver a tocar PiP, Kotlin o `MainActivity.kt`.
