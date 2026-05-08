@@ -317,6 +317,7 @@ const PeliculaPlayer = () => {
     }
 
     let cancelled = false;
+    const currentPlayerRef = playerRef.current;
     setLoading(true);
     setLoadError(null);
     setPlayerError(null);
@@ -359,7 +360,7 @@ const PeliculaPlayer = () => {
 
     return () => {
       cancelled = true;
-      playerRef.current?.stopPlayer?.();
+      currentPlayerRef?.stopPlayer?.();
     };
   }, [movieId]);
 
