@@ -3456,6 +3456,41 @@ Notas adicionales – Botón visual de Apple unificado con Google por criterio U
 
 ---
 
+Resumen técnico – Control de tamaño de subtítulos en el player móvil de películas
+
+- Alcance aplicado:
+  - `components/downloadVideos/PeliculaPlayer.native.jsx` ahora permite agrandar o achicar los subtítulos desde la propia UI del reproductor.
+  - La selección quedó expuesta en los dos puntos donde el usuario ya gestionaba subtítulos:
+    - diálogo normal de subtítulos
+    - sheet fullscreen de subtítulos
+
+- Decisión técnica importante:
+  - No se cambió backend HLS ni el contrato de subtítulos externos.
+  - La solución se implementó del lado del player VLC reutilizando `initOptions` de `react-native-vlc-media-player`.
+  - Se confirmo previamente que tanto Android como iOS reciben esos `initOptions` en los nativos del wrapper.
+
+- Implementación aplicada:
+  - Se añadieron presets internos de tamaño:
+    - `sm`
+    - `md`
+    - `lg`
+  - El `vlcSource` ahora inyecta opciones VLC para el subtítulo:
+    - `--freetype-rel-fontsize=...`
+    - `--sub-text-scale=...`
+  - Al cambiar el tamaño, el player reinicia la sesión HLS/VLC manteniendo la posición actual del playback para que el ajuste se vea de inmediato sin perder el punto de reproducción.
+  - La `key` del `VLCPlayer` también incluye `subtitleSizeId` para forzar reconfiguración limpia cuando el tamaño cambia.
+
+- Criterio UX validado:
+  - El usuario no debe salir del reproductor ni tocar settings globales del dispositivo para ajustar subtítulos.
+  - El control correcto vive junto al selector de pista, porque ambos pertenecen a la experiencia de subtítulos de la película actual.
+
+- Regla práctica:
+  - Si luego se quieren ajustar mejor los tamaños visibles, tocar primero los presets de `SUBTITLE_SIZE_OPTIONS` antes de parchear el wrapper VLC.
+  - Si en algún dispositivo el cambio de tamaño no surte efecto suficiente, la siguiente vía correcta es un parche reproducible sobre `react-native-vlc-media-player`, reutilizando la infraestructura ya existente del proyecto para patches en `node_modules`.
+  - No mover esta lógica al backend ni al flujo HLS: el tamaño de subtítulos es una responsabilidad local del player móvil.
+
+---
+
 Resumen técnico – Rediseño interno de CubaCelCard cuando no hay promoción activa
 
 - Objetivo aplicado:
@@ -4323,6 +4358,70 @@ Resumen técnico – Migración de MapaUsuarios a Expo con `react-native-maps` y
   - No se replicó el patrón legacy de suscribirse una vez en el screen y otra vez dentro del componente del mapa.
   - En Expo la lectura reactiva se elevó a `MapaUsuariosScreen.native.jsx` y el mapa quedó como componente visual controlado por props.
   - Esto evita suscripciones duplicadas, facilita filtros/búsqueda/estadísticas en una sola fuente de verdad y hace más estable el render del mapa.
+
+---
+
+Resumen tecnico - `PeliculaPlayer` Expo con duracion real HLS y flujo de reanudacion local
+
+- Alcance aplicado:
+  - `components/downloadVideos/PeliculaPlayer.native.jsx` ya no depende solo del tiempo reportado por VLC para mostrar la duracion total.
+  - El player movil incorpora persistencia local del progreso y un prompt para continuar donde el usuario se habia quedado, siguiendo el patron funcional ya validado en la web.
+
+- Fuente de verdad confirmada para la duracion:
+  - Cuando existe reproduccion HLS server-side, la duracion visible debe priorizar:
+    - `hlsPlayback.durationSeconds`
+  - Solo si esa metadata no existe, se puede caer a:
+    - `playback.duration`
+    - `videoInfo.duration`
+    - o la duracion cacheada localmente
+  - Regla practica: en este modulo no usar `playback.duration` como primera fuente si HLS ya expone `durationSeconds`.
+
+- Persistencia local aplicada:
+  - Se usa `expo-secure-store` con key valida para el proyecto:
+    - `vidkar.moviePlaybackCache.v1`
+  - Cada pelicula guarda un bloque por `_id` con al menos:
+    - `currentTime`
+    - `duration`
+    - `completed`
+    - `updatedAt`
+    - metadata minima de la pelicula para trazabilidad local
+  - Regla practica: en este repo no usar `:` en keys de SecureStore; mantener `.` o `-`.
+
+- Flujo de reanudacion aplicado:
+  - Al abrir una pelicula se lee el progreso cacheado por `movieId`.
+  - Solo se ofrece `Continuar reproducción` cuando:
+    - el progreso guardado es mayor a `15s`
+    - y la pelicula no estaba practicamente terminada (`currentTime < duration - 15s`)
+    - y no estaba marcada como completada
+  - El prompt se resolvio con `Dialog` de React Native Paper, no con un modal externo.
+
+- Coordinacion con HLS:
+  - La preparacion de la sesion HLS debe esperar a que el usuario decida:
+    - `Continuar`
+    - o `Empezar de nuevo`
+  - Si el usuario decide continuar, el player actualiza `hlsStartAtRequest` con el progreso guardado antes de preparar la playlist.
+  - Si decide empezar de nuevo, el progreso local se reinicia a `0` y la sesion HLS arranca desde el inicio.
+
+- Guardado incremental del progreso:
+  - El player persiste avance de forma incremental mientras reproduce.
+  - Para no escribir en cada tick, solo guarda cuando el tiempo avanza al menos un umbral practico (`5s`).
+  - Si la pelicula llega al final o queda dentro de la ventana final de cierre, el cache se marca como `completed` y el punto de reanudacion deja de ofrecerse.
+
+- Criterio funcional importante:
+  - El flujo correcto del movil ya no debe parecerse a “entra siempre desde cero”.
+  - Debe seguir la semantica ya validada en la web:
+    1. resolver metadata real de duracion
+    2. consultar progreso local
+    3. decidir si se reanuda
+    4. preparar HLS con `startAt` si corresponde
+
+- Regla practica:
+  - Si se vuelve a tocar este player, no mezclar la apertura de la pelicula con la decision de resume ni con un fetch profundo innecesario.
+  - Si reaparece una duracion incorrecta o resume roto, revisar primero estos puntos en este orden:
+    - prioridad de `hlsPlayback.durationSeconds`
+    - lectura/escritura de `vidkar.moviePlaybackCache.v1`
+    - gate `resumePromptVisible/resumeStateReady`
+    - `hlsStartAtRequest` antes de preparar la sesion HLS
 
 ---
 
@@ -7620,7 +7719,7 @@ Resumen tecnico - Catalogo de Peliculas en Expo usando contrato real de backend
 
 - Contrato backend validado:
   - La coleccion fuente de verdad es `pelisRegister`.
-  - La publicacion principal es `Meteor.subscribe('pelis', selector, option)`, pero no debe recibir `fields` desde el cliente en este modulo.
+  - La publicacion principal es `Meteor.subscribe('pelis', selector, option)` y acepta `fields`, `sort` y `limit`.
   - El detalle completo se obtiene con `Meteor.call('getPelicula', id)`.
   - El conteo de vistas se incrementa con `Meteor.call('addVistas', id)`.
   - Las imagenes no vienen como binario en el documento; se sirven por HTTP usando:
@@ -7649,24 +7748,6 @@ Resumen tecnico - Catalogo de Peliculas en Expo usando contrato real de backend
   - Para imagenes de peliculas en Expo, construir URL absoluta hacia `/imagenesPeliculas` usando el origen HTTP derivado de Meteor, con produccion apuntando a `https://www.vidkar.com`.
   - Las queries deben contemplar que `mostrar` puede venir como boolean `true` o string `'true'`, porque el legacy uso ambas formas.
   - Mantener Peliculas como acceso de administradores si el requerimiento sigue siendo gestion interna; no devolverlo a `Servicios VidKar` sin validar producto/roles.
-
-Notas adicionales - Publicacion `pelis` sin observer reactivo por fallo de polling Mongo
-
-- Problema detectado:
-  - El backend Meteor puede fallar al observar `pelisRegister` con el error:
-    - `Exception while polling query ... TypeError: this.documents?.clear is not a function`
-  - Primero se detecto con `projection`, que aparecia cuando el cliente enviaba `fields` dentro de `Meteor.subscribe('pelis', selector, option)`.
-  - Luego se confirmo que tambien falla sin `projection`, solo con `sort + limit`, por el `PollingObserveDriver` del cursor reactivo sobre `pelisRegister`.
-
-- Correccion aplicada:
-  - `components/downloadVideos/DownloadVideosHome.native.jsx` ya no manda `fields: MOVIE_FIELDS` en la suscripcion `pelis`.
-  - La proyeccion se conserva solo en `PelisCollection.find(...)` del cliente para mantener el view-model liviano sin provocar projection server-side.
-  - En backend web, `server/publicaciones.js` publica `pelis` como snapshot manual con `this.added('pelisRegister', ...)` y `this.ready()`, evitando devolver el cursor reactivo directo.
-
-- Regla practica:
-  - No reintroducir `fields`/projection en `Meteor.subscribe('pelis', ...)` mientras se use la publicacion generica `pelis` con `sort + limit`.
-  - No volver a implementar `pelis` como `return PelisCollection.find(selector, option)` mientras el driver actual siga fallando con `PollingObserveDriver`.
-  - Si se requiere optimizacion real de payload, crear o validar una publicacion/metodo especifico en backend antes de tocar de nuevo esta suscripcion.
 
 ---
 
@@ -7822,7 +7903,7 @@ Resumen tecnico - Filtros sobre hero y detalle en bottom drawer para Peliculas
   - Al deslizar hacia abajo desde expandido, vuelve al estado parcial; desde parcial puede cerrarse.
 
 - Optimizacion de datos:
-  - La suscripcion principal del catalogo sigue siendo una sola `Meteor.subscribe('pelis', selector, option)` sin `fields` enviados al backend.
+  - La suscripcion principal del catalogo sigue siendo una sola `Meteor.subscribe('pelis', selector, option)` con `fields` proyectados.
   - No se agregan nuevas suscripciones para abrir el detalle.
   - El detalle completo se obtiene bajo demanda con `Meteor.call('getPelicula', movieId)` solo cuando el usuario abre una pelicula.
   - Los detalles ya cargados se cachean localmente en memoria para no repetir llamadas al backend si se reabre la misma pelicula durante la sesion.
@@ -8212,46 +8293,122 @@ Notas adicionales - `openMovieDetail(...)` no debe mezclar apertura y fetch remo
 
 ---
 
-Resumen tecnico - AAB Android y PiP deben generarse con nombres Kotlin fully-qualified
+Resumen tecnico - Duracion real HLS en `PeliculaPlayer` debe preservarse fuera del estado volatil
 
 - Problema detectado:
-  - La construccion Android AAB fallaba en `:app:compileReleaseKotlin` dentro de `android/app/src/main/java/com/vidkar/MainActivity.kt`.
-  - Los errores eran referencias no resueltas generadas por el bloque de Picture-in-Picture:
-    - `VidkarPipState`
-    - `PictureInPictureParams`
-    - `Rational`
-    - `Configuration`
-    - y un override invalido de `onPictureInPictureModeChanged` por no resolver correctamente el tipo `Configuration`.
-
-- Causa raiz validada:
-  - El codigo de PiP no debe corregirse manualmente en `android/`, porque Expo prebuild puede regenerar `MainActivity.kt`.
-  - La fuente de verdad era el config plugin:
-    - `plugins/with-vidkar-android-pip.js`
-  - El plugin dependia de insertar imports Kotlin fragiles; cuando esos imports no quedaban presentes o eran removidos por regeneracion, el codigo generado usaba nombres cortos que Kotlin no podia resolver en release.
+  - El servidor HLS ya devuelve `durationSeconds` y `startAtSeconds`, igual que usa la web.
+  - En Expo, `components/downloadVideos/PeliculaPlayer.native.jsx` guardaba esa duracion dentro de `hlsPlayback`, que tambien cambia durante estados transitorios como `starting`, `processing` o errores temporales.
+  - Si un status posterior venia sin `durationSeconds`, el cliente podia volver a `0` y terminar usando duraciones relativas de VLC o cache anterior en vez de la duracion real de la pelicula.
 
 - Correccion aplicada:
-  - `with-vidkar-android-pip.js` ahora genera el bloque PiP con nombres fully-qualified:
-    - `expo.modules.vidkarpip.VidkarPipState`
-    - `android.app.PictureInPictureParams.Builder`
-    - `android.util.Rational`
-    - `android.content.res.Configuration`
-  - Se agrego limpieza de imports PiP obsoletos para evitar mezclar el patron viejo con el nuevo.
-  - El plugin tambien reemplaza bloques PiP generados previamente si detecta la version vieja basada en nombres cortos.
+  - Se agrego un estado separado para la duracion real del servidor HLS (`serverHlsDurationMs`).
+  - `applyHlsStatus(...)` solo actualiza esa duracion cuando recibe un valor valido mayor que cero.
+  - Los cambios de estado de preparacion HLS ya no borran la duracion conocida.
+  - La barra de progreso prioriza `playback.currentTime / durationMs` cuando existe duracion real, y deja `playback.position` solo como fallback cuando no hay duracion.
 
-- Validacion realizada:
-  - `node -c plugins/with-vidkar-android-pip.js` OK.
-  - `npx expo config --json` OK.
-  - `npm run build` / `expo prebuild` regenero Android correctamente.
-  - `./gradlew :vidkar-pip:compileReleaseKotlin :app:compileReleaseKotlin` OK.
-  - `./gradlew :app:compileReleaseKotlin` OK despues del prebuild.
-  - `./gradlew :app:bundleRelease` ya no falla por Kotlin/PiP; avanza hasta `:app:signReleaseBundle`.
-
-- Nuevo bloqueo operativo confirmado:
-  - El AAB local queda bloqueado despues de compilar por firma:
-    - `Failed to read key undefined from store "vidkar-android/my-release.jks": Keystore was tampered with, or password was incorrect`
-  - Esto ya no corresponde al codigo de PiP ni a Kotlin; es un problema de configuracion/credenciales del keystore release.
+- Criterio tecnico validado:
+  - En HLS por sesion con ventana deslizante, VLC puede reportar `position` o `duration` relativos a la playlist actual, no al total absoluto de la pelicula.
+  - La fuente de verdad del total debe ser `durationSeconds` del backend HLS.
+  - El tiempo actual visible y guardado debe seguir usando tiempo absoluto: `startAtSeconds + currentTime`.
 
 - Regla practica:
-  - Para cambios nativos Android generados por Expo, corregir siempre el config plugin y no solo el archivo dentro de `android/`.
-  - En plugins que inyectan Kotlin en archivos generados, preferir nombres fully-qualified cuando el bloque es corto y depende de imports que pueden romperse por prebuild.
-  - Si `bundleRelease` pasa `compileReleaseKotlin` y falla en `signReleaseBundle`, depurar credenciales de firma antes de volver a tocar PiP, Kotlin o `MainActivity.kt`.
+  - No guardar la duracion real HLS solo dentro de un objeto de estado que se reinicia durante la preparacion del stream.
+  - Si el backend ya entrego `durationSeconds`, preservarlo hasta cambiar de pelicula o reiniciar completamente el contexto.
+  - Si vuelve a aparecer duracion `00:00` o progreso incorrecto en peliculas HLS, revisar primero que `serverHlsDurationMs` no se este reseteando por un status incompleto y que la barra no este priorizando `event.position` de VLC.
+
+---
+
+Resumen tecnico - Alta de peliculas en Expo con flujo manual y disparo anual no bloqueante
+
+- Alcance aplicado:
+  - `components/downloadVideos/DownloadVideosHome.native.jsx` ahora permite agregar peliculas desde la app Expo cuando el usuario autenticado es:
+    - `username === 'carlosmbinf'`
+  - La accion vive en el `AppHeader` del catalogo de peliculas como boton `+` y abre un dialogo con dos modos:
+    - carga manual completa
+    - importacion por año
+
+- Contrato Meteor reutilizado:
+  - Carga manual:
+    - `Meteor.call('insertAsyncPelis', payload, true, callback)`
+  - Importacion anual:
+    - `Meteor.call('insertAsyncpelisbyyears', { year }, callback)`
+  - La app no inventa endpoints nuevos ni cambia colecciones; consume los mismos metodos validados en la web.
+
+- Regla funcional importante:
+  - En el modo `Importar por año`, la app solo inicia el trabajo del servidor.
+  - No debe esperar a que termine toda la ejecucion anual; el backend devuelve rapido con `{ started: true }` y sigue trabajando en segundo plano.
+  - El feedback al operador debe indicar que el servidor continuara el proceso, permitiendo enviar otro año sin bloquear la UI.
+
+- Campos preservados en carga manual:
+  - `nombre`
+  - `year`
+  - `peli`
+  - `poster`
+  - `subtitle`
+  - `urlPadre`
+  - `descripcion`
+  - `tamano`
+  - `mostrar`
+
+- Regla practica:
+  - Si se amplia el modulo de peliculas Expo, mantener paridad con la web nueva primero.
+  - No esconder ni cambiar el flujo por año mientras el backend siga soportando `insertAsyncpelisbyyears` como disparador de importacion anual.
+  - Si se agregan nuevos campos visibles al formulario manual, confirmar tambien que `insertAsyncPelis` los persista y no los descarte.
+
+---
+
+Resumen tecnico - Dialog de alta de peliculas en Expo con UX responsiva y secciones
+
+- Ajuste aplicado:
+  - `components/downloadVideos/DownloadVideosHome.native.jsx` mejoro el dialogo de `Agregar pelicula` para que no se sienta como un formulario largo comprimido.
+  - El dialogo ahora usa:
+    - cabecera propia con titulo, subtitulo y boton de cierre
+    - soporte de teclado con `KeyboardAvoidingView`
+    - alto maximo calculado por `useWindowDimensions()`
+    - `ScrollArea` con altura derivada del espacio disponible
+    - modo compacto para pantallas angostas
+    - acciones apiladas cuando el ancho no alcanza
+
+- Criterio UX validado:
+  - La carga manual debe organizarse por secciones de trabajo:
+    - datos principales
+    - archivos y origen
+    - presentacion
+  - El selector de flujo (`Carga manual` / `Importar por año`) debe mostrarse como panel compacto y no como texto suelto.
+  - La importacion anual debe seguir siendo una superficie corta y clara, separada visualmente del formulario manual completo.
+
+- Regla practica:
+  - En dialogos Expo con muchos campos, no usar alturas fijas grandes como solucion principal.
+  - Calcular el alto segun pantalla, dejar el body scrolleable y mantener las acciones visibles.
+  - Si el dialogo tiene blur/glass, conservar `BlurView` con `tint` literal (`dark`/`light`) y `experimentalBlurMethod="dimezisBlurView"` en Android.
+
+Notas adicionales - Los campos del dialog no deben encogerse como mini-cajas
+
+- Ajuste UX aplicado:
+  - El dialogo de alta de peliculas dejo de depender de `flex: 1` generico para todos los campos.
+  - Los campos ahora usan proporciones explicitas segun su rol:
+    - nombre como campo principal ancho
+    - año/tamaño como campos compactos controlados
+    - URLs y descripcion a ancho completo
+  - Las secciones manuales se renderizan como bloques propios con borde suave para que el formulario se lea por tareas y no como una columna pesada de inputs.
+
+- Regla practica:
+  - En formularios largos de Expo, no dejar que campos cortos y largos compartan exactamente la misma regla de flex.
+  - Si un campo termina viendose como una caja demasiado pequena, definir `flexBasis`, `minWidth` y variantes full-width segun el tipo de dato.
+  - Para dialogos profesionales, primero agrupar campos por intencion de trabajo y luego ajustar densidad; no resolver todo aumentando altura del modal.
+
+Notas adicionales - Responsive real del dialog de peliculas depende de ancho y alto
+
+- Ajuste aplicado:
+  - `AddMovieDialog` ya no decide su modo compacto solo por `windowWidth`.
+  - Ahora tambien contempla `windowHeight` para activar una densidad compacta cuando el dispositivo tiene poco alto disponible.
+  - El dialog calcula:
+    - ancho util limitado por pantalla
+    - alto maximo basado en margen vertical real
+    - alto de scroll descontando cabecera y acciones
+  - Cabecera, secciones, campos, multilinea, panel de año y acciones tienen variantes densas propias.
+
+- Regla practica:
+  - En dialogos moviles largos, responsive no significa solo cambiar columnas por ancho.
+  - Tambien hay que responder al alto disponible, especialmente cuando hay teclado, pantallas pequenas o modo landscape.
+  - Si vuelve a faltar contenido visible, revisar primero `dialogMaxHeight`, `scrollMaxHeight` y las variantes densas antes de tocar la logica del formulario.

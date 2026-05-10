@@ -3,6 +3,7 @@ import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 
 const DEFAULT_METEOR_URL = "ws://www.vidkar.com:3000/websocket";
+const DEFAULT_HLS_SERVER_URL = "https://hls.vidkar.com";
 
 const meteorAsyncStorage = {
   getItem: (key) => SecureStore.getItemAsync(key),
@@ -19,6 +20,19 @@ function normalizeMeteorUrl(value) {
   return trimmedValue ? trimmedValue : null;
 }
 
+function normalizeHttpBaseUrl(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmedValue = value.trim().replace(/\/$/, "");
+  if (!trimmedValue || !/^https?:\/\//i.test(trimmedValue)) {
+    return null;
+  }
+
+  return trimmedValue;
+}
+
 export function getMeteorUrl() {
   const meteorUrlCandidates = [
     process.env.EXPO_PUBLIC_METEOR_URL,
@@ -33,6 +47,26 @@ export function getMeteorUrl() {
     const normalizedMeteorUrl = normalizeMeteorUrl(candidate);
     if (normalizedMeteorUrl) {
       return normalizedMeteorUrl;
+    }
+  }
+
+  return null;
+}
+
+export function getHlsServerUrl() {
+  const hlsUrlCandidates = [
+    process.env.EXPO_PUBLIC_HLS_SERVER_URL,
+    Constants.expoConfig?.extra?.hlsServerUrl,
+    Constants.manifest2?.extra?.expoClient?.extra?.hlsServerUrl,
+    Constants.manifest2?.extra?.hlsServerUrl,
+    Constants.manifest?.extra?.hlsServerUrl,
+    DEFAULT_HLS_SERVER_URL,
+  ];
+
+  for (const candidate of hlsUrlCandidates) {
+    const normalizedHlsUrl = normalizeHttpBaseUrl(candidate);
+    if (normalizedHlsUrl) {
+      return normalizedHlsUrl;
     }
   }
 

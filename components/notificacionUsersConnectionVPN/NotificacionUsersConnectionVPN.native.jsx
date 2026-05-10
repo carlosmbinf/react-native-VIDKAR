@@ -2,23 +2,28 @@ import MeteorBase from "@meteorrn/core";
 import { router } from "expo-router";
 import React from "react";
 import {
-    Alert,
-    FlatList,
-    StyleSheet,
-    TextInput,
-    View,
-    useWindowDimensions
+  Alert,
+  FlatList,
+  LayoutAnimation,
+  Platform,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  UIManager,
+  View,
+  useWindowDimensions
 } from "react-native";
 import {
-    ActivityIndicator,
-    Appbar,
-    Button,
-    Chip,
-    IconButton,
-    Snackbar,
-    Surface,
-    Text,
-    useTheme,
+  ActivityIndicator,
+  Appbar,
+  Button,
+  Chip,
+  IconButton,
+  Menu,
+  Snackbar,
+  Surface,
+  Text,
+  useTheme,
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
@@ -30,6 +35,13 @@ const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
     MeteorBase
   );
+
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const formatDate = (value) => {
   if (!value) {
@@ -76,6 +88,26 @@ const normalizeText = (value) =>
   String(value || "")
     .trim()
     .toLowerCase();
+
+const animateLayoutChange = () => {
+  LayoutAnimation.configureNext({
+    duration: 220,
+    create: {
+      duration: 180,
+      property: LayoutAnimation.Properties.opacity,
+      type: LayoutAnimation.Types.easeInEaseOut,
+    },
+    delete: {
+      duration: 150,
+      property: LayoutAnimation.Properties.opacity,
+      type: LayoutAnimation.Types.easeInEaseOut,
+    },
+    update: {
+      springDamping: 0.82,
+      type: LayoutAnimation.Types.spring,
+    },
+  });
+};
 
 const removeNotificationRule = (id) =>
   new Promise((resolve, reject) => {
@@ -188,147 +220,202 @@ const EmptyState = ({ colors, hasRules, onClearFilters }) => (
 
 const NotificacionRuleCard = ({
   colors,
+  expanded,
   item,
   canDelete,
   canEdit,
   onDelete,
   onEdit,
+  onToggle,
   showAdmin,
-}) => (
-  <Surface
-    elevation={0}
-    style={[styles.ruleCard, { backgroundColor: colors.surface }]}
-  >
-    <View style={styles.ruleContentMinimal}>
-      <View style={styles.ruleTopRow}>
-        <View style={styles.ruleIdentityCol}>
-          <Text
-            style={[styles.ruleTitle, { color: colors.title }]}
-            variant="titleMedium"
-          >
-            {item.userDisplay}
-          </Text>
-          <Text
-            style={[styles.ruleSubtitle, { color: colors.copy }]}
-            variant="bodySmall"
-          >
-            {item.userFullName}
-          </Text>
-        </View>
+}) => {
+  const [menuVisible, setMenuVisible] = React.useState(false);
 
-        <Chip
-          compact
-          style={[
-            styles.headerChip,
-            { backgroundColor: colors.secondarySurface },
-          ]}
-          textStyle={{ color: item.tone.text }}
-        >
-          {item.userVpnActive ? "VPN activa" : "VPN"}
-        </Chip>
-      </View>
+  return (
+    <Pressable onPress={onToggle}>
+      <Surface
+        elevation={0}
+        style={[
+          styles.ruleCard,
+          { backgroundColor: colors.surface, borderColor: expanded ? item.tone.accent : colors.border },
+        ]}
+      >
+        <View style={styles.ruleContentMinimal}>
+          <View style={styles.ruleTopRowCompact}>
+            <View style={styles.ruleIdentityRowCompact}>
+              <View style={[styles.ruleIconWrap, { backgroundColor: `${item.tone.accent}18` }]}>
+                <IconButton icon="shield-check-outline" iconColor={item.tone.accent} size={18} style={styles.ruleStatusIcon} />
+              </View>
+              <View style={styles.ruleIdentityCol}>
+                <Text
+                  style={[styles.ruleTitle, { color: colors.title }]}
+                  numberOfLines={1}
+                  variant="titleMedium"
+                >
+                  {item.userDisplay}
+                </Text>
+                <Text
+                  style={[styles.ruleSubtitle, { color: colors.copy }]}
+                  numberOfLines={1}
+                  variant="bodySmall"
+                >
+                  {item.userFullName}
+                </Text>
+              </View>
+            </View>
 
-      <View style={styles.ruleInfoGrid}>
-        <View style={styles.ruleInfoBlock}>
-          <Text
-            style={[styles.ruleInfoLabel, { color: colors.label }]}
-            variant="labelSmall"
-          >
-            Responsable
-          </Text>
-          <Text
-            style={[styles.ruleInfoValue, { color: colors.title }]}
-            variant="bodyMedium"
-          >
-            {item.adminDisplay}
-          </Text>
-        </View>
+            <View style={styles.ruleActionsCol}>
+              {canEdit || canDelete ? (
+                <Menu
+                  visible={menuVisible}
+                  onDismiss={() => setMenuVisible(false)}
+                  anchor={
+                    <IconButton
+                      icon="dots-vertical"
+                      iconColor={colors.label}
+                      onPress={() => setMenuVisible(true)}
+                      size={18}
+                      style={styles.ruleMenuButton}
+                    />
+                  }
+                  contentStyle={[styles.ruleMenuContent, { backgroundColor: colors.surface }]}
+                  anchorPosition="bottom"
+                >
+                  {canEdit ? (
+                    <Menu.Item
+                      leadingIcon="pencil-outline"
+                      onPress={() => {
+                        setMenuVisible(false);
+                        onEdit(item);
+                      }}
+                      title="Editar"
+                      titleStyle={{ color: colors.title, fontWeight: "700" }}
+                    />
+                  ) : null}
+                  {canDelete ? (
+                    <Menu.Item
+                      leadingIcon="trash-can-outline"
+                      onPress={() => {
+                        setMenuVisible(false);
+                        onDelete(item);
+                      }}
+                      title="Eliminar"
+                      titleStyle={{ color: colors.danger, fontWeight: "700" }}
+                    />
+                  ) : null}
+                </Menu>
+              ) : null}
+              <Chip
+                compact
+                style={[
+                  styles.headerChip,
+                  { backgroundColor: colors.secondarySurface },
+                ]}
+                textStyle={{ color: item.tone.text, fontWeight: "800" }}
+              >
+                {item.userVpnActive ? "VPN activa" : "VPN"}
+              </Chip>
+            </View>
+          </View>
 
-        <View style={styles.ruleInfoBlock}>
-          <Text
-            style={[styles.ruleInfoLabel, { color: colors.label }]}
-            variant="labelSmall"
-          >
-            Fecha
-          </Text>
-          <Text
-            style={[styles.ruleInfoValue, { color: colors.title }]}
-            variant="bodyMedium"
-          >
-            {item.createdAtDisplay}
-          </Text>
-        </View>
-      </View>
+          <View style={styles.ruleMetaRowCompact}>
+            <View style={[styles.ruleMetaPill, { backgroundColor: colors.secondarySurface }]}> 
+              <Text style={[styles.ruleMetaPillLabel, { color: colors.label }]} variant="labelSmall">
+                Responsable
+              </Text>
+              <Text style={[styles.ruleMetaPillValue, { color: colors.title }]} numberOfLines={1} variant="labelMedium">
+                {item.adminDisplay}
+              </Text>
+            </View>
 
-      <View style={styles.messageCompactList}>
-        <View style={styles.messageCompactRow}>
-          <Text
-            style={[styles.messageCompactLabel, { color: colors.label }]}
-            variant="labelSmall"
-          >
-            Conecta
-          </Text>
-          <Text
-            numberOfLines={2}
-            style={[styles.messageCompactValue, { color: colors.copy }]}
-            variant="bodySmall"
-          >
-            {item.mensajeaenviarConnected}
-          </Text>
-        </View>
+            <View style={[styles.ruleMetaPill, { backgroundColor: colors.secondarySurface }]}> 
+              <Text style={[styles.ruleMetaPillLabel, { color: colors.label }]} variant="labelSmall">
+                Fecha
+              </Text>
+              <Text style={[styles.ruleMetaPillValue, { color: colors.title }]} numberOfLines={1} variant="labelMedium">
+                {item.createdAtDisplay}
+              </Text>
+            </View>
+          </View>
 
-        <View style={styles.messageCompactRow}>
-          <Text
-            style={[styles.messageCompactLabel, { color: colors.label }]}
-            variant="labelSmall"
-          >
-            Desconecta
-          </Text>
-          <Text
-            numberOfLines={2}
-            style={[styles.messageCompactValue, { color: colors.copy }]}
-            variant="bodySmall"
-          >
-            {item.mensajeaenviarDisconnected}
-          </Text>
-        </View>
-      </View>
+          {expanded ? (
+            <View style={styles.messageCompactList}>
+              <View style={[styles.messageDetailBlock, { backgroundColor: colors.secondarySurface }]}> 
+                <Text
+                  style={[styles.messageCompactLabel, { color: colors.label }]}
+                  variant="labelSmall"
+                >
+                  Cuando conecta
+                </Text>
+                <Text
+                  style={[styles.messageCompactValue, { color: colors.copy }]}
+                  variant="bodySmall"
+                >
+                  {item.mensajeaenviarConnected}
+                </Text>
+              </View>
 
-      <View style={styles.cardFooterMinimal}>
-        <Text
-          style={[styles.footerHint, { color: colors.label }]}
-          variant="bodySmall"
-        >
-          {showAdmin
-            ? "Puedes editar mensajes y reasignar responsable."
-            : "Puedes editar mensajes de tus propias reglas."}
-        </Text>
-        <View style={styles.cardActionsRow}>
-          {canEdit ? (
-            <Button
-              compact
-              icon="pencil-outline"
-              mode="text"
-              onPress={() => onEdit(item)}
-            >
-              Editar
-            </Button>
+              <View style={[styles.messageDetailBlock, { backgroundColor: colors.secondarySurface }]}> 
+                <Text
+                  style={[styles.messageCompactLabel, { color: colors.label }]}
+                  variant="labelSmall"
+                >
+                  Cuando desconecta
+                </Text>
+                <Text
+                  style={[styles.messageCompactValue, { color: colors.copy }]}
+                  variant="bodySmall"
+                >
+                  {item.mensajeaenviarDisconnected}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.ruleHintRow}>
+              <Text
+                style={[styles.ruleHintText, { color: colors.label }]}
+                numberOfLines={1}
+                variant="labelSmall"
+              >
+                Toca para ver mensajes y detalles
+              </Text>
+              <IconButton
+                icon={expanded ? "chevron-up" : "chevron-down"}
+                iconColor={colors.label}
+                size={16}
+                style={styles.ruleHintChevron}
+              />
+            </View>
+          )}
+
+          {expanded ? (
+            <View style={styles.cardFooterMinimal}>
+              <Text
+                style={[styles.footerHint, { color: colors.label }]}
+                variant="bodySmall"
+              >
+                {showAdmin
+                  ? "Puedes editar mensajes y reasignar responsable." 
+                  : "Puedes editar mensajes de tus propias reglas."}
+              </Text>
+              <View style={styles.ruleHintRow}>
+                <Text style={[styles.ruleHintText, { color: colors.label }]} variant="labelSmall">
+                  Toca para contraer
+                </Text>
+                <IconButton
+                  icon="chevron-up"
+                  iconColor={colors.label}
+                  size={16}
+                  style={styles.ruleHintChevron}
+                />
+              </View>
+            </View>
           ) : null}
-          {canDelete ? (
-            <Button
-              compact
-              icon="delete-outline"
-              mode="text"
-              onPress={() => onDelete(item)}
-            >
-              Eliminar
-            </Button>
-          ) : null}
         </View>
-      </View>
-    </View>
-  </Surface>
-);
+      </Surface>
+    </Pressable>
+  );
+};
 
 const NotificacionUsersConnectionVPN = () => {
   const theme = useTheme();
@@ -379,6 +466,7 @@ const NotificacionUsersConnectionVPN = () => {
   const [dialogVisible, setDialogVisible] = React.useState(false);
   const [editingRule, setEditingRule] = React.useState(null);
   const [deletingIds, setDeletingIds] = React.useState([]);
+  const [expandedRuleIds, setExpandedRuleIds] = React.useState([]);
   const [feedback, setFeedback] = React.useState({
     visible: false,
     message: "",
@@ -553,6 +641,15 @@ const NotificacionUsersConnectionVPN = () => {
   const openEditDialog = React.useCallback((item) => {
     setEditingRule(item);
     setDialogVisible(true);
+  }, []);
+
+  const toggleRule = React.useCallback((ruleId) => {
+    animateLayoutChange();
+    setExpandedRuleIds((current) =>
+      current.includes(ruleId)
+        ? current.filter((id) => id !== ruleId)
+        : [...current, ruleId],
+    );
   }, []);
 
   const handleDelete = React.useCallback(
@@ -823,15 +920,19 @@ const NotificacionUsersConnectionVPN = () => {
                 canDelete={!deletingIds.includes(item._id)}
                 canEdit={!deletingIds.includes(item._id)}
                 colors={{
+                  border: isDark ? "rgba(148, 163, 184, 0.18)" : "rgba(148, 163, 184, 0.22)",
                   copy: palette.copy,
+                  danger: theme.colors.error,
                   label: palette.label,
                   secondarySurface: palette.secondarySurface,
                   surface: palette.cardSurface,
                   title: palette.title,
                 }}
+                expanded={expandedRuleIds.includes(item._id)}
                 item={item}
                 onDelete={handleDelete}
                 onEdit={openEditDialog}
+                onToggle={() => toggleRule(item._id)}
                 showAdmin={isGeneralAdmin}
               />
               {deletingIds.includes(item._id) ? (
@@ -998,22 +1099,48 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   ruleCard: {
+    borderWidth: 1,
     borderRadius: 20,
   },
   ruleContentMinimal: {
-    gap: 14,
+    gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
-  ruleTopRow: {
+  ruleTopRowCompact: {
     alignItems: "center",
     flexDirection: "row",
     gap: 12,
     justifyContent: "space-between",
   },
+  ruleIdentityRowCompact: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: 10,
+    minWidth: 0,
+  },
+  ruleIconWrap: {
+    alignItems: "center",
+    borderRadius: 14,
+    height: 34,
+    justifyContent: "center",
+    width: 34,
+  },
+  ruleStatusIcon: {
+    margin: 0,
+  },
   ruleIdentityCol: {
     flex: 1,
     gap: 2,
+    minWidth: 0,
+  },
+  ruleActionsCol: {
+    alignItems: "flex-end",
+    alignSelf: "flex-start",
+    flexShrink: 0,
+    gap: 6,
+    minWidth: 84,
   },
   ruleTitle: {
     fontWeight: "700",
@@ -1024,25 +1151,41 @@ const styles = StyleSheet.create({
   headerChip: {
     borderRadius: 999,
   },
-  ruleInfoGrid: {
+  ruleMenuButton: {
+    height: 24,
+    margin: 0,
+    width: 24,
+  },
+  ruleMenuContent: {
+    borderRadius: 18,
+    overflow: "hidden",
+  },
+  ruleMetaRowCompact: {
     flexDirection: "row",
     gap: 12,
   },
-  ruleInfoBlock: {
+  ruleMetaPill: {
+    borderRadius: 16,
     flex: 1,
-    gap: 4,
+    gap: 3,
+    minWidth: 0,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  ruleInfoLabel: {
+  ruleMetaPillLabel: {
     textTransform: "uppercase",
   },
-  ruleInfoValue: {
+  ruleMetaPillValue: {
     fontWeight: "600",
   },
   messageCompactList: {
     gap: 10,
   },
-  messageCompactRow: {
-    gap: 4,
+  messageDetailBlock: {
+    borderRadius: 16,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
   messageCompactLabel: {
     textTransform: "uppercase",
@@ -1051,18 +1194,23 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   cardFooterMinimal: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 10,
   },
   footerHint: {
-    flex: 1,
     lineHeight: 18,
-    paddingRight: 12,
   },
-  cardActionsRow: {
+  ruleHintRow: {
     alignItems: "center",
     flexDirection: "row",
+    gap: 6,
+    minHeight: 18,
+  },
+  ruleHintText: {
+    flex: 1,
+    fontWeight: "700",
+  },
+  ruleHintChevron: {
+    margin: 0,
   },
   deletingOverlay: {
     ...StyleSheet.absoluteFillObject,

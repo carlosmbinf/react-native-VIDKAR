@@ -464,56 +464,60 @@ const PriceCard = ({ basePrice, canDelete, canEdit, colors, compact, expanded, i
         ]}
         elevation={expanded ? 5 : 1}
       >
-      <View style={styles.priceCardHeader}>
-        <View style={[styles.priceIcon, { backgroundColor: `${typeInfo.accent}22` }]}> 
-          <MaterialCommunityIcons name={typeInfo.icon} size={compact ? 19 : 22} color={typeInfo.accent} />
-        </View>
-        <View style={styles.priceHeaderCopy}>
-          <Text variant={compact ? "titleSmall" : "titleMedium"} style={[styles.priceTitle, { color: colors.title }]} numberOfLines={1}>
-            {typeInfo.label}
-          </Text>
-          <Text variant="bodySmall" style={[styles.priceSubtitle, { color: colors.muted }]} numberOfLines={1}>
-            {inherited ? "Basado en una oferta oficial" : "Precio creado directamente"}
-          </Text>
-        </View>
-        <Chip compact style={[styles.priceAmountChip, { backgroundColor: `${typeInfo.accent}1f` }]} textStyle={{ color: typeInfo.accent, fontWeight: "900" }}>
-          {ownPriceLabel}
-        </Chip>
-        {canEdit || canDelete ? (
-          <Menu
-            visible={menuVisible}
-            onDismiss={closeMenu}
-            anchor={
-              <IconButton
-                icon="dots-vertical"
-                iconColor={colors.muted}
-                size={18}
-                style={styles.cardMenuButton}
-                onPress={openMenu}
-              />
-            }
-            contentStyle={[styles.cardMenuContent, { backgroundColor: colors.card }]}
-            anchorPosition="bottom"
-          >
-            {canEdit ? (
-              <Menu.Item
-                leadingIcon="pencil-outline"
-                title="Editar"
-                onPress={handleEdit}
-                titleStyle={{ color: colors.title, fontWeight: "700" }}
-              />
+        <View style={styles.priceCardTopRow}>
+          <View style={styles.priceCardIdentityRow}>
+            <View style={[styles.priceIcon, { backgroundColor: `${typeInfo.accent}22` }]}> 
+              <MaterialCommunityIcons name={typeInfo.icon} size={compact ? 18 : 20} color={typeInfo.accent} />
+            </View>
+            <View style={styles.priceHeaderCopy}>
+              <Text variant={compact ? "titleSmall" : "titleMedium"} style={[styles.priceTitle, { color: colors.title }]} numberOfLines={1}>
+                {typeInfo.label}
+              </Text>
+              <Text variant="bodySmall" style={[styles.priceSubtitle, { color: colors.muted }]} numberOfLines={1}>
+                {inherited ? "Precio basado en oferta oficial" : "Precio independiente"}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.priceCardActionsCol}>
+            {canEdit || canDelete ? (
+              <Menu
+                visible={menuVisible}
+                onDismiss={closeMenu}
+                anchor={
+                  <IconButton
+                    icon="dots-vertical"
+                    iconColor={colors.muted}
+                    size={18}
+                    style={styles.cardMenuButton}
+                    onPress={openMenu}
+                  />
+                }
+                contentStyle={[styles.cardMenuContent, { backgroundColor: colors.card }]}
+                anchorPosition="bottom"
+              >
+                {canEdit ? (
+                  <Menu.Item
+                    leadingIcon="pencil-outline"
+                    title="Editar"
+                    onPress={handleEdit}
+                    titleStyle={{ color: colors.title, fontWeight: "700" }}
+                  />
+                ) : null}
+                {canDelete ? (
+                  <Menu.Item
+                    leadingIcon="trash-can-outline"
+                    title="Eliminar"
+                    onPress={handleDelete}
+                    titleStyle={{ color: colors.danger, fontWeight: "700" }}
+                  />
+                ) : null}
+              </Menu>
             ) : null}
-            {canDelete ? (
-              <Menu.Item
-                leadingIcon="trash-can-outline"
-                title="Eliminar"
-                onPress={handleDelete}
-                titleStyle={{ color: colors.danger, fontWeight: "700" }}
-              />
-            ) : null}
-          </Menu>
-        ) : null}
-      </View>
+            <Text variant={compact ? "titleMedium" : "headlineSmall"} style={[styles.priceAmountText, { color: typeInfo.accent }]} numberOfLines={1}>
+              {ownPriceLabel}
+            </Text>
+          </View>
+        </View>
 
       {inherited && expanded ? (
         <View style={[styles.priceCompareRow, { backgroundColor: colors.cardSoft, borderColor: colors.border }]}> 
@@ -569,10 +573,10 @@ const PriceCard = ({ basePrice, canDelete, canEdit, colors, compact, expanded, i
         </View>
       ) : hasDetails ? (
         <View style={styles.tapHintRow}>
-          <MaterialCommunityIcons name="gesture-tap" size={14} color={colors.muted} />
-          <Text variant="labelSmall" style={{ color: colors.muted, fontWeight: "700" }}>
-            Toca para ver comentarios y condiciones
+          <Text variant="labelSmall" style={{ color: colors.muted, fontWeight: "700", flex: 1 }} numberOfLines={1}>
+            Toca para ver condiciones
           </Text>
+          <MaterialCommunityIcons name={expanded ? "chevron-up" : "chevron-down"} size={18} color={colors.muted} />
         </View>
       ) : null}
 
@@ -1485,22 +1489,30 @@ const styles = StyleSheet.create({
   priceCard: {
     borderRadius: 18,
     borderWidth: 1,
-    gap: 7,
+    gap: 8,
     marginBottom: 0,
-    padding: 10,
+    padding: 12,
   },
   priceCardCompact: {
     borderRadius: 16,
     gap: 6,
-    padding: 9,
+    padding: 10,
   },
   priceCardExpanded: {
     transform: [{ translateY: -2 }],
   },
-  priceCardHeader: {
+  priceCardTopRow: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 8,
+    gap: 10,
+    justifyContent: "space-between",
+  },
+  priceCardIdentityRow: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: 10,
+    minWidth: 0,
   },
   priceIcon: {
     alignItems: "center",
@@ -1513,19 +1525,28 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  priceCardActionsCol: {
+    alignItems: "flex-end",
+    alignSelf: "flex-start",
+    flexShrink: 0,
+    justifyContent: "flex-start",
+    minWidth: 90,
+  },
   priceTitle: {
     fontWeight: "900",
   },
   priceSubtitle: {
     marginTop: 1,
   },
-  priceAmountChip: {
-    borderRadius: 999,
+  priceAmountText: {
+    fontWeight: "900",
+    lineHeight: 28,
+    textAlign: "right",
   },
   cardMenuButton: {
-    height: 30,
+    height: 26,
     margin: 0,
-    width: 30,
+    width: 26,
   },
   cardMenuContent: {
     borderRadius: 18,
@@ -1589,6 +1610,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     gap: 6,
+    minHeight: 20,
   },
   cardDivider: {
     height: StyleSheet.hairlineWidth,

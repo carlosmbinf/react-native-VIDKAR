@@ -1,38 +1,42 @@
 import MeteorBase from "@meteorrn/core";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
-    Alert,
-    Animated,
-    FlatList,
-    ImageBackground,
-    Linking,
-    ActivityIndicator as NativeActivityIndicator,
-    PanResponder,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    View,
-    useWindowDimensions,
+  Alert,
+  Animated,
+  FlatList,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Linking,
+  ActivityIndicator as NativeActivityIndicator,
+  PanResponder,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+  useWindowDimensions,
 } from "react-native";
 import {
-    ActivityIndicator,
-    Button,
-    Chip,
-    IconButton,
-    Portal,
-    Surface,
-    Text,
-    useTheme,
+  ActivityIndicator,
+  Button,
+  Chip,
+  Dialog,
+  IconButton,
+  Portal,
+  Surface,
+  Text,
+  useTheme,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { getMeteorUrl } from "../../services/meteor/client.native";
 import AppHeader, {
-    DEFAULT_HEADER_COLOR,
-    useAppHeaderContentInset,
+  DEFAULT_HEADER_COLOR,
+  useAppHeaderContentInset,
 } from "../Header/AppHeader";
 import { PelisCollection } from "../collections/collections";
 
@@ -61,6 +65,27 @@ const MOVIE_FIELDS = {
 
 const ALL_GENRES = "Todos";
 const MOVIE_LIMIT = 180;
+
+const MOVIE_DIALOG_MODE = {
+  MANUAL: "manual",
+  YEAR: "year",
+};
+
+const INITIAL_MOVIE_FORM = {
+  nombre: "",
+  year: "",
+  peli: "",
+  poster: "",
+  subtitle: "",
+  urlPadre: "",
+  descripcion: "",
+  tamano: "",
+  mostrar: true,
+};
+
+const INITIAL_MOVIE_YEAR_FORM = {
+  year: "",
+};
 
 const getHttpOriginFromMeteorUrl = (value) => {
   if (typeof value !== "string" || !value.trim()) {
@@ -133,6 +158,22 @@ const resolveMovieStreamUrl = (movie) => {
   return typeof candidate === "string" && candidate.trim() ? candidate.trim() : null;
 };
 
+const normalizeYearInput = (value) => String(value || "").replace(/[^0-9]/g, "").slice(0, 4);
+
+const validateMovieForm = (form) => {
+  if (!form.nombre.trim()) return "Escribe el nombre de la pelicula.";
+  if (!/^\d{4}$/.test(form.year)) return "Escribe un año valido de 4 digitos.";
+  if (!form.peli.trim()) return "Agrega la URL del video.";
+  if (!form.poster.trim()) return "Agrega la URL del poster o background.";
+  if (form.tamano && Number.isNaN(Number(form.tamano))) return "El tamaño debe ser numerico.";
+  return "";
+};
+
+const validateMovieYearForm = (form) => {
+  if (!/^\d{4}$/.test(form.year)) return "Escribe el año a importar con 4 digitos.";
+  return "";
+};
+
 const normalizeMeteorCallback = (args) => {
   const [first, second] = args;
 
@@ -163,6 +204,7 @@ const getPalette = (theme) => {
 
   return {
     background: theme.colors.background,
+    isDark,
     surface: theme.colors.surface,
     surfaceElevated: theme.colors.elevation?.level2 || theme.colors.surface,
     surfaceSoft: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(15, 23, 42, 0.06)",
@@ -175,6 +217,7 @@ const getPalette = (theme) => {
     accentSoft: isDark ? "rgba(244, 63, 94, 0.16)" : "rgba(193, 18, 31, 0.1)",
     accentBorder: isDark ? "rgba(244, 63, 94, 0.42)" : "rgba(193, 18, 31, 0.26)",
     accentText: isDark ? "#ffe4e8" : "#7f101b",
+    dialogGlassOverlay: isDark ? "rgba(15, 23, 42, 0.68)" : "rgba(255, 255, 255, 0.72)",
     onAccent: "#ffffff",
     heroText: "#ffffff",
     heroMuted: "rgba(255, 255, 255, 0.84)",
@@ -283,6 +326,210 @@ const EmptyState = ({ palette, loading }) => (
   </Surface>
 );
 
+const MovieFormField = ({ label, multiline, onChangeText, palette, style, value, ...props }) => (
+  <View style={[styles.movieFormFieldShell, style, { backgroundColor: palette.surfaceSoft, borderColor: palette.border }]}> 
+    <Text variant="labelMedium" style={[styles.movieFormLabel, { color: palette.subtle }]}>{label}</Text>
+    <TextInput
+      {...props}
+      multiline={multiline}
+      onChangeText={onChangeText}
+      placeholderTextColor={palette.subtle}
+      style={[
+        styles.movieFormInput,
+        multiline && styles.movieFormInputMultiline,
+        { color: palette.text },
+      ]}
+      value={value}
+    />
+  </View>
+);
+
+const MovieDialogSection = ({ children, label, palette }) => (
+  <View style={[styles.movieDialogSection, { backgroundColor: palette.card, borderColor: palette.border }]}> 
+    <Text variant="labelLarge" style={[styles.movieDialogSectionTitle, { color: palette.text }]}>
+      {label}
+    </Text>
+    {children}
+  </View>
+);
+
+const AddMovieDialog = ({ onClose, onCreated, open, palette }) => {
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const [mode, setMode] = React.useState(MOVIE_DIALOG_MODE.MANUAL);
+  const [form, setForm] = React.useState(INITIAL_MOVIE_FORM);
+  const [yearForm, setYearForm] = React.useState(INITIAL_MOVIE_YEAR_FORM);
+  const [feedback, setFeedback] = React.useState("");
+  const [submitting, setSubmitting] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!open) {
+      setMode(MOVIE_DIALOG_MODE.MANUAL);
+      setForm(INITIAL_MOVIE_FORM);
+      setYearForm(INITIAL_MOVIE_YEAR_FORM);
+      setFeedback("");
+      setSubmitting(false);
+    }
+  }, [open]);
+
+  const updateFormField = React.useCallback((field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+    setFeedback("");
+  }, []);
+
+  const handleSubmit = React.useCallback(() => {
+    if (mode === MOVIE_DIALOG_MODE.YEAR) {
+      const validation = validateMovieYearForm(yearForm);
+      if (validation) {
+        setFeedback(validation);
+        return;
+      }
+
+      setSubmitting(true);
+      Meteor.call("insertAsyncpelisbyyears", { year: Number(yearForm.year) }, (...args) => {
+        const { error } = normalizeMeteorCallback(args);
+        setSubmitting(false);
+
+        if (error) {
+          setFeedback(error.reason || error.message || "No se pudo iniciar la importacion por año.");
+          return;
+        }
+
+        onCreated?.({
+          movie: null,
+          message: `Se inicio la carga de peliculas del año ${yearForm.year}. El servidor continuara el proceso en segundo plano.`,
+        });
+        onClose?.();
+      });
+      return;
+    }
+
+    const validation = validateMovieForm(form);
+    if (validation) {
+      setFeedback(validation);
+      return;
+    }
+
+    const payload = {
+      nombre: form.nombre.trim(),
+      year: Number(form.year),
+      peli: form.peli.trim(),
+      poster: form.poster.trim(),
+      subtitle: form.subtitle.trim(),
+      urlPadre: form.urlPadre.trim(),
+      descripcion: form.descripcion.trim(),
+      tamano: form.tamano ? Number(form.tamano) : "",
+      mostrar: Boolean(form.mostrar),
+    };
+
+    setSubmitting(true);
+    Meteor.call("insertAsyncPelis", payload, true, (...args) => {
+      const { error, result } = normalizeMeteorCallback(args);
+      setSubmitting(false);
+
+      if (error) {
+        setFeedback(error.reason || error.message || "No se pudo agregar la pelicula.");
+        return;
+      }
+
+      onCreated?.({
+        movie: result?.movie || null,
+        message: result?.message || "Pelicula agregada al catalogo.",
+      });
+      onClose?.();
+    });
+  }, [form, mode, onClose, onCreated, yearForm]);
+
+  const isCompactDialog = windowWidth < 420;
+  const dialogMaxHeight = Math.max(360, Math.round(windowHeight * 0.82));
+  const scrollMaxHeight = Math.max(180, dialogMaxHeight - 156);
+
+  return (
+    <Portal>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} pointerEvents="box-none" style={styles.movieDialogKeyboard}>
+      <Dialog visible={open} onDismiss={submitting ? undefined : onClose} style={[styles.movieDialog, { maxHeight: dialogMaxHeight }]}> 
+        {palette.isDark ? (
+          <BlurView
+            tint="dark"
+            intensity={42}
+            experimentalBlurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
+            renderToHardwareTextureAndroid
+            style={StyleSheet.absoluteFill}
+          />
+        ) : (
+          <BlurView
+            tint="light"
+            intensity={46}
+            experimentalBlurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
+            renderToHardwareTextureAndroid
+            style={StyleSheet.absoluteFill}
+          />
+        )}
+        <View pointerEvents="none" style={[styles.movieDialogGlassOverlay, { backgroundColor: palette.dialogGlassOverlay }]} />
+        <View style={[styles.movieDialogHeader, { borderBottomColor: palette.border }]}> 
+          <View style={styles.movieDialogHeaderText}>
+            <Text variant="titleLarge" style={[styles.movieDialogTitle, { color: palette.text }]}>Agregar pelicula</Text>
+            <Text variant="bodySmall" style={[styles.movieDialogSubtitle, { color: palette.muted }]}>Carga manual o importacion anual en segundo plano.</Text>
+          </View>
+          <IconButton icon="close" size={20} disabled={submitting} iconColor={palette.muted} onPress={onClose} style={styles.movieDialogCloseButton} />
+        </View>
+        <Dialog.ScrollArea style={[styles.movieDialogScrollArea, { maxHeight: scrollMaxHeight }]}> 
+          <ScrollView contentContainerStyle={[styles.movieDialogBody, isCompactDialog && styles.movieDialogBodyCompact]} showsVerticalScrollIndicator>
+            <View style={[styles.movieModePanel, { backgroundColor: palette.card, borderColor: palette.border }]}> 
+              <Text variant="labelMedium" style={[styles.movieFormLabel, { color: palette.subtle }]}>Flujo de alta</Text>
+              <View style={styles.movieModeRow}>
+              <Chip disabled={submitting} mode={mode === MOVIE_DIALOG_MODE.MANUAL ? "flat" : "outlined"} selected={mode === MOVIE_DIALOG_MODE.MANUAL} onPress={() => setMode(MOVIE_DIALOG_MODE.MANUAL)} style={[styles.movieModeChip, mode === MOVIE_DIALOG_MODE.MANUAL && { backgroundColor: palette.accentSoft }]} textStyle={{ color: mode === MOVIE_DIALOG_MODE.MANUAL ? palette.accentText : palette.muted, fontWeight: "900" }}>Carga manual</Chip>
+              <Chip disabled={submitting} mode={mode === MOVIE_DIALOG_MODE.YEAR ? "flat" : "outlined"} selected={mode === MOVIE_DIALOG_MODE.YEAR} onPress={() => setMode(MOVIE_DIALOG_MODE.YEAR)} style={[styles.movieModeChip, mode === MOVIE_DIALOG_MODE.YEAR && { backgroundColor: palette.accentSoft }]} textStyle={{ color: mode === MOVIE_DIALOG_MODE.YEAR ? palette.accentText : palette.muted, fontWeight: "900" }}>Importar por año</Chip>
+              </View>
+            </View>
+            {mode === MOVIE_DIALOG_MODE.MANUAL ? (
+              <View style={styles.movieFormStack}>
+                <MovieDialogSection label="Datos principales" palette={palette}>
+                <View style={[styles.movieFormRow, isCompactDialog && styles.movieFormRowCompact]}>
+                  <MovieFormField label="Nombre" palette={palette} style={styles.movieFormFieldPrimary} value={form.nombre} onChangeText={(value) => updateFormField("nombre", value)} />
+                  <MovieFormField label="Año" palette={palette} style={styles.movieFormFieldSmall} value={form.year} keyboardType="number-pad" maxLength={4} onChangeText={(value) => updateFormField("year", normalizeYearInput(value))} />
+                </View>
+                </MovieDialogSection>
+                <MovieDialogSection label="Archivos y origen" palette={palette}>
+                <MovieFormField label="URL del video" palette={palette} style={styles.movieFormFieldFull} value={form.peli} autoCapitalize="none" onChangeText={(value) => updateFormField("peli", value)} />
+                <MovieFormField label="URL del poster o background" palette={palette} style={styles.movieFormFieldFull} value={form.poster} autoCapitalize="none" onChangeText={(value) => updateFormField("poster", value)} />
+                <MovieFormField label="URL del subtitulo SRT" palette={palette} style={styles.movieFormFieldFull} value={form.subtitle} autoCapitalize="none" onChangeText={(value) => updateFormField("subtitle", value)} />
+                <MovieFormField label="URL padre / carpeta origen" palette={palette} style={styles.movieFormFieldFull} value={form.urlPadre} autoCapitalize="none" onChangeText={(value) => updateFormField("urlPadre", value)} />
+                </MovieDialogSection>
+                <MovieDialogSection label="Presentacion" palette={palette}>
+                <MovieFormField label="Descripcion visible" palette={palette} style={styles.movieFormFieldFull} value={form.descripcion} multiline onChangeText={(value) => updateFormField("descripcion", value)} />
+                <View style={[styles.movieFormRow, isCompactDialog && styles.movieFormRowCompact]}>
+                  <MovieFormField label="Tamaño" palette={palette} style={styles.movieFormFieldSmall} value={form.tamano} keyboardType="numeric" onChangeText={(value) => updateFormField("tamano", value.replace(/[^0-9.]/g, ""))} />
+                  <View style={[styles.movieVisibilityBox, { backgroundColor: palette.surfaceSoft, borderColor: palette.border }]}> 
+                    <Text variant="labelMedium" style={[styles.movieFormLabel, { color: palette.subtle }]}>Visibilidad</Text>
+                    <Button mode={form.mostrar ? "contained" : "outlined"} compact buttonColor={form.mostrar ? palette.accent : undefined} textColor={form.mostrar ? palette.onAccent : palette.muted} onPress={() => updateFormField("mostrar", !form.mostrar)} disabled={submitting}>{form.mostrar ? "Mostrar" : "Oculta"}</Button>
+                  </View>
+                </View>
+                </MovieDialogSection>
+              </View>
+            ) : (
+              <View style={[styles.movieYearPanel, { backgroundColor: palette.card, borderColor: palette.border }]}> 
+                <Text variant="titleMedium" style={[styles.movieYearTitle, { color: palette.text }]}>Importacion anual</Text>
+                <Text variant="bodyMedium" style={[styles.movieDialogCopy, { color: palette.muted }]}>Indica el año de la carpeta anual. La llamada vuelve rapido y el servidor sigue importando en segundo plano.</Text>
+                <MovieFormField label="Año a importar" palette={palette} value={yearForm.year} keyboardType="number-pad" maxLength={4} onChangeText={(value) => { setYearForm({ year: normalizeYearInput(value) }); setFeedback(""); }} />
+              </View>
+            )}
+            {feedback ? (
+              <Surface style={[styles.movieFeedback, { backgroundColor: palette.accentSoft, borderColor: palette.accentBorder }]} elevation={0}>
+                <Text variant="bodySmall" style={{ color: palette.accentText }}>{feedback}</Text>
+              </Surface>
+            ) : null}
+          </ScrollView>
+        </Dialog.ScrollArea>
+        <Dialog.Actions style={[styles.movieDialogActions, isCompactDialog && styles.movieDialogActionsCompact, { backgroundColor: "transparent", borderTopColor: palette.border }]}> 
+          <Button style={isCompactDialog && styles.movieDialogActionButton} disabled={submitting} onPress={onClose} textColor={palette.muted}>Cancelar</Button>
+          <Button style={isCompactDialog && styles.movieDialogActionButton} mode="contained" icon={submitting ? undefined : "plus"} loading={submitting} disabled={submitting} buttonColor={palette.accent} textColor={palette.onAccent} onPress={handleSubmit}>{submitting ? (mode === MOVIE_DIALOG_MODE.YEAR ? "Iniciando" : "Procesando") : mode === MOVIE_DIALOG_MODE.YEAR ? "Importar año" : "Agregar"}</Button>
+        </Dialog.Actions>
+      </Dialog>
+      </KeyboardAvoidingView>
+    </Portal>
+  );
+};
+
 const HeroMovieFilters = ({
   genreOptions,
   palette,
@@ -376,6 +623,7 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
           callback?.();
         }
       });
+
     },
     [translateY],
   );
@@ -547,6 +795,8 @@ const DownloadVideosHome = () => {
   const [selectedMovie, setSelectedMovie] = React.useState(null);
   const [movieDetail, setMovieDetail] = React.useState(null);
   const [detailLoading, setDetailLoading] = React.useState(false);
+  const [addMovieOpen, setAddMovieOpen] = React.useState(false);
+  const [createdMovies, setCreatedMovies] = React.useState([]);
   const movieDetailsCacheRef = React.useRef(new Map());
   const activeDetailMovieIdRef = React.useRef(null);
 
@@ -577,10 +827,20 @@ const DownloadVideosHome = () => {
   });
 
   const isAdmin = currentUser?.profile?.role === "admin" || currentUser?.username === "carlosmbinf";
+  const canAddMovies = currentUser?.username === "carlosmbinf";
+
+  const catalogMovies = React.useMemo(() => {
+    if (!createdMovies.length) {
+      return movies;
+    }
+
+    const createdIds = new Set(createdMovies.map((movie) => movie?._id).filter(Boolean));
+    return [...createdMovies, ...movies.filter((movie) => !createdIds.has(movie?._id))];
+  }, [createdMovies, movies]);
 
   const visibleMovies = React.useMemo(
-    () => movies.filter((movie) => isVisibleMovie(movie) && isPlayableExtension(movie)),
-    [movies],
+    () => catalogMovies.filter((movie) => isVisibleMovie(movie) && isPlayableExtension(movie)),
+    [catalogMovies],
   );
 
   const genreOptions = React.useMemo(() => {
@@ -729,6 +989,15 @@ const DownloadVideosHome = () => {
     });
   }, []);
 
+  const handleMovieCreated = React.useCallback(({ movie, message }) => {
+    if (movie?._id) {
+      setCreatedMovies((current) => [movie, ...current.filter((item) => item?._id !== movie._id)]);
+      movieDetailsCacheRef.current.set(movie._id, movie);
+    }
+
+    Alert.alert("Peliculas", message || "Operacion iniciada correctamente.");
+  }, []);
+
   if (!currentUser) {
     return (
       <View style={[styles.screen, { backgroundColor: palette.background }]}> 
@@ -775,6 +1044,7 @@ const DownloadVideosHome = () => {
         backHref="/(normal)/Main"
         backgroundColor={DEFAULT_HEADER_COLOR}
         overlapContent
+        actions={canAddMovies ? <IconButton icon="plus" iconColor="#ffffff" onPress={() => setAddMovieOpen(true)} /> : null}
       />
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -839,6 +1109,12 @@ const DownloadVideosHome = () => {
         onDismiss={closeMovieDetail}
         onPlay={openStream}
         onTrailer={openTrailer}
+      />
+      <AddMovieDialog
+        open={addMovieOpen}
+        palette={palette}
+        onClose={() => setAddMovieOpen(false)}
+        onCreated={handleMovieCreated}
       />
     </View>
   );
@@ -1062,6 +1338,184 @@ const styles = StyleSheet.create({
   emptyCopy: {
     textAlign: "center",
     lineHeight: 20,
+  },
+  movieDialog: {
+    borderRadius: 18,
+    backgroundColor: "transparent",
+    overflow: "hidden",
+  },
+  movieDialogKeyboard: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  movieDialogGlassOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  movieDialogHeader: {
+    alignItems: "center",
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 72,
+    paddingBottom: 12,
+    paddingLeft: 18,
+    paddingRight: 8,
+    paddingTop: 14,
+  },
+  movieDialogHeaderText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  movieDialogTitle: {
+    fontWeight: "900",
+  },
+  movieDialogSubtitle: {
+    fontWeight: "700",
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  movieDialogCloseButton: {
+    margin: 0,
+  },
+  movieDialogScrollArea: {
+    marginHorizontal: 0,
+    paddingHorizontal: 0,
+  },
+  movieDialogBody: {
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    paddingTop: 12,
+  },
+  movieDialogBodyCompact: {
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+    paddingTop: 10,
+  },
+  movieDialogCopy: {
+    lineHeight: 21,
+  },
+  movieModeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  movieModePanel: {
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 8,
+    padding: 12,
+  },
+  movieModeChip: {
+    borderRadius: 999,
+  },
+  movieFormStack: {
+    gap: 10,
+  },
+  movieDialogSection: {
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+    padding: 12,
+  },
+  movieDialogSectionTitle: {
+    fontWeight: "900",
+    letterSpacing: 0.2,
+  },
+  movieFormRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  movieFormRowCompact: {
+    flexDirection: "column",
+    gap: 10,
+  },
+  movieFormFieldShell: {
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    minWidth: 120,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+  },
+  movieFormFieldFull: {
+    flexBasis: "100%",
+    width: "100%",
+  },
+  movieFormFieldPrimary: {
+    flexGrow: 1.8,
+    flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 170,
+  },
+  movieFormFieldSmall: {
+    flexGrow: 0.8,
+    flexShrink: 0,
+    flexBasis: 96,
+    minWidth: 96,
+  },
+  movieFormLabel: {
+    fontSize: 11,
+    fontWeight: "900",
+    marginBottom: 3,
+    textTransform: "uppercase",
+  },
+  movieFormInput: {
+    fontSize: 15,
+    fontWeight: "700",
+    minHeight: 28,
+    padding: 0,
+  },
+  movieFormInputMultiline: {
+    minHeight: 72,
+    paddingTop: 6,
+    textAlignVertical: "top",
+  },
+  movieVisibilityBox: {
+    borderRadius: 14,
+    borderWidth: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 128,
+    justifyContent: "space-between",
+    minHeight: 68,
+    minWidth: 128,
+    padding: 10,
+  },
+  movieYearPanel: {
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+    padding: 14,
+  },
+  movieYearTitle: {
+    fontWeight: "900",
+  },
+  movieFeedback: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+  },
+  movieDialogActions: {
+    alignItems: "center",
+    borderTopWidth: 1,
+    justifyContent: "flex-end",
+    marginTop: 0,
+    minHeight: 76,
+    paddingBottom: 14,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  movieDialogActionsCompact: {
+    alignItems: "stretch",
+    flexDirection: "column-reverse",
+    gap: 8,
+    paddingHorizontal: 18,
+  },
+  movieDialogActionButton: {
+    marginHorizontal: 0,
   },
   restrictedContent: {
     flex: 1,

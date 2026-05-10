@@ -1,6 +1,7 @@
 import MeteorBase from "@meteorrn/core";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ScreenOrientation from "expo-screen-orientation";
+import * as SecureStore from "expo-secure-store";
 import React from "react";
 import {
   Modal,
@@ -23,7 +24,7 @@ import {
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { getMeteorUrl } from "../../services/meteor/client.native";
+import { getHlsServerUrl, getMeteorUrl } from "../../services/meteor/client.native";
 import { setNativePipPlayerActive } from "../../services/pip/nativePip";
 
 const { VLCPlayer } = require("react-native-vlc-media-player");
@@ -38,7 +39,12 @@ const SUBTITLE_DISABLE_TRACK_ID = -1;
 const PLAYER_MODE_INLINE = "inline";
 const PLAYER_MODE_FULLSCREEN = "fullscreen";
 const SUBTITLE_EXTERNAL_TRACK_ID = "external";
+const DEFAULT_SUBTITLE_SIZE_ID = "md";
 const PLAYBACK_INTERRUPTION_TIMEOUT_MS = 30000;
+const HLS_STATUS_POLL_MS = 2500;
+const MOVIE_PLAYBACK_CACHE_KEY = "vidkar.moviePlaybackCache.v1";
+const MOVIE_RESUME_MIN_SECONDS = 15;
+const MOVIE_PROGRESS_SAVE_INTERVAL_SECONDS = 5;
 const VLC_BUFFER_OPTIONS = Object.freeze([
   "--network-caching=1500",
   "--live-caching=1500",
@@ -46,6 +52,11 @@ const VLC_BUFFER_OPTIONS = Object.freeze([
   "--disc-caching=1200",
   "--http-reconnect",
   "--avcodec-fast",
+]);
+const SUBTITLE_SIZE_OPTIONS = Object.freeze([
+  { id: "sm", label: "Pequeños", relativeFontSize: 11, textScale: 65 },
+  { id: DEFAULT_SUBTITLE_SIZE_ID, label: "Medianos", relativeFontSize: 14, textScale: 82 },
+  { id: "lg", label: "Grandes", relativeFontSize: 18, textScale: 100 },
 ]);
 const SUBTITLE_FIELD_CANDIDATES = [
   "subtitulo",
@@ -141,6 +152,75 @@ const normalizeMediaUrl = (value, mediaOrigin) => {
   }
 
   return `${mediaOrigin}/${trimmedValue.replace(/^\.?\//, "")}`;
+};
+
+const joinMediaUrl = (baseUrl, path) => {
+  const normalizedBaseUrl = String(baseUrl || "").trim().replace(/\/$/, "");
+  if (!normalizedBaseUrl) {
+    return path;
+  }
+
+  return `${normalizedBaseUrl}${String(path || "").startsWith("/") ? path : `/${path}`}`;
+};
+
+const createHlsSessionId = () =>
+  `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`;
+
+const normalizeHlsStartAt = (value) => {
+  const parsedValue = Number(value || 0);
+  if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+    return 0;
+  }
+
+  return Math.max(0, Math.floor(parsedValue));
+};
+
+const normalizePositiveMilliseconds = (value) => {
+  const parsedValue = Number(value || 0);
+  return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0;
+};
+
+const normalizeHlsDurationMs = (value) => {
+  const durationSeconds = Number(value || 0);
+  return Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds * 1000 : 0;
+};
+
+const buildHlsEndpoints = (movieId, sessionId, startAtSeconds, hlsServerOrigin) => {
+  if (!movieId || !sessionId) {
+    return null;
+  }
+
+  const encodedMovieId = encodeURIComponent(movieId);
+  const encodedSessionId = encodeURIComponent(sessionId);
+  const normalizedStartAt = normalizeHlsStartAt(startAtSeconds);
+  const startAtQuery = normalizedStartAt > 0 ? `&startAt=${encodeURIComponent(normalizedStartAt)}` : "";
+
+  return {
+    cancelUrl: joinMediaUrl(hlsServerOrigin, `/peliculas/hls/${encodedMovieId}/${encodedSessionId}/cancel`),
+    prepareUrl: joinMediaUrl(hlsServerOrigin, `/peliculas/hls/${encodedMovieId}/prepare?sessionId=${encodedSessionId}${startAtQuery}`),
+    statusUrl: joinMediaUrl(hlsServerOrigin, `/peliculas/hls/${encodedMovieId}/status?sessionId=${encodedSessionId}`),
+  };
+};
+
+const normalizeHlsPlaylistUrl = (playlistUrl, hlsServerOrigin) => {
+  if (typeof playlistUrl !== "string" || !playlistUrl.trim()) {
+    return null;
+  }
+
+  const trimmedValue = playlistUrl.trim();
+  if (/^https?:\/\//i.test(trimmedValue)) {
+    return trimmedValue;
+  }
+
+  return joinMediaUrl(hlsServerOrigin, trimmedValue);
+};
+
+const cancelHlsSession = (cancelUrl) => {
+  if (!cancelUrl) {
+    return;
+  }
+
+  fetch(cancelUrl, { method: "POST" }).catch(() => null);
 };
 
 const extractCandidateString = (value, depth = 0) => {
@@ -241,6 +321,59 @@ const getTrackName = (track) => {
   return "Subtítulo";
 };
 
+const getSubtitleSizeOption = (sizeId) =>
+  SUBTITLE_SIZE_OPTIONS.find((option) => option.id === sizeId) ||
+  SUBTITLE_SIZE_OPTIONS.find((option) => option.id === DEFAULT_SUBTITLE_SIZE_ID) ||
+  SUBTITLE_SIZE_OPTIONS[0];
+
+const readMoviePlaybackCache = async () => {
+  try {
+    const rawValue = await SecureStore.getItemAsync(MOVIE_PLAYBACK_CACHE_KEY);
+    return rawValue ? JSON.parse(rawValue) : {};
+  } catch (_error) {
+    return {};
+  }
+};
+
+const writeMoviePlaybackCache = async (updater) => {
+  try {
+    const currentCache = await readMoviePlaybackCache();
+    const nextCache =
+      typeof updater === "function" ? updater(currentCache || {}) : updater || {};
+
+    await SecureStore.setItemAsync(
+      MOVIE_PLAYBACK_CACHE_KEY,
+      JSON.stringify(nextCache || {})
+    );
+
+    return nextCache || {};
+  } catch (_error) {
+    return null;
+  }
+};
+
+const getCachedPlaybackData = async (movieId) => {
+  if (!movieId) {
+    return { completed: false, currentTime: 0, duration: 0 };
+  }
+
+  const currentCache = await readMoviePlaybackCache();
+  const cachedEntry = currentCache?.[movieId];
+
+  return {
+    completed: Boolean(cachedEntry?.playback?.completed),
+    currentTime: Number(cachedEntry?.playback?.currentTime || 0),
+    duration: Number(cachedEntry?.playback?.duration || 0),
+  };
+};
+
+const buildMovieCachedData = (movie) => ({
+  _id: movie?._id || null,
+  nombrePeli: movie?.nombrePeli || "",
+  year: movie?.year || "",
+  urlBackground: movie?.urlBackground || movie?.urlBackgroundHTTPS || "",
+});
+
 const PeliculaPlayer = () => {
   const theme = useTheme();
   const palette = React.useMemo(() => getPalette(theme), [theme]);
@@ -252,6 +385,7 @@ const PeliculaPlayer = () => {
     () => getHttpOriginFromMeteorUrl(getMeteorUrl()),
     []
   );
+  const hlsServerOrigin = React.useMemo(() => getHlsServerUrl() || mediaOrigin, [mediaOrigin]);
 
   const [movie, setMovie] = React.useState(null);
   const [loading, setLoading] = React.useState(Boolean(movieId));
@@ -267,6 +401,7 @@ const PeliculaPlayer = () => {
   const [videoInfo, setVideoInfo] = React.useState(null);
   const [selectedTextTrack, setSelectedTextTrack] = React.useState(undefined);
   const [externalSubtitleEnabled, setExternalSubtitleEnabled] = React.useState(true);
+  const [subtitleSizeId, setSubtitleSizeId] = React.useState(DEFAULT_SUBTITLE_SIZE_ID);
   const [subtitleDialogVisible, setSubtitleDialogVisible] = React.useState(false);
   const [playerMode, setPlayerMode] = React.useState(PLAYER_MODE_INLINE);
   const [playerChromeVisible, setPlayerChromeVisible] = React.useState(true);
@@ -276,11 +411,28 @@ const PeliculaPlayer = () => {
     position: 0,
     remainingTime: 0,
   });
+  const [hlsPlayback, setHlsPlayback] = React.useState({
+    durationSeconds: 0,
+    error: null,
+    playlistUrl: null,
+    startAtSeconds: 0,
+    status: "idle",
+  });
+  const [serverHlsDurationMs, setServerHlsDurationMs] = React.useState(0);
+  const [hlsReloadToken, setHlsReloadToken] = React.useState(0);
+  const [hlsStartAtRequest, setHlsStartAtRequest] = React.useState(0);
+  const [resumePromptVisible, setResumePromptVisible] = React.useState(false);
+  const [resumeTimeMs, setResumeTimeMs] = React.useState(0);
+  const [cachedDurationMs, setCachedDurationMs] = React.useState(0);
+  const [resumeStateReady, setResumeStateReady] = React.useState(false);
 
   const playerRef = React.useRef(null);
   const viewsRegisteredRef = React.useRef(false);
   const playbackInterruptionTimerRef = React.useRef(null);
   const pendingPlaybackErrorRef = React.useRef(null);
+  const hlsPollTimerRef = React.useRef(null);
+  const hlsCancelUrlRef = React.useRef(null);
+  const persistedPlaybackSecondsRef = React.useRef(0);
 
   const clearPlaybackInterruptionTimer = React.useCallback(() => {
     if (playbackInterruptionTimerRef.current) {
@@ -339,6 +491,20 @@ const PeliculaPlayer = () => {
       position: 0,
       remainingTime: 0,
     });
+    setHlsPlayback({
+      durationSeconds: 0,
+      error: null,
+      playlistUrl: null,
+      startAtSeconds: 0,
+      status: "idle",
+    });
+    setServerHlsDurationMs(0);
+    setHlsStartAtRequest(0);
+    setResumePromptVisible(false);
+    setResumeTimeMs(0);
+    setCachedDurationMs(0);
+    setResumeStateReady(false);
+    persistedPlaybackSecondsRef.current = 0;
     viewsRegisteredRef.current = false;
     pendingPlaybackErrorRef.current = null;
     clearPlaybackInterruptionTimer();
@@ -370,7 +536,225 @@ const PeliculaPlayer = () => {
     };
   }, [clearPlaybackInterruptionTimer, movieId, movieReloadToken]);
 
-  const streamUrl = React.useMemo(() => resolveMovieStreamUrl(movie), [movie]);
+  React.useEffect(() => {
+    let cancelled = false;
+
+    if (!movieId) {
+      setResumePromptVisible(false);
+      setResumeTimeMs(0);
+      setCachedDurationMs(0);
+      setResumeStateReady(true);
+      return undefined;
+    }
+
+    setResumeStateReady(false);
+
+    getCachedPlaybackData(movieId).then((cachedPlayback) => {
+      if (cancelled) {
+        return;
+      }
+
+      const cachedPositionSeconds = Number(cachedPlayback.currentTime || 0);
+      const nextCachedDurationSeconds = Number(cachedPlayback.duration || 0);
+      const shouldResume =
+        !cachedPlayback.completed &&
+        cachedPositionSeconds > MOVIE_RESUME_MIN_SECONDS &&
+        (!nextCachedDurationSeconds ||
+          cachedPositionSeconds <
+            Math.max(0, nextCachedDurationSeconds - MOVIE_RESUME_MIN_SECONDS));
+
+      setCachedDurationMs(nextCachedDurationSeconds * 1000);
+
+      if (!shouldResume) {
+        setResumePromptVisible(false);
+        setResumeTimeMs(0);
+        setResumeStateReady(true);
+        return;
+      }
+
+      setResumeTimeMs(cachedPositionSeconds * 1000);
+      setResumePromptVisible(true);
+      setResumeStateReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [movieId]);
+
+  const sourceVideoUrl = React.useMemo(() => resolveMovieStreamUrl(movie), [movie]);
+  const streamUrl = hlsPlayback.playlistUrl;
+  const hlsPreparing = ["starting", "processing"].includes(hlsPlayback.status) && !streamUrl;
+  const hlsDurationMs =
+    serverHlsDurationMs || normalizeHlsDurationMs(hlsPlayback.durationSeconds);
+  const hlsStartOffsetMs = Number(hlsPlayback.startAtSeconds || 0) * 1000;
+
+  React.useEffect(() => {
+    if (!resumeStateReady || resumePromptVisible) {
+      return undefined;
+    }
+
+    if (!movie?._id || !sourceVideoUrl) {
+      if (movie && !sourceVideoUrl) {
+        setHlsPlayback({
+          durationSeconds: 0,
+          error: "Esta película todavía no tiene una URL de video disponible.",
+          playlistUrl: null,
+          startAtSeconds: 0,
+          status: "error",
+        });
+      }
+      return undefined;
+    }
+
+    let cancelled = false;
+    const sessionId = createHlsSessionId();
+    const endpoints = buildHlsEndpoints(movie._id, sessionId, hlsStartAtRequest, hlsServerOrigin);
+    hlsCancelUrlRef.current = endpoints?.cancelUrl || null;
+
+    const clearHlsPollTimer = () => {
+      if (hlsPollTimerRef.current) {
+        clearTimeout(hlsPollTimerRef.current);
+        hlsPollTimerRef.current = null;
+      }
+    };
+
+    const applyHlsStatus = (status) => {
+      const playlistUrl = normalizeHlsPlaylistUrl(status?.playlistUrl, hlsServerOrigin);
+      const nextDurationMs = normalizeHlsDurationMs(status?.durationSeconds);
+      if (nextDurationMs > 0) {
+        setServerHlsDurationMs(nextDurationMs);
+      }
+
+      setHlsPlayback((currentValue) => ({
+        durationSeconds: nextDurationMs > 0
+          ? nextDurationMs / 1000
+          : Number(currentValue.durationSeconds || 0),
+        error: status?.error || null,
+        playlistUrl: status?.playlistReady || status?.ready ? playlistUrl : null,
+        startAtSeconds: Number(status?.startAtSeconds || hlsStartAtRequest || 0),
+        status: status?.status || "processing",
+      }));
+    };
+
+    const pollHlsStatus = async () => {
+      if (cancelled || !endpoints?.statusUrl) {
+        return;
+      }
+
+      try {
+        const response = await fetch(endpoints.statusUrl);
+        const status = await response.json();
+        if (cancelled) {
+          return;
+        }
+
+        if (!response.ok || status?.success === false || status?.status === "error") {
+          setHlsPlayback((currentValue) => ({
+            ...currentValue,
+            error: status?.error || "No se pudo preparar la reproducción HLS.",
+            status: "error",
+          }));
+          return;
+        }
+
+        applyHlsStatus(status);
+
+        if (!status?.playlistReady && status?.status !== "ready") {
+          hlsPollTimerRef.current = setTimeout(pollHlsStatus, HLS_STATUS_POLL_MS);
+        }
+      } catch (_error) {
+        if (cancelled) {
+          return;
+        }
+
+        setHlsPlayback((currentValue) => ({
+          ...currentValue,
+          error: "No se pudo conectar con el servidor de streaming.",
+          status: "error",
+        }));
+      }
+    };
+
+    const prepareHls = async () => {
+      setHlsPlayback((currentValue) => ({
+        durationSeconds: Number(currentValue.durationSeconds || 0),
+        error: null,
+        playlistUrl: null,
+        startAtSeconds: normalizeHlsStartAt(hlsStartAtRequest),
+        status: "starting",
+      }));
+      setPlayerError(null);
+      setBuffering(true);
+      setHasRenderedFrame(false);
+      setPlayerMetadataReady(false);
+      setIsPlaying(false);
+      pendingPlaybackErrorRef.current = null;
+
+      try {
+        const response = await fetch(endpoints.prepareUrl, { method: "POST" });
+        const status = await response.json();
+        if (cancelled) {
+          return;
+        }
+
+        if (!response.ok || status?.success === false) {
+          const nextDurationMs = normalizeHlsDurationMs(status?.durationSeconds);
+          if (nextDurationMs > 0) {
+            setServerHlsDurationMs(nextDurationMs);
+          }
+
+          setHlsPlayback((currentValue) => ({
+            durationSeconds: nextDurationMs > 0
+              ? nextDurationMs / 1000
+              : Number(currentValue.durationSeconds || 0),
+            error: status?.error || "No se pudo iniciar el streaming HLS.",
+            playlistUrl: null,
+            startAtSeconds: normalizeHlsStartAt(hlsStartAtRequest),
+            status: "error",
+          }));
+          return;
+        }
+
+        applyHlsStatus(status);
+        if (!status?.playlistReady && status?.status !== "ready") {
+          hlsPollTimerRef.current = setTimeout(pollHlsStatus, HLS_STATUS_POLL_MS);
+        }
+      } catch (_error) {
+        if (cancelled) {
+          return;
+        }
+
+        setHlsPlayback((currentValue) => ({
+          durationSeconds: Number(currentValue.durationSeconds || 0),
+          error: "No se pudo conectar con el servidor de streaming.",
+          playlistUrl: null,
+          startAtSeconds: normalizeHlsStartAt(hlsStartAtRequest),
+          status: "error",
+        }));
+      }
+    };
+
+    prepareHls();
+
+    return () => {
+      cancelled = true;
+      clearHlsPollTimer();
+      cancelHlsSession(endpoints?.cancelUrl);
+      if (hlsCancelUrlRef.current === endpoints?.cancelUrl) {
+        hlsCancelUrlRef.current = null;
+      }
+    };
+  }, [
+    hlsReloadToken,
+    hlsServerOrigin,
+    hlsStartAtRequest,
+    movie,
+    resumePromptVisible,
+    resumeStateReady,
+    sourceVideoUrl,
+  ]);
+
   React.useEffect(() => {
     const active = Boolean(streamUrl && !loadError && movie && currentUser && isAdmin);
     setNativePipPlayerActive(active);
@@ -381,8 +765,8 @@ const PeliculaPlayer = () => {
   }, [currentUser, isAdmin, loadError, movie, streamUrl]);
 
   const detectedSubtitleUri = React.useMemo(
-    () => resolveMovieSubtitleUri(movie, mediaOrigin),
-    [mediaOrigin, movie]
+    () => resolveMovieSubtitleUri(movie, hlsServerOrigin),
+    [hlsServerOrigin, movie]
   );
   const availableTextTracks = React.useMemo(
     () =>
@@ -395,11 +779,16 @@ const PeliculaPlayer = () => {
     () => availableTextTracks.filter((track) => track.id !== SUBTITLE_DISABLE_TRACK_ID),
     [availableTextTracks]
   );
-  const durationMs = playback.duration || videoInfo?.duration || 0;
-  const progressRatio = Number.isFinite(playback.position)
-    ? clamp(playback.position, 0, 1)
-    : durationMs > 0
-      ? clamp(playback.currentTime / durationMs, 0, 1)
+  const durationMs =
+    hlsDurationMs ||
+    normalizePositiveMilliseconds(playback.duration) ||
+    normalizePositiveMilliseconds(videoInfo?.duration) ||
+    cachedDurationMs ||
+    0;
+  const progressRatio = durationMs > 0
+    ? clamp(playback.currentTime / durationMs, 0, 1)
+    : Number.isFinite(playback.position)
+      ? clamp(playback.position, 0, 1)
       : 0;
   const hasSubtitle = Boolean(detectedSubtitleUri || selectableTextTracks.length);
   const subtitleOptions = React.useMemo(() => {
@@ -465,6 +854,11 @@ const PeliculaPlayer = () => {
     return () => clearTimeout(chromeTimer);
   }, [isPlaying, paused, playerChromeVisible, playerError, subtitleDialogVisible]);
 
+  const selectedSubtitleSize = React.useMemo(
+    () => getSubtitleSizeOption(subtitleSizeId),
+    [subtitleSizeId]
+  );
+
   const vlcSource = React.useMemo(() => {
     if (!streamUrl) {
       return null;
@@ -473,10 +867,14 @@ const PeliculaPlayer = () => {
     return {
       uri: streamUrl,
       initType: 2,
-      initOptions: [...VLC_BUFFER_OPTIONS],
+      initOptions: [
+        ...VLC_BUFFER_OPTIONS,
+        `--freetype-rel-fontsize=${selectedSubtitleSize.relativeFontSize}`,
+        `--sub-text-scale=${selectedSubtitleSize.textScale}`,
+      ],
       acceptInvalidCertificates: false,
     };
-  }, [streamUrl]);
+  }, [selectedSubtitleSize.relativeFontSize, selectedSubtitleSize.textScale, streamUrl]);
 
   const activeTextTrackLabel = React.useMemo(() => {
     if (detectedSubtitleUri) {
@@ -517,35 +915,115 @@ const PeliculaPlayer = () => {
     selectedTextTrack,
   ]);
 
+  const persistPlaybackState = React.useCallback(
+    async ({ completed = false, currentTime = 0, duration = 0 }) => {
+      if (!movie?._id) {
+        return;
+      }
+
+      const normalizedDurationSeconds = Math.max(
+        0,
+        Math.floor((Number(duration) || 0) / 1000)
+      );
+      const normalizedCurrentTimeSeconds = completed
+        ? 0
+        : Math.max(0, Math.floor((Number(currentTime) || 0) / 1000));
+
+      await writeMoviePlaybackCache((currentCache) => ({
+        ...currentCache,
+        [movie._id]: {
+          ...currentCache?.[movie._id],
+          movie: buildMovieCachedData(movie),
+          playback: {
+            completed,
+            currentTime: normalizedCurrentTimeSeconds,
+            duration: normalizedDurationSeconds,
+            updatedAt: new Date().toISOString(),
+          },
+          updatedAt: new Date().toISOString(),
+        },
+      }));
+    },
+    [movie]
+  );
+
+  React.useEffect(() => {
+    if (!movie?._id || !resumeStateReady || !durationMs) {
+      return;
+    }
+
+    const currentTimeSeconds = Math.max(
+      0,
+      Math.floor((Number(playback.currentTime) || 0) / 1000)
+    );
+    const durationSeconds = Math.max(0, Math.floor(durationMs / 1000));
+    const reachedEnd =
+      durationSeconds > 0 &&
+      currentTimeSeconds >=
+        Math.max(0, durationSeconds - MOVIE_RESUME_MIN_SECONDS);
+
+    if (reachedEnd) {
+      persistedPlaybackSecondsRef.current = 0;
+      persistPlaybackState({ completed: true, currentTime: 0, duration: durationMs });
+      return;
+    }
+
+    if (currentTimeSeconds < MOVIE_RESUME_MIN_SECONDS) {
+      return;
+    }
+
+    if (
+      Math.abs(currentTimeSeconds - persistedPlaybackSecondsRef.current) <
+      MOVIE_PROGRESS_SAVE_INTERVAL_SECONDS
+    ) {
+      return;
+    }
+
+    persistedPlaybackSecondsRef.current = currentTimeSeconds;
+    persistPlaybackState({
+      completed: false,
+      currentTime: playback.currentTime,
+      duration: durationMs,
+    });
+  }, [durationMs, movie?._id, persistPlaybackState, playback.currentTime, resumeStateReady]);
+
   const handleLoad = React.useCallback((event) => {
+    const resolvedDuration = hlsDurationMs || Number(event?.duration || 0) || cachedDurationMs;
     setVideoInfo(event);
     setBuffering(false);
     setPlayerError(null);
     setPlayerMetadataReady(true);
     setPlayback((currentPlayback) => ({
       ...currentPlayback,
-      duration: event?.duration || currentPlayback.duration,
+      duration: resolvedDuration || currentPlayback.duration,
     }));
 
-    if (!viewsRegisteredRef.current && movie?._id && Number(event?.duration || 0) > 0) {
+    if (!viewsRegisteredRef.current && movie?._id && Number(resolvedDuration || 0) > 0) {
       viewsRegisteredRef.current = true;
       Meteor.call("addVistas", movie._id);
     }
-  }, [movie?._id]);
+  }, [cachedDurationMs, hlsDurationMs, movie?._id]);
 
   const handleProgress = React.useCallback((event) => {
+    const relativeCurrentTime = Number(event?.currentTime || 0);
+    const resolvedDuration = hlsDurationMs || Number(event?.duration || 0);
+    const absoluteCurrentTime = hlsStartOffsetMs + relativeCurrentTime;
+    const resolvedPosition = resolvedDuration > 0
+      ? clamp(absoluteCurrentTime / resolvedDuration, 0, 1)
+      : Number(event?.position || 0);
+
     setPlayback({
-      currentTime: Number(event?.currentTime || 0),
-      duration: Number(event?.duration || 0),
-      position: Number(event?.position || 0),
-      remainingTime: Number(event?.remainingTime || 0),
+      currentTime: absoluteCurrentTime,
+      duration: resolvedDuration,
+      position: resolvedPosition,
+      remainingTime: resolvedDuration > 0 ? Math.max(resolvedDuration - absoluteCurrentTime, 0) : Number(event?.remainingTime || 0),
     });
 
-    if (Number(event?.currentTime || 0) > 0) {
+    if (relativeCurrentTime > 0) {
       clearPlaybackInterruptionTimer();
       setHasRenderedFrame(true);
     }
-  }, [clearPlaybackInterruptionTimer]);
+  }, [clearPlaybackInterruptionTimer, hlsDurationMs, hlsStartOffsetMs]);
 
   const handleBuffering = React.useCallback(() => {
     setBuffering(true);
@@ -570,7 +1048,9 @@ const PeliculaPlayer = () => {
     setPaused(true);
     setIsPlaying(false);
     setBuffering(false);
-  }, [clearPlaybackInterruptionTimer]);
+    persistedPlaybackSecondsRef.current = 0;
+    persistPlaybackState({ completed: true, currentTime: 0, duration: durationMs });
+  }, [clearPlaybackInterruptionTimer, durationMs, persistPlaybackState]);
 
   const handleError = React.useCallback(() => {
     setIsPlaying(false);
@@ -596,10 +1076,14 @@ const PeliculaPlayer = () => {
   }, [streamUrl]);
 
   const handleRetryPlayback = React.useCallback(() => {
-    if (!streamUrl) {
+    if (!movie?._id || !sourceVideoUrl) {
       return;
     }
 
+    cancelHlsSession(hlsCancelUrlRef.current);
+    hlsCancelUrlRef.current = null;
+    setHlsStartAtRequest(0);
+    setHlsReloadToken((value) => value + 1);
     setReloadToken((value) => value + 1);
     setPaused(false);
     setBuffering(true);
@@ -611,11 +1095,11 @@ const PeliculaPlayer = () => {
     clearPlaybackInterruptionTimer();
     setPlayback({
       currentTime: 0,
-      duration: playback.duration || videoInfo?.duration || 0,
+      duration: hlsDurationMs || playback.duration || videoInfo?.duration || 0,
       position: 0,
       remainingTime: 0,
     });
-  }, [clearPlaybackInterruptionTimer, playback.duration, streamUrl, videoInfo?.duration]);
+  }, [clearPlaybackInterruptionTimer, hlsDurationMs, movie?._id, playback.duration, sourceVideoUrl, videoInfo?.duration]);
 
   const handleRetryMovieLoad = React.useCallback(() => {
     if (!movieId) {
@@ -627,12 +1111,23 @@ const PeliculaPlayer = () => {
 
   const handleSeekBySeconds = React.useCallback(
     (deltaSeconds) => {
-      if (!durationMs || !playerRef.current?.seek) {
+      if (!durationMs || !movie?._id || !sourceVideoUrl) {
         return;
       }
 
       const nextTime = clamp(playback.currentTime + deltaSeconds * 1000, 0, durationMs);
-      playerRef.current.seek(nextTime / durationMs);
+      const nextStartAtSeconds = normalizeHlsStartAt(nextTime / 1000);
+      cancelHlsSession(hlsCancelUrlRef.current);
+      hlsCancelUrlRef.current = null;
+      setHlsStartAtRequest(nextStartAtSeconds);
+      setHlsReloadToken((value) => value + 1);
+      setReloadToken((value) => value + 1);
+      setPaused(false);
+      setBuffering(true);
+      setHasRenderedFrame(false);
+      setPlayerMetadataReady(false);
+      setPlayerError(null);
+      setIsPlaying(false);
       setPlayback((currentPlayback) => ({
         ...currentPlayback,
         currentTime: nextTime,
@@ -640,7 +1135,7 @@ const PeliculaPlayer = () => {
         position: durationMs > 0 ? nextTime / durationMs : 0,
       }));
     },
-    [durationMs, playback.currentTime]
+    [durationMs, movie?._id, playback.currentTime, sourceVideoUrl]
   );
 
   const handleSelectSubtitleTrack = React.useCallback((trackId) => {
@@ -656,15 +1151,74 @@ const PeliculaPlayer = () => {
     setSubtitleDialogVisible(false);
   }, []);
 
+  const handleSelectSubtitleSize = React.useCallback(
+    (nextSizeId) => {
+      if (!nextSizeId || nextSizeId === subtitleSizeId) {
+        return;
+      }
+
+      setSubtitleSizeId(nextSizeId);
+
+      if (!movie?._id || !sourceVideoUrl || !streamUrl) {
+        return;
+      }
+
+      const nextStartAtSeconds = normalizeHlsStartAt(playback.currentTime / 1000);
+      cancelHlsSession(hlsCancelUrlRef.current);
+      hlsCancelUrlRef.current = null;
+      setHlsStartAtRequest(nextStartAtSeconds);
+      setHlsReloadToken((value) => value + 1);
+      setReloadToken((value) => value + 1);
+      setPaused(false);
+      setBuffering(true);
+      setHasRenderedFrame(false);
+      setPlayerMetadataReady(false);
+      setPlayerError(null);
+      setIsPlaying(false);
+      pendingPlaybackErrorRef.current = null;
+      clearPlaybackInterruptionTimer();
+    },
+    [
+      clearPlaybackInterruptionTimer,
+      movie?._id,
+      playback.currentTime,
+      sourceVideoUrl,
+      streamUrl,
+      subtitleSizeId,
+    ]
+  );
+
   const handleTogglePlayerChrome = React.useCallback(() => {
     setPlayerChromeVisible((currentValue) => !currentValue);
   }, []);
 
+  const handleResumePlayback = React.useCallback(() => {
+    setHlsStartAtRequest(normalizeHlsStartAt(resumeTimeMs / 1000));
+    setResumePromptVisible(false);
+  }, [resumeTimeMs]);
+
+  const handleStartFromBeginning = React.useCallback(() => {
+    setHlsStartAtRequest(0);
+    setResumePromptVisible(false);
+    setResumeTimeMs(0);
+    persistedPlaybackSecondsRef.current = 0;
+    persistPlaybackState({ completed: false, currentTime: 0, duration: durationMs });
+  }, [durationMs, persistPlaybackState]);
+
   const handleGoBack = React.useCallback(() => {
+    persistPlaybackState({
+      completed: false,
+      currentTime: playback.currentTime,
+      duration: durationMs,
+    });
+
     if (playerMode !== PLAYER_MODE_INLINE) {
       setPlayerMode(PLAYER_MODE_INLINE);
       return;
     }
+
+    cancelHlsSession(hlsCancelUrlRef.current);
+    hlsCancelUrlRef.current = null;
 
     if (router.canGoBack()) {
       router.back();
@@ -672,7 +1226,7 @@ const PeliculaPlayer = () => {
     }
 
     router.replace("/(normal)/PeliculasVideos");
-  }, [playerMode, router]);
+  }, [durationMs, persistPlaybackState, playback.currentTime, playerMode, router]);
 
   const handleOpenFullscreen = React.useCallback(() => {
     if (!streamUrl) {
@@ -690,7 +1244,7 @@ const PeliculaPlayer = () => {
     (mode = PLAYER_MODE_INLINE) => {
       const isFullscreenMode = mode === PLAYER_MODE_FULLSCREEN;
 
-      if (!streamUrl || !vlcSource) {
+      if (!sourceVideoUrl) {
         return (
           <View style={styles.videoFrame}>
             <View style={styles.playerOverlayCenter}>
@@ -708,6 +1262,49 @@ const PeliculaPlayer = () => {
         );
       }
 
+      if (!streamUrl || !vlcSource) {
+        const hasHlsError = hlsPlayback.status === "error";
+
+        return (
+          <View style={styles.videoFrame}>
+            <View style={styles.playerOverlayCenter}>
+              <Surface
+                style={[
+                  hasHlsError ? styles.playerErrorBox : styles.playerPreparingBox,
+                  { backgroundColor: "rgba(9, 17, 31, 0.9)" },
+                ]}
+                elevation={0}
+              >
+                {hasHlsError ? (
+                  <IconButton icon="alert-circle-outline" size={38} iconColor={palette.accent} />
+                ) : (
+                  <ActivityIndicator color="#fff" />
+                )}
+                <Text variant="titleMedium" style={styles.playerErrorTitle}>
+                  {hasHlsError ? "No se pudo preparar la reproducción" : "Preparando reproducción"}
+                </Text>
+                <Text variant="bodySmall" style={styles.playerErrorCopy}>
+                  {hasHlsError
+                    ? hlsPlayback.error || "El servidor de streaming no pudo preparar esta película."
+                    : "Estamos preparando una sesión de streaming segura para esta película."}
+                </Text>
+                {hasHlsError ? (
+                  <Button
+                    mode="contained"
+                    icon="refresh"
+                    buttonColor={palette.accent}
+                    textColor={palette.onAccent}
+                    onPress={handleRetryPlayback}
+                  >
+                    Reintentar
+                  </Button>
+                ) : null}
+              </Surface>
+            </View>
+          </View>
+        );
+      }
+
       return (
         <View
           style={[
@@ -716,7 +1313,7 @@ const PeliculaPlayer = () => {
           ]}
         >
           <VLCPlayer
-            key={`${movie?._id || "movie"}:${reloadToken}:${mode}`}
+            key={`${movie?._id || "movie"}:${reloadToken}:${mode}:${subtitleSizeId}`}
             ref={playerRef}
             style={styles.video}
             source={vlcSource}
@@ -752,7 +1349,7 @@ const PeliculaPlayer = () => {
             <View pointerEvents="none" style={styles.playerLoadingOverlay}>
               <ActivityIndicator color="#fff" />
               <Text variant="labelLarge" style={styles.posterLoading}>
-                Preparando reproducción
+                {hlsPreparing ? "Preparando streaming" : "Preparando reproducción"}
               </Text>
             </View>
           ) : null}
@@ -895,6 +1492,9 @@ const PeliculaPlayer = () => {
       handleTogglePlayerChrome,
       hasRenderedFrame,
       hasSubtitle,
+      hlsPlayback.error,
+      hlsPlayback.status,
+      hlsPreparing,
       movie,
       palette.accent,
       palette.onAccent,
@@ -904,6 +1504,8 @@ const PeliculaPlayer = () => {
       progressRatio,
       reloadToken,
       selectedTextTrack,
+      subtitleSizeId,
+      sourceVideoUrl,
       streamUrl,
       vlcSource,
     ]
@@ -1024,6 +1626,40 @@ const PeliculaPlayer = () => {
 
       <Portal>
         <Dialog
+          visible={resumePromptVisible}
+          dismissable={false}
+          style={[styles.resumeDialog, { backgroundColor: palette.surface }]}
+        >
+          <Dialog.Title style={{ color: palette.text }}>Continuar reproducción</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={[styles.resumeDialogCopy, { color: palette.muted }]}> 
+              Encontramos un punto guardado de esta película para que sigas exactamente donde te quedaste.
+            </Text>
+            <Text variant="titleMedium" style={[styles.resumeDialogMetric, { color: palette.text }]}> 
+              Último punto: {formatPlaybackTime(resumeTimeMs)}
+            </Text>
+            {cachedDurationMs > 0 ? (
+              <Text variant="bodySmall" style={[styles.resumeDialogCopy, { color: palette.muted }]}> 
+                Duración registrada: {formatPlaybackTime(cachedDurationMs)}
+              </Text>
+            ) : null}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={handleStartFromBeginning} textColor={palette.text}>
+              Empezar de nuevo
+            </Button>
+            <Button
+              mode="contained"
+              buttonColor={palette.accent}
+              textColor={palette.onAccent}
+              onPress={handleResumePlayback}
+            >
+              Continuar
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        <Dialog
           visible={subtitleDialogVisible && playerMode !== PLAYER_MODE_FULLSCREEN}
           onDismiss={() => setSubtitleDialogVisible(false)}
           style={[styles.subtitleDialog, { backgroundColor: palette.surface }]}
@@ -1033,6 +1669,32 @@ const PeliculaPlayer = () => {
             <Text variant="bodyMedium" style={[styles.subtitleDialogCopy, { color: palette.muted }]}>
               Selecciona la pista que quieres ver durante la reproducción.
             </Text>
+            <View style={styles.subtitleSizeSection}>
+              <Text variant="labelLarge" style={[styles.subtitleSizeTitle, { color: palette.text }]}> 
+                Tamaño del subtítulo
+              </Text>
+              <View style={styles.subtitleSizeActions}>
+                {SUBTITLE_SIZE_OPTIONS.map((option) => {
+                  const selected = option.id === subtitleSizeId;
+
+                  return (
+                    <Button
+                      key={option.id}
+                      compact
+                      mode={selected ? "contained" : "outlined"}
+                      buttonColor={selected ? palette.accent : undefined}
+                      textColor={selected ? palette.onAccent : palette.text}
+                      onPress={() => handleSelectSubtitleSize(option.id)}
+                      style={styles.subtitleSizeButton}
+                      contentStyle={styles.subtitleSizeButtonContent}
+                    >
+                      {option.label}
+                    </Button>
+                  );
+                })}
+              </View>
+            </View>
+            <Divider style={styles.subtitleDialogDivider} />
             <RadioButton.Group
               value={String(selectedSubtitleOption)}
               onValueChange={(value) => {
@@ -1083,6 +1745,30 @@ const PeliculaPlayer = () => {
                 <Text variant="titleMedium" style={styles.fullscreenSubtitleTitle}>
                   Subtítulos
                 </Text>
+                <Text variant="labelLarge" style={styles.fullscreenSubtitleSectionLabel}>
+                  Tamaño
+                </Text>
+                <View style={styles.fullscreenSubtitleSizeRow}>
+                  {SUBTITLE_SIZE_OPTIONS.map((option) => {
+                    const selected = option.id === subtitleSizeId;
+
+                    return (
+                      <Button
+                        key={option.id}
+                        compact
+                        mode={selected ? "contained" : "outlined"}
+                        buttonColor={selected ? "rgba(255,255,255,0.18)" : "transparent"}
+                        textColor="#fff"
+                        onPress={() => handleSelectSubtitleSize(option.id)}
+                        style={styles.fullscreenSubtitleSizeButton}
+                        contentStyle={styles.fullscreenSubtitleSizeButtonContent}
+                      >
+                        {option.label}
+                      </Button>
+                    );
+                  })}
+                </View>
+                <Divider style={styles.fullscreenSubtitleDivider} />
                 {subtitleOptions.map((option) => (
                   <Pressable
                     key={String(option.id)}
@@ -1212,13 +1898,25 @@ const styles = StyleSheet.create({
     gap: 10,
     alignItems: "center",
   },
+  playerPreparingBox: {
+    alignSelf: "center",
+    width: "auto",
+    maxWidth: 360,
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 8,
+    alignItems: "center",
+  },
   playerErrorTitle: {
     color: "#fff",
     fontWeight: "800",
+    textAlign: "center",
   },
   playerErrorCopy: {
     color: "rgba(255,255,255,0.8)",
     lineHeight: 18,
+    textAlign: "center",
   },
   netflixControls: {
     position: "absolute",
@@ -1342,6 +2040,27 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     marginBottom: 6,
   },
+  fullscreenSubtitleSectionLabel: {
+    color: "rgba(255,255,255,0.74)",
+    marginBottom: 8,
+  },
+  fullscreenSubtitleSizeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 14,
+  },
+  fullscreenSubtitleSizeButton: {
+    borderRadius: 999,
+  },
+  fullscreenSubtitleSizeButtonContent: {
+    minHeight: 34,
+    paddingHorizontal: 4,
+  },
+  fullscreenSubtitleDivider: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    marginBottom: 8,
+  },
   fullscreenSubtitleItem: {
     minHeight: 44,
     flexDirection: "row",
@@ -1357,9 +2076,43 @@ const styles = StyleSheet.create({
   subtitleDialog: {
     borderRadius: 26,
   },
+  resumeDialog: {
+    borderRadius: 26,
+  },
+  resumeDialogCopy: {
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  resumeDialogMetric: {
+    fontWeight: "700",
+    marginBottom: 4,
+    marginTop: 4,
+  },
+  subtitleDialogDivider: {
+    marginBottom: 10,
+    marginTop: 4,
+  },
   subtitleDialogCopy: {
     marginBottom: 8,
     lineHeight: 20,
+  },
+  subtitleSizeSection: {
+    marginBottom: 12,
+  },
+  subtitleSizeTitle: {
+    marginBottom: 10,
+  },
+  subtitleSizeActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  subtitleSizeButton: {
+    borderRadius: 999,
+  },
+  subtitleSizeButtonContent: {
+    minHeight: 34,
+    paddingHorizontal: 4,
   },
   contentArea: {
     paddingHorizontal: 16,
