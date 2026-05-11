@@ -43,6 +43,14 @@ const getRoleIcon = (user) => {
 const buildServiceItems = (user) => {
   const items = [];
 
+  if (user?.subscipcionPelis === true) {
+    items.push({
+      label: "Peliculas",
+      icon: "movie-open-outline",
+      href: "/(normal)/PeliculasVideos",
+    });
+  }
+
   items.push(
     {
       label: "Productos Cubacel",
@@ -83,11 +91,6 @@ const buildServiceItems = (user) => {
 };
 
 const buildAdminItems = () => [
-  {
-    label: "Peliculas",
-    icon: "movie-open-outline",
-    href: "/(normal)/PeliculasVideos",
-  },
   {
     label: "Dashboard",
     icon: "view-dashboard-outline",

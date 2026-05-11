@@ -4,39 +4,39 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
-  Alert,
-  Animated,
-  FlatList,
-  ImageBackground,
-  KeyboardAvoidingView,
-  Linking,
-  ActivityIndicator as NativeActivityIndicator,
-  PanResponder,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-  useWindowDimensions,
+    Alert,
+    Animated,
+    FlatList,
+    ImageBackground,
+    KeyboardAvoidingView,
+    Linking,
+    ActivityIndicator as NativeActivityIndicator,
+    PanResponder,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    View,
+    useWindowDimensions,
 } from "react-native";
 import {
-  ActivityIndicator,
-  Button,
-  Chip,
-  Dialog,
-  IconButton,
-  Portal,
-  Surface,
-  Text,
-  useTheme,
+    ActivityIndicator,
+    Button,
+    Chip,
+    Dialog,
+    IconButton,
+    Portal,
+    Surface,
+    Text,
+    useTheme,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { getMeteorUrl } from "../../services/meteor/client.native";
 import AppHeader, {
-  DEFAULT_HEADER_COLOR,
-  useAppHeaderContentInset,
+    DEFAULT_HEADER_COLOR,
+    useAppHeaderContentInset,
 } from "../Header/AppHeader";
 import { PelisCollection } from "../collections/collections";
 
@@ -826,7 +826,7 @@ const DownloadVideosHome = () => {
     };
   });
 
-  const isAdmin = currentUser?.profile?.role === "admin" || currentUser?.username === "carlosmbinf";
+  const canAccessMovies = currentUser?.subscipcionPelis === true;
   const canAddMovies = currentUser?.username === "carlosmbinf";
 
   const catalogMovies = React.useMemo(() => {
@@ -1013,7 +1013,7 @@ const DownloadVideosHome = () => {
     );
   }
 
-  if (!isAdmin) {
+  if (!canAccessMovies) {
     return (
       <View style={[styles.screen, { backgroundColor: palette.background }]}> 
         <AppHeader
@@ -1026,9 +1026,9 @@ const DownloadVideosHome = () => {
         <View style={styles.restrictedContent}>
           <Surface style={[styles.restrictedCard, { backgroundColor: palette.surface, borderColor: palette.border }]} elevation={0}>
             <IconButton icon="lock-outline" size={42} iconColor={palette.accent} />
-            <Text variant="headlineSmall" style={{ color: palette.text }}>Acceso administrativo</Text>
+            <Text variant="headlineSmall" style={{ color: palette.text }}>Suscripcion requerida</Text>
             <Text variant="bodyMedium" style={[styles.restrictedCopy, { color: palette.muted }]}> 
-              Este catalogo esta disponible solo para administradores desde el drawer.
+              Este catalogo esta disponible cuando tu cuenta tiene activa la suscripcion de peliculas.
             </Text>
           </Surface>
         </View>
