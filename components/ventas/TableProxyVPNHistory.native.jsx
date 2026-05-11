@@ -2,29 +2,29 @@ import MeteorBase from "@meteorrn/core";
 import { BlurView } from "expo-blur";
 import React from "react";
 import {
-    ScrollView,
-    StyleSheet,
-    View,
-    useWindowDimensions,
+  ScrollView,
+  StyleSheet,
+  View,
+  useWindowDimensions,
 } from "react-native";
 import {
-    Chip,
-    DataTable,
-    Divider,
-    IconButton,
-    Modal,
-    Portal,
-    Surface,
-    Text,
-    useTheme,
+  Chip,
+  DataTable,
+  Divider,
+  IconButton,
+  Modal,
+  Portal,
+  Surface,
+  Text,
+  useTheme,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import SubidaArchivos from "../archivos/SubidaArchivos.native";
 import {
-    EvidenciasVentasEfectivoCollection,
-    VentasRechargeCollection,
+  EvidenciasVentasEfectivoCollection,
+  VentasRechargeCollection,
 } from "../collections/collections";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { chipTextColorEstado } from "../shared/saleDetailDialog.utils";
@@ -43,6 +43,7 @@ const PROXY_VPN_VENTA_FIELDS = {
   isCobrado: 1,
   metodoPago: 1,
   monedaCobrado: 1,
+  userId: 1,
   carrito: 1,
   "producto.carrito": 1,
   "producto.carritos": 1,
@@ -205,6 +206,14 @@ const megasToGB = (megas) => {
 };
 
 const PROXY_VPN_TYPES = new Set(["PROXY", "VPN"]);
+const PROXY_VPN_PRODUCT_TYPES = [
+  "PROXY",
+  "VPN",
+  "fecha-proxy",
+  "fecha-vpn",
+  "vpnplus",
+  "vpn2mb",
+];
 
 const getCartItemType = (carrito) =>
   String(
@@ -240,10 +249,10 @@ const getItemsCount = (venta) => getItemsArray(venta).length;
 const PROXY_VPN_SELECTOR = {
   $or: [
     { "producto.carritos.type": { $in: ["PROXY", "VPN"] } },
-    { "producto.carritos.producto.type": { $in: ["PROXY", "VPN"] } },
+    { "producto.carritos.producto.type": { $in: PROXY_VPN_PRODUCT_TYPES } },
     { "producto.carrito.type": { $in: ["PROXY", "VPN"] } },
-    { "producto.carrito.producto.type": { $in: ["PROXY", "VPN"] } },
-    { "producto.type": { $in: ["PROXY", "VPN"] } },
+    { "producto.carrito.producto.type": { $in: PROXY_VPN_PRODUCT_TYPES } },
+    { "producto.type": { $in: PROXY_VPN_PRODUCT_TYPES } },
   ],
 };
 
