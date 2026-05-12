@@ -626,7 +626,7 @@ const MenuPrincipalScreen = ({
 
           {heavyContentReady ? (
             <>
-              <Productos isDegradado={false} />
+              <Productos deferDelay={250} isDegradado={false} />
 
               <ProxyVPNPackagesHorizontal />
             </>

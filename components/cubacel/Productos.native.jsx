@@ -59,9 +59,12 @@ const TRANSPARENT_GRADIENT_COLORS = [
 
 let cachedDtShopProductos = [];
 
-const Productos = ({ isDegradado = false, topBleed = 0 }) => {
+const Productos = ({ deferDelay = 0, isDegradado = false, topBleed = 0 }) => {
   const theme = useTheme();
-  const dataReady = useDeferredScreenData({ keepReadyOnBlur: true });
+  const dataReady = useDeferredScreenData({
+    delay: deferDelay,
+    keepReadyOnBlur: true,
+  });
   const resolvedTopBleed = isDegradado ? Math.max(Number(topBleed) || 0, 0) : 0;
   const gradientColors = isDegradado
     ? getGradientColors(theme.dark)
@@ -158,9 +161,11 @@ const Productos = ({ isDegradado = false, topBleed = 0 }) => {
           showsHorizontalScrollIndicator={false}
           scrollEnabled
           keyExtractor={(item) => item._id}
-          initialNumToRender={5}
-          maxToRenderPerBatch={10}
+          initialNumToRender={3}
+          maxToRenderPerBatch={4}
           removeClippedSubviews
+          updateCellsBatchingPeriod={80}
+          windowSize={3}
         />
       ) : ready ? (
         <View style={styles.loaderContainer}>
