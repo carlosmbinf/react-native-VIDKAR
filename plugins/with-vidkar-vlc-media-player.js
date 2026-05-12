@@ -45,16 +45,6 @@ const withVlcInfoPlist = (config) =>
     config.modResults.NSLocalNetworkUsageDescription =
       config.modResults.NSLocalNetworkUsageDescription ||
       "VIDKAR necesita acceso a la red local para reproducir contenido multimedia y subtítulos desde servidores compatibles con VLC.";
-
-    const backgroundModes = Array.isArray(config.modResults.UIBackgroundModes)
-      ? [...config.modResults.UIBackgroundModes]
-      : [];
-
-    if (!backgroundModes.includes("audio")) {
-      backgroundModes.push("audio");
-    }
-
-    config.modResults.UIBackgroundModes = backgroundModes;
     return config;
   });
 
