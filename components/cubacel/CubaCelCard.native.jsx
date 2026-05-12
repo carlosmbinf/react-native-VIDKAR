@@ -94,6 +94,51 @@ const toMoneyLabel = (value, currency) => {
   return `${value} ${currency}`;
 };
 
+const conversionCache = new Map();
+let conversionQueue = Promise.resolve();
+
+const getConversionCacheKey = (amount, currency) => `${amount}:USD:${currency}`;
+
+const convertCurrency = (amount, currency) =>
+  new Promise((resolve, reject) => {
+    Meteor.call(
+      "moneda.convertir",
+      amount,
+      "USD",
+      currency,
+      null,
+      (error, result) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve(result);
+      },
+    );
+  });
+
+const getCachedConvertedPrice = (amount, currency) => {
+  const cacheKey = getConversionCacheKey(amount, currency);
+
+  if (conversionCache.has(cacheKey)) {
+    return Promise.resolve(conversionCache.get(cacheKey));
+  }
+
+  const task = conversionQueue.then(async () => {
+    if (conversionCache.has(cacheKey)) {
+      return conversionCache.get(cacheKey);
+    }
+
+    const result = await convertCurrency(amount, currency);
+    conversionCache.set(cacheKey, result);
+    return result;
+  });
+
+  conversionQueue = task.catch(() => undefined);
+  return task;
+};
+
 const CubaCelCard = ({ product }) => {
   const {
     benefits,
@@ -178,39 +223,10 @@ const CubaCelCard = ({ product }) => {
         if (cancelled) return;
         setLoadingPrecios(true);
 
-        const cup = await new Promise((resolve, reject) => {
-          Meteor.call(
-            "moneda.convertir",
-            precioUSD,
-            "USD",
-            "CUP",
-            null,
-            (error, result) => {
-              if (error) {
-                reject(error);
-                return;
-              }
-              resolve(result);
-            },
-          );
-        });
-
-        const uyu = await new Promise((resolve, reject) => {
-          Meteor.call(
-            "moneda.convertir",
-            precioUSD,
-            "USD",
-            "UYU",
-            null,
-            (error, result) => {
-              if (error) {
-                reject(error);
-                return;
-              }
-              resolve(result);
-            },
-          );
-        });
+        const [cup, uyu] = await Promise.all([
+          getCachedConvertedPrice(precioUSD, "CUP"),
+          getCachedConvertedPrice(precioUSD, "UYU"),
+        ]);
 
         if (cancelled) return;
         setPrecioCUP(cup);
