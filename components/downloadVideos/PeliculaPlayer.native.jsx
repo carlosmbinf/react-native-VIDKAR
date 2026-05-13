@@ -1322,7 +1322,6 @@ const PeliculaPlayer = () => {
                 ? selectedTextTrack
                 : undefined
             }
-            playInBackground
             videoAspectRatio="16:9"
             resizeMode="contain"
             acceptInvalidCertificates={false}
