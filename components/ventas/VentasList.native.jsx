@@ -22,7 +22,7 @@ import {
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { VentasCollection } from "../collections/collections";
 import DialogVenta from "./DialogVenta.native";
 
@@ -203,6 +203,7 @@ const FilterGroup = ({ label, values, selectedValue, onSelect }) => (
 
 const VentasList = () => {
   const theme = useTheme();
+  const headerInset = useAppHeaderContentInset();
   const { width: windowWidth } = useWindowDimensions();
   const { id, pago } = useLocalSearchParams();
   const isCompactScreen = windowWidth < 560;
@@ -517,6 +518,7 @@ const VentasList = () => {
         }
         showBackButton
         backHref="/(normal)/Main"
+        overlapContent
         actions={
           <IconButton
             icon={showFilters ? "filter-minus-outline" : "filter-outline"}
@@ -535,13 +537,16 @@ const VentasList = () => {
       ) : null}
 
       {!ready ? (
-        <View style={styles.loadingContainer}>
+        <View style={[styles.loadingContainer, { paddingTop: headerInset + 12 }]}>
           <ActivityIndicator size="large" color="#3f51b5" />
           <Text style={styles.loadingText}>Cargando ventas...</Text>
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingTop: headerInset + 12 },
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >

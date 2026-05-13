@@ -1,6 +1,7 @@
 import Meteor from "@meteorrn/core";
 
 const DEFAULT_METEOR_URL = "ws://www.vidkar.com:3000/websocket";
+const DEFAULT_HLS_SERVER_URL = "https://hls.vidkar.com";
 
 const webAsyncStorage = {
   async getItem(key) {
@@ -26,6 +27,19 @@ function normalizeMeteorUrl(value) {
   return trimmedValue ? trimmedValue : null;
 }
 
+function normalizeHttpBaseUrl(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmedValue = value.trim().replace(/\/$/, "");
+  if (!trimmedValue || !/^https?:\/\//i.test(trimmedValue)) {
+    return null;
+  }
+
+  return trimmedValue;
+}
+
 export function getMeteorUrl() {
   // const meteorUrlCandidates = [
   //   process.env.EXPO_PUBLIC_METEOR_URL,
@@ -44,6 +58,22 @@ export function getMeteorUrl() {
   // }
 
   return DEFAULT_METEOR_URL || null;
+}
+
+export function getHlsServerUrl() {
+  const hlsUrlCandidates = [
+    process.env.EXPO_PUBLIC_HLS_SERVER_URL,
+    DEFAULT_HLS_SERVER_URL,
+  ];
+
+  for (const candidate of hlsUrlCandidates) {
+    const normalizedHlsUrl = normalizeHttpBaseUrl(candidate);
+    if (normalizedHlsUrl) {
+      return normalizedHlsUrl;
+    }
+  }
+
+  return null;
 }
 
 export async function connectToMeteor(endpoint) {

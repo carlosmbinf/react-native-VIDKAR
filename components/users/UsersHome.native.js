@@ -24,7 +24,7 @@ import {
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { Online, PushTokens } from "../collections/collections";
 import ServiceProgressPill from "../shared/ServiceProgressPill";
 import UserAvatar from "./UserAvatar";
@@ -845,6 +845,7 @@ const UserListCard = ({
 
 const UsersHome = () => {
   const theme = useTheme();
+  const headerInset = useAppHeaderContentInset();
   const { width } = useWindowDimensions();
   const layout = useMemo(() => getUsersLayout(width), [width]);
   const canViewPushTokens = Meteor.useTracker(
@@ -1273,6 +1274,7 @@ const UsersHome = () => {
       <AppHeader
         title="Usuarios"
         subtitle="Administración y consumo"
+        overlapContent
         left={
           <Appbar.BackAction
             iconColor="#fff"
@@ -1427,12 +1429,12 @@ const UsersHome = () => {
         </View>
       ) : null}
       {loading ? (
-        <View style={styles.loadingState}>
+        <View style={[styles.loadingState, { paddingTop: headerInset + 12 }]}>
           <Text>Cargando usuarios...</Text>
         </View>
       ) : (
         <FlatList
-          style={{ flex: 1, paddingTop: 12 }}
+          style={{ flex: 1, paddingTop: headerInset + 12 }}
           data={[
             {
               key: "admins",

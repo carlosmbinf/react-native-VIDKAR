@@ -21,7 +21,7 @@ import {
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { ServersCollection } from "../collections/collections";
 import DialogServer from "./DialogServer";
 import {
@@ -194,6 +194,7 @@ const EmptyState = ({ colors, hasServers }) => (
 
 const ServerList = () => {
   const theme = useTheme();
+  const headerInset = useAppHeaderContentInset();
   const { width: windowWidth } = useWindowDimensions();
   const isCompactScreen = windowWidth < 580;
   const isDark = theme.dark;
@@ -540,8 +541,9 @@ const ServerList = () => {
           subtitle="Cargando estado operativo"
           showBackButton
           backHref="/(normal)/Main"
+          overlapContent
         />
-        <View style={styles.loadingContent}>
+        <View style={[styles.loadingContent, { paddingTop: headerInset + 12 }]}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text
             variant="bodyMedium"
@@ -561,6 +563,7 @@ const ServerList = () => {
         subtitle={`${servers.length} registros en infraestructura`}
         showBackButton
         backHref="/(normal)/Main"
+        overlapContent
         actions={
           <IconButton
             icon={showFilters ? "filter-remove-outline" : "filter-outline"}
@@ -575,7 +578,10 @@ const ServerList = () => {
         keyExtractor={(item) => item._id}
         renderItem={renderServerCard}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingTop: headerInset + 12 },
+        ]}
         ListHeaderComponent={
           <View style={styles.headerContent}>
             <Surface style={[styles.heroPanel]} elevation={0}>

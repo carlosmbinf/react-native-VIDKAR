@@ -2,28 +2,28 @@ import MeteorBase from "@meteorrn/core";
 import { router, useLocalSearchParams, usePathname } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  View,
-  useWindowDimensions,
+    ActivityIndicator,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    View,
+    useWindowDimensions,
 } from "react-native";
 import {
-  Appbar,
-  Button,
-  IconButton,
-  Surface,
-  Text,
-  useTheme,
+    Appbar,
+    Button,
+    IconButton,
+    Surface,
+    Text,
+    useTheme,
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import {
-  PreciosCollection,
-  VentasCollection,
+    PreciosCollection,
+    VentasCollection,
 } from "../collections/collections";
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import AdminAssignmentCard from "./componentsUserDetails/AdminAssignmentCard";
 import DeleteAccountCard from "./componentsUserDetails/DeleteAccountCard";
 import DevicesCard from "./componentsUserDetails/DevicesCard";
@@ -87,6 +87,7 @@ const USER_PENDING_VENTAS_FIELDS = {
 
 const UserDetails = () => {
   const theme = useTheme();
+  const headerInset = useAppHeaderContentInset();
   const params = useLocalSearchParams();
   const pathname = usePathname();
   const routeItemId = Array.isArray(params.item) ? params.item[0] : params.item;
@@ -436,8 +437,10 @@ const UserDetails = () => {
         left={<Appbar.BackAction iconColor="#fff" onPress={handleBack} />}
         titleStyle={styles.headerTitle}
         subtitleStyle={styles.headerSubtitle}
+        overlapContent
       />
       <ScrollView
+        contentContainerStyle={{ paddingTop: headerInset + 12, paddingBottom: 24 }}
         refreshControl={
           <RefreshControl
             refreshing={false}

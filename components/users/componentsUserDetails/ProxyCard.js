@@ -6,14 +6,19 @@ import ProxyCardAdmin from './ProxyCardAdmin';
 import ProxyCardUser from './ProxyCardUser';
 
 const ProxyCard = ({ item, styles, accentColor, precioslist, handleReiniciarConsumo, addVenta }) => {
+	const isAdmin = useMemo(() => {
+		const currentUser = Meteor.user();
+		return currentUser?.profile?.role === 'admin' || currentUser?.username === 'carlosmbinf';
+	}, []);
+	const [editMode, setEditMode] = useState(false);
+
 	if (!item) {
 		return null;
 	}
 
-	const isAdmin = useMemo(() => Meteor.user()?.profile?.role === 'admin', []);
-	const [editMode, setEditMode] = useState(false);
 	const canEdit = isAdmin;
-	const showAdmin = canEdit && editMode;
+	const hasProxyData = Boolean(item.megasGastadosinBytes || item.fechaSubscripcion || item.megas);
+	const showAdmin = canEdit && (editMode || !hasProxyData);
 
 	return (
 		<View style={ui.wrapper} testID="proxy-card-wrapper">

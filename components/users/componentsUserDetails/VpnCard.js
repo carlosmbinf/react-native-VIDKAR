@@ -6,14 +6,19 @@ import VpnCardAdmin from './VpnCardAdmin';
 import VpnCardUser from './VpnCardUser';
 
 const VpnCard = ({ item, styles, accentColor, preciosVPNlist, handleReiniciarConsumoVPN, handleVPNStatus }) => {
+	const isAdmin = useMemo(() => {
+		const currentUser = Meteor.user();
+		return currentUser?.profile?.role === 'admin' || currentUser?.username === 'carlosmbinf';
+	}, []);
+	const [editMode, setEditMode] = useState(false);
+
 	if (!item) {
 		return null;
 	}
 
-	const isAdmin = useMemo(() => Meteor.user()?.profile?.role === 'admin', []);
-	const [editMode, setEditMode] = useState(false);
 	const canEdit = isAdmin;
-	const showAdmin = canEdit && editMode;
+	const hasVpnData = Boolean(item.vpnMbGastados || item.vpnfechaSubscripcion || item.vpnmegas || item.vpn);
+	const showAdmin = canEdit && (editMode || !hasVpnData);
 
 	return (
 		<View style={ui.wrapper} testID="vpn-card-wrapper">

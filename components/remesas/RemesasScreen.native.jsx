@@ -2,7 +2,7 @@ import MeteorBase from "@meteorrn/core";
 import { ScrollView, StyleSheet } from "react-native";
 import { Surface, Text } from "react-native-paper";
 
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import FormularioRemesa from "./FormularioRemesa.native";
 import TableListRemesa from "./TableListRemesa.native";
 import VentasStepper from "./VentasStepper.native";
@@ -14,6 +14,7 @@ const Meteor =
 
 const RemesasScreen = () => {
   const user = Meteor.useTracker(() => Meteor.user());
+  const headerInset = useAppHeaderContentInset();
 
   return (
     <Surface style={styles.screen}>
@@ -22,8 +23,9 @@ const RemesasScreen = () => {
         subtitle="Formulario y seguimiento"
         backHref="/(normal)/Main"
         showBackButton
+        overlapContent
       />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: headerInset + 12 }]}>
         {user?.permiteRemesas ? (
           <FormularioRemesa />
         ) : (

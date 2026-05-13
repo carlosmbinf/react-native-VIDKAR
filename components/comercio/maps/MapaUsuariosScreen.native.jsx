@@ -20,7 +20,7 @@ import {
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
-import AppHeader from "../../Header/AppHeader";
+import AppHeader, { useAppHeaderContentInset } from "../../Header/AppHeader";
 import { Online } from "../../collections/collections";
 import MapaUsuarios from "./MapaUsuarios";
 
@@ -435,6 +435,7 @@ const buildPalette = (theme) => {
 
 const MapaUsuariosScreen = () => {
   const theme = useTheme();
+  const headerInset = useAppHeaderContentInset();
   const colors = React.useMemo(() => buildPalette(theme), [theme]);
   const { width } = useWindowDimensions();
   const compactMetrics = width < 780;
@@ -613,10 +614,14 @@ const MapaUsuariosScreen = () => {
         subtitle="Supervisión geográfica y filtro operativo por rol"
         showBackButton
         backHref="/(normal)/Main"
+        overlapContent
       />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: headerInset + 12 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <Surface

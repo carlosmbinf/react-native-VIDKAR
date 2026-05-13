@@ -4,23 +4,23 @@ import * as ScreenOrientation from "expo-screen-orientation";
 import * as SecureStore from "expo-secure-store";
 import React from "react";
 import {
-  Modal,
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  View,
+    Modal,
+    Pressable,
+    StatusBar,
+    StyleSheet,
+    View,
 } from "react-native";
 import {
-  ActivityIndicator,
-  Button,
-  Dialog,
-  Divider,
-  IconButton,
-  Portal,
-  RadioButton,
-  Surface,
-  Text,
-  useTheme,
+    ActivityIndicator,
+    Button,
+    Dialog,
+    Divider,
+    IconButton,
+    Portal,
+    RadioButton,
+    Surface,
+    Text,
+    useTheme,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -41,6 +41,8 @@ const PLAYER_MODE_FULLSCREEN = "fullscreen";
 const SUBTITLE_EXTERNAL_TRACK_ID = "external";
 const DEFAULT_SUBTITLE_SIZE_ID = "md";
 const PLAYBACK_INTERRUPTION_TIMEOUT_MS = 30000;
+const PLAYER_UNAVAILABLE_TITLE = "Servicio no disponible";
+const PLAYER_UNAVAILABLE_MESSAGE = "El servicio no está disponible en este momento. Intenta nuevamente más tarde.";
 const HLS_STATUS_POLL_MS = 2500;
 const MOVIE_PLAYBACK_CACHE_KEY = "vidkar.moviePlaybackCache.v1";
 const MOVIE_RESUME_MIN_SECONDS = 15;
@@ -442,8 +444,7 @@ const PeliculaPlayer = () => {
   }, []);
 
   const { currentUser } = Meteor.useTracker(() => ({ currentUser: Meteor.user() }));
-  const isAdmin =
-    currentUser?.profile?.role === "admin" || currentUser?.username === "carlosmbinf";
+  const canAccessMovies = currentUser?.subscipcionPelis === true;
 
   React.useEffect(() => {
     let mounted = true;
@@ -652,7 +653,7 @@ const PeliculaPlayer = () => {
         if (!response.ok || status?.success === false || status?.status === "error") {
           setHlsPlayback((currentValue) => ({
             ...currentValue,
-            error: status?.error || "No se pudo preparar la reproducción HLS.",
+            error: PLAYER_UNAVAILABLE_MESSAGE,
             status: "error",
           }));
           return;
@@ -670,7 +671,7 @@ const PeliculaPlayer = () => {
 
         setHlsPlayback((currentValue) => ({
           ...currentValue,
-          error: "No se pudo conectar con el servidor de streaming.",
+          error: PLAYER_UNAVAILABLE_MESSAGE,
           status: "error",
         }));
       }
@@ -708,7 +709,7 @@ const PeliculaPlayer = () => {
             durationSeconds: nextDurationMs > 0
               ? nextDurationMs / 1000
               : Number(currentValue.durationSeconds || 0),
-            error: status?.error || "No se pudo iniciar el streaming HLS.",
+            error: PLAYER_UNAVAILABLE_MESSAGE,
             playlistUrl: null,
             startAtSeconds: normalizeHlsStartAt(hlsStartAtRequest),
             status: "error",
@@ -727,7 +728,7 @@ const PeliculaPlayer = () => {
 
         setHlsPlayback((currentValue) => ({
           durationSeconds: Number(currentValue.durationSeconds || 0),
-          error: "No se pudo conectar con el servidor de streaming.",
+          error: PLAYER_UNAVAILABLE_MESSAGE,
           playlistUrl: null,
           startAtSeconds: normalizeHlsStartAt(hlsStartAtRequest),
           status: "error",
@@ -756,13 +757,13 @@ const PeliculaPlayer = () => {
   ]);
 
   React.useEffect(() => {
-    const active = Boolean(streamUrl && !loadError && movie && currentUser && isAdmin);
+    const active = Boolean(streamUrl && !loadError && movie && currentUser && canAccessMovies);
     setNativePipPlayerActive(active);
 
     return () => {
       setNativePipPlayerActive(false);
     };
-  }, [currentUser, isAdmin, loadError, movie, streamUrl]);
+  }, [canAccessMovies, currentUser, loadError, movie, streamUrl]);
 
   const detectedSubtitleUri = React.useMemo(
     () => resolveMovieSubtitleUri(movie, hlsServerOrigin),
@@ -825,10 +826,7 @@ const PeliculaPlayer = () => {
       playbackInterruptionTimerRef.current = null;
       setBuffering(false);
       setIsPlaying(false);
-      setPlayerError(
-        pendingPlaybackErrorRef.current ||
-          "La reproducción tardó más de 30 segundos en iniciar. Reintenta o revisa el enlace de la película."
-      );
+      setPlayerError(pendingPlaybackErrorRef.current || PLAYER_UNAVAILABLE_MESSAGE);
     }, PLAYBACK_INTERRUPTION_TIMEOUT_MS);
 
     return clearPlaybackInterruptionTimer;
@@ -1054,8 +1052,7 @@ const PeliculaPlayer = () => {
 
   const handleError = React.useCallback(() => {
     setIsPlaying(false);
-    pendingPlaybackErrorRef.current =
-      "VLC no pudo continuar la reproducción. Reintenta o revisa el enlace de la película.";
+    pendingPlaybackErrorRef.current = PLAYER_UNAVAILABLE_MESSAGE;
 
     if (!hasRenderedFrame) {
       setBuffering(true);
@@ -1281,11 +1278,11 @@ const PeliculaPlayer = () => {
                   <ActivityIndicator color="#fff" />
                 )}
                 <Text variant="titleMedium" style={styles.playerErrorTitle}>
-                  {hasHlsError ? "No se pudo preparar la reproducción" : "Preparando reproducción"}
+                  {hasHlsError ? PLAYER_UNAVAILABLE_TITLE : "Preparando reproducción"}
                 </Text>
                 <Text variant="bodySmall" style={styles.playerErrorCopy}>
                   {hasHlsError
-                    ? hlsPlayback.error || "El servidor de streaming no pudo preparar esta película."
+                    ? PLAYER_UNAVAILABLE_MESSAGE
                     : "Estamos preparando una sesión de streaming segura para esta película."}
                 </Text>
                 {hasHlsError ? (
@@ -1361,10 +1358,10 @@ const PeliculaPlayer = () => {
                 elevation={0}
               >
                 <Text variant="titleSmall" style={styles.playerErrorTitle}>
-                  Reproducción interrumpida
+                  {PLAYER_UNAVAILABLE_TITLE}
                 </Text>
                 <Text variant="bodySmall" style={styles.playerErrorCopy}>
-                  {playerError}
+                  {PLAYER_UNAVAILABLE_MESSAGE}
                 </Text>
                 <Button
                   mode="contained"
@@ -1531,7 +1528,7 @@ const PeliculaPlayer = () => {
     );
   }
 
-  if (!isAdmin) {
+  if (!canAccessMovies) {
     return (
       <View style={[styles.screen, styles.playerOnlyScreen, { backgroundColor: palette.playerStage }]}>
         <IconButton
@@ -1545,10 +1542,10 @@ const PeliculaPlayer = () => {
           <Surface style={[styles.stateCard, { borderColor: palette.border }]} elevation={1}>
             <IconButton icon="lock-outline" size={40} iconColor={palette.accent} />
             <Text variant="headlineSmall" style={[styles.centerTitle, { color: palette.text }]}>
-              Acceso administrativo
+              Suscripcion requerida
             </Text>
             <Text variant="bodyMedium" style={[styles.centerCopy, { color: palette.muted }]}>
-              Esta reproducción está disponible solo para administradores.
+              Esta reproduccion esta disponible cuando tu cuenta tiene activa la suscripcion de peliculas.
             </Text>
           </Surface>
         </View>

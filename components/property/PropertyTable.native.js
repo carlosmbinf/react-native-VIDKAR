@@ -20,7 +20,7 @@ import {
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { ConfigCollection } from "../collections/collections";
 import PropertyDialog from "./PropertyDialog.native";
 
@@ -358,6 +358,7 @@ const PropertyCard = ({ colors, item, onPress }) => {
 
 const PropertyTable = () => {
   const theme = useTheme();
+  const headerInset = useAppHeaderContentInset();
   const { width: windowWidth } = useWindowDimensions();
   const isCompactScreen = windowWidth < 580;
   const isDark = theme.dark;
@@ -718,7 +719,7 @@ const PropertyTable = () => {
 
   return (
     <View style={[styles.screen, { backgroundColor: palette.screen }]}>
-      <AppHeader title="Propertys del sistema" actions={headerActions} />
+      <AppHeader title="Propertys del sistema" actions={headerActions} overlapContent />
 
       {ready || properties.length > 0 ? (
         <FlatList
@@ -755,11 +756,14 @@ const PropertyTable = () => {
               onClearFilters={clearFilters}
             />
           }
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingTop: headerInset + 12 },
+          ]}
           showsVerticalScrollIndicator={false}
         />
       ) : (
-        <View style={styles.loadingWrap}>
+        <View style={[styles.loadingWrap, { paddingTop: headerInset + 12 }]}>
           <ActivityIndicator animating size="large" />
           <Text variant="bodyMedium" style={{ color: palette.loadingCopy }}>
             Cargando configuración reactiva del sistema...

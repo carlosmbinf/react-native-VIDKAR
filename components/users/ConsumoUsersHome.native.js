@@ -5,7 +5,7 @@ import { FlatList, StyleSheet, View } from "react-native";
 import { Appbar, List, Searchbar, Surface, Text } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import UserAvatar from "./UserAvatar";
 
 const Meteor =
@@ -19,6 +19,7 @@ const formatGB = (bytes) =>
 
 const ConsumoUsersHome = () => {
   const [search, setSearch] = useState("");
+  const headerInset = useAppHeaderContentInset();
   const dataReady = useDeferredScreenData();
 
   const { loading, users } = Meteor.useTracker(() => {
@@ -101,6 +102,7 @@ const ConsumoUsersHome = () => {
       <AppHeader
         title="Consumo Proxy"
         subtitle="Usuarios con gasto o servicio activo"
+        overlapContent
         left={
           <Appbar.BackAction
             iconColor="#fff"
@@ -112,7 +114,7 @@ const ConsumoUsersHome = () => {
           />
         }
       />
-      <View style={styles.filtersContainer}>
+      <View style={[styles.filtersContainer, { paddingTop: headerInset + 12 }]}>
         <Searchbar
           placeholder="Buscar usuario"
           value={search}
@@ -121,14 +123,14 @@ const ConsumoUsersHome = () => {
         />
       </View>
       {loading ? (
-        <View style={styles.loadingState}>
+        <View style={[styles.loadingState, { paddingTop: 12 }]}>
           <Text>Cargando consumo...</Text>
         </View>
       ) : (
         <FlatList
           data={filteredUsers}
           keyExtractor={(item) => item._id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingTop: 12 }]}
           renderItem={({ item }) => {
             const consumidoGB = formatGB(item.megasGastadosinBytes || 0);
             const limiteGB = formatGB((item.megas || 0) * BYTES_IN_MB_BINARY);

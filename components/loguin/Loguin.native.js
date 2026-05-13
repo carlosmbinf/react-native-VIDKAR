@@ -5,24 +5,26 @@ import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
-  Dimensions,
-  ImageBackground,
-  Keyboard,
-  KeyboardAvoidingView,
-  NativeModules,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  View,
+    Alert,
+    Animated,
+    Dimensions,
+    Easing,
+    ImageBackground,
+    Keyboard,
+    KeyboardAvoidingView,
+    NativeModules,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 import { Button, Text, TextInput, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
-  connectToMeteor,
-  ensureMeteorConnection,
-  getMeteorUrl,
+    connectToMeteor,
+    ensureMeteorConnection,
+    getMeteorUrl,
 } from "../../services/meteor/client";
 import { registerPushTokenForActiveSession } from "../../services/notifications/PushMessaging.native";
 import { ConfigCollection } from "../collections/collections";
@@ -93,6 +95,78 @@ const buildAppleFullName = (fullName) => {
 };
 
 const LoginBlurCard = ({ children, palette }) => {
+  const glowPrimaryProgress = React.useRef(new Animated.Value(0)).current;
+  const glowSecondaryProgress = React.useRef(new Animated.Value(0)).current;
+  const sheenProgress = React.useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const primaryLoop = Animated.loop(
+      Animated.timing(glowPrimaryProgress, {
+        toValue: 1,
+        duration: 18000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    const secondaryLoop = Animated.loop(
+      Animated.timing(glowSecondaryProgress, {
+        toValue: 1,
+        duration: 22000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    const sheenLoop = Animated.loop(
+      Animated.timing(sheenProgress, {
+        toValue: 1,
+        duration: 26000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+
+    glowPrimaryProgress.setValue(0);
+    glowSecondaryProgress.setValue(0);
+    sheenProgress.setValue(0);
+    primaryLoop.start();
+    secondaryLoop.start();
+    sheenLoop.start();
+
+    return () => {
+      primaryLoop.stop();
+      secondaryLoop.stop();
+      sheenLoop.stop();
+      glowPrimaryProgress.stopAnimation();
+      glowSecondaryProgress.stopAnimation();
+      sheenProgress.stopAnimation();
+    };
+  }, [glowPrimaryProgress, glowSecondaryProgress, sheenProgress]);
+
+  const glowPrimaryTranslateX = glowPrimaryProgress.interpolate({
+    inputRange: [0, 0.25, 0.5, 0.75, 1],
+    outputRange: [0, -16, -30, -12, 0],
+  });
+  const glowPrimaryTranslateY = glowPrimaryProgress.interpolate({
+    inputRange: [0, 0.25, 0.5, 0.75, 1],
+    outputRange: [0, 24, 52, 18, 0],
+  });
+  const glowSecondaryTranslateX = glowSecondaryProgress.interpolate({
+    inputRange: [0, 0.25, 0.5, 0.75, 1],
+    outputRange: [0, 28, 12, -10, 0],
+  });
+  const glowSecondaryTranslateY = glowSecondaryProgress.interpolate({
+    inputRange: [0, 0.25, 0.5, 0.75, 1],
+    outputRange: [0, -18, -42, -14, 0],
+  });
+  const sheenTranslateX = sheenProgress.interpolate({
+    inputRange: [0, 0.25, 0.5, 0.75, 1],
+    outputRange: [0, 26, 54, 18, 0],
+  });
+  const sheenTranslateY = sheenProgress.interpolate({
+    inputRange: [0, 0.25, 0.5, 0.75, 1],
+    outputRange: [0, 12, -8, -24, 0],
+  });
+
   return (
     <BlurView
       intensity={24}
@@ -117,20 +191,45 @@ const LoginBlurCard = ({ children, palette }) => {
           { backgroundColor: palette.blurCardOverlay },
         ]}
       />
-      <View
+      <Animated.View
         pointerEvents="none"
-        style={[styles.blurGlowOrb, { backgroundColor: palette.blurCardGlow }]}
+        style={[
+          styles.blurGlowOrb,
+          {
+            backgroundColor: palette.blurCardGlow,
+            transform: [
+              { translateX: glowPrimaryTranslateX },
+              { translateY: glowPrimaryTranslateY },
+            ],
+          },
+        ]}
       />
-      <View
+      <Animated.View
         pointerEvents="none"
         style={[
           styles.blurGlowOrbSecondary,
-          { backgroundColor: palette.blurCardAccent },
+          {
+            backgroundColor: palette.blurCardAccent,
+            transform: [
+              { translateX: glowSecondaryTranslateX },
+              { translateY: glowSecondaryTranslateY },
+            ],
+          },
         ]}
       />
-      <View
+      <Animated.View
         pointerEvents="none"
-        style={[styles.blurSheen, { backgroundColor: palette.blurCardSheen }]}
+        style={[
+          styles.blurSheen,
+          {
+            backgroundColor: palette.blurCardSheen,
+            transform: [
+              { translateX: sheenTranslateX },
+              { translateY: sheenTranslateY },
+              { rotate: "-8deg" },
+            ],
+          },
+        ]}
       />
       {children}
     </BlurView>

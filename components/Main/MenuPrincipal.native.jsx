@@ -6,14 +6,15 @@ import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { getAppVersionInfo } from "../../services/app/appVersion";
 import { syncCadeteBackgroundLocation } from "../../services/location/cadeteBackgroundLocation.native";
 import {
+    buildPendingEvidenceAggregate,
+    buildPendingEvidenceQuery,
+    PENDING_EVIDENCE_FIELDS,
+} from "../archivos/evidencePendingUtils";
+import {
+    PreciosCollection,
     VentasCollection,
     VentasRechargeCollection,
 } from "../collections/collections";
-import {
-  buildPendingEvidenceAggregate,
-  buildPendingEvidenceQuery,
-  PENDING_EVIDENCE_FIELDS,
-} from "../archivos/evidencePendingUtils";
 import MenuPrincipalScreen from "./MenuPrincipalScreen.jsx";
 
 const Meteor =
@@ -48,6 +49,30 @@ const PENDING_CASH_APPROVAL_FIELDS = {
   "producto.type": 1,
   "producto.userId": 1,
 };
+
+const PROXY_PRICE_TYPES = ["megas", "fecha-proxy"];
+const VPN_PRICE_TYPES = ["vpnplus", "fecha-vpn", "vpn2mb"];
+const PRICE_SETUP_TYPE_VALUES = [...PROXY_PRICE_TYPES, ...VPN_PRICE_TYPES];
+
+const PRICE_SETUP_FIELDS = {
+  type: 1,
+  userId: 1,
+};
+
+const PRICE_SETUP_SERVICES = [
+  {
+    key: "proxy",
+    label: "Proxy",
+    icon: "wifi",
+    types: PROXY_PRICE_TYPES,
+  },
+  {
+    key: "vpn",
+    label: "VPN",
+    icon: "shield-check-outline",
+    types: VPN_PRICE_TYPES,
+  },
+];
 
 const isPrincipalAdmin = (user) => user?.username === "carlosmbinf";
 
@@ -110,6 +135,16 @@ const buildPendingCashApprovalsSummary = (ventas = []) => {
     pendingCashApprovalTypes: typeSummary,
     pendingCashApprovalsCount: ventas.length,
   };
+};
+
+const buildMissingPriceServices = (prices = []) => {
+  const configuredTypes = new Set(
+    prices.map((price) => price?.type).filter(Boolean),
+  );
+
+  return PRICE_SETUP_SERVICES.filter(
+    (service) => !service.types.some((type) => configuredTypes.has(type)),
+  ).map(({ icon, key, label }) => ({ icon, key, label }));
 };
 
 const MenuPrincipalNative = () => {
@@ -179,6 +214,35 @@ const MenuPrincipalNative = () => {
         0,
       ),
       pendingVentasCount: pendingVentas.length,
+    };
+  }, [currentUserId, dataReady, isAdmin]);
+
+  const { missingPriceServices, priceSetupLoading } = Meteor.useTracker(() => {
+    if (!dataReady || !currentUserId || !isAdmin) {
+      return {
+        missingPriceServices: [],
+        priceSetupLoading: false,
+      };
+    }
+
+    const pricesSelector = {
+      userId: currentUserId,
+      type: { $in: PRICE_SETUP_TYPE_VALUES },
+    };
+    const pricesHandle = Meteor.subscribe("precios", pricesSelector, {
+      fields: PRICE_SETUP_FIELDS,
+    });
+    const ownServicePrices = pricesHandle.ready()
+      ? PreciosCollection.find(pricesSelector, {
+          fields: PRICE_SETUP_FIELDS,
+        }).fetch()
+      : [];
+
+    return {
+      missingPriceServices: pricesHandle.ready()
+        ? buildMissingPriceServices(ownServicePrices)
+        : [],
+      priceSetupLoading: !pricesHandle.ready(),
     };
   }, [currentUserId, dataReady, isAdmin]);
 
@@ -290,6 +354,10 @@ const MenuPrincipalNative = () => {
     router.push("/(normal)/EvidenciasPendientes");
   };
 
+  const handleOpenPrices = () => {
+    router.push("/(normal)/Precios");
+  };
+
   const handleToggleModoCadete = () => {
     const nextState = !user?.modoCadete;
 
@@ -352,9 +420,12 @@ const MenuPrincipalNative = () => {
       pendingCashApprovalTypes={pendingCashApprovalTypes}
       pendingCashApprovalsCount={pendingCashApprovalsCount}
       pendingCashApprovalsLoading={pendingCashApprovalsLoading}
+      missingPriceServices={missingPriceServices}
+      priceSetupLoading={priceSetupLoading}
       onOpenCashApprovals={handleOpenCashApprovals}
       onOpenPendingEvidence={handleOpenPendingEvidence}
       onOpenPendingVentas={handleOpenPendingVentas}
+      onOpenPrices={handleOpenPrices}
       onToggleModoCadete={handleToggleModoCadete}
       onLogout={() => {
         Meteor.logout(() => {

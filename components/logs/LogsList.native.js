@@ -25,7 +25,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { Logs } from "../collections/collections";
 
 const Meteor =
@@ -511,6 +511,7 @@ const LogDetailsDialog = ({ colors, log, onDismiss, visible }) => {
 
 const LogsList = () => {
   const theme = useTheme();
+  const headerInset = useAppHeaderContentInset();
   const { id } = useLocalSearchParams();
   const isDark = theme.dark;
 
@@ -550,6 +551,9 @@ const LogsList = () => {
         ? "rgba(96, 165, 250, 0.38)"
         : "transparent",
       filterChipSelectedText: isDark ? "#dbeafe" : "#1d4ed8",
+      timelineRail: isDark
+        ? "rgba(96, 165, 250, 0.2)"
+        : "rgba(148, 163, 184, 0.34)",
       cardSurface: isDark
         ? "rgba(15, 23, 42, 0.94)"
         : "rgba(255, 255, 255, 0.94)",
@@ -786,91 +790,161 @@ const LogsList = () => {
     setSelectedUser("TODOS");
   };
 
-  const renderLogCard = ({ item }) => {
+  const renderLogCard = ({ item, index }) => {
     const tone = getLogTone(item.type);
+    const showConnector = index < filteredLogs.length - 1;
 
     return (
       <Pressable
         onPress={() => setSelectedLogId(item._id)}
         style={({ pressed }) => [pressed && styles.logCardPressed]}
       >
-        <Surface
-          style={[styles.logCard, { backgroundColor: palette.cardSurface }]}
-          elevation={0}
-        >
-          <View style={styles.logCardHeader}>
+        <View style={styles.timelineRow}>
+          <View style={styles.timelineRailColumn}>
             <View
-              style={[styles.logIconWrap, { backgroundColor: tone.background }]}
+              style={[
+                styles.timelineNodeOuter,
+                {
+                  backgroundColor: palette.cardSurface,
+                  borderColor: tone.accent,
+                },
+              ]}
             >
-              <IconButton
-                icon="clipboard-text-clock-outline"
-                size={18}
-                iconColor={tone.accent}
+              <View
+                style={[
+                  styles.timelineNodeInner,
+                  { backgroundColor: tone.accent },
+                ]}
               />
             </View>
-            <View style={styles.logHeaderCopy}>
-              <View style={styles.logTitleRow}>
-                <Text
-                  variant="titleSmall"
-                  style={[styles.logCardTitle, { color: palette.title }]}
-                  numberOfLines={1}
-                >
-                  {item.type || "Evento"}
-                </Text>
-                <Chip
-                  compact
+            {showConnector ? (
+              <View
+                style={[
+                  styles.timelineConnector,
+                  { backgroundColor: palette.timelineRail },
+                ]}
+              />
+            ) : null}
+          </View>
+
+          <Surface
+            style={[styles.timelineCard, { backgroundColor: palette.cardSurface }]}
+            elevation={0}
+          >
+            <View
+              style={[styles.timelineAccentBar, { backgroundColor: tone.accent }]}
+            />
+            <View style={styles.timelineCardContent}>
+              <View style={styles.timelineHeader}>
+                <View
                   style={[
-                    styles.logToneChip,
+                    styles.timelineIconWrap,
                     { backgroundColor: tone.background },
                   ]}
-                  textStyle={[styles.logToneChipText]}
                 >
-                  {tone.label}
-                </Chip>
+                  <IconButton
+                    icon="timeline-clock-outline"
+                    size={20}
+                    iconColor={tone.accent}
+                    style={styles.timelineIcon}
+                    onPress={() => setSelectedLogId(item._id)}
+                  />
+                </View>
+
+                <View style={styles.timelineCopy}>
+                  <Text
+                    variant="labelSmall"
+                    style={[styles.timelineEyebrow, { color: palette.subtitle }]}
+                  >
+                    {formatLogDate(item.createdAt)}
+                  </Text>
+                  <View style={styles.timelineTitleRow}>
+                    <Text
+                      variant="titleMedium"
+                      style={[styles.timelineTitle, { color: palette.title }]}
+                      numberOfLines={1}
+                    >
+                      {item.type || "Evento"}
+                    </Text>
+                    <Chip
+                      compact
+                      style={[
+                        styles.timelineToneChip,
+                        { backgroundColor: tone.background },
+                      ]}
+                      textStyle={[
+                        styles.timelineToneChipText,
+                        { color: tone.accent },
+                      ]}
+                    >
+                      {tone.label}
+                    </Chip>
+                  </View>
+                </View>
+
+                <IconButton
+                  icon="chevron-right"
+                  size={18}
+                  iconColor={palette.icon}
+                  style={styles.timelineChevron}
+                  onPress={() => setSelectedLogId(item._id)}
+                />
               </View>
+
+              <View style={styles.timelineMetaRow}>
+                <View
+                  style={[
+                    styles.timelineMetaChip,
+                    { backgroundColor: palette.secondarySurface },
+                  ]}
+                >
+                  <Text
+                    variant="labelSmall"
+                    style={[styles.timelineMetaLabel, { color: palette.subtitle }]}
+                  >
+                    Admin
+                  </Text>
+                  <Text
+                    variant="bodySmall"
+                    style={[styles.timelineMetaValue, { color: palette.copy }]}
+                    numberOfLines={1}
+                  >
+                    {item.adminDisplay}
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.timelineMetaChip,
+                    { backgroundColor: palette.secondarySurface },
+                  ]}
+                >
+                  <Text
+                    variant="labelSmall"
+                    style={[styles.timelineMetaLabel, { color: palette.subtitle }]}
+                  >
+                    Usuario
+                  </Text>
+                  <Text
+                    variant="bodySmall"
+                    style={[styles.timelineMetaValue, { color: palette.copy }]}
+                    numberOfLines={1}
+                  >
+                    {item.userDisplay}
+                  </Text>
+                </View>
+              </View>
+
               <Text
                 variant="bodySmall"
-                style={[styles.logCardSubtitle, { color: palette.subtitle }]}
-                numberOfLines={1}
+                style={[styles.timelineDescription, { color: palette.copy }]}
+                numberOfLines={3}
               >
-                {formatLogDate(item.createdAt)}
+                {item.message || "Sin mensaje disponible"}
               </Text>
             </View>
-            <IconButton
-              icon="chevron-right"
-              size={18}
-              iconColor={palette.icon}
-              style={styles.logChevron}
-              onPress={() => setSelectedLogId(item._id)}
-            />
-          </View>
-
-          <View style={styles.logMetaRow}>
-            <Text
-              variant="labelSmall"
-              style={[styles.logMetaText, { color: palette.copy }]}
-            >
-              Admin: {item.adminDisplay}
-            </Text>
-            <View
-              style={[styles.logMetaDot, { backgroundColor: palette.subtitle }]}
-            />
-            <Text
-              variant="labelSmall"
-              style={[styles.logMetaText, { color: palette.copy }]}
-            >
-              Usuario: {item.userDisplay}
-            </Text>
-          </View>
-
-          <Text
-            variant="bodySmall"
-            style={[styles.logMessageText, { color: palette.copy }]}
-            numberOfLines={2}
-          >
-            {item.message || "Sin mensaje disponible"}
-          </Text>
-        </Surface>
+          </Surface>
+        </View>
       </Pressable>
     );
   };
@@ -883,8 +957,9 @@ const LogsList = () => {
           subtitle="Cargando auditoría operativa"
           showBackButton
           backHref="/(normal)/Main"
+          overlapContent
         />
-        <View style={styles.loadingState}>
+        <View style={[styles.loadingState, { paddingTop: headerInset + 12 }]}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text
             variant="bodyMedium"
@@ -905,6 +980,7 @@ const LogsList = () => {
         subtitle={`${totalFetched} eventos cargados`}
         showBackButton
         backHref="/(normal)/Main"
+        overlapContent
         actions={
           <IconButton
             icon={showFilters ? "filter-remove-outline" : "filter-outline"}
@@ -919,7 +995,10 @@ const LogsList = () => {
         keyExtractor={(item) => item._id}
         renderItem={renderLogCard}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingTop: headerInset + 12 },
+        ]}
         ListHeaderComponent={
           <View style={styles.headerContent}>
             {showFilters ? (
@@ -1147,71 +1226,121 @@ const styles = StyleSheet.create({
     opacity: 0.92,
     transform: [{ scale: 0.995 }],
   },
-  logCard: {
-    borderRadius: 20,
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  timelineRow: {
+    alignItems: "stretch",
+    flexDirection: "row",
+    gap: 12,
   },
-  logCardHeader: {
+  timelineRailColumn: {
+    alignItems: "center",
+    width: 28,
+  },
+  timelineNodeOuter: {
+    alignItems: "center",
+    borderRadius: 999,
+    borderWidth: 2,
+    height: 18,
+    justifyContent: "center",
+    marginTop: 10,
+    width: 18,
+  },
+  timelineNodeInner: {
+    borderRadius: 999,
+    height: 6,
+    width: 6,
+  },
+  timelineConnector: {
+    borderRadius: 999,
+    flex: 1,
+    marginBottom: -6,
+    marginTop: 6,
+    width: 2,
+  },
+  timelineCard: {
+    borderRadius: 20,
+    flex: 1,
+    overflow: "hidden",
+  },
+  timelineAccentBar: {
+    height: 4,
+    width: "100%",
+  },
+  timelineCardContent: {
+    gap: 14,
+    padding: 16,
+  },
+  timelineHeader: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 10,
+    gap: 12,
   },
-  logIconWrap: {
+  timelineIconWrap: {
     alignItems: "center",
-    borderRadius: 14,
-    height: 40,
+    borderRadius: 18,
     justifyContent: "center",
-    width: 40,
   },
-  logHeaderCopy: {
+  timelineIcon: {
+    margin: 0,
+  },
+  timelineCopy: {
     flex: 1,
     gap: 2,
   },
-  logTitleRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  logCardTitle: {
+  timelineEyebrow: {
+    fontSize: 11,
     fontWeight: "800",
-    lineHeight: 20,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
-  logCardSubtitle: {
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  logToneChip: {
-    borderRadius: 999,
-    // height: 50,
-    maxWidth: 140,
-  },
-  logToneChipText: {
-    fontSize: 8,
-    // fontWeight: "700",
-  },
-  logChevron: {
-    margin: 0,
-  },
-  logMetaRow: {
+  timelineTitleRow: {
     alignItems: "center",
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
+    gap: 8,
   },
-  logMetaText: {
-    fontSize: 11,
-    lineHeight: 16,
+  timelineTitle: {
+    flexShrink: 1,
+    fontSize: 19,
+    fontWeight: "800",
   },
-  logMetaDot: {
+  timelineToneChip: {
     borderRadius: 999,
-    height: 4,
-    width: 4,
+    maxWidth: 160,
   },
-  logMessageText: {
+  timelineToneChipText: {
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  timelineChevron: {
+    margin: 0,
+  },
+  timelineMetaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  timelineMetaChip: {
+    borderRadius: 16,
+    flexGrow: 1,
+    gap: 2,
+    minWidth: 140,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  timelineMetaLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  timelineMetaValue: {
     fontSize: 13,
+    fontWeight: "600",
     lineHeight: 18,
+  },
+  timelineDescription: {
+    fontSize: 13,
+    lineHeight: 19,
   },
   emptyStateCard: {
     alignItems: "center",

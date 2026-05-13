@@ -21,6 +21,9 @@ const MenuPrincipal = () => {
       buildNumber={appVersionInfo.buildNumber}
       pendingDebt={0}
       pendingVentasCount={0}
+      missingPriceServices={[]}
+      priceSetupLoading={false}
+      onOpenPrices={() => router.push("/(normal)/Precios")}
       onOpenPendingVentas={() => {}}
       onLogout={() => router.replace("/(auth)")}
     />

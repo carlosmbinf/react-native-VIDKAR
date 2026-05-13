@@ -73,6 +73,7 @@ const CadeteNavigator = () => {
       <Surface style={styles.screen}>
         <AppHeader
           backgroundColor="#13803d"
+          overlapContent
           left={
             <Appbar.Action
               icon="menu"

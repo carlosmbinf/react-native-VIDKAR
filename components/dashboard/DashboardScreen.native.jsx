@@ -4,13 +4,14 @@ import { RefreshControl, ScrollView, View } from "react-native";
 import { Card, Chip, IconButton, Text, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import DashBoardPrincipal from "./DashBoardPrincipal.native";
 import RechargeProfitCard from "./RechargeProfitCard.native";
 import { dashboardScreenStyles } from "./styles/dashboardStyles";
 
 const DashboardScreen = () => {
   const theme = useTheme();
+  const headerInset = useAppHeaderContentInset();
   const [refreshing, setRefreshing] = React.useState(false);
   const [refreshToken, setRefreshToken] = React.useState(0);
 
@@ -47,10 +48,14 @@ const DashboardScreen = () => {
         showBackButton
         subtitle="Consumo agregado y ventas administrativas"
         title="Dashboard"
+        overlapContent
       />
 
       <ScrollView
-        contentContainerStyle={dashboardScreenStyles.scrollContent}
+        contentContainerStyle={[
+          dashboardScreenStyles.scrollContent,
+          { paddingTop: headerInset + 12 },
+        ]}
         refreshControl={
           <RefreshControl
             colors={[theme.colors.primary]}

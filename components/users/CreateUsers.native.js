@@ -2,23 +2,23 @@ import Meteor from "@meteorrn/core";
 import { router } from "expo-router";
 import { useMemo, useRef, useState } from "react";
 import {
-	Alert,
-	KeyboardAvoidingView,
-	Platform,
-	ScrollView,
-	StyleSheet,
-	View,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 import {
-	Button,
-	HelperText,
-	Surface,
-	Text,
-	TextInput,
-	useTheme,
+    Button,
+    HelperText,
+    Surface,
+    Text,
+    TextInput,
+    useTheme,
 } from "react-native-paper";
 
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 
 const initialForm = {
   nombre: "",
@@ -50,6 +50,7 @@ const getServerErrorMessage = (resultOrError) => {
 
 const CreateUsers = () => {
   const theme = useTheme();
+  const headerInset = useAppHeaderContentInset();
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(false);
   const [touched, setTouched] = useState({});
@@ -203,6 +204,7 @@ const CreateUsers = () => {
         showBackButton
         backHref="/(normal)/Users"
         onBack={handleCancel}
+        overlapContent
       />
 
       <KeyboardAvoidingView
@@ -211,7 +213,10 @@ const CreateUsers = () => {
         keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingTop: headerInset + 12 },
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >

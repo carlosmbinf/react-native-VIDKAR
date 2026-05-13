@@ -5077,6 +5077,39 @@ Resumen técnico – Safe area real en drawers de Expo
   - Si un drawer Expo monta header, scroll y footer propios, aplicar safe area al contenedor completo y no confiar en paddings fijos dispersos.
   - Si existe footer persistente dentro del drawer, sumar `insets.bottom` también en esa zona y no solo en el cuerpo scrolleable.
 
+  ---
+
+  Resumen tecnico - Runtime HLS publico consumido desde Expo sin login del servicio
+
+  - Ajuste aplicado:
+    - El panel HLS del cliente Expo ya no depende de una sesion administrativa del servicio HLS.
+    - `components/hls/HlsAdminScreen.native.jsx` ahora consume:
+      - `${baseUrl}/api/runtime`
+      en lugar de:
+      - `${baseUrl}/admin/api/runtime`
+    - La llamada ya no usa `credentials: 'include'` ni CTA a `/admin/login`.
+
+  - Contrato funcional validado:
+    - El servicio HLS expone el runtime publico con el mismo shape operativo que ya usaba la app.
+    - La normalizacion sigue saliendo de:
+      - `components/hls/hlsRuntimeUtils.js`
+    - Por tanto, el cambio en mobile es de ruta y acceso, no de modelo de datos.
+
+  - Variantes afectadas:
+    - Implementacion nativa real:
+      - `components/hls/HlsAdminScreen.native.jsx`
+    - Variante preview/web dentro del repo mobile:
+      - `components/hls/HlsAdminScreen.jsx`
+    - Ambas deben usar el endpoint publico y no mostrar mensajes de sesion protegida del servicio.
+
+  - Regla de acceso en la app:
+    - Que el endpoint sea publico no elimina el gate administrativo local de la pantalla.
+    - La superficie HLS dentro de Expo sigue siendo una herramienta de administracion y debe mantenerse restringida por rol/admin en la propia UI.
+
+  - Regla practica:
+    - Si otra pantalla Expo necesita leer estado del servicio HLS, debe consumir `/api/runtime` directamente.
+    - No volver a agregar manejo especial de `401/403` o login HLS dentro de la app mientras el contrato publico del runtime siga vigente.
+
 ---
 
 Resumen técnico – `ServiceProgressPill` más compacto y con fondo visual moderno en `UsersHome.native.js`
@@ -8412,3 +8445,52 @@ Notas adicionales - Responsive real del dialog de peliculas depende de ancho y a
   - En dialogos moviles largos, responsive no significa solo cambiar columnas por ancho.
   - Tambien hay que responder al alto disponible, especialmente cuando hay teclado, pantallas pequenas o modo landscape.
   - Si vuelve a faltar contenido visible, revisar primero `dialogMaxHeight`, `scrollMaxHeight` y las variantes densas antes de tocar la logica del formulario.
+
+---
+
+Resumen tecnico - Panel administrativo HLS dentro de Expo y preview web
+
+- Alcance aplicado:
+  - Se agrego la superficie administrativa del runtime HLS en Expo bajo:
+    - `components/hls/HlsAdminScreen.native.jsx`
+    - `components/hls/HlsAdminScreen.jsx`
+    - `components/hls/hlsRuntimeUtils.js`
+  - La ruta queda registrada en:
+    - `app/(normal)/HlsAdmin.tsx`
+    - `app/(normal)/_layout.tsx`
+  - El acceso vive en el drawer de administradores como `Streaming HLS`.
+
+- Contrato real del servidor HLS:
+  - La pantalla consume el runtime vivo desde:
+    - `GET /admin/api/runtime`
+  - Ese endpoint esta protegido por sesion administrativa del servicio HLS (`requireAdminApi`).
+  - Si responde `401` o `403`, la app debe mostrar un estado claro de sesion HLS no activa y ofrecer abrir `/admin/login`.
+
+- Shape del runtime validado contra `servidor-hls`:
+  - `activeFfmpegJobs[]`
+  - `activeDirectStreams[]`
+  - `ffmpegPath`
+  - `cacheDir`
+  - `now`
+  - `totals.activeStreams`
+  - `totals.activeFfmpegJobs`
+  - `totals.activeDirectStreams`
+  - Los jobs FFmpeg incluyen datos como `pid`, `sessionId`, `movieTitle`, `progress`, `segmentsCount` y `recentOutput`.
+
+- Resolucion de URL HLS:
+  - En nativo se reutiliza `getHlsServerUrl()` de `services/meteor/client.native.js`.
+  - En preview/web se agrego `getHlsServerUrl()` a `services/meteor/client.js` con fallback productivo `https://hls.vidkar.com`.
+
+- Criterio UX aplicado:
+  - La pantalla sigue el patron profesional del panel HLS web independiente:
+    - hero operativo
+    - metricas resumidas
+    - conversiones FFmpeg separadas de streams directos
+    - cards responsivas en una o dos columnas
+    - estados vacios y errores visibles
+  - El header usa `AppHeader` con glass/blur como el resto de superficies administrativas nuevas.
+
+- Regla practica:
+  - Si se amplia este panel, no consultar colecciones Meteor para saber que esta convirtiendo FFmpeg; la fuente de verdad es `/admin/api/runtime` del servicio HLS.
+  - Mantener separados los conceptos de conversion HLS/FFmpeg y stream directo porque representan caminos operativos distintos.
+  - Si se agregan acciones administrativas futuras, validar primero que el servidor HLS tenga endpoints protegidos equivalentes; no inferir mutaciones desde la app Expo.

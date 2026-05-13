@@ -3,13 +3,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { usePathname, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Animated,
-    ImageBackground,
-    InteractionManager,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View,
+  Animated,
+  Easing,
+  ImageBackground,
+  InteractionManager,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import { Chip, Portal, Surface, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -21,7 +22,91 @@ import MenuHeader from "../Header/MenuHeader";
 import ProxyVPNPackagesHorizontal from "../proxyVPN/ProxyVPNPackagesHorizontal";
 
 const DRAWER_WIDTH = 316;
+const HERO_PRIMARY_GLOW_SIZE = 220;
+const HERO_SECONDARY_GLOW_SIZE = 180;
+const PRICE_SETUP_PRIMARY_GLOW_SIZE = 230;
+const PRICE_SETUP_SECONDARY_GLOW_SIZE = 210;
+const EVIDENCE_PRIMARY_GLOW_SIZE = 220;
+const EVIDENCE_SECONDARY_GLOW_SIZE = 190;
+const CASH_APPROVALS_PRIMARY_GLOW_SIZE = 260;
+const CASH_APPROVALS_SECONDARY_GLOW_SIZE = 250;
 let hasPreparedHeavyContent = false;
+
+const getGlowBounds = (cardSize, glowSize) => ({
+  minX: -glowSize * 0.18,
+  maxX: Math.max(-glowSize * 0.18, cardSize.width - glowSize * 0.82),
+  minY: -glowSize * 0.18,
+  maxY: Math.max(-glowSize * 0.18, cardSize.height - glowSize * 0.82),
+});
+
+const GLOW_MOTION_PATTERNS = {
+  primarySweep: {
+    x: ["max", "max", "min", "min", "max"],
+    y: ["min", "max", "max", "min", "min"],
+  },
+  upperDrift: {
+    x: ["min", "mid", "max", "mid", "min"],
+    y: ["min", "innerMin", "min", "innerMax", "min"],
+  },
+  sideFloat: {
+    x: ["max", "innerMax", "max", "innerMin", "max"],
+    y: ["innerMin", "max", "innerMax", "min", "innerMin"],
+  },
+  diagonalLoop: {
+    x: ["innerMax", "max", "innerMin", "min", "innerMax"],
+    y: ["min", "innerMax", "max", "innerMin", "min"],
+  },
+  secondarySweep: {
+    x: ["min", "max", "max", "min", "min"],
+    y: ["max", "max", "min", "min", "max"],
+  },
+  lowerDrift: {
+    x: ["max", "mid", "min", "mid", "max"],
+    y: ["max", "innerMax", "max", "innerMin", "max"],
+  },
+  reverseDiagonal: {
+    x: ["innerMin", "min", "innerMax", "max", "innerMin"],
+    y: ["max", "innerMin", "min", "innerMax", "max"],
+  },
+  cornerFloat: {
+    x: ["min", "innerMin", "max", "innerMax", "min"],
+    y: ["innerMax", "max", "innerMin", "min", "innerMax"],
+  },
+};
+
+const resolveGlowPoint = (key, bounds) => bounds[key] ?? bounds.minX;
+
+const buildGlowMotion = (progress, cardSize, glowSize, patternName) => {
+  const { minX, maxX, minY, maxY } = getGlowBounds(cardSize, glowSize);
+  const xDistance = maxX - minX;
+  const yDistance = maxY - minY;
+  const bounds = {
+    min: minX,
+    max: maxX,
+    mid: minX + xDistance * 0.5,
+    innerMin: minX + xDistance * 0.24,
+    innerMax: minX + xDistance * 0.76,
+  };
+  const yBounds = {
+    min: minY,
+    max: maxY,
+    mid: minY + yDistance * 0.5,
+    innerMin: minY + yDistance * 0.24,
+    innerMax: minY + yDistance * 0.76,
+  };
+  const pattern = GLOW_MOTION_PATTERNS[patternName] || GLOW_MOTION_PATTERNS.primarySweep;
+
+  return {
+    translateX: progress.interpolate({
+      inputRange: [0, 0.25, 0.5, 0.75, 1],
+      outputRange: pattern.x.map((key) => resolveGlowPoint(key, bounds)),
+    }),
+    translateY: progress.interpolate({
+      inputRange: [0, 0.25, 0.5, 0.75, 1],
+      outputRange: pattern.y.map((key) => resolveGlowPoint(key, yBounds)),
+    }),
+  };
+};
 
 const formatGreeting = (user) => {
   const firstName = user?.profile?.firstName?.trim();
@@ -79,6 +164,20 @@ const getCashApprovalsStatusText = (count, loading) => {
 const formatCashApprovalSalesLabel = (count) =>
   `${count} venta${count === 1 ? "" : "s"}`;
 
+const formatMissingPriceServicesText = (services = []) => {
+  const labels = services.map((service) => service.label).filter(Boolean);
+
+  if (labels.length === 0) {
+    return "";
+  }
+
+  if (labels.length === 1) {
+    return labels[0];
+  }
+
+  return `${labels.slice(0, -1).join(", ")} y ${labels.at(-1)}`;
+};
+
 const MenuPrincipalScreen = ({
   user,
   appVersion = "0.0.0",
@@ -90,9 +189,12 @@ const MenuPrincipalScreen = ({
   pendingCashApprovalTypes = [],
   pendingCashApprovalsCount = 0,
   pendingCashApprovalsLoading = false,
+  missingPriceServices = [],
+  priceSetupLoading = false,
   onOpenCashApprovals = () => {},
   onOpenPendingEvidence = () => {},
   onOpenPendingVentas = () => {},
+  onOpenPrices = () => {},
   onLogout = () => {},
   onToggleModoCadete = () => {},
 }) => {
@@ -103,8 +205,14 @@ const MenuPrincipalScreen = ({
   const [heavyContentReady, setHeavyContentReady] = useState(
     hasPreparedHeavyContent,
   );
+  const [heroCardSize, setHeroCardSize] = useState({ width: 0, height: 0 });
+  const [priceSetupCardSize, setPriceSetupCardSize] = useState({ width: 0, height: 0 });
+  const [evidenceHubCardSize, setEvidenceHubCardSize] = useState({ width: 0, height: 0 });
+  const [cashApprovalsCardSize, setCashApprovalsCardSize] = useState({ width: 0, height: 0 });
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const heroGlowPrimaryProgress = useRef(new Animated.Value(0)).current;
+  const heroGlowSecondaryProgress = useRef(new Animated.Value(0)).current;
   const headerInset = useAppHeaderContentInset();
 
   useEffect(() => {
@@ -164,6 +272,95 @@ const MenuPrincipalScreen = ({
     });
   }, [drawerOpen, overlayOpacity, translateX]);
 
+  useEffect(() => {
+    if (!heroCardSize.width || !heroCardSize.height) {
+      return undefined;
+    }
+
+    const primaryLoop = Animated.loop(
+      Animated.timing(heroGlowPrimaryProgress, {
+        toValue: 1,
+        duration: 18000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    const secondaryLoop = Animated.loop(
+      Animated.timing(heroGlowSecondaryProgress, {
+        toValue: 1,
+        duration: 21000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+
+    heroGlowPrimaryProgress.setValue(0);
+    heroGlowSecondaryProgress.setValue(0);
+    primaryLoop.start();
+    secondaryLoop.start();
+
+    return () => {
+      primaryLoop.stop();
+      secondaryLoop.stop();
+      heroGlowPrimaryProgress.stopAnimation();
+      heroGlowSecondaryProgress.stopAnimation();
+    };
+  }, [
+    heroCardSize.height,
+    heroCardSize.width,
+    heroGlowPrimaryProgress,
+    heroGlowSecondaryProgress,
+  ]);
+
+  const heroPrimaryGlowMotion = buildGlowMotion(
+    heroGlowPrimaryProgress,
+    heroCardSize,
+    HERO_PRIMARY_GLOW_SIZE,
+    "primarySweep",
+  );
+  const heroSecondaryGlowMotion = buildGlowMotion(
+    heroGlowSecondaryProgress,
+    heroCardSize,
+    HERO_SECONDARY_GLOW_SIZE,
+    "secondarySweep",
+  );
+  const priceSetupPrimaryGlowMotion = buildGlowMotion(
+    heroGlowPrimaryProgress,
+    priceSetupCardSize,
+    PRICE_SETUP_PRIMARY_GLOW_SIZE,
+    "upperDrift",
+  );
+  const priceSetupSecondaryGlowMotion = buildGlowMotion(
+    heroGlowSecondaryProgress,
+    priceSetupCardSize,
+    PRICE_SETUP_SECONDARY_GLOW_SIZE,
+    "lowerDrift",
+  );
+  const evidencePrimaryGlowMotion = buildGlowMotion(
+    heroGlowPrimaryProgress,
+    evidenceHubCardSize,
+    EVIDENCE_PRIMARY_GLOW_SIZE,
+    "sideFloat",
+  );
+  const evidenceSecondaryGlowMotion = buildGlowMotion(
+    heroGlowSecondaryProgress,
+    evidenceHubCardSize,
+    EVIDENCE_SECONDARY_GLOW_SIZE,
+    "reverseDiagonal",
+  );
+  const cashPrimaryGlowMotion = buildGlowMotion(
+    heroGlowPrimaryProgress,
+    cashApprovalsCardSize,
+    CASH_APPROVALS_PRIMARY_GLOW_SIZE,
+    "diagonalLoop",
+  );
+  const cashSecondaryGlowMotion = buildGlowMotion(
+    heroGlowSecondaryProgress,
+    cashApprovalsCardSize,
+    CASH_APPROVALS_SECONDARY_GLOW_SIZE,
+    "cornerFloat",
+  );
+
   const navigateTo = (href) => {
     setDrawerOpen(false);
     if (pathname !== href) {
@@ -184,6 +381,11 @@ const MenuPrincipalScreen = ({
   const showCashApprovalsCard =
     hasAdminRole && pendingCashApprovalsCount > 0;
   const showPendingEvidenceCard = pendingEvidenceCount > 0;
+  const showPriceSetupCard =
+    hasAdminRole && !priceSetupLoading && missingPriceServices.length > 0;
+  const missingPriceServicesText = formatMissingPriceServicesText(
+    missingPriceServices,
+  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -221,9 +423,45 @@ const MenuPrincipalScreen = ({
           bounces={false}
           overScrollMode="never"
         >
-          <Surface style={styles.heroCard} elevation={2}>
-            <View style={styles.heroGlowPrimary} />
-            <View style={styles.heroGlowSecondary} />
+          <Surface
+            style={styles.heroCard}
+            elevation={2}
+            onLayout={({ nativeEvent }) => {
+              const { height, width } = nativeEvent.layout;
+
+              setHeroCardSize((current) => {
+                if (current.width === width && current.height === height) {
+                  return current;
+                }
+
+                return { width, height };
+              });
+            }}
+          >
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.heroGlowPrimary,
+                {
+                  transform: [
+                    { translateX: heroPrimaryGlowMotion.translateX },
+                    { translateY: heroPrimaryGlowMotion.translateY },
+                  ],
+                },
+              ]}
+            />
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.heroGlowSecondary,
+                {
+                  transform: [
+                    { translateX: heroSecondaryGlowMotion.translateX },
+                    { translateY: heroSecondaryGlowMotion.translateY },
+                  ],
+                },
+              ]}
+            />
             <Text variant="labelLarge" style={styles.heroEyebrow}>
               {todayLabel}
             </Text>
@@ -334,10 +572,160 @@ const MenuPrincipalScreen = ({
             ) : null}
           </Surface>
 
+          {showPriceSetupCard ? (
+            <Surface
+              style={styles.priceSetupCard}
+              elevation={2}
+              onLayout={({ nativeEvent }) => {
+                const { width, height } = nativeEvent.layout;
+                setPriceSetupCardSize((current) =>
+                  current.width === width && current.height === height
+                    ? current
+                    : { width, height },
+                );
+              }}
+            >
+              <LinearGradient
+                colors={["#0b3b4cf5", "#12335ff2", "#241554f0"]}
+                end={{ x: 1, y: 1 }}
+                locations={[0, 0.56, 1]}
+                start={{ x: 0, y: 0 }}
+                style={styles.priceSetupGradient}
+              >
+                <Animated.View
+                  style={[
+                    styles.priceSetupGlowPrimary,
+                    {
+                      transform: [
+                        { translateX: priceSetupPrimaryGlowMotion.translateX },
+                        { translateY: priceSetupPrimaryGlowMotion.translateY },
+                      ],
+                    },
+                  ]}
+                />
+                <Animated.View
+                  style={[
+                    styles.priceSetupGlowSecondary,
+                    {
+                      transform: [
+                        {
+                          translateX:
+                            priceSetupSecondaryGlowMotion.translateX,
+                        },
+                        {
+                          translateY:
+                            priceSetupSecondaryGlowMotion.translateY,
+                        },
+                      ],
+                    },
+                  ]}
+                />
+
+                <View style={styles.priceSetupHeader}>
+                  <View style={styles.priceSetupIconWrap}>
+                    <MaterialCommunityIcons
+                      color="#cffafe"
+                      name="tag-plus-outline"
+                      size={24}
+                    />
+                  </View>
+                  <View style={styles.priceSetupTitleWrap}>
+                    <Text variant="labelSmall" style={styles.priceSetupEyebrow}>
+                      Configuración comercial pendiente
+                    </Text>
+                    <Text variant="titleLarge" style={styles.priceSetupTitle}>
+                      Agrega precios para habilitar compras de tus clientes
+                    </Text>
+                    <Text variant="bodyMedium" style={styles.priceSetupCopy}>
+                      Aún no tienes precios publicados para {missingPriceServicesText}. Define al menos una oferta para que tus clientes puedan comprar estos servicios desde la app.
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.priceSetupServicesRow}>
+                  {missingPriceServices.map((service) => (
+                    <View key={service.key} style={styles.priceSetupServicePill}>
+                      <MaterialCommunityIcons
+                        color="#bfdbfe"
+                        name={service.icon}
+                        size={17}
+                      />
+                      <Text variant="labelLarge" style={styles.priceSetupServiceText}>
+                        {service.label}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View style={styles.priceSetupFooter}>
+                  <View style={styles.priceSetupFooterCopyWrap}>
+                    <Text variant="labelMedium" style={styles.priceSetupFooterLabel}>
+                      Siguiente paso recomendado
+                    </Text>
+                    <Text variant="bodySmall" style={styles.priceSetupFooterCopy}>
+                      Crea precios propios o hereda ofertas base para dejar listo tu catálogo de Proxy y VPN.
+                    </Text>
+                  </View>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={onOpenPrices}
+                    style={({ pressed }) => [
+                      styles.priceSetupActionButton,
+                      pressed ? styles.priceSetupActionButtonPressed : null,
+                    ]}
+                  >
+                    <Text variant="labelLarge" style={styles.priceSetupActionText}>
+                      Configurar precios
+                    </Text>
+                    <View style={styles.priceSetupActionIconWrap}>
+                      <MaterialCommunityIcons
+                        color="#ecfeff"
+                        name="arrow-right"
+                        size={18}
+                      />
+                    </View>
+                  </Pressable>
+                </View>
+              </LinearGradient>
+            </Surface>
+          ) : null}
+
           {showPendingEvidenceCard ? (
-            <Surface style={styles.evidenceHubCard} elevation={2}>
-              <View style={styles.evidenceHubGlowPrimary} />
-              <View style={styles.evidenceHubGlowSecondary} />
+            <Surface
+              style={styles.evidenceHubCard}
+              elevation={2}
+              onLayout={({ nativeEvent }) => {
+                const { width, height } = nativeEvent.layout;
+                setEvidenceHubCardSize((current) =>
+                  current.width === width && current.height === height
+                    ? current
+                    : { width, height },
+                );
+              }}
+            >
+              <Animated.View
+                style={[
+                  styles.evidenceHubGlowPrimary,
+                  {
+                    transform: [
+                      { translateX: evidencePrimaryGlowMotion.translateX },
+                      { translateY: evidencePrimaryGlowMotion.translateY },
+                    ],
+                  },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.evidenceHubGlowSecondary,
+                  {
+                    transform: [
+                      { translateX: evidenceSecondaryGlowMotion.translateX },
+                      { translateY: evidenceSecondaryGlowMotion.translateY },
+                    ],
+                  },
+                ]}
+              />
 
               <View style={styles.evidenceHubHeader}>
                 <View style={styles.evidenceHubTitleWrap}>
@@ -417,7 +805,18 @@ const MenuPrincipalScreen = ({
           ) : null}
 
           {showCashApprovalsCard ? (
-            <Surface style={styles.cashApprovalsCard} elevation={2}>
+            <Surface
+              style={styles.cashApprovalsCard}
+              elevation={2}
+              onLayout={({ nativeEvent }) => {
+                const { width, height } = nativeEvent.layout;
+                setCashApprovalsCardSize((current) =>
+                  current.width === width && current.height === height
+                    ? current
+                    : { width, height },
+                );
+              }}
+            >
               <LinearGradient
                 colors={[
                   "#17113bf8",
@@ -429,8 +828,28 @@ const MenuPrincipalScreen = ({
                 start={{ x: 0, y: 0 }}
                 style={styles.cashApprovalsGradient}
               >
-                <View style={styles.cashApprovalsGlowPrimary} />
-                <View style={styles.cashApprovalsGlowSecondary} />
+                <Animated.View
+                  style={[
+                    styles.cashApprovalsGlowPrimary,
+                    {
+                      transform: [
+                        { translateX: cashPrimaryGlowMotion.translateX },
+                        { translateY: cashPrimaryGlowMotion.translateY },
+                      ],
+                    },
+                  ]}
+                />
+                <Animated.View
+                  style={[
+                    styles.cashApprovalsGlowSecondary,
+                    {
+                      transform: [
+                        { translateX: cashSecondaryGlowMotion.translateX },
+                        { translateY: cashSecondaryGlowMotion.translateY },
+                      ],
+                    },
+                  ]}
+                />
 
                 <View style={styles.cashApprovalsHeader}>
                   <View style={styles.cashApprovalsTitleWrap}>
@@ -714,21 +1133,21 @@ const styles = StyleSheet.create({
   },
   heroGlowPrimary: {
     position: "absolute",
-    width: 220,
-    height: 220,
+    width: HERO_PRIMARY_GLOW_SIZE,
+    height: HERO_PRIMARY_GLOW_SIZE,
     borderRadius: 999,
     backgroundColor: "rgba(76, 175, 80, 0.16)",
-    top: -70,
-    right: -40,
+    left: 0,
+    top: 0,
   },
   heroGlowSecondary: {
     position: "absolute",
-    width: 180,
-    height: 180,
+    width: HERO_SECONDARY_GLOW_SIZE,
+    height: HERO_SECONDARY_GLOW_SIZE,
     borderRadius: 999,
     backgroundColor: "rgba(99, 102, 241, 0.22)",
-    bottom: -80,
-    left: -30,
+    left: 0,
+    top: 0,
   },
   heroEyebrow: {
     color: "#93c5fd",
@@ -847,6 +1266,138 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(255, 241, 242, 0.12)",
   },
+  priceSetupActionButton: {
+    alignItems: "center",
+    backgroundColor: "rgba(14, 165, 233, 0.2)",
+    borderColor: "rgba(186, 230, 253, 0.26)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    paddingLeft: 14,
+    paddingRight: 8,
+    paddingVertical: 8,
+  },
+  priceSetupActionButtonPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.985 }],
+  },
+  priceSetupActionIconWrap: {
+    alignItems: "center",
+    backgroundColor: "rgba(224, 242, 254, 0.14)",
+    borderRadius: 14,
+    height: 28,
+    justifyContent: "center",
+    width: 28,
+  },
+  priceSetupActionText: {
+    color: "#ecfeff",
+    fontWeight: "800",
+  },
+  priceSetupCard: {
+    borderColor: "rgba(125, 211, 252, 0.2)",
+    borderRadius: 26,
+    borderWidth: 1,
+    marginHorizontal: 16,
+    overflow: "hidden",
+  },
+  priceSetupCopy: {
+    color: "rgba(224, 242, 254, 0.78)",
+    lineHeight: 22,
+  },
+  priceSetupEyebrow: {
+    color: "#67e8f9",
+    fontWeight: "800",
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+  },
+  priceSetupFooter: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+    justifyContent: "space-between",
+  },
+  priceSetupFooterCopy: {
+    color: "rgba(219, 234, 254, 0.7)",
+    lineHeight: 19,
+  },
+  priceSetupFooterCopyWrap: {
+    flex: 1,
+    gap: 4,
+    minWidth: 210,
+  },
+  priceSetupFooterLabel: {
+    color: "#bae6fd",
+    fontWeight: "800",
+  },
+  priceSetupGlowPrimary: {
+    backgroundColor: "rgba(14, 165, 233, 0.24)",
+    borderRadius: 999,
+    height: 230,
+    left: 0,
+    position: "absolute",
+    top: 0,
+    width: 230,
+  },
+  priceSetupGlowSecondary: {
+    backgroundColor: "rgba(99, 102, 241, 0.26)",
+    borderRadius: 999,
+    height: 210,
+    left: 0,
+    position: "absolute",
+    top: 0,
+    width: 210,
+  },
+  priceSetupGradient: {
+    gap: 16,
+    overflow: "hidden",
+    padding: 20,
+  },
+  priceSetupHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 14,
+  },
+  priceSetupIconWrap: {
+    alignItems: "center",
+    backgroundColor: "rgba(8, 145, 178, 0.28)",
+    borderColor: "rgba(186, 230, 253, 0.2)",
+    borderRadius: 22,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  priceSetupServicesRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  priceSetupServicePill: {
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.34)",
+    borderColor: "rgba(147, 197, 253, 0.18)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  priceSetupServiceText: {
+    color: "#dbeafe",
+    fontWeight: "800",
+  },
+  priceSetupTitle: {
+    color: "#f8fafc",
+    fontWeight: "900",
+    lineHeight: 28,
+  },
+  priceSetupTitleWrap: {
+    flex: 1,
+    gap: 6,
+  },
   evidenceHubActionButton: {
     alignItems: "center",
     backgroundColor: "rgba(245, 158, 11, 0.18)",
@@ -919,18 +1470,18 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(245, 158, 11, 0.16)",
     borderRadius: 999,
     height: 220,
-    left: -42,
+    left: 0,
     position: "absolute",
-    top: -92,
+    top: 0,
     width: 220,
   },
   evidenceHubGlowSecondary: {
     backgroundColor: "rgba(217, 119, 6, 0.18)",
     borderRadius: 999,
-    bottom: -90,
     height: 190,
+    left: 0,
     position: "absolute",
-    right: -66,
+    top: 0,
     width: 190,
   },
   evidenceHubHeader: {
@@ -990,6 +1541,7 @@ const styles = StyleSheet.create({
   },
   cashApprovalsGradient: {
     gap: 18,
+    overflow: "hidden",
     padding: 20,
   },
   cashApprovalsGlowPrimary: {
@@ -998,8 +1550,8 @@ const styles = StyleSheet.create({
     height: 260,
     borderRadius: 999,
     backgroundColor: "rgba(124, 58, 237, 0.38)",
-    top: -112,
-    left: -50,
+    top: 0,
+    left: 0,
   },
   cashApprovalsGlowSecondary: {
     position: "absolute",
@@ -1007,8 +1559,8 @@ const styles = StyleSheet.create({
     height: 250,
     borderRadius: 999,
     backgroundColor: "rgba(168, 85, 247, 0.42)",
-    right: -86,
-    bottom: -112,
+    top: 0,
+    left: 0,
   },
   cashApprovalsHeader: {
     flexDirection: "row",

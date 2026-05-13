@@ -5,7 +5,7 @@ import { ActivityIndicator, Button, Surface, Text } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { VentasRechargeCollection } from "../collections/collections";
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import AprobacionEvidenciasVenta from "./AprobacionEvidenciasVenta.native";
 
 const Meteor =
@@ -34,6 +34,7 @@ const EFECTIVO_LIST_FIELDS = {
 
 const ListaVentasEfectivo = () => {
   const [refreshing, setRefreshing] = useState(false);
+  const headerInset = useAppHeaderContentInset();
 
   const isAdmin = Meteor.user()?.profile?.role === "admin" || false;
   const isAdminPrincipal = Meteor.user()?.username === "carlosmbinf" || false;
@@ -102,9 +103,10 @@ const ListaVentasEfectivo = () => {
         title="Aprobaciones de ventas efectivo"
         showBackButton
         backHref="/(normal)/Main"
+        overlapContent
       />
       {cargando ? (
-        <Surface style={styles.centrado}>
+        <Surface style={[styles.centrado, { paddingTop: headerInset + 12 }]}>
           <ActivityIndicator size="large" />
           <Text style={styles.textoCargando}>Cargando ventas...</Text>
         </Surface>
@@ -116,11 +118,12 @@ const ListaVentasEfectivo = () => {
               <AprobacionEvidenciasVenta venta={item} />
             )}
             keyExtractor={(item) => item._id}
-            contentContainerStyle={
+            contentContainerStyle={[
               ventas.length === 0
                 ? styles.listEmptyContainer
-                : styles.listContent
-            }
+                : styles.listContent,
+              { paddingTop: headerInset + 12 },
+            ]}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }

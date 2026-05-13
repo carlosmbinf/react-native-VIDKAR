@@ -155,6 +155,11 @@ const buildPrivateItems = () => [
     href: "/(normal)/PushTokens",
   },
   {
+    label: "Streaming HLS",
+    icon: "movie-cog-outline",
+    href: "/(normal)/HlsAdmin",
+  },
+  {
     label: "Mapa de usuarios",
     icon: "map-marker-account-outline",
     href: "/(normal)/MapaUsuarios",

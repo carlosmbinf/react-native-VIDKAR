@@ -2,33 +2,33 @@ import MeteorBase from "@meteorrn/core";
 import { router } from "expo-router";
 import React from "react";
 import {
-  Alert,
-  FlatList,
-  LayoutAnimation,
-  Platform,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  UIManager,
-  View,
-  useWindowDimensions
+    Alert,
+    FlatList,
+    LayoutAnimation,
+    Platform,
+    Pressable,
+    StyleSheet,
+    TextInput,
+    UIManager,
+    View,
+    useWindowDimensions
 } from "react-native";
 import {
-  ActivityIndicator,
-  Appbar,
-  Button,
-  Chip,
-  IconButton,
-  Menu,
-  Snackbar,
-  Surface,
-  Text,
-  useTheme,
+    ActivityIndicator,
+    Appbar,
+    Button,
+    Chip,
+    IconButton,
+    Menu,
+    Snackbar,
+    Surface,
+    Text,
+    useTheme,
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { NotificacionUsersConectadosVPNCollection } from "../collections/collections";
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import NotificacionRuleDialog from "./NotificacionRuleDialog.native";
 
 const Meteor =
@@ -419,6 +419,7 @@ const NotificacionRuleCard = ({
 
 const NotificacionUsersConnectionVPN = () => {
   const theme = useTheme();
+  const headerInset = useAppHeaderContentInset();
   const isDark = theme.dark;
   const { width: windowWidth } = useWindowDimensions();
   const isCompactScreen = windowWidth < 580;
@@ -877,6 +878,7 @@ const NotificacionUsersConnectionVPN = () => {
           />
         }
         title="Notificaciones VPN"
+        overlapContent
         actions={
           <>
             <IconButton
@@ -897,7 +899,10 @@ const NotificacionUsersConnectionVPN = () => {
 
       {ready || rules.length > 0 ? (
         <FlatList
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingTop: headerInset + 12 },
+          ]}
           data={filteredRules}
           keyExtractor={(item) => item._id}
           ListEmptyComponent={
