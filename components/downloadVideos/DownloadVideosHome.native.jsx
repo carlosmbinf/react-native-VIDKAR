@@ -1,5 +1,6 @@
 import MeteorBase from "@meteorrn/core";
 import { BlurView } from "expo-blur";
+import { Image as ExpoImage } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
@@ -7,7 +8,6 @@ import {
   Alert,
   Animated,
   FlatList,
-  ImageBackground,
   KeyboardAvoidingView,
   Linking,
   ActivityIndicator as NativeActivityIndicator,
@@ -227,6 +227,66 @@ const useProgressiveCatalogValue = (value, loading) => {
   return loading && value.length < stableRef.current.length ? stableRef.current : value;
 };
 
+const CachedMovieImageBackground = ({ children, imageStyle, source, style }) => {
+  const uri = source?.uri;
+  const [imageState, setImageState] = React.useState(uri ? "loading" : "empty");
+
+  React.useEffect(() => {
+    setImageState(uri ? "loading" : "empty");
+  }, [uri]);
+
+  const showLoading = imageState === "loading";
+  const showError = imageState === "error" || imageState === "empty";
+
+  return (
+    <View style={style}>
+      <LinearGradient
+        colors={["#111827", "#1f2937", "#020617"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[StyleSheet.absoluteFillObject, imageStyle]}
+      />
+      {uri ? (
+        <ExpoImage
+          source={{ uri }}
+          style={[StyleSheet.absoluteFillObject, imageStyle]}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={180}
+          onLoad={() => setImageState("loaded")}
+          onError={() => setImageState("error")}
+        />
+      ) : null}
+      {showLoading ? (
+        <View style={styles.movieImageLoadingOverlay} pointerEvents="none">
+          <View style={styles.movieImageLoadingBadge}>
+            <ActivityIndicator size="small" color="#ffffff" />
+            <Text variant="labelSmall" style={styles.movieImageLoadingText}>
+              Cargando
+            </Text>
+          </View>
+        </View>
+      ) : null}
+      {showError ? (
+        <View style={styles.movieImageErrorOverlay} pointerEvents="none">
+          <View style={styles.movieImageErrorBadge}>
+            <IconButton
+              icon="image-off-outline"
+              size={22}
+              iconColor="rgba(255,255,255,0.82)"
+              style={styles.movieImageErrorIcon}
+            />
+            <Text variant="labelSmall" style={styles.movieImageErrorText}>
+              Imagen no disponible en estos momentos
+            </Text>
+          </View>
+        </View>
+      ) : null}
+      {children}
+    </View>
+  );
+};
+
 const normalizeCacheSignatureValue = (value) => {
   if (value instanceof Date) {
     return value.getTime();
@@ -385,14 +445,14 @@ const HeroBackdrop = ({ movie, palette, children, contentTopInset = 0 }) => {
   const imageUrl = getMovieImageUrl(movie?._id, "mid");
 
   return (
-    <ImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.hero} imageStyle={styles.heroImage} >
+    <CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.hero} imageStyle={styles.heroImage} >
       <LinearGradient
         colors={["rgba(0,0,0,0.12)", "rgba(0,0,0,0.62)", palette.background]}
         locations={[0, 0.58, 1]}
         style={StyleSheet.absoluteFill}
       />
       <View style={[styles.heroContent, { paddingTop: contentTopInset }]}>{children}</View>
-    </ImageBackground>
+    </CachedMovieImageBackground>
   );
 };
 
@@ -420,7 +480,7 @@ const MoviePosterCard = ({ movie, palette, onPress, compact }) => {
   return (
     <Pressable onPress={() => onPress?.(movie)} style={({ pressed }) => [styles.posterPressable, pressed && styles.pressed]}>
       <Surface style={[styles.posterCard, compact && styles.posterCardCompact, { backgroundColor: palette.surfaceElevated }]} elevation={1}>
-        <ImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.posterImage} imageStyle={styles.posterImageStyle}>
+        <CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.posterImage} imageStyle={styles.posterImageStyle}>
           <LinearGradient colors={["transparent", "rgba(0,0,0,0.16)", "rgba(0,0,0,0.92)"]} style={StyleSheet.absoluteFill} />
           <View style={styles.posterTopRow}>
             <View style={[styles.posterBadge, { backgroundColor: palette.accent }]}> 
@@ -441,7 +501,7 @@ const MoviePosterCard = ({ movie, palette, onPress, compact }) => {
               {getMovieYear(movie)}{genres[0] ? `  |  ${genres[0]}` : ""}
             </Text>
           </View>
-        </ImageBackground>
+        </CachedMovieImageBackground>
       </Surface>
     </Pressable>
   );
@@ -891,7 +951,7 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
           }}
           contentContainerStyle={[styles.drawerScrollContent, { paddingBottom: Math.max(insets.bottom, 18) + 18 }]}
         >
-          <ImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.drawerHero} imageStyle={styles.drawerHeroImage}>
+          <CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.drawerHero} imageStyle={styles.drawerHeroImage}>
             <LinearGradient colors={["rgba(0,0,0,0.04)", "rgba(0,0,0,0.86)"]} style={StyleSheet.absoluteFill} />
             <View style={styles.drawerHeroContent}>
               <Text variant="labelLarge" style={styles.drawerEyebrow}>VIDKAR CINEMA</Text>
@@ -902,7 +962,7 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
                 {resolvedMovie?.extension ? <MetaPill label={String(resolvedMovie.extension).toUpperCase()} palette={palette} strong /> : null}
               </View>
             </View>
-          </ImageBackground>
+          </CachedMovieImageBackground>
 
           {loading ? (
             <View style={styles.detailLoadingRow}>
@@ -1252,7 +1312,6 @@ const DownloadVideosHome = () => {
           showBackButton
           backHref="/(normal)/Main"
           backgroundColor={DEFAULT_HEADER_COLOR}
-          overlapContent
         />
         <View style={[styles.loadingContent, { paddingTop: headerInset + 20 }]}> 
           <EmptyState palette={palette} loading style={styles.loadingEmptyState} />
@@ -1269,9 +1328,8 @@ const DownloadVideosHome = () => {
           showBackButton
           backHref="/(normal)/Main"
           backgroundColor={DEFAULT_HEADER_COLOR}
-          overlapContent
         />
-        <View style={styles.restrictedContent}>
+        <View style={[styles.restrictedContent, { paddingTop: headerInset + 20 }]}>
           <Surface style={[styles.restrictedCard, { backgroundColor: palette.surface, borderColor: palette.border }]} elevation={0}>
             <IconButton icon="lock-outline" size={42} iconColor={palette.accent} />
             <Text variant="headlineSmall" style={{ color: palette.text }}>Suscripcion requerida</Text>
@@ -1336,7 +1394,11 @@ const DownloadVideosHome = () => {
             </View>
           </HeroBackdrop>
         ) : (
-          <EmptyState palette={palette} loading={loading} />
+          <EmptyState
+            palette={palette}
+            loading={loading}
+            style={[styles.catalogTopEmptyState, { marginTop: headerInset + 20 }]}
+          />
         )}
 
         <View style={styles.contentArea}>
@@ -1386,6 +1448,52 @@ const styles = StyleSheet.create({
   },
   heroImage: {
     opacity: 0.98,
+  },
+  movieImageLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(2, 6, 23, 0.18)",
+  },
+  movieImageLoadingBadge: {
+    minHeight: 32,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(15, 23, 42, 0.58)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  movieImageLoadingText: {
+    color: "rgba(255,255,255,0.9)",
+    fontWeight: "900",
+  },
+  movieImageErrorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(2, 6, 23, 0.56)",
+  },
+  movieImageErrorBadge: {
+    maxWidth: "82%",
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: "rgba(15, 23, 42, 0.62)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.16)",
+  },
+  movieImageErrorIcon: {
+    margin: 0,
+  },
+  movieImageErrorText: {
+    color: "rgba(255,255,255,0.82)",
+    fontWeight: "900",
+    textAlign: "center",
   },
   heroContent: {
     flex: 1,
@@ -1608,12 +1716,15 @@ const styles = StyleSheet.create({
   },
   loadingContent: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "flex-start",
     paddingHorizontal: 20,
   },
   loadingEmptyState: {
     marginHorizontal: 0,
     marginTop: 0,
+  },
+  catalogTopEmptyState: {
+    marginBottom: 18,
   },
   emptyTitle: {
     fontWeight: "900",
@@ -1804,7 +1915,7 @@ const styles = StyleSheet.create({
   restrictedContent: {
     flex: 1,
     padding: 20,
-    justifyContent: "center",
+    justifyContent: "flex-start",
   },
   restrictedCard: {
     borderRadius: 8,

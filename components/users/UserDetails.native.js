@@ -92,6 +92,7 @@ const UserDetails = () => {
   const pathname = usePathname();
   const routeItemId = Array.isArray(params.item) ? params.item[0] : params.item;
   const currentUserId = Meteor.useTracker(() => Meteor.userId());
+  const currentUser = Meteor.useTracker(() => Meteor.user());
   const canViewPushDashboard = Meteor.useTracker(
     () => canAccessPushTokenDashboards(Meteor.user()),
     [],
@@ -171,7 +172,6 @@ const UserDetails = () => {
     }),
     [theme.colors.surface, theme.dark],
   );
-
   const { ready, item, precioslist, preciosVPNlist } = Meteor.useTracker(() => {
     if (!dataReady || !itemId) {
       return {
@@ -231,6 +231,13 @@ const UserDetails = () => {
       preciosVPNlist: preciosVPNData,
     };
   }, [dataReady, itemId, refreshKey]);
+  const headerTitle = useMemo(() => {
+    const resolvedUser = item || (itemId === currentUserId ? currentUser : null);
+    const firstName = String(resolvedUser?.profile?.firstName || "").trim();
+    const username = String(resolvedUser?.username || "").trim();
+
+    return firstName || username || "Usuario";
+  }, [currentUser, currentUserId, item, itemId]);
 
   const accentColor = useMemo(() => {
     const seed = item?.username || item?._id || "U";
@@ -432,7 +439,7 @@ const UserDetails = () => {
   return (
     <Surface style={[styles.background, { backgroundColor: profilePalette.screen }]}>
       <AppHeader
-        title={item ? item.username || "Usuario" : "Usuario"}
+        title={headerTitle}
         subtitle={item ? "Detalle y configuración" : "Cargando detalle"}
         left={<Appbar.BackAction iconColor="#fff" onPress={handleBack} />}
         titleStyle={styles.headerTitle}

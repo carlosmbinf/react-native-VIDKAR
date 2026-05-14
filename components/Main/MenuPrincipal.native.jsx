@@ -1,5 +1,6 @@
 import MeteorBase from "@meteorrn/core";
 import { router } from "expo-router";
+import { useEffect, useRef } from "react";
 import { Alert } from "react-native";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
@@ -73,6 +74,19 @@ const PRICE_SETUP_SERVICES = [
     types: VPN_PRICE_TYPES,
   },
 ];
+
+const MENU_DEBUG_PREFIX = "[MenuPrincipalRender]";
+
+const logMenuPrincipalDebug = (label, payload) => {
+  const timestamp = new Date().toISOString();
+
+  if (payload === undefined) {
+    console.log(`${MENU_DEBUG_PREFIX} ${timestamp} ${label}`);
+    return;
+  }
+
+  console.log(`${MENU_DEBUG_PREFIX} ${timestamp} ${label}`, payload);
+};
 
 const isPrincipalAdmin = (user) => user?.username === "carlosmbinf";
 
@@ -148,11 +162,25 @@ const buildMissingPriceServices = (prices = []) => {
 };
 
 const MenuPrincipalNative = () => {
+  const renderStartedAtRef = useRef(
+    typeof performance?.now === "function" ? performance.now() : Date.now(),
+  );
   const user = Meteor.useTracker(() => Meteor.user());
   const currentUserId = user?._id;
   const isAdmin = isAdminUser(user);
   const isAdminPrincipal = isPrincipalAdmin(user);
   const dataReady = useDeferredScreenData();
+
+  useEffect(() => {
+    const now =
+      typeof performance?.now === "function" ? performance.now() : Date.now();
+
+    logMenuPrincipalDebug("native-shell:mounted", {
+      elapsedMs: Number((now - renderStartedAtRef.current).toFixed(1)),
+      userId: user?._id || null,
+      username: user?.username || null,
+    });
+  }, [user?._id, user?.username]);
 
   const { subordinadosIds, subordinadosLoading } = Meteor.useTracker(() => {
     if (!dataReady || !isAdmin || !currentUserId || isAdminPrincipal) {
@@ -183,6 +211,16 @@ const MenuPrincipalNative = () => {
     };
   }, [currentUserId, dataReady, isAdmin, isAdminPrincipal]);
   const subordinadosIdsKey = subordinadosIds.join(",");
+
+  useEffect(() => {
+    logMenuPrincipalDebug("data:user-context", {
+      currentUserId: currentUserId || null,
+      dataReady,
+      isAdmin,
+      isAdminPrincipal,
+      username: user?.username || null,
+    });
+  }, [currentUserId, dataReady, isAdmin, isAdminPrincipal, user?.username]);
 
   const { pendingDebt, pendingVentasCount } = Meteor.useTracker(() => {
     if (!dataReady || !currentUserId || !isAdmin) {
@@ -217,6 +255,13 @@ const MenuPrincipalNative = () => {
     };
   }, [currentUserId, dataReady, isAdmin]);
 
+  useEffect(() => {
+    logMenuPrincipalDebug("data:pending-debt", {
+      pendingDebt,
+      pendingVentasCount,
+    });
+  }, [pendingDebt, pendingVentasCount]);
+
   const { missingPriceServices, priceSetupLoading } = Meteor.useTracker(() => {
     if (!dataReady || !currentUserId || !isAdmin) {
       return {
@@ -246,6 +291,13 @@ const MenuPrincipalNative = () => {
     };
   }, [currentUserId, dataReady, isAdmin]);
 
+  useEffect(() => {
+    logMenuPrincipalDebug("data:price-setup", {
+      missingPriceServices: missingPriceServices.map((service) => service.key),
+      priceSetupLoading,
+    });
+  }, [missingPriceServices, priceSetupLoading]);
+
   const {
     pendingEvidenceCount,
     pendingEvidenceLoading,
@@ -273,6 +325,13 @@ const MenuPrincipalNative = () => {
       pendingEvidenceLoading: !handle.ready(),
     };
   }, [currentUserId, dataReady]);
+
+  useEffect(() => {
+    logMenuPrincipalDebug("data:pending-evidence", {
+      pendingEvidenceCount,
+      pendingEvidenceLoading,
+    });
+  }, [pendingEvidenceCount, pendingEvidenceLoading]);
 
   const {
     pendingCashApprovalTypes,
@@ -350,6 +409,22 @@ const MenuPrincipalNative = () => {
     router.push("/(normal)/ListaArchivos");
   };
 
+
+      useEffect(() => {
+        logMenuPrincipalDebug("data:cash-approvals", {
+          pendingCashApprovalsCount,
+          pendingCashApprovalsLoading,
+          pendingCashApprovalTypes: pendingCashApprovalTypes.map((item) => item.key),
+          subordinadosCount: subordinadosIds.length,
+          subordinadosLoading,
+        });
+      }, [
+        pendingCashApprovalTypes,
+        pendingCashApprovalsCount,
+        pendingCashApprovalsLoading,
+        subordinadosIds.length,
+        subordinadosLoading,
+      ]);
   const handleOpenPendingEvidence = () => {
     router.push("/(normal)/EvidenciasPendientes");
   };

@@ -2,25 +2,25 @@ import MeteorBase from "@meteorrn/core";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-    Alert,
-    ImageBackground,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    View,
+  Alert,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import {
-    ActivityIndicator,
-    Button,
-    Card,
-    Surface,
-    Text,
-    TextInput,
+  ActivityIndicator,
+  Button,
+  Card,
+  Surface,
+  Text,
+  TextInput,
 } from "react-native-paper";
 import {
-    SafeAreaView,
-    useSafeAreaInsets,
+  SafeAreaView,
+  useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
@@ -103,6 +103,12 @@ const toMoneyLabel = (value, currency) => {
   return `${value} ${currency}`;
 };
 
+const isMobileNumberField = (field) =>
+  String(field || "")
+    .replace(/_/g, " ")
+    .toUpperCase()
+    .includes("MOBILE NUMBER");
+
 const CubacelOfertaScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -169,10 +175,13 @@ const CubacelOfertaScreen = () => {
         .flat(),
     [product],
   );
+  const mobileNumberField = useMemo(
+    () => formGroups.find((field) => isMobileNumberField(field)) || null,
+    [formGroups],
+  );
 
   const handleExtraFieldChange = (field, value) => {
-    const upperField = field.replace(/_/g, " ").toUpperCase();
-    const numericValue = upperField.includes("MOBILE NUMBER")
+    const numericValue = isMobileNumberField(field)
       ? value.replace(/[^0-9]/g, "")
       : value;
 
@@ -193,6 +202,18 @@ const CubacelOfertaScreen = () => {
       return;
     }
 
+    const mobileDigits = mobileNumberField
+      ? String(extraFields[mobileNumberField] || "").replace(/[^0-9]/g, "")
+      : "";
+
+    if (mobileNumberField && mobileDigits.length !== 8) {
+      Alert.alert(
+        "Número inválido",
+        "El campo MOBILE NUMBER debe contener exactamente 8 dígitos sin incluir el +53.",
+      );
+      return;
+    }
+
     setSubmitting(true);
     Meteor.call(
       "insertarCarrito",
@@ -200,7 +221,7 @@ const CubacelOfertaScreen = () => {
         idUser: userId,
         cobrarUSD: precioUSD,
         nombre,
-        movilARecargar: `+53${extraFields.mobile_number || ""}`,
+        movilARecargar: `+53${mobileDigits}`,
         comentario: benefitsText,
         type: "RECARGA",
         monedaCuba: "CUP",
@@ -422,7 +443,7 @@ const CubacelOfertaScreen = () => {
 
                 {formGroups.map((field, index) => {
                   const upperField = field.replace(/_/g, " ").toUpperCase();
-                  const isPhoneField = upperField.includes("MOBILE NUMBER");
+                  const isPhoneField = isMobileNumberField(field);
 
                   return (
                     <TextInput

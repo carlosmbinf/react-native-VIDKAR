@@ -17,7 +17,9 @@ const useDeferredScreenData = ({ delay = 0, enabled = true, keepReadyOnBlur = fa
         };
       }
 
-      setReady(false);
+      if (!keepReadyOnBlur) {
+        setReady(false);
+      }
 
       const interactionTask = InteractionManager.runAfterInteractions(() => {
         if (!active) {

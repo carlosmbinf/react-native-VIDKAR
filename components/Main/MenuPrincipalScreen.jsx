@@ -3,14 +3,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { usePathname, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Animated,
-  Easing,
-  ImageBackground,
-  InteractionManager,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
+    Animated,
+    Easing,
+    ImageBackground,
+    InteractionManager,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 import { Chip, Portal, Surface, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -31,6 +31,62 @@ const EVIDENCE_SECONDARY_GLOW_SIZE = 190;
 const CASH_APPROVALS_PRIMARY_GLOW_SIZE = 260;
 const CASH_APPROVALS_SECONDARY_GLOW_SIZE = 250;
 let hasPreparedHeavyContent = false;
+
+const MENU_DEBUG_PREFIX = "[MenuPrincipalRender]";
+
+const logMenuPrincipalDebug = (label, payload) => {
+  const timestamp = new Date().toISOString();
+
+  if (payload === undefined) {
+    console.log(`${MENU_DEBUG_PREFIX} ${timestamp} ${label}`);
+    return;
+  }
+
+  console.log(`${MENU_DEBUG_PREFIX} ${timestamp} ${label}`, payload);
+};
+
+const RenderTraceBlock = ({ children, name, payload, style }) => {
+  const mountStartedAtRef = useRef(
+    typeof performance?.now === "function" ? performance.now() : Date.now(),
+  );
+  const hasLoggedLayoutRef = useRef(false);
+  const nameRef = useRef(name);
+  const payloadRef = useRef(payload);
+
+  useEffect(() => {
+    const now =
+      typeof performance?.now === "function" ? performance.now() : Date.now();
+
+    logMenuPrincipalDebug(`${nameRef.current}:mounted`, {
+      ...(payloadRef.current || {}),
+      elapsedMs: Number((now - mountStartedAtRef.current).toFixed(1)),
+    });
+  }, []);
+
+  return (
+    <View
+      style={style}
+      onLayout={() => {
+        if (hasLoggedLayoutRef.current) {
+          return;
+        }
+
+        hasLoggedLayoutRef.current = true;
+        const now =
+          typeof performance?.now === "function"
+            ? performance.now()
+            : Date.now();
+
+        logMenuPrincipalDebug(`${nameRef.current}:first-layout`, {
+          ...(payloadRef.current || {}),
+          elapsedMs: Number((now - mountStartedAtRef.current).toFixed(1)),
+        });
+      }}
+    >
+      {children}
+    </View>
+  );
+};
 
 const getGlowBounds = (cardSize, glowSize) => ({
   minX: -glowSize * 0.18,
@@ -214,17 +270,43 @@ const MenuPrincipalScreen = ({
   const heroGlowPrimaryProgress = useRef(new Animated.Value(0)).current;
   const heroGlowSecondaryProgress = useRef(new Animated.Value(0)).current;
   const headerInset = useAppHeaderContentInset();
+  const initialPathnameRef = useRef(pathname);
+
+  useEffect(() => {
+    logMenuPrincipalDebug("screen:mounted", {
+      hasPreparedHeavyContent,
+      pathname,
+      userId: user?._id || null,
+      username: user?.username || null,
+    });
+  }, [pathname, user?._id, user?.username]);
 
   useEffect(() => {
     if (hasPreparedHeavyContent) {
+      logMenuPrincipalDebug("heavy-content:already-prepared", {
+        pathname: initialPathnameRef.current,
+      });
       setHeavyContentReady(true);
       return undefined;
     }
 
     let mounted = true;
+    const interactionScheduledAt =
+      typeof performance?.now === "function" ? performance.now() : Date.now();
+    logMenuPrincipalDebug("heavy-content:waiting-for-interactions", {
+      pathname: initialPathnameRef.current,
+    });
     const interactionTask = InteractionManager.runAfterInteractions(() => {
       if (mounted) {
         hasPreparedHeavyContent = true;
+        const now =
+          typeof performance?.now === "function"
+            ? performance.now()
+            : Date.now();
+        logMenuPrincipalDebug("heavy-content:ready", {
+          elapsedMs: Number((now - interactionScheduledAt).toFixed(1)),
+          pathname: initialPathnameRef.current,
+        });
         setHeavyContentReady(true);
       }
     });
@@ -234,6 +316,13 @@ const MenuPrincipalScreen = ({
       interactionTask?.cancel?.();
     };
   }, []);
+
+  useEffect(() => {
+    logMenuPrincipalDebug("drawer:state", {
+      mounted: drawerMounted,
+      open: drawerOpen,
+    });
+  }, [drawerMounted, drawerOpen]);
 
   useEffect(() => {
     if (drawerOpen) {
@@ -399,21 +488,23 @@ const MenuPrincipalScreen = ({
           <View style={styles.backdrop} />
         </ImageBackground>
 
-        <MenuHeader
-          title="VIDKAR"
-          subtitle="Menú principal"
-          onOpenDrawer={() => setDrawerOpen(true)}
-          onOpenProfile={() => navigateTo("/(normal)/User")}
-          onOpenMessages={(item) => {
-            if (item) {
-              navigateTo(`/(normal)/Mensaje?item=${encodeURIComponent(item)}`);
-              return;
-            }
+        <RenderTraceBlock name="MenuHeader" style={styles.headerTraceBlock}>
+          <MenuHeader
+            title="VIDKAR"
+            subtitle="Menú principal"
+            onOpenDrawer={() => setDrawerOpen(true)}
+            onOpenProfile={() => navigateTo("/(normal)/User")}
+            onOpenMessages={(item) => {
+              if (item) {
+                navigateTo(`/(normal)/Mensaje?item=${encodeURIComponent(item)}`);
+                return;
+              }
 
-            navigateTo("/(normal)/Mensaje");
-          }}
-          onLogout={onLogout}
-        />
+              navigateTo("/(normal)/Mensaje");
+            }}
+            onLogout={onLogout}
+          />
+        </RenderTraceBlock>
 
         <ScrollView
           contentContainerStyle={[
@@ -1045,9 +1136,16 @@ const MenuPrincipalScreen = ({
 
           {heavyContentReady ? (
             <>
-              <Productos deferDelay={250} isDegradado={false} />
+              <RenderTraceBlock
+                name="Productos"
+                payload={{ deferDelay: 250, isDegradado: false }}
+              >
+                <Productos deferDelay={250} isDegradado={false} />
+              </RenderTraceBlock>
 
-              <ProxyVPNPackagesHorizontal />
+              <RenderTraceBlock name="ProxyVPNPackagesHorizontal">
+                <ProxyVPNPackagesHorizontal />
+              </RenderTraceBlock>
             </>
           ) : (
             <View style={styles.deferredContentPlaceholder}>
@@ -1073,13 +1171,19 @@ const MenuPrincipalScreen = ({
               <Animated.View
                 style={[styles.drawerPanel, { transform: [{ translateX }] }]}
               >
-                <DrawerOptionsAlls
-                  user={user}
-                  currentPath={pathname}
-                  onNavigate={navigateTo}
-                  onClose={() => setDrawerOpen(false)}
-                  onToggleModoCadete={onToggleModoCadete}
-                />
+                <RenderTraceBlock
+                  name="DrawerOptionsAlls"
+                  payload={{ drawerOpen }}
+                  style={styles.drawerTraceBlock}
+                >
+                  <DrawerOptionsAlls
+                    user={user}
+                    currentPath={pathname}
+                    onNavigate={navigateTo}
+                    onClose={() => setDrawerOpen(false)}
+                    onToggleModoCadete={onToggleModoCadete}
+                  />
+                </RenderTraceBlock>
               </Animated.View>
             </View>
           ) : null}
@@ -1098,6 +1202,10 @@ const styles = StyleSheet.create({
     flex: 1,
     elevation: 10,
     // backgroundColor: "#eef2ff",
+  },
+  headerTraceBlock: {
+    elevation: 30,
+    zIndex: 30,
   },
   backgroundImage: {
     // ...StyleSheet.absoluteFillObject,
@@ -1758,7 +1866,9 @@ const styles = StyleSheet.create({
   },
   drawerPortal: {
     ...StyleSheet.absoluteFillObject,
+    elevation: 1000,
     flexDirection: "row",
+    zIndex: 1000,
   },
   drawerOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1768,8 +1878,13 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(15, 23, 42, 0.38)",
   },
   drawerPanel: {
-    width: DRAWER_WIDTH,
+    elevation: 1001,
     height: "100%",
+    width: DRAWER_WIDTH,
+    zIndex: 1001,
+  },
+  drawerTraceBlock: {
+    flex: 1,
   },
 });
 

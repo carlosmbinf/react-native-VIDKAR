@@ -71,23 +71,20 @@ const Productos = ({ deferDelay = 0, isDegradado = false, topBleed = 0 }) => {
     : TRANSPARENT_GRADIENT_COLORS;
 
   const { productos, ready } = Meteor.useTracker(() => {
-    if (!dataReady) {
-      return { productos: cachedDtShopProductos, ready: false };
-    }
-
     const handler = Meteor.subscribe(
       "productosDtShop",
       {},
       { fields: PRODUCTOS_DT_SHOP_FIELDS },
     );
+    const subscriptionReady = handler.ready();
 
-    const fetchedProductos = handler.ready()
+    const fetchedProductos = subscriptionReady
       ? DTShopProductosCollection.find({}, { sort: { id: 1 } }).fetch()
       : cachedDtShopProductos;
 
     return {
-      productos: fetchedProductos,
-      ready: handler.ready(),
+      productos: dataReady ? fetchedProductos : cachedDtShopProductos,
+      ready: dataReady && subscriptionReady,
     };
   }, [dataReady]);
 

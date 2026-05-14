@@ -460,7 +460,9 @@ class MensajesHomeScreen extends React.Component {
       }, 100);
 
       Meteor.call("enviarMensajeDirecto2", user, message.trim(), {
-        title: Meteor.user()?.username || "SERVER",
+        title: Meteor.user()?.profile?.firstName && Meteor.user()?.profile?.lastName
+          ? `${Meteor.user().profile.firstName} ${Meteor.user().profile.lastName}`
+          : Meteor.user()?.username || "SERVER",
       });
     } catch (error) {
       console.error("Error al enviar mensaje:", error);

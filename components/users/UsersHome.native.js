@@ -1301,7 +1301,12 @@ const UsersHome = () => {
         }
       />
       {showFilters ? (
-        <View style={styles.filtersContainer}>
+        <View
+          style={[
+            styles.filtersContainer,
+            { paddingTop: headerInset + 12 },
+          ]}
+        >
           <Searchbar
             placeholder="Buscar por usuario o nombre"
             value={search}
@@ -1429,12 +1434,17 @@ const UsersHome = () => {
         </View>
       ) : null}
       {loading ? (
-        <View style={[styles.loadingState, { paddingTop: headerInset + 12 }]}>
+        <View
+          style={[
+            styles.loadingState,
+            { paddingTop: showFilters ? 12 : headerInset + 12 },
+          ]}
+        >
           <Text>Cargando usuarios...</Text>
         </View>
       ) : (
         <FlatList
-          style={{ flex: 1, paddingTop: headerInset + 12 }}
+          style={{ flex: 1, paddingTop: showFilters ? 12 : headerInset + 12 }}
           data={[
             {
               key: "admins",
