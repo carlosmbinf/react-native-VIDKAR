@@ -2683,6 +2683,42 @@ Resumen técnico – Login de Google en Expo usando AuthSession y contrato legac
     - Como `date-fns` no estaba declarado en `package.json`, el bundler de EAS no podía resolver imports como:
       - `date-fns/addMonths`
       - `date-fns/getMonth`
+
+    ---
+
+    Resumen tecnico - Trailer inline de YouTube en el drawer de Peliculas Expo
+
+    - Alcance aplicado:
+      - `components/downloadVideos/DownloadVideosHome.native.jsx` ya no abre el trailer de YouTube fuera de la app.
+      - Cuando una pelicula tiene `urlTrailer` valida de YouTube, el drawer de detalle reproduce ese trailer inline exactamente en el bloque donde normalmente se muestra el poster principal.
+
+    - Libreria y dependencias aplicadas:
+      - Se integro `react-native-youtube-iframe` como reproductor del trailer dentro del drawer.
+      - Tambien se instalo `react-native-webview`, requerida por el embed para funcionar correctamente en Expo.
+      - La instalacion en este repo debe hacerse forzando `npm` porque `npx expo install` intenta usar `yarn` por defecto y este entorno no lo tiene disponible.
+
+    - Contrato funcional resultante:
+      - El drawer extrae el `videoId` real desde `urlTrailer` con un helper dedicado y tolerante a distintos formatos de URL de YouTube.
+      - Si existe trailer valido:
+        - se renderiza `YoutubePlayer` inline
+        - el poster deja de ser la superficie principal del hero
+        - desaparece el boton separado `Trailer`
+      - Si no existe trailer valido:
+        - el drawer mantiene el poster como hero visual normal
+      - El boton `Reproducir` de la pelicula principal no cambia de contrato; sigue perteneciendo al flujo del player de pelicula y no al trailer.
+
+    - Criterio UX validado:
+      - El trailer no debe sentirse como accion secundaria que saca al usuario a YouTube.
+      - Si la pelicula tiene trailer, el drawer debe mostrarlo directamente en la misma zona protagonista del detalle.
+      - La superficie de acciones debe quedar mas limpia: solo se conserva el boton principal de reproduccion y no un segundo CTA redundante para trailer.
+
+    - Regla practica:
+      - Si se vuelve a tocar el drawer de Peliculas Expo, no reintroducir `Linking.openURL(...)` para trailers de YouTube.
+      - El flujo correcto es:
+        1. resolver `videoId` desde `urlTrailer`
+        2. renderizar `react-native-youtube-iframe` inline en el hero del drawer
+        3. mostrar poster solo como fallback cuando no haya trailer valido
+      - Mantener el embed localizado al drawer del catalogo; no mezclar esta logica con el player principal de peliculas.
       - `date-fns/getYear`
 
   - Solución aplicada:
@@ -8494,3 +8530,201 @@ Resumen tecnico - Panel administrativo HLS dentro de Expo y preview web
   - Si se amplia este panel, no consultar colecciones Meteor para saber que esta convirtiendo FFmpeg; la fuente de verdad es `/admin/api/runtime` del servicio HLS.
   - Mantener separados los conceptos de conversion HLS/FFmpeg y stream directo porque representan caminos operativos distintos.
   - Si se agregan acciones administrativas futuras, validar primero que el servidor HLS tenga endpoints protegidos equivalentes; no inferir mutaciones desde la app Expo.
+
+---
+
+Resumen tecnico - Busqueda de Peliculas Expo con selector servidor y debounce
+
+- Problema detectado:
+  - `components/downloadVideos/DownloadVideosHome.native.jsx` estaba cargando un lote inicial limitado de peliculas y luego filtraba localmente por texto/genero.
+  - Eso podia ocultar peliculas existentes fuera del primer `MOVIE_LIMIT`, aunque el usuario escribiera exactamente el nombre.
+
+- Correccion aplicada:
+  - La app Expo ahora construye un selector Mongo equivalente al de la web para `Meteor.subscribe('pelis', selector, option)`.
+  - El selector busca en servidor por:
+    - `nombrePeli`
+    - `descripcion`
+    - `clasificacion`
+    - `actors`
+    - `idimdb`
+    - `year` cuando el texto es un ano de 4 digitos
+  - Cuando hay busqueda o genero activo, el limite sube a `MOVIE_SEARCH_LIMIT` para ampliar el resultado sin cargar todo el catalogo por defecto.
+
+- Mejora compartida con web:
+  - La busqueda usa debounce antes de cambiar la suscripcion.
+  - Esto evita disparar una consulta distinta por cada tecla y reduce carreras visuales cuando el usuario escribe progresivamente nombres como `Transformer`.
+
+- Regla practica:
+  - En Peliculas, no resolver busquedas globales solo con `visibleMovies.filter(...)` sobre Minimongo si la suscripcion esta limitada.
+  - La busqueda debe entrar al selector de `pelis` y conservar proyeccion ligera; no agregar `textSubtitle` al listado.
+  - Si se ajusta la web o Expo, mantener el debounce para que la consulta final del usuario no compita con consultas intermedias mientras escribe.
+
+---
+
+Resumen tecnico - Peliculas sin pestañeo durante refresco de busqueda
+
+- Problema detectado:
+  - La busqueda de peliculas ya consultaba correctamente al servidor con selector dinamico y debounce.
+  - El pestañeo visual venia de que al cambiar el selector de `Meteor.subscribe('pelis', ...)`, la publicacion snapshot podia quedar temporalmente en `loading` y `PelisCollection.find(selector)` devolvia una lista vacia hasta recibir el nuevo lote.
+  - Eso hacia que el catalogo reemplazara la experiencia por loading/empty state aunque existieran resultados estables del filtro anterior.
+
+- Correccion aplicada en Expo:
+  - `components/downloadVideos/DownloadVideosHome.native.jsx` ahora conserva valores estables de catalogo mientras la suscripcion nueva esta cargando.
+  - La busqueda textual espera `2000ms` sin tecleo antes de aplicar el selector real de servidor.
+  - Esto evita modificar `Meteor.subscribe('pelis', ...)` en cada caracter y reduce cambios de snapshot mientras el usuario todavia esta escribiendo.
+  - Los resultados visibles (`displayMovies`) y los generos visibles (`displayGenreOptions`) mantienen siempre el ultimo estado confirmado durante `loading`, incluso si Minimongo ya tiene un subconjunto temporal no vacio.
+  - El resultado nuevo solo debe reemplazar al anterior cuando la suscripcion termina y el snapshot esta listo.
+  - El estado vacio solo debe mostrarse cuando la suscripcion ya termino y realmente no existen resultados para el filtro.
+
+- Paridad web:
+  - La pantalla web de peliculas usa el mismo criterio para no reemplazar el catalogo por loading entre suscripciones.
+  - El debounce de `2000ms` tambien debe mantenerse en web para que ambas superficies consulten con la misma cadencia.
+  - Esto mantiene la busqueda incremental transparente tanto en Expo como en la web.
+
+- Regla practica:
+  - No bajar el debounce de busqueda de peliculas a valores cortos si la publicacion sigue funcionando como snapshot; el objetivo es esperar a que el usuario deje de teclear antes de cambiar la suscripcion.
+  - En publicaciones snapshot o consultas limitadas, no usar resultados parciales de Minimongo durante `loading` como si fueran el resultado final del filtro.
+  - Para filtros de peliculas, conservar el ultimo resultado estable durante el refresh y solo mostrar `No hay peliculas` despues de que la nueva suscripcion este lista.
+
+---
+
+Resumen tecnico - Cache interna acumulativa para busqueda de Peliculas Expo
+
+- Problema detectado:
+  - Aunque la busqueda de peliculas ya consultaba al servidor con selector dinamico y debounce, la experiencia seguia dependiendo demasiado de esperar el snapshot remoto de `Meteor.subscribe('pelis', ...)`.
+  - Al escribir una busqueda, la app podia tardar en devolver resultados aunque varias peliculas ya hubieran sido recibidas antes por otras consultas del catalogo.
+
+- Correccion aplicada:
+  - `components/downloadVideos/DownloadVideosHome.native.jsx` ahora mantiene una cache local en memoria con `Map` por `_id` para los documentos de listado ya vistos.
+  - Cada lote recibido desde la publicacion `pelis` y cada alta manual de pelicula se mergea dentro de esa cache.
+  - El filtro visual del catalogo usa primero esa cache local acumulativa para responder mas rapido mientras la nueva suscripcion remota completa o refresca datos.
+  - La suscripcion server-side no desaparece: sigue siendo la fuente para descubrir peliculas que todavia no estan en cache y para actualizar campos de peliculas ya conocidas.
+
+- Criterio tecnico importante:
+  - La cache de listado no debe mezclarse con la cache de detalle (`movieDetailsCacheRef`).
+  - La cache acumulativa guarda solo campos livianos de catalogo; `textSubtitle` sigue fuera del listado y debe seguir llegando por `getPelicula` o `/getsubtitle` cuando haga falta.
+  - Para evitar renders infinitos, la cache usa una firma de campos relevantes por pelicula antes de incrementar la version reactiva del catalogo.
+
+- Regla practica:
+  - En Peliculas Expo, no volver a depender solo de `movies` del lote activo para construir el catalogo visible.
+  - El flujo correcto es:
+    1. filtrar rapido sobre cache local acumulada
+    2. mantener debounce para no cambiar la suscripcion en cada tecla
+    3. dejar que `pelis` actualice/complete la cache por `_id`
+    4. mostrar estado vacio solo cuando no hay resultados locales y la suscripcion ya termino
+  - Si se agregan mas campos al card/listado de peliculas, actualizar la firma de cache para que los cambios remotos refresquen la UI sin limpiar todo el catalogo.
+
+---
+
+Resumen tecnico - Paridad de filtro de Peliculas Expo frente a la web
+
+- Problema detectado:
+  - La web podia devolver 3 resultados para una busqueda como `Transformer`, mientras Expo mostraba solo 2.
+  - La causa practica era que la app mezclaba dos ritmos distintos:
+    - la suscripcion `pelis` con debounce y snapshot de servidor
+    - el filtro visual inmediato sobre la cache local disponible en ese instante
+  - Eso podia dejar la UI mostrando solo peliculas ya cacheadas aunque el selector real de servidor todavia estuviera cargando el resultado completo.
+
+- Correccion aplicada:
+  - `components/downloadVideos/DownloadVideosHome.native.jsx` filtra el catalogo visible con `debouncedSearchQuery`, igual que la web, y no con cada caracter inmediato mientras la suscripcion aun no se aplico.
+  - La cache acumulativa sigue ayudando a responder rapido, pero el resultado final visible queda alineado con el query efectivo que viaja a `Meteor.subscribe('pelis', ...)`.
+  - La proyeccion ligera del listado Expo se alineo con la web incluyendo tambien:
+    - `subtitulo`
+    - `urlPadre`
+    - `urlPeli`
+    - `urlPeliHTTPS`
+  - La firma de cache se actualizo con esos campos para que los documentos ya vistos puedan refrescarse sin limpiar el catalogo.
+
+- UX de carga:
+  - Cuando la busqueda esta esperando debounce o la suscripcion no esta lista, la UI muestra una pastilla discreta dentro del filtro (`Actualizando catalogo`).
+  - No debe volver a usarse un overlay global agresivo para este caso, porque la experiencia correcta es mantener visible el ultimo catalogo estable mientras se actualiza.
+
+- Regla practica:
+  - En Peliculas Expo, el texto visible del input puede cambiar inmediatamente, pero el filtro que decide la lista debe seguir el mismo `debouncedSearchQuery` que modifica la suscripcion.
+  - El estado visual de carga del catalogo debe depender solo de `handle.ready()` / `loading` de la suscripcion real, no de `isSearchDebouncePending`.
+  - Mientras el usuario escribe y aun no pasan los 2 segundos, la UI debe mantener el catalogo estable sin mostrar spinner de carga; ese periodo es espera de escritura, no consulta al backend.
+  - Si la web y Expo vuelven a devolver conteos distintos para el mismo termino, revisar primero:
+    - campos proyectados en `MOVIE_FIELDS`
+    - firma de cache acumulativa
+    - uso de `debouncedSearchQuery` vs `searchQuery`
+    - selector servidor enviado a `pelis`
+  - No incluir `textSubtitle` en el listado para resolver esta paridad; sigue perteneciendo al detalle o endpoint dedicado.
+
+Notas adicionales - Diagnostico temporal de suscripcion de Peliculas Expo
+
+- Ajuste aplicado:
+  - `components/downloadVideos/DownloadVideosHome.native.jsx` tiene una bandera temporal `MOVIE_SUBSCRIPTION_DEBUG` para imprimir en consola el estado real del flujo de catalogo.
+  - Los logs usan el prefijo estable:
+    - `[PeliculasSubscription] snapshot`
+    - `[PeliculasSubscription] render-pipeline`
+
+- Que valida cada log:
+  - `snapshot` muestra lo que la suscripcion/Minimongo devuelve para el selector aplicado:
+    - `ready`
+    - `loading`
+    - `searchQuery`
+    - `debouncedSearchQuery`
+    - `selectedGenre`
+    - `movieLimit`
+    - `selector`
+    - `total`
+    - resumen de peliculas recibidas
+  - `render-pipeline` compara lo que llego con las capas posteriores:
+    - total en suscripcion
+    - total en cache acumulativa
+    - total visible por reglas de publicacion/extension
+    - total filtrado
+    - total finalmente mostrado
+
+- Regla practica:
+  - Si la suscripcion trae 3 peliculas pero la UI muestra 2, el bug esta despues de `snapshot`: cache, filtro local, visibilidad o `displayMovies`.
+  - Si `snapshot` ya trae 2, revisar selector/proyeccion/publicacion/backend antes de tocar el render.
+  - Estos logs son instrumentacion de diagnostico; retirarlos o apagar `MOVIE_SUBSCRIPTION_DEBUG` cuando se cierre la investigacion para no dejar ruido permanente en Metro.
+
+---
+
+Resumen tecnico - Autoplay de trailers YouTube inline en Peliculas Expo
+
+- Problema detectado:
+  - `react-native-youtube-iframe` podia cargar correctamente la miniatura del trailer en el drawer, pero no iniciar la reproduccion automaticamente.
+  - El boton rojo de YouTube quedaba visible y el usuario percibia que el trailer no se autoreproducia.
+
+- Causa practica:
+  - En WebView/mobile, el autoplay con sonido suele ser bloqueado por politica del runtime o del propio iframe.
+  - Para que el autoplay sea fiable, el trailer debe iniciar silenciado y el WebView debe permitir reproduccion inline sin gesto del usuario.
+
+- Correccion aplicada en `components/downloadVideos/DownloadVideosHome.native.jsx`:
+  - El `YoutubePlayer` del drawer ahora usa estado propio por trailer:
+    - `trailerPlaying`
+    - `trailerReady`
+  - El player arranca con:
+    - `play={trailerPlaying}`
+    - `mute`
+    - `forceAndroidAutoplay`
+    - `webViewProps={{ allowsInlineMediaPlayback: true, mediaPlaybackRequiresUserAction: false }}`
+  - En `onReady`, el player vuelve a forzar `setTrailerPlaying(true)`.
+  - Mientras el iframe inicializa, se muestra un loader discreto encima del frame.
+
+- Regla practica:
+  - Si se vuelve a tocar trailers YouTube inline, no depender de autoplay con sonido.
+  - Mantener el arranque silenciado y las props explicitas del WebView.
+  - Si aun falla en algun dispositivo, el siguiente diagnostico correcto es instrumentar `onError` y `onChangeState`, no volver a `Linking.openURL(...)` ni reintroducir el boton `Trailer`.
+
+Notas adicionales - Trailer YouTube del drawer debe usar HTML local y quedar fuera del gesto global
+
+- Hallazgo validado:
+  - En `components/downloadVideos/DownloadVideosHome.native.jsx`, el trailer inline podia quedarse en loading permanente si el `YoutubePlayer` dependia del host remoto por defecto de `react-native-youtube-iframe` o si el `PanResponder` del bottom drawer envolvia toda la superficie, incluyendo el `WebView`.
+
+- Correccion aplicada:
+  - El `YoutubePlayer` del drawer ahora usa `useLocalHTML` para cargar el HTML interno de la libreria y no depender de la pagina remota base del paquete.
+  - El `PanResponder` del drawer ya no se monta sobre todo el `Animated.View`; queda limitado al `drawerHandleZone`, dejando el area del trailer/WebView libre para cargar y recibir interaccion.
+  - Los gradientes superpuestos sobre el hero deben llevar `pointerEvents="none"` para no interceptar toques del iframe.
+  - Se agrego fallback de reintento si el player no queda listo despues de un tiempo razonable o si `onError` reporta fallo.
+
+- Regla practica:
+  - Si un trailer YouTube inline queda cargando indefinidamente, revisar primero:
+    - que `useLocalHTML` siga activo
+    - que `baseUrlOverride` apunte a `https://www.youtube.com` para evitar error 153 por origen/referer invalido en WebView
+    - que el WebView no este debajo de un responder global del drawer
+    - que los overlays absolutos tengan `pointerEvents="none"` cuando no sean interactivos
+  - No volver a resolver este caso abriendo YouTube externo; el contrato del modulo es reproducir el trailer dentro del hero del drawer y dejar solo el boton `Reproducir` para la pelicula principal.

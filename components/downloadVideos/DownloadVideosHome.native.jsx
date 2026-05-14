@@ -4,39 +4,39 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
-    Alert,
-    Animated,
-    FlatList,
-    ImageBackground,
-    KeyboardAvoidingView,
-    Linking,
-    ActivityIndicator as NativeActivityIndicator,
-    PanResponder,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    View,
-    useWindowDimensions,
+  Alert,
+  Animated,
+  FlatList,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Linking,
+  ActivityIndicator as NativeActivityIndicator,
+  PanResponder,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+  useWindowDimensions,
 } from "react-native";
 import {
-    ActivityIndicator,
-    Button,
-    Chip,
-    Dialog,
-    IconButton,
-    Portal,
-    Surface,
-    Text,
-    useTheme,
+  ActivityIndicator,
+  Button,
+  Chip,
+  Dialog,
+  IconButton,
+  Portal,
+  Surface,
+  Text,
+  useTheme,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { getMeteorUrl } from "../../services/meteor/client.native";
 import AppHeader, {
-    DEFAULT_HEADER_COLOR,
-    useAppHeaderContentInset,
+  DEFAULT_HEADER_COLOR,
+  useAppHeaderContentInset,
 } from "../Header/AppHeader";
 import { PelisCollection } from "../collections/collections";
 
@@ -55,16 +55,23 @@ const MOVIE_FIELDS = {
   idimdb: 1,
   mostrar: 1,
   nombrePeli: 1,
+  subtitulo: 1,
   tamano: 1,
   urlBackground: 1,
   urlBackgroundHTTPS: 1,
+  urlPadre: 1,
+  urlPeli: 1,
+  urlPeliHTTPS: 1,
   urlTrailer: 1,
   vistas: 1,
   year: 1,
 };
 
 const ALL_GENRES = "Todos";
-const MOVIE_LIMIT = 180;
+const MOVIE_LIMIT = 10000;
+const MOVIE_SEARCH_LIMIT = 240;
+const MOVIE_SEARCH_DEBOUNCE_MS = 2000;
+const MOVIE_SUBSCRIPTION_DEBUG = false;
 
 const MOVIE_DIALOG_MODE = {
   MANUAL: "manual",
@@ -86,6 +93,17 @@ const INITIAL_MOVIE_FORM = {
 const INITIAL_MOVIE_YEAR_FORM = {
   year: "",
 };
+
+const summarizeMovieForDebug = (movie) => ({
+  _id: movie?._id,
+  nombrePeli: movie?.nombrePeli,
+  year: movie?.year,
+  extension: movie?.extension,
+  mostrar: movie?.mostrar,
+  vistas: movie?.vistas,
+  urlPeli: Boolean(movie?.urlPeli),
+  urlPeliHTTPS: Boolean(movie?.urlPeliHTTPS),
+});
 
 const getHttpOriginFromMeteorUrl = (value) => {
   if (typeof value !== "string" || !value.trim()) {
@@ -137,8 +155,146 @@ const normalizeActors = (value) => {
   return [];
 };
 
+const escapeRegExp = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const buildRegexSelector = (value) => ({ $regex: escapeRegExp(value), $options: "i" });
+
+const buildMovieSelector = ({ genre, query }) => {
+  const clauses = [
+    { mostrar: { $in: [true, "true"] } },
+    { extension: { $in: ["mkv", "mp4"] } },
+  ];
+  const normalizedQuery = String(query || "").trim();
+
+  if (genre && genre !== ALL_GENRES) {
+    clauses.push({ clasificacion: buildRegexSelector(genre) });
+  }
+
+  if (normalizedQuery) {
+    const searchClauses = [
+      { nombrePeli: buildRegexSelector(normalizedQuery) },
+      { descripcion: buildRegexSelector(normalizedQuery) },
+      { clasificacion: buildRegexSelector(normalizedQuery) },
+      { actors: buildRegexSelector(normalizedQuery) },
+      { idimdb: buildRegexSelector(normalizedQuery) },
+    ];
+    const numericYear = Number(normalizedQuery);
+
+    if (/^\d{4}$/.test(normalizedQuery) && !Number.isNaN(numericYear)) {
+      searchClauses.push({ year: numericYear }, { year: normalizedQuery });
+    }
+
+    clauses.push({ $or: searchClauses });
+  }
+
+  return { $and: clauses };
+};
+
+const LOCAL_MOVIE_CACHE_SELECTOR = {};
+
+const useDebouncedValue = (value, delay = MOVIE_SEARCH_DEBOUNCE_MS) => {
+  const [debouncedValue, setDebouncedValue] = React.useState(value);
+
+  React.useEffect(() => {
+    const timeoutId = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timeoutId);
+  }, [delay, value]);
+
+  return debouncedValue;
+};
+
+const useStableCatalogValue = (value, loading) => {
+  const stableRef = React.useRef(value);
+
+  React.useEffect(() => {
+    if (!loading) {
+      stableRef.current = value;
+    }
+  }, [loading, value]);
+
+  return loading ? stableRef.current : value;
+};
+
+const useProgressiveCatalogValue = (value, loading) => {
+  const stableRef = React.useRef(value);
+
+  React.useEffect(() => {
+    if (!loading || value.length >= stableRef.current.length) {
+      stableRef.current = value;
+    }
+  }, [loading, value]);
+
+  return loading && value.length < stableRef.current.length ? stableRef.current : value;
+};
+
+const normalizeCacheSignatureValue = (value) => {
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+
+  if (Array.isArray(value)) {
+    return value.join("|");
+  }
+
+  return value ?? "";
+};
+
+const getMovieCacheSignature = (movie) =>
+  [
+    movie?._id,
+    movie?.actors,
+    movie?.clasificacion,
+    movie?.createdAt,
+    movie?.descripcion,
+    movie?.extension,
+    movie?.idimdb,
+    movie?.mostrar,
+    movie?.nombrePeli,
+    movie?.subtitulo,
+    movie?.tamano,
+    movie?.urlBackground,
+    movie?.urlBackgroundHTTPS,
+    movie?.urlPadre,
+    movie?.urlPeli,
+    movie?.urlPeliHTTPS,
+    movie?.urlTrailer,
+    movie?.vistas,
+    movie?.year,
+  ]
+    .map(normalizeCacheSignatureValue)
+    .join("::");
+
+const mergeMovieForCache = (currentMovie, nextMovie) => {
+  if (!currentMovie) {
+    return nextMovie;
+  }
+
+  return { ...currentMovie, ...nextMovie };
+};
+
+const sortCachedMovies = (movies) =>
+  [...movies].sort((a, b) => {
+    const viewsDiff = getMovieViews(b) - getMovieViews(a);
+    if (viewsDiff) {
+      return viewsDiff;
+    }
+
+    return getMovieTitle(a).localeCompare(getMovieTitle(b));
+  });
+
 const isVisibleMovie = (movie) => movie?.mostrar === true || movie?.mostrar === "true";
-const isPlayableExtension = (movie) => ["mkv", "mp4"].includes(String(movie?.extension || "").toLowerCase());
+const getMovieSourceExtension = (movie) => {
+  const explicitExtension = String(movie?.extension || "").trim().toLowerCase();
+
+  if (explicitExtension) {
+    return explicitExtension.replace(/^\./, "");
+  }
+
+  const streamUrl = movie?.urlPeliHTTPS || movie?.urlPeli || "";
+  const match = String(streamUrl).toLowerCase().match(/\.([a-z0-9]+)(?:[?#]|$)/);
+  return match?.[1] || "";
+};
+const isPlayableExtension = (movie) => ["mkv", "mp4"].includes(getMovieSourceExtension(movie));
 
 const getMovieTitle = (movie) => movie?.nombrePeli || "Pelicula sin titulo";
 const getMovieYear = (movie) => (movie?.year ? String(movie.year) : "Sin ano");
@@ -226,10 +382,10 @@ const getPalette = (theme) => {
 };
 
 const HeroBackdrop = ({ movie, palette, children, contentTopInset = 0 }) => {
-  const imageUrl = getMovieImageUrl(movie?._id, "hig");
+  const imageUrl = getMovieImageUrl(movie?._id, "mid");
 
   return (
-    <ImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.hero} imageStyle={styles.heroImage}>
+    <ImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.hero} imageStyle={styles.heroImage} >
       <LinearGradient
         colors={["rgba(0,0,0,0.12)", "rgba(0,0,0,0.62)", palette.background]}
         locations={[0, 0.58, 1]}
@@ -258,7 +414,7 @@ const MetaPill = ({ icon, label, palette, strong = false }) => (
 );
 
 const MoviePosterCard = ({ movie, palette, onPress, compact }) => {
-  const imageUrl = getMovieImageUrl(movie?._id, "low");
+  const imageUrl = getMovieImageUrl(movie?._id, "mid");
   const genres = normalizeGenres(movie?.clasificacion);
 
   return (
@@ -304,9 +460,12 @@ const MovieRow = ({ title, movies, palette, onPress, compact }) => {
       </View>
       <FlatList
         horizontal
+        alwaysBounceHorizontal={false}
+        bounces={false}
         data={movies}
         keyExtractor={(item) => item._id}
         renderItem={({ item }) => <MoviePosterCard movie={item} palette={palette} onPress={onPress} compact={compact} />}
+        overScrollMode="never"
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.horizontalList}
       />
@@ -314,8 +473,8 @@ const MovieRow = ({ title, movies, palette, onPress, compact }) => {
   );
 };
 
-const EmptyState = ({ palette, loading }) => (
-  <Surface style={[styles.emptyState, { backgroundColor: palette.surface, borderColor: palette.border }]} elevation={0}>
+const EmptyState = ({ palette, loading, style }) => (
+  <Surface style={[styles.emptyState, style, { backgroundColor: palette.surface, borderColor: palette.border }]} elevation={0}>
     {loading ? <ActivityIndicator color={palette.accent} /> : <IconButton icon="movie-off-outline" size={34} iconColor={palette.muted} />}
     <Text variant="titleMedium" style={[styles.emptyTitle, { color: palette.text }]}>
       {loading ? "Cargando catalogo" : "No hay peliculas para mostrar"}
@@ -532,6 +691,7 @@ const AddMovieDialog = ({ onClose, onCreated, open, palette }) => {
 
 const HeroMovieFilters = ({
   genreOptions,
+  loadingCatalog,
   palette,
   searchQuery,
   selectedGenre,
@@ -554,10 +714,21 @@ const HeroMovieFilters = ({
         <IconButton icon="close" iconColor="rgba(255,255,255,0.78)" size={18} onPress={() => setSearchQuery("")} />
       ) : null}
     </View>
+    {loadingCatalog ? (
+      <View style={styles.heroSearchLoadingRow}>
+        <View style={styles.heroSearchLoadingPill}>
+          <NativeActivityIndicator size="small" color="#ffffff" />
+          <Text variant="labelSmall" style={styles.heroSearchLoadingText}>Actualizando catalogo</Text>
+        </View>
+      </View>
+    ) : null}
     <FlatList
       horizontal
+      alwaysBounceHorizontal={false}
+      bounces={false}
       data={genreOptions}
       keyExtractor={(item) => item}
+      overScrollMode="never"
       renderItem={({ item }) => {
         const selected = selectedGenre === item;
         return (
@@ -592,7 +763,7 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
   const genres = normalizeGenres(resolvedMovie?.clasificacion);
   const actors = normalizeActors(resolvedMovie?.actors);
   const streamUrl = resolveMovieStreamUrl(resolvedMovie);
-  const imageUrl = getMovieImageUrl(resolvedMovie?._id, "hig");
+  const imageUrl = getMovieImageUrl(resolvedMovie?._id, "mid");
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
   const drawerMaxWidth = Math.min(width, 760);
@@ -792,51 +963,102 @@ const DownloadVideosHome = () => {
   const compact = width < 390;
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedGenre, setSelectedGenre] = React.useState(ALL_GENRES);
+  const debouncedSearchQuery = useDebouncedValue(searchQuery);
   const [selectedMovie, setSelectedMovie] = React.useState(null);
   const [movieDetail, setMovieDetail] = React.useState(null);
   const [detailLoading, setDetailLoading] = React.useState(false);
   const [addMovieOpen, setAddMovieOpen] = React.useState(false);
   const [createdMovies, setCreatedMovies] = React.useState([]);
+  const movieCatalogCacheRef = React.useRef(new Map());
+  const movieCatalogSignaturesRef = React.useRef(new Map());
+  const [movieCatalogCacheVersion, setMovieCatalogCacheVersion] = React.useState(0);
   const movieDetailsCacheRef = React.useRef(new Map());
   const activeDetailMovieIdRef = React.useRef(null);
 
-  const baseSelector = React.useMemo(
-    () => ({
-      mostrar: { $in: [true, "true"] },
-      extension: { $in: ["mkv", "mp4"] },
-    }),
-    [],
+  const movieSelector = React.useMemo(
+    () => buildMovieSelector({ genre: selectedGenre, query: debouncedSearchQuery }),
+    [debouncedSearchQuery, selectedGenre],
   );
+  const isSearchingCatalog = Boolean(debouncedSearchQuery.trim()) || selectedGenre !== ALL_GENRES;
+  const movieLimit = isSearchingCatalog ? MOVIE_SEARCH_LIMIT : MOVIE_LIMIT;
 
   const { currentUser, loading, movies } = Meteor.useTracker(() => {
     const user = Meteor.user();
-    const handle = Meteor.subscribe("pelis", baseSelector, {
+    const handle = Meteor.subscribe("pelis", movieSelector, {
       sort: { vistas: -1, nombrePeli: 1 },
-      limit: MOVIE_LIMIT,
+      limit: movieLimit,
     });
+    const ready = handle.ready();
+    const localCatalogMovies = PelisCollection.find(LOCAL_MOVIE_CACHE_SELECTOR, {
+      fields: MOVIE_FIELDS,
+      sort: { vistas: -1, nombrePeli: 1 },
+    }).fetch();
+
+    if (MOVIE_SUBSCRIPTION_DEBUG && ready) {
+      console.log("[PeliculasSubscription] snapshot", {
+        ready,
+        loading: !ready,
+        searchQuery,
+        debouncedSearchQuery,
+        selectedGenre,
+        movieLimit,
+        selector: JSON.stringify(movieSelector),
+        localCatalogTotal: localCatalogMovies.length,
+        localCatalogMovies: localCatalogMovies.map(summarizeMovieForDebug),
+      });
+    }
 
     return {
       currentUser: user,
-      loading: !handle.ready(),
-      movies: PelisCollection.find(baseSelector, {
-        fields: MOVIE_FIELDS,
-        sort: { vistas: -1, nombrePeli: 1 },
-        limit: MOVIE_LIMIT,
-      }).fetch(),
+      loading: !ready,
+      movies: localCatalogMovies,
     };
   });
 
   const canAccessMovies = currentUser?.subscipcionPelis === true;
   const canAddMovies = currentUser?.username === "carlosmbinf";
 
-  const catalogMovies = React.useMemo(() => {
-    if (!createdMovies.length) {
-      return movies;
-    }
+  const syncMoviesToCatalogCache = React.useCallback((movieList) => {
+    let changed = false;
 
-    const createdIds = new Set(createdMovies.map((movie) => movie?._id).filter(Boolean));
-    return [...createdMovies, ...movies.filter((movie) => !createdIds.has(movie?._id))];
-  }, [createdMovies, movies]);
+    movieList.forEach((movie) => {
+      if (!movie?._id) {
+        return;
+      }
+
+      const currentMovie = movieCatalogCacheRef.current.get(movie._id);
+      const mergedMovie = mergeMovieForCache(currentMovie, movie);
+      const nextSignature = getMovieCacheSignature(mergedMovie);
+
+      if (movieCatalogSignaturesRef.current.get(movie._id) !== nextSignature) {
+        movieCatalogCacheRef.current.set(movie._id, mergedMovie);
+        movieCatalogSignaturesRef.current.set(movie._id, nextSignature);
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      setMovieCatalogCacheVersion((version) => version + 1);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    syncMoviesToCatalogCache([...createdMovies, ...movies]);
+  }, [createdMovies, movies, syncMoviesToCatalogCache]);
+
+  const catalogMovies = React.useMemo(() => {
+    const cachedMoviesById = new Map(movieCatalogCacheVersion >= 0 ? movieCatalogCacheRef.current : []);
+
+    [...createdMovies, ...movies].forEach((movie) => {
+      if (!movie?._id) {
+        return;
+      }
+
+      cachedMoviesById.set(movie._id, mergeMovieForCache(cachedMoviesById.get(movie._id), movie));
+    });
+
+    return sortCachedMovies(Array.from(cachedMoviesById.values()));
+  }, [createdMovies, movieCatalogCacheVersion, movies]);
 
   const visibleMovies = React.useMemo(
     () => catalogMovies.filter((movie) => isVisibleMovie(movie) && isPlayableExtension(movie)),
@@ -854,9 +1076,11 @@ const DownloadVideosHome = () => {
 
     return [ALL_GENRES, ...Array.from(genres.entries()).sort((a, b) => b[1] - a[1]).map(([genre]) => genre).slice(0, 12)];
   }, [visibleMovies]);
+  const displayGenreOptions = useStableCatalogValue(genreOptions, loading);
+  const isSearchDebouncePending = searchQuery.trim() !== debouncedSearchQuery.trim();
 
   const filteredMovies = React.useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const normalizedQuery = debouncedSearchQuery.trim().toLowerCase();
 
     return visibleMovies.filter((movie) => {
       const genres = normalizeGenres(movie.clasificacion);
@@ -868,19 +1092,41 @@ const DownloadVideosHome = () => {
 
       return matchesGenre && (!normalizedQuery || searchableText.includes(normalizedQuery));
     });
-  }, [searchQuery, selectedGenre, visibleMovies]);
+  }, [debouncedSearchQuery, selectedGenre, visibleMovies]);
+  const displayMovies = useProgressiveCatalogValue(filteredMovies, loading);
 
-  const featuredMovie = filteredMovies[0] || visibleMovies[0];
-  const trendingMovies = React.useMemo(() => [...filteredMovies].sort((a, b) => getMovieViews(b) - getMovieViews(a)).slice(0, 18), [filteredMovies]);
+  React.useEffect(() => {
+    if (!MOVIE_SUBSCRIPTION_DEBUG) {
+      return;
+    }
+
+    console.log("[PeliculasSubscription] render-pipeline", {
+      loading,
+      searchQuery,
+      debouncedSearchQuery,
+      selectedGenre,
+      localCatalogTotal: movies.length,
+      cacheTotal: catalogMovies.length,
+      visibleTotal: visibleMovies.length,
+      filteredTotal: filteredMovies.length,
+      displayTotal: displayMovies.length,
+      localCatalogMovies: movies.map(i => i.nombrePeli),
+      filteredMovies: filteredMovies.map(i => i.nombrePeli),
+      displayMovies: displayMovies.map(i => i.nombrePeli),
+    });
+  }, [catalogMovies, debouncedSearchQuery, displayMovies, filteredMovies, loading, movies, searchQuery, selectedGenre, visibleMovies]);
+
+  const featuredMovie = displayMovies[0] || filteredMovies[0] || visibleMovies[0];
+  const trendingMovies = React.useMemo(() => [...displayMovies].sort((a, b) => getMovieViews(b) - getMovieViews(a)).slice(0, 18), [displayMovies]);
   const recentMovies = React.useMemo(
     () =>
-      [...filteredMovies]
+      [...displayMovies]
         .sort((a, b) => {
           const createdDiff = new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
           return createdDiff || Number(b.year || 0) - Number(a.year || 0);
         })
         .slice(0, 18),
-    [filteredMovies],
+    [displayMovies],
   );
 
   const genreRows = React.useMemo(() => {
@@ -888,15 +1134,15 @@ const DownloadVideosHome = () => {
       return [];
     }
 
-    return genreOptions
+    return displayGenreOptions
       .filter((genre) => genre !== ALL_GENRES)
       .slice(0, 5)
       .map((genre) => ({
         title: genre,
-        data: visibleMovies.filter((movie) => normalizeGenres(movie.clasificacion).includes(genre)).slice(0, 18),
+        data: displayMovies.filter((movie) => normalizeGenres(movie.clasificacion).includes(genre)).slice(0, 18),
       }))
       .filter((row) => row.data.length > 0);
-  }, [genreOptions, searchQuery, selectedGenre, visibleMovies]);
+  }, [displayGenreOptions, displayMovies, searchQuery, selectedGenre]);
 
   const openMovieDetail = React.useCallback((movie) => {
     setSelectedMovie(movie);
@@ -1008,7 +1254,9 @@ const DownloadVideosHome = () => {
           backgroundColor={DEFAULT_HEADER_COLOR}
           overlapContent
         />
-        <EmptyState palette={palette} loading />
+        <View style={[styles.loadingContent, { paddingTop: headerInset + 20 }]}> 
+          <EmptyState palette={palette} loading style={styles.loadingEmptyState} />
+        </View>
       </View>
     );
   }
@@ -1047,7 +1295,10 @@ const DownloadVideosHome = () => {
         actions={canAddMovies ? <IconButton icon="plus" iconColor="#ffffff" onPress={() => setAddMovieOpen(true)} /> : null}
       />
       <ScrollView
+        alwaysBounceVertical={false}
+        bounces={false}
         showsVerticalScrollIndicator={false}
+        overScrollMode="never"
         contentContainerStyle={styles.scrollContent}
       >
         {featuredMovie ? (
@@ -1055,7 +1306,8 @@ const DownloadVideosHome = () => {
             <View style={styles.heroMetaBlock}>
               <Text variant="labelLarge" style={[styles.heroEyebrow, { color: "#ffb4ba" }]}>VIDKAR CINEMA</Text>
               <HeroMovieFilters
-                genreOptions={genreOptions}
+                genreOptions={displayGenreOptions}
+                loadingCatalog={loading}
                 palette={palette}
                 searchQuery={searchQuery}
                 selectedGenre={selectedGenre}
@@ -1088,7 +1340,7 @@ const DownloadVideosHome = () => {
         )}
 
         <View style={styles.contentArea}>
-          {!filteredMovies.length && !loading ? (
+          {!displayMovies.length && !loading && !isSearchDebouncePending ? (
             <EmptyState palette={palette} loading={false} />
           ) : null}
 
@@ -1171,6 +1423,29 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     paddingVertical: 0,
+  },
+  heroSearchLoadingRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    marginTop: -2,
+  },
+  heroSearchLoadingPill: {
+    minHeight: 28,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.22)",
+  },
+  heroSearchLoadingText: {
+    color: "rgba(255,255,255,0.88)",
+    fontWeight: "800",
+    letterSpacing: 0,
   },
   heroGenreList: {
     gap: 8,
@@ -1330,6 +1605,15 @@ const styles = StyleSheet.create({
     padding: 22,
     alignItems: "center",
     gap: 8,
+  },
+  loadingContent: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+  loadingEmptyState: {
+    marginHorizontal: 0,
+    marginTop: 0,
   },
   emptyTitle: {
     fontWeight: "900",
