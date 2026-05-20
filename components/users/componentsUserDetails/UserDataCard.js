@@ -34,6 +34,13 @@ const formatDate = (value) => {
 	}
 };
 
+const getUserEmail = (user) => {
+	const primaryEmail = user?.emails?.find?.((email) => typeof email?.address === 'string' && email.address.trim())?.address;
+	const googleEmail = user?.services?.google?.email;
+
+	return String(primaryEmail || googleEmail || '').trim();
+};
+
 const UserDataCard = ({ item, styles, edit, setEdit }) => {
 	const theme = useTheme();
 	const [form, setForm] = useState({ username: '', email: '' });
@@ -66,7 +73,7 @@ const UserDataCard = ({ item, styles, edit, setEdit }) => {
 
 	useEffect(() => {
 		if (edit && item) {
-			setForm({ username: item?.username || '', email: item?.emails?.[0]?.address || '' });
+			setForm({ username: item?.username || '', email: getUserEmail(item) });
 			setPassword('');
 			setRepeatPassword('');
 			setErrors({});
@@ -111,7 +118,7 @@ const UserDataCard = ({ item, styles, edit, setEdit }) => {
 			return false;
 		}
 		const changedUser = form.username && form.username !== item.username;
-		const changedEmail = form.email && form.email !== (item?.emails?.[0]?.address || '');
+		const changedEmail = form.email && form.email !== getUserEmail(item);
 		return changedUser || changedEmail;
 	}, [form, item]);
 
@@ -128,7 +135,7 @@ const UserDataCard = ({ item, styles, edit, setEdit }) => {
 		try {
 			setSaving(true);
 			const setPayload = {};
-			if (form.email && form.email !== item?.emails?.[0]?.address) {
+			if (form.email && form.email !== getUserEmail(item)) {
 				setPayload.emails = [{ address: form.email.trim() }];
 			}
 			if (form.username && form.username !== item?.username) {
@@ -199,9 +206,10 @@ const UserDataCard = ({ item, styles, edit, setEdit }) => {
 		});
 	};
 
+	const resolvedEmail = getUserEmail(item);
 	const changed = {
 		username: !!item && form.username !== item?.username && form.username !== '',
-		email: !!item && form.email !== (item?.emails?.[0]?.address || '') && form.email !== '',
+		email: !!item && form.email !== resolvedEmail && form.email !== '',
 	};
 	const hasUserInfoErrors = Boolean(errors.username || errors.email);
 	const hasPasswordErrors = Boolean(errors.password || errors.repeatPassword);
@@ -302,7 +310,7 @@ const UserDataCard = ({ item, styles, edit, setEdit }) => {
 									</>
 								) : (
 									<Text style={styles.data}>
-										<MaterialCommunityIcons name="email" size={18} /> {item?.emails?.[0]?.address}
+										<MaterialCommunityIcons name="email" size={18} /> {resolvedEmail || '—'}
 									</Text>
 								)}
 
@@ -323,7 +331,7 @@ const UserDataCard = ({ item, styles, edit, setEdit }) => {
 							<View style={ui.readOnlyGrid}>
 								<View style={[ui.readOnlyItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
 									<Text style={[ui.infoLabel, { color: palette.label }]}>Correo</Text>
-									<Text style={[ui.infoValue, { color: palette.title }]} numberOfLines={1}><MaterialCommunityIcons name="email" size={16} /> {item?.emails?.[0]?.address || '—'}</Text>
+									<Text style={[ui.infoValue, { color: palette.title }]} numberOfLines={1}><MaterialCommunityIcons name="email" size={16} /> {resolvedEmail || '—'}</Text>
 								</View>
 								{item?.createdAt ? (
 									<View style={[ui.readOnlyItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>

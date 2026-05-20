@@ -1,27 +1,29 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
+import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-    Alert,
-    FlatList,
-    RefreshControl,
-    StyleSheet,
-    useWindowDimensions,
-    View
+  Alert,
+  FlatList,
+  Platform,
+  RefreshControl,
+  StyleSheet,
+  useWindowDimensions,
+  View
 } from "react-native";
 import {
-    Button,
-    Card,
-    Dialog,
-    FAB,
-    IconButton,
-    Menu,
-    Portal,
-    Surface,
-    Text,
-    TextInput,
-    useTheme,
+  Button,
+  Card,
+  Dialog,
+  FAB,
+  IconButton,
+  Menu,
+  Portal,
+  Surface,
+  Text,
+  TextInput,
+  useTheme,
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
@@ -213,6 +215,8 @@ const StoreCard = ({ numColumns, onDelete, onEdit, onOpen, productCount, tienda 
   const accentColor = typeof tienda?.pinColor === "string" && tienda.pinColor.trim() ? tienda.pinColor : palette.brandStrong;
   const descripcion = normalizeText(tienda?.descripcion, "Sin descripción disponible");
   const availabilityMeta = getStoreAvailabilityMeta({ hasLocation, isDark: Boolean(theme.dark), productCount });
+  const overlayTextColor = "#ffffff";
+  const overlaySecondaryTextColor = theme.dark ? "rgba(248, 250, 252, 0.86)" : "rgba(255, 255, 255, 0.84)";
   const operationalNote = hasLocation
     ? `${openedLabel} • ${coordinatesLabel}`
     : `${openedLabel} • Agrega la ubicación para completar la presencia operativa.`;
@@ -239,21 +243,21 @@ const StoreCard = ({ numColumns, onDelete, onEdit, onOpen, productCount, tienda 
               style={[
                 styles.storeHeroTint,
                 {
-                  backgroundColor: theme.dark ? "rgba(9, 14, 32, 0.34)" : "rgba(56, 33, 102, 0.14)",
+                  backgroundColor: theme.dark ? "rgba(9, 14, 32, 0.22)" : "rgba(16, 24, 40, 0.08)",
                 },
               ]}
             />
-            <View
+            {/* <View
               pointerEvents="none"
               style={[
                 styles.storeHeroFade,
                 {
-                  backgroundColor: theme.dark ? "rgba(2, 6, 23, 0.74)" : "rgba(255, 255, 255, 0.8)",
+                  backgroundColor: theme.dark ? "rgba(2, 6, 23, 0.5)" : "rgba(15, 23, 42, 0.26)",
                 },
               ]}
-            />
+            /> */}
             <View pointerEvents="none" style={styles.storeHeroGlowWrap}>
-              <View style={[styles.storeHeroGlow, { backgroundColor: palette.brandSoft }]} />
+              <View style={[styles.storeHeroGlow, { backgroundColor: accentColor }]} />
             </View>
 
             <View style={styles.storeHeroContent}>
@@ -327,45 +331,61 @@ const StoreCard = ({ numColumns, onDelete, onEdit, onOpen, productCount, tienda 
                 </Menu>
               </View>
 
-              <View style={styles.contentFooter}>
+              <BlurView
+                experimentalBlurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
+                intensity={10}
+                renderToHardwareTextureAndroid
+                style={[
+                  styles.contentFooter,
+                  isCompactCard ? styles.contentFooterCompact : null,
+                  {
+                    backgroundColor: theme.dark ? "rgba(15, 23, 42, 0.14)" : "rgba(15, 23, 42, 0.1)",
+                    borderColor: theme.dark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.28)",
+                  },
+                ]}
+                tint="dark"
+              >
                 <View
+                  pointerEvents="none"
                   style={[
-                    styles.copyBlock,
+                    styles.contentFooterBlurOverlay,
                     {
-                      backgroundColor: "transparent",
+                      backgroundColor: theme.dark ? "rgba(15, 23, 42, 0.2)" : "rgba(15, 23, 42, 0.16)",
                     },
                   ]}
-                >
-                  <View
-                    style={[
-                      styles.eyebrowChip,
-                      {
-                        backgroundColor: theme.dark ? "rgba(15, 23, 42, 0.6)" : "rgba(255, 255, 255, 0.72)",
-                        borderColor: theme.dark ? "rgba(255, 255, 255, 0.1)" : "rgba(103, 58, 183, 0.1)",
-                      },
-                    ]}
-                  >
-                    <MaterialCommunityIcons color={accentColor} name={signature.icon} size={14} />
-                    <Text style={{ color: palette.brandStrong }} variant="labelSmall">
-                      {signature.label}
-                    </Text>
-                  </View>
+                />
+                <View style={styles.contentFooterBody}>
+                  <View style={styles.copyBlock}>
+                    <View
+                      style={[
+                        styles.eyebrowChip,
+                        {
+                          backgroundColor: theme.dark ? "rgba(15, 23, 42, 0.6)" : "rgba(15, 23, 42, 0.26)",
+                          borderColor: theme.dark ? "rgba(255, 255, 255, 0.1)" : "rgba(255, 255, 255, 0.26)",
+                        },
+                      ]}
+                    >
+                      <MaterialCommunityIcons color={overlayTextColor} name={signature.icon} size={14} />
+                      <Text style={{ color: overlayTextColor }} variant="labelSmall">
+                        {signature.label}
+                      </Text>
+                    </View>
 
-
-
-                  <View style={styles.footerMetaRow}>
                     <View style={styles.titleBlock}>
-                      <Text numberOfLines={2} style={[styles.titleText, { color: palette.title }]} variant="headlineSmall">
+                      <Text numberOfLines={2} style={[styles.titleText, { color: overlayTextColor }]} variant="headlineSmall">
                         {tienda?.title || "Tienda"}
                       </Text>
                       <Text
-                        numberOfLines={3}
-                        style={[styles.descriptionText, { color: theme.dark ? "rgba(248, 250, 252, 0.88)" : palette.copy }]}
+                        numberOfLines={isCompactCard ? 2 : 3}
+                        style={[styles.descriptionText, { color: overlaySecondaryTextColor }]}
                         variant="bodyMedium"
                       >
                         {descripcion}
                       </Text>
                     </View>
+                  </View>
+
+                  <View style={styles.footerMetaRow}>
                     <View
                       style={[
                         styles.priceChip,
@@ -404,13 +424,13 @@ const StoreCard = ({ numColumns, onDelete, onEdit, onOpen, productCount, tienda 
                     style={[
                       styles.notePanel,
                       {
-                        backgroundColor: theme.dark ? "rgba(15, 23, 42, 0.62)" : "rgba(255, 255, 255, 0.72)",
-                        borderColor: theme.dark ? "rgba(255, 255, 255, 0.08)" : "rgba(103, 58, 183, 0.1)",
+                        backgroundColor: theme.dark ? "rgba(15, 23, 42, 0.5)" : "rgba(15, 23, 42, 0.28)",
+                        borderColor: theme.dark ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.24)",
                       },
                     ]}
                   >
-                    <MaterialCommunityIcons color={palette.icon} name={hasLocation ? "map-marker-radius-outline" : "map-marker-off-outline"} size={15} />
-                    <Text numberOfLines={2} style={{ color: palette.title, flex: 1 }} variant="bodySmall">
+                    <MaterialCommunityIcons color={overlayTextColor} name={hasLocation ? "map-marker-radius-outline" : "map-marker-off-outline"} size={15} />
+                    <Text numberOfLines={2} style={{ color: overlaySecondaryTextColor, flex: 1 }} variant="bodySmall">
                       {operationalNote}
                     </Text>
                   </View>
@@ -422,7 +442,7 @@ const StoreCard = ({ numColumns, onDelete, onEdit, onOpen, productCount, tienda 
                     <MaterialCommunityIcons color={palette.brandStrong} name="chevron-right" size={20} />
                   </View> */}
                 </View>
-              </View>
+              </BlurView>
             </View>
           </MapaTiendaCardBackground>
         </View>
@@ -1048,21 +1068,34 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   contentFooter: {
-    // gap: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 10,
+    overflow: "hidden",
+    padding: 12,
+  },
+  contentFooterBlurOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  contentFooterBody: {
+    gap: 10,
+  },
+  contentFooterCompact: {
+    borderRadius: 20,
+    gap: 9,
+    padding: 10,
   },
   copyBlock: {
     gap: 8,
   },
   titleBlock: {
-    gap: 6,
-    minHeight: 106,
+    gap: 5,
   },
   titleText: {
     fontWeight: "700",
   },
   descriptionText: {
-    lineHeight: 21,
-    minHeight: 63,
+    lineHeight: 19,
   },
   footerMetaRow: {
     alignItems: "flex-end",
@@ -1087,11 +1120,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   priceChipLarge: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   priceText: {
-    fontWeight: "700",
+    fontWeight: "800",
   },
   availabilityCard: {
     borderRadius: 20,

@@ -54,8 +54,8 @@ const MapaTiendaCardBackground = ({ children, tienda, fill = false, height = 164
         <Marker coordinate={coords} pinColor={tienda?.pinColor || undefined} />
       </MapView>
 
+      {/* <View pointerEvents="none" style={styles.scrim} /> */}
       {children ? <View style={styles.overlayContent}>{children}</View> : <></>}
-      <View pointerEvents="none" style={styles.scrim} />
     </View>
   );
 };

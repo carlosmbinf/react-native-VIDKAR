@@ -1,6 +1,8 @@
+import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import MeteorBase from "@meteorrn/core";
 import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
+import * as SecureStore from "expo-secure-store";
 import moment from "moment";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -20,6 +22,7 @@ import {
     Divider,
     IconButton,
     Snackbar,
+    Surface,
     Text,
     TextInput,
     useTheme,
@@ -39,6 +42,7 @@ const Meteor =
 
 const UPLOAD_VENTA_FIELDS = {
   _id: 1,
+  adminId: 1,
   cobrado: 1,
   createdAt: 1,
   isCancelada: 1,
@@ -47,6 +51,8 @@ const UPLOAD_VENTA_FIELDS = {
   monedaCobrado: 1,
   "producto.carritos": 1,
   "producto.comisiones": 1,
+  "producto.userId": 1,
+  userId: 1,
 };
 
 const UPLOAD_EVIDENCIA_FIELDS = {
@@ -68,6 +74,76 @@ const UPLOAD_EVIDENCIA_FIELDS = {
   ventaId: 1,
 };
 
+const SALE_USER_PAYMENT_FIELDS = {
+  _id: 1,
+  bloqueadoDesbloqueadoPor: 1,
+};
+
+const PAYMENT_PROPERTY_CACHE_PREFIX = "payment.property.cache.v1.";
+
+const normalizePaymentCard = (value) => {
+  const rawValue = String(value || "").trim();
+  const digits = rawValue.replace(/\D/g, "");
+
+  if (digits.length === 16) {
+    if (/^0+$/.test(digits)) {
+      return null;
+    }
+
+    return digits.replace(/(.{4})/g, "$1 ").trim();
+  }
+
+  return rawValue && !/^0[-\s]?0[-\s]?0[-\s]?0/.test(rawValue)
+    ? rawValue
+    : null;
+};
+
+const buildPaymentPropertyCacheKey = (propertyKey) =>
+  `${PAYMENT_PROPERTY_CACHE_PREFIX}${String(propertyKey || "")
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .slice(0, 120)}`;
+
+const readCachedPaymentProperty = async (propertyKey) => {
+  if (!propertyKey) {
+    return null;
+  }
+
+  try {
+    const raw = await SecureStore.getItemAsync(
+      buildPaymentPropertyCacheKey(propertyKey),
+    );
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    return typeof parsed?.value === "string" ? parsed.value : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeCachedPaymentProperty = async (propertyKey, value) => {
+  if (!propertyKey) {
+    return;
+  }
+
+  const cacheKey = buildPaymentPropertyCacheKey(propertyKey);
+  try {
+    if (!value) {
+      await SecureStore.deleteItemAsync(cacheKey);
+      return;
+    }
+
+    await SecureStore.setItemAsync(
+      cacheKey,
+      JSON.stringify({ updatedAt: Date.now(), value }),
+    );
+  } catch {
+    // Cache is an optimization; payment data still comes from Meteor.
+  }
+};
+
 const ESTADOS = {
   APROBADA: "APROBADA",
   PENDIENTE: "PENDIENTE",
@@ -78,25 +154,51 @@ const getUploadPalette = (isDarkMode) => {
   const android = Platform.OS === "android";
 
   return {
-    border: isDarkMode ? "rgba(226, 232, 240, 0.14)" : "rgba(15, 23, 42, 0.1)",
+    border: isDarkMode ? "rgba(96, 165, 250, 0.22)" : "rgba(15, 23, 42, 0.1)",
     card: isDarkMode
       ? android
-        ? "rgba(15, 23, 42, 0.38)"
-        : "rgba(15, 23, 42, 0.5)"
+        ? "rgba(8, 19, 43, 0.72)"
+        : "rgba(8, 19, 43, 0.82)"
       : android
         ? "rgba(255, 255, 255, 0.38)"
         : "rgba(255, 255, 255, 0.58)",
     copy: isDarkMode ? "#cbd5e1" : "#475569",
+    emptyIcon: isDarkMode ? "#93c5fd" : "#64748b",
+    emptyIconSoft: isDarkMode ? "rgba(59, 130, 246, 0.18)" : "rgba(100, 116, 139, 0.12)",
+    emptyPanel: isDarkMode ? "rgba(15, 37, 74, 0.72)" : "rgba(248, 250, 252, 0.92)",
     muted: isDarkMode ? "#94a3b8" : "#64748b",
+    successSoft: isDarkMode ? "rgba(34, 197, 94, 0.12)" : "rgba(220, 252, 231, 0.9)",
+    successText: isDarkMode ? "#86efac" : "#2E7D32",
     soft: isDarkMode
       ? android
-        ? "rgba(30, 41, 59, 0.3)"
-        : "rgba(30, 41, 59, 0.44)"
+        ? "rgba(30, 64, 124, 0.34)"
+        : "rgba(30, 64, 124, 0.46)"
       : android
         ? "rgba(248, 250, 252, 0.32)"
         : "rgba(248, 250, 252, 0.56)",
+    softAlt: isDarkMode ? "rgba(15, 37, 74, 0.7)" : "rgba(255, 255, 255, 0.9)",
     strong: isDarkMode ? "#f8fafc" : "#0f172a",
+    surface: isDarkMode ? "rgba(11, 31, 67, 0.82)" : "rgba(255, 255, 255, 0.58)",
+    surfaceAlt: isDarkMode ? "rgba(30, 64, 124, 0.82)" : "rgba(248, 250, 252, 0.96)",
   };
+};
+
+const getVentaUserId = (ventaDoc, fallbackVenta) => {
+  const carritos =
+    ventaDoc?.producto?.carritos || fallbackVenta?.producto?.carritos || [];
+  const carritoConUsuario = Array.isArray(carritos)
+    ? carritos.find((item) => item?.idUser || item?.userId)
+    : null;
+
+  return (
+    ventaDoc?.userId ||
+    fallbackVenta?.userId ||
+    ventaDoc?.producto?.userId ||
+    fallbackVenta?.producto?.userId ||
+    carritoConUsuario?.idUser ||
+    carritoConUsuario?.userId ||
+    null
+  );
 };
 
 const mapEvidenciaDoc = (evidencia, index) => {
@@ -293,7 +395,7 @@ const SubidaArchivos = ({ venta }) => {
   const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
   const [preview, setPreview] = useState(null);
   const [eliminando, setEliminando] = useState(false);
-  const [tarjetaCUP, setTarjetaCUP] = useState("0000-0000-0000-0000");
+  const [tarjetaCUP, setTarjetaCUP] = useState(null);
   const [cuentaBancaria, setCuentaBancaria] = useState(null);
   const [loadingCuentaInfo, setLoadingCuentaInfo] = useState(false);
   const [archivoOriginalSize, setArchivoOriginalSize] = useState(null);
@@ -305,7 +407,6 @@ const SubidaArchivos = ({ venta }) => {
     loading: false,
   });
   const categoria = "general";
-  const blockedUserId = Meteor.user()?.bloqueadoDesbloqueadoPor;
 
   const ventaReact = Meteor.useTracker(() => {
     if (!ventaId) {
@@ -323,6 +424,38 @@ const SubidaArchivos = ({ venta }) => {
       : null;
     return ventaDoc?.length > 0 ? ventaDoc[0] : null;
   }, [ventaId]);
+
+  const ventaUserId = useMemo(
+    () => getVentaUserId(ventaReact, venta),
+    [venta, ventaReact],
+  );
+
+  const saleUserPaymentInfo = Meteor.useTracker(() => {
+    if (!ventaUserId) {
+      return {
+        paymentOwnerId: null,
+        ready: false,
+        saleUserId: null,
+      };
+    }
+
+    const handle = Meteor.subscribe(
+      "user",
+      { _id: ventaUserId },
+      { fields: SALE_USER_PAYMENT_FIELDS },
+    );
+    const saleUser =
+      Meteor.users.findOne(
+        { _id: ventaUserId },
+        { fields: SALE_USER_PAYMENT_FIELDS },
+      ) || null;
+
+    return {
+      paymentOwnerId: saleUser?.bloqueadoDesbloqueadoPor || ventaUserId,
+      ready: handle.ready(),
+      saleUserId: ventaUserId,
+    };
+  }, [ventaUserId]);
 
   const tiendaIdParaComisiones = useMemo(() => {
     const carritos = ventaReact?.producto?.carritos || [];
@@ -398,45 +531,80 @@ const SubidaArchivos = ({ venta }) => {
   }, [monedaFinalParaComisiones, tiendaIdParaComisiones, ventaId]);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchCuentaInfo = async () => {
+      let hasCachedPaymentValue = false;
+
       try {
         const moneda = ventaReact?.monedaCobrado;
         if (!moneda) {
           return;
         }
 
-        if (moneda === "CUP") {
-          const userId = Meteor.user()?.bloqueadoDesbloqueadoPor;
-          if (userId) {
-            const result = await new Promise((resolve, reject) => {
-              Meteor.call(
-                "property.getValor",
-                "CONFIG",
-                `TARJETA_CUP_${userId}`,
-                (error, value) => {
-                  if (error) {
-                    reject(error);
-                    return;
-                  }
-
-                  resolve(value);
-                },
-              );
-            });
-            setTarjetaCUP(result || "0000 0000 0000 0000");
-          }
+        if (!saleUserPaymentInfo.ready) {
+          setLoadingCuentaInfo(true);
           return;
         }
 
-        setLoadingCuentaInfo(true);
-        const userId =
-          Meteor.user()?.bloqueadoDesbloqueadoPor || Meteor.userId();
-        const claveCuenta = `CUENTA_${moneda}_${userId}`;
+        const userId = saleUserPaymentInfo.paymentOwnerId;
+        if (!userId) {
+          setTarjetaCUP(null);
+          setCuentaBancaria(null);
+          setLoadingCuentaInfo(false);
+          return;
+        }
+
+        const propertyKey =
+          moneda === "CUP"
+            ? `TARJETA_CUP_${userId}`
+            : `CUENTA_${moneda}_${userId}`;
+        const cachedValue = await readCachedPaymentProperty(propertyKey);
+        const normalizedCachedValue =
+          moneda === "CUP" ? normalizePaymentCard(cachedValue) : cachedValue;
+        hasCachedPaymentValue = Boolean(normalizedCachedValue);
+
+        if (cancelled) {
+          return;
+        }
+
+        if (moneda === "CUP") {
+          setTarjetaCUP(normalizedCachedValue);
+        } else {
+          setCuentaBancaria(normalizedCachedValue || null);
+        }
+
+        setLoadingCuentaInfo(!normalizedCachedValue);
+
+        if (moneda === "CUP") {
+          const result = await new Promise((resolve, reject) => {
+            Meteor.call(
+              "property.getValor",
+              "CONFIG",
+              propertyKey,
+              (error, value) => {
+                if (error) {
+                  reject(error);
+                  return;
+                }
+
+                resolve(value);
+              },
+            );
+          });
+          const normalizedResult = normalizePaymentCard(result);
+          if (!cancelled) {
+            setTarjetaCUP(normalizedResult);
+          }
+          await writeCachedPaymentProperty(propertyKey, normalizedResult);
+          return;
+        }
+
         const result = await new Promise((resolve, reject) => {
           Meteor.call(
             "property.getValor",
             "CONFIG",
-            claveCuenta,
+            propertyKey,
             (error, value) => {
               if (error) {
                 reject(error);
@@ -447,22 +615,45 @@ const SubidaArchivos = ({ venta }) => {
             },
           );
         });
-        setCuentaBancaria(result || null);
+        const normalizedResult = typeof result === "string" ? result.trim() : null;
+        if (!cancelled) {
+          setCuentaBancaria(normalizedResult || null);
+        }
+        await writeCachedPaymentProperty(propertyKey, normalizedResult);
       } catch (_error) {
+        if (cancelled) {
+          return;
+        }
+
+        if (hasCachedPaymentValue) {
+          return;
+        }
+
         if (ventaReact?.monedaCobrado === "CUP") {
-          setTarjetaCUP("0000 0000 0000 0000");
+          setTarjetaCUP(null);
         } else {
           setCuentaBancaria(null);
         }
       } finally {
-        setLoadingCuentaInfo(false);
+        if (!cancelled) {
+          setLoadingCuentaInfo(false);
+        }
       }
     };
 
-    if (Meteor.user() && ventaReact?.monedaCobrado) {
+    if (saleUserPaymentInfo.saleUserId && ventaReact?.monedaCobrado) {
       fetchCuentaInfo();
     }
-  }, [blockedUserId, ventaReact]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    saleUserPaymentInfo.paymentOwnerId,
+    saleUserPaymentInfo.ready,
+    saleUserPaymentInfo.saleUserId,
+    ventaReact?.monedaCobrado,
+  ]);
 
   const cuentasExtraidas = useMemo(
     () => extraerCuentas(cuentaBancaria),
@@ -751,12 +942,20 @@ const SubidaArchivos = ({ venta }) => {
   const renderInfoPago = () => {
     const moneda = ventaReact?.monedaCobrado;
     if (moneda === "CUP") {
+      const paymentText = loadingCuentaInfo
+        ? "Consultando tarjeta..."
+        : tarjetaCUP || "Tarjeta CUP no configurada";
+      const paymentHint = tarjetaCUP
+        ? "Copia este número y usa la tarjeta como destino del pago."
+        : "No se encontró una tarjeta CUP para el administrador responsable.";
+
       return (
-        <View
+        <Surface
+          elevation={0}
           style={[
             styles.tarjetaRow,
             {
-              backgroundColor: uploadPalette.soft,
+              backgroundColor: uploadPalette.surface,
               borderColor: uploadPalette.border,
             },
           ]}
@@ -768,65 +967,107 @@ const SubidaArchivos = ({ venta }) => {
             <View
               style={[
                 styles.tarjetaValueBox,
-                { backgroundColor: uploadPalette.surface },
+                { backgroundColor: uploadPalette.softAlt },
               ]}
             >
               <Text style={[styles.tarjetaNumero, { color: uploadPalette.strong }]}>
-                {tarjetaCUP || "—"}
+                {paymentText}
               </Text>
               <Text style={[styles.tarjetaHint, { color: uploadPalette.muted }]}>
-                Copia este número y usa la tarjeta como destino del pago.
+                {paymentHint}
               </Text>
             </View>
           </View>
-          <IconButton
-            icon="content-copy"
-            size={20}
-            onPress={copyDatosPago}
-            disabled={!tarjetaCUP}
-            accessibilityLabel="Copiar tarjeta"
-          />
-        </View>
+          {loadingCuentaInfo ? (
+            <ActivityIndicator size="small" />
+          ) : (
+            <IconButton
+              icon="content-copy"
+              size={20}
+              onPress={copyDatosPago}
+              disabled={!tarjetaCUP}
+              accessibilityLabel="Copiar tarjeta"
+            />
+          )}
+        </Surface>
       );
     }
 
+    const monedaLabel = moneda || "transferencia";
+
     return (
-      <View style={styles.cuentaBancariaContainer}>
+      <Surface
+        elevation={0}
+        style={[
+          styles.cuentaBancariaContainer,
+          {
+            backgroundColor: uploadPalette.surface,
+            borderColor: uploadPalette.border,
+          },
+        ]}
+      >
         <View style={styles.flexOne}>
           <View style={styles.cuentaHeaderRow}>
-            <Text style={styles.tarjetaLabel}>Datos de cuenta ({moneda})</Text>
-            <IconButton
-              icon="content-copy"
-              size={18}
-              onPress={copyDatosPago}
-              disabled={!cuentaBancaria || loadingCuentaInfo}
-              accessibilityLabel="Copiar texto completo"
-              style={styles.zeroMargin}
-            />
+            <View style={styles.cuentaHeaderCopy}>
+              <Text style={[styles.tarjetaLabel, { color: uploadPalette.copy }]}>Datos para transferencia</Text>
+              <Text style={[styles.cuentaHeaderSubtitle, { color: uploadPalette.muted }] }>
+                {moneda ? `Cuenta destino en ${monedaLabel}` : "Método de pago pendiente"}
+              </Text>
+            </View>
+            {cuentaBancaria ? (
+              <IconButton
+                icon="content-copy"
+                size={18}
+                onPress={copyDatosPago}
+                disabled={loadingCuentaInfo}
+                accessibilityLabel="Copiar texto completo"
+                style={styles.zeroMargin}
+              />
+            ) : null}
           </View>
 
           {loadingCuentaInfo ? (
-            <View style={styles.cuentaLoadingBox}>
+            <View
+              style={[
+                styles.cuentaLoadingBox,
+                { backgroundColor: uploadPalette.softAlt },
+              ]}
+            >
               <View style={styles.cuentaLoadingRow}>
                 <ActivityIndicator size="small" />
-                <Text style={styles.cuentaLoadingText}>
+                <Text style={[styles.cuentaLoadingText, { color: uploadPalette.copy }] }>
                   Consultando los datos bancarios para esta moneda...
                 </Text>
               </View>
-              <View style={styles.cuentaLoadingLine} />
-              <View style={styles.cuentaLoadingMeta} />
+              <View
+                style={[
+                  styles.cuentaLoadingLine,
+                  { backgroundColor: theme.dark ? "rgba(226,232,240,0.16)" : "rgba(148,163,184,0.22)" },
+                ]}
+              />
+              <View
+                style={[
+                  styles.cuentaLoadingMeta,
+                  { backgroundColor: theme.dark ? "rgba(226,232,240,0.1)" : "rgba(148,163,184,0.16)" },
+                ]}
+              />
             </View>
           ) : cuentaBancaria ? (
             <>
-              <View style={styles.cuentaBancariaValueBox}>
-                <Text style={styles.cuentaBancariaTexto}>{cuentaBancaria}</Text>
-                <Text style={styles.cuentaBancariaCopyHint}>
+              <View
+                style={[
+                  styles.cuentaBancariaValueBox,
+                  { backgroundColor: uploadPalette.softAlt },
+                ]}
+              >
+                <Text style={[styles.cuentaBancariaTexto, { color: uploadPalette.strong }]}>{cuentaBancaria}</Text>
+                <Text style={[styles.cuentaBancariaCopyHint, { color: uploadPalette.muted }] }>
                   Puedes copiar el texto completo o tocar una cuenta detectada.
                 </Text>
               </View>
               {cuentasExtraidas.length > 0 ? (
                 <View style={styles.chipsContainer}>
-                  <Text style={styles.chipsLabel}>Cuentas detectadas:</Text>
+                  <Text style={[styles.chipsLabel, { color: uploadPalette.muted }]}>Cuentas detectadas:</Text>
                   <View style={styles.chipsRow}>
                     {cuentasExtraidas.map((cuenta, index) => (
                       <Chip
@@ -836,8 +1077,14 @@ const SubidaArchivos = ({ venta }) => {
                           copiarCuenta(cuenta.numero, cuenta.label)
                         }
                         icon="content-copy"
-                        style={styles.cuentaChip}
-                        textStyle={styles.cuentaChipText}
+                        style={[
+                          styles.cuentaChip,
+                          {
+                            backgroundColor: uploadPalette.soft,
+                            borderColor: uploadPalette.border,
+                          },
+                        ]}
+                        textStyle={[styles.cuentaChipText, { color: uploadPalette.strong }]}
                       >
                         {cuenta.label}: {cuenta.numero}
                       </Chip>
@@ -847,14 +1094,35 @@ const SubidaArchivos = ({ venta }) => {
               ) : null}
             </>
           ) : (
-            <View style={styles.cuentaSinDatosBox}>
-              <Text style={styles.cuentaBancariaSinDatos}>
-                No hay datos de cuenta configurados para {moneda}
-              </Text>
+            <View
+              style={[
+                styles.cuentaSinDatosBox,
+                {
+                  backgroundColor: uploadPalette.emptyPanel,
+                  borderColor: uploadPalette.border,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.cuentaSinDatosIcon,
+                  { backgroundColor: uploadPalette.emptyIconSoft },
+                ]}
+              >
+                <Icon name="credit-card-off-outline" size={20} color={uploadPalette.emptyIcon} />
+              </View>
+              <View style={styles.cuentaSinDatosCopy}>
+                <Text style={[styles.cuentaSinDatosTitle, { color: uploadPalette.strong }] }>
+                  Cuenta no configurada
+                </Text>
+                <Text style={[styles.cuentaBancariaSinDatos, { color: uploadPalette.muted }] }>
+                  Todavía no hay datos bancarios disponibles para este método de pago.
+                </Text>
+              </View>
             </View>
           )}
         </View>
-      </View>
+      </Surface>
     );
   };
 
@@ -876,11 +1144,12 @@ const SubidaArchivos = ({ venta }) => {
         <View style={styles.ventaCardContent}>
           <View style={styles.headerRow}>
             <View style={styles.flexOne}>
-              <View
+              <Surface
+                elevation={0}
                 style={[
                   styles.montoBlock,
                   {
-                    backgroundColor: uploadPalette.soft,
+                    backgroundColor: uploadPalette.surface,
                     borderColor: uploadPalette.border,
                   },
                 ]}
@@ -895,7 +1164,13 @@ const SubidaArchivos = ({ venta }) => {
                   >
                     Monto a pagar
                   </Text>
-                  <Text style={[styles.montoAPagar, styles.montoStrong]}>
+                  <Text
+                    style={[
+                      styles.montoAPagar,
+                      styles.montoStrong,
+                      { color: uploadPalette.successText },
+                    ]}
+                  >
                     $
                     {Number(
                       tiendaIdParaComisiones
@@ -933,9 +1208,12 @@ const SubidaArchivos = ({ venta }) => {
                 <View
                   style={[
                     styles.metodoChip,
-                    theme.dark
-                      ? styles.metodoChipDark
-                      : styles.metodoChipLight,
+                    {
+                      backgroundColor: uploadPalette.soft,
+                      borderColor: theme.dark
+                        ? "rgba(165, 180, 252, 0.22)"
+                        : "#90CAF9",
+                    },
                   ]}
                 >
                   <Text
@@ -949,7 +1227,7 @@ const SubidaArchivos = ({ venta }) => {
                       : "TRANSFERENCIA"}
                   </Text>
                 </View>
-              </View>
+              </Surface>
               {renderInfoPago()}
             </View>
           </View>
@@ -985,11 +1263,12 @@ const SubidaArchivos = ({ venta }) => {
           ) : null}
 
           <Divider style={styles.marginVertical8} />
-          <View
+          <Surface
+            elevation={0}
             style={[
               styles.evidenciasSection,
               {
-                backgroundColor: uploadPalette.soft,
+                backgroundColor: uploadPalette.surface,
                 borderColor: uploadPalette.border,
               },
             ]}
@@ -1065,16 +1344,22 @@ const SubidaArchivos = ({ venta }) => {
                 })}
               </ScrollView>
             ) : (
-              <View
+              <Surface
+                elevation={0}
                 style={[
                   styles.emptyEvidenceState,
                   {
-                    backgroundColor: uploadPalette.card,
+                    backgroundColor: uploadPalette.emptyPanel,
                     borderColor: uploadPalette.border,
                   },
                 ]}
               >
-                <View style={styles.emptyEvidenceIconWrap}>
+                <View
+                  style={[
+                    styles.emptyEvidenceIconWrap,
+                    { backgroundColor: uploadPalette.emptyIconSoft },
+                  ]}
+                >
                   <IconButton
                     icon="image-plus"
                     size={18}
@@ -1090,9 +1375,9 @@ const SubidaArchivos = ({ venta }) => {
                     Sube una imagen clara del pago para continuar con la revisión.
                   </Text>
                 </View>
-              </View>
+              </Surface>
             )}
-          </View>
+          </Surface>
         </View>
       </View>
 
@@ -1408,6 +1693,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 2,
   },
+  cuentaHeaderCopy: { flex: 1, paddingRight: 10 },
+  cuentaHeaderSubtitle: {
+    color: "#64748b",
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 3,
+  },
   cuentaLoadingBox: {
     backgroundColor: "rgba(15,23,42,0.22)",
     borderRadius: 12,
@@ -1441,11 +1733,31 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   cuentaSinDatosBox: {
-    backgroundColor: "rgba(15,23,42,0.16)",
-    borderRadius: 12,
+    alignItems: "center",
+    backgroundColor: "rgba(248,250,252,0.68)",
+    borderColor: "rgba(148,163,184,0.28)",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
     marginTop: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 12,
+  },
+  cuentaSinDatosCopy: { flex: 1, minWidth: 0 },
+  cuentaSinDatosIcon: {
+    alignItems: "center",
+    backgroundColor: "rgba(100,116,139,0.12)",
+    borderRadius: 14,
+    height: 38,
+    justifyContent: "center",
+    width: 38,
+  },
+  cuentaSinDatosTitle: {
+    color: "#1e293b",
+    fontSize: 12,
+    fontWeight: "800",
+    marginBottom: 3,
   },
   evidenciasHeaderRow: {
     alignItems: "flex-start",

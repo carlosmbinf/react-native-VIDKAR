@@ -2,8 +2,8 @@ import MeteorBase from "@meteorrn/core";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { AppState, PermissionsAndroid, Platform } from "react-native";
-import { getAppVersionInfo } from "../app/appVersion";
 import { canAccessPushTokenDashboards } from "../../components/users/pushTokens/utils";
+import { getAppVersionInfo } from "../app/appVersion";
 
 type PushData = Record<string, string | number | boolean | null | undefined>;
 
@@ -35,9 +35,15 @@ type SetupOptions = {
 
 export type PushDialogReason = "foreground" | "opened";
 
+export type PushNavigationTarget = {
+  params?: Record<string, string>;
+  pathname: string;
+};
+
 export type PushDialogPayload = {
   body: string;
   imageUrl?: string | null;
+  navigationTarget?: PushNavigationTarget | null;
   reason: PushDialogReason;
   title: string;
 };
@@ -104,6 +110,135 @@ const getNotificationData = (
   notification?: Notifications.Notification | null,
 ) =>
   (getNotificationContent(notification)?.data || {}) as Record<string, unknown>;
+
+const getStringDataValue = (
+  data: Record<string, unknown>,
+  keys: string[],
+) => {
+  for (const key of keys) {
+    const value = data[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+
+  return "";
+};
+
+const getCurrentUserModeRoutePrefix = () => {
+  const currentUser = Meteor.user?.() as { modoEmpresa?: boolean } | null;
+  return currentUser?.modoEmpresa === true ? "/(empresa)" : "/(normal)";
+};
+
+const normalizeInternalPathname = (value?: string | null) => {
+  if (!value) {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue || /^https?:\/\//i.test(trimmedValue)) {
+    return null;
+  }
+
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmedValue)) {
+    try {
+      const parsedUrl = new URL(trimmedValue);
+      const internalPathname = parsedUrl.pathname || parsedUrl.hostname;
+      return normalizeInternalPathname(internalPathname);
+    } catch {
+      return null;
+    }
+  }
+
+  if (trimmedValue.startsWith("/")) {
+    return trimmedValue;
+  }
+
+  const normalizedName = trimmedValue.toLowerCase();
+  if (["chat", "mensaje", "message", "messages", "mensajes"].includes(normalizedName)) {
+    return `${getCurrentUserModeRoutePrefix()}/Mensaje`;
+  }
+
+  return null;
+};
+
+const parseNavigationUrl = (value?: string | null): PushNavigationTarget | null => {
+  if (!value) {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return null;
+  }
+
+  const [rawPathname, rawQuery = ""] = trimmedValue.split("?");
+  const pathname = normalizeInternalPathname(rawPathname);
+
+  if (!pathname) {
+    return null;
+  }
+
+  const params = rawQuery
+    .split("&")
+    .map((entry) => entry.split("="))
+    .reduce<Record<string, string>>((accumulator, [key, value]) => {
+      if (!key) {
+        return accumulator;
+      }
+
+      accumulator[decodeURIComponent(key)] = decodeURIComponent(value || "");
+      return accumulator;
+    }, {});
+
+  return {
+    pathname,
+    params: Object.keys(params).length > 0 ? params : undefined,
+  };
+};
+
+export const resolvePushNavigationTarget = (
+  notification?: Notifications.Notification | null,
+): PushNavigationTarget | null => {
+  const data = getNotificationData(notification);
+  const explicitUrl = getStringDataValue(data, [
+    "linking",
+    "deepLink",
+    "deepLinkUrl",
+    "url",
+    "navigationUrl",
+  ]);
+  const explicitUrlTarget = parseNavigationUrl(explicitUrl);
+
+  if (explicitUrlTarget) {
+    return explicitUrlTarget;
+  }
+
+  const explicitPathname = normalizeInternalPathname(
+    getStringDataValue(data, ["pathname", "path"]),
+  );
+  const explicitItem = getStringDataValue(data, [
+    "item",
+    "itemId",
+    "targetUserId",
+    "chatUserId",
+    "conversationUserId",
+  ]);
+
+  if (explicitPathname) {
+    return {
+      pathname: explicitPathname,
+      params: explicitItem ? { item: explicitItem } : undefined,
+    };
+  }
+
+  return null;
+};
 
 const getTitle = (notification?: Notifications.Notification | null) =>
   getNotificationContent(notification)?.title ||
@@ -341,6 +476,7 @@ const showPushDialog = async (
   emitPushDialog({
     body: getBody(notification),
     imageUrl: getImageUrl(notification),
+    navigationTarget: resolvePushNavigationTarget(notification),
     reason,
     title: getTitle(notification),
   });

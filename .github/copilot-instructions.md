@@ -5307,6 +5307,24 @@ Resumen técnico – `TextInput` de búsqueda en header de `FlatList` no debe re
 
 ---
 
+Resumen tecnico - Card de carga de Mensajes responsivo y centrado
+
+- Problema detectado:
+  - En `components/mensajes/MensajesHome.native.js`, el estado `Cargando conversacion` se veia desproporcionado en pantallas anchas/horizontal.
+  - El contenedor ocupaba correctamente toda la superficie, pero la card tenia `maxWidth` demasiado bajo (`360`), quedando visualmente pegada hacia un lado dentro de una zona amplia.
+
+- Correccion aplicada:
+  - Se agrego `LOADING_CARD_MAX_WIDTH` calculado desde `SCREEN_WIDTH` para que el card escale mejor entre telefono vertical y landscape/tablet.
+  - El `loadingCard` conserva `width: '100%'`, pero ahora su `maxWidth` puede crecer hasta un limite profesional sin volverse excesivo.
+  - El wrapper de carga mantiene `alignItems: 'center'` y `justifyContent: 'center'`, con padding horizontal un poco mas amplio para que el centrado se perciba limpio.
+
+- Regla practica:
+  - En estados vacios o de carga que viven dentro de superficies full-screen, no usar `maxWidth` fijo pensado solo para telefono vertical.
+  - Calcular anchos maximos responsivos cuando la misma pantalla puede verse en iPad, tablet o landscape.
+  - Si una card parece descentrada dentro de un contenedor amplio, revisar primero el `maxWidth` antes de tocar la logica de carga o la suscripcion Meteor.
+
+---
+
 Resumen técnico – `StoreCard` final con mapa full-hero y contenido completo dentro del mismo lienzo
 
 - Ajuste aplicado:
@@ -8728,3 +8746,167 @@ Notas adicionales - Trailer YouTube del drawer debe usar HTML local y quedar fue
     - que el WebView no este debajo de un responder global del drawer
     - que los overlays absolutos tengan `pointerEvents="none"` cuando no sean interactivos
   - No volver a resolver este caso abriendo YouTube externo; el contrato del modulo es reproducir el trailer dentro del hero del drawer y dejar solo el boton `Reproducir` para la pelicula principal.
+
+---
+
+Resumen tecnico - Mensajes con header y composer glass sobre el historial
+
+- Ajuste aplicado:
+  - `components/mensajes/MensajesHome.native.js` ahora usa `AppHeader` con `overlapContent` para que el header quede solapado sobre la conversacion y el blur pueda mostrar contenido real por detras.
+  - El composer inferior dejo de ser una franja opaca en flujo normal y paso a ser un footer flotante con `BlurView`, overlay translúcido y contenido de input/botones encima.
+  - La lista de mensajes conserva padding superior e inferior suficiente para que el contenido pueda desplazarse por detras del header y del composer sin quedar tapado al leer o escribir.
+
+- Criterio UX validado:
+  - En una pantalla de chat, el historial debe sentirse como la superficie principal y los controles deben flotar sobre el contenido, no cortar la pantalla en bloques solidos.
+  - El header y el composer pueden tener blur, pero sus inputs y botones internos deben conservar fondos propios para seguir siendo legibles en light/dark mode.
+
+- Regla tecnica importante:
+  - Para `BlurView`, usar siempre `tint` valido (`dark`/`light`) y `experimentalBlurMethod="dimezisBlurView"` en Android cuando aplique.
+  - No pasar colores hex/RGBA a `tint`; los colores translúcidos deben vivir en overlays o fondos propios.
+  - Si se cambia la altura del composer o del header, revisar tambien `messagesList.paddingTop` y `messagesList.paddingBottom` para evitar que el primer/ultimo mensaje quede oculto.
+
+- Regla practica:
+  - Si otra pantalla de mensajeria necesita efecto glass, el patron correcto es:
+    1. header con `AppHeader overlapContent`
+    2. contenido/lista renderizando debajo
+    3. footer absoluto con `BlurView` y overlay translúcido
+    4. padding de lista equivalente a las zonas flotantes
+  - No resolver este efecto con fondos opacos en header/footer, porque entonces el blur existe tecnicamente pero no se percibe visualmente.
+
+---
+
+Resumen tecnico - Modo cadete requiere ubicacion lista antes de activarse
+
+- Ajuste aplicado:
+  - `components/comercio/pedidos/HomePedidosComercio.native.jsx` ahora compensa el alto real de `AppHeader overlapContent` usando `useAppHeaderContentInset()`.
+  - Esto evita que el contenido principal de `Mis pedidos` quede visualmente debajo del header glass del shell cadete.
+  - La tarjeta de estado de ubicacion tambien recupera su accion visible para abrir ajustes o actualizar ubicacion.
+
+- Gate funcional aplicado antes de entrar a modo cadete:
+  - `components/Main/MenuPrincipal.native.jsx` ya no llama `users.toggleModoCadete(true)` como primer paso.
+  - Antes de activar el modo cadete, la app ahora exige:
+    - permisos completos de ubicacion mediante `ensureCadeteLocationPermissions({ request: true })`
+    - una ubicacion actual real enviada por `sendCadeteLocationNow(...)`
+  - Solo si ese preflight pasa se llama al metodo backend `users.toggleModoCadete(true)`.
+
+- Arranque y rollback de tracking:
+  - Despues de activar `modoCadete`, la app llama `syncCadeteBackgroundLocation({ enabled: true, userId })`.
+  - Si el servicio de tracking no arranca correctamente, la app revierte el flag con `users.toggleModoCadete(false)` y apaga el tracking local.
+  - Esto evita dejar al usuario en modo cadete si la ubicacion en tiempo real no quedo disponible.
+
+- Regla practica:
+  - En este proyecto, entrar a modo cadete no debe ser solo cambiar un booleano de usuario.
+  - La secuencia correcta es:
+    1. pedir permisos completos de ubicacion
+    2. obtener/enviar ubicacion inicial
+    3. activar `modoCadete` en backend
+    4. sincronizar tracking background/native
+    5. revertir si el tracking falla
+  - Si se toca otra vez el flujo de entrada a cadete, no mover el preflight de ubicacion despues del toggle; debe seguir ocurriendo antes para evitar disponibilidad falsa.
+
+Notas adicionales - Permisos bloqueados de ubicacion deben abrir ajustes de la app
+
+- Ajuste aplicado:
+  - `components/Main/MenuPrincipal.native.jsx` ya no se limita a mostrar un aviso cuando el preflight de ubicacion falla.
+  - Si el usuario rechazo previamente permisos de ubicacion o el runtime no puede obtener ubicacion actual, el alert ofrece la accion real:
+    - `Abrir configuracion`
+  - Esa accion usa `Linking.openSettings()` para llevar al usuario directamente a la configuracion de la app y permitir que apruebe ubicacion.
+
+- Criterio UX validado:
+  - Entrar al modo cadete depende de ubicacion en tiempo real, asi que un permiso bloqueado debe ser recuperable desde el mismo flujo.
+  - No basta con decirle al usuario que active permisos; hay que darle el camino inmediato para aprobarlos.
+
+- Regla practica:
+  - Si una feature requiere permisos criticos y el usuario ya los rechazo, el flujo debe ofrecer una accion hacia ajustes de la app.
+  - En modo cadete, cualquier error de permisos o ubicacion no disponible durante el preflight debe mantenerse antes de `users.toggleModoCadete(true)` y no activar disponibilidad falsa.
+
+---
+
+Resumen tecnico - ProductoCard de Empresa con footer legible sobre imagen full-background
+
+- Problema detectado:
+  - En `components/empresa/components/ProductoCard.native.jsx`, el card usa la imagen del producto como fondo completo.
+  - En modo claro, el titulo del producto usaba texto oscuro (`palette.title`), pero visualmente quedaba sobre la foto/fade y no dentro de una superficie clara propia.
+  - Resultado: el titulo parecia salirse del footer del card y rompia la lectura del producto.
+
+- Correccion aplicada:
+  - El bloque inferior `contentFooter` paso a ser una bandeja visual real con:
+    - fondo translucido propio segun `theme.dark`
+    - borde suave
+    - padding interno
+    - radio consistente con el card
+  - Titulo, descripcion, precio, disponibilidad y nota quedan dentro de ese mismo panel, en lugar de flotar directamente sobre la imagen.
+  - En modo claro el texto oscuro queda respaldado por una superficie blanca translucida; en modo oscuro el mismo bloque usa una base oscura translucida.
+
+- Criterio UX validado:
+  - Cuando una card usa imagen full-background, el texto puede ser claro sobre imagen o oscuro sobre panel claro, pero no debe quedar en una zona intermedia sin respaldo visual.
+  - En cards de producto del modo Empresa, la imagen debe seguir siendo protagonista, pero la informacion comercial debe estar agrupada en un footer legible y no dispersa encima del media.
+
+- Regla practica:
+  - Si se vuelve a redisenar `ProductoCard`, preservar primero esta jerarquia:
+    - media full-background
+    - badges superiores sobre la imagen
+    - footer/panel inferior con titulo, descripcion, precio y disponibilidad
+  - No usar texto oscuro directamente sobre la foto en light mode salvo que exista un panel o scrim claro detras.
+  - Mantener la resolucion de imagen separada en `ProductoImage` / `findImgbyProduct`; el card solo debe encargarse de composicion y legibilidad.
+
+Notas adicionales - La foto del producto debe seguir siendo protagonista
+
+- Ajuste visual posterior:
+  - El footer claro del `ProductoCard` resolvia legibilidad, pero tapaba demasiado la foto del producto.
+  - La solucion aprobada fue volver a un tratamiento mas fotografico:
+    - menos tinte global sobre la imagen
+    - fade solo en el tramo inferior
+    - footer oscuro/translucido compacto
+    - texto claro dentro del overlay
+  - Esto permite leer titulo, descripcion y precio sin convertir el card en una tarjeta blanca encima de la foto.
+
+- Regla practica:
+  - En `ProductoCard`, no resolver legibilidad en modo claro con un panel blanco dominante si eso hace que la imagen pierda protagonismo.
+  - El patron correcto para este card es imagen visible + overlay inferior translucido y compacto.
+  - Si vuelve a faltar contraste, ajustar opacidad del fade/footer antes de aumentar el alto o la solidez del panel.
+
+Notas adicionales - Blur muy suave en el footer fotografico de ProductoCard
+
+- Ajuste visual aplicado:
+  - `components/empresa/components/ProductoCard.native.jsx` ahora usa `BlurView` en el footer donde viven titulo, descripcion, chip de catalogo, precio y disponibilidad.
+  - El blur debe ser deliberadamente bajo (`intensity` suave) para mejorar lectura de textos sin esconder la foto del producto.
+  - La capa de color encima del blur debe mantenerse muy translucida; no debe volver a sentirse como panel solido.
+
+- Regla practica:
+  - En este card, si falta contraste sobre imagen, preferir primero `BlurView` suave + overlay minimo antes que aumentar opacidad de fondo.
+  - Mantener `tint="dark"` literal y `experimentalBlurMethod="dimezisBlurView"` en Android para evitar problemas de enum en `expo-blur`.
+  - Si el footer vuelve a tapar demasiado la foto, bajar overlay/opacidad antes de tocar la imagen o la carga remota.
+
+---
+
+Resumen tecnico - StoreCard de Mis Tiendas alineado al patron visual de ProductoCard
+
+- Ajuste aplicado:
+  - `components/empresa/screens/MisTiendasScreen.native.jsx` dejo de presentar el card de tienda como varios bloques administrativos separados encima del mapa.
+  - El mapa sigue siendo el fondo protagonista mediante `MapaTiendaCardBackground`, pero la informacion comercial vive ahora en un footer glass compacto inspirado en `ProductoCard`.
+  - El footer agrupa en una sola bandeja:
+    - firma/especialidad de la tienda
+    - nombre
+    - descripcion
+    - cantidad de productos
+    - estado comercial
+    - ubicacion/antiguedad
+
+- Correccion tecnica importante:
+  - `components/empresa/maps/MapaTiendaCardBackground.native.jsx` ahora renderiza el `scrim` antes de `overlayContent`.
+  - Esto evita que la capa oscura/lavada del mapa quede por encima del contenido del card y degrade texto, blur o acciones superpuestas.
+
+- Criterio UX validado:
+  - Las tiendas deben seguir el mismo lenguaje visual que productos dentro del modo Empresa:
+    - media/fondo protagonista
+    - badges superiores ligeros
+    - footer translucido con blur bajo
+    - texto claro y compacto
+    - sin cajas blancas dominantes ni paneles administrativos desconectados
+  - El card debe comunicar primero identidad comercial y catalogo disponible, no coordenadas o metadatos tecnicos como bloque principal.
+
+- Regla practica:
+  - Si se vuelve a iterar `StoreCard`, preservar el mapa como hero full-background y mantener el contenido dentro de una bandeja inferior integrada.
+  - No volver a poner el `scrim` por encima de los children de `MapaTiendaCardBackground`.
+  - Para mejorar legibilidad, ajustar opacidad del fade/footer o intensidad baja del `BlurView`; no convertir el footer en una superficie solida que tape el mapa.

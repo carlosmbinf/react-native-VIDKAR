@@ -1,30 +1,32 @@
 import MeteorBase from "@meteorrn/core";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useMemo, useState } from "react";
 import {
-  Animated,
-  Image,
-  LayoutAnimation,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  UIManager,
-  View,
+    Animated,
+    Easing,
+    Image,
+    LayoutAnimation,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    UIManager,
+    View,
 } from "react-native";
 import {
-  Card,
-  Chip,
-  Divider,
-  IconButton,
-  Paragraph,
-  Surface,
-  Text,
-  useTheme,
+    Card,
+    Chip,
+    Divider,
+    IconButton,
+    Paragraph,
+    Surface,
+    Text,
+    useTheme,
 } from "react-native-paper";
 
 import {
-  CarritoCollection,
-  TiendasComercioCollection,
+    CarritoCollection,
+    TiendasComercioCollection,
 } from "../collections/collections";
 
 const Meteor =
@@ -100,6 +102,144 @@ const normalizeToArray = (value) => {
   return [];
 };
 
+const withAlpha = (hex, alpha) => `${hex}${alpha}`;
+
+const getProductGlowBounds = (cardSize, glowSize) => ({
+  minX: -glowSize * 0.18,
+  maxX: Math.max(-glowSize * 0.18, cardSize.width - glowSize * 0.82),
+  minY: -glowSize * 0.18,
+  maxY: Math.max(-glowSize * 0.18, cardSize.height - glowSize * 0.82),
+});
+
+const PRODUCT_GLOW_MOTION_PATTERNS = {
+  primarySweep: {
+    x: ["max", "max", "min", "min", "max"],
+    y: ["min", "max", "max", "min", "min"],
+  },
+  secondarySweep: {
+    x: ["min", "max", "max", "min", "min"],
+    y: ["max", "max", "min", "min", "max"],
+  },
+};
+
+const resolveProductGlowPoint = (key, bounds) => bounds[key] ?? bounds.min;
+
+const buildProductGlowMotion = (progress, cardSize, glowSize, patternName) => {
+  const { minX, maxX, minY, maxY } = getProductGlowBounds(cardSize, glowSize);
+  const xDistance = maxX - minX;
+  const yDistance = maxY - minY;
+  const xBounds = {
+    min: minX,
+    max: maxX,
+    mid: minX + xDistance * 0.5,
+    innerMin: minX + xDistance * 0.24,
+    innerMax: minX + xDistance * 0.76,
+  };
+  const yBounds = {
+    min: minY,
+    max: maxY,
+    mid: minY + yDistance * 0.5,
+    innerMin: minY + yDistance * 0.24,
+    innerMax: minY + yDistance * 0.76,
+  };
+  const pattern =
+    PRODUCT_GLOW_MOTION_PATTERNS[patternName] ||
+    PRODUCT_GLOW_MOTION_PATTERNS.primarySweep;
+
+  return {
+    translateX: progress.interpolate({
+      inputRange: [0, 0.25, 0.5, 0.75, 1],
+      outputRange: pattern.x.map((key) => resolveProductGlowPoint(key, xBounds)),
+    }),
+    translateY: progress.interpolate({
+      inputRange: [0, 0.25, 0.5, 0.75, 1],
+      outputRange: pattern.y.map((key) => resolveProductGlowPoint(key, yBounds)),
+    }),
+  };
+};
+
+const ProductCardGlow = ({ color, glowPrimaryProgress, glowSecondaryProgress, isDarkMode }) => {
+  const [cardSize, setCardSize] = React.useState({ height: 150, width: 280 });
+
+  const primaryGlowSize = Math.min(Math.max(cardSize.width * 0.54, 132), 190);
+  const secondaryGlowSize = Math.min(Math.max(cardSize.width * 0.46, 112), 170);
+  const primaryMotion = buildProductGlowMotion(
+    glowPrimaryProgress,
+    cardSize,
+    primaryGlowSize,
+    "primarySweep",
+  );
+  const secondaryMotion = buildProductGlowMotion(
+    glowSecondaryProgress,
+    cardSize,
+    secondaryGlowSize,
+    "secondarySweep",
+  );
+
+  return (
+    <View
+      collapsable={false}
+      onLayout={({ nativeEvent }) => {
+        const { height, width } = nativeEvent.layout;
+
+        if (!height || !width) {
+          return;
+        }
+
+        setCardSize((current) => {
+          const hasMeasured = current.height > 0 && current.width > 0;
+          const widthChanged = Math.abs(current.width - width) > 2;
+
+          if (hasMeasured && !widthChanged) {
+            return current;
+          }
+
+          if (current.height === height && current.width === width) {
+            return current;
+          }
+
+          return { height, width };
+        });
+      }}
+      pointerEvents="none"
+      style={styles.productGlowLayer}
+    >
+      <Animated.View
+        style={[
+          styles.productGlow,
+          styles.productGlowPrimary,
+          {
+            backgroundColor: withAlpha(color, isDarkMode ? "4a" : "30"),
+            height: primaryGlowSize,
+            transform: [
+              { translateX: primaryMotion.translateX },
+              { translateY: primaryMotion.translateY },
+            ],
+            width: primaryGlowSize,
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.productGlow,
+          styles.productGlowSecondary,
+          {
+            backgroundColor: isDarkMode
+              ? "rgba(96, 165, 250, 0.22)"
+              : "rgba(14, 165, 233, 0.16)",
+            height: secondaryGlowSize,
+            transform: [
+              { translateX: secondaryMotion.translateX },
+              { translateY: secondaryMotion.translateY },
+            ],
+            width: secondaryGlowSize,
+          },
+        ]}
+      />
+    </View>
+  );
+};
+
 const useExpandableCardState = () => {
   const [expanded, setExpanded] = useState(false);
   const [rotateAnim] = useState(new Animated.Value(0));
@@ -127,8 +267,16 @@ const CartSummaryMetric = ({ accentColor, icon, isDarkMode, label, value }) => (
     style={[
       styles.summaryMetricCard,
       isDarkMode && styles.summaryMetricCardDark,
+      {
+        backgroundColor: withAlpha(accentColor, isDarkMode ? "16" : "0d"),
+        borderColor: withAlpha(accentColor, isDarkMode ? "30" : "22"),
+      },
     ]}
   >
+    <View
+      pointerEvents="none"
+      style={[styles.summaryMetricGlow, { backgroundColor: withAlpha(accentColor, "18") }]}
+    />
     <View style={styles.summaryMetricHeader}>
       <IconButton
         icon={icon}
@@ -167,7 +315,7 @@ const CartDetailItem = ({ detail, isDarkMode }) => {
   }
 
   return (
-    <View style={styles.detailRow}>
+    <View style={[styles.detailRow, isDarkMode && styles.detailRowDark]}>
       <IconButton
         icon={detail.icon}
         iconColor={isDarkMode ? "#AAA" : "#666"}
@@ -199,6 +347,8 @@ const CompactCartCard = ({
   eliminar,
   eliminarPedido,
   footer,
+  glowPrimaryProgress,
+  glowSecondaryProgress,
   headerIcon,
   isDarkMode,
   itemId,
@@ -208,13 +358,42 @@ const CompactCartCard = ({
   title,
 }) => {
   const { expanded, rotate, toggleExpanded } = useExpandableCardState();
+  const cardGradientColors = isDarkMode
+    ? [withAlpha(color, "20"), "rgba(15, 23, 42, 0)"]
+    : [withAlpha(color, "14"), "rgba(255, 255, 255, 0)"];
 
   return (
     <Surface
-      elevation={3}
-      style={[styles.proxyVpnSurface, { borderLeftColor: color }]}
+      elevation={2}
+      style={[
+        styles.cartProductSurface,
+        isDarkMode && styles.cartProductSurfaceDark,
+        { borderLeftColor: color },
+      ]}
     >
-      <Card style={styles.proxyVpnCard}>
+      <Card
+        style={[
+          styles.cartProductCard,
+          isDarkMode && styles.cartProductCardDark,
+        ]}
+      >
+        <LinearGradient
+          colors={cardGradientColors}
+          end={{ x: 1, y: 1 }}
+          pointerEvents="none"
+          start={{ x: 0, y: 0 }}
+          style={styles.cardFutureLayer}
+        />
+        <ProductCardGlow
+          color={color}
+          glowPrimaryProgress={glowPrimaryProgress}
+          glowSecondaryProgress={glowSecondaryProgress}
+          isDarkMode={isDarkMode}
+        />
+        <View
+          pointerEvents="none"
+          style={[styles.cardAccentBeam, { backgroundColor: withAlpha(color, "42") }]}
+        />
         <TouchableOpacity activeOpacity={0.75} onPress={toggleExpanded}>
           <Card.Content style={styles.compactCardContent}>
             <View style={styles.compactHeaderRow}>
@@ -222,7 +401,10 @@ const CompactCartCard = ({
                 <View
                   style={[
                     styles.compactIconWrap,
-                    { backgroundColor: `${color}16` },
+                    {
+                      backgroundColor: withAlpha(color, isDarkMode ? "22" : "16"),
+                      borderColor: withAlpha(color, "34"),
+                    },
                   ]}
                 >
                   <IconButton
@@ -282,14 +464,22 @@ const CompactCartCard = ({
 
             <View style={styles.compactFooterRow}>
               <View style={styles.compactFooterLeft}>{footer || <View />}</View>
-              <View style={styles.compactExpandRow}>
+              <View
+                style={[
+                  styles.compactExpandRow,
+                  {
+                    backgroundColor: withAlpha(color, isDarkMode ? "1f" : "14"),
+                    borderColor: withAlpha(color, isDarkMode ? "42" : "2c"),
+                  },
+                ]}
+              >
                 <Text
                   style={[
                     styles.comercioExpandText,
-                    isDarkMode && styles.darkSecondaryText,
+                    { color },
                   ]}
                 >
-                  {expanded ? "Ver menos" : "Ver más detalles"}
+                  {expanded ? "Ocultar" : "Detalle"}
                 </Text>
                 <Animated.View style={{ transform: [{ rotate }] }}>
                   <IconButton
@@ -321,11 +511,21 @@ const CompactCartCard = ({
   );
 };
 
-const ComercioCard = ({ eliminar, eliminarPedido, isDarkMode, item }) => {
+const ComercioCard = ({
+  eliminar,
+  eliminarPedido,
+  glowPrimaryProgress,
+  glowSecondaryProgress,
+  isDarkMode,
+  item,
+}) => {
   const { expanded, rotate, toggleExpanded } = useExpandableCardState();
   const [imageUrl, setImageUrl] = useState(null);
 
   const color = "#FF5722";
+  const cardGradientColors = isDarkMode
+    ? [withAlpha(color, "20"), "rgba(15, 23, 42, 0)"]
+    : [withAlpha(color, "14"), "rgba(255, 255, 255, 0)"];
   const producto = item.producto || {};
   const precioUnitario = Number(producto.precio || 0);
   const cantidad = Number(item.cantidad || 1);
@@ -355,10 +555,36 @@ const ComercioCard = ({ eliminar, eliminarPedido, isDarkMode, item }) => {
 
   return (
     <Surface
-      elevation={3}
-      style={[styles.comercioSurface, { borderLeftColor: color }]}
+      elevation={2}
+      style={[
+        styles.cartProductSurface,
+        isDarkMode && styles.cartProductSurfaceDark,
+        { borderLeftColor: color },
+      ]}
     >
-      <Card style={styles.comercioCard}>
+      <Card
+        style={[
+          styles.cartProductCard,
+          isDarkMode && styles.cartProductCardDark,
+        ]}
+      >
+        <LinearGradient
+          colors={cardGradientColors}
+          end={{ x: 1, y: 1 }}
+          pointerEvents="none"
+          start={{ x: 0, y: 0 }}
+          style={styles.cardFutureLayer}
+        />
+        <ProductCardGlow
+          color={color}
+          glowPrimaryProgress={glowPrimaryProgress}
+          glowSecondaryProgress={glowSecondaryProgress}
+          isDarkMode={isDarkMode}
+        />
+        <View
+          pointerEvents="none"
+          style={[styles.cardAccentBeam, { backgroundColor: withAlpha(color, "42") }]}
+        />
         <TouchableOpacity activeOpacity={0.75} onPress={toggleExpanded}>
           <Card.Content style={styles.comercioMainContent}>
             <View style={styles.comercioHeroRow}>
@@ -378,10 +604,10 @@ const ComercioCard = ({ eliminar, eliminarPedido, isDarkMode, item }) => {
                     ]}
                   >
                     <IconButton
-                      icon="image-off"
-                      iconColor={isDarkMode ? "#78838f" : "#b0b8c0"}
-                      size={22}
-                      style={styles.noMarginIcon}
+                      icon="image-off-outline"
+                      iconColor={color}
+                      size={20}
+                      style={styles.compactHeaderIcon}
                     />
                   </View>
                 )}
@@ -393,7 +619,10 @@ const ComercioCard = ({ eliminar, eliminarPedido, isDarkMode, item }) => {
                     <View
                       style={[
                         styles.compactIconWrap,
-                        { backgroundColor: `${color}16` },
+                        {
+                          backgroundColor: withAlpha(color, isDarkMode ? "22" : "16"),
+                          borderColor: withAlpha(color, "34"),
+                        },
                       ]}
                     >
                       <IconButton
@@ -446,14 +675,22 @@ const ComercioCard = ({ eliminar, eliminarPedido, isDarkMode, item }) => {
             <View style={styles.compactFooterRow}>
               <View style={styles.compactFooterLeft} />
 
-              <View style={styles.compactExpandRow}>
+              <View
+                style={[
+                  styles.compactExpandRow,
+                  {
+                    backgroundColor: withAlpha(color, isDarkMode ? "1f" : "14"),
+                    borderColor: withAlpha(color, isDarkMode ? "42" : "2c"),
+                  },
+                ]}
+              >
                 <Text
                   style={[
                     styles.comercioExpandText,
-                    isDarkMode && styles.darkSecondaryText,
+                    { color },
                   ]}
                 >
-                  {expanded ? "Ver menos" : "Ver más detalles"}
+                  {expanded ? "Ocultar" : "Detalle"}
                 </Text>
                 <Animated.View style={{ transform: [{ rotate }] }}>
                   <IconButton
@@ -473,7 +710,12 @@ const ComercioCard = ({ eliminar, eliminarPedido, isDarkMode, item }) => {
             <Divider style={styles.comercioDivider} />
 
             {tienda?.title ? (
-              <View style={styles.comercioDetailRow}>
+              <View
+                style={[
+                  styles.comercioDetailRow,
+                  isDarkMode && styles.detailRowDark,
+                ]}
+              >
                 <IconButton
                   icon="storefront-outline"
                   iconColor={isDarkMode ? "#AAA" : "#666"}
@@ -502,7 +744,12 @@ const ComercioCard = ({ eliminar, eliminarPedido, isDarkMode, item }) => {
             ) : null}
 
             {producto?.descripcion ? (
-              <View style={styles.comercioDetailRow}>
+              <View
+                style={[
+                  styles.comercioDetailRow,
+                  isDarkMode && styles.detailRowDark,
+                ]}
+              >
                 <IconButton
                   icon="text-box-outline"
                   iconColor={isDarkMode ? "#AAA" : "#666"}
@@ -530,7 +777,12 @@ const ComercioCard = ({ eliminar, eliminarPedido, isDarkMode, item }) => {
               </View>
             ) : null}
 
-            <View style={styles.comercioDetailRow}>
+            <View
+              style={[
+                styles.comercioDetailRow,
+                isDarkMode && styles.detailRowDark,
+              ]}
+            >
               <IconButton
                 icon="tag-outline"
                 iconColor={isDarkMode ? "#AAA" : "#666"}
@@ -559,7 +811,12 @@ const ComercioCard = ({ eliminar, eliminarPedido, isDarkMode, item }) => {
               </View>
             </View>
 
-            <View style={styles.comercioDetailRow}>
+            <View
+              style={[
+                styles.comercioDetailRow,
+                isDarkMode && styles.detailRowDark,
+              ]}
+            >
               <IconButton
                 icon="currency-usd"
                 iconColor={isDarkMode ? "#AAA" : "#666"}
@@ -587,7 +844,12 @@ const ComercioCard = ({ eliminar, eliminarPedido, isDarkMode, item }) => {
             </View>
 
             {item.direccionCuba ? (
-              <View style={styles.comercioDetailRow}>
+              <View
+                style={[
+                  styles.comercioDetailRow,
+                  isDarkMode && styles.detailRowDark,
+                ]}
+              >
                 <IconButton
                   icon="home-map-marker"
                   iconColor={isDarkMode ? "#AAA" : "#666"}
@@ -616,7 +878,12 @@ const ComercioCard = ({ eliminar, eliminarPedido, isDarkMode, item }) => {
             ) : null}
 
             {item.comentario?.trim() ? (
-              <View style={styles.comercioDetailRow}>
+              <View
+                style={[
+                  styles.comercioDetailRow,
+                  isDarkMode && styles.detailRowDark,
+                ]}
+              >
                 <IconButton
                   icon="comment-text"
                   iconColor={isDarkMode ? "#AAA" : "#666"}
@@ -654,6 +921,39 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
   const theme = useTheme();
   const isDarkMode = theme.dark;
   const userId = Meteor.userId();
+  const productGlowPrimaryProgress = React.useRef(new Animated.Value(0)).current;
+  const productGlowSecondaryProgress = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    const primaryLoop = Animated.loop(
+      Animated.timing(productGlowPrimaryProgress, {
+        duration: 18000,
+        easing: Easing.linear,
+        toValue: 1,
+        useNativeDriver: true,
+      }),
+    );
+    const secondaryLoop = Animated.loop(
+      Animated.timing(productGlowSecondaryProgress, {
+        duration: 21000,
+        easing: Easing.linear,
+        toValue: 1,
+        useNativeDriver: true,
+      }),
+    );
+
+    productGlowPrimaryProgress.setValue(0);
+    productGlowSecondaryProgress.setValue(0);
+    primaryLoop.start();
+    secondaryLoop.start();
+
+    return () => {
+      primaryLoop.stop();
+      secondaryLoop.stop();
+      productGlowPrimaryProgress.stopAnimation();
+      productGlowSecondaryProgress.stopAnimation();
+    };
+  }, [productGlowPrimaryProgress, productGlowSecondaryProgress]);
 
   const pedidosData = Meteor.useTracker(() => {
     if (Array.isArray(items)) return items;
@@ -727,7 +1027,7 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
               styles.proxyVpnChip,
               {
                 backgroundColor: tienePromocion
-                  ? `${color}20`
+                  ? withAlpha(color, "20")
                   : "rgba(120, 130, 144, 0.16)",
               },
             ]}
@@ -744,6 +1044,8 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
             {tienePromocion ? "Con promoción" : "Sin promoción"}
           </Chip>
         }
+        glowPrimaryProgress={productGlowPrimaryProgress}
+        glowSecondaryProgress={productGlowSecondaryProgress}
         headerIcon="cellphone"
         isDarkMode={isDarkMode}
         itemId={item._id}
@@ -841,12 +1143,14 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
           <Chip
             compact
             icon="cash"
-            style={[styles.proxyVpnChip, { backgroundColor: `${color}20` }]}
+            style={[styles.proxyVpnChip, { backgroundColor: withAlpha(color, "20") }]}
             textStyle={{ color, fontSize: 12, fontWeight: "bold" }}
           >
             {item.recibirEnCuba} {item.monedaRecibirEnCuba}
           </Chip>
         }
+        glowPrimaryProgress={productGlowPrimaryProgress}
+        glowSecondaryProgress={productGlowSecondaryProgress}
         headerIcon="cash-fast"
         isDarkMode={isDarkMode}
         itemId={item._id}
@@ -904,24 +1208,26 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
         eliminar={eliminar}
         eliminarPedido={eliminarPedido}
         footer={
-          <Chip
-            compact
-            icon={item.entregado ? "check-circle" : "clock-outline"}
-            style={[
-              styles.statusChip,
-              {
-                backgroundColor: item.entregado ? "#4CAF5020" : "#FF980020",
-              },
-            ]}
-            textStyle={{
-              color: item.entregado ? "#4CAF50" : "#FF9800",
-              fontSize: 11,
-              fontWeight: "600",
-            }}
-          >
-            {item.entregado ? "Entregado" : "Pendiente de pago"}
-          </Chip>
+          item.entregado ? (
+            <Chip
+              compact
+              icon="check-circle"
+              style={[
+                styles.statusChip,
+                { backgroundColor: "rgba(34, 197, 94, 0.16)" },
+              ]}
+              textStyle={{
+                color: "#22c55e",
+                fontSize: 11,
+                fontWeight: "700",
+              }}
+            >
+              Entregado
+            </Chip>
+          ) : null
         }
+        glowPrimaryProgress={productGlowPrimaryProgress}
+        glowSecondaryProgress={productGlowSecondaryProgress}
         headerIcon={isProxy ? "wifi" : "shield-check"}
         isDarkMode={isDarkMode}
         itemId={item._id}
@@ -944,7 +1250,7 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
             <Chip
               compact
               icon="database"
-              style={[styles.proxyVpnChip, { backgroundColor: `${color}20` }]}
+              style={[styles.proxyVpnChip, { backgroundColor: withAlpha(color, "20") }]}
               textStyle={{ color, fontSize: 12, fontWeight: "bold" }}
             >
               {megasToGB(item.megas)}
@@ -994,6 +1300,8 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
               key={item._id}
               eliminar={eliminar}
               eliminarPedido={eliminarPedido}
+              glowPrimaryProgress={productGlowPrimaryProgress}
+              glowSecondaryProgress={productGlowSecondaryProgress}
               isDarkMode={isDarkMode}
               item={item}
             />
@@ -1014,8 +1322,51 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
 const styles = StyleSheet.create({
   closeButton: {
     margin: 0,
-    marginRight: -12,
-    marginTop: -8,
+    marginRight: -8,
+    marginTop: -6,
+  },
+  cartProductCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.98)",
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  cartProductCardDark: {
+    backgroundColor: "rgba(8, 13, 27, 0.98)",
+  },
+  cartProductSurface: {
+    backgroundColor: "rgba(255, 255, 255, 0.98)",
+    borderColor: "rgba(15, 23, 42, 0.07)",
+    borderLeftWidth: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 10,
+    overflow: "hidden",
+    shadowColor: "#020617",
+    shadowOffset: { height: 8, width: 0 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+  },
+  cartProductSurfaceDark: {
+    backgroundColor: "rgba(8, 13, 27, 0.98)",
+    borderColor: "rgba(125, 150, 190, 0.18)",
+    shadowOpacity: 0.18,
+  },
+  cardAccentBeam: {
+    borderRadius: 999,
+    height: 2,
+    left: 12,
+    opacity: 0.82,
+    position: "absolute",
+    right: 12,
+    top: 0,
+    zIndex: 1,
+  },
+  cardFutureLayer: {
+    bottom: 0,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
   },
   comercioCard: {},
   comercioChevron: { margin: 0 },
@@ -1025,15 +1376,19 @@ const styles = StyleSheet.create({
   },
   comercioDetailLabel: {
     color: "#666",
-    fontSize: 11,
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    fontSize: 10.5,
+    letterSpacing: 0.4,
+    marginBottom: 3,
     textTransform: "uppercase",
   },
   comercioDetailRow: {
     alignItems: "flex-start",
+    backgroundColor: "rgba(15, 23, 42, 0.035)",
+    borderRadius: 12,
     flexDirection: "row",
-    marginBottom: 12,
+    marginBottom: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
   },
   comercioDetailTextWrapper: {
     flex: 1,
@@ -1041,10 +1396,10 @@ const styles = StyleSheet.create({
   },
   comercioDetailValue: {
     color: "#333",
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
   },
-  comercioDivider: { marginBottom: 12 },
+  comercioDivider: { marginBottom: 10 },
   comercioExpandIndicator: {
     alignItems: "center",
     flexDirection: "row",
@@ -1057,22 +1412,22 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   comercioExpandedContent: {
-    paddingBottom: 16,
-    paddingHorizontal: 16,
+    paddingBottom: 12,
+    paddingHorizontal: 12,
     paddingTop: 0,
   },
   comercioHeaderRow: {
     alignItems: "flex-start",
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   comercioIcon: {
     margin: 0,
     marginRight: 8,
   },
   comercioMainContent: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 10,
   },
   comercioPriceHighlight: {
@@ -1081,9 +1436,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   comercioProductName: {
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: "bold",
-    marginBottom: 2,
+    lineHeight: 18,
   },
   comercioSubtitle: {
     color: "#666",
@@ -1135,12 +1490,14 @@ const styles = StyleSheet.create({
   comercioHeroRow: {
     alignItems: "flex-start",
     flexDirection: "row",
-    gap: 10,
+    gap: 9,
   },
   comercioImage: {
-    borderRadius: 12,
-    height: 88,
-    width: 88,
+    borderColor: "rgba(255, 255, 255, 0.22)",
+    borderRadius: 11,
+    borderWidth: 1,
+    height: 68,
+    width: 68,
   },
   comercioImageFallback: {
     alignItems: "center",
@@ -1151,7 +1508,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.06)",
   },
   comercioImageFrame: {
-    borderRadius: 14,
+    borderRadius: 12,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -1169,25 +1526,30 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   compactBadgeRow: {
-    marginBottom: 12,
+    marginBottom: 7,
   },
   compactCardContent: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 10,
   },
   compactExpandedContent: {
-    paddingBottom: 16,
-    paddingHorizontal: 16,
+    paddingBottom: 12,
+    paddingHorizontal: 12,
     paddingTop: 0,
   },
   compactExpandRow: {
     alignItems: "center",
+    borderRadius: 999,
+    borderWidth: 1,
     flexDirection: "row",
+    height: 30,
     marginLeft: 8,
+    paddingLeft: 10,
+    paddingRight: 2,
   },
   compactFooterLeft: {
     flex: 1,
-    minHeight: 22,
+    minHeight: 20,
   },
   compactFooterRow: {
     alignItems: "center",
@@ -1208,15 +1570,16 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 6,
+    marginBottom: 7,
   },
   compactIconWrap: {
     alignItems: "center",
+    borderWidth: 1,
     borderRadius: 12,
-    height: 32,
+    height: 30,
     justifyContent: "center",
-    marginRight: 8,
-    width: 32,
+    marginRight: 7,
+    width: 30,
   },
   compactSubtitle: {
     color: "#667085",
@@ -1242,22 +1605,32 @@ const styles = StyleSheet.create({
   detailIcon: { margin: 0 },
   detailLabel: {
     color: "#666",
-    flex: 1.2,
-    fontSize: 13,
+    flex: 1,
+    fontSize: 12,
     marginRight: 8,
   },
   detailRow: {
     alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.035)",
+    borderColor: "rgba(15, 23, 42, 0.06)",
+    borderWidth: 1,
+    borderRadius: 12,
     flexDirection: "row",
-    marginBottom: 2,
+    marginBottom: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  detailRowDark: {
+    backgroundColor: "rgba(30, 41, 59, 0.72)",
+    borderColor: "rgba(148, 163, 184, 0.12)",
   },
   detailValue: {
     color: "#333",
     flex: 2,
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: "600",
   },
-  divider: { marginVertical: 12 },
+  divider: { marginBottom: 10, marginTop: 6 },
   emptyContainer: {
     alignItems: "center",
     padding: 40,
@@ -1280,8 +1653,36 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "bold",
   },
+  productGlow: {
+    borderRadius: 999,
+    opacity: 0.86,
+    position: "absolute",
+  },
+  productGlowLayer: {
+    borderRadius: 14,
+    bottom: 0,
+    left: 0,
+    overflow: "hidden",
+    position: "absolute",
+    right: 0,
+    top: 0,
+    zIndex: 0,
+  },
+  productGlowPrimary: {
+    left: 0,
+    top: 0,
+  },
+  productGlowSecondary: {
+    left: 0,
+    top: 0,
+  },
   proxyVpnCard: {},
-  proxyVpnChip: { width: 125 },
+  proxyVpnChip: {
+    borderColor: "rgba(255, 255, 255, 0.14)",
+    borderRadius: 999,
+    borderWidth: 1,
+    width: 125,
+  },
   proxyVpnDetails: { marginTop: 0 },
   proxyVpnHeader: {
     alignItems: "flex-start",
@@ -1295,7 +1696,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   proxyVpnTitle: {
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: "bold",
     marginRight: 8,
   },
@@ -1306,21 +1707,34 @@ const styles = StyleSheet.create({
   },
   summaryMetricCard: {
     backgroundColor: "rgba(15, 23, 42, 0.03)",
+    borderColor: "rgba(15, 23, 42, 0.06)",
+    borderWidth: 1,
     borderRadius: 12,
     flex: 1,
-    // minHeight: 20,
+    minHeight: 42,
     minWidth: 0,
-    paddingHorizontal: 10,
-    paddingVertical: 2,
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
   },
   summaryMetricCardDark: {
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(30, 41, 59, 0.68)",
+    borderColor: "rgba(148, 163, 184, 0.12)",
   },
   summaryMetricHeader: {
     alignItems: "center",
     flexDirection: "row",
-    // marginBottom: 4,
-    // marginLeft: -2,
+    position: "relative",
+    zIndex: 1,
+  },
+  summaryMetricGlow: {
+    bottom: -18,
+    height: 34,
+    opacity: 0.8,
+    position: "absolute",
+    right: -12,
+    transform: [{ rotate: "-18deg" }],
+    width: 48,
   },
   summaryMetricIcon: {
     margin: 0,
@@ -1329,22 +1743,28 @@ const styles = StyleSheet.create({
   summaryMetricLabel: {
     color: "#667085",
     flex: 1,
-    fontSize: 10,
+    fontSize: 9.5,
     letterSpacing: 0.3,
     textTransform: "uppercase",
   },
   summaryMetricValue: {
     color: "#0f172a",
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: "700",
-    // lineHeight: 16,
+    position: "relative",
+    zIndex: 1,
   },
   summaryMetricsGrid: {
     flexDirection: "row",
-    gap: 8,
-    marginBottom: 8,
+    gap: 6,
+    marginBottom: 7,
   },
-  statusChip: { alignSelf: "flex-start" },
+  statusChip: {
+    alignSelf: "flex-start",
+    borderColor: "rgba(255, 255, 255, 0.14)",
+    borderRadius: 999,
+    borderWidth: 1,
+  },
   statusContainer: {
     alignItems: "flex-start",
     marginTop: 10,
@@ -1359,8 +1779,10 @@ const styles = StyleSheet.create({
   unlimitedChipWrapper: {
     alignItems: "center",
     alignSelf: "flex-start",
-    backgroundColor: "rgba(255, 215, 0, 0.12)",
-    borderRadius: 12,
+    backgroundColor: "rgba(255, 215, 0, 0.14)",
+    borderColor: "rgba(255, 215, 0, 0.26)",
+    borderRadius: 999,
+    borderWidth: 1,
     flexDirection: "row",
     marginBottom: 8,
     maxHeight: 32,

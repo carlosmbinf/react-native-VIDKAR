@@ -4,6 +4,7 @@ const BYTES_IN_MB_BINARY = 1024 * 1024;
 
 export const WATCH_ROOT_USER_FIELDS = {
   baneado: 1,
+  bloqueadoDesbloqueadoPor: 1,
   createdAt: 1,
   desconectarVPN: 1,
   emails: 1,

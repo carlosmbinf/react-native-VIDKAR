@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import React from "react";
 import { Image, ScrollView, StyleSheet, View } from "react-native";
 import {
@@ -52,6 +53,23 @@ export default function PushNotificationDialogHost() {
   const handleDismiss = React.useCallback(() => {
     dismissPushDialog();
   }, []);
+
+  const handleOpen = React.useCallback(() => {
+    const navigationTarget = payload?.navigationTarget;
+
+    dismissPushDialog();
+
+    if (!navigationTarget?.pathname) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      router.push({
+        pathname: navigationTarget.pathname as never,
+        params: navigationTarget.params,
+      });
+    });
+  }, [payload?.navigationTarget]);
 
   const shouldShowImage = Boolean(payload?.imageUrl && !imageFailed);
   const normalizedTitle = (payload?.title || "Nueva notificación").trim();
@@ -152,6 +170,17 @@ export default function PushNotificationDialogHost() {
           <View
             style={[styles.actions, { paddingBottom: Math.max(bottom, 18) }]}
           >
+            {payload?.navigationTarget ? (
+              <Button
+                mode="outlined"
+                onPress={handleOpen}
+                textColor={TEXT_PRIMARY}
+                contentStyle={styles.actionContent}
+                style={[styles.actionButton, styles.openButton]}
+              >
+                Abrir
+              </Button>
+            ) : null}
             <Button
               mode="contained"
               onPress={handleDismiss}
@@ -178,6 +207,8 @@ const styles = StyleSheet.create({
   },
   actions: {
     alignItems: "flex-end",
+    flexDirection: "row",
+    gap: 10,
     justifyContent: "flex-end",
     paddingHorizontal: 22,
     paddingTop: 0,
@@ -296,6 +327,9 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
     marginBottom: 0,
     marginTop: 0,
+  },
+  openButton: {
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
   overline: {
     color: ACCENT,

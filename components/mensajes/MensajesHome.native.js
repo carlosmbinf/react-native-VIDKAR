@@ -5,26 +5,26 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
 import React from "react";
 import {
-    Alert,
-    Appearance,
-    Dimensions,
-    FlatList,
-    Image,
-    Keyboard,
-    KeyboardAvoidingView,
-    Linking,
-    Platform,
-    StyleSheet,
-    View,
+  Alert,
+  Appearance,
+  Dimensions,
+  FlatList,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  StyleSheet,
+  View,
 } from "react-native";
 import {
-    ActivityIndicator,
-    Avatar,
-    IconButton,
-    Menu,
-    Surface,
-    Text,
-    TextInput,
+  ActivityIndicator,
+  Avatar,
+  IconButton,
+  Menu,
+  Surface,
+  Text,
+  TextInput,
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
@@ -32,8 +32,8 @@ import { getMeteorUrl } from "../../services/meteor/client.native";
 import { Mensajes as MensajesCollection } from "../collections/collections";
 import AppHeader from "../Header/AppHeader";
 import {
-    DARK_MENU_GLASS_TINT,
-    LIGHT_MENU_GLASS_TINT,
+  DARK_MENU_GLASS_TINT,
+  LIGHT_MENU_GLASS_TINT,
 } from "../shared/GlassMenuSurface";
 
 const Meteor =
@@ -81,6 +81,7 @@ const CHAT_IMAGE_PICKER_OPTIONS = {
 };
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
+const LOADING_CARD_MAX_WIDTH = Math.min(Math.max(SCREEN_WIDTH * 0.54, 360), 620);
 
 const toHttpOriginFromMeteorUrl = (value) => {
   if (typeof value !== "string" || !value.trim()) {
@@ -181,6 +182,9 @@ const buildChatImageMetadata = ({ recipientId }) => ({
   recipientId,
 });
 
+const buildChatNavigationUrl = (senderId) =>
+  senderId ? `Mensaje?item=${encodeURIComponent(senderId)}` : "Mensaje";
+
 const formatTime = (value) => {
   const date = value instanceof Date ? value : new Date(value);
   return new Intl.DateTimeFormat("es-ES", {
@@ -279,7 +283,7 @@ const getConversationPalette = (isDark) => {
       inputBorder: "rgba(99, 102, 241, 0.22)",
       inputText: "#f8fafc",
       inputPlaceholder: "#94a3b8",
-      composerBackground: "rgba(2, 6, 23, 0.9)",
+      composerBackground: "rgba(2, 6, 23, 0.34)",
       composerBorder: "rgba(148, 163, 184, 0.14)",
       sendBackground: "#4f46e5",
       sendDisabledBackground: "rgba(51, 65, 85, 0.72)",
@@ -325,7 +329,7 @@ const getConversationPalette = (isDark) => {
     inputBorder: "rgba(99, 102, 241, 0.16)",
     inputText: "#0f172a",
     inputPlaceholder: "#64748b",
-    composerBackground: "rgba(255, 255, 255, 0.92)",
+    composerBackground: "rgba(255, 255, 255, 0.5)",
     composerBorder: "rgba(99, 102, 241, 0.12)",
     sendBackground: "#4f46e5",
     sendDisabledBackground: "rgba(203, 213, 225, 0.9)",
@@ -459,7 +463,21 @@ class MensajesHomeScreen extends React.Component {
         this.flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       }, 100);
 
+      const currentUserId = Meteor.userId();
+      const chatNavigationUrl = buildChatNavigationUrl(currentUserId);
+
       Meteor.call("enviarMensajeDirecto2", user, message.trim(), {
+        data: {
+          chatUserId: currentUserId,
+          fromUserId: currentUserId,
+          item: currentUserId,
+          linking: chatNavigationUrl,
+          navigationUrl: chatNavigationUrl,
+          notificationType: "chat",
+          toUserId: user,
+          type: "chat_message",
+          url: chatNavigationUrl,
+        },
         title: Meteor.user()?.profile?.firstName && Meteor.user()?.profile?.lastName
           ? `${Meteor.user().profile.firstName} ${Meteor.user().profile.lastName}`
           : Meteor.user()?.username || "SERVER",
@@ -572,6 +590,8 @@ class MensajesHomeScreen extends React.Component {
 
       const cleanCaption = String(messageText || "").trim();
       const pushImageUrl = normalizeChatAssetUrl(uploadResponse.url);
+      const currentUserId = Meteor.userId();
+      const chatNavigationUrl = buildChatNavigationUrl(currentUserId);
 
       await MensajesCollection.insert({
         attachmentFileId: uploadResponse.fileId,
@@ -594,7 +614,7 @@ class MensajesHomeScreen extends React.Component {
             height: asset.height,
           },
         ],
-        from: Meteor.userId(),
+        from: currentUserId,
         to: user,
         mensaje: cleanCaption || undefined,
         createdAt: new Date(),
@@ -631,13 +651,21 @@ class MensajesHomeScreen extends React.Component {
             attachmentFileId: uploadResponse.fileId,
             attachmentFileName: uploadResponse.fileName,
             attachmentMimeType: inferMimeType(asset),
+            chatUserId: currentUserId,
+            fromUserId: currentUserId,
+            linking: chatNavigationUrl,
             image: pushImageUrl,
             imageUrl: pushImageUrl,
             imageFileId: uploadResponse.fileId,
             imageFileName: uploadResponse.fileName,
             imageMimeType: inferMimeType(asset),
+            item: currentUserId,
+            navigationUrl: chatNavigationUrl,
             notificationImageUrl: pushImageUrl,
+            notificationType: "chat",
+            toUserId: user,
             type: "image",
+            url: chatNavigationUrl,
             attachments: [
               {
                 kind: "image",
@@ -925,9 +953,12 @@ class MensajesHomeScreen extends React.Component {
       return (
         <View style={[styles.screen, { backgroundColor: palette.screen }]}> 
           <AppHeader
-            title="Mensajes"
+            title={user
+                        ? userLabel
+                        : "Mensajes"}
             subtitle={userLabel || "Conversación privada"}
             backgroundColor={palette.headerBackground}
+            overlapContent
             showBackButton
             backHref="/(normal)/Main"
             actions={this.renderHeaderAvatar()}
@@ -964,9 +995,10 @@ class MensajesHomeScreen extends React.Component {
     return (
       <View style={[styles.screen, { backgroundColor: palette.screen }]}> 
         <AppHeader
-          title="Mensajes"
+          title={user ? userLabel : "Mensajes"}
           subtitle={userLabel || "Conversación privada"}
           backgroundColor={palette.headerBackground}
+          overlapContent
           showBackButton
           backHref="/(normal)/Main"
           actions={this.renderHeaderAvatar()}
@@ -1014,7 +1046,6 @@ class MensajesHomeScreen extends React.Component {
               style={[
                 styles.composerWrapper,
                 {
-                  backgroundColor: palette.composerBackground,
                   borderTopColor: palette.composerBorder,
                 },
                 Platform.OS === "android" && keyboardHeight > 0
@@ -1022,6 +1053,23 @@ class MensajesHomeScreen extends React.Component {
                   : null,
               ]}
             >
+              <BlurView
+                pointerEvents="none"
+                tint={isDarkMode ? "dark" : "light"}
+                intensity={34}
+                style={styles.composerBlurLayer}
+                experimentalBlurMethod={
+                  Platform.OS === "android" ? "dimezisBlurView" : undefined
+                }
+                renderToHardwareTextureAndroid={true}
+              />
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.composerGlassOverlay,
+                  { backgroundColor: palette.composerBackground },
+                ]}
+              />
               <View style={styles.composerContent}>
                 <Menu
                   visible={attachmentMenuVisible && Boolean(attachmentMenuAnchor)}
@@ -1356,8 +1404,8 @@ const styles = StyleSheet.create({
   messagesList: {
     flexGrow: 1,
     paddingHorizontal: 12,
-    paddingBottom: 20,
-    paddingTop: 12,
+    paddingBottom: 126,
+    paddingTop: 92,
   },
   messageRowBlock: {
     width: "100%",
@@ -1495,8 +1543,22 @@ const styles = StyleSheet.create({
   },
   composerWrapper: {
     borderTopWidth: 1,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    bottom: 0,
+    left: 0,
+    overflow: "hidden",
     paddingHorizontal: 14,
     paddingTop: 12,
+    position: "absolute",
+    right: 0,
+    zIndex: 12,
+  },
+  composerBlurLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  composerGlassOverlay: {
+    ...StyleSheet.absoluteFillObject,
   },
   composerContent: {
     alignItems: "flex-end",
@@ -1565,15 +1627,18 @@ const styles = StyleSheet.create({
   },
   loadingStateWrap: {
     alignItems: "center",
+    alignSelf: "center",
     flex: 1,
     justifyContent: "center",
-    paddingHorizontal: 18,
+    paddingHorizontal: 28,
+    width: "100%",
+    maxWidth: LOADING_CARD_MAX_WIDTH + 56,
   },
   loadingCard: {
     alignItems: "center",
     borderRadius: 28,
     borderWidth: 1,
-    maxWidth: 360,
+    maxWidth: LOADING_CARD_MAX_WIDTH,
     paddingHorizontal: 24,
     paddingVertical: 28,
     width: "100%",

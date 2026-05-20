@@ -1,6 +1,7 @@
 import MeteorBase from "@meteorrn/core";
 import * as Application from "expo-application";
 import Constants from "expo-constants";
+import { router } from "expo-router";
 import React from "react";
 import { Platform, StatusBar, StyleSheet } from "react-native";
 import { ActivityIndicator, Surface, Text, useTheme } from "react-native-paper";
@@ -15,6 +16,7 @@ import { syncCadeteBackgroundLocation } from "../services/location/cadeteBackgro
 import {
     registerPushTokenForActiveSession,
     registerPushTokenForUser,
+    resolvePushNavigationTarget,
     setupPushListeners,
 } from "../services/notifications/PushMessaging.native";
 import {
@@ -88,6 +90,8 @@ const getRequiredBuildNumber = (propertyKey: string) =>
 export default function IndexScreen() {
   const theme = useTheme();
   const pushCleanupRef = React.useRef<null | (() => void)>(null);
+  const lastHandledPushNavigationIdRef = React.useRef<string | null>(null);
+  const [pendingPushNavigationNotification, setPendingPushNavigationNotification] = React.useState<any>(null);
   const [versionGate, setVersionGate] = React.useState({
     checkingVersion: false,
     updateRequired: false,
@@ -262,7 +266,23 @@ export default function IndexScreen() {
   React.useEffect(() => {
     let active = true;
 
+    const queuePushNavigation = async (notification: any) => {
+      const notificationId = notification?.request?.identifier || null;
+
+      if (notificationId && lastHandledPushNavigationIdRef.current === notificationId) {
+        return;
+      }
+
+      if (notificationId) {
+        lastHandledPushNavigationIdRef.current = notificationId;
+      }
+
+      setPendingPushNavigationNotification(notification);
+    };
+
     setupPushListeners({
+      onInitialNotification: queuePushNavigation,
+      onNotificationOpenedApp: queuePushNavigation,
       onToken: async (token) => {
         const currentUserId = Meteor.userId();
         if (currentUserId) {
@@ -290,6 +310,29 @@ export default function IndexScreen() {
       pushCleanupRef.current = null;
     };
   }, []);
+
+  React.useEffect(() => {
+    if (!pendingPushNavigationNotification || !userId || !ready) {
+      return;
+    }
+
+    const navigationTarget = resolvePushNavigationTarget(
+      pendingPushNavigationNotification,
+    );
+
+    setPendingPushNavigationNotification(null);
+
+    if (!navigationTarget?.pathname) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      router.push({
+        pathname: navigationTarget.pathname as never,
+        params: navigationTarget.params,
+      });
+    });
+  }, [pendingPushNavigationNotification, ready, user?.modoEmpresa, userId]);
 
   React.useEffect(() => {
     if (!userId) {

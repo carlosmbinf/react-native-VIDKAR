@@ -124,6 +124,76 @@ const WizardConStepper = ({ initialLocation = null }) => {
   const isDarkMode = theme.dark;
   const userId = Meteor.userId();
 
+  const wizardPalette = useMemo(
+    () => ({
+      accent: isDarkMode ? "#8b5cf6" : "#6d28d9",
+      accentStrong: isDarkMode ? "#a78bfa" : "#6200ee",
+      alertBackground: isDarkMode
+        ? "rgba(15, 23, 42, 0.94)"
+        : "rgba(255, 255, 255, 0.98)",
+      alertBorder: isDarkMode
+        ? "rgba(251, 146, 60, 0.34)"
+        : "rgba(249, 115, 22, 0.3)",
+      alertIcon: isDarkMode ? "#fb923c" : "#ea580c",
+      alertIconBackground: isDarkMode
+        ? "rgba(251, 146, 60, 0.16)"
+        : "rgba(255, 237, 213, 0.95)",
+      alertTitle: isDarkMode ? "#f8fafc" : "#111827",
+      alertText: isDarkMode ? "#fed7aa" : "#7c2d12",
+      cardBackground: isDarkMode
+        ? "rgba(15, 23, 42, 0.94)"
+        : "rgba(255, 255, 255, 0.96)",
+      cardBorder: isDarkMode
+        ? "rgba(148, 163, 184, 0.18)"
+        : "rgba(15, 23, 42, 0.08)",
+      cardMuted: isDarkMode ? "#cbd5e1" : "#64748b",
+      cardText: isDarkMode ? "#f8fafc" : "#1e293b",
+      contentText: isDarkMode ? "#f8fafc" : "#171827",
+      divider: isDarkMode
+        ? "rgba(148, 163, 184, 0.28)"
+        : "rgba(15, 23, 42, 0.14)",
+      dropdownBackground: isDarkMode
+        ? "rgba(15, 23, 42, 0.92)"
+        : "rgba(248, 250, 252, 0.98)",
+      dropdownBorder: isDarkMode
+        ? "rgba(148, 163, 184, 0.28)"
+        : "rgba(15, 23, 42, 0.28)",
+      dropdownPlaceholder: isDarkMode ? "#94a3b8" : "#64748b",
+      mutedText: isDarkMode ? "#cbd5e1" : "#475569",
+      sectionPillBackground: isDarkMode
+        ? "rgba(30, 41, 59, 0.96)"
+        : "rgba(250, 245, 255, 0.98)",
+      sectionPillBorder: isDarkMode
+        ? "rgba(167, 139, 250, 0.34)"
+        : "rgba(109, 40, 217, 0.22)",
+      modalOverlay: isDarkMode
+        ? "rgba(2, 6, 23, 0.22)"
+        : "rgba(255, 255, 255, 0.18)",
+      stepInactiveBackground: isDarkMode
+        ? "rgba(15, 23, 42, 0.92)"
+        : "rgba(248, 250, 252, 0.98)",
+      stepInactiveText: isDarkMode ? "#e2e8f0" : "#111827",
+      stepLabel: isDarkMode ? "#f8fafc" : "#111827",
+      stepMuted: isDarkMode ? "#dbe4f0" : "#1f2937",
+      surfaceText: isDarkMode ? "#f8fafc" : "#111827",
+      termBackground: isDarkMode
+        ? "rgba(15, 23, 42, 0.58)"
+        : "rgba(255, 255, 255, 0.5)",
+      warningBackground: isDarkMode
+        ? "rgba(8, 19, 43, 0.96)"
+        : "rgba(255, 255, 255, 0.98)",
+      warningBorder: isDarkMode
+        ? "rgba(96, 165, 250, 0.34)"
+        : "rgba(37, 99, 235, 0.18)",
+      warningIconBackground: isDarkMode
+        ? "rgba(59, 130, 246, 0.2)"
+        : "rgba(219, 234, 254, 0.95)",
+      warningTitle: isDarkMode ? "#f8fafc" : "#0f172a",
+      warningText: isDarkMode ? "#cbd5e1" : "#334155",
+    }),
+    [isDarkMode],
+  );
+
   const [activeStep, setActiveStep] = useState(STEP_SUMMARY);
   const [cargadoPago, setCargadoPago] = useState(false);
   const [cargandoPaises, setCargandoPaises] = useState(false);
@@ -220,10 +290,8 @@ const WizardConStepper = ({ initialLocation = null }) => {
 
   const data = useMemo(() => {
     const baseOptions = [];
-    if (!tieneProxyVPN) {
-      baseOptions.push({ label: "Paypal", value: "paypal" });
-      baseOptions.push({ label: "MercadoPago", value: "mercadopago" });
-    }
+    baseOptions.push({ label: "Paypal", value: "paypal" });
+    baseOptions.push({ label: "MercadoPago", value: "mercadopago" });
     if (permitirPagoEfectivoCUP || tieneProxyVPN) {
       baseOptions.push({
         label: "Efectivo O Transferencia",
@@ -240,9 +308,9 @@ const WizardConStepper = ({ initialLocation = null }) => {
       case "mercadopago":
         return "UYU";
       default:
-        return tieneProxyVPN ? "CUP" : paisPago || "CUP";
+        return paisPago || "CUP";
     }
-  }, [metodoPago, paisPago, tieneProxyVPN]);
+  }, [metodoPago, paisPago]);
 
   const checkoutUrl = useMemo(() => {
     const candidates = [compra?.link];
@@ -525,9 +593,8 @@ const WizardConStepper = ({ initialLocation = null }) => {
 
     const requiere =
       metodoPago === "efectivo" || metodoPago === "transferencia";
-    if (!requiere || tieneProxyVPN) {
+    if (!requiere) {
       setPaisesPagoData([]);
-      if (tieneProxyVPN) setPaisPago("CUP");
       return;
     }
 
@@ -568,7 +635,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
         );
       },
     );
-  }, [metodoPago, tieneProxyVPN, visible]);
+  }, [metodoPago, visible]);
 
   useEffect(() => {
     if (!visible) {
@@ -892,8 +959,16 @@ const WizardConStepper = ({ initialLocation = null }) => {
 
     if (cargandoComisiones) {
       return (
-        <View style={styles.warningBox}>
-          <Text style={styles.warningText}>
+        <View
+          style={[
+            styles.warningBox,
+            {
+              backgroundColor: wizardPalette.warningBackground,
+              borderColor: wizardPalette.warningBorder,
+            },
+          ]}
+        >
+          <Text style={[styles.warningText, { color: wizardPalette.warningText }]}>
             Calculando costos de entrega para los productos de comercio...
           </Text>
         </View>
@@ -902,8 +977,16 @@ const WizardConStepper = ({ initialLocation = null }) => {
 
     if (errorComisiones) {
       return (
-        <View style={styles.warningBox}>
-          <Text style={styles.warningText}>{errorComisiones}</Text>
+        <View
+          style={[
+            styles.warningBox,
+            {
+              backgroundColor: wizardPalette.warningBackground,
+              borderColor: wizardPalette.warningBorder,
+            },
+          ]}
+        >
+          <Text style={[styles.warningText, { color: wizardPalette.warningText }]}>{errorComisiones}</Text>
         </View>
       );
     }
@@ -923,7 +1006,13 @@ const WizardConStepper = ({ initialLocation = null }) => {
             <View
               style={[
                 styles.stepCircle,
-                (isActive || isCompleted) && styles.stepCircleActive,
+                {
+                  backgroundColor:
+                    isActive || isCompleted
+                      ? wizardPalette.accentStrong
+                      : wizardPalette.stepInactiveBackground,
+                  borderColor: wizardPalette.accentStrong,
+                },
               ]}
             >
               {isCompleted ? (
@@ -937,7 +1026,12 @@ const WizardConStepper = ({ initialLocation = null }) => {
                 <Text
                   style={[
                     styles.stepNumber,
-                    (isActive || isCompleted) && styles.stepNumberActive,
+                    {
+                      color:
+                        isActive || isCompleted
+                          ? "#ffffff"
+                          : wizardPalette.stepInactiveText,
+                    },
                   ]}
                 >
                   {index + 1}
@@ -948,15 +1042,26 @@ const WizardConStepper = ({ initialLocation = null }) => {
               <View
                 style={[
                   styles.stepConnector,
-                  isCompleted && styles.stepConnectorCompleted,
+                  {
+                    backgroundColor: isCompleted
+                      ? wizardPalette.accentStrong
+                      : wizardPalette.divider,
+                  },
                 ]}
               />
             ) : null}
             <Text
               style={[
                 styles.stepLabel,
-                isActive && styles.stepLabelActive,
-                isCompleted && styles.stepLabelCompleted,
+                { color: wizardPalette.stepMuted },
+                isActive && {
+                  color: wizardPalette.accentStrong,
+                  fontWeight: "800",
+                },
+                isCompleted && {
+                  color: wizardPalette.stepLabel,
+                  fontWeight: "700",
+                },
               ]}
             >
               {label}
@@ -972,8 +1077,12 @@ const WizardConStepper = ({ initialLocation = null }) => {
     if (!terminos) {
       return (
         <View style={styles.sinMetodoContainer}>
-          <IconButton icon="information-outline" size={48} />
-          <Text style={styles.sinMetodoTexto}>
+          <IconButton
+            icon="information-outline"
+            iconColor={wizardPalette.mutedText}
+            size={48}
+          />
+          <Text style={[styles.sinMetodoTexto, { color: wizardPalette.mutedText }]}>
             Seleccione un método de pago en el paso anterior para visualizar los
             términos y condiciones aplicables.
           </Text>
@@ -983,23 +1092,52 @@ const WizardConStepper = ({ initialLocation = null }) => {
 
     return (
       <ScrollView style={styles.terminosContainer}>
-        <Text style={styles.terminosTitulo}>{terminos.titulo}</Text>
-        <Divider style={{ marginVertical: 12 }} />
+        <Text style={[styles.terminosTitulo, { color: wizardPalette.contentText }]}>{terminos.titulo}</Text>
+        <Divider style={[styles.termsDivider, { backgroundColor: wizardPalette.divider }]} />
         {terminos.contenido.map((seccion, index) => (
           <View
             key={`${seccion.subtitulo}-${index}`}
-            style={styles.seccionTermino}
+            style={[
+              styles.seccionTermino,
+              {
+                backgroundColor: wizardPalette.termBackground,
+                borderLeftColor: wizardPalette.accentStrong,
+              },
+            ]}
           >
-            <Text style={styles.terminosSubtitulo}>{seccion.subtitulo}</Text>
-            <Text style={styles.terminosTexto}>{seccion.texto}</Text>
+            <Text style={[styles.terminosSubtitulo, { color: wizardPalette.contentText }]}>{seccion.subtitulo}</Text>
+            <Text style={[styles.terminosTexto, { color: wizardPalette.mutedText }]}>{seccion.texto}</Text>
           </View>
         ))}
-        <View style={styles.advertenciaFinal}>
-          <IconButton icon="alert-circle" iconColor="#FF6F00" size={20} />
-          <Text style={styles.advertenciaTexto}>
-            Al presionar Aceptar, confirma que ha leído y acepta todos los
-            términos y condiciones descritos.
-          </Text>
+        <View
+          style={[
+            styles.advertenciaFinal,
+            {
+              backgroundColor: wizardPalette.alertBackground,
+              borderColor: wizardPalette.alertBorder,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.advertenciaIconWrap,
+              { backgroundColor: wizardPalette.alertIconBackground },
+            ]}
+          >
+            <IconButton
+              icon="alert-circle"
+              iconColor={wizardPalette.alertIcon}
+              size={20}
+              style={styles.noMargin}
+            />
+          </View>
+          <View style={styles.advertenciaCopy}>
+            <Text style={[styles.advertenciaTitle, { color: wizardPalette.alertTitle }]}>Confirmación requerida</Text>
+            <Text style={[styles.advertenciaTexto, { color: wizardPalette.alertText }]}> 
+              Al aceptar, confirmas que leíste las condiciones de pago y que los
+              datos de la orden son correctos.
+            </Text>
+          </View>
         </View>
       </ScrollView>
     );
@@ -1010,12 +1148,21 @@ const WizardConStepper = ({ initialLocation = null }) => {
 
     return (
       <View style={styles.comisionesContainer}>
-        <Card style={styles.comisionesCard} elevation={2}>
+        <Card
+          style={[
+            styles.comisionesCard,
+            {
+              backgroundColor: wizardPalette.cardBackground,
+              borderColor: wizardPalette.cardBorder,
+            },
+          ]}
+          elevation={2}
+        >
           <Card.Content style={styles.comisionesContent}>
             {cargandoComisiones ? (
               <View style={styles.comisionesLoading}>
                 <ActivityIndicator color="#6200ee" size="small" />
-                <Text style={styles.comisionesLoadingText}>Calculando...</Text>
+                <Text style={[styles.comisionesLoadingText, { color: wizardPalette.cardMuted }]}>Calculando...</Text>
               </View>
             ) : errorComisiones ? (
               <View style={styles.comisionesError}>
@@ -1033,10 +1180,10 @@ const WizardConStepper = ({ initialLocation = null }) => {
               <>
                 <View style={styles.comisionesResumenHeader}>
                   <View style={styles.comisionesResumenInfo}>
-                    <Text style={styles.comisionesResumenLabel}>
+                    <Text style={[styles.comisionesResumenLabel, { color: wizardPalette.cardText }]}>
                       Total de comisiones
                     </Text>
-                    <Text style={styles.comisionesResumenHint}>
+                    <Text style={[styles.comisionesResumenHint, { color: wizardPalette.cardMuted }]}>
                       Incluye envío y cargos adicionales
                     </Text>
                   </View>
@@ -1092,10 +1239,10 @@ const WizardConStepper = ({ initialLocation = null }) => {
                                   style={styles.noMargin}
                                 />
                                 <View style={styles.tiendaInfo}>
-                                  <Text style={styles.tiendaNombre}>
+                                  <Text style={[styles.tiendaNombre, { color: wizardPalette.cardText }]}>
                                     {tienda.nombreTienda}
                                   </Text>
-                                  <Text style={styles.tiendaDetalle}>
+                                  <Text style={[styles.tiendaDetalle, { color: wizardPalette.cardMuted }]}>
                                     {tienda.productosCount}{" "}
                                     {tienda.productosCount > 1
                                       ? "items"
@@ -1123,7 +1270,17 @@ const WizardConStepper = ({ initialLocation = null }) => {
                           ))
                         : null}
 
-                      <View style={[styles.comisionItem, styles.subtotalEnvio]}>
+                      <View
+                        style={[
+                          styles.comisionItem,
+                          styles.subtotalEnvio,
+                          {
+                            backgroundColor: isDarkMode
+                              ? "rgba(30, 64, 124, 0.34)"
+                              : "#E3F2FD",
+                          },
+                        ]}
+                      >
                         <View style={styles.comisionRowHorizontal}>
                           <View style={styles.comisionLeft}>
                             <IconButton
@@ -1136,7 +1293,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
                               <Text style={styles.subtotalLabel}>
                                 Subtotal Envío
                               </Text>
-                              <Text style={styles.comisionDescripcion}>
+                              <Text style={[styles.comisionDescripcion, { color: wizardPalette.cardMuted }]}>
                                 {comisionesComercio.tiendasProcesadas}{" "}
                                 {comisionesComercio.tiendasProcesadas > 1
                                   ? "tiendas"
@@ -1192,7 +1349,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
                                       size={16}
                                       style={styles.noMargin}
                                     />
-                                    <Text style={styles.comisionLabel}>
+                                    <Text style={[styles.comisionLabel, { color: wizardPalette.cardText }]}>
                                       {comision.comentario || "Comisión"}
                                     </Text>
                                   </View>
@@ -1228,7 +1385,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
                   size={28}
                   style={styles.noMargin}
                 />
-                <Text style={styles.comisionesSinDatosText}>
+                <Text style={[styles.comisionesSinDatosText, { color: wizardPalette.cardMuted }]}>
                   Selecciona tu ubicación para calcular costos
                 </Text>
               </View>
@@ -1240,25 +1397,37 @@ const WizardConStepper = ({ initialLocation = null }) => {
   };
 
   const renderTotalCard = () => (
-    <Card style={styles.totalCard} elevation={3}>
+    <Card
+      style={[
+        styles.totalCard,
+        {
+          backgroundColor: wizardPalette.cardBackground,
+          borderColor: wizardPalette.cardBorder,
+        },
+      ]}
+      elevation={3}
+    >
       <Card.Title
         title="Resumen de pago"
         subtitle={`Método: ${metodoPago || "N/D"} • Moneda: ${monedaFinalUI}`}
+        titleStyle={[styles.totalCardTitle, { color: wizardPalette.cardText }]}
+        subtitleStyle={[styles.totalCardSubtitle, { color: wizardPalette.cardMuted }]}
         left={(props) => (
           <IconButton
             {...props}
             icon="cash-multiple"
+            iconColor={wizardPalette.cardMuted}
             size={20}
             style={styles.noMargin}
           />
         )}
       />
-      <Divider />
+      <Divider style={{ backgroundColor: wizardPalette.divider }} />
       <Card.Content style={styles.totalCardContent}>
         {cargandoComisiones || cargandoConversionResumen ? (
           <View style={styles.totalRowCenter}>
             <ActivityIndicator color="#6200ee" size="small" />
-            <Text style={styles.totalHintText}>Calculando total...</Text>
+            <Text style={[styles.totalHintText, { color: wizardPalette.cardMuted }]}>Calculando total...</Text>
           </View>
         ) : errorComisiones || errorConversionResumen ? (
           <View style={styles.totalRowCenter}>
@@ -1275,8 +1444,8 @@ const WizardConStepper = ({ initialLocation = null }) => {
         ) : (
           <>
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Subtotal (productos)</Text>
-              <Text style={styles.totalValue}>
+              <Text style={[styles.totalLabel, { color: wizardPalette.cardMuted }]}>Subtotal (productos)</Text>
+              <Text style={[styles.totalValue, { color: wizardPalette.cardText }]}>
                 {Number(subtotalProductosConvertido || 0).toFixed(2)}{" "}
                 {monedaFinalUI}
               </Text>
@@ -1284,10 +1453,10 @@ const WizardConStepper = ({ initialLocation = null }) => {
 
             {tieneComercio ? (
               <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>
+                <Text style={[styles.totalLabel, { color: wizardPalette.cardMuted }]}>
                   Comisiones (envío + adicionales)
                 </Text>
-                <Text style={styles.totalValue}>
+                <Text style={[styles.totalValue, { color: wizardPalette.cardText }]}>
                   {Number(comisionesConvertidas || 0).toFixed(2)}{" "}
                   {monedaFinalUI}
                 </Text>
@@ -1296,10 +1465,10 @@ const WizardConStepper = ({ initialLocation = null }) => {
 
             {metodoPago === "paypal" || metodoPago === "mercadopago" ? (
               <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>
+                <Text style={[styles.totalLabel, { color: wizardPalette.cardMuted }]}>
                   Comisión {metodoPago === "paypal" ? "PayPal" : "MercadoPago"}
                 </Text>
-                <Text style={styles.totalValue}>
+                <Text style={[styles.totalValue, { color: wizardPalette.cardText }]}>
                   {Math.max(
                     0,
                     Number(totalAPagar || 0) -
@@ -1310,10 +1479,10 @@ const WizardConStepper = ({ initialLocation = null }) => {
               </View>
             ) : null}
 
-            <Divider style={styles.totalDivider} />
+            <Divider style={[styles.totalDivider, { backgroundColor: wizardPalette.divider }]} />
 
             <View style={styles.totalRow}>
-              <Text style={styles.totalTotalLabel}>TOTAL A PAGAR</Text>
+              <Text style={[styles.totalTotalLabel, { color: wizardPalette.cardText }]}>TOTAL A PAGAR</Text>
               <View style={styles.totalPill}>
                 <Text style={styles.totalPillText}>
                   {totalAPagarVisible.toFixed(2)} {monedaFinalUI}
@@ -1322,7 +1491,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
             </View>
 
             {metodoPago === "efectivo" || metodoPago === "transferencia" ? (
-              <Text style={styles.totalFootnote}>
+              <Text style={[styles.totalFootnote, { color: wizardPalette.cardMuted }]}> 
                 Importante: asegúrate de enviar el monto exacto. Si tu banco
                 aplica comisiones externas, la diferencia deberá cubrirse.
               </Text>
@@ -1333,6 +1502,166 @@ const WizardConStepper = ({ initialLocation = null }) => {
     </Card>
   );
 
+  const renderManualPaymentInfoCard = () => {
+    if (metodoPago !== "efectivo" && metodoPago !== "transferencia") {
+      return null;
+    }
+
+    const cardPalette = {
+      accent: isDarkMode ? "#93c5fd" : "#1d4ed8",
+      border: isDarkMode ? "rgba(96, 165, 250, 0.28)" : "rgba(29, 78, 216, 0.18)",
+      copy: isDarkMode ? "#cbd5e1" : "#475569",
+      iconBackground: isDarkMode ? "rgba(59, 130, 246, 0.18)" : "rgba(219, 234, 254, 0.9)",
+      muted: isDarkMode ? "#94a3b8" : "#64748b",
+      surface: isDarkMode ? "rgba(11, 31, 67, 0.86)" : "rgba(255, 255, 255, 0.96)",
+      title: isDarkMode ? "#f8fafc" : "#0f172a",
+    };
+
+    const steps = [
+      {
+        icon: "file-document-check-outline",
+        text: "Al tocar Generar venta, la orden queda creada pero pendiente de pago.",
+        title: "Genera la venta",
+      },
+      {
+        icon: "bank-transfer",
+        text: `Realiza el pago exacto por ${totalAPagarVisible.toFixed(2)} ${monedaFinalUI} usando los datos que aparecerán en la venta pendiente.`,
+        title: "Paga por efectivo o transferencia",
+      },
+      {
+        icon: "camera-plus-outline",
+        text: "Sube una foto clara del comprobante. Debe verse monto, fecha, referencia y cuenta destino.",
+        title: "Adjunta la evidencia",
+      },
+      {
+        icon: "account-check-outline",
+        text: "Un administrador revisará el comprobante y aprobará la venta antes de entregar o activar el servicio.",
+        title: "Espera la aprobación",
+      },
+    ];
+
+    return (
+      <Card
+        elevation={2}
+        style={[
+          styles.manualPaymentInfoCard,
+          {
+            backgroundColor: cardPalette.surface,
+            borderColor: cardPalette.border,
+          },
+        ]}
+      >
+        <Card.Content style={styles.manualPaymentInfoContent}>
+          <View style={styles.manualPaymentHeaderRow}>
+            <View
+              style={[
+                styles.manualPaymentHeaderIcon,
+                { backgroundColor: cardPalette.iconBackground },
+              ]}
+            >
+              <IconButton
+                icon="cash-clock"
+                iconColor={cardPalette.accent}
+                size={22}
+                style={styles.noMargin}
+              />
+            </View>
+            <View style={styles.manualPaymentHeaderCopy}>
+              <Text style={[styles.manualPaymentEyebrow, { color: cardPalette.muted }]}>Pago pendiente con comprobante</Text>
+              <Text style={[styles.manualPaymentTitle, { color: cardPalette.title }]}>Qué debes hacer después de generar la venta</Text>
+            </View>
+          </View>
+
+          <Text style={[styles.manualPaymentIntro, { color: cardPalette.copy }]}>Este método no confirma el pago automáticamente. La venta queda pendiente hasta que subas la evidencia y sea revisada.</Text>
+
+          <View style={styles.manualPaymentSteps}>
+            {steps.map((step, index) => (
+              <View key={step.title} style={styles.manualPaymentStepRow}>
+                <View style={styles.manualPaymentStepRail}>
+                  <View
+                    style={[
+                      styles.manualPaymentStepIcon,
+                      { backgroundColor: cardPalette.iconBackground },
+                    ]}
+                  >
+                    <IconButton
+                      icon={step.icon}
+                      iconColor={cardPalette.accent}
+                      size={17}
+                      style={styles.noMargin}
+                    />
+                  </View>
+                  {index < steps.length - 1 ? (
+                    <View
+                      style={[
+                        styles.manualPaymentStepLine,
+                        { backgroundColor: cardPalette.border },
+                      ]}
+                    />
+                  ) : null}
+                </View>
+                <View style={styles.manualPaymentStepCopy}>
+                  <Text style={[styles.manualPaymentStepTitle, { color: cardPalette.title }]}>{step.title}</Text>
+                  <Text style={[styles.manualPaymentStepText, { color: cardPalette.copy }]}>{step.text}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </Card.Content>
+      </Card>
+    );
+  };
+
+  const renderProxyVpnPaymentNotice = () => {
+    if (!tieneProxyVPN) return null;
+
+    return (
+      <View
+        style={[
+          styles.paymentNoticeCard,
+          {
+            backgroundColor: wizardPalette.warningBackground,
+            borderColor: wizardPalette.warningBorder,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.paymentNoticeIcon,
+            { backgroundColor: wizardPalette.warningIconBackground },
+          ]}
+        >
+          <IconButton
+            icon="shield-check-outline"
+            iconColor={isDarkMode ? "#93c5fd" : "#b45309"}
+            size={22}
+            style={styles.noMargin}
+          />
+        </View>
+        <View style={styles.paymentNoticeCopy}>
+          <Text
+            style={[
+              styles.paymentNoticeTitle,
+              { color: wizardPalette.warningTitle },
+            ]}
+          >
+            Opciones disponibles para Proxy/VPN
+          </Text>
+          <Text
+            style={[
+              styles.paymentNoticeText,
+              { color: wizardPalette.warningText },
+            ]}
+          >
+            Puedes pagar con PayPal, MercadoPago o mediante efectivo/transferencia.
+            En pago manual, elige la moneda, genera la venta y adjunta el
+            comprobante para revisión.
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
   const renderContent = () => {
     if (activeStep === STEP_SUMMARY) {
       return <ListaPedidosRemesa eliminar items={pedidosRemesa} />;
@@ -1340,23 +1669,29 @@ const WizardConStepper = ({ initialLocation = null }) => {
     if (activeStep === STEP_PAYMENT) {
       return (
         <View>
-          <Text style={styles.sectionTitle}>Seleccione el Metodo de Pago</Text>
-          {tieneProxyVPN ? (
-            <View style={styles.warningBox}>
-              <Text style={styles.warningText}>
-                ℹ️ Los paquetes Proxy/VPN requieren pago por Efectivo o
-                Transferencia. Deberás subir un comprobante de pago para su
-                aprobación.
-              </Text>
-            </View>
-          ) : null}
+          <Text style={[styles.sectionTitle, { color: wizardPalette.contentText }]}>Seleccione el Metodo de Pago</Text>
+          {renderProxyVpnPaymentNotice()}
           {renderPaymentWarnings()}
           <Dropdown
-            style={styles.dropdown}
-            placeholderStyle={styles.placeholderStyle}
-            selectedTextStyle={styles.selectedTextStyle}
-            inputSearchStyle={styles.inputSearchStyle}
+            style={[
+              styles.dropdown,
+              {
+                backgroundColor: wizardPalette.dropdownBackground,
+                borderColor: wizardPalette.dropdownBorder,
+              },
+            ]}
+            placeholderStyle={[styles.placeholderStyle, { color: wizardPalette.dropdownPlaceholder }]}
+            selectedTextStyle={[styles.selectedTextStyle, { color: wizardPalette.contentText }]}
+            inputSearchStyle={[styles.inputSearchStyle, { color: wizardPalette.contentText }]}
             iconStyle={styles.iconStyle}
+            containerStyle={[
+              styles.dropdownMenuContainer,
+              { backgroundColor: wizardPalette.dropdownBackground },
+            ]}
+            itemTextStyle={{ color: wizardPalette.contentText }}
+            activeColor={isDarkMode ? "rgba(124, 58, 237, 0.22)" : "#ede9fe"}
+            itemContainerStyle={styles.dropdownItemContainer}
+            selectedTextProps={{ numberOfLines: 1 }}
             data={data}
             search
             maxHeight={300}
@@ -1367,25 +1702,38 @@ const WizardConStepper = ({ initialLocation = null }) => {
             value={metodoPago}
             onChange={(item) => setMetodoPago(item.value)}
           />
-          {!tieneProxyVPN && metodoPago === "efectivo" ? (
+          {metodoPago === "efectivo" ? (
             <View style={{ marginTop: 8 }}>
-              <Text style={styles.countryLabel}>
+              <Text style={[styles.countryLabel, { color: wizardPalette.contentText }]}> 
                 País donde realizará el pago
               </Text>
               {cargandoPaises ? (
                 <View style={styles.loadingCountries}>
                   <ActivityIndicator color="#6200ee" size="small" />
-                  <Text style={styles.loadingCountriesText}>
+                  <Text style={[styles.loadingCountriesText, { color: wizardPalette.mutedText }]}> 
                     Cargando países disponibles...
                   </Text>
                 </View>
               ) : (
                 <Dropdown
-                  style={styles.dropdown}
-                  placeholderStyle={styles.placeholderStyle}
-                  selectedTextStyle={styles.selectedTextStyle}
-                  inputSearchStyle={styles.inputSearchStyle}
+                  style={[
+                    styles.dropdown,
+                    {
+                      backgroundColor: wizardPalette.dropdownBackground,
+                      borderColor: wizardPalette.dropdownBorder,
+                    },
+                  ]}
+                  placeholderStyle={[styles.placeholderStyle, { color: wizardPalette.dropdownPlaceholder }]}
+                  selectedTextStyle={[styles.selectedTextStyle, { color: wizardPalette.contentText }]}
+                  inputSearchStyle={[styles.inputSearchStyle, { color: wizardPalette.contentText }]}
                   iconStyle={styles.iconStyle}
+                  containerStyle={[
+                    styles.dropdownMenuContainer,
+                    { backgroundColor: wizardPalette.dropdownBackground },
+                  ]}
+                  itemTextStyle={{ color: wizardPalette.contentText }}
+                  activeColor={isDarkMode ? "rgba(124, 58, 237, 0.22)" : "#ede9fe"}
+                  itemContainerStyle={styles.dropdownItemContainer}
                   data={paisesPagoData}
                   search={paisesPagoData.length > 3}
                   maxHeight={240}
@@ -1398,7 +1746,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
                   disable={paisesPagoData.length === 0}
                 />
               )}
-              <Text style={styles.countryValue}>
+              <Text style={[styles.countryValue, { color: wizardPalette.contentText }]}> 
                 Moneda seleccionada: {monedaFinalUI}
               </Text>
             </View>
@@ -1410,7 +1758,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
       if (!tieneComercio) {
         return (
           <View style={styles.placeholderCenter}>
-            <Text style={styles.placeholderText}>
+            <Text style={[styles.placeholderText, { color: wizardPalette.mutedText }]}>
               Este paso no es necesario para tu pedido
             </Text>
           </View>
@@ -1418,7 +1766,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
       }
       return (
         <View style={{ paddingBottom: 80 }}>
-          <Text style={styles.locationTitle}>
+          <Text style={[styles.locationTitle, { color: wizardPalette.contentText }]}> 
             Selecciona dónde recibirás tu pedido
           </Text>
           <MapLocationPicker
@@ -1438,9 +1786,17 @@ const WizardConStepper = ({ initialLocation = null }) => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.stepPaySectionDividerWrap}>
-          <Divider style={styles.stepPaySectionDivider} />
-          <View style={styles.stepPaySectionPill}>
-            <Text style={styles.stepPaySectionPillText}>
+          <Divider style={[styles.stepPaySectionDivider, { backgroundColor: wizardPalette.sectionPillBorder }]} />
+          <View
+            style={[
+              styles.stepPaySectionPill,
+              {
+                backgroundColor: wizardPalette.sectionPillBackground,
+                borderColor: wizardPalette.sectionPillBorder,
+              },
+            ]}
+          >
+            <Text style={[styles.stepPaySectionPillText, { color: wizardPalette.accentStrong }]}>
               Productos comprados
             </Text>
           </View>
@@ -1451,9 +1807,17 @@ const WizardConStepper = ({ initialLocation = null }) => {
         </View>
 
         <View style={styles.stepPaySectionDividerWrap}>
-          <Divider style={styles.stepPaySectionDivider} />
-          <View style={styles.stepPaySectionPill}>
-            <Text style={styles.stepPaySectionPillText}>
+          <Divider style={[styles.stepPaySectionDivider, { backgroundColor: wizardPalette.sectionPillBorder }]} />
+          <View
+            style={[
+              styles.stepPaySectionPill,
+              {
+                backgroundColor: wizardPalette.sectionPillBackground,
+                borderColor: wizardPalette.sectionPillBorder,
+              },
+            ]}
+          >
+            <Text style={[styles.stepPaySectionPillText, { color: wizardPalette.accentStrong }]}>
               Resumen de costos y pago
             </Text>
           </View>
@@ -1461,13 +1825,14 @@ const WizardConStepper = ({ initialLocation = null }) => {
 
         {renderComisionesCard()}
         {renderTotalCard()}
+        {renderManualPaymentInfoCard()}
         {preparingCheckout ? (
           <View style={styles.procesandoContainer}>
             <ActivityIndicator color="#6200ee" size="large" />
-            <Text style={styles.procesandoTexto}>
+              <Text style={[styles.procesandoTexto, { color: wizardPalette.accentStrong }]}> 
               Preparando la pasarela de pago...
             </Text>
-            <Text style={styles.procesandoSubtexto}>
+            <Text style={[styles.procesandoSubtexto, { color: wizardPalette.mutedText }]}> 
               Por favor, no cierre esta ventana
             </Text>
           </View>
@@ -1499,22 +1864,31 @@ const WizardConStepper = ({ initialLocation = null }) => {
             theme={{ colors: { primary: "green" } }}
           >
             <BlurView
-              intensity={24}
+              intensity={56}
               tint={isDarkMode ? "dark" : "light"}
               style={StyleSheet.absoluteFill}
               experimentalBlurMethod="dimezisBlurView"
               renderToHardwareTextureAndroid={true}
             />
+            <View
+              pointerEvents="none"
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  backgroundColor: wizardPalette.modalOverlay,
+                },
+              ]}
+            />
             <View style={styles.modalRoot}>
               <View style={styles.dialogTitleContainer}>
-                <Text style={styles.dialogTitleText}>Carrito de compras:</Text>
+                <Text style={[styles.dialogTitleText, { color: wizardPalette.surfaceText }]}>Carrito de compras:</Text>
                 <IconButton
                   icon="close"
                   onPress={hideModal}
-                  iconColor="white"
+                  iconColor={wizardPalette.surfaceText}
                 />
               </View>
-              <Divider style={{ marginBottom: 12 }} />
+              <Divider style={{ marginBottom: 12, backgroundColor: wizardPalette.divider }} />
               {renderStepper()}
               <View style={styles.contentPane}>{renderContent()}</View>
               <View style={styles.footerBar}>
@@ -1562,21 +1936,43 @@ const WizardConStepper = ({ initialLocation = null }) => {
 
 const styles = StyleSheet.create({
   advertenciaFinal: {
-    alignItems: "center",
+    alignItems: "flex-start",
     backgroundColor: "#FFF3CD",
     borderColor: "#FF6F00",
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     flexDirection: "row",
+    gap: 12,
     marginTop: 16,
-    padding: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    shadowColor: "#0f172a",
+    shadowOffset: { height: 8, width: 0 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+  },
+  advertenciaCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  advertenciaIconWrap: {
+    alignItems: "center",
+    borderRadius: 14,
+    height: 38,
+    justifyContent: "center",
+    width: 38,
+  },
+  advertenciaTitle: {
+    fontSize: 13,
+    fontWeight: "900",
+    lineHeight: 18,
   },
   advertenciaTexto: {
     color: "#6200ee",
     flex: 1,
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: "600",
-    marginLeft: 8,
+    lineHeight: 18,
   },
   badge: {
     position: "absolute",
@@ -1596,16 +1992,18 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   countryLabel: {
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 0.2,
     marginBottom: 6,
     marginLeft: 18,
-    opacity: 0.85,
   },
   countryValue: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.1,
     marginLeft: 18,
     marginTop: 4,
-    opacity: 0.75,
   },
   dialogTitleContainer: {
     alignItems: "center",
@@ -1654,6 +2052,85 @@ const styles = StyleSheet.create({
     marginTop: 8,
     opacity: 0.7,
   },
+  manualPaymentEyebrow: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  manualPaymentHeaderCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  manualPaymentHeaderIcon: {
+    alignItems: "center",
+    borderRadius: 14,
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
+  manualPaymentHeaderRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+  },
+  manualPaymentInfoCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    marginHorizontal: 16,
+    marginTop: 12,
+    overflow: "hidden",
+  },
+  manualPaymentInfoContent: {
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  manualPaymentIntro: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 12,
+  },
+  manualPaymentStepCopy: {
+    flex: 1,
+    paddingBottom: 12,
+  },
+  manualPaymentStepIcon: {
+    alignItems: "center",
+    borderRadius: 12,
+    height: 34,
+    justifyContent: "center",
+    width: 34,
+  },
+  manualPaymentStepLine: {
+    flex: 1,
+    marginVertical: 4,
+    width: 2,
+  },
+  manualPaymentStepRail: {
+    alignItems: "center",
+    marginRight: 10,
+  },
+  manualPaymentStepRow: {
+    flexDirection: "row",
+    minHeight: 58,
+  },
+  manualPaymentStepText: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  manualPaymentStepTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  manualPaymentSteps: {
+    marginTop: 14,
+  },
+  manualPaymentTitle: {
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 20,
+  },
   locationTitle: {
     fontSize: 16,
     fontWeight: "bold",
@@ -1673,6 +2150,42 @@ const styles = StyleSheet.create({
   },
   noMargin: {
     margin: 0,
+  },
+  paymentNoticeCard: {
+    alignItems: "flex-start",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    marginHorizontal: 16,
+    marginTop: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    shadowColor: "#0f172a",
+    shadowOffset: { height: 12, width: 0 },
+    shadowOpacity: 0.14,
+    shadowRadius: 20,
+  },
+  paymentNoticeCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  paymentNoticeIcon: {
+    alignItems: "center",
+    borderRadius: 16,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  paymentNoticeText: {
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 20,
+  },
+  paymentNoticeTitle: {
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 21,
   },
   placeholderCenter: {
     alignItems: "center",

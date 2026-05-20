@@ -11,6 +11,7 @@ import {
     PedidosAsignadosComercioCollection,
     VentasRechargeCollection,
 } from "../../collections/collections";
+import { useAppHeaderContentInset } from "../../Header/AppHeader";
 import CardPedidoComercio from "./CardPedidoComercio.native";
 
 const Meteor = /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -66,6 +67,7 @@ const formatLastSyncTime = (timestamp) => {
 const HomePedidosComercio = () => {
   const theme = useTheme();
   const { width } = useWindowDimensions();
+  const headerInset = useAppHeaderContentInset();
   const [refreshing, setRefreshing] = useState(false);
   const [sliderInteractionActive, setSliderInteractionActive] = useState(false);
   const currentUserId = Meteor.useTracker(() => Meteor.userId());
@@ -242,7 +244,7 @@ const HomePedidosComercio = () => {
   if (!cadeteData.ready) {
     return (
       <View style={styles.loadingContainer}>
-        <Surface style={styles.loadingCard}>
+        <Surface style={[styles.loadingCard, { marginTop: headerInset }]}> 
           <ActivityIndicator color="#13803d" size="large" />
           <Text style={[styles.loadingTitle, { color: palette.loadingTitle }]} variant="titleMedium">
             Cargando pedidos del cadete
@@ -262,6 +264,7 @@ const HomePedidosComercio = () => {
         {
           backgroundColor: palette.background,
           paddingHorizontal: horizontalPadding,
+          paddingTop: headerInset + 20,
           width: "100%",
         },
       ]}
@@ -299,6 +302,17 @@ const HomePedidosComercio = () => {
             {tracking.trackingMode === "background" ? "Segundo plano" : "Seguimiento activo"}
           </Chip>
         </View>
+
+        <Button
+          compact
+          icon={trackingCard.actionType === "settings" ? "cog-outline" : "crosshairs-gps"}
+          mode="outlined"
+          onPress={handleStatusAction}
+          style={styles.statusButton}
+          textColor={trackingCard.accent}
+        >
+          {trackingCard.actionLabel}
+        </Button>
       </Surface>
 
       <View style={styles.sectionHeader}>
@@ -380,7 +394,6 @@ const styles = StyleSheet.create({
   innerContainer: {
     alignSelf: "center",
     width: "100%",
-    paddingTop: 20,
   },
   loadingCard: {
     alignItems: "center",

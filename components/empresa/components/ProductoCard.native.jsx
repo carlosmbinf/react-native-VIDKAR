@@ -1,7 +1,8 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import Meteor from "@meteorrn/core";
+import { BlurView } from "expo-blur";
 import { useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { Alert, Platform, StyleSheet, View } from "react-native";
 import { Card, IconButton, Menu, Text, useTheme } from "react-native-paper";
 
 import { createEmpresaPalette } from "../styles/empresaTheme";
@@ -99,7 +100,10 @@ const ProductoCard = ({ compact = false, producto, onEdit }) => {
   const descripcion = normalizeText(producto?.descripcion, "Sin descripcion disponible");
   const nota = normalizeText(producto?.comentario, "");
   const precioFormateado = `${Number(producto?.precio || 0).toFixed(2)} ${producto?.monedaPrecio || "USD"}`;
-  const availabilityMeta = getAvailabilityMeta({ count, isDark: Boolean(theme.dark), isElaboracion });
+  const isDark = Boolean(theme.dark);
+  const availabilityMeta = getAvailabilityMeta({ count, isDark, isElaboracion });
+  const overlayTextColor = "#ffffff";
+  const overlaySecondaryTextColor = isDark ? "rgba(248, 250, 252, 0.86)" : "rgba(255, 255, 255, 0.84)";
 
   const handleDelete = () => {
     Alert.alert(
@@ -157,19 +161,19 @@ const ProductoCard = ({ compact = false, producto, onEdit }) => {
           style={[
             styles.backdropTint,
             {
-              backgroundColor: theme.dark ? "rgba(9, 14, 32, 0.36)" : "rgba(56, 33, 102, 0.16)",
+              backgroundColor: isDark ? "rgba(9, 14, 32, 0.22)" : "rgba(16, 24, 40, 0.08)",
             },
           ]}
         />
-        <View
+        {/* <View
           pointerEvents="none"
           style={[
             styles.backdropFade,
             {
-              backgroundColor: theme.dark ? "rgba(2, 6, 23, 0.76)" : "rgba(255, 255, 255, 0.78)",
+              backgroundColor: isDark ? "rgba(2, 6, 23, 0.5)" : "rgba(15, 23, 42, 0.34)",
             },
           ]}
-        />
+        /> */}
         <View pointerEvents="none" style={styles.mediaGlowWrap}>
           <View style={[styles.mediaGlow, { backgroundColor: palette.brandSoft }]} />
         </View>
@@ -240,30 +244,56 @@ const ProductoCard = ({ compact = false, producto, onEdit }) => {
             </Menu>
           </View>
 
-          <View style={styles.contentFooter}>
+          <BlurView
+            experimentalBlurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
+            intensity={15}
+            renderToHardwareTextureAndroid
+            style={[
+              styles.contentFooter,
+              compact ? styles.contentFooterCompact : null,
+              {
+                backgroundColor: isDark ? "rgba(15, 23, 42, 0.14)" : "rgba(15, 23, 42, 0.1)",
+                borderColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.28)",
+              },
+            ]}
+            tint="dark"
+          >
+            <View
+              pointerEvents="none"
+              style={[
+                styles.contentFooterBlurOverlay,
+                {
+                  backgroundColor: isDark ? "rgba(15, 23, 42, 0.18)" : "rgba(15, 23, 42, 0.14)",
+                },
+              ]}
+            />
             <View style={styles.copyBlock}>
               <View
                 style={[
                   styles.eyebrowChip,
                   {
-                    backgroundColor: theme.dark ? "rgba(15, 23, 42, 0.6)" : "rgba(255, 255, 255, 0.72)",
-                    borderColor: theme.dark ? "rgba(255, 255, 255, 0.1)" : "rgba(103, 58, 183, 0.1)",
+                    backgroundColor: isDark ? "rgba(15, 23, 42, 0.6)" : "rgba(15, 23, 42, 0.26)",
+                    borderColor: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(255, 255, 255, 0.26)",
                   },
                 ]}
               >
-                <MaterialCommunityIcons color={palette.brandStrong} name="shopping-outline" size={14} />
-                <Text style={{ color: palette.brandStrong }} variant="labelSmall">
+                <MaterialCommunityIcons
+                  color={isDark ? palette.brandStrong : "#ffffff"}
+                  name="shopping-outline"
+                  size={14}
+                />
+                <Text style={{ color: isDark ? palette.brandStrong : "#ffffff" }} variant="labelSmall">
                   Catalogo de tienda
                 </Text>
               </View>
 
               <View style={styles.titleBlock}>
-                <Text numberOfLines={2} style={[styles.titleText, { color: palette.title }]} variant="headlineSmall">
+                <Text numberOfLines={2} style={[styles.titleText, { color: overlayTextColor }]} variant="headlineSmall">
                   {producto?.name || "Producto"}
                 </Text>
                 <Text
-                  numberOfLines={compact ? 3 : 4}
-                  style={[styles.descriptionText, { color: theme.dark ? "rgba(248, 250, 252, 0.88)" : palette.copy }]}
+                  numberOfLines={compact ? 2 : 3}
+                  style={[styles.descriptionText, { color: overlaySecondaryTextColor }]}
                   variant="bodyMedium"
                 >
                   {descripcion}
@@ -311,18 +341,18 @@ const ProductoCard = ({ compact = false, producto, onEdit }) => {
                 style={[
                   styles.notePanel,
                   {
-                    backgroundColor: theme.dark ? "rgba(15, 23, 42, 0.62)" : "rgba(255, 255, 255, 0.72)",
-                    borderColor: theme.dark ? "rgba(255, 255, 255, 0.08)" : "rgba(103, 58, 183, 0.1)",
+                    backgroundColor: isDark ? "rgba(15, 23, 42, 0.5)" : "rgba(15, 23, 42, 0.28)",
+                    borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.24)",
                   },
                 ]}
               >
-                <MaterialCommunityIcons color={palette.icon} name="text-box-outline" size={15} />
-                <Text numberOfLines={2} style={{ color: palette.title, flex: 1 }} variant="bodySmall">
+                <MaterialCommunityIcons color={overlayTextColor} name="text-box-outline" size={15} />
+                <Text numberOfLines={2} style={{ color: overlaySecondaryTextColor, flex: 1 }} variant="bodySmall">
                   {nota}
                 </Text>
               </View>
             ) : null}
-          </View>
+          </BlurView>
         </View>
       </View>
     </Card>
@@ -347,7 +377,7 @@ const styles = StyleSheet.create({
   },
   backdropFade: {
     ...StyleSheet.absoluteFillObject,
-    top: "44%",
+    top: "66%",
   },
   backdropTint: {
     ...StyleSheet.absoluteFillObject,
@@ -372,16 +402,28 @@ const styles = StyleSheet.create({
   cardInner: {
     flex: 1,
     justifyContent: "space-between",
-    padding: 16,
+    padding: 14,
   },
   contentFooter: {
-    gap: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 10,
+    overflow: "hidden",
+    padding: 12,
+  },
+  contentFooterBlurOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  contentFooterCompact: {
+    borderRadius: 20,
+    gap: 9,
+    padding: 10,
   },
   copyBlock: {
     gap: 8,
   },
   descriptionText: {
-    lineHeight: 21,
+    lineHeight: 19,
   },
   eyebrowChip: {
     alignItems: "center",
@@ -396,15 +438,15 @@ const styles = StyleSheet.create({
   footerMetaRow: {
     alignItems: "flex-end",
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
     justifyContent: "space-between",
   },
   heroCard: {
-    minHeight: 338,
+    minHeight: 348,
     position: "relative",
   },
   heroCardCompact: {
-    minHeight: 316,
+    minHeight: 326,
   },
   mediaGlow: {
     borderRadius: 88,
@@ -453,8 +495,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   priceChipLarge: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   priceText: {
     fontWeight: "800",
@@ -470,7 +512,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   titleBlock: {
-    gap: 6,
+    gap: 5,
   },
   titleText: {
     fontWeight: "700",

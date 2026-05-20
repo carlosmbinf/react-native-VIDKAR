@@ -1,11 +1,15 @@
 import MeteorBase from "@meteorrn/core";
 import { router } from "expo-router";
 import { useEffect, useRef } from "react";
-import { Alert } from "react-native";
+import { Alert, Linking } from "react-native";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { getAppVersionInfo } from "../../services/app/appVersion";
-import { syncCadeteBackgroundLocation } from "../../services/location/cadeteBackgroundLocation.native";
+import {
+    ensureCadeteLocationPermissions,
+    sendCadeteLocationNow,
+    syncCadeteBackgroundLocation,
+} from "../../services/location/cadeteBackgroundLocation.native";
 import {
     buildPendingEvidenceAggregate,
     buildPendingEvidenceQuery,
@@ -159,6 +163,127 @@ const buildMissingPriceServices = (prices = []) => {
   return PRICE_SETUP_SERVICES.filter(
     (service) => !service.types.some((type) => configuredTypes.has(type)),
   ).map(({ icon, key, label }) => ({ icon, key, label }));
+};
+
+const callMeteorMethod = (methodName, ...args) =>
+  new Promise((resolve, reject) => {
+    Meteor.call(methodName, ...args, (error, result) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve(result);
+    });
+  });
+
+const getCadeteTrackingStartError = (result) => {
+  if (result?.started) {
+    return "";
+  }
+
+  if (result?.reason === "permission-denied") {
+    return "Debes permitir la ubicación siempre activa para entrar al modo cadete.";
+  }
+
+  if (result?.reason === "task-not-defined") {
+    return "El servicio de ubicación todavía no está listo. Reinicia la app e inténtalo nuevamente.";
+  }
+
+  if (result?.reason === "native-start-failed") {
+    return "No se pudo iniciar el seguimiento nativo de ubicación.";
+  }
+
+  return "No se pudo iniciar el seguimiento de ubicación en tiempo real.";
+};
+
+const createCadeteLocationError = (message, options = {}) => {
+  const error = new Error(message);
+  error.code = options.code || "cadete-location-error";
+  error.openSettings = Boolean(options.openSettings);
+  return error;
+};
+
+const openApplicationSettings = async () => {
+  try {
+    await Linking.openSettings();
+  } catch (error) {
+    console.warn("[CadeteLocation] No se pudo abrir la configuración de la app:", error);
+  }
+};
+
+const shouldOfferLocationSettings = (permissions) => {
+  if (!permissions || permissions.granted) {
+    return false;
+  }
+
+  return (
+    permissions.foreground?.status !== "granted" ||
+    permissions.background?.status !== "granted" ||
+    permissions.foreground?.canAskAgain === false ||
+    permissions.background?.canAskAgain === false
+  );
+};
+
+const showCadeteLocationErrorAlert = (message, { openSettings = false } = {}) => {
+  if (!openSettings) {
+    Alert.alert("Ubicación requerida", message);
+    return;
+  }
+
+  Alert.alert(
+    "Ubicación requerida",
+    `${message}\n\nAbre la configuración de la app y permite la ubicación para poder activar el modo cadete.`,
+    [
+      {
+        text: "Cancelar",
+        style: "cancel",
+      },
+      {
+        text: "Abrir configuración",
+        onPress: openApplicationSettings,
+      },
+    ],
+  );
+};
+
+const prepareCadeteRealtimeLocation = async (userId) => {
+  if (!userId) {
+    throw createCadeteLocationError(
+      "No se pudo identificar tu sesión para activar el modo cadete.",
+    );
+  }
+
+  const permissions = await ensureCadeteLocationPermissions({ request: true });
+
+  if (!permissions.granted) {
+    throw createCadeteLocationError(
+      "Debes permitir la ubicación siempre activa para entrar al modo cadete.",
+      {
+        code: "cadete-location-permission-denied",
+        openSettings: shouldOfferLocationSettings(permissions),
+      },
+    );
+  }
+
+  const initialLocation = await sendCadeteLocationNow({
+    force: true,
+    minDistanceMeters: 0,
+    trackingMode: "preflight",
+    userId,
+  });
+
+  if (!initialLocation) {
+    throw createCadeteLocationError(
+      "No se pudo obtener tu ubicación actual. Activa el GPS e inténtalo nuevamente.",
+      {
+        code: "cadete-location-unavailable",
+        openSettings: true,
+      },
+    );
+  }
+
+  return initialLocation;
 };
 
 const MenuPrincipalNative = () => {
@@ -448,35 +573,62 @@ const MenuPrincipalNative = () => {
         },
         {
           text: "Confirmar",
-          onPress: () => {
-            Meteor.call("users.toggleModoCadete", nextState, async (error) => {
-              if (error) {
-                Alert.alert(
-                  "Error",
-                  error.reason || "No se pudo cambiar el modo cadete.",
-                );
-                return;
+          onPress: async () => {
+            let cadeteModeActivated = false;
+
+            try {
+              if (nextState) {
+                await prepareCadeteRealtimeLocation(currentUserId);
               }
 
-              try {
-                await syncCadeteBackgroundLocation({
-                  enabled: nextState,
-                  userId: nextState ? currentUserId : undefined,
-                });
-              } catch (trackingError) {
-                console.warn(
-                  "[CadeteLocation] No se pudo sincronizar el tracking al cambiar modo cadete:",
-                  trackingError,
-                );
+              await callMeteorMethod("users.toggleModoCadete", nextState);
+              cadeteModeActivated = nextState;
+
+              const trackingResult = await syncCadeteBackgroundLocation({
+                enabled: nextState,
+                userId: nextState ? currentUserId : undefined,
+              });
+              const trackingErrorMessage = nextState
+                ? getCadeteTrackingStartError(trackingResult)
+                : "";
+
+              if (trackingErrorMessage) {
+                throw new Error(trackingErrorMessage);
               }
 
               Alert.alert(
                 "Éxito",
                 nextState
-                  ? "Modo cadete activado correctamente."
+                  ? "Modo cadete activado correctamente. Tu ubicación en tiempo real quedó encendida."
                   : "Modo cadete desactivado correctamente.",
               );
-            });
+            } catch (error) {
+              if (nextState && cadeteModeActivated) {
+                try {
+                  await callMeteorMethod("users.toggleModoCadete", false);
+                  await syncCadeteBackgroundLocation({ enabled: false });
+                } catch (rollbackError) {
+                  console.warn(
+                    "[CadeteLocation] No se pudo revertir el modo cadete tras fallar el tracking:",
+                    rollbackError,
+                  );
+                }
+              }
+
+              const errorMessage =
+                error?.reason ||
+                error?.message ||
+                "No se pudo cambiar el modo cadete.";
+
+              if (nextState) {
+                showCadeteLocationErrorAlert(errorMessage, {
+                  openSettings: error?.openSettings === true,
+                });
+                return;
+              }
+
+              Alert.alert("Error", errorMessage);
+            }
           },
         },
       ],
