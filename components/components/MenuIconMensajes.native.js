@@ -2,26 +2,26 @@ import MeteorBase from "@meteorrn/core";
 import { BlurView } from "expo-blur";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  InteractionManager,
-  ScrollView,
-  StyleSheet,
-  View,
+    InteractionManager,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 import {
-  Avatar,
-  Badge,
-  Divider,
-  IconButton,
-  List,
-  Menu,
-  Text,
-  useTheme,
+    Avatar,
+    Badge,
+    Divider,
+    IconButton,
+    List,
+    Menu,
+    Text,
+    useTheme,
 } from "react-native-paper";
 
 import { Mensajes } from "../collections/collections";
 import {
-  DARK_MENU_GLASS_TINT,
-  LIGHT_MENU_GLASS_TINT,
+    DARK_MENU_GLASS_TINT,
+    LIGHT_MENU_GLASS_TINT,
 } from "../shared/GlassMenuSurface";
 
 const Meteor =
@@ -44,29 +44,21 @@ const MESSAGE_SENDER_FIELDS = {
   "profile.role": 1,
 };
 
-const getConversationQuery = (otherUserId, currentUserId) => ({
-  $or: [
-    { $and: [{ from: otherUserId }, { to: currentUserId }] },
-    { $and: [{ from: currentUserId }, { to: otherUserId }] },
-  ],
+const getCurrentUserMessagesQuery = (currentUserId) => ({
+  $or: [{ from: currentUserId }, { to: currentUserId }],
 });
 
-const MessageMenuContent = ({ currentUserId, users, onOpenThread }) => (
+const MessageMenuContent = ({ conversations, currentUserId, onOpenThread }) => (
   <View>
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       style={styles.menuScroll}
     >
-      {users.map((userId, index) => {
+      {conversations.map((conversation, index) => {
+        const userId = conversation.userId;
         const user = Meteor.users.findOne({ _id: userId });
-        const lastMessage = Mensajes.findOne(
-          getConversationQuery(userId, currentUserId),
-          { sort: { createdAt: -1 } },
-        );
-        const unreadCount = Mensajes.find(
-          { from: userId, to: currentUserId, leido: false },
-          { sort: { createdAt: -1 } },
-        ).count();
+        const lastMessage = conversation.lastMessage;
+        const unreadCount = conversation.unreadCount;
         const messageDescription = `${lastMessage?.from === currentUserId ? "TU: " : ""}${lastMessage?.mensaje || ""}`;
 
         return (
@@ -96,7 +88,7 @@ const MessageMenuContent = ({ currentUserId, users, onOpenThread }) => (
                 ) : null
               }
             />
-            {index !== users.length - 1 ? <Divider /> : null}
+            {index !== conversations.length - 1 ? <Divider /> : null}
           </View>
         );
       })}
@@ -128,9 +120,10 @@ const MenuIconMensajesNative = ({ onOpenMessages }) => {
     };
   }, []);
 
-  const { countMensajes, messagesReady, users } = Meteor.useTracker(() => {
+  const { conversations, countMensajes, messagesReady, users } = Meteor.useTracker(() => {
     if (!readyToSubscribe || !currentUserId) {
       return {
+        conversations: [],
         countMensajes: 0,
         messagesReady: true,
         users: [],
@@ -139,16 +132,45 @@ const MenuIconMensajesNative = ({ onOpenMessages }) => {
 
     const messagesHandle = Meteor.subscribe(
       "mensajes",
-      { to: currentUserId },
-      { fields: MENSAJES_FIELDS },
+      getCurrentUserMessagesQuery(currentUserId),
+      { fields: MENSAJES_FIELDS, sort: { createdAt: -1 } },
     );
     const messages = Mensajes.find(
-      { to: currentUserId },
-      { sort: { _id: 1 } },
+      getCurrentUserMessagesQuery(currentUserId),
+      { fields: MENSAJES_FIELDS, sort: { createdAt: -1 } },
     ).fetch();
-    const uniqueUsers = [...new Set(messages.map((message) => message?.from).filter(Boolean))];
+    const unreadCountsByUser = new Map();
+    const latestMessageByUser = new Map();
+
+    messages.forEach((message) => {
+      if (!message) {
+        return;
+      }
+
+      const otherUserId = message.from === currentUserId ? message.to : message.from === currentUserId || message.to === currentUserId ? message.from : null;
+
+      if (!otherUserId) {
+        return;
+      }
+
+      if (!latestMessageByUser.has(otherUserId)) {
+        latestMessageByUser.set(otherUserId, message);
+      }
+
+      if (message.from === otherUserId && message.to === currentUserId && message.leido === false) {
+        unreadCountsByUser.set(otherUserId, (unreadCountsByUser.get(otherUserId) || 0) + 1);
+      }
+    });
+
+    const uniqueUsers = Array.from(latestMessageByUser.keys());
+    const conversationSummaries = uniqueUsers.map((userId) => ({
+      userId,
+      lastMessage: latestMessageByUser.get(userId) || null,
+      unreadCount: unreadCountsByUser.get(userId) || 0,
+    }));
 
     return {
+      conversations: conversationSummaries,
       countMensajes: Mensajes.find({ to: currentUserId, leido: false }).count(),
       messagesReady: messagesHandle.ready(),
       users: uniqueUsers,
@@ -234,8 +256,8 @@ const MenuIconMensajesNative = ({ onOpenMessages }) => {
         experimentalBlurMethod="dimezisBlurView"
       >
         <MessageMenuContent
+          conversations={conversations}
           currentUserId={currentUserId}
-          users={users}
           onOpenThread={(userId) => {
             setMenuVisible(false);
             onOpenMessages?.(userId);

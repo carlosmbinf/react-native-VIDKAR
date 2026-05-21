@@ -241,9 +241,9 @@ const WizardConStepper = ({ initialLocation = null }) => {
     return { compra };
   }, [userId, visible]);
 
-  const pedidosRemesa = Meteor.useTracker(() => {
+  const { cargandoCarrito, pedidosRemesa } = Meteor.useTracker(() => {
     if (!userId) {
-      return [];
+      return { cargandoCarrito: false, pedidosRemesa: [] };
     }
 
     const cartOptions = visible ? {} : { fields: CART_BADGE_FIELDS };
@@ -253,12 +253,17 @@ const WizardConStepper = ({ initialLocation = null }) => {
       cartOptions,
     );
 
-    return carritoHandle.ready()
-      ? CarritoCollection.find(
-          { idUser: userId },
-          cartOptions,
-        ).fetch()
-      : [];
+    if (!carritoHandle.ready()) {
+      return { cargandoCarrito: true, pedidosRemesa: [] };
+    }
+
+    return {
+      cargandoCarrito: false,
+      pedidosRemesa: CarritoCollection.find(
+        { idUser: userId },
+        cartOptions,
+      ).fetch(),
+    };
   }, [userId, visible]);
 
   const permitirPagoEfectivoCUP = Boolean(
@@ -1662,8 +1667,24 @@ const WizardConStepper = ({ initialLocation = null }) => {
     );
   };
 
+  const renderCartLoadingState = () => (
+    <View style={styles.cartLoadingState}>
+      <ActivityIndicator animating size="small" />
+      <Text style={[styles.cartLoadingTitle, { color: wizardPalette.contentText }]}> 
+        Cargando productos del carrito...
+      </Text>
+      <Text style={[styles.cartLoadingText, { color: wizardPalette.mutedText }]}> 
+        Estamos preparando tus productos para confirmar el pedido.
+      </Text>
+    </View>
+  );
+
   const renderContent = () => {
     if (activeStep === STEP_SUMMARY) {
+      if (cargandoCarrito) {
+        return renderCartLoadingState();
+      }
+
       return <ListaPedidosRemesa eliminar items={pedidosRemesa} />;
     }
     if (activeStep === STEP_PAYMENT) {
@@ -1904,7 +1925,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
                   <Button
                     mode="contained"
                     onPress={nextStep}
-                    disabled={pedidosRemesa.length === 0}
+                    disabled={cargandoCarrito || pedidosRemesa.length === 0}
                   >
                     {activeStep === STEP_TERMS ? "Aceptar" : "Siguiente"}
                   </Button>
@@ -2037,6 +2058,25 @@ const styles = StyleSheet.create({
   inputSearchStyle: {
     fontSize: 16,
     height: 40,
+  },
+  cartLoadingState: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 220,
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+  },
+  cartLoadingText: {
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 6,
+    textAlign: "center",
+  },
+  cartLoadingTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    marginTop: 14,
+    textAlign: "center",
   },
   listWrapper: {
     marginTop: 12,

@@ -1,16 +1,17 @@
 import MeteorBase from "@meteorrn/core";
+import { BlurView } from "expo-blur";
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
 import {
-    Button,
-    Dialog,
-    Divider,
-    HelperText,
-    IconButton,
-    Portal,
-    Text,
-    TextInput,
-    useTheme,
+  Button,
+  Dialog,
+  Divider,
+  HelperText,
+  IconButton,
+  Portal,
+  Text,
+  TextInput,
+  useTheme,
 } from "react-native-paper";
 
 const Meteor =
@@ -23,6 +24,10 @@ const AddToCartDialogNative = ({ onDismiss, producto, tienda, visible }) => {
   const [comentario, setComentario] = useState("");
   const [loading, setLoading] = useState(false);
   const theme = useTheme();
+  const blurTint = theme.dark ? "dark" : "light";
+  const dialogOverlayColor = theme.dark
+    ? "rgba(15, 23, 42, 0.76)"
+    : "rgba(255, 255, 255, 0.72)";
   const user = Meteor.useTracker(() => Meteor.user());
 
   useEffect(() => {
@@ -87,7 +92,7 @@ const AddToCartDialogNative = ({ onDismiss, producto, tienda, visible }) => {
         [{ onPress: onDismiss, text: "ok" }],
       );
     } catch (error) {
-      console.error("Error al agregar al carrito:", error);
+      console.log("Error al agregar al carrito:", error);
       Alert.alert(
         "Información",
         error.reason ||
@@ -101,6 +106,35 @@ const AddToCartDialogNative = ({ onDismiss, producto, tienda, visible }) => {
   return (
     <Portal>
       <Dialog onDismiss={onDismiss} style={styles.dialog} visible={visible}>
+        {blurTint === "dark" ? (
+          <BlurView
+            experimentalBlurMethod={
+              Platform.OS === "android" ? "dimezisBlurView" : undefined
+            }
+            intensity={42}
+            renderToHardwareTextureAndroid
+            style={StyleSheet.absoluteFill}
+            tint="dark"
+          />
+        ) : (
+          <BlurView
+            experimentalBlurMethod={
+              Platform.OS === "android" ? "dimezisBlurView" : undefined
+            }
+            intensity={36}
+            renderToHardwareTextureAndroid
+            style={StyleSheet.absoluteFill}
+            tint="light"
+          />
+        )}
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            styles.dialogBlurOverlay,
+            { backgroundColor: dialogOverlayColor },
+          ]}
+        />
         <Dialog.Title style={styles.dialogTitle}>
           Agregar al carrito
         </Dialog.Title>
@@ -204,7 +238,7 @@ const AddToCartDialogNative = ({ onDismiss, producto, tienda, visible }) => {
             <View
               style={[
                 styles.precioResumen,
-                { backgroundColor: theme.colors.surfaceVariant },
+                // { backgroundColor: theme.colors.surfaceVariant },
               ]}
             >
               <View style={styles.precioRow}>
@@ -279,7 +313,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   dialog: {
-    maxHeight: "80%",
+    backgroundColor: "transparent",
+    borderRadius: 28,
+    overflow: "hidden",
+  },
+  dialogBlurOverlay: {
+    borderRadius: 28,
   },
   dialogActions: {
     paddingBottom: 16,

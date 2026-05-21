@@ -212,7 +212,6 @@ const StoreCard = ({ numColumns, onDelete, onEdit, onOpen, productCount, tienda 
   const hasLocation = coordinatesLabel !== "Sin ubicación guardada";
   const signature = getStoreSignature(tienda);
   const openedLabel = formatStoreOpenedLabel(tienda?.createdAt);
-  const accentColor = typeof tienda?.pinColor === "string" && tienda.pinColor.trim() ? tienda.pinColor : palette.brandStrong;
   const descripcion = normalizeText(tienda?.descripcion, "Sin descripción disponible");
   const availabilityMeta = getStoreAvailabilityMeta({ hasLocation, isDark: Boolean(theme.dark), productCount });
   const overlayTextColor = "#ffffff";
@@ -256,10 +255,6 @@ const StoreCard = ({ numColumns, onDelete, onEdit, onOpen, productCount, tienda 
                 },
               ]}
             /> */}
-            <View pointerEvents="none" style={styles.storeHeroGlowWrap}>
-              <View style={[styles.storeHeroGlow, { backgroundColor: accentColor }]} />
-            </View>
-
             <View style={styles.storeHeroContent}>
               <View style={styles.mediaHeaderRow}>
                 <View
@@ -1025,18 +1020,6 @@ const styles = StyleSheet.create({
   storeHeroFade: {
     ...StyleSheet.absoluteFillObject,
     top: "44%",
-  },
-  storeHeroGlow: {
-    borderRadius: 88,
-    height: 176,
-    opacity: 0.78,
-    position: "absolute",
-    right: -60,
-    top: 18,
-    width: 176,
-  },
-  storeHeroGlowWrap: {
-    ...StyleSheet.absoluteFillObject,
   },
   storeHeroTint: {
     ...StyleSheet.absoluteFillObject,

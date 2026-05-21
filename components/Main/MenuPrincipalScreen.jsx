@@ -3,14 +3,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { usePathname, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Animated,
-    Easing,
-    ImageBackground,
-    InteractionManager,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View,
+  Animated,
+  Easing,
+  ImageBackground,
+  InteractionManager,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import { Chip, Portal, Surface, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,6 +19,7 @@ import Productos from "../cubacel/Productos";
 import DrawerOptionsAlls from "../drawer/DrawerOptionsAlls";
 import { useAppHeaderContentInset } from "../Header/AppHeader";
 import MenuHeader from "../Header/MenuHeader";
+import ComercioHomeSection from "../productos/ComercioHomeSection.native";
 import ProxyVPNPackagesHorizontal from "../proxyVPN/ProxyVPNPackagesHorizontal";
 
 const DRAWER_WIDTH = 316;
@@ -1138,13 +1139,17 @@ const MenuPrincipalScreen = ({
             <>
               <RenderTraceBlock
                 name="Productos"
-                payload={{ deferDelay: 250, isDegradado: false }}
+                payload={{ deferDelay: 0, isDegradado: false }}
               >
-                <Productos deferDelay={250} isDegradado={false} />
+                <Productos deferDelay={0} isDegradado={false} />
               </RenderTraceBlock>
 
               <RenderTraceBlock name="ProxyVPNPackagesHorizontal">
                 <ProxyVPNPackagesHorizontal />
+              </RenderTraceBlock>
+
+              <RenderTraceBlock name="ComercioHomeSection">
+                <ComercioHomeSection />
               </RenderTraceBlock>
             </>
           ) : (
