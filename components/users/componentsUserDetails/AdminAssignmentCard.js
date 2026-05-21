@@ -155,17 +155,17 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 		<Card elevation={4} style={styles.cards} testID="admin-assignment-card">
 			<View style={[ui.accentBar, { backgroundColor: headerAccent }]} />
 			<Card.Content style={ui.content}>
-				<Text style={[ui.eyebrow, { color: palette.label }]}>Responsable operativo</Text>
-				<Text style={[ui.title, { color: palette.title }]}>Administración</Text>
+				<Text style={[ui.eyebrow, { color: palette.label }]}>Asignación</Text>
+				<Text style={[ui.title, { color: palette.title }]}>Responsable operativo</Text>
 				<Divider style={ui.divider} />
 
 				<View style={ui.headerBlock}>
-					<Text style={[ui.label, { color: palette.label }]}>Administrado por</Text>
+					<Text style={[ui.label, { color: palette.label }]}>Asignado actualmente</Text>
 					<Chip compact icon="shield-account" style={[ui.currentChip, { backgroundColor: palette.chip }]} textStyle={{ color: palette.chipText, fontWeight: '800' }}>
 						{buildAdminLabel(currentAdmin)}
 					</Chip>
 					<Text style={[ui.helper, { color: palette.copy }]}>
-						Selecciona el administrador responsable de este usuario.
+						Define quién dará seguimiento a este usuario dentro del sistema.
 					</Text>
 				</View>
 
@@ -176,7 +176,7 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 				) : (
 					<>
 						{showFloatingLabel ? (
-							<Text style={[styles.label, isFocus && { color: headerAccent }]}>Administrador del sistema</Text>
+							<Text style={[styles.label, isFocus && { color: headerAccent }]}>Responsable</Text>
 						) : null}
 						<Dropdown
 							style={[styles.dropdown, isFocus && { borderColor: headerAccent }]}
@@ -190,8 +190,8 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 							labelField="label"
 							valueField="value"
 							disable={!canEditAssignment || saving}
-							placeholder={!isFocus ? 'Seleccione un administrador' : '...'}
-							searchPlaceholder="Buscar administrador..."
+							placeholder={!isFocus ? 'Cambiar responsable' : '...'}
+							searchPlaceholder="Buscar responsable..."
 							value={selectedAdmin}
 							onFocus={() => setIsFocus(true)}
 							onBlur={() => setIsFocus(false)}
@@ -217,7 +217,7 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 						loading={saving}
 						style={ui.actionButton}
 					>
-						Guardar administrador
+						Guardar cambios
 					</Button>
 				</View>
 

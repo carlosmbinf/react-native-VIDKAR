@@ -33,6 +33,9 @@ const ProxyCardUser = ({ item, styles, momentLib, accentColor, canEdit, onReques
 		label: theme.dark ? '#94a3b8' : '#64748b',
 		panel: theme.dark ? 'rgba(30, 41, 59, 0.7)' : 'rgba(248, 250, 252, 0.96)',
 		panelBorder: theme.dark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(15, 23, 42, 0.08)',
+		setupAccent: theme.dark ? '#93c5fd' : '#1d4ed8',
+		setupPanel: theme.dark ? 'rgba(30, 64, 175, 0.22)' : 'rgba(37, 99, 235, 0.08)',
+		setupPanelBorder: theme.dark ? 'rgba(147, 197, 253, 0.22)' : 'rgba(37, 99, 235, 0.16)',
 		title: theme.dark ? '#f8fafc' : '#0f172a',
 	};
 
@@ -95,6 +98,33 @@ const ProxyCardUser = ({ item, styles, momentLib, accentColor, canEdit, onReques
 						<ProgressBar progress={progress} color={progress > 0.8 ? '#F57C00' : '#1E88E5'} />
 					</View>
 				) : null}
+
+				{statusActivo ? (
+					<View style={[ui.setupPanel, { backgroundColor: palette.setupPanel, borderColor: palette.setupPanelBorder }]}> 
+						<View style={ui.setupHeaderRow}>
+							<Text style={[ui.setupEyebrow, { color: palette.setupAccent }]}>Configuración Proxy</Text>
+							<Chip compact icon="shield-key-outline" style={[ui.setupChip, { backgroundColor: palette.chip }]} textStyle={[ui.setupChipText, { color: palette.chipText }]}>VidKar</Chip>
+						</View>
+						<View style={ui.setupGrid}>
+							<View style={ui.setupItem}>
+								<Text style={[ui.setupLabel, { color: palette.label }]}>Servidor proxy</Text>
+								<Text style={[ui.setupValue, { color: palette.title }]}>proxy.vidkar.com</Text>
+							</View>
+							<View style={ui.setupItem}>
+								<Text style={[ui.setupLabel, { color: palette.label }]}>Puerto</Text>
+								<Text style={[ui.setupValue, { color: palette.title }]}>3002</Text>
+							</View>
+							<View style={ui.setupItem}>
+								<Text style={[ui.setupLabel, { color: palette.label }]}>Usuario</Text>
+								<Text style={[ui.setupValue, { color: palette.title }]}>{item.username || 'Usuario VidKar'}</Text>
+							</View>
+							<View style={ui.setupItem}>
+								<Text style={[ui.setupLabel, { color: palette.label }]}>Contraseña</Text>
+								<Text style={[ui.setupValue, { color: palette.title }]}>Contraseña de VidKar</Text>
+							</View>
+						</View>
+					</View>
+				) : null}
 			</Card.Content>
 		</Card>
 	);
@@ -118,6 +148,15 @@ const ui = StyleSheet.create({
 	headerRight: { flexDirection: 'row', alignItems: 'center' },
 	editChip: { borderRadius: 999, marginLeft: 8 },
 	editChipText: { fontWeight: '800' },
+	setupPanel: { borderRadius: 18, borderWidth: 1, gap: 12, marginTop: 12, padding: 14 },
+	setupHeaderRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
+	setupEyebrow: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
+	setupChip: { borderRadius: 999 },
+	setupChipText: { fontSize: 11, fontWeight: '800' },
+	setupGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+	setupItem: { flexBasis: '47%', flexGrow: 1, minWidth: 120 },
+	setupLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 0.35, textTransform: 'uppercase' },
+	setupValue: { fontSize: 13, fontWeight: '800', marginTop: 3 },
 });
 
 export default memo(ProxyCardUser);
