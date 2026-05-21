@@ -1,7 +1,7 @@
 import MeteorBase from "@meteorrn/core";
 import { router } from "expo-router";
-import { useEffect, useRef } from "react";
-import { Alert, Linking } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Alert, AppState, Linking } from "react-native";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { getAppVersionInfo } from "../../services/app/appVersion";
@@ -10,6 +10,10 @@ import {
     sendCadeteLocationNow,
     syncCadeteBackgroundLocation,
 } from "../../services/location/cadeteBackgroundLocation.native";
+import {
+    getPushNotificationPermissionState,
+    registerPushTokenForActiveSession,
+} from "../../services/notifications/PushMessaging.native";
 import {
     buildPendingEvidenceAggregate,
     buildPendingEvidenceQuery,
@@ -295,6 +299,13 @@ const MenuPrincipalNative = () => {
   const isAdmin = isAdminUser(user);
   const isAdminPrincipal = isPrincipalAdmin(user);
   const dataReady = useDeferredScreenData();
+  const pushPermissionRequestIdRef = useRef(0);
+  const [pushPermissionState, setPushPermissionState] = useState({
+    canAskAgain: true,
+    granted: true,
+    status: "undetermined",
+  });
+  const [pushPermissionLoading, setPushPermissionLoading] = useState(true);
 
   useEffect(() => {
     const now =
@@ -306,6 +317,48 @@ const MenuPrincipalNative = () => {
       username: user?.username || null,
     });
   }, [user?._id, user?.username]);
+
+  const refreshPushPermissionState = useCallback(async ({ showLoading = false } = {}) => {
+    const requestId = pushPermissionRequestIdRef.current + 1;
+    pushPermissionRequestIdRef.current = requestId;
+
+    if (showLoading) {
+      setPushPermissionLoading(true);
+    }
+
+    try {
+      const nextPermissionState = await getPushNotificationPermissionState();
+      if (pushPermissionRequestIdRef.current !== requestId) {
+        return nextPermissionState;
+      }
+
+      setPushPermissionState(nextPermissionState);
+      return nextPermissionState;
+    } catch (error) {
+      console.warn("[MenuPrincipal] No se pudo leer el permiso de notificaciones:", error);
+      return null;
+    } finally {
+      if (pushPermissionRequestIdRef.current === requestId) {
+        setPushPermissionLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshPushPermissionState({ showLoading: true });
+  }, [currentUserId, refreshPushPermissionState]);
+
+  useEffect(() => {
+    const appStateSubscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        refreshPushPermissionState({ showLoading: false });
+      }
+    });
+
+    return () => {
+      appStateSubscription.remove();
+    };
+  }, [refreshPushPermissionState]);
 
   const { subordinadosIds, subordinadosLoading } = Meteor.useTracker(() => {
     if (!dataReady || !isAdmin || !currentUserId || isAdminPrincipal) {
@@ -558,6 +611,71 @@ const MenuPrincipalNative = () => {
     router.push("/(normal)/Precios");
   };
 
+  const handleEnableNotifications = async () => {
+    if (!currentUserId) {
+      Alert.alert(
+        "Sesión requerida",
+        "Inicia sesión nuevamente para activar las notificaciones de tu cuenta.",
+      );
+      return;
+    }
+
+    if (pushPermissionState?.canAskAgain === false) {
+      Alert.alert(
+        "Notificaciones bloqueadas",
+        "Las notificaciones están bloqueadas para Vidkar. Abre la configuración de la app y actívalas manualmente para recibir avisos de compras, mensajes y servicios.",
+        [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Abrir configuración", onPress: openApplicationSettings },
+        ],
+      );
+      return;
+    }
+
+    setPushPermissionLoading(true);
+    try {
+      const result = await registerPushTokenForActiveSession({
+        delayMs: 350,
+        retries: 4,
+      });
+      const nextPermissionState = await refreshPushPermissionState();
+
+      if (nextPermissionState?.granted || result?.length > 0) {
+        Alert.alert(
+          "Notificaciones activadas",
+          "Listo. A partir de ahora podrás recibir avisos importantes de tus servicios en este dispositivo.",
+        );
+        return;
+      }
+
+      if (nextPermissionState?.canAskAgain === false) {
+        Alert.alert(
+          "Actívalas desde ajustes",
+          "El sistema no permitió activar las notificaciones desde la app. Abre la configuración de Vidkar y habilítalas manualmente.",
+          [
+            { text: "Cancelar", style: "cancel" },
+            { text: "Abrir configuración", onPress: openApplicationSettings },
+          ],
+        );
+        return;
+      }
+
+      Alert.alert(
+        "No se activaron",
+        "No pudimos completar la activación de notificaciones. Revisa los permisos del dispositivo e inténtalo nuevamente.",
+      );
+    } catch (error) {
+      const message =
+        error?.reason ||
+        error?.message ||
+        "No pudimos activar las notificaciones en este momento.";
+
+      Alert.alert("Notificaciones", message);
+    } finally {
+      setPushPermissionLoading(false);
+    }
+  };
+
   const handleToggleModoCadete = () => {
     const nextState = !user?.modoCadete;
 
@@ -647,8 +765,12 @@ const MenuPrincipalNative = () => {
       pendingCashApprovalTypes={pendingCashApprovalTypes}
       pendingCashApprovalsCount={pendingCashApprovalsCount}
       pendingCashApprovalsLoading={pendingCashApprovalsLoading}
+      notificationsPermissionBlocked={pushPermissionState?.canAskAgain === false}
+      notificationsPermissionGranted={pushPermissionState?.granted === true}
+      notificationsPermissionLoading={pushPermissionLoading}
       missingPriceServices={missingPriceServices}
       priceSetupLoading={priceSetupLoading}
+      onEnableNotifications={handleEnableNotifications}
       onOpenCashApprovals={handleOpenCashApprovals}
       onOpenPendingEvidence={handleOpenPendingEvidence}
       onOpenPendingVentas={handleOpenPendingVentas}

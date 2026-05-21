@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
     Alert,
+    AppState,
     FlatList,
     Linking,
     Platform,
@@ -22,12 +23,12 @@ import {
     Surface,
     Text,
 } from "react-native-paper";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import {
     getCachedDeviceLocationSync,
     getCurrentDeviceLocation,
+    getDeviceLocationPermissionState,
     readCachedDeviceLocation,
     requestDeviceLocationPermission,
 } from "../../services/location/deviceLocationCache.native";
@@ -37,8 +38,13 @@ import {
     TiendasComercioCollection,
 } from "../collections/collections";
 import MenuIconMensajes from "../components/MenuIconMensajes.native";
+import AppHeader, {
+    DEFAULT_HEADER_COLOR,
+    useAppHeaderContentInset,
+} from "../Header/AppHeader";
 import BlurMenuSurface, { blurMenuContentStyle } from "../Header/BlurMenuSurface";
 import useSafeBack, { useCanNavigateBack } from "../navigation/useSafeBack";
+import CommerceLocationAccessCard from "./CommerceLocationAccessCard";
 import TiendaCard from "./TiendaCard";
 
 const Meteor =
@@ -92,7 +98,7 @@ const ProductosScreenNative = () => {
   const router = useRouter();
   const canNavigateBack = useCanNavigateBack();
   const safeBack = useSafeBack("/(normal)/Main");
-  const insets = useSafeAreaInsets();
+  const headerInset = useAppHeaderContentInset();
   const initialCachedLocationRef = React.useRef(getCachedDeviceLocationSync());
   const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -101,14 +107,50 @@ const ProductosScreenNative = () => {
     initialCachedLocationRef.current,
   );
   const [locationError, setLocationError] = useState(null);
+  const [locationPermissionState, setLocationPermissionState] = useState(null);
+  const [locationPermissionLoading, setLocationPermissionLoading] =
+    useState(false);
   const [tiendasCercanas, setTiendasCercanas] = useState([]);
   const [loadingTiendas, setLoadingTiendas] = useState(false);
   const [radioKm, setRadioKm] = useState(5);
   const [fabOpen, setFabOpen] = useState(false);
   const [profileMenuVisible, setProfileMenuVisible] = useState(false);
   const radioKmRef = React.useRef(5);
+  const locationPermissionRequestIdRef = React.useRef(0);
   const lastSearchSignatureRef = React.useRef(null);
   const dataReady = useDeferredScreenData();
+
+  const refreshLocationPermissionState = React.useCallback(
+    async ({ showLoading = false } = {}) => {
+      const requestId = locationPermissionRequestIdRef.current + 1;
+      locationPermissionRequestIdRef.current = requestId;
+
+      if (showLoading) {
+        setLocationPermissionLoading(true);
+      }
+
+      try {
+        const permissionState = await getDeviceLocationPermissionState();
+
+        if (locationPermissionRequestIdRef.current === requestId) {
+          setLocationPermissionState(permissionState);
+        }
+
+        return permissionState;
+      } catch (error) {
+        console.warn(
+          "[Productos] No se pudo leer el permiso de ubicación:",
+          error?.message || error,
+        );
+        return null;
+      } finally {
+        if (showLoading && locationPermissionRequestIdRef.current === requestId) {
+          setLocationPermissionLoading(false);
+        }
+      }
+    },
+    [],
+  );
 
   const actualizarUbicacionBackend = React.useCallback((ubicacion) => {
     const userId = Meteor.userId();
@@ -197,13 +239,15 @@ const ProductosScreenNative = () => {
   );
 
   const aplicarUbicacion = React.useCallback(
-    (ubicacion, { updateBackend = false } = {}) => {
+    (ubicacion, { updateBackend = false, clearError = true } = {}) => {
       if (!ubicacion) {
         return;
       }
 
       setUserLocation(ubicacion);
-      setLocationError(null);
+      if (clearError) {
+        setLocationError(null);
+      }
 
       if (updateBackend) {
         actualizarUbicacionBackend(ubicacion);
@@ -220,18 +264,31 @@ const ProductosScreenNative = () => {
     try {
       cachedLocation = await readCachedDeviceLocation();
 
+      const permission = await requestDeviceLocationPermission();
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      const nextPermissionState = {
+        canAskAgain: permission?.canAskAgain !== false,
+        granted: permission?.status === "granted" || permission?.granted === true,
+        servicesEnabled,
+        status: permission?.status || "undetermined",
+      };
+
+      setLocationPermissionState(nextPermissionState);
+
       if (cachedLocation) {
-        aplicarUbicacion(cachedLocation, { updateBackend: false });
+        aplicarUbicacion(cachedLocation, {
+          clearError: servicesEnabled,
+          updateBackend: false,
+        });
       }
 
-      const permission = await requestDeviceLocationPermission();
+      if (!servicesEnabled) {
+        setLocationError("La ubicación del dispositivo está apagada");
+        return;
+      }
 
       if (permission.status !== "granted") {
-        if (cachedLocation) {
-          return;
-        }
-
-        setLocationError("Permiso de ubicación denegado");
+        setLocationError("La ubicación está desactivada para Vidkar");
 
         Alert.alert(
           "📍 Permiso de Ubicación Requerido",
@@ -263,12 +320,27 @@ const ProductosScreenNative = () => {
       });
       aplicarUbicacion(ubicacion, { updateBackend: true });
     } catch (error) {
+      const servicesEnabled = await Location.hasServicesEnabledAsync().catch(
+        () => true,
+      );
       const locationMessage =
-        error?.code === "E_LOCATION_TIMEOUT"
-          ? "Tiempo de espera agotado"
-          : error?.message || "Error desconocido";
+        !servicesEnabled
+          ? "La ubicación del dispositivo está apagada"
+          : error?.code === "E_LOCATION_TIMEOUT"
+            ? "Tiempo de espera agotado"
+            : error?.message || "Error desconocido";
 
-      if (cachedLocation) {
+      if (!servicesEnabled) {
+        setLocationPermissionState((current) => ({
+          canAskAgain: current?.canAskAgain !== false,
+          granted: current?.granted === true,
+          status: current?.status || "undetermined",
+          ...current,
+          servicesEnabled: false,
+        }));
+      }
+
+      if (cachedLocation && servicesEnabled) {
         console.warn(
           "⚠️ [Productos] No se pudo actualizar la ubicación actual. Se mantiene la última ubicación guardada:",
           locationMessage,
@@ -278,23 +350,69 @@ const ProductosScreenNative = () => {
 
       setLocationError(locationMessage);
 
+      if (!servicesEnabled) {
+        Alert.alert(
+          "Ubicación apagada",
+          "Activa la ubicación del dispositivo para poder buscar las tiendas cercanas de Vidkar.",
+          [
+            { text: "Cancelar", style: "cancel" },
+            { text: "Abrir configuración", onPress: () => Linking.openSettings() },
+          ],
+        );
+        return;
+      }
+
+      const fallbackMessage =
+        error?.code === "E_LOCATION_TIMEOUT"
+          ? "Tiempo de espera agotado"
+          : error?.message || "Error desconocido";
+
       Alert.alert(
         "Error de Ubicación",
-        `${locationMessage}. Las tiendas se mostrarán sin ordenar por distancia.`,
+        `${fallbackMessage}. Las tiendas se mostrarán sin ordenar por distancia.`,
         [{ text: "OK" }],
       );
     }
   }, [aplicarUbicacion]);
 
   React.useEffect(() => {
+    refreshLocationPermissionState();
+
     if (initialCachedLocationRef.current) {
       aplicarUbicacion(initialCachedLocationRef.current, {
+        clearError: false,
         updateBackend: false,
       });
     }
 
     obtenerUbicacion();
-  }, [aplicarUbicacion, obtenerUbicacion]);
+  }, [aplicarUbicacion, obtenerUbicacion, refreshLocationPermissionState]);
+
+  React.useEffect(() => {
+    const subscription = AppState.addEventListener("change", async (nextState) => {
+      if (nextState !== "active") {
+        return;
+      }
+
+      const permissionState = await refreshLocationPermissionState();
+
+      if (permissionState?.servicesEnabled === false) {
+        setLocationError("La ubicación del dispositivo está apagada");
+        return;
+      }
+
+      if (permissionState?.granted === false) {
+        setLocationError("La ubicación está desactivada para Vidkar");
+        return;
+      }
+
+      if (permissionState?.granted && (!userLocation || locationError)) {
+        obtenerUbicacion();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [locationError, obtenerUbicacion, refreshLocationPermissionState, userLocation]);
 
   React.useEffect(() => {
     radioKmRef.current = radioKm;
@@ -304,7 +422,11 @@ const ProductosScreenNative = () => {
     (nuevoRadio) => {
       setRadioKm(nuevoRadio);
 
-      if (userLocation) {
+      if (
+        userLocation &&
+        locationPermissionState?.servicesEnabled !== false &&
+        locationPermissionState?.granted !== false
+      ) {
         lastSearchSignatureRef.current = null;
         buscarTiendasCercanas(userLocation, nuevoRadio);
         return;
@@ -319,7 +441,7 @@ const ProductosScreenNative = () => {
         ],
       );
     },
-    [buscarTiendasCercanas, obtenerUbicacion, userLocation],
+    [buscarTiendasCercanas, locationPermissionState, obtenerUbicacion, userLocation],
   );
 
   const { tiendasConProductos } = Meteor.useTracker(() => {
@@ -386,6 +508,16 @@ const ProductosScreenNative = () => {
   }, [dataReady, tiendasCercanas]);
 
   const tiendasDisponibles = tiendasConProductos;
+  const locationPermissionBlocked =
+    locationPermissionState?.granted === false &&
+    locationPermissionState?.canAskAgain === false;
+  const locationServicesDisabled = locationPermissionState?.servicesEnabled === false;
+  const locationPermissionDenied = locationPermissionState?.granted === false;
+  const locationUnavailable = locationServicesDisabled || locationPermissionDenied;
+  const showLocationAccessCard =
+    locationUnavailable ||
+    Boolean(locationError) ||
+    (!userLocation && locationPermissionState?.granted === false);
 
   const tiendasFiltradas = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -435,6 +567,16 @@ const ProductosScreenNative = () => {
   const listHeaderComponent = useMemo(
     () => (
       <>
+        {showLocationAccessCard ? (
+          <CommerceLocationAccessCard
+            blocked={locationPermissionBlocked}
+            loading={locationPermissionLoading}
+            onOpenSettings={() => Linking.openSettings()}
+            onRequestLocation={obtenerUbicacion}
+            style={styles.locationAccessCard}
+          />
+        ) : null}
+
         {loadingTiendas ? (
           <View style={styles.loadingTiendasContainer}>
             <ActivityIndicator color="#3f51b5" size="small" />
@@ -447,12 +589,14 @@ const ProductosScreenNative = () => {
         {userLocation ? (
           <View style={styles.locationInfo}>
             <Chip
-              icon="map-marker-check"
+              icon={locationUnavailable ? "map-marker-alert" : "map-marker-check"}
               mode="flat"
               style={styles.locationChip}
               textStyle={styles.locationChipText}
             >
-              📍 Mostrando tiendas en {radioKm} km
+              {locationUnavailable
+                ? `📍 Resultados aproximados en ${radioKm} km`
+                : `📍 Mostrando tiendas en ${radioKm} km`}
             </Chip>
             <Chip
               icon="map"
@@ -480,7 +624,18 @@ const ProductosScreenNative = () => {
         </View>
       </>
     ),
-    [loadingTiendas, radioKm, router, tiendasDisponibles.length, userLocation],
+    [
+      loadingTiendas,
+      locationPermissionBlocked,
+      locationPermissionLoading,
+      locationUnavailable,
+      obtenerUbicacion,
+      radioKm,
+      router,
+      showLocationAccessCard,
+      tiendasDisponibles.length,
+      userLocation,
+    ],
   );
 
   const listEmptyComponent = useMemo(
@@ -489,7 +644,9 @@ const ProductosScreenNative = () => {
         <Text style={styles.emptyIcon}>
           {loadingTiendas
             ? "⏳"
-            : locationError
+            : locationUnavailable
+              ? "📍"
+              : locationError
               ? "📍"
               : searchQuery.trim()
                 ? "🔍"
@@ -498,8 +655,10 @@ const ProductosScreenNative = () => {
         <Text style={styles.emptyTitle} variant="titleMedium">
           {loadingTiendas
             ? "Buscando tiendas..."
-            : locationError
-              ? "Sin ubicación disponible"
+            : locationUnavailable
+                ? "Ubicación apagada"
+                : locationError
+                  ? "Sin ubicación disponible"
               : searchQuery.trim()
                 ? "No se encontraron resultados"
                 : userLocation
@@ -509,8 +668,10 @@ const ProductosScreenNative = () => {
         <Text style={styles.emptySubtitle} variant="bodyMedium">
           {loadingTiendas
             ? "Por favor espera..."
-            : locationError
-              ? `${locationError}. Activa el GPS para ver tiendas cercanas.`
+            : locationUnavailable
+              ? "Activa la ubicación para Vidkar desde los ajustes del dispositivo para encontrar tiendas cercanas."
+                : locationError
+                  ? `${locationError}. Activa el GPS para ver tiendas cercanas.`
               : searchQuery.trim()
                 ? "Intenta con otros términos de búsqueda"
                 : userLocation
@@ -519,7 +680,7 @@ const ProductosScreenNative = () => {
         </Text>
       </Surface>
     ),
-    [loadingTiendas, locationError, radioKm, searchQuery, userLocation],
+    [loadingTiendas, locationError, locationUnavailable, radioKm, searchQuery, userLocation],
   );
 
   const renderTiendaItem = React.useCallback(
@@ -536,28 +697,20 @@ const ProductosScreenNative = () => {
 
   return (
     <Surface style={styles.container}>
-      <Appbar
-        style={[
-          styles.appbar,
-          {
-            height: insets.top + 50,
-            paddingTop: insets.top,
-          },
-        ]}
-      >
-        <View style={styles.appbarContent}>
-          <View style={styles.leftActionRow}>
-            {canNavigateBack ? (
-              <Appbar.BackAction
-                color="white"
-                onPress={safeBack}
-              />
-            ) : null}
-          </View>
-
+      <AppHeader
+        backgroundColor={DEFAULT_HEADER_COLOR}
+        left={
+          canNavigateBack ? (
+            <Appbar.BackAction iconColor="white" onPress={safeBack} />
+          ) : null
+        }
+        overlapContent
+        subtitle="Tiendas cercanas y productos disponibles"
+        title="Comercios"
+        actions={
           <View style={styles.rightActionRow}>
             <Appbar.Action
-              color="white"
+              iconColor="white"
               icon="magnify"
               onPress={() => {
                 setShowSearchbar((current) => {
@@ -586,7 +739,7 @@ const ProductosScreenNative = () => {
               anchorPosition="bottom"
               anchor={
                 <Appbar.Action
-                  color="white"
+                  iconColor="white"
                   icon="dots-vertical"
                   onPress={() => setProfileMenuVisible(true)}
                 />
@@ -617,11 +770,11 @@ const ProductosScreenNative = () => {
               </BlurMenuSurface>
             </Menu>
           </View>
-        </View>
-      </Appbar>
+        }
+      />
 
       {showSearchbar ? (
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: headerInset + 12 }]}>
           <Searchbar
             autoFocus
             blurOnSubmit={false}
@@ -652,7 +805,10 @@ const ProductosScreenNative = () => {
         ListEmptyComponent={listEmptyComponent}
         ListFooterComponent={<View style={styles.listFooter} />}
         ListHeaderComponent={listHeaderComponent}
-        contentContainerStyle={styles.flatListContent}
+        contentContainerStyle={[
+          styles.flatListContent,
+          !showSearchbar && { paddingTop: headerInset + 12 },
+        ]}
         data={tiendasFiltradas}
         initialNumToRender={10}
         keyExtractor={(item) => item._id}
@@ -774,6 +930,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 8,
+  },
+  locationAccessCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    marginTop: 8,
   },
   pedidosBannerButton: {
     borderColor: "#3f51b5",

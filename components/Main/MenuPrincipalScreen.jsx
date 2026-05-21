@@ -3,14 +3,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { usePathname, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Animated,
-  Easing,
-  ImageBackground,
-  InteractionManager,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
+    Animated,
+    Easing,
+    ImageBackground,
+    InteractionManager,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 import { Chip, Portal, Surface, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -29,6 +29,8 @@ const PRICE_SETUP_PRIMARY_GLOW_SIZE = 230;
 const PRICE_SETUP_SECONDARY_GLOW_SIZE = 210;
 const EVIDENCE_PRIMARY_GLOW_SIZE = 220;
 const EVIDENCE_SECONDARY_GLOW_SIZE = 190;
+const NOTIFICATIONS_PRIMARY_GLOW_SIZE = 230;
+const NOTIFICATIONS_SECONDARY_GLOW_SIZE = 190;
 const CASH_APPROVALS_PRIMARY_GLOW_SIZE = 260;
 const CASH_APPROVALS_SECONDARY_GLOW_SIZE = 250;
 let hasPreparedHeavyContent = false;
@@ -246,8 +248,12 @@ const MenuPrincipalScreen = ({
   pendingCashApprovalTypes = [],
   pendingCashApprovalsCount = 0,
   pendingCashApprovalsLoading = false,
+  notificationsPermissionBlocked = false,
+  notificationsPermissionGranted = true,
+  notificationsPermissionLoading = false,
   missingPriceServices = [],
   priceSetupLoading = false,
+  onEnableNotifications = () => {},
   onOpenCashApprovals = () => {},
   onOpenPendingEvidence = () => {},
   onOpenPendingVentas = () => {},
@@ -265,6 +271,7 @@ const MenuPrincipalScreen = ({
   const [heroCardSize, setHeroCardSize] = useState({ width: 0, height: 0 });
   const [priceSetupCardSize, setPriceSetupCardSize] = useState({ width: 0, height: 0 });
   const [evidenceHubCardSize, setEvidenceHubCardSize] = useState({ width: 0, height: 0 });
+  const [notificationsCardSize, setNotificationsCardSize] = useState({ width: 0, height: 0 });
   const [cashApprovalsCardSize, setCashApprovalsCardSize] = useState({ width: 0, height: 0 });
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -438,6 +445,18 @@ const MenuPrincipalScreen = ({
     EVIDENCE_SECONDARY_GLOW_SIZE,
     "reverseDiagonal",
   );
+  const notificationsPrimaryGlowMotion = buildGlowMotion(
+    heroGlowPrimaryProgress,
+    notificationsCardSize,
+    NOTIFICATIONS_PRIMARY_GLOW_SIZE,
+    "upperDrift",
+  );
+  const notificationsSecondaryGlowMotion = buildGlowMotion(
+    heroGlowSecondaryProgress,
+    notificationsCardSize,
+    NOTIFICATIONS_SECONDARY_GLOW_SIZE,
+    "sideFloat",
+  );
   const cashPrimaryGlowMotion = buildGlowMotion(
     heroGlowPrimaryProgress,
     cashApprovalsCardSize,
@@ -471,6 +490,8 @@ const MenuPrincipalScreen = ({
   const showCashApprovalsCard =
     hasAdminRole && pendingCashApprovalsCount > 0;
   const showPendingEvidenceCard = pendingEvidenceCount > 0;
+  const showNotificationsCard =
+    !notificationsPermissionLoading && !notificationsPermissionGranted;
   const showPriceSetupCard =
     hasAdminRole && !priceSetupLoading && missingPriceServices.length > 0;
   const missingPriceServicesText = formatMissingPriceServicesText(
@@ -663,6 +684,111 @@ const MenuPrincipalScreen = ({
               </View>
             ) : null}
           </Surface>
+
+          {showNotificationsCard ? (
+            <Surface
+              style={styles.notificationsCard}
+              elevation={2}
+              onLayout={({ nativeEvent }) => {
+                const { width, height } = nativeEvent.layout;
+                setNotificationsCardSize((current) =>
+                  current.width === width && current.height === height
+                    ? current
+                    : { width, height },
+                );
+              }}
+            >
+              <LinearGradient
+                colors={["#311a09f6", "#3a2211f4", "#4a1d1df2"]}
+                end={{ x: 1, y: 1 }}
+                locations={[0, 0.56, 1]}
+                start={{ x: 0, y: 0 }}
+                style={styles.notificationsGradient}
+              >
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.notificationsGlowPrimary,
+                    {
+                      transform: [
+                        { translateX: notificationsPrimaryGlowMotion.translateX },
+                        { translateY: notificationsPrimaryGlowMotion.translateY },
+                      ],
+                    },
+                  ]}
+                />
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.notificationsGlowSecondary,
+                    {
+                      transform: [
+                        { translateX: notificationsSecondaryGlowMotion.translateX },
+                        { translateY: notificationsSecondaryGlowMotion.translateY },
+                      ],
+                    },
+                  ]}
+                />
+
+                <View style={styles.notificationsHeader}>
+                  <View style={styles.notificationsIconWrap}>
+                    <MaterialCommunityIcons
+                      color="#fed7aa"
+                      name={notificationsPermissionBlocked ? "bell-off-outline" : "bell-alert-outline"}
+                      size={25}
+                    />
+                  </View>
+
+                  <View style={styles.notificationsTitleWrap}>
+                    <Text variant="labelSmall" style={styles.notificationsEyebrow}>
+                      Notificaciones desactivadas
+                    </Text>
+                    <Text variant="titleLarge" style={styles.notificationsTitle}>
+                      Activa los avisos para no perder información importante
+                    </Text>
+                    <Text variant="bodyMedium" style={styles.notificationsCopy}>
+                      Las notificaciones no están activas en este dispositivo. Por eso no recibirás avisos de mensajes, compras, entregas, recargas, Proxy, VPN ni otros servicios de Vidkar.
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.notificationsFooter}>
+                  <View style={styles.notificationsStatusPill}>
+                    <MaterialCommunityIcons
+                      color="#fdba74"
+                      name={notificationsPermissionBlocked ? "cellphone-cog" : "gesture-tap-button"}
+                      size={17}
+                    />
+                    <Text variant="labelLarge" style={styles.notificationsStatusText}>
+                      {notificationsPermissionBlocked
+                        ? "Requiere activación manual"
+                        : "Puedes activarlas ahora"}
+                    </Text>
+                  </View>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={onEnableNotifications}
+                    style={({ pressed }) => [
+                      styles.notificationsActionButton,
+                      pressed ? styles.notificationsActionButtonPressed : null,
+                    ]}
+                  >
+                    <Text variant="labelLarge" style={styles.notificationsActionText}>
+                      {notificationsPermissionBlocked ? "Abrir ajustes" : "Activar notificaciones"}
+                    </Text>
+                    <View style={styles.notificationsActionIconWrap}>
+                      <MaterialCommunityIcons
+                        color="#fff7ed"
+                        name={notificationsPermissionBlocked ? "cog-outline" : "bell-ring-outline"}
+                        size={18}
+                      />
+                    </View>
+                  </Pressable>
+                </View>
+              </LinearGradient>
+            </Surface>
+          ) : null}
 
           {showPriceSetupCard ? (
             <Surface
@@ -1644,6 +1770,120 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 6,
     minWidth: 220,
+  },
+  notificationsActionButton: {
+    alignItems: "center",
+    backgroundColor: "rgba(249, 115, 22, 0.2)",
+    borderColor: "rgba(254, 215, 170, 0.26)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    paddingLeft: 14,
+    paddingRight: 8,
+    paddingVertical: 8,
+  },
+  notificationsActionButtonPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.985 }],
+  },
+  notificationsActionIconWrap: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 247, 237, 0.14)",
+    borderRadius: 14,
+    height: 28,
+    justifyContent: "center",
+    width: 28,
+  },
+  notificationsActionText: {
+    color: "#fff7ed",
+    fontWeight: "800",
+  },
+  notificationsCard: {
+    borderColor: "rgba(251, 146, 60, 0.24)",
+    borderRadius: 26,
+    borderWidth: 1,
+    marginHorizontal: 16,
+    overflow: "hidden",
+  },
+  notificationsCopy: {
+    color: "rgba(255, 237, 213, 0.8)",
+    lineHeight: 22,
+  },
+  notificationsEyebrow: {
+    color: "#fdba74",
+    fontWeight: "800",
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+  },
+  notificationsFooter: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+    justifyContent: "space-between",
+  },
+  notificationsGlowPrimary: {
+    backgroundColor: "rgba(249, 115, 22, 0.26)",
+    borderRadius: 999,
+    height: NOTIFICATIONS_PRIMARY_GLOW_SIZE,
+    left: 0,
+    position: "absolute",
+    top: 0,
+    width: NOTIFICATIONS_PRIMARY_GLOW_SIZE,
+  },
+  notificationsGlowSecondary: {
+    backgroundColor: "rgba(220, 38, 38, 0.22)",
+    borderRadius: 999,
+    height: NOTIFICATIONS_SECONDARY_GLOW_SIZE,
+    left: 0,
+    position: "absolute",
+    top: 0,
+    width: NOTIFICATIONS_SECONDARY_GLOW_SIZE,
+  },
+  notificationsGradient: {
+    gap: 16,
+    overflow: "hidden",
+    padding: 20,
+  },
+  notificationsHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 14,
+  },
+  notificationsIconWrap: {
+    alignItems: "center",
+    backgroundColor: "rgba(154, 52, 18, 0.34)",
+    borderColor: "rgba(254, 215, 170, 0.2)",
+    borderRadius: 22,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  notificationsStatusPill: {
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.34)",
+    borderColor: "rgba(253, 186, 116, 0.2)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  notificationsStatusText: {
+    color: "#fed7aa",
+    fontWeight: "800",
+  },
+  notificationsTitle: {
+    color: "#fffbeb",
+    fontWeight: "900",
+    lineHeight: 28,
+  },
+  notificationsTitleWrap: {
+    flex: 1,
+    gap: 6,
   },
   cashApprovalsCard: {
     marginHorizontal: 16,

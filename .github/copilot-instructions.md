@@ -4758,6 +4758,32 @@ Resumen tecnico - Cards del carrito resumidas por defecto con detalle expandible
 
 - Validacion realizada:
   - `get_errors` limpio en `components/carritoCompras/ListaPedidosRemesa.native.jsx`.
+
+---
+
+Resumen tecnico - Comercio debe distinguir permiso concedido de GPS apagado
+
+- Hallazgo validado:
+  - En Expo no basta con revisar `Location.getForegroundPermissionsAsync()` para decidir si comercio puede buscar tiendas cercanas.
+  - Existe un caso real donde:
+    - la app ya tiene permiso concedido
+    - pero los servicios de ubicacion del dispositivo estan apagados
+  - Si la UI solo mira `granted === true`, el aviso de ubicacion no aparece aunque comercio ya no pueda refrescar tiendas cercanas correctamente.
+
+- Correccion aplicada:
+  - `services/location/deviceLocationCache.native.js` ahora incluye `servicesEnabled` dentro de `getDeviceLocationPermissionState()` usando `Location.hasServicesEnabledAsync()`.
+  - `components/productos/ProductosScreen.native.jsx` y `components/productos/ComercioHomeSection.native.jsx` muestran la card de acceso a ubicacion tambien cuando:
+    - `locationPermissionState.servicesEnabled === false`
+
+- Regla funcional importante:
+  - Tener una ubicacion cacheada no debe ocultar el aviso de ubicacion apagada.
+  - La cache puede servir para hidratar UI rapidamente, pero si el GPS del dispositivo esta apagado el usuario debe seguir viendo una card persistente para reactivar ubicacion o ir a configuracion.
+
+- Regla practica:
+  - En comercio distinguir siempre entre:
+    - permiso de la app
+    - servicios de ubicacion del dispositivo
+  - Si el usuario reporta que no ve el componente de ubicacion apagada, revisar primero `servicesEnabled` y no solo `granted` o `locationError`.
   - `npx eslint --no-cache components/carritoCompras/ListaPedidosRemesa.native.jsx` con `EXIT:0`.
 
 Notas adicionales - La card de comercio en carrito debe resumirse aun mas que el resto
@@ -8984,3 +9010,107 @@ Resumen tecnico - Card VPN de usuario debe listar servidores aprobados, no solo 
   - En la pagina de usuario, `usuariosAprobados` debe tratarse como autorizacion de acceso, no como sinonimo de servidor actualmente activo.
   - Si se necesita distinguir disponibilidad operativa, mostrar `estado`/`active` como dato visual adicional, no usarlo para ocultar el servidor aprobado.
   - Si vuelve a faltar un servidor en el card, revisar primero si el username esta en `servers.usuariosAprobados` antes de depurar la publicacion `servers`.
+
+---
+
+Resumen tecnico - Card de notificaciones apagadas en MenuPrincipal
+
+- Alcance aplicado:
+  - `components/Main/MenuPrincipalScreen.jsx` ahora muestra un card profesional cuando las notificaciones push no estan activas en el dispositivo.
+  - El card se ubica en el menu principal despues del hero y antes de los avisos administrativos, siguiendo el lenguaje visual de las cards operativas existentes.
+
+- Contrato tecnico preservado:
+  - La lectura de permisos y la activacion de push siguen centralizadas en `services/notifications/PushMessaging.native.ts`.
+  - No se debe duplicar logica de permisos ni registro de token dentro de la UI.
+  - El wrapper nativo `components/Main/MenuPrincipal.native.jsx` consulta el estado real de `expo-notifications` y pasa al screen solo props visuales y acciones.
+
+- Comportamiento funcional:
+  - Si el permiso esta pendiente o denegado pero aun se puede solicitar, el CTA intenta activar notificaciones y registra el token Expo de la sesion activa.
+  - Si el permiso esta bloqueado (`canAskAgain === false`), el CTA abre la configuracion de la app para que el usuario lo active manualmente.
+  - Cuando las notificaciones ya estan concedidas, el card no se renderiza.
+
+- Regla practica:
+  - En el menu principal, cualquier alerta de permisos del dispositivo debe vivir como card operativa con copy claro para cliente final, no como texto tecnico ni modal invasivo al arrancar.
+  - Si se agregan nuevos estados de push, extender primero el helper del servicio de notificaciones y mantener `MenuPrincipalScreen` como capa de presentacion.
+
+Notas adicionales - Card de notificaciones debe reaccionar al volver desde ajustes
+
+- Problema detectado:
+  - Si el usuario activaba o desactivaba notificaciones desde la configuracion del sistema, el card del menu principal podia quedarse con el estado anterior hasta que otra accion refrescara la pantalla.
+  - La causa era que `MenuPrincipal.native.jsx` solo leia el permiso en momentos puntuales y no al regresar la app a foreground.
+
+- Correccion aplicada:
+  - `components/Main/MenuPrincipal.native.jsx` ahora escucha `AppState` y vuelve a ejecutar `getPushNotificationPermissionState()` cuando la app pasa a `active`.
+  - La lectura de permisos se centralizo en `refreshPushPermissionState(...)`, con guard por request id para evitar que una respuesta vieja pise una lectura mas reciente.
+  - Despues de intentar activar notificaciones con `registerPushTokenForActiveSession(...)`, el CTA usa el permiso recien refrescado para ocultar el card inmediatamente si ya quedo concedido, aunque el registro del token tarde un poco mas.
+
+- Regla practica:
+  - Cualquier UI que refleje permisos del sistema debe refrescarse al volver de ajustes con `AppState`, no solo al montar.
+  - Si el permiso controla visibilidad de un card, el estado visual debe depender del permiso real recien leido y no exclusivamente del resultado secundario de registrar tokens o ejecutar otro side effect.
+
+---
+
+Resumen tecnico - Comercio informa ubicacion apagada y usa headers con blur
+
+- Alcance aplicado:
+  - La app Expo ahora muestra una card profesional cuando comercio no puede obtener ubicacion del dispositivo.
+  - El aviso aparece en las dos superficies donde el usuario espera encontrar tiendas cercanas:
+    - `components/productos/ProductosScreen.native.jsx`
+    - `components/productos/ComercioHomeSection.native.jsx`
+
+- Componente reutilizable:
+  - Se creo `components/productos/CommerceLocationAccessCard.jsx` para centralizar el copy y la accion del permiso.
+  - La card diferencia dos casos:
+    - ubicacion apagada o aun no concedida -> CTA `Activar ubicacion`
+    - permiso bloqueado (`canAskAgain === false`) -> CTA `Abrir ajustes`
+  - Si el permiso esta bloqueado, la UI debe abrir `Linking.openSettings()` para que el usuario lo active manualmente.
+
+- Servicio de ubicacion:
+  - `services/location/deviceLocationCache.native.js` ahora expone `getDeviceLocationPermissionState()` para leer el estado actual del permiso sin pedirlo nuevamente.
+  - Las pantallas de comercio usan ese helper junto con `requestDeviceLocationPermission()` y `getCurrentDeviceLocation(...)` para mantener una unica fuente de verdad sobre permisos y posicion.
+
+- Reactividad al volver desde ajustes:
+  - Igual que con notificaciones, las superficies de comercio escuchan `AppState`.
+  - Cuando la app vuelve a `active`, vuelven a leer el permiso de ubicacion.
+  - Si el permiso ya esta concedido y aun no hay ubicacion util, intentan obtener la ubicacion y relanzar la busqueda de tiendas.
+
+- Header de comercio:
+  - `ProductosScreen.native.jsx` ya no debe usar un `Appbar` manual con fondo solido.
+  - La pantalla usa `AppHeader` con `DEFAULT_HEADER_COLOR` y `overlapContent`, heredando el blur/glass comun del proyecto.
+  - Las acciones existentes del header se mantienen como acciones dentro de `AppHeader`:
+    - regreso
+    - busqueda
+    - mensajes
+    - carrito
+    - menu de perfil
+
+- Regla practica:
+  - Si otra pantalla depende de permisos del sistema para mostrar contenido de negocio, no limitarse a un `Alert` puntual; debe existir una superficie persistente y accionable.
+  - En comercio, sin ubicacion no se pueden ordenar ni encontrar tiendas cercanas correctamente, por lo que el aviso debe ser visible tanto desde el menu principal como desde la pantalla completa.
+  - No volver a crear headers manuales en pantallas operativas si `AppHeader` ya cubre el caso; todos los headers del modulo deben mantener el blur compartido.
+
+---
+
+Resumen tecnico - Cache de ubicacion no debe ocultar permisos bloqueados en Comercio
+
+- Problema detectado:
+  - En Comercio Expo, una ubicacion cacheada podia hacer que `ProductosScreen.native.jsx` y `ComercioHomeSection.native.jsx` mostraran estados como `No hay tiendas cerca` aunque iOS tuviera la ubicacion de la app en `Nunca`.
+  - El bug visible no era falta de cache, sino que `userLocation` estaba ganando visualmente sobre el estado real de permisos/servicios.
+
+- Correccion aplicada:
+  - Ambas superficies derivan ahora un estado central:
+    - `locationServicesDisabled = servicesEnabled === false`
+    - `locationPermissionDenied = granted === false`
+    - `locationUnavailable = locationServicesDisabled || locationPermissionDenied`
+  - `CommerceLocationAccessCard` se muestra si la ubicacion esta apagada, bloqueada o hay error de ubicacion, incluso cuando existe una ubicacion cacheada.
+  - La cache puede seguir hidratando la UI como fallback, pero no limpia el error ni oculta el aviso cuando la ubicacion real no esta disponible.
+
+- Regla funcional importante:
+  - Si `canAskAgain === false`, el CTA debe abrir ajustes con `Linking.openSettings()`.
+  - Si `servicesEnabled === false`, el copy debe explicar que la ubicacion del dispositivo esta apagada.
+  - Si existe cache y la ubicacion sigue no disponible, la UI debe hablar de `Resultados aproximados` y advertir que distancia/orden pueden no ser correctos.
+
+- Regla practica:
+  - En flujos basados en ubicacion, no usar `userLocation` como prueba de que la ubicacion esta operativa; puede venir de cache.
+  - Los estados vacios de negocio (`No hay tiendas`, `No hay comercios cerca`) no deben ganar sobre permisos bloqueados o servicios apagados.
+  - Al cambiar radio o refrescar comercios, no relanzar busquedas con cache como si fuera ubicacion actual si `locationUnavailable` sigue activo.

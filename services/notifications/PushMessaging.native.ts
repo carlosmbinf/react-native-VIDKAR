@@ -443,6 +443,20 @@ export const requestPermissionsIfNeeded = async () => {
   );
 };
 
+export const getPushNotificationPermissionState = async () => {
+  const permissions = await Notifications.getPermissionsAsync();
+  const iosStatus = permissions.ios?.status;
+  const granted =
+    permissions.granted ||
+    iosStatus === Notifications.IosAuthorizationStatus.PROVISIONAL;
+
+  return {
+    canAskAgain: permissions.canAskAgain !== false,
+    granted,
+    status: permissions.status,
+  };
+};
+
 const getExpoPushToken = async () => {
   const projectId = getExpoProjectId();
   if (!projectId) {

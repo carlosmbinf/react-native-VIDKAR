@@ -94,6 +94,27 @@ export async function requestDeviceLocationPermission() {
   return Location.requestForegroundPermissionsAsync();
 }
 
+export const getDeviceLocationPermissionState = async () => {
+  const permission = await Location.getForegroundPermissionsAsync();
+  let servicesEnabled = true;
+
+  try {
+    servicesEnabled = await Location.hasServicesEnabledAsync();
+  } catch (error) {
+    console.warn(
+      "⚠️ [LocationCache] No se pudo verificar si los servicios de ubicación están activos:",
+      error,
+    );
+  }
+
+  return {
+    canAskAgain: permission?.canAskAgain !== false,
+    granted: permission?.status === "granted" || permission?.granted === true,
+    servicesEnabled,
+    status: permission?.status || "undetermined",
+  };
+};
+
 export async function getCurrentDeviceLocation(options = {}) {
   const position = await Location.getCurrentPositionAsync({
     accuracy: options.accuracy ?? Location.Accuracy.High,

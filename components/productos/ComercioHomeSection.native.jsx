@@ -3,28 +3,30 @@ import MeteorBase from "@meteorrn/core";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import React, { useMemo, useRef, useState } from "react";
-import { Linking, Pressable, StyleSheet, View } from "react-native";
+import { AppState, Linking, Pressable, StyleSheet, View } from "react-native";
 import {
-    ActivityIndicator,
-    Button,
-    Chip,
-    Searchbar,
-    Surface,
-    Text,
-    useTheme,
+  ActivityIndicator,
+  Button,
+  Chip,
+  Searchbar,
+  Surface,
+  Text,
+  useTheme,
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import {
-    getCachedDeviceLocationSync,
-    getCurrentDeviceLocation,
-    readCachedDeviceLocation,
-    requestDeviceLocationPermission,
+  getCachedDeviceLocationSync,
+  getCurrentDeviceLocation,
+  getDeviceLocationPermissionState,
+  readCachedDeviceLocation,
+  requestDeviceLocationPermission,
 } from "../../services/location/deviceLocationCache.native";
 import {
-    ProductosComercioCollection,
-    TiendasComercioCollection,
+  ProductosComercioCollection,
+  TiendasComercioCollection,
 } from "../collections/collections";
+import CommerceLocationAccessCard from "./CommerceLocationAccessCard";
 import TiendaCard from "./TiendaCard";
 
 const Meteor =
@@ -96,13 +98,48 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
   });
   const initialCachedLocationRef = useRef(getCachedDeviceLocationSync());
   const radioKmRef = useRef(5);
+  const locationPermissionRequestIdRef = useRef(0);
   const lastSearchSignatureRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [userLocation, setUserLocation] = useState(initialCachedLocationRef.current);
   const [locationError, setLocationError] = useState(null);
+  const [locationPermissionState, setLocationPermissionState] = useState(null);
+  const [locationPermissionLoading, setLocationPermissionLoading] = useState(false);
   const [tiendasCercanas, setTiendasCercanas] = useState([]);
   const [loadingTiendas, setLoadingTiendas] = useState(false);
   const [radioKm, setRadioKm] = useState(5);
+
+  const refreshLocationPermissionState = React.useCallback(
+    async ({ showLoading = false } = {}) => {
+      const requestId = locationPermissionRequestIdRef.current + 1;
+      locationPermissionRequestIdRef.current = requestId;
+
+      if (showLoading) {
+        setLocationPermissionLoading(true);
+      }
+
+      try {
+        const permissionState = await getDeviceLocationPermissionState();
+
+        if (locationPermissionRequestIdRef.current === requestId) {
+          setLocationPermissionState(permissionState);
+        }
+
+        return permissionState;
+      } catch (error) {
+        console.warn(
+          "[ComercioHomeSection] No se pudo leer el permiso de ubicación:",
+          error?.message || error,
+        );
+        return null;
+      } finally {
+        if (showLoading && locationPermissionRequestIdRef.current === requestId) {
+          setLocationPermissionLoading(false);
+        }
+      }
+    },
+    [],
+  );
 
   const actualizarUbicacionBackend = React.useCallback((ubicacion) => {
     const userId = Meteor.userId();
@@ -162,13 +199,15 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
   }, []);
 
   const aplicarUbicacion = React.useCallback(
-    (ubicacion, { updateBackend = false } = {}) => {
+    (ubicacion, { updateBackend = false, clearError = true } = {}) => {
       if (!ubicacion) {
         return;
       }
 
       setUserLocation(ubicacion);
-      setLocationError(null);
+      if (clearError) {
+        setLocationError(null);
+      }
 
       if (updateBackend) {
         actualizarUbicacionBackend(ubicacion);
@@ -184,14 +223,33 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
 
     try {
       cachedLocation = await readCachedDeviceLocation();
-      if (cachedLocation) {
-        aplicarUbicacion(cachedLocation, { updateBackend: false });
-      }
 
       const permission = await requestDeviceLocationPermission();
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      const nextPermissionState = {
+        canAskAgain: permission?.canAskAgain !== false,
+        granted: permission?.status === "granted" || permission?.granted === true,
+        servicesEnabled,
+        status: permission?.status || "undetermined",
+      };
+
+      setLocationPermissionState(nextPermissionState);
+
+      if (cachedLocation) {
+        aplicarUbicacion(cachedLocation, {
+          clearError: servicesEnabled,
+          updateBackend: false,
+        });
+      }
+
+      if (!servicesEnabled) {
+        setLocationError("La ubicación del dispositivo está apagada.");
+        return;
+      }
+
       if (permission.status !== "granted") {
         if (!cachedLocation) {
-          setLocationError("Activa la ubicación para ver comercios cercanos.");
+          setLocationError("La ubicación está desactivada para Vidkar.");
         }
         return;
       }
@@ -201,6 +259,22 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
       });
       aplicarUbicacion(ubicacion, { updateBackend: true });
     } catch (error) {
+      const servicesEnabled = await Location.hasServicesEnabledAsync().catch(
+        () => true,
+      );
+
+      if (!servicesEnabled) {
+        setLocationPermissionState((current) => ({
+          canAskAgain: current?.canAskAgain !== false,
+          granted: current?.granted === true,
+          status: current?.status || "undetermined",
+          ...current,
+          servicesEnabled: false,
+        }));
+        setLocationError("La ubicación del dispositivo está apagada.");
+        return;
+      }
+
       if (cachedLocation) {
         return;
       }
@@ -214,14 +288,43 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
       return;
     }
 
+    refreshLocationPermissionState();
+
     if (initialCachedLocationRef.current) {
       aplicarUbicacion(initialCachedLocationRef.current, {
+        clearError: false,
         updateBackend: false,
       });
     }
 
     obtenerUbicacion();
-  }, [aplicarUbicacion, dataReady, obtenerUbicacion]);
+  }, [aplicarUbicacion, dataReady, obtenerUbicacion, refreshLocationPermissionState]);
+
+  React.useEffect(() => {
+    const subscription = AppState.addEventListener("change", async (nextState) => {
+      if (nextState !== "active" || !dataReady) {
+        return;
+      }
+
+      const permissionState = await refreshLocationPermissionState();
+
+      if (permissionState?.servicesEnabled === false) {
+        setLocationError("La ubicación del dispositivo está apagada.");
+        return;
+      }
+
+      if (permissionState?.granted === false) {
+        setLocationError("La ubicación está desactivada para Vidkar.");
+        return;
+      }
+
+      if (permissionState?.granted && (!userLocation || locationError)) {
+        obtenerUbicacion();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [dataReady, locationError, obtenerUbicacion, refreshLocationPermissionState, userLocation]);
 
   React.useEffect(() => {
     radioKmRef.current = radioKm;
@@ -230,7 +333,7 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
   const cambiarRadio = (nuevoRadio) => {
     setRadioKm(nuevoRadio);
 
-    if (!userLocation) {
+    if (!userLocation || locationPermissionState?.servicesEnabled === false) {
       return;
     }
 
@@ -330,6 +433,19 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
 
   const visibleTiendas = tiendasFiltradas.slice(0, 4);
   const isLoading = loading || loadingTiendas;
+  const locationPermissionBlocked =
+    locationPermissionState?.granted === false &&
+    locationPermissionState?.canAskAgain === false;
+  const locationServicesDisabled = locationPermissionState?.servicesEnabled === false;
+  const locationPermissionDenied = locationPermissionState?.granted === false;
+  const locationUnavailable = locationServicesDisabled || locationPermissionDenied;
+  const isUsingCachedLocationFallback = locationUnavailable && Boolean(userLocation);
+  const showLocationAccessCard =
+    locationUnavailable ||
+    Boolean(locationError) ||
+    (!userLocation && locationPermissionState?.granted === false);
+  const shouldShowLocationEmptyState =
+    showLocationAccessCard && !isLoading && visibleTiendas.length === 0;
 
   return (
     <Surface elevation={0} style={styles.section}>
@@ -393,15 +509,40 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
           })}
         </View>
 
-        <Chip compact icon="store-search-outline" style={[styles.countChip, { backgroundColor: palette.chip }]}>
-          {isLoading ? "Buscando" : `${tiendasFiltradas.length} tienda${tiendasFiltradas.length === 1 ? "" : "s"}`}
+        <Chip
+          compact
+          icon={isUsingCachedLocationFallback ? "map-marker-alert-outline" : "store-search-outline"}
+          style={[styles.countChip, { backgroundColor: palette.chip }]}
+        >
+          {isLoading
+            ? "Buscando"
+            : isUsingCachedLocationFallback
+              ? "Resultados aproximados"
+              : `${tiendasFiltradas.length} tienda${tiendasFiltradas.length === 1 ? "" : "s"}`}
         </Chip>
       </View>
 
-      {locationError ? (
+      {showLocationAccessCard ? (
+        <CommerceLocationAccessCard
+          blocked={locationPermissionBlocked}
+          compact
+          loading={locationPermissionLoading || loadingTiendas}
+          onOpenSettings={() => Linking.openSettings()}
+          onRequestLocation={obtenerUbicacion}
+          style={styles.locationAccessCard}
+        />
+      ) : null}
+
+      {isUsingCachedLocationFallback ? (
         <View style={styles.inlineNotice}>
-          <Text variant="bodySmall" style={[styles.noticeText, { color: palette.copy }]}>{locationError}</Text>
-          <Button compact mode="text" onPress={() => Linking.openSettings()}>Permisos</Button>
+          <MaterialCommunityIcons
+            color={palette.icon}
+            name="information-outline"
+            size={18}
+          />
+          <Text variant="bodySmall" style={[styles.noticeText, { color: palette.copy }]}>
+            Estamos mostrando comercios usando tu última ubicación guardada. Mientras la ubicación no esté activa para Vidkar, la distancia y el orden de las tiendas pueden no ser correctos.
+          </Text>
         </View>
       ) : null}
 
@@ -421,15 +562,26 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
             />
           ))}
         </View>
+      ) : shouldShowLocationEmptyState ? (
+        <View style={styles.emptyState}>
+          <Text variant="titleSmall" style={[styles.emptyTitle, { color: palette.title }]}>Ubicación apagada</Text>
+          <Text variant="bodySmall" style={[styles.emptyCopy, { color: palette.copy }]}>No podemos buscar comercios cercanos si la ubicación no está activa para Vidkar. Actívala para actualizar la búsqueda.</Text>
+        </View>
       ) : (
         <View style={styles.emptyState}>
           <Text variant="titleSmall" style={[styles.emptyTitle, { color: palette.title }]}>
-            {userLocation ? "No hay comercios cerca" : "Ubicación pendiente"}
+            {locationUnavailable
+              ? "Ubicación apagada"
+              : userLocation
+                ? "No hay comercios cerca"
+                : "Ubicación pendiente"}
           </Text>
           <Text variant="bodySmall" style={[styles.emptyCopy, { color: palette.copy }]}> 
-            {userLocation
-              ? "Prueba ampliando el radio o abre el listado completo para actualizar la búsqueda."
-              : "Activa tu ubicación para encontrar tiendas disponibles en tu zona."}
+            {locationUnavailable
+              ? "Activa la ubicación para Vidkar desde los ajustes del dispositivo para poder buscar comercios cercanos."
+                : userLocation
+                  ? "Prueba ampliando el radio o abre el listado completo para actualizar la búsqueda."
+                : "Activa tu ubicación para encontrar tiendas disponibles en tu zona."}
           </Text>
           <Button mode="contained-tonal" onPress={obtenerUbicacion} style={styles.emptyButton}>
             Actualizar ubicación
@@ -525,6 +677,10 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     textAlign: "center",
+  },
+  locationAccessCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
   },
   metaRow: {
     alignItems: "center",
