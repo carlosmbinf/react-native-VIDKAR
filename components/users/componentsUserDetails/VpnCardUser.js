@@ -39,9 +39,7 @@ const VpnCardUser = ({ item, styles, momentLib, accentColor, canEdit, onRequestE
 		}
 
 		const selector = {
-			active: true,
-			estado: 'ACTIVO',
-			usuariosAprobados: username,
+			usuariosAprobados: { $in: [username] },
 		};
 		const handle = Meteor.subscribe('servers', selector, {
 			fields: VPN_SERVER_FIELDS,
@@ -189,12 +187,13 @@ const VpnCardUser = ({ item, styles, momentLib, accentColor, canEdit, onRequestE
 										<Text style={[ui.serverName, { color: palette.title }]}>{server.details || 'Servidor VPN'}</Text>
 										<Text style={[ui.serverLine, { color: palette.copy }]}>DNS: {server.domain || 'Sin dominio'}</Text>
 										<Text style={[ui.serverLine, { color: palette.copy }]}>IP: {server.ip || 'Sin IP'}</Text>
+										<Text style={[ui.serverLine, { color: palette.copy }]}>Estado: {server.estado || (server.active ? 'ACTIVO' : 'INACTIVO')}</Text>
 										<Text style={[ui.serverHint, { color: palette.label }]}>Servidor: {server.ip || 'IP pendiente'} ({server.domain || 'DNS pendiente'})</Text>
 									</View>
 								))}
 							</View>
 						) : (
-							<Text style={[ui.serverEmptyText, { color: palette.copy }]}>Este usuario no tiene servidores VPN activos aprobados en este momento.</Text>
+							<Text style={[ui.serverEmptyText, { color: palette.copy }]}>Este usuario no tiene servidores VPN aprobados en este momento.</Text>
 						)}
 					</View>
 				) : null}

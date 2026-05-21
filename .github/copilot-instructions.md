@@ -8910,3 +8910,77 @@ Resumen tecnico - StoreCard de Mis Tiendas alineado al patron visual de Producto
   - Si se vuelve a iterar `StoreCard`, preservar el mapa como hero full-background y mantener el contenido dentro de una bandeja inferior integrada.
   - No volver a poner el `scrim` por encima de los children de `MapaTiendaCardBackground`.
   - Para mejorar legibilidad, ajustar opacidad del fade/footer o intensidad baja del `BlurView`; no convertir el footer en una superficie solida que tape el mapa.
+
+---
+
+Resumen tecnico - Servidor VPN persistente por usuario y activacion automatica Proxy/VPN cobrada
+
+- Alcance aplicado en backend Meteor:
+  - Se centralizo la asignacion/remocion de usuarios a servidores VPN en `react-download/server/helpers/vpnServers.js`.
+  - La activacion de VPN ya no solo prende flags del usuario; tambien agrega el `username` a `ServersCollection.usuariosAprobados`.
+  - La desactivacion/bloqueo de VPN remueve al usuario del servidor donde estaba aprobado y guarda ese dominio como referencia futura del usuario.
+
+- Contrato de servidor VPN validado:
+  - El servidor por defecto se resuelve por:
+    - `domain: 'vpn.vidkar.com'`
+  - Si el usuario ya tiene servidores recordados, se intenta reutilizar primero la lista canonica:
+    - `vpnServerDomains`
+  - El backend puede leer campos legacy antiguos como fallback de migracion, pero ya no debe escribirlos como fuente principal.
+  - Si no existe ninguno o el servidor ya no esta disponible, se cae al servidor por defecto `vpn.vidkar.com`.
+
+- Campos nuevos/operativos en usuario:
+  - `vpnServerDomains`: lista canonica de dominios VPN donde el usuario debe volver a aprobarse cuando compre/reactive VPN.
+  - No guardar aliases redundantes como `vpnDefaultServerDomain`, `lastVpnServerDomain` o ids cacheados si el helper ya puede resolver servidores por dominio.
+
+- Reglas de activacion integradas:
+  - `ventas.aprobarVenta` ahora llama al helper cuando procesa carritos `VPN`.
+  - `ventas.activarServicioProxyVPN` tambien asigna servidor al activar VPN por contrato directo.
+  - `habilitarVPNUser` mantiene paridad con las activaciones administrativas manuales y tambien aprueba al usuario en servidor.
+
+- Reglas de desactivacion integradas:
+  - `desactivarUserVPN` remueve al usuario de `usuariosAprobados` antes de apagar flags VPN.
+  - El cron de vencimiento/consumo en `server/tareas.js` tambien remueve al usuario del servidor antes de bloquearlo.
+  - La remocion debe persistir `vpnServerDomains` para que la proxima compra vuelva a todos los servidores donde estaba aprobado cuando sea posible.
+
+- PayPal y MercadoPago:
+  - Los webhooks/handlers de pago ya crean la venta en `VentasRechargeCollection`, pero antes no activaban Proxy/VPN automaticamente.
+  - Ahora, si la orden cobrada contiene carritos `PROXY` o `VPN`, llaman a:
+    - `Meteor.callAsync('ventas.aprobarVenta', ventaId, { force: true, onlyTypes: ['PROXY', 'VPN'], source })`
+  - Ese flujo activa servicios Proxy/VPN y evita reprocesar recargas u otros items no relacionados dentro de la misma orden.
+
+- Cambio importante en `ventas.aprobarVenta`:
+  - Acepta opciones internas:
+    - `force`
+    - `onlyTypes`
+    - `source`
+  - Si una venta ya esta marcada como cobrada, aun puede procesar carritos pendientes de los tipos indicados cuando `force === true`.
+  - Esto es necesario para pagos online donde la venta de recarga queda cobrada por el gateway, pero el servicio Proxy/VPN todavia necesita activacion de negocio.
+
+- Regla practica:
+  - Si se toca de nuevo el pipeline VPN, no manipular `usuariosAprobados` disperso en cada metodo.
+  - Usar siempre helpers compartidos para asignar/remover usuarios de servidores VPN.
+  - Si se agrega otro gateway de pago, debe seguir el mismo patron de PayPal/MercadoPago: despues de insertar la venta cobrada, invocar `ventas.aprobarVenta` con `onlyTypes: ['PROXY', 'VPN']` para activar esos servicios sin duplicar recargas.
+  - Si una pantalla cliente muestra configuracion VPN, debe resolverla desde `vpnServerDomains` y los documentos reales de `servers`, no desde un dominio hardcodeado salvo fallback inicial `vpn.vidkar.com`.
+
+---
+
+Resumen tecnico - Card VPN de usuario debe listar servidores aprobados, no solo servidores en estado ACTIVO
+
+- Problema detectado:
+  - `components/users/componentsUserDetails/VpnCardUser.js` filtraba servidores con:
+    - `active: true`
+    - `estado: 'ACTIVO'`
+    - `usuariosAprobados: username`
+  - Pero el acceso real VPN del usuario se expresa en `servers.usuariosAprobados`.
+  - Un servidor puede tener `estado: 'INACTIVO'` y aun asi conservar al usuario en `usuariosAprobados`, por lo que el card ocultaba accesos reales ya guardados en backend.
+
+- Correccion aplicada:
+  - El selector del card ahora consulta por:
+    - `usuariosAprobados: { $in: [username] }`
+  - La card muestra tambien el `estado` del servidor para que el operador vea si el acceso existe aunque el servidor no este operativo en ese momento.
+  - El empty state dejo de decir `servidores VPN activos aprobados` y ahora habla de `servidores VPN aprobados`.
+
+- Regla practica:
+  - En la pagina de usuario, `usuariosAprobados` debe tratarse como autorizacion de acceso, no como sinonimo de servidor actualmente activo.
+  - Si se necesita distinguir disponibilidad operativa, mostrar `estado`/`active` como dato visual adicional, no usarlo para ocultar el servidor aprobado.
+  - Si vuelve a faltar un servidor en el card, revisar primero si el username esta en `servers.usuariosAprobados` antes de depurar la publicacion `servers`.

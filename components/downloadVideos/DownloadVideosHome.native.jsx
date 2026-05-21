@@ -5,38 +5,38 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
-  Alert,
-  Animated,
-  FlatList,
-  KeyboardAvoidingView,
-  Linking,
-  ActivityIndicator as NativeActivityIndicator,
-  PanResponder,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-  useWindowDimensions,
+    Alert,
+    Animated,
+    FlatList,
+    KeyboardAvoidingView,
+    Linking,
+    ActivityIndicator as NativeActivityIndicator,
+    PanResponder,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    View,
+    useWindowDimensions,
 } from "react-native";
 import {
-  ActivityIndicator,
-  Button,
-  Chip,
-  Dialog,
-  IconButton,
-  Portal,
-  Surface,
-  Text,
-  useTheme,
+    ActivityIndicator,
+    Button,
+    Chip,
+    Dialog,
+    IconButton,
+    Portal,
+    Surface,
+    Text,
+    useTheme,
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { getMeteorUrl } from "../../services/meteor/client.native";
 import AppHeader, {
-  DEFAULT_HEADER_COLOR,
-  useAppHeaderContentInset,
+    DEFAULT_HEADER_COLOR,
+    useAppHeaderContentInset,
 } from "../Header/AppHeader";
 import { PelisCollection } from "../collections/collections";
 
