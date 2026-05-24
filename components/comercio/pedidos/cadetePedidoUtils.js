@@ -94,6 +94,7 @@ export const getCadeteStep = (status) => {
 };
 
 export const formatMoney = (amount, currency = "CUP") => {
+  console.log("Formateando monto:", { amount, currency });
   const numericAmount = Number(amount) || 0;
   return `${numericAmount.toFixed(2)} ${currency}`;
 };

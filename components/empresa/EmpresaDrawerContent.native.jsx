@@ -120,12 +120,12 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
     const tiendaIds = tiendas.map((tienda) => tienda._id);
 
     const productosHandle = tiendaIds.length
-      ? Meteor.subscribe("productosComercio", { idTienda: { $in: tiendaIds } }, { fields: { _id: 1 } })
+      ? Meteor.subscribe("productosComercio", { idTienda: { $in: tiendaIds } }, { fields: { _id: 1, idTienda: 1 } })
       : null;
 
     const productosCount =
       tiendaIds.length && productosHandle?.ready()
-        ? ProductosComercioCollection.find({ idTienda: { $in: tiendaIds } }, { fields: { _id: 1 } }).count()
+        ? ProductosComercioCollection.find({ idTienda: { $in: tiendaIds } }, { fields: { _id: 1, idTienda: 1 } }).count()
         : 0;
 
     return {

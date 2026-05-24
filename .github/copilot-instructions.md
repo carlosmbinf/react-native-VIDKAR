@@ -4606,6 +4606,45 @@ Resumen tecnico - CreateUsers Expo debe contemplar que `addUser` legacy devuelve
   - Antes de modernizar validaciones de formularios legacy, confirmar que no se este bloqueando un caso que el backend historico aun acepta.
   - En pantallas Expo que llaman metodos Meteor antiguos, validar siempre el contrato real del metodo servidor, no solo la forma ideal esperada del callback.
 
+  ---
+
+  Resumen tecnico - Flujo cadete: la card del pedido necesita `producto.carritos` completo
+
+  - Hallazgo validado:
+    - `components/comercio/pedidos/HomePedidosComercio.native.jsx` estaba suscribiendo `ventasRecharge` para el flujo cadete con una proyeccion minima por subcampos de `producto.carritos`.
+    - `components/comercio/pedidos/CardPedidoComercio.native.jsx` descarta el render si el carrito llega vacio o inutilizable:
+      - `if (!venta || !comprasEnCarrito.length) return null;`
+    - Eso puede dejar la pantalla mostrando pedidos activos en el resumen, pero sin card visible, porque el join `pedido + venta` si existe y el descarte ocurre ya dentro del card.
+
+  - Correccion aplicada:
+    - Para el flujo cadete se dejo de proyectar `producto.carritos` por subcampos minimos y se paso a pedir el array completo:
+      - `"producto.carritos": 1`
+    - Este criterio queda alineado con otros modulos del proyecto que ya consumen ventas de comercio usando el carrito embebido completo.
+
+  - Regla practica:
+    - Si una pantalla necesita iterar items de `producto.carritos`, no usar una proyeccion agresiva por subcampos si el componente depende de que el array llegue estable y util.
+    - Si el resumen indica que hay pedidos activos pero la card no aparece, revisar primero la proyeccion de `ventasRecharge` antes de reabrir el cron o la publicacion `pedidosAsignados`.
+
+  Notas adicionales - Mis pedidos del cadete debe excluir ventas `ENTREGADO`
+
+  - Problema detectado:
+    - `HomePedidosComercio.native.jsx` filtraba pedidos activos usando solo `PedidosAsignadosComercioCollection` con `entregado: false`.
+    - Si la venta asociada ya tenia `estado: 'ENTREGADO'` pero el documento de pedido asignado aun no habia salido de la publicacion o no habia actualizado `entregado`, la card seguia apareciendo en `Mis pedidos activos`.
+
+  - Correccion aplicada:
+    - El arreglo `pedidosConVentas` ahora filtra tambien por el estado real de la venta asociada.
+    - Un pedido solo cuenta como activo si:
+      - `pedido.entregado !== true`
+      - `pedido.venta.estado !== 'ENTREGADO'`
+    - Al completar la entrega desde el card, se actualiza Minimongo localmente para reflejar de inmediato:
+      - `VentasRechargeCollection.estado = 'ENTREGADO'`
+      - `PedidosAsignadosComercioCollection.entregado = true`
+
+  - Regla practica:
+    - En el flujo cadete, no tratar `pedidosAsignados.entregado` como unica fuente de verdad para decidir si un pedido sigue activo.
+    - El estado operativo de `VentasRechargeCollection.estado` tambien debe excluir `ENTREGADO` del listado activo.
+    - Si una card entregada queda visible por unos segundos despues del slide final, aplicar refresco local de Minimongo solo despues de exito confirmado del metodo `comercio.pedidos.avanzar`.
+
 ---
 
 Resumen tecnico - Version real y numero de compilacion en MenuPrincipal Expo
@@ -6762,6 +6801,23 @@ Resumen tecnico - Slider de Mis pedidos del cadete con gesto robusto y bloqueo t
 - Regla practica:
   - Si un slider horizontal vive dentro de una lista o `ScrollView` vertical, no basta con que el thumb sea arrastrable; tambien hay que coordinar el gesto con el scroll padre.
   - En este proyecto, cualquier confirmacion por slide dentro de superficies scrolleables debe poder notificar al contenedor para pausar temporalmente el scroll durante el arrastre.
+
+Notas adicionales - `MapView` dentro de cards puede dibujarse por encima de siblings
+
+- Hallazgo validado en el card de pedidos del cadete:
+  - `react-native-maps` renderiza una superficie nativa que puede quedar visualmente por encima de componentes previos del mismo card, aunque el orden JSX parezca correcto.
+  - El sintoma visible fue el `PedidoStepper` apareciendo por detras del mapa cuando el pedido estaba en estado `Cadete en local`.
+
+- Correccion aplicada:
+  - `CardPedidoComercio.native.jsx` ahora envuelve el stepper en una capa propia con `position: 'relative'`, `zIndex` y `elevation` superiores.
+  - La seccion real del mapa y `MapaPedidos.native.jsx` quedan explicitamente en una capa base con `zIndex: 0` / `elevation: 0`.
+  - En Android, `MapaPedidos.native.jsx` usa `liteMode` porque el mapa dentro del card es una previsualizacion de ruta y asi se evita que Google Maps use una superficie nativa interactiva que atraviese el layout.
+
+- Regla practica:
+  - Si un `MapView` vive dentro de una card junto a steppers, chips o overlays, no confiar solo en el orden del JSX.
+  - Definir capas explicitas para los elementos que deben quedar por encima y mantener el mapa en una capa base.
+  - Para mapas de preview dentro de listas/cards en Android, preferir `liteMode` salvo que el usuario realmente necesite interaccion completa dentro de esa miniatura.
+  - No meter overlays generales como hijos directos de `MapView`; dentro del mapa dejar solo elementos compatibles como `Marker` y `Polyline`.
 
   ***
 
@@ -9134,3 +9190,221 @@ Resumen tecnico - Acceso a modo Empresa desde el drawer normal de Expo
     - normal drawer -> `users.toggleModoEmpresa`
     - root/session gate -> decide navegar al shell empresa cuando `modoEmpresa` queda activo.
   - Empresa y Cadete son modos distintos: Cadete requiere ubicacion/tracking; Empresa requiere rol y condiciones de negocio validadas por servidor.
+
+---
+
+Resumen tecnico - Onboarding carousel obligatorio antes de activar modo Empresa
+
+- Alcance aplicado:
+  - El CTA `Entrar al modo empresa` del menu principal ya no activa directamente `modoEmpresa`.
+  - Ahora navega primero a una pantalla de bienvenida dedicada:
+    - `app/(normal)/EmpresaWelcome.tsx`
+    - `components/empresa/EmpresaWelcomeScreen.native.jsx`
+    - `components/empresa/EmpresaWelcomeScreen.jsx` como fallback de preview/web.
+  - La ruta `EmpresaWelcome` quedo registrada en el stack normal de Expo.
+
+- Criterio funcional validado:
+  - El modo Empresa no debe entrar solo por tocar el boton del drawer/menu.
+  - Primero el usuario debe leer la presentacion del modo Empresa y aceptar los terminos y condiciones.
+  - Solo despues de aceptar se ejecuta la secuencia real de backend:
+    - `users.aceptarTerminosEmpresa()` cuando aun no habia aceptacion previa
+    - `users.toggleModoEmpresa(true)` para activar el modo
+  - El root/session gate sigue siendo quien entra finalmente al shell empresa cuando el usuario queda con:
+    - `modoEmpresa === true`
+    - `profile.roleComercio` incluyendo `EMPRESA`
+
+- Contrato backend preservado:
+  - No actualizar `Meteor.users` directo desde cliente para aceptar terminos ni para activar Empresa.
+  - El backend sigue siendo la fuente de verdad para:
+    - permiso `permiteEmpresa`
+    - bloqueo `empresaBloqueada`
+    - aceptacion `empresaTerminosCondicionesAcepted`
+    - rol de comercio `EMPRESA`
+  - Si el usuario ya habia aceptado terminos, la pantalla puede saltar la llamada de aceptacion y activar directamente con `users.toggleModoEmpresa(true)`.
+
+- UX/UI aplicada:
+  - La pantalla usa carousel horizontal con secciones de bienvenida, tiendas, productos y terminos.
+  - El ultimo slide contiene aceptacion explicita con checkbox antes de activar.
+  - Los terminos visibles deben dejar claro que no se pueden publicar productos ilegales o restringidos, incluyendo drogas, armas, municiones, productos robados/falsificados, articulos peligrosos, medicamentos controlados, documentos oficiales, servicios fraudulentos o contenido sexual explicito.
+
+- Regla practica:
+  - Si se vuelve a tocar el acceso a Empresa, no reintroducir `users.toggleModoEmpresa(true)` directamente desde `MenuPrincipal` o `DrawerOptionsAlls`.
+  - El camino correcto para entrar es siempre:
+    1. navegar a `/(normal)/EmpresaWelcome`
+    2. aceptar terminos si hace falta
+    3. llamar metodos Meteor del backend
+    4. dejar que el gate raiz cambie al shell empresa.
+  - Si se amplian los terminos, mantenerlos en lenguaje claro para operadores/clientes y no convertirlos en copy tecnico de implementacion.
+
+---
+
+Resumen tecnico - EmpresaWelcome fullscreen con un unico CTA de aceptacion
+
+- Ajuste UX aplicado:
+  - `components/empresa/EmpresaWelcomeScreen.native.jsx` ya no debe usar `AppHeader` ni botones de navegacion `Anterior` / `Continuar`.
+  - La pantalla de bienvenida al modo Empresa funciona como experiencia fullscreen con hero propio, carousel horizontal y un unico boton inferior.
+  - En slides intermedios, el boton inferior dice `Cancelar` y vuelve al menu normal.
+  - En el ultimo slide, ese mismo boton se convierte en `Aceptar terminos y condiciones` y ejecuta el flujo real de activacion.
+
+- Cambio funcional importante:
+  - Ya no se usa checkbox visual dentro del slide de terminos.
+  - La aceptacion ocurre al presionar el CTA final, manteniendo el contrato backend:
+    - `users.aceptarTerminosEmpresa()` si aun no habia aceptacion previa
+    - `users.toggleModoEmpresa(true)` despues de aceptar
+  - Tras activar, la pantalla hace `router.replace("/")` para dejar que el gate raiz entre al shell Empresa con el usuario actualizado.
+
+- Regla practica:
+  - Si se vuelve a tocar `EmpresaWelcome`, no reintroducir header ni multiples botones de navegacion.
+  - La navegacion por el carousel debe quedar por swipe y el unico CTA persistente debe cambiar de `Cancelar` a aceptacion en el ultimo slide.
+  - El contenido de terminos puede crecer, pero la accion de aceptarlos debe seguir centralizada en el boton final para no duplicar estados visuales.
+
+---
+
+Resumen tecnico - Login debe esperar usuario completo antes de decidir modo Empresa
+
+- Problema detectado:
+  - Un usuario con `modoEmpresa === true` podia iniciar sesion y caer en el menu normal.
+  - La causa practica era que `Loguin.native.js` redirigia con `resolveSessionRoute(userId, user)` apenas existia `userId`, pero `Meteor.user()` podia estar todavia incompleto y sin `modoEmpresa` / `profile.roleComercio`.
+
+- Correccion aplicada:
+  - `components/loguin/Loguin.native.js` ahora suscribe explicitamente el usuario actual con `WATCH_ROOT_USER_FIELDS` antes de resolver la ruta post-login.
+  - `components/navigator/sessionRoute.js` centraliza `userHasEmpresaRole(user)` para tolerar `profile.roleComercio` como array o string legacy.
+  - `app/index.native.tsx` usa ese mismo helper en el gate raiz.
+  - `components/Main/MenuPrincipal.native.jsx` agrega una redireccion defensiva: si por cualquier carrera el usuario ya esta en el menu normal pero el documento dice `modoEmpresa + EMPRESA`, navega a `/(empresa)/EmpresaNavigator`.
+
+- Regla practica:
+  - No decidir la ruta post-login solo con `userId`; esperar el documento de usuario proyectado con los campos de modo.
+  - Para modo Empresa, usar siempre el helper robusto de rol y no volver a hacer `roleComercio?.includes('EMPRESA')` disperso.
+  - Si una ruta normal recibe un usuario ya marcado como empresa, debe autocorregirse hacia el shell Empresa en vez de dejar al usuario en `MenuPrincipal`.
+
+---
+
+Resumen tecnico - Stepper del pedido del cliente integrado en el header oscuro del mapa
+
+- Ajuste aplicado:
+  - En `components/comercio/pedidos/components/PedidoCard.native.jsx`, cuando el pedido del cliente tiene seguimiento con mapa (`CADETEENLOCAL`, `ENCAMINO` o `CADETEENDESTINO`), el `PedidoStepper` ya no debe renderizarse como bloque separado encima del mapa.
+  - Ahora vive dentro del `mapWrapper`, sobre el `LinearGradient` oscuro superior, para que se lea como parte del header visual del mapa.
+  - Cuando el card esta expandido pero no hay mapa disponible, el stepper se mantiene en la posicion normal para no perder el contexto de estado.
+
+- Criterio tecnico validado:
+  - No resolver este layout con margenes negativos como `marginTop: -85`; eso provoca solapes fragiles con `MapView` y empeora especialmente en Android.
+  - Si el stepper debe ir sobre el mapa, renderizarlo como overlay explicito con `position: 'absolute'`, `zIndex` y `elevation` dentro del wrapper del mapa.
+  - Mantener `liteMode={Platform.OS === 'android'}` en mapas embebidos en cards para reducir problemas de superficies nativas que se dibujan por encima de siblings.
+
+- Regla practica:
+  - En cards de pedido con mapa, el orden visual correcto debe ser intencional:
+    - mapa como base
+    - gradiente oscuro superior para legibilidad
+    - stepper dentro de ese header oscuro
+    - detalle de productos debajo del mapa
+  - Si se ajusta otra vez el card de `Mis pedidos`, no duplicar el stepper fuera y dentro del mapa; usar una sola instancia segun exista o no seguimiento visible.
+
+---
+
+Resumen tecnico - Markers de mapas de pedidos con iconos y punta anclada
+
+- Ajuste aplicado:
+  - `components/comercio/maps/MapaPedidos.native.jsx` dejo de usar imagenes PNG fijas de 50x50 para los pins de tienda y destino.
+  - Ahora usa el mismo patron visual ya validado en el mapa del cliente:
+    - `Marker` con child custom
+    - circulo con borde blanco
+    - icono de `MaterialCommunityIcons`
+    - triangulo inferior como punta real del pin
+
+- Criterio tecnico validado:
+  - Para markers con punta, la coordenada real debe coincidir con la punta inferior y no con el centro visual del icono.
+  - El patron correcto es usar dimensiones estables del marker junto a:
+    - `anchor={{ x: 0.5, y: 1 }}`
+    - `centerOffset` calculado desde el alto total del marker
+  - Esto aplica especialmente cuando el marker se renderiza como vista custom o cuando se migra desde imagenes PNG con tamano fijo.
+
+- Regla practica:
+  - En mapas de pedidos, no volver a usar `image={require(...pin_50x50.png)}` si se necesita precision visual de la punta del marker.
+  - Mantener consistencia entre mapa del cliente y modo cadete usando los mismos iconos y colores:
+    - tienda: `storefront` con naranja `#FF6F00`
+    - destino: `home-map-marker` con verde `#4CAF50`
+  - Si se agregan nuevos markers con forma de pin, definir primero alto/ancho, anchor y centerOffset antes de ajustar estilos visuales.
+
+---
+
+Resumen tecnico - Mis pedidos del cliente usa AppHeader con blur compartido
+
+- Ajuste aplicado:
+  - `components/comercio/pedidos/PedidosComerciosList.native.jsx` dejo de usar un `Appbar` manual con fondo solido para el header.
+  - Ahora usa `components/Header/AppHeader.jsx`, reutilizando el mismo `BlurView`, overlay y estilo glass aplicado al resto de headers nuevos del proyecto.
+  - Las acciones existentes del header se conservaron:
+    - mensajes
+    - carrito
+    - menu de perfil
+    - regreso seguro a comercio
+
+- Criterio UX validado:
+  - La pantalla `Mis pedidos` del cliente debe sentirse integrada al lenguaje visual actual de la app.
+  - No conviene dejar headers solidos legacy en pantallas que ya viven dentro del sistema visual con blur/glass.
+
+- Regla practica:
+  - Si se vuelve a tocar `PedidosComerciosList.native.jsx`, no reintroducir `Appbar` manual para la cabecera principal.
+  - Usar `AppHeader` para mantener blur, safe area, acciones y consistencia visual con el resto de pantallas operativas.
+
+---
+
+Resumen tecnico - Direccion textual de entrega para compras Comercio en checkout Expo
+
+- Alcance aplicado:
+  - El step de ubicacion del carrito para items `COMERCIO` ahora captura tambien:
+    - `nombreCalle`
+    - `numeroCasa`
+  - Ambos valores se manejan como strings y se envian junto con `latitude` / `longitude` al metodo backend:
+    - `carrito.actualizarUbicacion`
+
+- Contrato de datos:
+  - Los campos quedan guardados en cada item de carrito al mismo nivel que:
+    - `coordenadas`
+  - No deben vivir dentro de `coordenadas`, porque la coordenada y la direccion textual tienen responsabilidades distintas.
+  - Al crear orden/venta, estos campos viajan con el carrito completo igual que el resto del payload de comercio.
+
+- UX aplicada:
+  - `MapLocationPicker.native.jsx` muestra inputs controlados para calle y numero de casa dentro del step de ubicacion.
+  - `WizardConStepper.native.jsx` valida que ambos esten completos antes de avanzar cuando el carrito tiene comercio.
+  - `ListaPedidosRemesa.native.jsx` y `PedidoCard.native.jsx` muestran la direccion textual para que el cliente/admin puedan verificar la entrega.
+
+- Regla practica:
+  - Si se toca checkout de `COMERCIO`, no proyectar ni renderizar solo `coordenadas`; incluir tambien `nombreCalle` y `numeroCasa` cuando el flujo necesite direccion visible.
+  - Si se reutiliza `carrito.actualizarUbicacion` desde otra superficie, mandar los campos textuales cuando el usuario los haya capturado, pero mantener compatibilidad con llamadas antiguas que solo envian coordenadas.
+  - No reemplazar estos strings por una direccion formateada unica si el backend/orden necesita mantener calle y numero separados.
+
+---
+
+Resumen tecnico - Entregas de comercio visibles en el inicio antes de Cubacel
+
+- Alcance aplicado:
+  - `components/Main/MenuPrincipalScreen.jsx` ahora muestra una seccion de entregas de comercio antes del bloque de productos Cubacel.
+  - La seccion vive en:
+    - `components/comercio/pedidos/ComercioHomeOrdersSection.native.jsx`
+  - El objetivo es que el home reutilice la misma experiencia visual de `Mis pedidos` del cliente cuando existan entregas de tipo `COMERCIO` en seguimiento.
+
+- Contrato reutilizado:
+  - No se creo un metodo nuevo ni una coleccion paralela.
+  - La fuente de verdad sigue siendo:
+    - publicacion `ventasRecharge`
+    - `VentasRechargeCollection`
+    - selector por usuario actual y carritos comercio:
+      - `userId: Meteor.userId()`
+      - `"producto.carritos.type": "COMERCIO"`
+  - El render usa el mismo card ya validado en el modulo de pedidos:
+    - `components/comercio/pedidos/components/PedidoCard.native.jsx`
+
+- Criterio funcional:
+  - En el inicio solo se muestran entregas activas o en seguimiento.
+  - Se excluyen ventas canceladas y pedidos con estado `ENTREGADO` para no contaminar el home con historial terminado.
+  - La pantalla completa `Mis pedidos` sigue siendo la superficie para revisar el historial completo.
+
+- Criterio UX:
+  - La card compacta del home debe verse igual que en `Mis pedidos`: encabezado `Pedido #...`, fecha, chevron y `PedidoStepper`.
+  - La seccion solo aparece si hay datos reales; si no hay entregas activas, no debe dejar placeholder vacio encima de Cubacel.
+  - El acceso `Ver todos` debe abrir `/(normal)/PedidosComerciosList` para mantener un solo flujo de detalle/historial.
+
+- Regla practica:
+  - Si otra superficie del home necesita mostrar pedidos comercio, reutilizar `PedidoCard` y el selector real de `ventasRecharge` en lugar de crear una card nueva con otro shape.
+  - No duplicar la logica del stepper de comercio en el menu principal; el componente fuente de verdad visual sigue siendo `PedidoCard.native.jsx`.
+  - Si se quiere cambiar cuantos pedidos aparecen en el home, ajustar el limite local de la seccion sin alterar `PedidosComerciosList.native.jsx`.

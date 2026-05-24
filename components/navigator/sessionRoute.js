@@ -1,3 +1,13 @@
+export function userHasEmpresaRole(user) {
+  const roleComercio = user?.profile?.roleComercio;
+
+  if (Array.isArray(roleComercio)) {
+    return roleComercio.includes('EMPRESA');
+  }
+
+  return String(roleComercio || '').includes('EMPRESA');
+}
+
 export function resolveSessionRoute(userId, user) {
   if (!userId) {
     return '/(auth)/Loguin';
@@ -7,7 +17,7 @@ export function resolveSessionRoute(userId, user) {
     return '/(cadete)/CadeteNavigator';
   }
 
-  if (user?.modoEmpresa && user?.profile?.roleComercio?.includes('EMPRESA')) {
+  if (user?.modoEmpresa && userHasEmpresaRole(user)) {
     return '/(empresa)/EmpresaNavigator';
   }
 

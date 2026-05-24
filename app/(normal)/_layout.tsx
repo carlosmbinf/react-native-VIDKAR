@@ -11,6 +11,7 @@ export default function NormalLayout() {
       <Stack.Screen name="CampanasOfertas" />
       <Stack.Screen name="PeliculasVideos" />
       <Stack.Screen name="PeliculaPlayer" />
+      <Stack.Screen name="EmpresaWelcome" />
       <Stack.Screen name="ProductosCubacelCards" />
       <Stack.Screen name="CubacelOferta" />
       <Stack.Screen name="ProxyPackages" />

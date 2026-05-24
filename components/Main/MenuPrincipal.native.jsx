@@ -24,6 +24,7 @@ import {
     VentasCollection,
     VentasRechargeCollection,
 } from "../collections/collections";
+import { userHasEmpresaRole } from "../navigator/sessionRoute";
 import MenuPrincipalScreen from "./MenuPrincipalScreen.jsx";
 
 const Meteor =
@@ -181,6 +182,10 @@ const callMeteorMethod = (methodName, ...args) =>
     });
   });
 
+const openEmpresaWelcome = () => {
+  router.push("/(normal)/EmpresaWelcome");
+};
+
 const getCadeteTrackingStartError = (result) => {
   if (result?.started) {
     return "";
@@ -323,6 +328,12 @@ const MenuPrincipalNative = () => {
       username: user?.username || null,
     });
   }, [user?._id, user?.username]);
+
+  useEffect(() => {
+    if (user?.modoEmpresa && userHasEmpresaRole(user)) {
+      router.replace("/(empresa)/EmpresaNavigator");
+    }
+  }, [user]);
 
   const refreshPushPermissionState = useCallback(
     async ({ showLoading = false } = {}) => {
@@ -735,6 +746,8 @@ const MenuPrincipalNative = () => {
                 throw new Error(trackingErrorMessage);
               }
 
+              router.replace("/");
+
               Alert.alert(
                 "Éxito",
                 nextState
@@ -776,6 +789,11 @@ const MenuPrincipalNative = () => {
 
   const handleToggleModoEmpresa = () => {
     const nextState = !user?.modoEmpresa;
+
+    if (nextState) {
+      openEmpresaWelcome();
+      return;
+    }
 
     Alert.alert(
       nextState ? "Entrar en modo empresa" : "Salir del modo empresa",

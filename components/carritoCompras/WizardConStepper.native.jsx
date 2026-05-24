@@ -46,6 +46,19 @@ const stepLabelList = [
   "Pago",
 ];
 
+const normalizeDeliveryLocation = (location) => {
+  if (!location) return null;
+
+  const latitude = Number(location.latitude);
+  const longitude = Number(location.longitude);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+
+  return { latitude, longitude };
+};
+
 const terminosYCondiciones = {
   efectivo: {
     contenido: [
@@ -208,6 +221,8 @@ const WizardConStepper = ({ initialLocation = null }) => {
   const [location, setLocation] = useState(
     () => initialLocation || getCachedDeviceLocationSync(),
   );
+  const [nombreCalle, setNombreCalle] = useState("");
+  const [numeroCasa, setNumeroCasa] = useState("");
   const [metodoPago, setMetodoPago] = useState(null);
   const [paisPago, setPaisPago] = useState(null);
   const [paisesPagoData, setPaisesPagoData] = useState([]);
@@ -794,10 +809,23 @@ const WizardConStepper = ({ initialLocation = null }) => {
     }
 
     if (activeStep === STEP_LOCATION) {
-      if (tieneComercio && !location) {
+      const deliveryLocation = normalizeDeliveryLocation(location);
+
+      if (tieneComercio && !deliveryLocation) {
         Alert.alert(
           "Ubicación requerida",
-          "Selecciona tu ubicación para continuar.",
+          "Selecciona una ubicación válida con coordenadas para continuar.",
+        );
+        return;
+      }
+
+      const normalizedNombreCalle = nombreCalle.trim();
+      const normalizedNumeroCasa = numeroCasa.trim();
+
+      if (tieneComercio && (!normalizedNombreCalle || !normalizedNumeroCasa)) {
+        Alert.alert(
+          "Dirección requerida",
+          "Ingresa el nombre de la calle y el número de la casa para completar la entrega.",
         );
         return;
       }
@@ -806,7 +834,12 @@ const WizardConStepper = ({ initialLocation = null }) => {
         Meteor.call(
           "carrito.actualizarUbicacion",
           userId,
-          location,
+          {
+            latitude: deliveryLocation.latitude,
+            longitude: deliveryLocation.longitude,
+            nombreCalle: normalizedNombreCalle,
+            numeroCasa: normalizedNumeroCasa,
+          },
           (error) => {
             if (error) {
               Alert.alert(
@@ -1786,15 +1819,24 @@ const WizardConStepper = ({ initialLocation = null }) => {
         );
       }
       return (
-        <View style={{ paddingBottom: 80 }}>
+        <ScrollView
+          style={styles.locationStepScrollView}
+          contentContainerStyle={styles.locationStepContentContainer}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={[styles.locationTitle, { color: wizardPalette.contentText }]}> 
             Selecciona dónde recibirás tu pedido
           </Text>
           <MapLocationPicker
             currentLocation={location}
+            nombreCalle={nombreCalle}
+            numeroCasa={numeroCasa}
             onLocationSelect={setLocation}
+            onNombreCalleChange={setNombreCalle}
+            onNumeroCasaChange={setNumeroCasa}
           />
-        </View>
+        </ScrollView>
       );
     }
     if (activeStep === STEP_TERMS) {
@@ -2176,6 +2218,12 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 12,
     textAlign: "center",
+  },
+  locationStepContentContainer: {
+    paddingBottom: 32,
+  },
+  locationStepScrollView: {
+    flex: 1,
   },
   modalRoot: {
     flex: 1,

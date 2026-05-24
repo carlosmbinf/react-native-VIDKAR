@@ -7,9 +7,9 @@ import { ActivityIndicator, Button, Chip, Surface, Text, useTheme } from "react-
 import useCadeteLocationTracking from "../../../hooks/useCadeteLocationTracking";
 import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
 import {
-    ColaCadetesPorTiendasComercioCollection,
-    PedidosAsignadosComercioCollection,
-    VentasRechargeCollection,
+  ColaCadetesPorTiendasComercioCollection,
+  PedidosAsignadosComercioCollection,
+  VentasRechargeCollection,
 } from "../../collections/collections";
 import { useAppHeaderContentInset } from "../../Header/AppHeader";
 import CardPedidoComercio from "./CardPedidoComercio.native";
@@ -39,18 +39,13 @@ const CADETE_VENTA_FIELDS = {
   isCobrado: 1,
   monedaPrecioOficial: 1,
   precioOficial: 1,
-  "producto.carritos._id": 1,
-  "producto.carritos.cantidad": 1,
-  "producto.carritos.comentario": 1,
-  "producto.carritos.coordenadas": 1,
-  "producto.carritos.idTienda": 1,
-  "producto.carritos.producto.monedaPrecio": 1,
-  "producto.carritos.producto.name": 1,
-  "producto.carritos.producto.precio": 1,
-  "producto.comisiones.costoTotalEntrega": 1,
-  "producto.comisiones.desglosePorTienda.costoPorKm": 1,
-  "producto.comisiones.desglosePorTienda.distanciaKm": 1,
-  "producto.comisiones.monedaCostoEntrega": 1,
+  producto: 1,
+};
+
+const isActiveCadetePedido = (pedido) => {
+  const ventaEstado = String(pedido?.venta?.estado || "").toUpperCase();
+
+  return pedido?.entregado !== true && ventaEstado !== "ENTREGADO";
 };
 
 const formatLastSyncTime = (timestamp) => {
@@ -121,7 +116,7 @@ const HomePedidosComercio = () => {
         ...pedido,
         venta: ventasById[pedido.idVentas] || null,
       }))
-      .filter((pedido) => Boolean(pedido.venta));
+      .filter((pedido) => Boolean(pedido.venta) && isActiveCadetePedido(pedido));
     const queueEntries = ColaCadetesPorTiendasComercioCollection.find(
       queueSelector,
       { fields: CADETE_QUEUE_FIELDS },
@@ -258,21 +253,22 @@ const HomePedidosComercio = () => {
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={[
-        styles.content,
-        {
-          backgroundColor: palette.background,
-          paddingHorizontal: horizontalPadding,
-          paddingTop: headerInset + 20,
-          width: "100%",
-        },
-      ]}
-      refreshControl={<RefreshControl onRefresh={onRefresh} refreshing={refreshing} />}
-      scrollEnabled={!sliderInteractionActive}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={[styles.innerContainer, maxContentWidth ? { maxWidth: maxContentWidth } : null]}>
+    <View style={[styles.screen, { backgroundColor: palette.background }]}> 
+      <Surface style={styles.contentSurface}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingHorizontal: horizontalPadding,
+              paddingTop: headerInset + 20,
+              width: "100%",
+            },
+          ]}
+          refreshControl={<RefreshControl onRefresh={onRefresh} refreshing={refreshing} />}
+          scrollEnabled={!sliderInteractionActive}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.innerContainer, maxContentWidth ? { maxWidth: maxContentWidth } : null]}>
       <Surface style={styles.statusCard}>
         <View style={styles.statusHeader}>
           <View style={[styles.statusIconWrap, { backgroundColor: `${trackingCard.accent}16` }]}>
@@ -354,8 +350,10 @@ const HomePedidosComercio = () => {
           ))}
         </View>
       )}
-      </View>
-    </ScrollView>
+          </View>
+        </ScrollView>
+      </Surface>
+    </View>
   );
 };
 
@@ -366,6 +364,9 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingBottom: 28,
+  },
+  contentSurface: {
+    flex: 1,
   },
   emptyCard: {
     alignItems: "center",
@@ -415,6 +416,9 @@ const styles = StyleSheet.create({
   loadingTitle: {
     fontWeight: "800",
     textAlign: "center",
+  },
+  screen: {
+    flex: 1,
   },
   sectionCopy: {
     lineHeight: 20,

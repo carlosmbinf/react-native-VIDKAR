@@ -1,10 +1,9 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
-import { useRouter } from "expo-router";
 import { Alert, FlatList, RefreshControl, StyleSheet, useWindowDimensions, View } from "react-native";
-import { Appbar, Button, Surface, Text, TextInput, useTheme } from "react-native-paper";
+import { Appbar, Chip, Surface, Text, TextInput, TouchableRipple, useTheme } from "react-native-paper";
 
 import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
 import { TiendasComercioCollection, VentasRechargeCollection } from "../../collections/collections";
@@ -75,6 +74,7 @@ const getGridColumns = (width) => {
 const PREPARACION_TIENDA_FIELDS = {
   _id: 1,
   title: 1,
+  idUser: 1
 };
 
 const PREPARACION_VENTA_FIELDS = {
@@ -85,18 +85,20 @@ const PREPARACION_VENTA_FIELDS = {
   isCancelada: 1,
   isCobrado: 1,
   metodoPago: 1,
+  cobrado: 1,
   monedaCobrado: 1,
-  "producto.carritos._id": 1,
-  "producto.carritos.cantidad": 1,
-  "producto.carritos.cobrarUSD": 1,
-  "producto.carritos.comentario": 1,
-  "producto.carritos.idTienda": 1,
-  "producto.carritos.monedaACobrar": 1,
-  "producto.carritos.name": 1,
-  "producto.carritos.precio": 1,
-  "producto.carritos.tienda.title": 1,
-  "producto.carritos.titulo": 1,
-  "producto.carritos.type": 1,
+  producto: 1,
+  // "producto.carritos._id": 1,
+  // "producto.carritos.cantidad": 1,
+  // "producto.carritos.cobrarUSD": 1,
+  // "producto.carritos.comentario": 1,
+  // "producto.carritos.idTienda": 1,
+  // "producto.carritos.monedaACobrar": 1,
+  // "producto.carritos.name": 1,
+  // "producto.carritos.precio": 1,
+  // "producto.carritos.tienda.title": 1,
+  // "producto.carritos.titulo": 1,
+  // "producto.carritos.type": 1,
 };
 
 const formatDate = (value) => {
@@ -114,14 +116,6 @@ const formatDate = (value) => {
   } catch {
     return "";
   }
-};
-
-const formatOrderTotal = (venta) => {
-  if (venta?.cobrado == null) {
-    return "Sin total confirmado";
-  }
-
-  return `${Number(venta.cobrado).toFixed(2)} ${venta?.monedaCobrado || "USD"}`;
 };
 
 const canAdvance = (status) => status === "PENDIENTE" || status === "PREPARANDO";
@@ -192,7 +186,7 @@ const PedidoPreparacionCard = ({ compact = false, locked, onAdvance, onInteracti
             {pedido.itemCount}
           </Text>
         </Surface>
-        <Surface style={[styles.summaryTile, compact ? styles.summaryTileCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
+        {/* <Surface style={[styles.summaryTile, compact ? styles.summaryTileCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
           <Text style={{ color: palette.muted }} variant="labelMedium">
             Pago
           </Text>
@@ -207,14 +201,16 @@ const PedidoPreparacionCard = ({ compact = false, locked, onAdvance, onInteracti
           <Text style={{ color: palette.title }} variant="titleSmall">
             {formatOrderTotal(pedido)}
           </Text>
-        </Surface>
+        </Surface> */}
       </View>
 
       <View style={styles.orderItemsWrap}>
         <Text style={{ color: palette.title }} variant="titleSmall">
           Productos de tus tiendas
         </Text>
-        {pedido.items.map((item, index) => (
+        {pedido.items.map((carrito, index) => {
+          let item = carrito?.producto 
+          return (
           <View key={`${pedido._id}-${item.idTienda}-${item._id || index}`} style={styles.orderItemRow}>
             <View style={[styles.orderItemBullet, { backgroundColor: statusMeta.sliderColor }]} />
             <View style={styles.orderItemCopy}>
@@ -222,7 +218,8 @@ const PedidoPreparacionCard = ({ compact = false, locked, onAdvance, onInteracti
                 {item.name || item.titulo || "Producto"}
               </Text>
               <Text style={{ color: palette.copy }} variant="bodySmall">
-                {(item.cantidad || 1)} x {Number(item.cobrarUSD || item.precio || 0).toFixed(2)} {item.monedaACobrar || pedido.monedaCobrado || "USD"}
+                {console.log("Calculando total para item", item)}
+                {(item.cantidad || 1)} x {Number(item.precio || 0).toFixed(2)} {item.monedaPrecio || "USD"}
               </Text>
               {item.comentario ? (
                 <Text style={{ color: palette.copy }} variant="bodySmall">
@@ -230,8 +227,8 @@ const PedidoPreparacionCard = ({ compact = false, locked, onAdvance, onInteracti
                 </Text>
               ) : null}
             </View>
-          </View>
-        ))}
+          </View>)
+        })}
       </View>
 
       {canAdvance(pedido.estado) ? (
@@ -263,8 +260,147 @@ const PedidoPreparacionCard = ({ compact = false, locked, onAdvance, onInteracti
   );
 };
 
+const PedidosPreparacionHeader = memo(
+  ({
+    onClearStoreFilter,
+    onSearchChange,
+    onStoreFilterQueryChange,
+    onToggleStoreFilters,
+    palette,
+    searchQuery,
+    selectedStoreLabel,
+    showStoreFilters,
+    statusCounts,
+    storeFilterQuery,
+    storeOptions,
+  }) => (
+    <View style={styles.headerContent}>
+      <Surface
+        style={[
+          styles.heroCard,
+          {
+            backgroundColor: palette.hero,
+            borderColor: palette.border,
+            shadowColor: palette.shadowColor,
+          },
+        ]}
+      >
+        <View style={styles.heroCopy}>
+          <Text style={{ color: palette.title }} variant="headlineSmall">
+            Preparación de pedidos
+          </Text>
+          <Text style={{ color: palette.copy }} variant="bodyMedium">
+            Supervisa los pedidos de tus tiendas, marca el avance de preparación y deja listos los pedidos para que el cadete los recoja.
+          </Text>
+        </View>
+        <View style={styles.summaryGrid}>
+          <Surface style={[styles.summaryTile, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}><Text style={{ color: palette.title }} variant="titleLarge">{statusCounts.total}</Text><Text style={{ color: palette.muted }} variant="bodySmall">Activos</Text></Surface>
+          <Surface style={[styles.summaryTile, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}><Text style={{ color: palette.title }} variant="titleLarge">{statusCounts.pendientes}</Text><Text style={{ color: palette.muted }} variant="bodySmall">Pendientes</Text></Surface>
+          <Surface style={[styles.summaryTile, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}><Text style={{ color: palette.title }} variant="titleLarge">{statusCounts.preparando}</Text><Text style={{ color: palette.muted }} variant="bodySmall">Preparando</Text></Surface>
+          <Surface style={[styles.summaryTile, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}><Text style={{ color: palette.title }} variant="titleLarge">{statusCounts.listos}</Text><Text style={{ color: palette.muted }} variant="bodySmall">Listos</Text></Surface>
+        </View>
+      </Surface>
+      {/* <TextInput
+        activeOutlineColor={palette.brand}
+        left={<TextInput.Icon color={palette.muted} icon="magnify" />}
+        mode="outlined"
+        onChangeText={onSearchChange}
+        outlineColor={palette.borderStrong}
+        placeholder="Buscar por ID, estado o tienda"
+        style={[styles.searchInput, { backgroundColor: palette.input }]}
+        textColor={palette.title}
+        theme={{ colors: { onSurfaceVariant: palette.muted } }}
+        value={searchQuery}
+      /> */}
+      <Surface
+        style={[
+          styles.storeFilterCard,
+          {
+            backgroundColor: palette.card,
+            borderColor: palette.border,
+            shadowColor: palette.shadowColor,
+          },
+        ]}
+      >
+        <TouchableRipple borderless={false} onPress={onToggleStoreFilters} style={styles.storeFilterToggle}>
+          <View style={styles.storeFilterToggleContent}>
+            <View style={styles.storeFilterToggleCopy}>
+              <Text style={{ color: palette.title }} variant="titleSmall">
+                Filtrar por tienda
+              </Text>
+              <Text style={{ color: palette.copy }} numberOfLines={1} variant="bodySmall">
+                {selectedStoreLabel || "Mostrando todas tus tiendas"}
+              </Text>
+            </View>
+            <View style={styles.storeFilterToggleActions}>
+              {selectedStoreLabel ? (
+                <Chip compact icon="close" onPress={onClearStoreFilter} style={[styles.activeStoreChip, { backgroundColor: palette.cardSoft }]} textStyle={{ color: palette.title }}>
+                  Limpiar
+                </Chip>
+              ) : null}
+              <MaterialCommunityIcons color={palette.muted} name={showStoreFilters ? "chevron-up" : "chevron-down"} size={22} />
+            </View>
+          </View>
+        </TouchableRipple>
+
+        {showStoreFilters ? (
+          <View style={styles.storeFilterPanel}>
+            <TextInput
+              activeOutlineColor={palette.brand}
+              left={<TextInput.Icon color={palette.muted} icon="store-search" />}
+              mode="outlined"
+              onChangeText={onStoreFilterQueryChange}
+              outlineColor={palette.borderStrong}
+              placeholder="Buscar tienda"
+              style={[styles.storeSearchInput, { backgroundColor: palette.input }]}
+              textColor={palette.title}
+              theme={{ colors: { onSurfaceVariant: palette.muted } }}
+              value={storeFilterQuery}
+            />
+
+            <View style={styles.storeChipList}>
+              <Chip
+                mode={selectedStoreLabel ? "outlined" : "flat"}
+                onPress={onClearStoreFilter}
+                selected={!selectedStoreLabel}
+                style={[
+                  styles.storeOptionChip,
+                  { backgroundColor: !selectedStoreLabel ? palette.cardSoft : "transparent", borderColor: palette.border },
+                ]}
+                textStyle={{ color: palette.title }}
+              >
+                Todas las tiendas
+              </Chip>
+              {storeOptions.map((store) => {
+                const isSelected = store.selected;
+
+                return (
+                  <Chip
+                    key={store._id}
+                    mode={isSelected ? "flat" : "outlined"}
+                    onPress={store.onPress}
+                    selected={isSelected}
+                    style={[
+                      styles.storeOptionChip,
+                      { backgroundColor: isSelected ? palette.brandMuted : "transparent", borderColor: isSelected ? palette.brand : palette.border },
+                    ]}
+                    textStyle={{ color: isSelected ? palette.brandStrong : palette.title }}
+                  >
+                    {store.title}
+                  </Chip>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+      </Surface>
+    </View>
+  ),
+);
+
+PedidosPreparacionHeader.displayName = "PedidosPreparacionHeader";
+
 const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
-  const router = useRouter();
   const theme = useTheme();
   const { width } = useWindowDimensions();
   const palette = useMemo(() => createEmpresaPalette(theme), [theme]);
@@ -278,14 +414,17 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStoreId, setSelectedStoreId] = useState("");
+  const [showStoreFilters, setShowStoreFilters] = useState(false);
+  const [storeFilterQuery, setStoreFilterQuery] = useState("");
 
-  const { pedidos, ready, tiendaIds } = Meteor.useTracker(() => {
+  const { pedidos, ready, tiendas } = Meteor.useTracker(() => {
     if (!dataReady) {
-      return { pedidos: [], ready: false, tiendaIds: [] };
+      return { pedidos: [], ready: false, tiendas: [] };
     }
 
     if (!currentUserId) {
-      return { pedidos: [], ready: true, tiendaIds: [] };
+      return { pedidos: [], ready: true, tiendas: [] };
     }
 
     const tiendasHandle = Meteor.subscribe("tiendas", { idUser: currentUserId }, {
@@ -302,9 +441,11 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
     }, {});
 
     if (!storeIds.length) {
-      return { pedidos: [], ready: tiendasHandle.ready(), tiendaIds: [] };
+      return { pedidos: [], ready: tiendasHandle.ready(), tiendas };
     }
 
+    console.log("Buscando ventas para tiendas", storeIds);
+    
     const selector = {
       "producto.carritos.idTienda": { $in: storeIds },
       "producto.carritos.type": "COMERCIO",
@@ -313,6 +454,7 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
       isCobrado: { $ne: false },
     };
 
+    console.log("Selector de ventas:", selector);
     const ventasHandle = Meteor.subscribe("ventasRecharge", selector, {
       fields: PREPARACION_VENTA_FIELDS,
     });
@@ -321,14 +463,18 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
       { fields: PREPARACION_VENTA_FIELDS, sort: { createdAt: 1 } },
     ).fetch();
 
+    console.log("Ventas encontradas para preparación:", ventas);
     const pedidosResult = ventas
       .map((venta) => {
         const items = Array.isArray(venta?.producto?.carritos)
           ? venta.producto.carritos.filter(
-              (item) => item?.type === "COMERCIO" && storeIds.includes(item?.idTienda),
+              (item) => {
+                console.log(`Revisando item ${item._id} de venta ${venta._id}: type=${item.type}, idTienda=${item.idTienda}`);
+                return item?.type === "COMERCIO" && storeIds.includes(item?.idTienda)},
             )
           : [];
 
+          console.log(`Venta ${venta._id} tiene ${items.length} items de comercio`);
         if (!items.length) {
           return null;
         }
@@ -366,22 +512,54 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
     return {
       pedidos: pedidosResult,
       ready: tiendasHandle.ready() && ventasHandle.ready(),
-      tiendaIds: storeIds,
+      tiendas,
+      
     };
   }, [currentUserId, dataReady]);
+
+  const filteredStoreOptions = useMemo(() => {
+    const normalizedQuery = storeFilterQuery.trim().toLowerCase();
+
+    return tiendas
+      .filter((store) => {
+        if (!normalizedQuery) {
+          return true;
+        }
+
+        return String(store?.title || "").toLowerCase().includes(normalizedQuery);
+      })
+      .map((store) => ({
+        ...store,
+        onPress: () => {
+          setSelectedStoreId(store._id);
+          setShowStoreFilters(false);
+        },
+        selected: selectedStoreId === store._id,
+      }));
+  }, [selectedStoreId, storeFilterQuery, tiendas]);
+
+  const selectedStore = useMemo(
+    () => tiendas.find((store) => store._id === selectedStoreId) || null,
+    [selectedStoreId, tiendas],
+  );
 
   const visiblePedidos = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
-    if (!normalizedQuery) {
-      return pedidos;
-    }
-
     return pedidos.filter((pedido) => {
-      const haystack = `${pedido?._id || ""} ${pedido?.estado || ""} ${pedido?.storeTitles?.join(" ") || ""}`.toLowerCase();
-      return haystack.includes(normalizedQuery);
+      const matchesSearch = !normalizedQuery
+        ? true
+        : `${pedido?._id || ""} ${pedido?.estado || ""} ${pedido?.storeTitles?.join(" ") || ""}`
+            .toLowerCase()
+            .includes(normalizedQuery);
+
+      const matchesStore = !selectedStoreId
+        ? true
+        : pedido?.items?.some((item) => item?.idTienda === selectedStoreId);
+
+      return matchesSearch && matchesStore;
     });
-  }, [pedidos, searchQuery]);
+  }, [pedidos, searchQuery, selectedStoreId]);
 
   const statusCounts = useMemo(() => {
     return pedidos.reduce(
@@ -431,68 +609,19 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
     setTimeout(() => setRefreshing(false), 650);
   };
 
-  const renderHeader = () => (
-    <View style={styles.headerContent}>
-      <Surface
-        style={[
-          styles.heroCard,
-          {
-            backgroundColor: palette.hero,
-            borderColor: palette.border,
-            shadowColor: palette.shadowColor,
-          },
-        ]}
-      >
-        <View style={styles.heroCopy}>
-          <Text style={{ color: palette.title }} variant="headlineSmall">
-            Preparación de pedidos
-          </Text>
-          <Text style={{ color: palette.copy }} variant="bodyMedium">
-            Supervisa los pedidos de tus tiendas, marca el avance de preparación y deja listos los pedidos para que el cadete los recoja.
-          </Text>
-        </View>
-        <View style={styles.summaryGrid}> 
-          <Surface style={[styles.summaryTile, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}><Text style={{ color: palette.title }} variant="titleLarge">{statusCounts.total}</Text><Text style={{ color: palette.muted }} variant="bodySmall">Activos</Text></Surface>
-          <Surface style={[styles.summaryTile, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}><Text style={{ color: palette.title }} variant="titleLarge">{statusCounts.pendientes}</Text><Text style={{ color: palette.muted }} variant="bodySmall">Pendientes</Text></Surface>
-          <Surface style={[styles.summaryTile, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}><Text style={{ color: palette.title }} variant="titleLarge">{statusCounts.preparando}</Text><Text style={{ color: palette.muted }} variant="bodySmall">Preparando</Text></Surface>
-          <Surface style={[styles.summaryTile, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}><Text style={{ color: palette.title }} variant="titleLarge">{statusCounts.listos}</Text><Text style={{ color: palette.muted }} variant="bodySmall">Listos</Text></Surface>
-        </View>
-      </Surface>
-      <TextInput
-        activeOutlineColor={palette.brand}
-        left={<TextInput.Icon color={palette.muted} icon="magnify" />}
-        mode="outlined"
-        onChangeText={setSearchQuery}
-        outlineColor={palette.borderStrong}
-        placeholder="Buscar por ID, estado o tienda"
-        style={[styles.searchInput, { backgroundColor: palette.input }]}
-        textColor={palette.title}
-        theme={{ colors: { onSurfaceVariant: palette.muted } }}
-        value={searchQuery}
-      />
-    </View>
-  );
+  const handleToggleStoreFilters = () => {
+    setShowStoreFilters((current) => !current);
+  };
+
+  const handleClearStoreFilter = () => {
+    setSelectedStoreId("");
+    setStoreFilterQuery("");
+    setShowStoreFilters(false);
+  };
 
   const renderEmpty = () => {
     if (!ready) {
       return null;
-    }
-
-    if (!tiendaIds.length) {
-      return (
-        <Surface style={[styles.emptyCard, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
-          <MaterialCommunityIcons color={palette.brandStrong} name="storefront-outline" size={44} />
-          <Text style={{ color: palette.title }} variant="headlineSmall">
-            Aún no tienes tiendas
-          </Text>
-          <Text style={[styles.emptyCopy, { color: palette.copy }]} variant="bodyMedium">
-            Crea tu primera tienda para empezar a recibir pedidos en el modo empresa.
-          </Text>
-          <Button buttonColor={palette.brandSoft} mode="contained-tonal" onPress={() => router.push("/(empresa)/MisTiendas")} textColor={palette.brandStrong}>
-            Ir a mis tiendas
-          </Button>
-        </Surface>
-      );
     }
 
     return (
@@ -512,14 +641,28 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <EmpresaTopBar
         onOpenDrawer={onOpenDrawer}
-        rightActions={<Appbar.Action icon="refresh" onPress={handleRefresh} />}
+        rightActions={<Appbar.Action icon={showStoreFilters ? "filter-off-outline" : "filter-variant"} onPress={handleToggleStoreFilters} />}
         subtitle="Pedidos de comercio"
         title="Preparación"
       />
 
       <FlatList
         ListEmptyComponent={renderEmpty}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={
+          <PedidosPreparacionHeader
+            onClearStoreFilter={handleClearStoreFilter}
+            onSearchChange={setSearchQuery}
+            onStoreFilterQueryChange={setStoreFilterQuery}
+            onToggleStoreFilters={handleToggleStoreFilters}
+            palette={palette}
+            searchQuery={searchQuery}
+            selectedStoreLabel={selectedStore?.title || ""}
+            showStoreFilters={showStoreFilters}
+            statusCounts={statusCounts}
+            storeFilterQuery={storeFilterQuery}
+            storeOptions={filteredStoreOptions}
+          />
+        }
         columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
         contentContainerStyle={[styles.listContent, { paddingHorizontal: horizontalPadding }]}
         data={visiblePedidos}
@@ -622,7 +765,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 24,
     gap: 16,
-    height: "100%",
+    // height: "100%",
     paddingHorizontal: 18,
     paddingVertical: 18,
     shadowOffset: {
@@ -660,10 +803,62 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
+  activeStoreChip: {
+    borderRadius: 999,
+  },
   screen: {
     flex: 1,
   },
   searchInput: {
+    backgroundColor: "transparent",
+  },
+  storeChipList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  storeFilterCard: {
+    borderWidth: 1,
+    borderRadius: 22,
+    overflow: "hidden",
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+  },
+  storeFilterPanel: {
+    gap: 14,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 4,
+  },
+  storeFilterToggle: {
+    borderRadius: 22,
+  },
+  storeFilterToggleActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  storeFilterToggleContent: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  storeFilterToggleCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  storeOptionChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  storeSearchInput: {
     backgroundColor: "transparent",
   },
   statusPill: {

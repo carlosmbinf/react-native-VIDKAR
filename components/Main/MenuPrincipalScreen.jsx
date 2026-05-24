@@ -15,6 +15,7 @@ import {
 import { Chip, Portal, Surface, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import ComercioHomeOrdersSection from "../comercio/pedidos/ComercioHomeOrdersSection.native";
 import Productos from "../cubacel/Productos";
 import DrawerOptionsAlls from "../drawer/DrawerOptionsAlls";
 import { useAppHeaderContentInset } from "../Header/AppHeader";
@@ -1437,6 +1438,13 @@ const MenuPrincipalScreen = ({
 
           {heavyContentReady ? (
             <>
+              <RenderTraceBlock
+                name="ComercioHomeOrdersSection"
+                payload={{ position: "before-cubacel" }}
+              >
+                <ComercioHomeOrdersSection />
+              </RenderTraceBlock>
+
               <RenderTraceBlock
                 name="Productos"
                 payload={{ deferDelay: 0, isDegradado: false }}

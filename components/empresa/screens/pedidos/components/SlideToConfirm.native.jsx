@@ -9,7 +9,7 @@ import {
 import { Text, useTheme } from "react-native-paper";
 
 const TRACK_PADDING = 4;
-const THUMB_SIZE = 56;
+const THUMB_SIZE = 40;
 const CONFIRMATION_THRESHOLD = 0.82;
 const FALLBACK_RESET_DELAY = 900;
 
@@ -280,10 +280,10 @@ const styles = StyleSheet.create({
     top: 0,
   },
   label: {
-    fontSize: 14,
+    fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.2,
-    paddingHorizontal: THUMB_SIZE + 28,
+    paddingHorizontal: THUMB_SIZE,
     textAlign: "center",
   },
   thumb: {
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 24,
     fontWeight: "900",
-    lineHeight: 24,
+    textAlign: "center",
   },
 });
 

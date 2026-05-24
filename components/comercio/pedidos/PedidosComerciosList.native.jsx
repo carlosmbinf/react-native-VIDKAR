@@ -3,12 +3,12 @@ import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Appbar, Menu, Surface, Text } from "react-native-paper";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
 import WizardConStepper from "../../carritoCompras/WizardConStepper.native";
 import { VentasRechargeCollection } from "../../collections/collections";
 import MenuIconMensajes from "../../components/MenuIconMensajes.native";
+import AppHeader, { DEFAULT_HEADER_COLOR } from "../../Header/AppHeader";
 import BlurMenuSurface, { blurMenuContentStyle } from "../../Header/BlurMenuSurface";
 import useSafeBack from "../../navigation/useSafeBack";
 import EmptyState from "./components/EmptyState";
@@ -45,7 +45,6 @@ const RENDER_BATCH_SIZE = 4;
 const PedidosComerciosListNative = () => {
   const router = useRouter();
   const safeBack = useSafeBack("/(normal)/ComerciosList");
-  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [expandedVentas, setExpandedVentas] = useState({});
   const [profileMenuVisible, setProfileMenuVisible] = useState(false);
@@ -192,21 +191,13 @@ const PedidosComerciosListNative = () => {
 
   const renderAppbar = useCallback(
     () => (
-      <Appbar
-        style={[
-          styles.appbar,
-          {
-            height: insets.top + 50,
-            paddingTop: insets.top,
-          },
-        ]}
-      >
-        <View style={styles.appbarRow}>
-          <Appbar.BackAction
-            color="#ffffff"
-            onPress={safeBack}
-          />
-
+      <AppHeader
+        backgroundColor={DEFAULT_HEADER_COLOR}
+        onBack={safeBack}
+        showBackButton
+        subtitle="Seguimiento de tus compras de comercio"
+        title="Mis pedidos"
+        actions={
           <View style={styles.rightActionRow}>
             <MenuIconMensajes
               onOpenMessages={(item) => {
@@ -256,10 +247,10 @@ const PedidosComerciosListNative = () => {
               </BlurMenuSurface>
             </Menu>
           </View>
-        </View>
-      </Appbar>
+        }
+      />
     ),
-    [insets.top, profileMenuVisible, router, safeBack],
+    [profileMenuVisible, router, safeBack],
   );
 
   if (!ready) {
@@ -311,16 +302,6 @@ const PedidosComerciosListNative = () => {
 };
 
 const styles = StyleSheet.create({
-  appbar: {
-    backgroundColor: "#3f51b5",
-    justifyContent: "center",
-  },
-  appbarRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-  },
   flatListContent: {
     flexGrow: 1,
     padding: 16,

@@ -3,10 +3,10 @@ import MeteorBase from "@meteorrn/core";
 import { useEffect, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import MapView, {
-    Marker,
-    Polyline,
-    PROVIDER_DEFAULT,
-    PROVIDER_GOOGLE,
+  Marker,
+  Polyline,
+  PROVIDER_DEFAULT,
+  PROVIDER_GOOGLE,
 } from "react-native-maps";
 import { ActivityIndicator, Text } from "react-native-paper";
 
@@ -25,6 +25,11 @@ const MAPA_PEDIDO_TIENDA_FIELDS = {
   title: 1,
   ubicacion: 1,
 };
+
+const MARKER_HEIGHT = 54;
+const MARKER_WIDTH = 44;
+const MARKER_ANCHOR = { x: 0.5, y: 1 };
+const MARKER_CENTER_OFFSET = { x: 0, y: -MARKER_HEIGHT / 2 };
 
 const MapaPedidoConCadeteNative = ({
   cadeteId,
@@ -191,6 +196,7 @@ const MapaPedidoConCadeteNative = ({
           { featureType: "poi", stylers: [{ visibility: "off" }] },
         ]}
         initialRegion={region}
+        liteMode={Platform.OS === "android"}
         provider={
           Platform.OS === "android" ? PROVIDER_GOOGLE : PROVIDER_DEFAULT
         }
@@ -202,7 +208,8 @@ const MapaPedidoConCadeteNative = ({
       >
         {tiendaMarker ? (
           <Marker
-            anchor={{ x: 0.5, y: 1 }}
+            anchor={MARKER_ANCHOR}
+            centerOffset={MARKER_CENTER_OFFSET}
             coordinate={tiendaMarker}
             description={tienda?.descripcion || "Punto de origen"}
             title={`🏪 ${tienda?.title || tienda?.name || "Tienda"}`}
@@ -224,7 +231,8 @@ const MapaPedidoConCadeteNative = ({
 
         {cadeteMarker ? (
           <Marker
-            anchor={{ x: 0.5, y: 1 }}
+            anchor={MARKER_ANCHOR}
+            centerOffset={MARKER_CENTER_OFFSET}
             coordinate={cadeteMarker}
             description="Posición actual del repartidor"
             title={`🚴 ${cadete?.username || "Cadete"}`}
@@ -248,7 +256,8 @@ const MapaPedidoConCadeteNative = ({
 
         {destinoMarker ? (
           <Marker
-            anchor={{ x: 0.5, y: 1 }}
+            anchor={MARKER_ANCHOR}
+            centerOffset={MARKER_CENTER_OFFSET}
             coordinate={destinoMarker}
             description="Ubicación de entrega al cliente"
             title="📍 Destino"
@@ -309,6 +318,7 @@ const styles = StyleSheet.create({
     height: 300,
     overflow: "hidden",
     width: "100%",
+    borderRadius: 12,
   },
   errorContainer: {
     alignItems: "center",
@@ -390,7 +400,9 @@ const styles = StyleSheet.create({
   },
   markerContainer: {
     alignItems: "center",
+    height: MARKER_HEIGHT,
     justifyContent: "center",
+    width: MARKER_WIDTH,
   },
   markerTriangle: {
     backgroundColor: "transparent",

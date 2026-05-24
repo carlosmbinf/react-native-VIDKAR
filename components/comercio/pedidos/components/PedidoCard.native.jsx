@@ -52,6 +52,7 @@ const formatFecha = (date) => {
 };
 
 const PedidoCardExpandedContent = ({
+  currentStep,
   isCanceled,
   isPendientePago,
   necesitaEvidencia,
@@ -95,6 +96,9 @@ const PedidoCardExpandedContent = ({
   const tienda = primeraCompra?.idTienda;
   const coordenadas = primeraCompra?.coordenadas;
   const comentarioPedido = primeraCompra?.comentario;
+  const nombreCalle = String(primeraCompra?.nombreCalle || "").trim();
+  const numeroCasa = String(primeraCompra?.numeroCasa || "").trim();
+  const direccionEntrega = [nombreCalle, numeroCasa].filter(Boolean).join(" ");
   const cadeteId = ventaCompleta?.cadeteid;
   const detailLoading = !detailReady && !ventaDetalle;
   const estadosConMapa = ["CADETEENLOCAL", "ENCAMINO", "CADETEENDESTINO"];
@@ -107,12 +111,7 @@ const PedidoCardExpandedContent = ({
     coordenadas;
 
   return (
-    <View
-      style={[
-        styles.expandedContent,
-        mostrarMapa ? styles.expandedContentWithMap : null,
-      ]}
-    >
+    <View style={styles.expandedContent}>
       {mostrarMapa ? (
         <View style={styles.mapWrapper}>
           <MapaPedidoConCadete
@@ -131,7 +130,15 @@ const PedidoCardExpandedContent = ({
             pointerEvents="none"
             style={styles.gradientOverlay}
           />
+
+          <View pointerEvents="none" style={styles.mapStepperHeader}>
+            <PedidoStepper currentStep={currentStep} isCanceled={isCanceled} />
+          </View>
         </View>
+      ) : null}
+
+      {!mostrarMapa ? (
+        <PedidoStepper currentStep={currentStep} isCanceled={isCanceled} />
       ) : null}
 
       {isCanceled ? (
@@ -257,6 +264,23 @@ const PedidoCardExpandedContent = ({
             ))}
           </View>
 
+          {direccionEntrega ? (
+            <>
+              <Divider style={styles.divider} />
+
+              <View style={styles.comentarioSection}>
+                <MaterialCommunityIcons
+                  color="#616161"
+                  name="home-map-marker"
+                  size={16}
+                />
+                <Text style={styles.comentarioText} variant="bodySmall">
+                  {direccionEntrega}
+                </Text>
+              </View>
+            </>
+          ) : null}
+
           {comentarioPedido ? (
             <>
               <Divider style={styles.divider} />
@@ -316,10 +340,13 @@ const PedidoCardNative = ({
       <Divider />
 
       <View>
-        <PedidoStepper currentStep={currentStep} isCanceled={isCanceled} />
+        {!isExpanded ? (
+          <PedidoStepper currentStep={currentStep} isCanceled={isCanceled} />
+        ) : null}
 
         {isExpanded ? (
           <PedidoCardExpandedContent
+            currentStep={currentStep}
             isCanceled={isCanceled}
             isPendientePago={isPendientePago}
             necesitaEvidencia={necesitaEvidencia}
@@ -478,10 +505,7 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   expandedContent: {
-    marginTop: 0,
-  },
-  expandedContentWithMap: {
-    marginTop: -85,
+    marginTop: 12,
   },
   evidenciaCard: {
     backgroundColor: "#FFF3E0",
@@ -520,8 +544,20 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   mapWrapper: {
+    marginTop: 4,
     overflow: "hidden",
     position: "relative",
+    borderRadius: 12,
+  },
+  mapStepperHeader: {
+    elevation: 3,
+    left: 0,
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    position: "absolute",
+    right: 0,
+    top: -5,
+    zIndex: 3,
   },
   productoCantidad: {
     color: "#757575",

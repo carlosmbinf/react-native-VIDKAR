@@ -5,28 +5,29 @@ import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
-  Animated,
-  Dimensions,
-  Easing,
-  ImageBackground,
-  Keyboard,
-  KeyboardAvoidingView,
-  NativeModules,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  View,
+    Alert,
+    Animated,
+    Dimensions,
+    Easing,
+    ImageBackground,
+    Keyboard,
+    KeyboardAvoidingView,
+    NativeModules,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 import { Button, Text, TextInput, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
-  connectToMeteor,
-  ensureMeteorConnection,
-  getMeteorUrl,
+    connectToMeteor,
+    ensureMeteorConnection,
+    getMeteorUrl,
 } from "../../services/meteor/client";
 import { registerPushTokenForActiveSession } from "../../services/notifications/PushMessaging.native";
+import { WATCH_ROOT_USER_FIELDS } from "../../services/watch/watchDashboard";
 import { ConfigCollection } from "../collections/collections";
 import { resolveSessionRoute } from "../navigator/sessionRoute";
 import { getLoginPalette, loginScreenStyles as styles } from "./Loguin.styles";
@@ -290,8 +291,29 @@ const Loguin = () => {
     ],
   );
 
-  const userId = Meteor.useTracker(() => Meteor.userId());
-  const user = Meteor.useTracker(() => Meteor.user());
+  const { loginRouteReady, user, userId } = Meteor.useTracker(() => {
+    const currentUserId = Meteor.userId();
+
+    if (!currentUserId) {
+      return {
+        loginRouteReady: false,
+        user: null,
+        userId: null,
+      };
+    }
+
+    const subscription = Meteor.subscribe(
+      "user",
+      { _id: currentUserId },
+      { fields: WATCH_ROOT_USER_FIELDS },
+    );
+
+    return {
+      loginRouteReady: subscription.ready(),
+      user: Meteor.user(),
+      userId: currentUserId,
+    };
+  });
   const permitirLoginWithGoogle = Meteor.useTracker(() => {
     if (!Meteor.status()?.connected) return null;
     Meteor.subscribe("propertys", {
@@ -421,9 +443,9 @@ const Loguin = () => {
   }, []);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !loginRouteReady) return;
     router.replace(resolveSessionRoute(userId, user));
-  }, [userId, user]);
+  }, [loginRouteReady, user, userId]);
 
   const handleUsernameChange = (text) => {
     setUsername(text);

@@ -5,19 +5,20 @@ import { Alert, Linking, Platform, StyleSheet, useWindowDimensions, View } from 
 import { Button, Chip, Divider, Surface, Text, useTheme } from "react-native-paper";
 
 import {
-    TiendasComercioCollection,
+  PedidosAsignadosComercioCollection,
+  TiendasComercioCollection,
+  VentasRechargeCollection,
 } from "../../collections/collections";
 import SlideToConfirm from "../../empresa/screens/pedidos/components/SlideToConfirm.native";
 import MapaPedidos from "../maps/MapaPedidos";
 import {
-    convertMoney,
-    formatMoney,
-    getCadeteSliderConfig,
-    getCadeteStatusText,
-    getCadeteStep,
-    getNextCadeteStatus,
-    getSubtotalProductos,
-    resolveCoordinatePair
+  convertMoney,
+  formatMoney,
+  getCadeteSliderConfig,
+  getCadeteStatusText,
+  getCadeteStep,
+  getNextCadeteStatus,
+  resolveCoordinatePair
 } from "./cadetePedidoUtils";
 import PedidoStepper from "./components/PedidoStepper";
 
@@ -77,12 +78,8 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
     venta?.monedaPrecioOficial ||
     primerItem?.producto?.monedaPrecio ||
     "CUP";
-  const subtotalProductos = useMemo(
-    () => getSubtotalProductos(comprasEnCarrito),
-    [comprasEnCarrito],
-  );
-  const totalPedido = Number(venta?.precioOficial) || Number(venta?.cobrado) || subtotalProductos;
   const costoEntregaBase = Number(venta?.producto?.comisiones?.costoTotalEntrega) || 0;
+  const monedaCostoEntregaBase = venta?.producto?.comisiones?.moneda || "USD";
   const costoPorKmBase = Number(
     venta?.producto?.comisiones?.desglosePorTienda?.[0]?.costoPorKm,
   ) || 0;
@@ -90,6 +87,9 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
   const [costoEntrega, setCostoEntrega] = useState(costoEntregaBase);
   const [costoPorKm, setCostoPorKm] = useState(costoPorKmBase);
   const comentario = primerItem?.comentario?.trim() || "";
+  const nombreCalle = String(primerItem?.nombreCalle || "").trim();
+  const numeroCasa = String(primerItem?.numeroCasa || "").trim();
+  const direccionEntrega = [nombreCalle, numeroCasa].filter(Boolean).join(" #");
   const destinationCoordinates = resolveCoordinatePair(primerItem?.coordenadas);
   const tiendaState = Meteor.useTracker(() => {
     if (!idTienda) {
@@ -219,6 +219,11 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
           }
 
           if (nextStatus === "ENTREGADO") {
+            VentasRechargeCollection.update(venta._id, { $set: { estado: "ENTREGADO" } });
+            if (pedido?._id) {
+              PedidosAsignadosComercioCollection.update(pedido._id, { $set: { entregado: true } });
+            }
+
             Alert.alert(
               "Pedido entregado",
               "La entrega quedó cerrada correctamente para este pedido.",
@@ -247,7 +252,7 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
     }
 
     executeAdvance();
-  }, [cadeteId, nextStatus, venta?._id]);
+  }, [cadeteId, nextStatus, pedido?._id, venta?._id]);
 
   if (!venta || !comprasEnCarrito.length) {
     return null;
@@ -293,7 +298,9 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
 
       <Divider style={styles.divider} />
 
-      <PedidoStepper currentStep={getCadeteStep(estado)} />
+      <View style={styles.stepperLayer}>
+        <PedidoStepper currentStep={getCadeteStep(estado)} />
+      </View>
 
       <View style={styles.metricsRow}>
         <View style={[styles.metricCard, { backgroundColor: palette.cardSoft, minWidth: isCompact ? "48%" : 96 }]}>
@@ -301,7 +308,7 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
             Ganancias por la entrega
           </Text>
           <Text style={[styles.metricValue, { color: palette.primaryText }]} variant="titleMedium">
-            {formatMoney(costoEntrega, monedaCostoEntrega)}
+            {formatMoney(costoEntrega, monedaCostoEntregaBase)}
           </Text>
         </View>
       </View>
@@ -313,7 +320,7 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
             KM calculados
           </Text>
           <Text style={[styles.metricValue, { color: palette.primaryText }]} variant="titleMedium">
-            {venta?.producto?.comisiones?.desglosePorTienda?.[0]?.distanciaKm}
+            {venta?.producto?.comisiones?.desglosePorTienda?.[0]?.distanciaKm} KM
           </Text>
         </View>
 
@@ -373,7 +380,7 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
         </View>
       ) : null}
 
-      <View style={styles.section}>
+      <View style={[styles.section, styles.mapSection]}>
         <View style={styles.sectionHeaderRow}>
           <View style={styles.sectionTitleRow}>
             <MaterialCommunityIcons color={palette.routeAccent} name="map-marker-path" size={18} />
@@ -392,14 +399,25 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
           </Button>
         </View>
 
+        {direccionEntrega ? (
+          <View style={[styles.deliveryAddressCard, { backgroundColor: palette.cardSoft }]}>
+            <View style={styles.sectionTitleRow}>
+              <MaterialCommunityIcons color={palette.routeAccent} name="home-map-marker" size={18} />
+              <Text style={[styles.deliveryAddressLabel, { color: palette.muted }]} variant="labelMedium">
+                Dirección de entrega
+              </Text>
+            </View>
+            <Text style={[styles.deliveryAddressText, { color: palette.primaryText }]} variant="bodyMedium">
+              {direccionEntrega}
+            </Text>
+          </View>
+        ) : null}
+
         <MapaPedidos puntoAIr={destinationCoordinates} puntoPartida={tienda} />
       </View>
 
       {nextStatus ? (
         <View style={styles.sliderWrap}>
-          <Text style={styles.sliderTitle} variant="labelLarge">
-            {sliderConfig.title}
-          </Text>
           <SlideToConfirm
             backgroundColor={sliderConfig.backgroundColor}
             disabled={submitting}
@@ -433,6 +451,19 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     gap: 10,
     padding: 16,
+  },
+  deliveryAddressCard: {
+    borderRadius: 20,
+    gap: 6,
+    padding: 14,
+  },
+  deliveryAddressLabel: {
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  deliveryAddressText: {
+    fontWeight: "700",
+    lineHeight: 22,
   },
   commentText: {
     lineHeight: 22,
@@ -535,12 +566,21 @@ const styles = StyleSheet.create({
   sliderWrap: {
     gap: 8,
   },
+  mapSection: {
+    elevation: 0,
+    zIndex: 0,
+  },
   stateChip: {
     alignSelf: "flex-start",
     borderRadius: 999,
   },
   stateChipText: {
     fontWeight: "800",
+  },
+  stepperLayer: {
+    elevation: 4,
+    position: "relative",
+    zIndex: 4,
   },
   subtitle: {
     lineHeight: 20,

@@ -23,6 +23,7 @@ import {
     PreciosCollection,
     VentasCollection,
 } from "../collections/collections";
+import { EMPRESA_BRAND } from "../empresa/styles/empresaTheme";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import AdminAssignmentCard from "./componentsUserDetails/AdminAssignmentCard";
 import DeleteAccountCard from "./componentsUserDetails/DeleteAccountCard";
@@ -391,6 +392,9 @@ const UserDetails = () => {
   const fallbackRoute = pathname?.startsWith("/(empresa)")
     ? "/(empresa)/EmpresaNavigator"
     : "/(normal)/Main";
+  const headerBackgroundColor = pathname?.startsWith("/(empresa)")
+    ? EMPRESA_BRAND
+    : undefined;
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -464,6 +468,7 @@ const UserDetails = () => {
       <AppHeader
         title={headerTitle}
         subtitle={item ? "Detalle y configuración" : "Cargando detalle"}
+        backgroundColor={headerBackgroundColor}
         left={<Appbar.BackAction iconColor="#fff" onPress={handleBack} />}
         titleStyle={styles.headerTitle}
         subtitleStyle={styles.headerSubtitle}

@@ -55,7 +55,7 @@ const PedidoStepperNative = ({ currentStep }) => {
               style={[
                 styles.stepLabel,
                 isActive ? styles.stepLabelActive : null,
-                resolvedCurrentStep === step.key ? styles.stepLabelCurrent : null,
+                resolvedCurrentStep >= step.key ? styles.stepLabelCurrent : null,
               ]}
               variant="bodySmall"
             >
@@ -101,14 +101,15 @@ const styles = StyleSheet.create({
     top: 20,
     transform: [{ translateX: 20 }],
     width: "60%",
+    zIndex: -1,
   },
   stepConnectorActive: {
     backgroundColor: "#FF6F00",
   },
   stepLabel: {
-    color: "#9E9E9E",
-    fontSize: 10,
-    paddingHorizontal: 4,
+    // color: "#9E9E9E",
+    fontSize: 7,
+    // paddingHorizontal: 4,
     textAlign: "center",
   },
   stepLabelActive: {

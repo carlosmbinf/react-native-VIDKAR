@@ -10,6 +10,7 @@ import CadeteNavigator from "../components/cadete/CadeteNavigator";
 import EmpresaNavigator from "../components/empresa/EmpresaNavigator";
 import Loguin from "../components/loguin/Loguin.native";
 import MenuPrincipal from "../components/Main/MenuPrincipal.native";
+import { userHasEmpresaRole } from "../components/navigator/sessionRoute";
 import PushNotificationDialogHost from "../components/shared/PushNotificationDialogHost.native";
 import UpdateRequired from "../components/update/UpdateRequired";
 import { syncCadeteBackgroundLocation } from "../services/location/cadeteBackgroundLocation.native";
@@ -408,7 +409,7 @@ export default function IndexScreen() {
 
   if (
     ready &&
-    user?.profile?.roleComercio?.includes("EMPRESA") &&
+    userHasEmpresaRole(user) &&
     user?.modoEmpresa
   ) {
     return (

@@ -2,38 +2,39 @@ import MeteorBase from "@meteorrn/core";
 import { BlurView } from "expo-blur";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, usePathname } from "expo-router";
 import React from "react";
 import {
-  Alert,
-  Appearance,
-  Dimensions,
-  FlatList,
-  Image,
-  Keyboard,
-  KeyboardAvoidingView,
-  Linking,
-  Platform,
-  StyleSheet,
-  View,
+    Alert,
+    Appearance,
+    Dimensions,
+    FlatList,
+    Image,
+    Keyboard,
+    KeyboardAvoidingView,
+    Linking,
+    Platform,
+    StyleSheet,
+    View,
 } from "react-native";
 import {
-  ActivityIndicator,
-  Avatar,
-  IconButton,
-  Menu,
-  Surface,
-  Text,
-  TextInput,
+    ActivityIndicator,
+    Avatar,
+    IconButton,
+    Menu,
+    Surface,
+    Text,
+    TextInput,
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { getMeteorUrl } from "../../services/meteor/client.native";
 import { Mensajes as MensajesCollection } from "../collections/collections";
+import { EMPRESA_BRAND } from "../empresa/styles/empresaTheme";
 import AppHeader from "../Header/AppHeader";
 import {
-  DARK_MENU_GLASS_TINT,
-  LIGHT_MENU_GLASS_TINT,
+    DARK_MENU_GLASS_TINT,
+    LIGHT_MENU_GLASS_TINT,
 } from "../shared/GlassMenuSurface";
 
 const Meteor =
@@ -957,10 +958,10 @@ class MensajesHomeScreen extends React.Component {
                         ? userLabel
                         : "Mensajes"}
             subtitle={userLabel || "Conversación privada"}
-            backgroundColor={palette.headerBackground}
+            backgroundColor={this.props.headerBackgroundColor || palette.headerBackground}
             overlapContent
             showBackButton
-            backHref="/(normal)/Main"
+            backHref={this.props.headerBackHref || "/(normal)/Main"}
             actions={this.renderHeaderAvatar()}
           />
           <LinearGradient
@@ -997,10 +998,10 @@ class MensajesHomeScreen extends React.Component {
         <AppHeader
           title={user ? userLabel : "Mensajes"}
           subtitle={userLabel || "Conversación privada"}
-          backgroundColor={palette.headerBackground}
+          backgroundColor={this.props.headerBackgroundColor || palette.headerBackground}
           overlapContent
           showBackButton
-          backHref="/(normal)/Main"
+          backHref={this.props.headerBackHref || "/(normal)/Main"}
           actions={this.renderHeaderAvatar()}
         />
 
@@ -1202,11 +1203,17 @@ class MensajesHomeScreen extends React.Component {
 
 const MensajesHomeNative = (props) => {
   const params = useLocalSearchParams();
+  const pathname = usePathname();
   const routeUser = Array.isArray(params.item) ? params.item[0] : params.item;
   const explicitUser = Array.isArray(params.user)
     ? params.user[0]
     : params.user;
   const targetUserId = props.user || routeUser || explicitUser || null;
+  const isEmpresaRoute = pathname?.startsWith("/(empresa)");
+  const headerBackgroundColor = isEmpresaRoute ? EMPRESA_BRAND : undefined;
+  const headerBackHref = isEmpresaRoute
+    ? "/(empresa)/EmpresaNavigator"
+    : "/(normal)/Main";
   const [messageLimit, setMessageLimit] = React.useState(MESSAGE_PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
   const dataReady = useDeferredScreenData();
@@ -1364,6 +1371,8 @@ const MensajesHomeNative = (props) => {
   return (
     <MensajesHomeScreen
       {...props}
+      headerBackHref={headerBackHref}
+      headerBackgroundColor={headerBackgroundColor}
       hasMoreMessages={hasMoreMessages}
       isPaginating={isLoadingMore}
       onLoadOlderMessages={handleLoadOlderMessages}

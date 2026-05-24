@@ -12,6 +12,7 @@ import {
   Card,
   Chip,
   Text,
+  TextInput,
 } from "react-native-paper";
 import {
   getCachedDeviceLocationSync,
@@ -27,7 +28,14 @@ const DEFAULT_REGION = {
   longitudeDelta: 0.0121,
 };
 
-const MapLocationPicker = ({ currentLocation, onLocationSelect }) => {
+const MapLocationPicker = ({
+  currentLocation,
+  nombreCalle,
+  numeroCasa,
+  onLocationSelect,
+  onNombreCalleChange,
+  onNumeroCasaChange,
+}) => {
   const immediateCachedLocation = getCachedDeviceLocationSync();
   const mapRef = useRef(null);
   const hasManualSelectionRef = useRef(false);
@@ -222,6 +230,27 @@ const MapLocationPicker = ({ currentLocation, onLocationSelect }) => {
           actual para centrar y seleccionar más rápido.
         </Text>
 
+        <View style={styles.addressForm}>
+          <TextInput
+            label="Nombre de la calle"
+            mode="outlined"
+            value={nombreCalle || ""}
+            onChangeText={onNombreCalleChange}
+            autoCapitalize="words"
+            style={styles.streetInput}
+            dense
+          />
+          <TextInput
+            label="Número de la casa"
+            mode="outlined"
+            value={numeroCasa || ""}
+            onChangeText={onNumeroCasaChange}
+            keyboardType="default"
+            style={styles.houseInput}
+            dense
+          />
+        </View>
+
         <View style={styles.mapShell}>
           <MapView
             ref={mapRef}
@@ -273,6 +302,12 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 12,
   },
+  addressForm: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 14,
+  },
   card: {
     borderRadius: 20,
   },
@@ -281,8 +316,12 @@ const styles = StyleSheet.create({
   },
   description: {
     lineHeight: 20,
-    marginBottom: 14,
+    marginBottom: 12,
     opacity: 0.7,
+  },
+  houseInput: {
+    flex: 1,
+    minWidth: 130,
   },
   loader: {
     marginTop: 12,
@@ -304,6 +343,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     height: 320,
     overflow: "hidden",
+  },
+  streetInput: {
+    flex: 2,
+    minWidth: 190,
   },
   title: {
     fontWeight: "700",

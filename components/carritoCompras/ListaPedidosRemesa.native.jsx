@@ -51,6 +51,8 @@ const CART_ITEM_FIELDS = {
   monedaRecibirEnCuba: 1,
   movilARecargar: 1,
   nombre: 1,
+  nombreCalle: 1,
+  numeroCasa: 1,
   producto: 1,
   recibirEnCuba: 1,
   tarjetaCUP: 1,
@@ -531,6 +533,9 @@ const ComercioCard = ({
   const cantidad = Number(item.cantidad || 1);
   const total = precioUnitario * cantidad;
   const tienda = TiendasComercioCollection.findOne({ _id: producto?.idTienda });
+  const nombreCalle = String(item.nombreCalle || "").trim();
+  const numeroCasa = String(item.numeroCasa || "").trim();
+  const direccionEntrega = [nombreCalle, numeroCasa].filter(Boolean).join(" ");
 
   React.useEffect(() => {
     let cancelled = false;
@@ -843,7 +848,7 @@ const ComercioCard = ({
               </View>
             </View>
 
-            {item.direccionCuba ? (
+            {direccionEntrega || item.direccionCuba ? (
               <View
                 style={[
                   styles.comercioDetailRow,
@@ -871,7 +876,7 @@ const ComercioCard = ({
                       isDarkMode && styles.darkPrimaryText,
                     ]}
                   >
-                    {item.direccionCuba}
+                    {direccionEntrega || item.direccionCuba}
                   </Text>
                 </View>
               </View>

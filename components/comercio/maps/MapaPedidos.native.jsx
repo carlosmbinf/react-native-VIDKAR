@@ -1,14 +1,20 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMemo } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import MapView, {
-    Marker,
-    Polyline,
-    PROVIDER_DEFAULT,
-    PROVIDER_GOOGLE,
+  Marker,
+  Polyline,
+  PROVIDER_DEFAULT,
+  PROVIDER_GOOGLE,
 } from "react-native-maps";
 import { Text } from "react-native-paper";
 
 import { resolveCoordinatePair } from "../pedidos/cadetePedidoUtils";
+
+const MAP_PIN_HEIGHT = 54;
+const MAP_PIN_WIDTH = 44;
+const MAP_PIN_ANCHOR = { x: 0.5, y: 1 };
+const MAP_PIN_CENTER_OFFSET = { x: 0, y: -MAP_PIN_HEIGHT / 2 };
 
 const createRegion = (origin, destination) => {
   if (origin && destination) {
@@ -76,22 +82,50 @@ const MapaPedidos = ({ puntoPartida, puntoAIr }) => {
       >
         {origin ? (
           <Marker
-            anchor={{ x: 0.5, y: 1 }}
+            anchor={MAP_PIN_ANCHOR}
+            centerOffset={MAP_PIN_CENTER_OFFSET}
             coordinate={origin}
             description={puntoPartida?.descripcion || "Punto de recogida"}
-            image={require("./pin_shop_50x50.png")}
             title={puntoPartida?.title || puntoPartida?.name || "Tienda"}
-          />
+          >
+            <View style={styles.markerContainer}>
+              <View
+                style={[styles.markerCircle, { backgroundColor: "#FF6F00" }]}
+              >
+                <MaterialCommunityIcons
+                  color="#fff"
+                  name="storefront"
+                  size={24}
+                />
+              </View>
+              <View style={styles.markerTriangle} />
+            </View>
+          </Marker>
         ) : null}
 
         {destination ? (
           <Marker
-            anchor={{ x: 0.5, y: 1 }}
+            anchor={MAP_PIN_ANCHOR}
+            centerOffset={MAP_PIN_CENTER_OFFSET}
             coordinate={destination}
             description={puntoAIr?.descripcion || "Punto de entrega"}
-            image={require("./pin_goal_50x50.png")}
             title={puntoAIr?.title || puntoAIr?.name || "Destino"}
-          />
+          >
+            <View style={styles.markerContainer}>
+              <View
+                style={[styles.markerCircle, { backgroundColor: "#4CAF50" }]}
+              >
+                <MaterialCommunityIcons
+                  color="#fff"
+                  name="home-map-marker"
+                  size={24}
+                />
+              </View>
+              <View
+                style={[styles.markerTriangle, { borderTopColor: "#4CAF50" }]}
+              />
+            </View>
+          </Marker>
         ) : null}
 
         {origin && destination ? (
@@ -117,6 +151,39 @@ const styles = StyleSheet.create({
   map: {
     height: 220,
     width: "100%",
+  },
+  markerCircle: {
+    alignItems: "center",
+    borderColor: "#fff",
+    borderRadius: 22,
+    borderWidth: 3,
+    elevation: 8,
+    height: 44,
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { height: 3, width: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 5,
+    width: 44,
+  },
+  markerContainer: {
+    alignItems: "center",
+    height: MAP_PIN_HEIGHT,
+    justifyContent: "center",
+    width: MAP_PIN_WIDTH,
+  },
+  markerTriangle: {
+    backgroundColor: "transparent",
+    borderLeftColor: "transparent",
+    borderLeftWidth: 8,
+    borderRightColor: "transparent",
+    borderRightWidth: 8,
+    borderStyle: "solid",
+    borderTopColor: "#FF6F00",
+    borderTopWidth: 12,
+    height: 0,
+    marginTop: -2,
+    width: 0,
   },
   emptyState: {
     alignItems: "center",
