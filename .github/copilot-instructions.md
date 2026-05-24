@@ -2684,10 +2684,9 @@ Resumen técnico – Login de Google en Expo usando AuthSession y contrato legac
       - `date-fns/addMonths`
       - `date-fns/getMonth`
 
-    ---
+    ***
 
     Resumen tecnico - Trailer inline de YouTube en el drawer de Peliculas Expo
-
     - Alcance aplicado:
       - `components/downloadVideos/DownloadVideosHome.native.jsx` ya no abre el trailer de YouTube fuera de la app.
       - Cuando una pelicula tiene `urlTrailer` valida de YouTube, el drawer de detalle reproduce ese trailer inline exactamente en el bloque donde normalmente se muestra el poster principal.
@@ -5139,15 +5138,14 @@ Resumen técnico – Safe area real en drawers de Expo
   - Si un drawer Expo monta header, scroll y footer propios, aplicar safe area al contenedor completo y no confiar en paddings fijos dispersos.
   - Si existe footer persistente dentro del drawer, sumar `insets.bottom` también en esa zona y no solo en el cuerpo scrolleable.
 
-  ---
+  ***
 
   Resumen tecnico - Runtime HLS publico consumido desde Expo sin login del servicio
-
   - Ajuste aplicado:
     - El panel HLS del cliente Expo ya no depende de una sesion administrativa del servicio HLS.
     - `components/hls/HlsAdminScreen.native.jsx` ahora consume:
       - `${baseUrl}/api/runtime`
-      en lugar de:
+        en lugar de:
       - `${baseUrl}/admin/api/runtime`
     - La llamada ya no usa `credentials: 'include'` ni CTA a `/admin/login`.
 
@@ -8159,7 +8157,7 @@ Resumen tecnico - Drawers laterales completamente scrolleables en horizontal y c
   - `components/drawer/DrawerOptionsAlls.js`
   - `components/cadete/CadeteDrawerContent.native.jsx`
   - `components/empresa/EmpresaDrawerContent.native.jsx`
-  ahora cambian su estructura segun la orientacion del dispositivo.
+    ahora cambian su estructura segun la orientacion del dispositivo.
 
 - Comportamiento final validado:
   - En vertical:
@@ -9114,3 +9112,25 @@ Resumen tecnico - Cache de ubicacion no debe ocultar permisos bloqueados en Come
   - En flujos basados en ubicacion, no usar `userLocation` como prueba de que la ubicacion esta operativa; puede venir de cache.
   - Los estados vacios de negocio (`No hay tiendas`, `No hay comercios cerca`) no deben ganar sobre permisos bloqueados o servicios apagados.
   - Al cambiar radio o refrescar comercios, no relanzar busquedas con cache como si fuera ubicacion actual si `locationUnavailable` sigue activo.
+
+---
+
+Resumen tecnico - Acceso a modo Empresa desde el drawer normal de Expo
+
+- Ajuste aplicado:
+  - `components/Main/MenuPrincipal.native.jsx` ahora expone `handleToggleModoEmpresa()` y llama al metodo backend existente:
+    - `users.toggleModoEmpresa(enabled)`
+  - `components/Main/MenuPrincipalScreen.jsx` propaga `onToggleModoEmpresa` hacia `DrawerOptionsAlls`.
+  - `components/drawer/DrawerOptionsAlls.js` muestra una card de `Modo empresa` en el footer del drawer normal cuando el usuario tiene rol de comercio empresa.
+
+- Criterio funcional validado:
+  - La entrada a empresa no debe copiar el preflight de ubicacion del modo cadete.
+  - El cliente solo muestra el CTA si `profile.roleComercio` incluye `EMPRESA`.
+  - La validacion fuerte sigue en backend, donde `users.toggleModoEmpresa` revisa terminos, bloqueo y rol real antes de activar `modoEmpresa`.
+
+- Regla practica:
+  - No actualizar `Meteor.users` directamente desde cliente para entrar o salir de modo Empresa.
+  - Si se vuelve a tocar este flujo, mantener el contrato:
+    - normal drawer -> `users.toggleModoEmpresa`
+    - root/session gate -> decide navegar al shell empresa cuando `modoEmpresa` queda activo.
+  - Empresa y Cadete son modos distintos: Cadete requiere ubicacion/tracking; Empresa requiere rol y condiciones de negocio validadas por servidor.

@@ -49,13 +49,17 @@ const USER_DETAIL_FIELDS = {
   descuentovpn: 1,
   desconectarVPN: 1,
   emails: 1,
+  empresaBloqueada: 1,
+  empresaTerminosCondicionesAcepted: 1,
   fechaSubscripcion: 1,
+  fechaEmpresaTerminosCondicionesAcepted: 1,
   isIlimitado: 1,
   megas: 1,
   megasGastadosinBytes: 1,
   modoEmpresa: 1,
   permitirAprobacionEfectivoCUP: 1,
   permitirPagoEfectivoCUP: 1,
+  permiteEmpresa: 1,
   permiteRemesas: 1,
   picture: 1,
   profile: 1,
@@ -108,11 +112,17 @@ const UserDetails = () => {
   const dataReady = useDeferredScreenData();
   const profilePalette = useMemo(
     () => ({
-      border: theme.dark ? "rgba(148, 163, 184, 0.14)" : "rgba(15, 23, 42, 0.08)",
+      border: theme.dark
+        ? "rgba(148, 163, 184, 0.14)"
+        : "rgba(15, 23, 42, 0.08)",
       card: theme.dark ? "rgba(15, 23, 42, 0.96)" : "rgba(255, 255, 255, 0.98)",
-      cardAlt: theme.dark ? "rgba(30, 41, 59, 0.72)" : "rgba(248, 250, 252, 0.94)",
+      cardAlt: theme.dark
+        ? "rgba(30, 41, 59, 0.72)"
+        : "rgba(248, 250, 252, 0.94)",
       dropdown: theme.dark ? "rgba(15, 23, 42, 0.92)" : "#ffffff",
-      dropdownBorder: theme.dark ? "rgba(148, 163, 184, 0.22)" : "rgba(15, 23, 42, 0.14)",
+      dropdownBorder: theme.dark
+        ? "rgba(148, 163, 184, 0.22)"
+        : "rgba(15, 23, 42, 0.14)",
       label: theme.dark ? "#94a3b8" : "#64748b",
       screen: theme.dark ? "#020617" : "#eef3fb",
       text: theme.dark ? "#cbd5e1" : "#334155",
@@ -153,8 +163,14 @@ const UserDetails = () => {
           color: profilePalette.label,
         },
       ],
-      placeholderStyle: [styles.placeholderStyle, { color: profilePalette.label }],
-      selectedTextStyle: [styles.selectedTextStyle, { color: profilePalette.title }],
+      placeholderStyle: [
+        styles.placeholderStyle,
+        { color: profilePalette.label },
+      ],
+      selectedTextStyle: [
+        styles.selectedTextStyle,
+        { color: profilePalette.title },
+      ],
       title: [styles.title, { color: profilePalette.title }],
     }),
     [profilePalette, theme.dark],
@@ -167,9 +183,7 @@ const UserDetails = () => {
         ? "rgba(59, 130, 246, 0.22)"
         : "rgba(37, 99, 235, 0.12)",
       label: theme.dark ? "#93c5fd" : "#64748b",
-      surface: theme.dark
-        ? "rgba(15, 23, 42, 0.96)"
-        : theme.colors.surface,
+      surface: theme.dark ? "rgba(15, 23, 42, 0.96)" : theme.colors.surface,
       title: theme.dark ? "#f8fafc" : "#0f172a",
     }),
     [theme.colors.surface, theme.dark],
@@ -198,9 +212,13 @@ const UserDetails = () => {
       },
       { fields: USER_PENDING_VENTAS_FIELDS },
     );
-    const userHandle = Meteor.subscribe("user", { _id: itemId }, {
-      fields: USER_DETAIL_FIELDS,
-    });
+    const userHandle = Meteor.subscribe(
+      "user",
+      { _id: itemId },
+      {
+        fields: USER_DETAIL_FIELDS,
+      },
+    );
     const precioslistData = PreciosCollection.find(
       { userId: Meteor.userId(), type: "megas" },
       { fields: USER_DETAIL_PRICE_FIELDS, sort: { precio: 1 } },
@@ -234,7 +252,8 @@ const UserDetails = () => {
     };
   }, [dataReady, itemId, refreshKey]);
   const headerTitle = useMemo(() => {
-    const resolvedUser = item || (itemId === currentUserId ? currentUser : null);
+    const resolvedUser =
+      item || (itemId === currentUserId ? currentUser : null);
     const firstName = String(resolvedUser?.profile?.firstName || "").trim();
     const username = String(resolvedUser?.username || "").trim();
 
@@ -439,7 +458,9 @@ const UserDetails = () => {
   }
 
   return (
-    <Surface style={[styles.background, { backgroundColor: profilePalette.screen }]}>
+    <Surface
+      style={[styles.background, { backgroundColor: profilePalette.screen }]}
+    >
       <AppHeader
         title={headerTitle}
         subtitle={item ? "Detalle y configuración" : "Cargando detalle"}
@@ -449,7 +470,10 @@ const UserDetails = () => {
         overlapContent
       />
       <ScrollView
-        contentContainerStyle={{ paddingTop: headerInset + 12, paddingBottom: 24 }}
+        contentContainerStyle={{
+          paddingTop: headerInset + 12,
+          paddingBottom: 24,
+        }}
         refreshControl={
           <RefreshControl
             refreshing={false}
@@ -504,7 +528,12 @@ const UserDetails = () => {
                 ]}
                 testID="user-logs-timeline-card"
               >
-                <View style={[styles.timelineAccentBar, { backgroundColor: accentColor }]} />
+                <View
+                  style={[
+                    styles.timelineAccentBar,
+                    { backgroundColor: accentColor },
+                  ]}
+                />
                 <View style={styles.timelineLinkContent}>
                   <View style={styles.timelineLinkHeader}>
                     <View
@@ -545,7 +574,8 @@ const UserDetails = () => {
                       { color: timelinePalette.description },
                     ]}
                   >
-                    Revisa los eventos, ordenados por fecha en una vista cronológica.
+                    Revisa los eventos, ordenados por fecha en una vista
+                    cronológica.
                   </Text>
                   <Button
                     mode="contained-tonal"
@@ -686,7 +716,13 @@ const styles = StyleSheet.create({
   },
   cardItem: { marginBottom: 18, minWidth: 300 },
   element: { fontSize: 12 },
-  title: { fontSize: 18, fontWeight: "800", letterSpacing: 0, paddingBottom: 5, textAlign: "center" },
+  title: {
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 0,
+    paddingBottom: 5,
+    textAlign: "center",
+  },
   data: { fontSize: 14, fontWeight: "600", lineHeight: 20, paddingVertical: 4 },
   cards: {
     borderRadius: 24,

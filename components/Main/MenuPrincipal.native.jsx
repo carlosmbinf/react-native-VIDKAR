@@ -212,7 +212,10 @@ const openApplicationSettings = async () => {
   try {
     await Linking.openSettings();
   } catch (error) {
-    console.warn("[CadeteLocation] No se pudo abrir la configuración de la app:", error);
+    console.warn(
+      "[CadeteLocation] No se pudo abrir la configuración de la app:",
+      error,
+    );
   }
 };
 
@@ -229,7 +232,10 @@ const shouldOfferLocationSettings = (permissions) => {
   );
 };
 
-const showCadeteLocationErrorAlert = (message, { openSettings = false } = {}) => {
+const showCadeteLocationErrorAlert = (
+  message,
+  { openSettings = false } = {},
+) => {
   if (!openSettings) {
     Alert.alert("Ubicación requerida", message);
     return;
@@ -318,42 +324,51 @@ const MenuPrincipalNative = () => {
     });
   }, [user?._id, user?.username]);
 
-  const refreshPushPermissionState = useCallback(async ({ showLoading = false } = {}) => {
-    const requestId = pushPermissionRequestIdRef.current + 1;
-    pushPermissionRequestIdRef.current = requestId;
+  const refreshPushPermissionState = useCallback(
+    async ({ showLoading = false } = {}) => {
+      const requestId = pushPermissionRequestIdRef.current + 1;
+      pushPermissionRequestIdRef.current = requestId;
 
-    if (showLoading) {
-      setPushPermissionLoading(true);
-    }
+      if (showLoading) {
+        setPushPermissionLoading(true);
+      }
 
-    try {
-      const nextPermissionState = await getPushNotificationPermissionState();
-      if (pushPermissionRequestIdRef.current !== requestId) {
+      try {
+        const nextPermissionState = await getPushNotificationPermissionState();
+        if (pushPermissionRequestIdRef.current !== requestId) {
+          return nextPermissionState;
+        }
+
+        setPushPermissionState(nextPermissionState);
         return nextPermissionState;
+      } catch (error) {
+        console.warn(
+          "[MenuPrincipal] No se pudo leer el permiso de notificaciones:",
+          error,
+        );
+        return null;
+      } finally {
+        if (pushPermissionRequestIdRef.current === requestId) {
+          setPushPermissionLoading(false);
+        }
       }
-
-      setPushPermissionState(nextPermissionState);
-      return nextPermissionState;
-    } catch (error) {
-      console.warn("[MenuPrincipal] No se pudo leer el permiso de notificaciones:", error);
-      return null;
-    } finally {
-      if (pushPermissionRequestIdRef.current === requestId) {
-        setPushPermissionLoading(false);
-      }
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     refreshPushPermissionState({ showLoading: true });
   }, [currentUserId, refreshPushPermissionState]);
 
   useEffect(() => {
-    const appStateSubscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "active") {
-        refreshPushPermissionState({ showLoading: false });
-      }
-    });
+    const appStateSubscription = AppState.addEventListener(
+      "change",
+      (nextState) => {
+        if (nextState === "active") {
+          refreshPushPermissionState({ showLoading: false });
+        }
+      },
+    );
 
     return () => {
       appStateSubscription.remove();
@@ -476,33 +491,31 @@ const MenuPrincipalNative = () => {
     });
   }, [missingPriceServices, priceSetupLoading]);
 
-  const {
-    pendingEvidenceCount,
-    pendingEvidenceLoading,
-  } = Meteor.useTracker(() => {
-    if (!dataReady || !currentUserId) {
+  const { pendingEvidenceCount, pendingEvidenceLoading } =
+    Meteor.useTracker(() => {
+      if (!dataReady || !currentUserId) {
+        return {
+          pendingEvidenceCount: 0,
+          pendingEvidenceLoading: false,
+        };
+      }
+
+      const query = buildPendingEvidenceQuery(currentUserId);
+      const handle = Meteor.subscribe("ventasRecharge", query, {
+        fields: PENDING_EVIDENCE_FIELDS,
+      });
+      const pendingEvidenceVentas = handle.ready()
+        ? VentasRechargeCollection.find(query, {
+            fields: PENDING_EVIDENCE_FIELDS,
+            sort: { createdAt: -1 },
+          }).fetch()
+        : [];
+
       return {
-        pendingEvidenceCount: 0,
-        pendingEvidenceLoading: false,
+        ...buildPendingEvidenceAggregate(pendingEvidenceVentas),
+        pendingEvidenceLoading: !handle.ready(),
       };
-    }
-
-    const query = buildPendingEvidenceQuery(currentUserId);
-    const handle = Meteor.subscribe("ventasRecharge", query, {
-      fields: PENDING_EVIDENCE_FIELDS,
-    });
-    const pendingEvidenceVentas = handle.ready()
-      ? VentasRechargeCollection.find(query, {
-          fields: PENDING_EVIDENCE_FIELDS,
-          sort: { createdAt: -1 },
-        }).fetch()
-      : [];
-
-    return {
-      ...buildPendingEvidenceAggregate(pendingEvidenceVentas),
-      pendingEvidenceLoading: !handle.ready(),
-    };
-  }, [currentUserId, dataReady]);
+    }, [currentUserId, dataReady]);
 
   useEffect(() => {
     logMenuPrincipalDebug("data:pending-evidence", {
@@ -566,7 +579,14 @@ const MenuPrincipalNative = () => {
       ...cashApprovalsSummary,
       pendingCashApprovalsLoading: !cashApprovalsHandle.ready(),
     };
-  }, [currentUserId, dataReady, isAdmin, isAdminPrincipal, subordinadosIdsKey, subordinadosLoading]);
+  }, [
+    currentUserId,
+    dataReady,
+    isAdmin,
+    isAdminPrincipal,
+    subordinadosIdsKey,
+    subordinadosLoading,
+  ]);
   const appVersionInfo = getAppVersionInfo();
 
   const handleOpenPendingVentas = () => {
@@ -587,22 +607,23 @@ const MenuPrincipalNative = () => {
     router.push("/(normal)/ListaArchivos");
   };
 
-
-      useEffect(() => {
-        logMenuPrincipalDebug("data:cash-approvals", {
-          pendingCashApprovalsCount,
-          pendingCashApprovalsLoading,
-          pendingCashApprovalTypes: pendingCashApprovalTypes.map((item) => item.key),
-          subordinadosCount: subordinadosIds.length,
-          subordinadosLoading,
-        });
-      }, [
-        pendingCashApprovalTypes,
-        pendingCashApprovalsCount,
-        pendingCashApprovalsLoading,
-        subordinadosIds.length,
-        subordinadosLoading,
-      ]);
+  useEffect(() => {
+    logMenuPrincipalDebug("data:cash-approvals", {
+      pendingCashApprovalsCount,
+      pendingCashApprovalsLoading,
+      pendingCashApprovalTypes: pendingCashApprovalTypes.map(
+        (item) => item.key,
+      ),
+      subordinadosCount: subordinadosIds.length,
+      subordinadosLoading,
+    });
+  }, [
+    pendingCashApprovalTypes,
+    pendingCashApprovalsCount,
+    pendingCashApprovalsLoading,
+    subordinadosIds.length,
+    subordinadosLoading,
+  ]);
   const handleOpenPendingEvidence = () => {
     router.push("/(normal)/EvidenciasPendientes");
   };
@@ -753,6 +774,45 @@ const MenuPrincipalNative = () => {
     );
   };
 
+  const handleToggleModoEmpresa = () => {
+    const nextState = !user?.modoEmpresa;
+
+    Alert.alert(
+      nextState ? "Entrar en modo empresa" : "Salir del modo empresa",
+      nextState
+        ? "Entrarás al panel para gestionar tus tiendas, productos y pedidos."
+        : "Volverás al menú normal. Tus tiendas, productos y pedidos se mantienen guardados.",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: nextState ? "Entrar" : "Salir",
+          onPress: async () => {
+            try {
+              await callMeteorMethod("users.toggleModoEmpresa", nextState);
+
+              Alert.alert(
+                "Éxito",
+                nextState
+                  ? "Modo empresa activado correctamente."
+                  : "Modo empresa desactivado correctamente.",
+              );
+            } catch (error) {
+              const errorMessage =
+                error?.reason ||
+                error?.message ||
+                "No se pudo cambiar el modo empresa.";
+
+              Alert.alert("Modo empresa", errorMessage);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <MenuPrincipalScreen
       user={user}
@@ -765,7 +825,9 @@ const MenuPrincipalNative = () => {
       pendingCashApprovalTypes={pendingCashApprovalTypes}
       pendingCashApprovalsCount={pendingCashApprovalsCount}
       pendingCashApprovalsLoading={pendingCashApprovalsLoading}
-      notificationsPermissionBlocked={pushPermissionState?.canAskAgain === false}
+      notificationsPermissionBlocked={
+        pushPermissionState?.canAskAgain === false
+      }
       notificationsPermissionGranted={pushPermissionState?.granted === true}
       notificationsPermissionLoading={pushPermissionLoading}
       missingPriceServices={missingPriceServices}
@@ -776,6 +838,7 @@ const MenuPrincipalNative = () => {
       onOpenPendingVentas={handleOpenPendingVentas}
       onOpenPrices={handleOpenPrices}
       onToggleModoCadete={handleToggleModoCadete}
+      onToggleModoEmpresa={handleToggleModoEmpresa}
       onLogout={() => {
         Meteor.logout(() => {
           router.replace("/(auth)/Loguin");

@@ -6,9 +6,10 @@ import MenuPrincipalScreen from "./MenuPrincipalScreen.jsx";
 
 const previewUser = {
   username: "Usuario Expo",
-  profile: { role: "admin" },
+  profile: { role: "admin", roleComercio: ["EMPRESA"] },
   permiteRemesas: false,
   modoCadete: false,
+  modoEmpresa: false,
 };
 
 const MenuPrincipal = () => {
@@ -25,6 +26,7 @@ const MenuPrincipal = () => {
       priceSetupLoading={false}
       onOpenPrices={() => router.push("/(normal)/Precios")}
       onOpenPendingVentas={() => {}}
+      onToggleModoEmpresa={() => {}}
       onLogout={() => router.replace("/(auth)")}
     />
   );

@@ -10,9 +10,12 @@ const Meteor =
 
 const ADMIN_OPTIONS_FIELDS = {
   desconectarVPN: 1,
-  modoEmpresa: 1,
+  empresaBloqueada: 1,
+  empresaTerminosCondicionesAcepted: 1,
+  fechaEmpresaTerminosCondicionesAcepted: 1,
   permitirAprobacionEfectivoCUP: 1,
   permitirPagoEfectivoCUP: 1,
+  permiteEmpresa: 1,
   permiteRemesas: 1,
   subscipcionPelis: 1,
   vpn: 1,
@@ -52,7 +55,9 @@ const OptionsCardAdmin = ({ item, styles, accentColor }) => {
     label: theme.dark ? "#f8fafc" : "#0f172a",
     muted: theme.dark ? "#94a3b8" : "#64748b",
     row: theme.dark ? "rgba(30, 41, 59, 0.7)" : "rgba(248, 250, 252, 0.96)",
-    rowBorder: theme.dark ? "rgba(148, 163, 184, 0.14)" : "rgba(15, 23, 42, 0.08)",
+    rowBorder: theme.dark
+      ? "rgba(148, 163, 184, 0.14)"
+      : "rgba(15, 23, 42, 0.08)",
   };
 
   const toggleFlag = (key, current) => {
@@ -68,11 +73,38 @@ const OptionsCardAdmin = ({ item, styles, accentColor }) => {
     });
   };
 
+  const toggleEmpresaStatus = (key, current) => {
+    const targetId = userDoc?._id || item?._id;
+    if (!targetId) {
+      return;
+    }
+
+    Meteor.call(
+      "users.adminSetEmpresaStatus",
+      targetId,
+      { [key]: !current },
+      (error) => {
+        if (error) {
+          console.warn("users.adminSetEmpresaStatus error:", key, error);
+        }
+      },
+    );
+  };
+
   const OptionRow = ({ label, description, value, onToggle, disabled }) => (
-    <View style={[ui.row, { backgroundColor: palette.row, borderColor: palette.rowBorder }]}>
+    <View
+      style={[
+        ui.row,
+        { backgroundColor: palette.row, borderColor: palette.rowBorder },
+      ]}
+    >
       <View style={ui.rowText}>
         <Text style={[ui.rowLabel, { color: palette.label }]}>{label}</Text>
-        {description ? <Text style={[ui.rowDesc, { color: palette.muted }]}>{description}</Text> : null}
+        {description ? (
+          <Text style={[ui.rowDesc, { color: palette.muted }]}>
+            {description}
+          </Text>
+        ) : null}
       </View>
       <Switch value={!!value} onValueChange={onToggle} disabled={disabled} />
     </View>
@@ -86,9 +118,15 @@ const OptionsCardAdmin = ({ item, styles, accentColor }) => {
     >
       <View style={[ui.accentBar, { backgroundColor: headerAccent }]} />
       <Card.Content style={ui.content}>
-        <Text style={[ui.eyebrow, { color: palette.muted }]}>Controles del perfil</Text>
-        <Text style={[ui.title, { color: palette.label }]}>Opciones administrativas</Text>
-        <Text style={[ui.subtitle, { color: palette.copy }]}>Ajustes operativos disponibles para este usuario.</Text>
+        <Text style={[ui.eyebrow, { color: palette.muted }]}>
+          Controles del perfil
+        </Text>
+        <Text style={[ui.title, { color: palette.label }]}>
+          Opciones administrativas
+        </Text>
+        <Text style={[ui.subtitle, { color: palette.copy }]}>
+          Ajustes operativos disponibles para este usuario.
+        </Text>
         <Divider style={ui.divider} />
 
         <OptionRow
@@ -143,13 +181,45 @@ const OptionsCardAdmin = ({ item, styles, accentColor }) => {
               }
             />
             <OptionRow
-              label="Modo Empresa"
-              description="Cambia el flujo de navegación al modo empresa."
-              value={currentUser?.modoEmpresa}
+              label="Permitir registro como empresa"
+              description="Muestra la invitación para crear empresa y aceptar condiciones."
+              value={currentUser?.permiteEmpresa}
               onToggle={() =>
-                toggleFlag("modoEmpresa", currentUser?.modoEmpresa)
+                toggleEmpresaStatus(
+                  "permiteEmpresa",
+                  currentUser?.permiteEmpresa,
+                )
               }
             />
+            <OptionRow
+              label="Bloquear empresa"
+              description="Impide acceder al modo empresa y apaga el modo si estaba activo."
+              value={currentUser?.empresaBloqueada}
+              onToggle={() =>
+                toggleEmpresaStatus(
+                  "empresaBloqueada",
+                  currentUser?.empresaBloqueada,
+                )
+              }
+            />
+            <View
+              style={[
+                ui.statusBox,
+                {
+                  backgroundColor: palette.row,
+                  borderColor: palette.rowBorder,
+                },
+              ]}
+            >
+              <Text style={[ui.statusLabel, { color: palette.muted }]}>
+                Términos de empresa
+              </Text>
+              <Text style={[ui.statusValue, { color: palette.label }]}>
+                {currentUser?.empresaTerminosCondicionesAcepted
+                  ? "Aceptados"
+                  : "Pendientes"}
+              </Text>
+            </View>
           </>
         ) : null}
       </Card.Content>
@@ -189,6 +259,24 @@ const ui = StyleSheet.create({
   rowText: { flex: 1 },
   rowLabel: { fontWeight: "700" },
   rowDesc: { marginTop: 2, fontSize: 12, lineHeight: 16 },
+  statusBox: {
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  statusLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  statusValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    marginTop: 2,
+  },
 });
 
 export default memo(OptionsCardAdmin);

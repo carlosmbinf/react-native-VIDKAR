@@ -1,6 +1,13 @@
 import { BlurView } from "expo-blur";
 import { useMemo } from "react";
-import { ImageBackground, Platform, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import {
+    ImageBackground,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    View,
+    useWindowDimensions,
+} from "react-native";
 import {
     Avatar,
     Button,
@@ -38,6 +45,16 @@ const getRoleIcon = (user) => {
   if (user?.profile?.role === "admin") return "shield-account-outline";
   if (user?.modoCadete) return "bike-fast";
   return "account-circle-outline";
+};
+
+const userHasEmpresaRole = (user) => {
+  const roleComercio = user?.profile?.roleComercio;
+
+  if (Array.isArray(roleComercio)) {
+    return roleComercio.includes("EMPRESA");
+  }
+
+  return String(roleComercio || "").includes("EMPRESA");
 };
 
 const buildServiceItems = (user) => {
@@ -172,6 +189,7 @@ const DrawerOptionsAlls = ({
   onNavigate,
   onClose,
   onToggleModoCadete,
+  onToggleModoEmpresa,
 }) => {
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
@@ -180,6 +198,8 @@ const DrawerOptionsAlls = ({
     user?.profile?.role === "admin" || user?.username === "carlosmbinf";
   const isSuperAdmin = user?.username === "carlosmbinf";
   const canToggleCadete = typeof onToggleModoCadete === "function";
+  const canToggleEmpresa =
+    typeof onToggleModoEmpresa === "function" && userHasEmpresaRole(user);
   const cadeteButtonLabel = user?.modoCadete
     ? "Salir del modo cadete"
     : "Entrar en modo cadete";
@@ -187,6 +207,15 @@ const DrawerOptionsAlls = ({
   const cadeteHelperCopy = user?.modoCadete
     ? "Dejarás de aparecer disponible para nuevas entregas hasta que vuelvas a activarlo."
     : "Activa tu disponibilidad operativa desde el drawer igual que en la app legacy.";
+  const empresaButtonLabel = user?.modoEmpresa
+    ? "Salir del modo empresa"
+    : "Entrar en modo empresa";
+  const empresaButtonIcon = user?.modoEmpresa
+    ? "store-off-outline"
+    : "storefront-outline";
+  const empresaHelperCopy = user?.modoEmpresa
+    ? "Volverás al menú normal; tus tiendas, productos y pedidos se mantienen guardados."
+    : "Gestiona tus tiendas, productos y pedidos desde el panel de empresa.";
 
   const sections = useMemo(() => {
     const result = [
@@ -235,7 +264,12 @@ const DrawerOptionsAlls = ({
       style={[
         styles.hero,
         isLandscapeDrawer ? styles.heroLandscape : null,
-        { minHeight: Math.max(isLandscapeDrawer ? 208 : 252, (isLandscapeDrawer ? 188 : 232) + insets.top) },
+        {
+          minHeight: Math.max(
+            isLandscapeDrawer ? 208 : 252,
+            (isLandscapeDrawer ? 188 : 232) + insets.top,
+          ),
+        },
       ]}
       imageStyle={styles.heroImage}
     >
@@ -270,11 +304,7 @@ const DrawerOptionsAlls = ({
           style={styles.avatar}
           labelStyle={styles.avatarLabel}
         />
-        <Text
-          variant="titleLarge"
-          style={styles.username}
-          numberOfLines={1}
-        >
+        <Text variant="titleLarge" style={styles.username} numberOfLines={1}>
           {user?.username || "Usuario Expo"}
         </Text>
         <View style={styles.roleRow}>
@@ -332,33 +362,55 @@ const DrawerOptionsAlls = ({
     </Surface>
   );
 
-  const footerNode = canToggleCadete ? (
-    <View
-      style={[
-        styles.footerDock,
-        isLandscapeDrawer ? styles.footerDockScrollable : null,
-        { paddingBottom: Math.max(insets.bottom, 12) },
-      ]}
-    >
-      <Surface style={styles.footerCard} elevation={0}>
-        <Text variant="titleSmall" style={styles.footerTitle}>
-          Modo cadete
-        </Text>
-        <Text variant="bodySmall" style={styles.footerCopy}>
-          {cadeteHelperCopy}
-        </Text>
-        <Button
-          mode={user?.modoCadete ? "contained-tonal" : "contained"}
-          icon={cadeteButtonIcon}
-          style={styles.footerButton}
-          onPress={() => onToggleModoCadete?.()}
-          disabled={false}
-        >
-          {cadeteButtonLabel}
-        </Button>
-      </Surface>
-    </View>
-  ) : null;
+  const footerNode =
+    canToggleCadete || canToggleEmpresa ? (
+      <View
+        style={[
+          styles.footerDock,
+          isLandscapeDrawer ? styles.footerDockScrollable : null,
+          { paddingBottom: Math.max(insets.bottom, 12) },
+        ]}
+      >
+        {canToggleCadete ? (
+          <Surface style={styles.footerCard} elevation={0}>
+            <Text variant="titleSmall" style={styles.footerTitle}>
+              Modo cadete
+            </Text>
+            <Text variant="bodySmall" style={styles.footerCopy}>
+              {cadeteHelperCopy}
+            </Text>
+            <Button
+              mode={user?.modoCadete ? "contained-tonal" : "contained"}
+              icon={cadeteButtonIcon}
+              style={styles.footerButton}
+              onPress={() => onToggleModoCadete?.()}
+              disabled={false}
+            >
+              {cadeteButtonLabel}
+            </Button>
+          </Surface>
+        ) : null}
+        {canToggleEmpresa ? (
+          <Surface style={styles.footerCard} elevation={0}>
+            <Text variant="titleSmall" style={styles.footerTitle}>
+              Modo empresa
+            </Text>
+            <Text variant="bodySmall" style={styles.footerCopy}>
+              {empresaHelperCopy}
+            </Text>
+            <Button
+              mode={user?.modoEmpresa ? "contained-tonal" : "contained"}
+              icon={empresaButtonIcon}
+              style={styles.footerButton}
+              onPress={() => onToggleModoEmpresa?.()}
+              disabled={false}
+            >
+              {empresaButtonLabel}
+            </Button>
+          </Surface>
+        ) : null}
+      </View>
+    ) : null;
 
   return (
     <View style={styles.safeArea}>
@@ -505,6 +557,7 @@ const styles = StyleSheet.create({
   footerDock: {
     paddingHorizontal: 16,
     paddingTop: 8,
+    gap: 12,
   },
   footerDockScrollable: {
     paddingTop: 4,

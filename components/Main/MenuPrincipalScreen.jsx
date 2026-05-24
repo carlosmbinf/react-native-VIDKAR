@@ -153,7 +153,8 @@ const buildGlowMotion = (progress, cardSize, glowSize, patternName) => {
     innerMin: minY + yDistance * 0.24,
     innerMax: minY + yDistance * 0.76,
   };
-  const pattern = GLOW_MOTION_PATTERNS[patternName] || GLOW_MOTION_PATTERNS.primarySweep;
+  const pattern =
+    GLOW_MOTION_PATTERNS[patternName] || GLOW_MOTION_PATTERNS.primarySweep;
 
   return {
     translateX: progress.interpolate({
@@ -237,6 +238,16 @@ const formatMissingPriceServicesText = (services = []) => {
   return `${labels.slice(0, -1).join(", ")} y ${labels.at(-1)}`;
 };
 
+const userHasEmpresaRole = (user) => {
+  const roleComercio = user?.profile?.roleComercio;
+
+  if (Array.isArray(roleComercio)) {
+    return roleComercio.includes("EMPRESA");
+  }
+
+  return String(roleComercio || "").includes("EMPRESA");
+};
+
 const MenuPrincipalScreen = ({
   user,
   appVersion = "0.0.0",
@@ -260,6 +271,7 @@ const MenuPrincipalScreen = ({
   onOpenPrices = () => {},
   onLogout = () => {},
   onToggleModoCadete = () => {},
+  onToggleModoEmpresa = () => {},
 }) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -269,10 +281,22 @@ const MenuPrincipalScreen = ({
     hasPreparedHeavyContent,
   );
   const [heroCardSize, setHeroCardSize] = useState({ width: 0, height: 0 });
-  const [priceSetupCardSize, setPriceSetupCardSize] = useState({ width: 0, height: 0 });
-  const [evidenceHubCardSize, setEvidenceHubCardSize] = useState({ width: 0, height: 0 });
-  const [notificationsCardSize, setNotificationsCardSize] = useState({ width: 0, height: 0 });
-  const [cashApprovalsCardSize, setCashApprovalsCardSize] = useState({ width: 0, height: 0 });
+  const [priceSetupCardSize, setPriceSetupCardSize] = useState({
+    width: 0,
+    height: 0,
+  });
+  const [evidenceHubCardSize, setEvidenceHubCardSize] = useState({
+    width: 0,
+    height: 0,
+  });
+  const [notificationsCardSize, setNotificationsCardSize] = useState({
+    width: 0,
+    height: 0,
+  });
+  const [cashApprovalsCardSize, setCashApprovalsCardSize] = useState({
+    width: 0,
+    height: 0,
+  });
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const heroGlowPrimaryProgress = useRef(new Animated.Value(0)).current;
@@ -487,16 +511,16 @@ const MenuPrincipalScreen = ({
   const hasPendingDebt =
     user?.profile?.role === "admin" && (Number(pendingDebt) || 0) > 0;
   const cashApprovalTypeCount = pendingCashApprovalTypes.length;
-  const showCashApprovalsCard =
-    hasAdminRole && pendingCashApprovalsCount > 0;
+  const showCashApprovalsCard = hasAdminRole && pendingCashApprovalsCount > 0;
   const showPendingEvidenceCard = pendingEvidenceCount > 0;
   const showNotificationsCard =
     !notificationsPermissionLoading && !notificationsPermissionGranted;
   const showPriceSetupCard =
     hasAdminRole && !priceSetupLoading && missingPriceServices.length > 0;
-  const missingPriceServicesText = formatMissingPriceServicesText(
-    missingPriceServices,
-  );
+  const showEmpresaSuggestionCard =
+    userHasEmpresaRole(user) && user?.modoEmpresa !== true;
+  const missingPriceServicesText =
+    formatMissingPriceServicesText(missingPriceServices);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -518,7 +542,9 @@ const MenuPrincipalScreen = ({
             onOpenProfile={() => navigateTo("/(normal)/User")}
             onOpenMessages={(item) => {
               if (item) {
-                navigateTo(`/(normal)/Mensaje?item=${encodeURIComponent(item)}`);
+                navigateTo(
+                  `/(normal)/Mensaje?item=${encodeURIComponent(item)}`,
+                );
                 return;
               }
 
@@ -685,6 +711,92 @@ const MenuPrincipalScreen = ({
             ) : null}
           </Surface>
 
+          {showEmpresaSuggestionCard ? (
+            <Surface style={styles.empresaSuggestionCard} elevation={2}>
+              <LinearGradient
+                colors={["#123524f6", "#14395cf4", "#1d2357f2"]}
+                end={{ x: 1, y: 1 }}
+                locations={[0, 0.56, 1]}
+                start={{ x: 0, y: 0 }}
+                style={styles.empresaSuggestionGradient}
+              >
+                <View style={styles.empresaSuggestionHeader}>
+                  <View style={styles.empresaSuggestionIconWrap}>
+                    <MaterialCommunityIcons
+                      color="#bbf7d0"
+                      name="storefront-check-outline"
+                      size={25}
+                    />
+                  </View>
+
+                  <View style={styles.empresaSuggestionTitleWrap}>
+                    <Text
+                      variant="labelSmall"
+                      style={styles.empresaSuggestionEyebrow}
+                    >
+                      Cuenta aprobada para empresa
+                    </Text>
+                    <Text
+                      variant="titleLarge"
+                      style={styles.empresaSuggestionTitle}
+                    >
+                      Ya puedes gestionar tu negocio desde Vidkar
+                    </Text>
+                    <Text
+                      variant="bodyMedium"
+                      style={styles.empresaSuggestionCopy}
+                    >
+                      Tienes acceso válido al modo empresa. Entra al panel para
+                      administrar tiendas, productos y pedidos desde una
+                      superficie dedicada.
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.empresaSuggestionFooter}>
+                  <View style={styles.empresaSuggestionPill}>
+                    <MaterialCommunityIcons
+                      color="#bfdbfe"
+                      name="clipboard-check-outline"
+                      size={17}
+                    />
+                    <Text
+                      variant="labelLarge"
+                      style={styles.empresaSuggestionPillText}
+                    >
+                      Aprobación activa
+                    </Text>
+                  </View>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={onToggleModoEmpresa}
+                    style={({ pressed }) => [
+                      styles.empresaSuggestionActionButton,
+                      pressed
+                        ? styles.empresaSuggestionActionButtonPressed
+                        : null,
+                    ]}
+                  >
+                    <Text
+                      variant="labelLarge"
+                      style={styles.empresaSuggestionActionText}
+                    >
+                      Entrar al modo empresa
+                    </Text>
+                    <View style={styles.empresaSuggestionActionIconWrap}>
+                      <MaterialCommunityIcons
+                        color="#ecfdf5"
+                        name="arrow-right"
+                        size={18}
+                      />
+                    </View>
+                  </Pressable>
+                </View>
+              </LinearGradient>
+            </Surface>
+          ) : null}
+
           {showNotificationsCard ? (
             <Surface
               style={styles.notificationsCard}
@@ -711,8 +823,12 @@ const MenuPrincipalScreen = ({
                     styles.notificationsGlowPrimary,
                     {
                       transform: [
-                        { translateX: notificationsPrimaryGlowMotion.translateX },
-                        { translateY: notificationsPrimaryGlowMotion.translateY },
+                        {
+                          translateX: notificationsPrimaryGlowMotion.translateX,
+                        },
+                        {
+                          translateY: notificationsPrimaryGlowMotion.translateY,
+                        },
                       ],
                     },
                   ]}
@@ -723,8 +839,14 @@ const MenuPrincipalScreen = ({
                     styles.notificationsGlowSecondary,
                     {
                       transform: [
-                        { translateX: notificationsSecondaryGlowMotion.translateX },
-                        { translateY: notificationsSecondaryGlowMotion.translateY },
+                        {
+                          translateX:
+                            notificationsSecondaryGlowMotion.translateX,
+                        },
+                        {
+                          translateY:
+                            notificationsSecondaryGlowMotion.translateY,
+                        },
                       ],
                     },
                   ]}
@@ -734,20 +856,33 @@ const MenuPrincipalScreen = ({
                   <View style={styles.notificationsIconWrap}>
                     <MaterialCommunityIcons
                       color="#fed7aa"
-                      name={notificationsPermissionBlocked ? "bell-off-outline" : "bell-alert-outline"}
+                      name={
+                        notificationsPermissionBlocked
+                          ? "bell-off-outline"
+                          : "bell-alert-outline"
+                      }
                       size={25}
                     />
                   </View>
 
                   <View style={styles.notificationsTitleWrap}>
-                    <Text variant="labelSmall" style={styles.notificationsEyebrow}>
+                    <Text
+                      variant="labelSmall"
+                      style={styles.notificationsEyebrow}
+                    >
                       Notificaciones desactivadas
                     </Text>
-                    <Text variant="titleLarge" style={styles.notificationsTitle}>
+                    <Text
+                      variant="titleLarge"
+                      style={styles.notificationsTitle}
+                    >
                       Activa los avisos para no perder información importante
                     </Text>
                     <Text variant="bodyMedium" style={styles.notificationsCopy}>
-                      Las notificaciones no están activas en este dispositivo. Por eso no recibirás avisos de mensajes, compras, entregas, recargas, Proxy, VPN ni otros servicios de Vidkar.
+                      Las notificaciones no están activas en este dispositivo.
+                      Por eso no recibirás avisos de mensajes, compras,
+                      entregas, recargas, Proxy, VPN ni otros servicios de
+                      Vidkar.
                     </Text>
                   </View>
                 </View>
@@ -756,10 +891,17 @@ const MenuPrincipalScreen = ({
                   <View style={styles.notificationsStatusPill}>
                     <MaterialCommunityIcons
                       color="#fdba74"
-                      name={notificationsPermissionBlocked ? "cellphone-cog" : "gesture-tap-button"}
+                      name={
+                        notificationsPermissionBlocked
+                          ? "cellphone-cog"
+                          : "gesture-tap-button"
+                      }
                       size={17}
                     />
-                    <Text variant="labelLarge" style={styles.notificationsStatusText}>
+                    <Text
+                      variant="labelLarge"
+                      style={styles.notificationsStatusText}
+                    >
                       {notificationsPermissionBlocked
                         ? "Requiere activación manual"
                         : "Puedes activarlas ahora"}
@@ -774,13 +916,22 @@ const MenuPrincipalScreen = ({
                       pressed ? styles.notificationsActionButtonPressed : null,
                     ]}
                   >
-                    <Text variant="labelLarge" style={styles.notificationsActionText}>
-                      {notificationsPermissionBlocked ? "Abrir ajustes" : "Activar notificaciones"}
+                    <Text
+                      variant="labelLarge"
+                      style={styles.notificationsActionText}
+                    >
+                      {notificationsPermissionBlocked
+                        ? "Abrir ajustes"
+                        : "Activar notificaciones"}
                     </Text>
                     <View style={styles.notificationsActionIconWrap}>
                       <MaterialCommunityIcons
                         color="#fff7ed"
-                        name={notificationsPermissionBlocked ? "cog-outline" : "bell-ring-outline"}
+                        name={
+                          notificationsPermissionBlocked
+                            ? "cog-outline"
+                            : "bell-ring-outline"
+                        }
                         size={18}
                       />
                     </View>
@@ -827,12 +978,10 @@ const MenuPrincipalScreen = ({
                     {
                       transform: [
                         {
-                          translateX:
-                            priceSetupSecondaryGlowMotion.translateX,
+                          translateX: priceSetupSecondaryGlowMotion.translateX,
                         },
                         {
-                          translateY:
-                            priceSetupSecondaryGlowMotion.translateY,
+                          translateY: priceSetupSecondaryGlowMotion.translateY,
                         },
                       ],
                     },
@@ -855,20 +1004,29 @@ const MenuPrincipalScreen = ({
                       Agrega precios para habilitar compras de tus clientes
                     </Text>
                     <Text variant="bodyMedium" style={styles.priceSetupCopy}>
-                      Aún no tienes precios publicados para {missingPriceServicesText}. Define al menos una oferta para que tus clientes puedan comprar estos servicios desde la app.
+                      Aún no tienes precios publicados para{" "}
+                      {missingPriceServicesText}. Define al menos una oferta
+                      para que tus clientes puedan comprar estos servicios desde
+                      la app.
                     </Text>
                   </View>
                 </View>
 
                 <View style={styles.priceSetupServicesRow}>
                   {missingPriceServices.map((service) => (
-                    <View key={service.key} style={styles.priceSetupServicePill}>
+                    <View
+                      key={service.key}
+                      style={styles.priceSetupServicePill}
+                    >
                       <MaterialCommunityIcons
                         color="#bfdbfe"
                         name={service.icon}
                         size={17}
                       />
-                      <Text variant="labelLarge" style={styles.priceSetupServiceText}>
+                      <Text
+                        variant="labelLarge"
+                        style={styles.priceSetupServiceText}
+                      >
                         {service.label}
                       </Text>
                     </View>
@@ -877,11 +1035,18 @@ const MenuPrincipalScreen = ({
 
                 <View style={styles.priceSetupFooter}>
                   <View style={styles.priceSetupFooterCopyWrap}>
-                    <Text variant="labelMedium" style={styles.priceSetupFooterLabel}>
+                    <Text
+                      variant="labelMedium"
+                      style={styles.priceSetupFooterLabel}
+                    >
                       Siguiente paso recomendado
                     </Text>
-                    <Text variant="bodySmall" style={styles.priceSetupFooterCopy}>
-                      Crea precios propios o hereda ofertas base para dejar listo tu catálogo de Proxy y VPN.
+                    <Text
+                      variant="bodySmall"
+                      style={styles.priceSetupFooterCopy}
+                    >
+                      Crea precios propios o hereda ofertas base para dejar
+                      listo tu catálogo de Proxy y VPN.
                     </Text>
                   </View>
 
@@ -893,7 +1058,10 @@ const MenuPrincipalScreen = ({
                       pressed ? styles.priceSetupActionButtonPressed : null,
                     ]}
                   >
-                    <Text variant="labelLarge" style={styles.priceSetupActionText}>
+                    <Text
+                      variant="labelLarge"
+                      style={styles.priceSetupActionText}
+                    >
                       Configurar precios
                     </Text>
                     <View style={styles.priceSetupActionIconWrap}>
@@ -995,7 +1163,8 @@ const MenuPrincipalScreen = ({
                     variant="bodySmall"
                     style={styles.evidenceHubFooterCopy}
                   >
-                    Reúne recargas, proxy, VPN y comercio en una sola pantalla para revisar el monto y subir el comprobante.
+                    Reúne recargas, proxy, VPN y comercio en una sola pantalla
+                    para revisar el monto y subir el comprobante.
                   </Text>
                 </View>
 
@@ -1007,7 +1176,10 @@ const MenuPrincipalScreen = ({
                     pressed ? styles.evidenceHubActionButtonPressed : null,
                   ]}
                 >
-                  <Text variant="labelLarge" style={styles.evidenceHubActionText}>
+                  <Text
+                    variant="labelLarge"
+                    style={styles.evidenceHubActionText}
+                  >
                     Abrir bandeja
                   </Text>
                   <View style={styles.evidenceHubActionIconWrap}>
@@ -1036,11 +1208,7 @@ const MenuPrincipalScreen = ({
               }}
             >
               <LinearGradient
-                colors={[
-                  "#17113bf8",
-                  "#231b53f5",
-                  "#2d1f64f2",
-                ]}
+                colors={["#17113bf8", "#231b53f5", "#2d1f64f2"]}
                 end={{ x: 1, y: 1 }}
                 locations={[0, 0.58, 1]}
                 start={{ x: 0, y: 0 }}
@@ -1102,7 +1270,9 @@ const MenuPrincipalScreen = ({
                       variant="headlineMedium"
                       style={styles.cashApprovalsHighlightValue}
                     >
-                      {pendingCashApprovalsLoading ? "..." : pendingCashApprovalsCount}
+                      {pendingCashApprovalsLoading
+                        ? "..."
+                        : pendingCashApprovalsCount}
                     </Text>
                     <Text
                       variant="labelSmall"
@@ -1125,7 +1295,9 @@ const MenuPrincipalScreen = ({
                       variant="titleLarge"
                       style={styles.cashApprovalsStatValue}
                     >
-                      {pendingCashApprovalsLoading ? "..." : pendingCashApprovalsCount}
+                      {pendingCashApprovalsLoading
+                        ? "..."
+                        : pendingCashApprovalsCount}
                     </Text>
                   </View>
 
@@ -1140,7 +1312,9 @@ const MenuPrincipalScreen = ({
                       variant="titleLarge"
                       style={styles.cashApprovalsStatValue}
                     >
-                      {pendingCashApprovalsLoading ? "..." : cashApprovalTypeCount}
+                      {pendingCashApprovalsLoading
+                        ? "..."
+                        : cashApprovalTypeCount}
                     </Text>
                   </View>
                 </View>
@@ -1313,6 +1487,7 @@ const MenuPrincipalScreen = ({
                     onNavigate={navigateTo}
                     onClose={() => setDrawerOpen(false)}
                     onToggleModoCadete={onToggleModoCadete}
+                    onToggleModoEmpresa={onToggleModoEmpresa}
                   />
                 </RenderTraceBlock>
               </Animated.View>
@@ -1504,6 +1679,102 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255, 241, 242, 0.12)",
+  },
+  empresaSuggestionCard: {
+    borderColor: "rgba(134, 239, 172, 0.22)",
+    borderRadius: 26,
+    borderWidth: 1,
+    marginHorizontal: 16,
+    overflow: "hidden",
+  },
+  empresaSuggestionGradient: {
+    gap: 16,
+    overflow: "hidden",
+    padding: 20,
+  },
+  empresaSuggestionHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 14,
+  },
+  empresaSuggestionIconWrap: {
+    alignItems: "center",
+    backgroundColor: "rgba(22, 163, 74, 0.26)",
+    borderColor: "rgba(187, 247, 208, 0.22)",
+    borderRadius: 22,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  empresaSuggestionTitleWrap: {
+    flex: 1,
+    gap: 6,
+  },
+  empresaSuggestionEyebrow: {
+    color: "#86efac",
+    fontWeight: "800",
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+  },
+  empresaSuggestionTitle: {
+    color: "#f8fafc",
+    fontWeight: "900",
+    lineHeight: 28,
+  },
+  empresaSuggestionCopy: {
+    color: "rgba(220, 252, 231, 0.8)",
+    lineHeight: 22,
+  },
+  empresaSuggestionFooter: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+    justifyContent: "space-between",
+  },
+  empresaSuggestionPill: {
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.34)",
+    borderColor: "rgba(147, 197, 253, 0.18)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  empresaSuggestionPillText: {
+    color: "#dbeafe",
+    fontWeight: "800",
+  },
+  empresaSuggestionActionButton: {
+    alignItems: "center",
+    backgroundColor: "rgba(34, 197, 94, 0.2)",
+    borderColor: "rgba(187, 247, 208, 0.26)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    paddingLeft: 14,
+    paddingRight: 8,
+    paddingVertical: 8,
+  },
+  empresaSuggestionActionButtonPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.985 }],
+  },
+  empresaSuggestionActionIconWrap: {
+    alignItems: "center",
+    backgroundColor: "rgba(220, 252, 231, 0.14)",
+    borderRadius: 14,
+    height: 28,
+    justifyContent: "center",
+    width: 28,
+  },
+  empresaSuggestionActionText: {
+    color: "#ecfdf5",
+    fontWeight: "800",
   },
   priceSetupActionButton: {
     alignItems: "center",
