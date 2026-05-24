@@ -9408,3 +9408,110 @@ Resumen tecnico - Entregas de comercio visibles en el inicio antes de Cubacel
   - Si otra superficie del home necesita mostrar pedidos comercio, reutilizar `PedidoCard` y el selector real de `ventasRecharge` en lugar de crear una card nueva con otro shape.
   - No duplicar la logica del stepper de comercio en el menu principal; el componente fuente de verdad visual sigue siendo `PedidoCard.native.jsx`.
   - Si se quiere cambiar cuantos pedidos aparecen en el home, ajustar el limite local de la seccion sin alterar `PedidosComerciosList.native.jsx`.
+
+---
+
+Resumen tecnico - Visibilidad de registro Empresa y acceso al modo Empresa por flags reales
+
+- Problema detectado:
+  - El card de registro/entrada a Empresa en el inicio y el card `Modo empresa` del drawer normal estaban usando `profile.roleComercio` como condicion visual principal.
+  - Eso no coincide con la regla operativa solicitada para la app Expo, donde las superficies visibles deben depender de flags especificos del usuario.
+
+- Regla aplicada en el home:
+  - `components/Main/MenuPrincipalScreen.jsx` muestra el card de registro/entrada a Empresa cuando:
+    - `permiteEmpresa === true`
+    - `empresaBloqueada !== true`
+    - `empresaTerminosCondicionesAcepted !== true`
+    - `modoEmpresa !== true`
+  - Si `empresaBloqueada` viene como `null` o `undefined`, debe tratarse como `false` para este gate visual.
+  - Si `empresaTerminosCondicionesAcepted === true`, el card de registro del home ya no debe mostrarse; el cambio de modo debe quedar en el drawer normal.
+
+- Regla aplicada en el drawer normal:
+  - `components/drawer/DrawerOptionsAlls.js` muestra el card `Modo empresa` solo cuando:
+    - `empresaTerminosCondicionesAcepted === true`
+  - Ese card representa cambio de modo para quien ya acepto terminos, no el registro inicial.
+
+- Proyeccion de usuario requerida:
+  - `services/watch/watchDashboard.js -> WATCH_ROOT_USER_FIELDS` debe incluir:
+    - `permiteEmpresa`
+    - `empresaBloqueada`
+    - `empresaTerminosCondicionesAcepted`
+  - El root de Expo usa esta proyeccion para alimentar `Meteor.user()` en el menu principal; si esos campos no viajan, el card puede quedar invisible aunque la condicion sea correcta.
+
+- Regla practica:
+  - No usar `profile.roleComercio` como condicion visual para mostrar registro Empresa en el home ni para mostrar el cambio de modo en el drawer.
+  - `profile.roleComercio` sigue siendo util para el gate de shell/ruta cuando `modoEmpresa` ya esta activo, pero no debe sustituir los flags especificos de habilitacion, bloqueo y terminos.
+  - Si se vuelve a tocar el onboarding Empresa, mantener la habilitacion inicial basada en `permiteEmpresa === true` y `empresaBloqueada !== true` antes de llamar a metodos de activacion.
+
+---
+
+Resumen tecnico - Drawer Empresa activa directo si los terminos ya fueron aceptados
+
+- Problema detectado:
+  - El boton `Entrar en modo empresa` del drawer normal siempre navegaba a `/(normal)/EmpresaWelcome`.
+  - Eso era correcto solo para usuarios que todavia no habian aceptado terminos, pero no para usuarios con:
+    - `empresaTerminosCondicionesAcepted === true`
+
+- Correccion aplicada:
+  - `components/Main/MenuPrincipal.native.jsx` ahora distingue dos casos:
+    - si el usuario aun no acepto terminos, abre `EmpresaWelcome`
+    - si ya acepto terminos, llama directamente a `Meteor.call('users.toggleModoEmpresa', true)`
+  - El flujo de salida del modo empresa sigue usando el mismo metodo con `false`.
+
+- Regla practica:
+  - No enviar siempre al onboarding desde el drawer de cliente.
+  - El onboarding Empresa es obligatorio solo antes de aceptar terminos.
+  - Despues de `empresaTerminosCondicionesAcepted === true`, el drawer debe comportarse como cambio de modo directo y dejar que el gate raiz lleve al shell Empresa.
+
+---
+
+Resumen tecnico - Card de entregas Comercio en home usa tono oscuro aislado
+
+- Problema detectado:
+  - La seccion de entregas de comercio del home vive sobre una superficie oscura, pero reutiliza `PedidoCard.native.jsx`, que por defecto esta pensado para `Mis pedidos` con superficies claras.
+  - El resultado era texto oscuro sobre fondo oscuro en partes del detalle expandido.
+
+- Correccion aplicada:
+  - `PedidoCard.native.jsx` acepta ahora `tone="dark"`.
+  - `ComercioHomeOrdersSection.native.jsx` pasa ese tono solo en el home.
+  - La variante oscura ajusta card, titulos, divisores, filas de productos, comentarios, direccion y estados de carga sin alterar la experiencia normal de `Mis pedidos`.
+
+- Regla practica:
+  - Si un card compartido se reutiliza dentro de un contenedor oscuro, preferir una prop de tono/contexto antes que cambiar estilos base globales.
+  - No oscurecer por defecto `PedidoCard`, porque tambien se usa en pantallas claras donde el estilo original sigue siendo correcto.
+
+---
+
+Resumen tecnico - Salida de modo Empresa debe reemplazar ruta al menu normal
+
+- Problema detectado:
+  - Al salir del modo Empresa desde el drawer, `users.toggleModoEmpresa(false)` si podia dejar el flag del usuario en `false`, pero la app seguia visualmente dentro de `/(empresa)/EmpresaNavigator`.
+  - La causa practica era que `EmpresaDrawerContent.native.jsx` solo cerraba el drawer despues del metodo y no forzaba navegacion al shell normal.
+  - Ademas, `EmpresaNavigator.native.jsx` no tenia un guard reactivo para abandonar el shell si `modoEmpresa` cambiaba desde otra superficie o por refresco de usuario.
+
+- Correccion aplicada:
+  - `components/empresa/EmpresaDrawerContent.native.jsx` ahora, tras `users.toggleModoEmpresa(false)` exitoso, ejecuta:
+    - `router.replace("/(normal)/Main")`
+  - `components/empresa/EmpresaNavigator.native.jsx` resuelve la ruta vigente con `resolveSessionRoute(userId, user)` y reemplaza la ruta si el usuario ya no corresponde al shell Empresa.
+
+- Regla practica:
+  - No tratar la salida de modo Empresa como una accion local del drawer.
+  - Desactivar `modoEmpresa` debe ir acompañado de un `router.replace` hacia el menu normal o de un guard reactivo equivalente en el navigator.
+  - Si se cambia el criterio de rutas por modo, actualizar `resolveSessionRoute(...)` y reutilizarlo en guards defensivos para no duplicar reglas.
+
+---
+
+Resumen tecnico - Cards de modo Cadete/Empresa legibles en drawer oscuro
+
+- Problema detectado:
+  - En `components/drawer/DrawerOptionsAlls.js`, las cards inferiores de `Modo cadete` y `Modo empresa` vivian sobre el drawer oscuro, pero conservaban textos hardcodeados para superficies claras.
+  - Eso dejaba titulo y descripcion con poco contraste en modo oscuro, especialmente sobre el fondo blur/translucido del drawer.
+
+- Correccion aplicada:
+  - `footerCard` ahora usa una base oscura translucida con borde sutil.
+  - `footerTitle` y `footerCopy` usan colores claros (`#f8fafc` / `#cbd5e1`) para lectura consistente.
+  - Los botones de accion fijan color de fondo y texto para no depender de contraste accidental del tema en esa superficie.
+
+- Regla practica:
+  - Si una card vive dentro de un drawer oscuro o glass oscuro, no reutilizar textos pensados para fondo claro.
+  - En footers operativos del drawer, validar siempre titulo, descripcion, icono y boton juntos porque el contraste puede romperse aunque el card tenga blur correcto.

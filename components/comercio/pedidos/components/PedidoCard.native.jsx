@@ -56,8 +56,10 @@ const PedidoCardExpandedContent = ({
   isCanceled,
   isPendientePago,
   necesitaEvidencia,
+  tone = "default",
   venta,
 }) => {
+  const isDarkTone = tone === "dark";
   const { detailReady, isAdmin, ventaDetalle } = Meteor.useTracker(() => {
     const ventaId = venta?._id;
     const currentUser = Meteor.user();
@@ -217,27 +219,55 @@ const PedidoCardExpandedContent = ({
       ) : null}
 
       {detailLoading ? (
-        <Surface elevation={1} style={styles.detailLoadingCard}>
+        <Surface
+          elevation={1}
+          style={[
+            styles.detailLoadingCard,
+            isDarkTone ? styles.detailLoadingCardDark : null,
+          ]}
+        >
           <ActivityIndicator color="#FF6F00" size="small" />
-          <Text style={styles.detailLoadingText}>
+          <Text
+            style={[
+              styles.detailLoadingText,
+              isDarkTone ? styles.detailLoadingTextDark : null,
+            ]}
+          >
             Cargando detalle del pedido...
           </Text>
         </Surface>
       ) : (
         <>
-          <Divider style={styles.divider} />
+          <Divider
+            style={[styles.divider, isDarkTone ? styles.dividerDark : null]}
+          />
 
           <View style={styles.productosSection}>
-            <Text style={styles.sectionTitle} variant="titleSmall">
+            <Text
+              style={[
+                styles.sectionTitle,
+                isDarkTone ? styles.sectionTitleDark : null,
+              ]}
+              variant="titleSmall"
+            >
               📦 Productos del Pedido ({totalProductos})
             </Text>
 
             {carritos.map((item, index) => (
-              <View key={`${ventaCompleta._id}-${index}`} style={styles.productoRow}>
+              <View
+                key={`${ventaCompleta._id}-${index}`}
+                style={[
+                  styles.productoRow,
+                  isDarkTone ? styles.productoRowDark : null,
+                ]}
+              >
                 <View style={styles.productoInfo}>
                   <Text
                     numberOfLines={1}
-                    style={styles.productoNombre}
+                    style={[
+                      styles.productoNombre,
+                      isDarkTone ? styles.productoNombreDark : null,
+                    ]}
                     variant="bodyMedium"
                   >
                     •{" "}
@@ -246,14 +276,23 @@ const PedidoCardExpandedContent = ({
                   {item.producto?.descripcion ? (
                     <Text
                       numberOfLines={1}
-                      style={styles.productoDescripcion}
+                      style={[
+                        styles.productoDescripcion,
+                        isDarkTone ? styles.productoDescripcionDark : null,
+                      ]}
                       variant="bodySmall"
                     >
                       {item.producto.descripcion}
                     </Text>
                   ) : null}
                 </View>
-                <Text style={styles.productoCantidad} variant="bodySmall">
+                <Text
+                  style={[
+                    styles.productoCantidad,
+                    isDarkTone ? styles.productoCantidadDark : null,
+                  ]}
+                  variant="bodySmall"
+                >
                   x{item.cantidad || 1}
                 </Text>
                 <Text style={styles.productoPrecio} variant="bodyMedium">
@@ -266,15 +305,28 @@ const PedidoCardExpandedContent = ({
 
           {direccionEntrega ? (
             <>
-              <Divider style={styles.divider} />
+              <Divider
+                style={[styles.divider, isDarkTone ? styles.dividerDark : null]}
+              />
 
-              <View style={styles.comentarioSection}>
+              <View
+                style={[
+                  styles.comentarioSection,
+                  isDarkTone ? styles.comentarioSectionDark : null,
+                ]}
+              >
                 <MaterialCommunityIcons
-                  color="#616161"
+                  color={isDarkTone ? "#fed7aa" : "#616161"}
                   name="home-map-marker"
                   size={16}
                 />
-                <Text style={styles.comentarioText} variant="bodySmall">
+                <Text
+                  style={[
+                    styles.comentarioText,
+                    isDarkTone ? styles.comentarioTextDark : null,
+                  ]}
+                  variant="bodySmall"
+                >
                   {direccionEntrega}
                 </Text>
               </View>
@@ -283,15 +335,28 @@ const PedidoCardExpandedContent = ({
 
           {comentarioPedido ? (
             <>
-              <Divider style={styles.divider} />
+              <Divider
+                style={[styles.divider, isDarkTone ? styles.dividerDark : null]}
+              />
 
-              <View style={styles.comentarioSection}>
+              <View
+                style={[
+                  styles.comentarioSection,
+                  isDarkTone ? styles.comentarioSectionDark : null,
+                ]}
+              >
                 <MaterialCommunityIcons
-                  color="#616161"
+                  color={isDarkTone ? "#fed7aa" : "#616161"}
                   name="comment-text-outline"
                   size={16}
                 />
-                <Text style={styles.comentarioText} variant="bodySmall">
+                <Text
+                  style={[
+                    styles.comentarioText,
+                    isDarkTone ? styles.comentarioTextDark : null,
+                  ]}
+                  variant="bodySmall"
+                >
                   {comentarioPedido}
                 </Text>
               </View>
@@ -307,15 +372,20 @@ const PedidoCardNative = ({
   currentStep,
   isExpanded,
   onToggleExpand,
+  tone = "default",
   venta,
 }) => {
+  const isDarkTone = tone === "dark";
   const isCanceled = venta?.isCancelada === true;
   const isPendientePago = venta?.isCobrado === false;
   const necesitaEvidencia =
     !venta?.isCobrado && !isCanceled && venta?.metodoPago === "EFECTIVO";
 
   return (
-    <Surface elevation={8} style={styles.card}>
+    <Surface
+      elevation={8}
+      style={[styles.card, isDarkTone ? styles.cardDark : null]}
+    >
       {isCanceled ? (
         <View style={styles.ribbonContainer}>
           <View style={styles.ribbon}>
@@ -334,10 +404,12 @@ const PedidoCardNative = ({
           />
         )}
         subtitle={formatFecha(venta?.createdAt)}
+        subtitleStyle={isDarkTone ? styles.cardSubtitleDark : null}
         title={`Pedido #${venta?._id.slice(-6).toUpperCase()}`}
+        titleStyle={isDarkTone ? styles.cardTitleDark : null}
       />
 
-      <Divider />
+      <Divider style={isDarkTone ? styles.dividerDark : null} />
 
       <View>
         {!isExpanded ? (
@@ -350,6 +422,7 @@ const PedidoCardNative = ({
             isCanceled={isCanceled}
             isPendientePago={isPendientePago}
             necesitaEvidencia={necesitaEvidencia}
+            tone={tone}
             venta={venta}
           />
         ) : null}
@@ -359,6 +432,10 @@ const PedidoCardNative = ({
 };
 
 const arePedidoCardPropsEqual = (prevProps, nextProps) => {
+    if (prevProps.tone !== nextProps.tone) {
+      return false;
+    }
+
     if (prevProps.currentStep !== nextProps.currentStep) {
       return false;
     }
@@ -473,6 +550,18 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     position: "relative",
   },
+  cardDark: {
+    backgroundColor: "rgba(15, 23, 42, 0.94)",
+    borderColor: "rgba(251, 146, 60, 0.22)",
+    borderWidth: 1,
+  },
+  cardSubtitleDark: {
+    color: "rgba(255, 237, 213, 0.72)",
+  },
+  cardTitleDark: {
+    color: "#fff7ed",
+    fontWeight: "800",
+  },
   comentarioSection: {
     alignItems: "flex-start",
     backgroundColor: "rgba(0, 0, 0, 0.02)",
@@ -481,11 +570,19 @@ const styles = StyleSheet.create({
     marginTop: 8,
     padding: 12,
   },
+  comentarioSectionDark: {
+    backgroundColor: "rgba(251, 146, 60, 0.08)",
+    borderColor: "rgba(251, 146, 60, 0.16)",
+    borderWidth: 1,
+  },
   comentarioText: {
     color: "#616161",
     flex: 1,
     fontStyle: "italic",
     marginLeft: 8,
+  },
+  comentarioTextDark: {
+    color: "rgba(255, 237, 213, 0.88)",
   },
   detailLoadingCard: {
     alignItems: "center",
@@ -495,14 +592,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
+  detailLoadingCardDark: {
+    backgroundColor: "rgba(30, 41, 59, 0.86)",
+    borderColor: "rgba(251, 146, 60, 0.18)",
+    borderWidth: 1,
+  },
   detailLoadingText: {
     color: "#616161",
     fontSize: 13,
     fontWeight: "600",
     marginLeft: 10,
   },
+  detailLoadingTextDark: {
+    color: "rgba(255, 237, 213, 0.8)",
+  },
   divider: {
     marginVertical: 12,
+  },
+  dividerDark: {
+    backgroundColor: "rgba(251, 146, 60, 0.18)",
   },
   expandedContent: {
     marginTop: 12,
@@ -565,10 +673,16 @@ const styles = StyleSheet.create({
     minWidth: 30,
     textAlign: "center",
   },
+  productoCantidadDark: {
+    color: "rgba(255, 237, 213, 0.76)",
+  },
   productoDescripcion: {
     color: "#757575",
     fontSize: 11,
     marginTop: 2,
+  },
+  productoDescripcionDark: {
+    color: "rgba(255, 237, 213, 0.62)",
   },
   productoInfo: {
     flex: 1,
@@ -576,6 +690,9 @@ const styles = StyleSheet.create({
   },
   productoNombre: {
     fontWeight: "600",
+  },
+  productoNombreDark: {
+    color: "#fff7ed",
   },
   productoPrecio: {
     color: "#FF6F00",
@@ -591,6 +708,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 8,
     paddingVertical: 8,
+  },
+  productoRowDark: {
+    backgroundColor: "rgba(30, 41, 59, 0.78)",
+    borderColor: "rgba(251, 146, 60, 0.12)",
+    borderWidth: 1,
   },
   productosSection: {
     marginTop: 8,
@@ -630,6 +752,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontWeight: "bold",
     marginBottom: 8,
+  },
+  sectionTitleDark: {
+    color: "#ffedd5",
   },
   toggleButton: {
     zIndex: 11,

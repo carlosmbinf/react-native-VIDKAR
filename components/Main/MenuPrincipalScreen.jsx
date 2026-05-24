@@ -239,15 +239,10 @@ const formatMissingPriceServicesText = (services = []) => {
   return `${labels.slice(0, -1).join(", ")} y ${labels.at(-1)}`;
 };
 
-const userHasEmpresaRole = (user) => {
-  const roleComercio = user?.profile?.roleComercio;
-
-  if (Array.isArray(roleComercio)) {
-    return roleComercio.includes("EMPRESA");
-  }
-
-  return String(roleComercio || "").includes("EMPRESA");
-};
+const canShowEmpresaRegistration = (user) =>
+  user?.permiteEmpresa === true &&
+  user?.empresaBloqueada !== true &&
+  user?.empresaTerminosCondicionesAcepted !== true;
 
 const MenuPrincipalScreen = ({
   user,
@@ -519,7 +514,7 @@ const MenuPrincipalScreen = ({
   const showPriceSetupCard =
     hasAdminRole && !priceSetupLoading && missingPriceServices.length > 0;
   const showEmpresaSuggestionCard =
-    userHasEmpresaRole(user) && user?.modoEmpresa !== true;
+    canShowEmpresaRegistration(user) && user?.modoEmpresa !== true;
   const missingPriceServicesText =
     formatMissingPriceServicesText(missingPriceServices);
 

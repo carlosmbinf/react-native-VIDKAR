@@ -1,9 +1,11 @@
 import MeteorBase from "@meteorrn/core";
+import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Portal, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { resolveSessionRoute } from "../navigator/sessionRoute";
 import EmpresaDrawerContent from "./EmpresaDrawerContent";
 import PedidosPreparacionScreen from "./screens/PedidosPreparacionScreen";
 import { createEmpresaPalette } from "./styles/empresaTheme";
@@ -17,9 +19,13 @@ const PORTRAIT_DRAWER_WIDTH = 316;
 const LANDSCAPE_DRAWER_MAX_WIDTH = 380;
 
 const EmpresaNavigator = () => {
+  const router = useRouter();
   const theme = useTheme();
   const palette = createEmpresaPalette(theme);
-  const user = Meteor.useTracker(() => Meteor.user());
+  const { user, userId } = Meteor.useTracker(() => ({
+    user: Meteor.user(),
+    userId: Meteor.userId(),
+  }));
   const { height, width } = useWindowDimensions();
   const drawerWidth = width > height
     ? Math.min(LANDSCAPE_DRAWER_MAX_WIDTH, Math.max(340, width * 0.42))
@@ -28,6 +34,18 @@ const EmpresaNavigator = () => {
   const [drawerMounted, setDrawerMounted] = useState(false);
   const translateX = useRef(new Animated.Value(-drawerWidth)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!userId || !user) {
+      return;
+    }
+
+    const targetRoute = resolveSessionRoute(userId, user);
+
+    if (targetRoute !== "/(empresa)/EmpresaNavigator") {
+      router.replace(targetRoute);
+    }
+  }, [router, user, userId]);
 
   useEffect(() => {
     if (!drawerOpen) {

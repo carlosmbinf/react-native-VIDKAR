@@ -158,6 +158,7 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
               }
 
               onClose?.();
+              router.replace("/(normal)/Main");
             });
           },
         },

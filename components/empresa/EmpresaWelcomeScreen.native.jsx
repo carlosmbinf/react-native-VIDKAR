@@ -411,8 +411,7 @@ const EmpresaWelcomeScreen = () => {
   const isLastSlide = activeIndex === SLIDES.length - 1;
   const alreadyAccepted = user?.empresaTerminosCondicionesAcepted === true;
   const firstName = getFirstName(user);
-  const hasEmpresaRole = userHasEmpresaRole(user);
-  const canRequestEmpresa = user?.permiteEmpresa === true || hasEmpresaRole;
+  const canRequestEmpresa = user?.permiteEmpresa === true;
   const blocked = user?.empresaBloqueada === true;
   const heroPrimaryGlowMotion = useMemo(
     () => buildGlowMotion(heroGlowPrimaryProgress, heroCardSize, HERO_PRIMARY_GLOW_SIZE, "primarySweep"),

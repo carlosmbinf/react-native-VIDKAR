@@ -790,7 +790,7 @@ const MenuPrincipalNative = () => {
   const handleToggleModoEmpresa = () => {
     const nextState = !user?.modoEmpresa;
 
-    if (nextState) {
+    if (nextState && user?.empresaTerminosCondicionesAcepted !== true) {
       openEmpresaWelcome();
       return;
     }

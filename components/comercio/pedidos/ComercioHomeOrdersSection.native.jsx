@@ -169,6 +169,7 @@ const ComercioHomeOrdersSection = () => {
               isExpanded={Boolean(expandedVentas[venta._id])}
               key={venta._id}
               onToggleExpand={() => toggleExpanded(venta._id)}
+              tone="dark"
               venta={venta}
             />
           ))}

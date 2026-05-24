@@ -47,16 +47,6 @@ const getRoleIcon = (user) => {
   return "account-circle-outline";
 };
 
-const userHasEmpresaRole = (user) => {
-  const roleComercio = user?.profile?.roleComercio;
-
-  if (Array.isArray(roleComercio)) {
-    return roleComercio.includes("EMPRESA");
-  }
-
-  return String(roleComercio || "").includes("EMPRESA");
-};
-
 const buildServiceItems = (user) => {
   const items = [];
 
@@ -199,7 +189,8 @@ const DrawerOptionsAlls = ({
   const isSuperAdmin = user?.username === "carlosmbinf";
   const canToggleCadete = typeof onToggleModoCadete === "function";
   const canToggleEmpresa =
-    typeof onToggleModoEmpresa === "function" && userHasEmpresaRole(user);
+    typeof onToggleModoEmpresa === "function" &&
+    user?.empresaTerminosCondicionesAcepted === true;
   const cadeteButtonLabel = user?.modoCadete
     ? "Salir del modo cadete"
     : "Entrar en modo cadete";
@@ -383,6 +374,10 @@ const DrawerOptionsAlls = ({
               mode={user?.modoCadete ? "contained-tonal" : "contained"}
               icon={cadeteButtonIcon}
               style={styles.footerButton}
+              contentStyle={styles.footerButtonContent}
+              labelStyle={styles.footerButtonLabel}
+              buttonColor="#4f5df6"
+              textColor="#f8fafc"
               onPress={() => onToggleModoCadete?.()}
               disabled={false}
             >
@@ -402,6 +397,10 @@ const DrawerOptionsAlls = ({
               mode={user?.modoEmpresa ? "contained-tonal" : "contained"}
               icon={empresaButtonIcon}
               style={styles.footerButton}
+              contentStyle={styles.footerButtonContent}
+              labelStyle={styles.footerButtonLabel}
+              buttonColor="#4f5df6"
+              textColor="#f8fafc"
               onPress={() => onToggleModoEmpresa?.()}
               disabled={false}
             >
@@ -555,30 +554,44 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   footerDock: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    gap: 12,
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    gap: 8,
   },
   footerDockScrollable: {
-    paddingTop: 4,
+    paddingTop: 2,
   },
   footerCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.16)",
-    borderRadius: 18,
-    padding: 16,
+    backgroundColor: "rgba(15, 23, 42, 0.72)",
+    borderColor: "rgba(148, 163, 184, 0.26)",
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   footerTitle: {
-    color: "#1e293b",
+    color: "#f8fafc",
+    fontSize: 14,
     fontWeight: "800",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   footerCopy: {
-    color: "#475569",
-    lineHeight: 19,
+    color: "#cbd5e1",
+    fontSize: 12,
+    lineHeight: 16,
   },
   footerButton: {
-    marginTop: 14,
-    borderRadius: 14,
+    marginTop: 10,
+    borderRadius: 12,
+  },
+  footerButtonContent: {
+    minHeight: 38,
+    paddingVertical: 0,
+  },
+  footerButtonLabel: {
+    fontSize: 13,
+    fontWeight: "800",
+    marginVertical: 0,
   },
 });
 
