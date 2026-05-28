@@ -128,14 +128,17 @@ const TiendaDetailScreen = () => {
       { idTienda: tiendaId },
       { fields: TIENDA_DETAIL_CADETE_QUEUE_FIELDS },
     ).fetch();
+    const ready = tiendasHandle.ready() && productosHandle.ready() && cadetesQueueHandle.ready();
 
     return {
-      cadetesQueueCount: new Set(queueEntries.map((entry) => entry?.cadeteId).filter(Boolean)).size,
+      cadetesQueueCount: ready
+        ? new Set(queueEntries.map((entry) => entry?.cadeteId).filter(Boolean)).size
+        : 0,
       productos: ProductosComercioCollection.find(
         { idTienda: tiendaId },
         { fields: TIENDA_DETAIL_PRODUCT_FIELDS, sort: { createdAt: -1, name: 1 } },
       ).fetch(),
-      ready: tiendasHandle.ready() && productosHandle.ready() && cadetesQueueHandle.ready(),
+      ready,
       tienda:
         TiendasComercioCollection.findOne(
           { _id: tiendaId },
