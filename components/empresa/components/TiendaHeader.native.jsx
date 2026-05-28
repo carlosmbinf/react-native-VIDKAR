@@ -109,9 +109,9 @@ const TiendaHeader = ({
               </Button>
             ) : null}
             {coordinates ? (
-            <Button buttonColor={palette.brandSoft} mode="contained-tonal" onPress={handleOpenMaps} textColor={palette.brandStrong}>
-              Abrir en mapas
-            </Button>
+              <Button buttonColor={palette.brandSoft} mode="contained-tonal" onPress={handleOpenMaps} textColor={palette.brandStrong}>
+                Abrir en mapas
+              </Button>
             ) : null}
           </View>
         ) : null}

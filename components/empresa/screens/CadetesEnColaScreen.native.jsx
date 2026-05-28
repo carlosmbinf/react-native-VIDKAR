@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   FlatList,
@@ -49,7 +49,6 @@ const CADETE_FIELDS = {
   cordenadas: 1,
   coordenadas: 1,
   createdAt: 1,
-  emails: 1,
   modoCadete: 1,
   picture: 1,
   "profile.firstName": 1,
@@ -120,7 +119,6 @@ const getContactLabel = (user) =>
   user?.profile?.phone ||
   user?.profile?.telefono ||
   user?.profile?.whatsapp ||
-  user?.emails?.[0]?.address ||
   "Contacto no disponible";
 
 const getQueueDate = (entry) => entry?.createdAt || entry?.fecha || entry?.updatedAt;
@@ -236,7 +234,6 @@ const CadeteCard = ({ cadete, index, palette }) => {
 };
 
 const CadetesEnColaScreen = () => {
-  const router = useRouter();
   const theme = useTheme();
   const palette = useMemo(() => createEmpresaPalette(theme), [theme]);
   const { width } = useWindowDimensions();
@@ -292,12 +289,13 @@ const CadetesEnColaScreen = () => {
 
     return {
       cadetes: cadeteIds.map((cadeteId) => {
+        const cadeteIdLabel = String(cadeteId);
         const user = usersById[cadeteId] || {};
         return {
-          cadeteId,
+          cadeteId: cadeteIdLabel,
           contactLabel: getContactLabel(user),
           coordinates: getUserCoordinates(user),
-          displayName: getDisplayName(user, `Cadete ${cadeteId.slice(-4)}`),
+          displayName: getDisplayName(user, `Cadete ${cadeteIdLabel.slice(-4)}`),
           picture: user.picture,
           queueDate: getQueueDate(queueByCadete[cadeteId]),
           username: user.username,
