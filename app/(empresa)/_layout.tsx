@@ -7,6 +7,7 @@ export default function EmpresaLayout() {
       <Stack.Screen name="PedidosPreparacion" />
       <Stack.Screen name="MisTiendas" />
       <Stack.Screen name="TiendaDetail" />
+      <Stack.Screen name="CadetesEnCola" />
       <Stack.Screen name="ProductoForm" />
       <Stack.Screen name="Mensaje" />
       <Stack.Screen name="User" />

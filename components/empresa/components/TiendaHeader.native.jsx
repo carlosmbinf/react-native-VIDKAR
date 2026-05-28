@@ -16,7 +16,12 @@ const normalizeCoordinates = (tienda) => {
   return { latitude, longitude };
 };
 
-const TiendaHeader = ({ tienda, productosCount }) => {
+const TiendaHeader = ({
+  cadetesQueueCount = 0,
+  onOpenCadetesQueue,
+  productosCount,
+  tienda,
+}) => {
   const theme = useTheme();
   const palette = createEmpresaPalette(theme);
   const coordinates = normalizeCoordinates(tienda);
@@ -66,6 +71,15 @@ const TiendaHeader = ({ tienda, productosCount }) => {
           >
             {productosCount} producto{productosCount === 1 ? "" : "s"}
           </Chip>
+          <Chip
+            compact
+            icon="bike-fast"
+            onPress={onOpenCadetesQueue}
+            style={{ backgroundColor: palette.cardSoft, borderColor: palette.border, borderWidth: 1 }}
+            textStyle={{ color: palette.brandStrong }}
+          >
+            {cadetesQueueCount} cadete{cadetesQueueCount === 1 ? "" : "s"} en cola
+          </Chip>
           {coordinates ? (
             <Chip
               compact
@@ -87,11 +101,18 @@ const TiendaHeader = ({ tienda, productosCount }) => {
           )}
         </View>
 
-        {coordinates ? (
+        {coordinates || onOpenCadetesQueue ? (
           <View style={styles.actionsRow}>
+            {onOpenCadetesQueue ? (
+              <Button icon="account-group-outline" mode="contained" onPress={onOpenCadetesQueue}>
+                Ver cadetes en cola
+              </Button>
+            ) : null}
+            {coordinates ? (
             <Button buttonColor={palette.brandSoft} mode="contained-tonal" onPress={handleOpenMaps} textColor={palette.brandStrong}>
               Abrir en mapas
             </Button>
+            ) : null}
           </View>
         ) : null}
       </Card.Content>
@@ -102,6 +123,9 @@ const TiendaHeader = ({ tienda, productosCount }) => {
 const styles = StyleSheet.create({
   actionsRow: {
     alignItems: "flex-start",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
   },
   card: {
     borderRadius: 28,
