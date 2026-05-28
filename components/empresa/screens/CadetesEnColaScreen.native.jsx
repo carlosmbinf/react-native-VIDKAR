@@ -287,8 +287,10 @@ const CadetesEnColaScreen = () => {
       return accumulator;
     }, {});
 
+    const ready = tiendaHandle.ready() && queueHandle.ready() && (!usersHandle || usersHandle.ready());
+
     return {
-      cadetes: cadeteIds.map((cadeteId) => {
+      cadetes: ready ? cadeteIds.map((cadeteId) => {
         const cadeteIdLabel = String(cadeteId);
         const user = usersById[cadeteId] || {};
         return {
@@ -300,8 +302,8 @@ const CadetesEnColaScreen = () => {
           queueDate: getQueueDate(queueByCadete[cadeteId]),
           username: user.username,
         };
-      }),
-      ready: tiendaHandle.ready() && queueHandle.ready() && (!usersHandle || usersHandle.ready()),
+      }) : [],
+      ready,
       tienda:
         TiendasComercioCollection.findOne(
           { _id: tiendaId },
