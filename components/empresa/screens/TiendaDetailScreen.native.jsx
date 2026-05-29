@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
@@ -13,7 +13,11 @@ import {
 import { Appbar, Button, FAB, Surface, Text, TextInput, useTheme } from "react-native-paper";
 
 import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
-import { ProductosComercioCollection, TiendasComercioCollection } from "../../collections/collections";
+import {
+  ColaCadetesPorTiendasComercioCollection,
+  ProductosComercioCollection,
+  TiendasComercioCollection,
+} from "../../collections/collections";
 import EmpresaTopBar from "../components/EmpresaTopBar.native";
 import EmptyProductos from "../components/EmptyProductos.native";
 import ProductoCard from "../components/ProductoCard.native";
@@ -76,6 +80,11 @@ const TIENDA_DETAIL_PRODUCT_FIELDS = {
   productoDeElaboracion: 1,
 };
 
+const TIENDA_DETAIL_CADETE_QUEUE_FIELDS = {
+  cadeteId: 1,
+  idTienda: 1,
+};
+
 const TiendaDetailScreen = () => {
   const router = useRouter();
   const theme = useTheme();
@@ -93,13 +102,13 @@ const TiendaDetailScreen = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const dataReady = useDeferredScreenData();
 
-  const { productos, ready, tienda } = Meteor.useTracker(() => {
+  const { cadetesQueueCount, productos, ready, tienda } = Meteor.useTracker(() => {
     if (!dataReady) {
-      return { productos: [], ready: false, tienda: parsedTienda || null };
+      return { cadetesQueueCount: 0, productos: [], ready: false, tienda: parsedTienda || null };
     }
 
     if (!tiendaId) {
-      return { productos: [], ready: true, tienda: parsedTienda || null };
+      return { cadetesQueueCount: 0, productos: [], ready: true, tienda: parsedTienda || null };
     }
 
     const tiendasHandle = Meteor.subscribe("tiendas", { _id: tiendaId }, {
@@ -110,13 +119,26 @@ const TiendaDetailScreen = () => {
       { idTienda: tiendaId },
       { fields: TIENDA_DETAIL_PRODUCT_FIELDS },
     );
+    const cadetesQueueHandle = Meteor.subscribe(
+      "colacadetesxtiendas",
+      { idTienda: tiendaId },
+      { fields: TIENDA_DETAIL_CADETE_QUEUE_FIELDS },
+    );
+    const queueEntries = ColaCadetesPorTiendasComercioCollection.find(
+      { idTienda: tiendaId },
+      { fields: TIENDA_DETAIL_CADETE_QUEUE_FIELDS },
+    ).fetch();
+    const ready = tiendasHandle.ready() && productosHandle.ready() && cadetesQueueHandle.ready();
 
     return {
+      cadetesQueueCount: ready
+        ? new Set(queueEntries.map((entry) => entry?.cadeteId).filter(Boolean)).size
+        : 0,
       productos: ProductosComercioCollection.find(
         { idTienda: tiendaId },
         { fields: TIENDA_DETAIL_PRODUCT_FIELDS, sort: { createdAt: -1, name: 1 } },
       ).fetch(),
-      ready: tiendasHandle.ready() && productosHandle.ready(),
+      ready,
       tienda:
         TiendasComercioCollection.findOne(
           { _id: tiendaId },
@@ -164,6 +186,16 @@ const TiendaDetailScreen = () => {
     });
   };
 
+  const handleOpenCadetesQueue = useCallback(() => {
+    router.push({
+      pathname: "/(empresa)/CadetesEnCola",
+      params: {
+        tienda: tienda ? JSON.stringify(tienda) : "",
+        tiendaId,
+      },
+    });
+  }, [router, tienda, tiendaId]);
+
   const handleRefresh = () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 650);
@@ -172,7 +204,12 @@ const TiendaDetailScreen = () => {
   const listHeader = useMemo(
     () => (
       <View style={styles.headerContent}>
-        <TiendaHeader productosCount={productos.length} tienda={tienda} />
+        <TiendaHeader
+          cadetesQueueCount={cadetesQueueCount}
+          onOpenCadetesQueue={handleOpenCadetesQueue}
+          productosCount={productos.length}
+          tienda={tienda}
+        />
         <Surface
           style={[
             styles.summaryCard,
@@ -235,6 +272,8 @@ const TiendaDetailScreen = () => {
       palette.muted,
       palette.shadowColor,
       palette.title,
+      cadetesQueueCount,
+      handleOpenCadetesQueue,
       productos.length,
       searchQuery,
       tienda,
