@@ -5,20 +5,20 @@ import { Alert, Linking, Platform, StyleSheet, useWindowDimensions, View } from 
 import { Button, Chip, Divider, Surface, Text, useTheme } from "react-native-paper";
 
 import {
-  PedidosAsignadosComercioCollection,
-  TiendasComercioCollection,
-  VentasRechargeCollection,
+    PedidosAsignadosComercioCollection,
+    TiendasComercioCollection,
+    VentasRechargeCollection,
 } from "../../collections/collections";
 import SlideToConfirm from "../../empresa/screens/pedidos/components/SlideToConfirm.native";
 import MapaPedidos from "../maps/MapaPedidos";
 import {
-  convertMoney,
-  formatMoney,
-  getCadeteSliderConfig,
-  getCadeteStatusText,
-  getCadeteStep,
-  getNextCadeteStatus,
-  resolveCoordinatePair
+    convertMoney,
+    formatMoney,
+    getCadeteSliderConfig,
+    getCadeteStatusText,
+    getCadeteStep,
+    getNextCadeteStatus,
+    resolveCoordinatePair
 } from "./cadetePedidoUtils";
 import PedidoStepper from "./components/PedidoStepper";
 
@@ -33,6 +33,22 @@ const CADETE_TIENDA_FIELDS = {
   descripcion: 1,
   name: 1,
   title: 1,
+};
+
+const CADETE_USER_FIELDS = {
+  _id: 1,
+  picture: 1,
+  profile: 1,
+  username: 1,
+};
+
+const getCadeteDisplayName = (user, fallback = "Cadete asignado") => {
+  const profileName = [user?.profile?.firstName, user?.profile?.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  return profileName || user?.username || fallback;
 };
 
 const formatAssignmentDate = (value) => {
@@ -110,6 +126,27 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
   }, [idTienda]);
 
   const tienda = tiendaState?.tienda;
+  const cadeteState = Meteor.useTracker(() => {
+    if (!cadeteId) {
+      return { cadete: null };
+    }
+
+    Meteor.subscribe("user", { _id: cadeteId }, {
+      fields: CADETE_USER_FIELDS,
+    });
+
+    return {
+      cadete:
+        Meteor.users.findOne(
+          { _id: cadeteId },
+          { fields: CADETE_USER_FIELDS },
+        ) || null,
+    };
+  }, [cadeteId]);
+  const cadeteName = getCadeteDisplayName(
+    cadeteState?.cadete,
+    cadeteId ? `Cadete ${String(cadeteId).slice(-4)}` : "Cadete asignado",
+  );
   const tiendaName =
     tienda?.title || tienda?.name || (tiendaState?.tiendaReady ? "Tienda sin nombre" : "Cargando tienda...");
   const tiendaDescription =
@@ -118,6 +155,10 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
   const isCompact = width < 390;
   const palette = useMemo(
     () => ({
+      assignedBackground: theme.dark ? "rgba(34, 197, 94, 0.1)" : "rgba(34, 197, 94, 0.06)",
+      assignedBorder: theme.dark ? "rgba(74, 222, 128, 0.2)" : "rgba(22, 163, 74, 0.14)",
+      assignedChipBackground: theme.dark ? "rgba(34, 197, 94, 0.16)" : "rgba(34, 197, 94, 0.1)",
+      assignedIconBackground: theme.dark ? "rgba(34, 197, 94, 0.18)" : "rgba(34, 197, 94, 0.12)",
       border: theme.dark ? "rgba(148, 163, 184, 0.18)" : "rgba(15, 23, 42, 0.08)",
       cardSoft: theme.dark ? "rgba(148, 163, 184, 0.1)" : "rgba(15, 23, 42, 0.03)",
       completedBackground: theme.dark ? "rgba(34, 197, 94, 0.16)" : "rgba(34, 197, 94, 0.1)",
@@ -296,6 +337,28 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
         </Chip>
       </View>
 
+      <View style={[styles.assignedCard, { backgroundColor: palette.assignedBackground, borderColor: palette.assignedBorder }]}>
+        <View style={[styles.assignedIcon, { backgroundColor: palette.assignedIconBackground }]}>
+          <MaterialCommunityIcons color={sliderConfig.backgroundColor} name="account-hard-hat-outline" size={22} />
+        </View>
+        <View style={styles.assignedCopy}>
+          <Text style={[styles.assignedLabel, { color: palette.muted }]} variant="labelMedium">
+            Pedido asignado a
+          </Text>
+          <Text numberOfLines={1} style={[styles.assignedName, { color: palette.primaryText }]} variant="titleSmall">
+            {cadeteName}
+          </Text>
+        </View>
+        <Chip
+          compact
+          icon="check-decagram"
+          style={[styles.assignedChip, { backgroundColor: palette.assignedChipBackground }]}
+          textStyle={[styles.assignedChipText, { color: sliderConfig.backgroundColor }]}
+        >
+          En gestión
+        </Chip>
+      </View>
+
       <Divider style={styles.divider} />
 
       <View style={styles.stepperLayer}>
@@ -440,6 +503,38 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
 };
 
 const styles = StyleSheet.create({
+  assignedCard: {
+    alignItems: "center",
+    borderRadius: 22,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    padding: 14,
+  },
+  assignedChip: {
+    borderRadius: 999,
+  },
+  assignedChipText: {
+    fontWeight: "800",
+  },
+  assignedCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  assignedIcon: {
+    alignItems: "center",
+    borderRadius: 999,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  assignedLabel: {
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  assignedName: {
+    fontWeight: "900",
+  },
   card: {
     borderRadius: 28,
     gap: 18,

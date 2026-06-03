@@ -22,6 +22,22 @@ const PEDIDO_CARD_DETAIL_FIELDS = {
   "producto.carritos": 1,
 };
 
+const PEDIDO_CADETE_FIELDS = {
+  _id: 1,
+  picture: 1,
+  profile: 1,
+  username: 1,
+};
+
+const getUserDisplayName = (user, fallback = "Cadete asignado") => {
+  const profileName = [user?.profile?.firstName, user?.profile?.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  return profileName || user?.username || fallback;
+};
+
 const mergeVentaWithDetail = (ventaBase, ventaDetalle) => {
   if (!ventaDetalle) {
     return ventaBase;
@@ -60,12 +76,14 @@ const PedidoCardExpandedContent = ({
   venta,
 }) => {
   const isDarkTone = tone === "dark";
-  const { detailReady, isAdmin, ventaDetalle } = Meteor.useTracker(() => {
+  const { cadete, detailReady, isAdmin, ventaDetalle } = Meteor.useTracker(() => {
     const ventaId = venta?._id;
+    const assignedCadeteId = venta?.cadeteid;
     const currentUser = Meteor.user();
 
     if (!ventaId) {
       return {
+        cadete: null,
         detailReady: false,
         isAdmin:
           currentUser?.profile?.role === "admin" ||
@@ -81,15 +99,28 @@ const PedidoCardExpandedContent = ({
       { _id: ventaId },
       { fields: PEDIDO_CARD_DETAIL_FIELDS },
     );
+    const resolvedCadeteId = ventaDoc?.cadeteid || assignedCadeteId;
+
+    if (resolvedCadeteId) {
+      Meteor.subscribe("user", { _id: resolvedCadeteId }, {
+        fields: PEDIDO_CADETE_FIELDS,
+      });
+    }
 
     return {
+      cadete: resolvedCadeteId
+        ? Meteor.users.findOne(
+            { _id: resolvedCadeteId },
+            { fields: PEDIDO_CADETE_FIELDS },
+          ) || null
+        : null,
       detailReady: detailHandle.ready(),
       isAdmin:
         currentUser?.profile?.role === "admin" ||
         currentUser?.username === "carlosmbinf",
       ventaDetalle: ventaDoc || null,
     };
-  }, [venta?._id]);
+  }, [venta?._id, venta?.cadeteid]);
 
   const ventaCompleta = mergeVentaWithDetail(venta, ventaDetalle);
   const carritos = ventaCompleta?.producto?.carritos || [];
@@ -102,6 +133,10 @@ const PedidoCardExpandedContent = ({
   const numeroCasa = String(primeraCompra?.numeroCasa || "").trim();
   const direccionEntrega = [nombreCalle, numeroCasa].filter(Boolean).join(" ");
   const cadeteId = ventaCompleta?.cadeteid;
+  const cadeteDisplayName = getUserDisplayName(
+    cadete,
+    cadeteId ? `Cadete ${String(cadeteId).slice(-4)}` : "Sin cadete asignado",
+  );
   const detailLoading = !detailReady && !ventaDetalle;
   const estadosConMapa = ["CADETEENLOCAL", "ENCAMINO", "CADETEENDESTINO"];
   const mostrarMapa =
@@ -142,6 +177,64 @@ const PedidoCardExpandedContent = ({
       {!mostrarMapa ? (
         <PedidoStepper currentStep={currentStep} isCanceled={isCanceled} />
       ) : null}
+
+      <View
+        style={[
+          styles.assignedCadeteCard,
+          isDarkTone ? styles.assignedCadeteCardDark : null,
+        ]}
+      >
+        <View
+          style={[
+            styles.assignedCadeteIcon,
+            isDarkTone ? styles.assignedCadeteIconDark : null,
+          ]}
+        >
+          <MaterialCommunityIcons
+            color={cadeteId ? "#22c55e" : isDarkTone ? "#fbbf24" : "#d97706"}
+            name={cadeteId ? "bike-fast" : "account-clock-outline"}
+            size={20}
+          />
+        </View>
+
+        <View style={styles.assignedCadeteCopy}>
+          <Text
+            style={[
+              styles.assignedCadeteLabel,
+              isDarkTone ? styles.assignedCadeteLabelDark : null,
+            ]}
+            variant="labelMedium"
+          >
+            Cadete asignado
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.assignedCadeteName,
+              isDarkTone ? styles.assignedCadeteNameDark : null,
+            ]}
+            variant="bodyMedium"
+          >
+            {cadeteId ? cadeteDisplayName : "Esperando asignación"}
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.assignedCadeteStatus,
+            cadeteId ? styles.assignedCadeteStatusReady : styles.assignedCadeteStatusPending,
+          ]}
+        >
+          <Text
+            style={[
+              styles.assignedCadeteStatusText,
+              cadeteId ? styles.assignedCadeteStatusTextReady : styles.assignedCadeteStatusTextPending,
+            ]}
+          >
+            {cadeteId ? "Asignado" : "Pendiente"}
+          </Text>
+        </View>
+      </View>
 
       {isCanceled ? (
         <Surface elevation={1} style={styles.alertCancelada}>
@@ -542,6 +635,73 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: "600",
+  },
+  assignedCadeteCard: {
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.04)",
+    borderColor: "rgba(15, 23, 42, 0.08)",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 12,
+    padding: 12,
+  },
+  assignedCadeteCardDark: {
+    backgroundColor: "rgba(251, 146, 60, 0.1)",
+    borderColor: "rgba(251, 146, 60, 0.18)",
+  },
+  assignedCadeteCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  assignedCadeteIcon: {
+    alignItems: "center",
+    backgroundColor: "rgba(34, 197, 94, 0.12)",
+    borderRadius: 999,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  assignedCadeteIconDark: {
+    backgroundColor: "rgba(34, 197, 94, 0.18)",
+  },
+  assignedCadeteLabel: {
+    color: "#64748b",
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  assignedCadeteLabelDark: {
+    color: "rgba(255, 237, 213, 0.66)",
+  },
+  assignedCadeteName: {
+    color: "#0f172a",
+    fontWeight: "800",
+  },
+  assignedCadeteNameDark: {
+    color: "#ffedd5",
+  },
+  assignedCadeteStatus: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  assignedCadeteStatusPending: {
+    backgroundColor: "rgba(245, 158, 11, 0.14)",
+  },
+  assignedCadeteStatusReady: {
+    backgroundColor: "rgba(34, 197, 94, 0.14)",
+  },
+  assignedCadeteStatusText: {
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  assignedCadeteStatusTextPending: {
+    color: "#d97706",
+  },
+  assignedCadeteStatusTextReady: {
+    color: "#16a34a",
   },
   card: {
     borderRadius: 12,

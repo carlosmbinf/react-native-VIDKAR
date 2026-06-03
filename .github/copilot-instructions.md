@@ -9515,3 +9515,77 @@ Resumen tecnico - Cards de modo Cadete/Empresa legibles en drawer oscuro
 - Regla practica:
   - Si una card vive dentro de un drawer oscuro o glass oscuro, no reutilizar textos pensados para fondo claro.
   - En footers operativos del drawer, validar siempre titulo, descripcion, icono y boton juntos porque el contraste puede romperse aunque el card tenga blur correcto.
+
+---
+
+Resumen tecnico - Cards de pedidos comercio muestran el cadete asignado
+
+- Alcance aplicado:
+  - Las cards de pedidos de comercio en Expo ahora muestran de forma visible quien tiene asignado el pedido.
+  - Superficies ajustadas:
+    - `components/comercio/pedidos/components/PedidoCard.native.jsx` para el cliente normal y el home con entregas activas.
+    - `components/comercio/pedidos/CardPedidoComercio.native.jsx` para el modo cadete.
+
+- Contrato funcional reutilizado:
+  - No se creo metodo backend nuevo para esta informacion.
+  - La fuente de verdad de asignacion visible sigue siendo `VentasRechargeCollection.cadeteid`.
+  - El nombre del cadete se resuelve con una suscripcion minima a `user` usando solo campos necesarios:
+    - `_id`
+    - `username`
+    - `profile`
+    - `picture`
+
+- Comportamiento en cliente normal:
+  - Si la venta tiene `cadeteid`, el card muestra un bloque `Cadete asignado` con nombre visible o username.
+  - Si aun no tiene `cadeteid`, muestra `Esperando asignacion` con estado `Pendiente`.
+  - El bloque respeta la variante `tone="dark"` usada por las entregas activas en el home, para no romper contraste cuando el card vive sobre superficies oscuras.
+
+- Comportamiento en modo cadete:
+  - La card operativa muestra `Pedido asignado a` con el usuario que esta gestionando el pedido.
+  - Este dato se toma del `cadeteId` que ya recibe el componente y se enriquece desde `Meteor.users` con proyeccion minima.
+  - El bloque se integra como mini-card de estado, sin alterar el stepper, mapa, slider ni flujo de avance del pedido.
+
+- Regla practica:
+  - Si se vuelve a tocar la visibilidad de asignacion en comercio, no duplicar estado en otra coleccion ni inventar otro endpoint.
+  - Usar `cadeteid` de `ventasRecharge` como fuente de verdad y resolver datos humanos desde `Meteor.users` con fields minimos.
+  - Si se cambia el diseño de `PedidoCard`, mantener una variante legible para `tone="dark"`, porque el mismo card se reutiliza dentro del home cliente.
+
+---
+
+Resumen tecnico - Preparacion de empresa tambien debe mostrar cadete asignado desde `cadeteid`
+
+- Problema detectado:
+  - Las cards de cliente normal y modo cadete ya mostraban el cadete asignado, pero la pantalla de preparacion del modo empresa seguia sin mostrarlo.
+  - La captura correspondia a `components/empresa/screens/PedidosPreparacionScreen.native.jsx`, no a `PedidoCard.native.jsx` ni a `CardPedidoComercio.native.jsx`.
+
+- Correccion aplicada:
+  - `PREPARACION_VENTA_FIELDS` ahora incluye `cadeteid` para no perder el dato al proyectar `ventasRecharge`.
+  - La pantalla recolecta los `cadeteid` visibles, suscribe `Meteor.users` con fields minimos y enriquece cada pedido con nombre/username del cadete.
+  - `PedidoPreparacionCard` muestra una mini-card `Cadete asignado` cuando la venta tiene cadete, o `Esperando asignacion` cuando todavia no lo tiene.
+
+- Regla practica:
+  - En comercio, la fuente de verdad visible de asignacion sigue siendo `VentasRechargeCollection.cadeteid`.
+  - No asumir que corregir `PedidoCard` cubre todas las superficies de pedidos; `Preparacion` de empresa tiene su propia card y su propia proyeccion de ventas.
+  - Si otra pantalla proyecta `ventasRecharge` y necesita mostrar cadete, agregar `cadeteid` a sus fields y resolver el usuario con una suscripcion agregada por IDs, no con consultas por card.
+
+---
+
+Resumen tecnico - Preparacion Empresa con desasignacion de cadete y card responsive
+
+- Alcance aplicado:
+  - `components/empresa/screens/PedidosPreparacionScreen.native.jsx` muestra el cadete asignado en cada pedido de preparacion usando `VentasRechargeCollection.cadeteid` como fuente de verdad.
+  - La pantalla permite desasignar cadete cuando el pedido esta en `PREPARACION_LISTO`, llamando al metodo backend reusable `comercio.pedidos.desasignarCadete`.
+
+- Regla de datos:
+  - Si una card de preparacion necesita mostrar nombre del cadete, la proyeccion de `ventasRecharge` debe incluir `cadeteid`.
+  - Resolver nombres con una suscripcion agregada a `Meteor.users` por los `cadeteid` visibles y fields minimos (`username`, `profile`, `picture`).
+  - No hacer suscripciones por card ni duplicar estado de asignacion en otra coleccion.
+
+- UX aplicada:
+  - El card de cadete asignado debe separar identidad/estado de la accion destructiva.
+  - En compacto, el boton `Desasignar` debe ocupar su propia fila para no competir con el nombre, username o chip de estado.
+  - Evitar meter icono, textos largos, chip y boton en una sola fila; en telefonos se rompe la lectura rapidamente.
+
+- Regla practica:
+  - Si se reutiliza la desasignacion en otra superficie, mantener la llamada al metodo backend y reflejar localmente Minimongo solo despues de exito confirmado.
+  - Si se cambia el diseno del card, preservar primero legibilidad responsive antes de agregar mas metadatos visibles.

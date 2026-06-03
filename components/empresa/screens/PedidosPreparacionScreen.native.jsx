@@ -79,6 +79,7 @@ const PREPARACION_TIENDA_FIELDS = {
 
 const PREPARACION_VENTA_FIELDS = {
   _id: 1,
+  cadeteid: 1,
   createdAt: 1,
   estado: 1,
   idOrder: 1,
@@ -99,6 +100,24 @@ const PREPARACION_VENTA_FIELDS = {
   // "producto.carritos.tienda.title": 1,
   // "producto.carritos.titulo": 1,
   // "producto.carritos.type": 1,
+};
+
+const PREPARACION_CADETE_FIELDS = {
+  _id: 1,
+  picture: 1,
+  profile: 1,
+  username: 1,
+};
+
+const getDisplayName = (user, fallback = "Usuario") => {
+  if (!user) {
+    return fallback;
+  }
+
+  const profile = user.profile || {};
+  const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(" ").trim();
+
+  return fullName || user.username || fallback;
 };
 
 const formatDate = (value) => {
@@ -132,11 +151,21 @@ const getSliderLabel = (status) => {
   return "Desliza para continuar";
 };
 
-const PedidoPreparacionCard = ({ compact = false, locked, onAdvance, onInteractionChange, palette, pedido }) => {
+const PedidoPreparacionCard = ({
+  compact = false,
+  locked,
+  onAdvance,
+  onInteractionChange,
+  onUnassignCadete,
+  palette,
+  pedido,
+  unassigning,
+}) => {
   const theme = useTheme();
   const statusMeta = STATUS_META[pedido.estado] || STATUS_META.PENDIENTE;
   const statusTint = hexToRgba(statusMeta.sliderColor, theme.dark ? 0.24 : 0.12);
   const statusBorder = hexToRgba(statusMeta.sliderColor, theme.dark ? 0.46 : 0.22);
+  const canUnassignCadete = Boolean(pedido.cadeteid) && pedido.estado === "PREPARACION_LISTO";
 
   return (
     <Surface
@@ -168,6 +197,57 @@ const PedidoPreparacionCard = ({ compact = false, locked, onAdvance, onInteracti
       <Text style={{ color: palette.copy }} variant="bodyMedium">
         {statusMeta.description}
       </Text>
+
+      <Surface style={[styles.assignedCadeteCard, compact ? styles.assignedCadeteCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
+        <View style={styles.assignedCadeteHeader}>
+          <View style={[styles.assignedCadeteIcon, { backgroundColor: statusTint }]}> 
+            <MaterialCommunityIcons color={statusMeta.sliderColor} name={pedido.cadeteid ? "account-hard-hat-outline" : "account-clock-outline"} size={20} />
+          </View>
+          <View style={styles.assignedCadeteCopy}>
+            <Text style={{ color: palette.muted }} variant="labelMedium">
+              Cadete asignado
+            </Text>
+            <Text style={{ color: palette.title }} numberOfLines={compact ? 2 : 1} variant="titleSmall">
+              {pedido.cadeteid ? pedido.cadeteName : "Esperando asignación"}
+            </Text>
+            {pedido.cadeteUsername ? (
+              <Text style={{ color: palette.copy }} numberOfLines={1} variant="bodySmall">
+                @{pedido.cadeteUsername}
+              </Text>
+            ) : null}
+          </View>
+          <Chip
+            compact
+            style={[styles.assignedCadeteChip, { backgroundColor: pedido.cadeteid ? statusTint : palette.card }]}
+            textStyle={{ color: pedido.cadeteid ? statusMeta.sliderColor : palette.muted }}
+          >
+            {pedido.cadeteid ? "Asignado" : "Pendiente"}
+          </Chip>
+        </View>
+        {canUnassignCadete ? (
+          <TouchableRipple
+            borderless={false}
+            disabled={locked || unassigning}
+            onPress={() => onUnassignCadete?.(pedido)}
+            style={[
+              styles.unassignCadeteButton,
+              compact ? styles.unassignCadeteButtonCompact : null,
+              {
+                backgroundColor: hexToRgba("#ef4444", theme.dark ? 0.18 : 0.1),
+                borderColor: hexToRgba("#ef4444", theme.dark ? 0.42 : 0.24),
+                opacity: locked || unassigning ? 0.62 : 1,
+              },
+            ]}
+          >
+            <View style={styles.unassignCadeteContent}>
+              <MaterialCommunityIcons color="#ef4444" name={unassigning ? "timer-sand" : "account-cancel-outline"} size={16} />
+              <Text style={{ color: "#ef4444" }} variant="labelMedium">
+                {unassigning ? "Desasignando" : "Desasignar"}
+              </Text>
+            </View>
+          </TouchableRipple>
+        ) : null}
+      </Surface>
 
       <View style={styles.summaryGrid}>
         <Surface style={[styles.summaryTile, compact ? styles.summaryTileCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
@@ -209,7 +289,7 @@ const PedidoPreparacionCard = ({ compact = false, locked, onAdvance, onInteracti
           Productos de tus tiendas
         </Text>
         {pedido.items.map((carrito, index) => {
-          let item = carrito?.producto 
+          const item = carrito?.producto;
           return (
           <View key={`${pedido._id}-${item.idTienda}-${item._id || index}`} style={styles.orderItemRow}>
             <View style={[styles.orderItemBullet, { backgroundColor: statusMeta.sliderColor }]} />
@@ -218,7 +298,6 @@ const PedidoPreparacionCard = ({ compact = false, locked, onAdvance, onInteracti
                 {item.name || item.titulo || "Producto"}
               </Text>
               <Text style={{ color: palette.copy }} variant="bodySmall">
-                {console.log("Calculando total para item", item)}
                 {(item.cantidad || 1)} x {Number(item.precio || 0).toFixed(2)} {item.monedaPrecio || "USD"}
               </Text>
               {item.comentario ? (
@@ -417,6 +496,7 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
   const [selectedStoreId, setSelectedStoreId] = useState("");
   const [showStoreFilters, setShowStoreFilters] = useState(false);
   const [storeFilterQuery, setStoreFilterQuery] = useState("");
+  const [unassigningOrderId, setUnassigningOrderId] = useState("");
 
   const { pedidos, ready, tiendas } = Meteor.useTracker(() => {
     if (!dataReady) {
@@ -444,8 +524,6 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
       return { pedidos: [], ready: tiendasHandle.ready(), tiendas };
     }
 
-    console.log("Buscando ventas para tiendas", storeIds);
-    
     const selector = {
       "producto.carritos.idTienda": { $in: storeIds },
       "producto.carritos.type": "COMERCIO",
@@ -454,7 +532,6 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
       isCobrado: { $ne: false },
     };
 
-    console.log("Selector de ventas:", selector);
     const ventasHandle = Meteor.subscribe("ventasRecharge", selector, {
       fields: PREPARACION_VENTA_FIELDS,
     });
@@ -463,21 +540,35 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
       { fields: PREPARACION_VENTA_FIELDS, sort: { createdAt: 1 } },
     ).fetch();
 
-    console.log("Ventas encontradas para preparación:", ventas);
+    const cadeteIds = [...new Set(ventas.map((venta) => venta?.cadeteid).filter(Boolean))];
+    const cadetesHandle = cadeteIds.length
+      ? Meteor.subscribe("user", { _id: { $in: cadeteIds } }, { fields: PREPARACION_CADETE_FIELDS })
+      : { ready: () => true };
+    const cadetesById = cadeteIds.length
+      ? Meteor.users.find(
+          { _id: { $in: cadeteIds } },
+          { fields: PREPARACION_CADETE_FIELDS },
+        ).fetch().reduce((acc, cadete) => {
+          acc[cadete._id] = cadete;
+          return acc;
+        }, {})
+      : {};
+
     const pedidosResult = ventas
       .map((venta) => {
         const items = Array.isArray(venta?.producto?.carritos)
           ? venta.producto.carritos.filter(
               (item) => {
-                console.log(`Revisando item ${item._id} de venta ${venta._id}: type=${item.type}, idTienda=${item.idTienda}`);
-                return item?.type === "COMERCIO" && storeIds.includes(item?.idTienda)},
+                return item?.type === "COMERCIO" && storeIds.includes(item?.idTienda);
+              },
             )
           : [];
 
-          console.log(`Venta ${venta._id} tiene ${items.length} items de comercio`);
         if (!items.length) {
           return null;
         }
+
+        const cadete = venta.cadeteid ? cadetesById[venta.cadeteid] : null;
 
         const storeTitles = [
           ...new Set(
@@ -489,6 +580,8 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
 
         return {
           ...venta,
+          cadeteName: venta.cadeteid ? getDisplayName(cadete, `Cadete ${String(venta.cadeteid).slice(-4)}`) : "",
+          cadeteUsername: cadete?.username || "",
           itemCount: items.reduce((sum, item) => sum + Number(item?.cantidad || 1), 0),
           items,
           storeTitles,
@@ -511,7 +604,7 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
 
     return {
       pedidos: pedidosResult,
-      ready: tiendasHandle.ready() && ventasHandle.ready(),
+      ready: tiendasHandle.ready() && ventasHandle.ready() && cadetesHandle.ready(),
       tiendas,
       
     };
@@ -604,6 +697,47 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
     });
   };
 
+  const handleUnassignCadete = (pedido) => {
+    if (!pedido?.cadeteid || pedido.estado !== "PREPARACION_LISTO") {
+      return;
+    }
+
+    const cadeteLabel = pedido.cadeteName || pedido.cadeteUsername || "este cadete";
+
+    Alert.alert(
+      "Desasignar cadete",
+      `¿Quieres quitar a ${cadeteLabel} de este pedido? El pedido quedará listo para una nueva asignación.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          onPress: () => {
+            setUnassigningOrderId(pedido._id);
+
+            Meteor.call("comercio.pedidos.desasignarCadete", { ventaId: pedido._id }, (error, result) => {
+              setUnassigningOrderId("");
+
+              const message =
+                error?.reason ||
+                error?.message ||
+                (result && typeof result === "object" && !Array.isArray(result) && result.success !== true
+                  ? result.reason || result.message || (typeof result.error === "string" ? result.error : "")
+                  : "");
+
+              if (message) {
+                Alert.alert("No se pudo desasignar", message);
+                return;
+              }
+
+              Alert.alert("Cadete desasignado", "El pedido quedó listo para que pueda asignarse nuevamente.");
+            });
+          },
+          style: "destructive",
+          text: "Desasignar",
+        },
+      ],
+    );
+  };
+
   const handleRefresh = () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 650);
@@ -680,11 +814,13 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
           >
             <PedidoPreparacionCard
               compact={compactCards}
-              locked={processingOrderId === item._id}
+              locked={processingOrderId === item._id || unassigningOrderId === item._id}
               onAdvance={handleAdvanceOrder}
               onInteractionChange={(interacting) => setScrollEnabled(!interacting)}
+              onUnassignCadete={handleUnassignCadete}
               palette={palette}
               pedido={item}
+              unassigning={unassigningOrderId === item._id}
             />
           </View>
         )}
@@ -696,6 +832,40 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
 };
 
 const styles = StyleSheet.create({
+  assignedCadeteCard: {
+    alignItems: "stretch",
+    borderWidth: 1,
+    borderRadius: 18,
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  assignedCadeteCardCompact: {
+    paddingHorizontal: 12,
+  },
+  assignedCadeteHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    minWidth: 0,
+  },
+  assignedCadeteChip: {
+    borderRadius: 999,
+    flexShrink: 0,
+    maxWidth: 112,
+  },
+  assignedCadeteCopy: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  assignedCadeteIcon: {
+    alignItems: "center",
+    borderRadius: 999,
+    height: 38,
+    justifyContent: "center",
+    width: 38,
+  },
   cardCell: {
     width: "100%",
   },
@@ -886,6 +1056,23 @@ const styles = StyleSheet.create({
   },
   summaryTileCompact: {
     flexBasis: "100%",
+  },
+  unassignCadeteButton: {
+    alignSelf: "flex-end",
+    borderWidth: 1,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  unassignCadeteButtonCompact: {
+    alignSelf: "stretch",
+  },
+  unassignCadeteContent: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+    justifyContent: "center",
+    minHeight: 32,
+    paddingHorizontal: 12,
   },
 });
 
