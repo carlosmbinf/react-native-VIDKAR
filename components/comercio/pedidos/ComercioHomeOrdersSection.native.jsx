@@ -3,7 +3,7 @@ import MeteorBase from "@meteorrn/core";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { ActivityIndicator, Surface, Text } from "react-native-paper";
+import { Surface, Text } from "react-native-paper";
 
 import { VentasRechargeCollection } from "../../collections/collections";
 import PedidoCard from "./components/PedidoCard";
@@ -119,7 +119,7 @@ const ComercioHomeOrdersSection = () => {
     router.push("/(normal)/PedidosComerciosList");
   }, [router]);
 
-  if (!loading && ventas.length === 0) {
+  if (loading || ventas.length === 0) {
     return null;
   }
 
@@ -137,9 +137,7 @@ const ComercioHomeOrdersSection = () => {
             Entregas de comercio
           </Text>
           <Text style={styles.subtitle} variant="bodySmall">
-            {loading && !ventas.length
-              ? "Revisando tus pedidos recientes..."
-              : sectionSubtitle}
+            {sectionSubtitle}
           </Text>
         </View>
 
@@ -156,25 +154,18 @@ const ComercioHomeOrdersSection = () => {
         </Pressable>
       </View>
 
-      {loading && !ventas.length ? (
-        <View style={styles.loadingRow}>
-          <ActivityIndicator color="#fb923c" size="small" />
-          <Text style={styles.loadingText}>Cargando entregas...</Text>
-        </View>
-      ) : (
-        <View style={styles.ordersList}>
-          {ventas.map((venta) => (
-            <PedidoCard
-              currentStep={getStepFromStatus(venta)}
-              isExpanded={Boolean(expandedVentas[venta._id])}
-              key={venta._id}
-              onToggleExpand={() => toggleExpanded(venta._id)}
-              tone="dark"
-              venta={venta}
-            />
-          ))}
-        </View>
-      )}
+      <View style={styles.ordersList}>
+        {ventas.map((venta) => (
+          <PedidoCard
+            currentStep={getStepFromStatus(venta)}
+            isExpanded={Boolean(expandedVentas[venta._id])}
+            key={venta._id}
+            onToggleExpand={() => toggleExpanded(venta._id)}
+            tone="dark"
+            venta={venta}
+          />
+        ))}
+      </View>
     </Surface>
   );
 };
@@ -209,23 +200,6 @@ const styles = StyleSheet.create({
     height: 34,
     justifyContent: "center",
     width: 34,
-  },
-  loadingRow: {
-    alignItems: "center",
-    backgroundColor: "rgba(15, 23, 42, 0.42)",
-    borderColor: "rgba(251, 146, 60, 0.18)",
-    borderRadius: 14,
-    borderWidth: 1,
-    flexDirection: "row",
-    justifyContent: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  loadingText: {
-    color: "#fed7aa",
-    fontSize: 13,
-    fontWeight: "700",
-    marginLeft: 10,
   },
   ordersList: {
     gap: 10,
