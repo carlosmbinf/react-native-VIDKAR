@@ -172,6 +172,7 @@ export const summarizeCadeteDeliveryPayments = (ventas = []) => {
 };
 
 export const summarizeCadeteDeliveryPaymentsInUsd = async (ventas = []) => {
+  let conversionFailuresCount = 0;
   let storesCount = 0;
   let pendingSalesCount = 0;
   let totalUsd = 0;
@@ -187,17 +188,24 @@ export const summarizeCadeteDeliveryPaymentsInUsd = async (ventas = []) => {
       pendingSalesCount += venta?.pagadoAlCadete === true ? 0 : 1;
       storesCount += entries.length;
       totalUsd += entries.reduce(
-        (total, entry) =>
-          entry.conversionFailed
-            ? total
-            : total + toFiniteAmount(entry.costoEntrega),
+        (total, entry) => {
+          if (entry.conversionFailed) {
+            conversionFailuresCount += 1;
+            return total;
+          }
+
+          return total + toFiniteAmount(entry.costoEntrega);
+        },
         0,
       );
     }),
   );
 
   return {
-    hasPendingAmount: totalUsd > 0,
+    conversionFailuresCount,
+    hasConversionFailures: conversionFailuresCount > 0,
+    hasConvertedAmount: totalUsd > 0,
+    hasPendingAmount: totalUsd > 0 || pendingSalesCount > 0,
     mainTotal: {
       amount: totalUsd,
       currency: CADETE_PAYMENT_TARGET_CURRENCY,

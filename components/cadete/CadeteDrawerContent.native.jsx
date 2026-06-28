@@ -50,6 +50,9 @@ const CadeteDrawerContent = ({ onClose, user }) => {
   const trackedUserId = Meteor.useTracker(() => Meteor.userId());
   const currentUserId = user?._id || trackedUserId;
   const [pendingPaymentSummary, setPendingPaymentSummary] = useState({
+    conversionFailuresCount: 0,
+    hasConversionFailures: false,
+    hasConvertedAmount: false,
     hasPendingAmount: false,
     mainTotal: { amount: 0, currency: CADETE_PAYMENT_TARGET_CURRENCY },
     pendingSalesCount: 0,
@@ -221,11 +224,13 @@ const CadeteDrawerContent = ({ onClose, user }) => {
               Pendiente a cobrar
             </Text>
             <Text style={[styles.pendingPaymentAmount, { color: palette.title }]} variant="headlineSmall">
-              {pendingPaymentSummary.hasPendingAmount
+              {pendingPaymentSummary.hasConvertedAmount
                 ? formatCadetePaymentAmount(
                     pendingPaymentSummary.mainTotal.amount,
                     pendingPaymentSummary.mainTotal.currency,
                   )
+                : pendingPaymentSummary.hasConversionFailures
+                  ? "Conversión pendiente"
                 : pendingPaymentState.ready
                   ? "Sin pagos pendientes"
                   : "Calculando..."}
@@ -233,7 +238,9 @@ const CadeteDrawerContent = ({ onClose, user }) => {
           </View>
         </View>
         <Text style={[styles.pendingPaymentText, { color: palette.copy }]} variant="bodySmall">
-          {pendingPaymentSummary.hasPendingAmount
+          {pendingPaymentSummary.hasConversionFailures
+            ? `${pendingPaymentSummary.pendingSalesCount} entrega${pendingPaymentSummary.pendingSalesCount === 1 ? "" : "s"} pendiente${pendingPaymentSummary.pendingSalesCount === 1 ? "" : "s"} con ${pendingPaymentSummary.conversionFailuresCount} importe${pendingPaymentSummary.conversionFailuresCount === 1 ? "" : "s"} sin conversión USD disponible. Abre el historial para revisar el desglose.`
+            : pendingPaymentSummary.hasPendingAmount
             ? `${pendingPaymentSummary.pendingSalesCount} entrega${pendingPaymentSummary.pendingSalesCount === 1 ? "" : "s"} pendiente${pendingPaymentSummary.pendingSalesCount === 1 ? "" : "s"} · ${pendingPaymentSummary.storesCount} tienda${pendingPaymentSummary.storesCount === 1 ? "" : "s"} en desglose.`
             : "Cuando una entrega de comercio quede sin pagar al cadete, aparecerá aquí con su desglose por tienda."}
         </Text>

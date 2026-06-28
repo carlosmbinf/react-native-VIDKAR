@@ -459,6 +459,9 @@ const CadeteDeliveryHistoryScreen = () => {
   const [selectedVentaId, setSelectedVentaId] = useState(null);
   const [usdBreakdownsByVentaId, setUsdBreakdownsByVentaId] = useState({});
   const [pendingSummary, setPendingSummary] = useState({
+    conversionFailuresCount: 0,
+    hasConversionFailures: false,
+    hasConvertedAmount: false,
     hasPendingAmount: false,
     mainTotal: { amount: 0, currency: CADETE_PAYMENT_TARGET_CURRENCY },
     pendingSalesCount: 0,
@@ -641,15 +644,19 @@ const CadeteDeliveryHistoryScreen = () => {
             Historial de entregas
           </Text>
           <Text style={[styles.heroAmount, { color: palette.title }]} variant="headlineMedium">
-            {pendingSummary.hasPendingAmount
+            {pendingSummary.hasConvertedAmount
               ? formatCadetePaymentAmount(
                   pendingSummary.mainTotal.amount,
                   pendingSummary.mainTotal.currency,
                 )
+              : pendingSummary.hasConversionFailures
+                ? "Conversión USD pendiente"
               : "0.00 USD"}
           </Text>
           <Text style={[styles.heroText, { color: palette.muted }]} variant="bodyMedium">
-            Pendiente a cobrar por entregas de comercio asignadas a tu usuario. Todos los importes se consolidan en USD.
+            {pendingSummary.hasConversionFailures
+              ? "Hay entregas pendientes, pero no se pudo completar la conversión a dólar para todos los importes."
+              : "Pendiente a cobrar por entregas de comercio asignadas a tu usuario. Todos los importes se consolidan en USD."}
           </Text>
         </View>
       </Surface>
