@@ -58,7 +58,7 @@ const CadeteDrawerContent = ({ onClose, user }) => {
     const selector = {
       ...CADETE_PAYMENT_SELECTOR_BASE,
       cadeteid: currentUserId,
-      pagadoAlCadete: false,
+      pagadoAlCadete: { $ne: true },
     };
     const handle = Meteor.subscribe("ventasRecharge", selector, {
       fields: CADETE_PAYMENT_FIELDS,
