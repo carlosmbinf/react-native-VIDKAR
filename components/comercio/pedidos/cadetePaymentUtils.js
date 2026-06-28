@@ -63,7 +63,7 @@ export const convertCadetePaymentAmountToUsd = (amount, currency = "UYU") =>
             "[CadetePayment] No se pudo convertir importe a USD:",
             error,
           );
-          resolve(numericAmount);
+          resolve(null);
           return;
         }
 
@@ -112,16 +112,24 @@ export const getCadeteDeliveryBreakdownsInUsd = async (venta) => {
   const entries = getCadeteDeliveryBreakdowns(venta);
 
   return Promise.all(
-    entries.map(async (entry) => ({
-      ...entry,
-      costoEntregaOriginal: toFiniteAmount(entry.costoEntrega),
-      monedaOriginal: normalizeCurrency(entry.moneda),
-      costoEntrega: await convertCadetePaymentAmountToUsd(
+    entries.map(async (entry) => {
+      const monedaOriginal = normalizeCurrency(entry.moneda);
+      const costoEntregaOriginal = toFiniteAmount(entry.costoEntrega);
+      const costoEntregaUsd = await convertCadetePaymentAmountToUsd(
         entry.costoEntrega,
         entry.moneda,
-      ),
-      moneda: CADETE_PAYMENT_TARGET_CURRENCY,
-    })),
+      );
+      const conversionFailed = costoEntregaUsd === null;
+
+      return {
+        ...entry,
+        conversionFailed,
+        costoEntregaOriginal,
+        monedaOriginal,
+        costoEntrega: conversionFailed ? costoEntregaOriginal : costoEntregaUsd,
+        moneda: conversionFailed ? monedaOriginal : CADETE_PAYMENT_TARGET_CURRENCY,
+      };
+    }),
   );
 };
 
@@ -179,7 +187,10 @@ export const summarizeCadeteDeliveryPaymentsInUsd = async (ventas = []) => {
       pendingSalesCount += venta?.pagadoAlCadete === true ? 0 : 1;
       storesCount += entries.length;
       totalUsd += entries.reduce(
-        (total, entry) => total + toFiniteAmount(entry.costoEntrega),
+        (total, entry) =>
+          entry.conversionFailed
+            ? total
+            : total + toFiniteAmount(entry.costoEntrega),
         0,
       );
     }),

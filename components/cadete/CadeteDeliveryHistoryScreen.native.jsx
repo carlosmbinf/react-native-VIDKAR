@@ -139,6 +139,13 @@ const getPickupLabel = (item, breakdown) =>
   breakdown?.nombreTienda ||
   "Tienda de recogida";
 
+const getUsdTotalFromBreakdowns = (breakdowns = []) =>
+  breakdowns.reduce(
+    (total, entry) =>
+      entry?.conversionFailed ? total : total + (Number(entry?.costoEntrega) || 0),
+    0,
+  );
+
 const getStatusTone = (venta, theme) => {
   if (venta?.pagadoAlCadete === true) {
     return {
@@ -180,19 +187,19 @@ const createPalette = (theme) => ({
 
 const CadeteDeliveryCard = ({ onMarkPaid, onPress, palette, theme, usdBreakdowns, venta }) => {
   const statusTone = getStatusTone(venta, theme);
+  const hasUsdBreakdowns = Array.isArray(usdBreakdowns);
   const fallbackBreakdowns = getCadeteDeliveryBreakdowns(venta);
-  const breakdowns = usdBreakdowns?.length ? usdBreakdowns : fallbackBreakdowns;
+  const breakdowns = hasUsdBreakdowns && usdBreakdowns.length ? usdBreakdowns : fallbackBreakdowns;
   const commerceItems = getCommerceItems(venta);
   const storesLabel = breakdowns.length === 1 ? "1 tienda" : `${breakdowns.length} tiendas`;
   const productsCount = commerceItems.reduce(
     (total, item) => total + (Number(item?.cantidad) || 1),
     0,
   );
-  const totalUsd = breakdowns.reduce(
-    (total, entry) => total + (Number(entry?.costoEntrega) || 0),
-    0,
-  );
-  const canMarkPaid = isCadetePaymentPending(venta);
+  const totalUsd = hasUsdBreakdowns ? getUsdTotalFromBreakdowns(usdBreakdowns) : 0;
+  const hasConversionFailures =
+    hasUsdBreakdowns && usdBreakdowns.some((entry) => entry?.conversionFailed);
+  const canMarkPaid = isCadetePaymentPending(venta) && hasUsdBreakdowns && !hasConversionFailures;
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => (pressed ? styles.cardPressed : null)}>
@@ -203,7 +210,9 @@ const CadeteDeliveryCard = ({ onMarkPaid, onPress, palette, theme, usdBreakdowns
               Entrega #{String(venta?._id || "").slice(-6).toUpperCase()}
             </Text>
             <Text style={[styles.deliveryTitle, { color: palette.title }]} variant="titleMedium">
-              {totalUsd > 0
+              {!hasUsdBreakdowns
+                ? "Calculando USD..."
+                : totalUsd > 0
                 ? formatCadetePaymentAmount(totalUsd, CADETE_PAYMENT_TARGET_CURRENCY)
                 : "Sin importe calculado"}
             </Text>
@@ -256,7 +265,9 @@ const CadeteDeliveryCard = ({ onMarkPaid, onPress, palette, theme, usdBreakdowns
                   <Text style={[styles.breakdownMeta, { color: palette.muted }]} variant="bodySmall">
                     {entry.distanciaKm ? `${entry.distanciaKm.toFixed(2)} km · ` : ""}
                     {entry.productosCount || 0} producto{entry.productosCount === 1 ? "" : "s"}
-                    {entry.monedaOriginal && entry.monedaOriginal !== CADETE_PAYMENT_TARGET_CURRENCY
+                    {entry.conversionFailed
+                      ? " · conversión USD no disponible"
+                      : entry.monedaOriginal && entry.monedaOriginal !== CADETE_PAYMENT_TARGET_CURRENCY
                       ? ` · convertido desde ${entry.monedaOriginal}`
                       : ""}
                   </Text>
@@ -304,8 +315,11 @@ const DetailInfoRow = ({ icon, label, value, palette }) => (
 
 const CadeteDeliveryDetailDialog = ({ logs, onDismiss, palette, requester, usdBreakdowns, venta, visible }) => {
   const commerceItems = getCommerceItems(venta);
-  const breakdowns = usdBreakdowns?.length ? usdBreakdowns : getCadeteDeliveryBreakdowns(venta);
-  const totalUsd = breakdowns.reduce((total, entry) => total + (Number(entry?.costoEntrega) || 0), 0);
+  const hasUsdBreakdowns = Array.isArray(usdBreakdowns);
+  const breakdowns = hasUsdBreakdowns && usdBreakdowns.length
+    ? usdBreakdowns
+    : getCadeteDeliveryBreakdowns(venta);
+  const totalUsd = hasUsdBreakdowns ? getUsdTotalFromBreakdowns(usdBreakdowns) : 0;
 
   return (
     <Portal>
@@ -381,7 +395,9 @@ const CadeteDeliveryDetailDialog = ({ logs, onDismiss, palette, requester, usdBr
                     </Text>
                     <Text style={[styles.breakdownMeta, { color: palette.muted }]} variant="bodySmall">
                       {entry.distanciaKm ? `${entry.distanciaKm.toFixed(2)} km · ` : ""}
-                      {entry.monedaOriginal && entry.monedaOriginal !== CADETE_PAYMENT_TARGET_CURRENCY
+                      {entry.conversionFailed
+                        ? `Conversión USD no disponible. Original: ${formatCadetePaymentAmount(entry.costoEntregaOriginal, entry.monedaOriginal)}`
+                        : entry.monedaOriginal && entry.monedaOriginal !== CADETE_PAYMENT_TARGET_CURRENCY
                         ? `Original: ${formatCadetePaymentAmount(entry.costoEntregaOriginal, entry.monedaOriginal)}`
                         : "Importe en USD"}
                     </Text>
@@ -562,7 +578,16 @@ const CadeteDeliveryHistoryScreen = () => {
     }
 
     const breakdowns = usdBreakdownsByVentaId[venta._id] || [];
-    const totalUsd = breakdowns.reduce((total, entry) => total + (Number(entry?.costoEntrega) || 0), 0);
+    const hasConversionFailures = breakdowns.some((entry) => entry?.conversionFailed);
+    const totalUsd = getUsdTotalFromBreakdowns(breakdowns);
+
+    if (hasConversionFailures) {
+      Alert.alert(
+        "Conversión no disponible",
+        "No se pudo convertir todo el pago a USD. Inténtalo nuevamente antes de marcar esta entrega como pagada.",
+      );
+      return;
+    }
 
     Alert.alert(
       "Marcar pago al cadete",
