@@ -620,30 +620,50 @@ const CadeteDeliveryHistoryScreen = () => {
             const currentUserId = Meteor.userId();
             const paidAt = new Date();
 
-            VentasRechargeCollection.update(venta._id, {
-              $set: {
-                pagadoAlCadete: true,
-                pagadoAlCadeteAt: paidAt,
-                pagadoAlCadetePor: currentUserId,
-              },
-            }, (error) => {
-              if (error) {
-                Alert.alert(
-                  "No se pudo marcar el pago",
-                  error.reason || error.message || "Inténtalo nuevamente.",
-                );
-                return;
-              }
+            const pendingCadeteSaleSelector = {
+              ...CADETE_PAYMENT_SELECTOR_BASE,
+              _id: venta._id,
+              cadeteid: currentUserId,
+              estado: "ENTREGADO",
+              pagadoAlCadete: { $ne: true },
+            };
 
-              Meteor.call(
-                "registrarLog",
-                "CADETE_PAGO",
-                venta._id,
-                currentUserId,
-                `Venta marcada como pagada al cadete por ${formatCadetePaymentAmount(totalUsd, CADETE_PAYMENT_TARGET_CURRENCY)}`,
-              );
-              Alert.alert("Pago registrado", "La venta quedó marcada como pagada al cadete.");
-            });
+            VentasRechargeCollection.update(
+              pendingCadeteSaleSelector,
+              {
+                $set: {
+                  pagadoAlCadete: true,
+                  pagadoAlCadeteAt: paidAt,
+                  pagadoAlCadetePor: currentUserId,
+                },
+              },
+              (error, updatedCount) => {
+                if (error) {
+                  Alert.alert(
+                    "No se pudo marcar el pago",
+                    error.reason || error.message || "Inténtalo nuevamente.",
+                  );
+                  return;
+                }
+
+                if (!updatedCount) {
+                  Alert.alert(
+                    "Pago no actualizado",
+                    "La venta ya no está pendiente para este cadete o cambió de estado. Actualiza el historial e inténtalo nuevamente.",
+                  );
+                  return;
+                }
+
+                Meteor.call(
+                  "registrarLog",
+                  "CADETE_PAGO",
+                  venta._id,
+                  currentUserId,
+                  `Venta marcada como pagada al cadete por ${formatCadetePaymentAmount(totalUsd, CADETE_PAYMENT_TARGET_CURRENCY)}`,
+                );
+                Alert.alert("Pago registrado", "La venta quedó marcada como pagada al cadete.");
+              },
+            );
           },
         },
       ],
@@ -662,7 +682,7 @@ const CadeteDeliveryHistoryScreen = () => {
           </Text>
           <Text style={[styles.heroAmount, { color: palette.title }]} variant="headlineMedium">
             {pendingSummary.hasConversionFailures
-                ? "Conversión USD pendiente"
+              ? "Conversión USD pendiente"
               : pendingSummary.hasConvertedAmount
                 ? formatCadetePaymentAmount(
                     pendingSummary.mainTotal.amount,
