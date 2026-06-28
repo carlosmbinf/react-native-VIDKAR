@@ -4,6 +4,7 @@ export default function CadeteLayout() {
   return (
     <Stack initialRouteName="CadeteNavigator" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="CadeteNavigator" />
+      <Stack.Screen name="CadeteDeliveryHistory" />
       <Stack.Screen name="HomePedidosComercio" />
     </Stack>
   );
