@@ -2,6 +2,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
 import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Avatar, Divider, Surface, Text, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,8 +13,9 @@ import DrawerBlurShell from "../drawer/DrawerBlurShell";
 import {
   CADETE_PAYMENT_FIELDS,
   CADETE_PAYMENT_SELECTOR_BASE,
+  CADETE_PAYMENT_TARGET_CURRENCY,
   formatCadetePaymentAmount,
-  summarizeCadeteDeliveryPayments,
+  summarizeCadeteDeliveryPaymentsInUsd,
 } from "../comercio/pedidos/cadetePaymentUtils";
 
 const Meteor = /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -47,11 +49,18 @@ const CadeteDrawerContent = ({ onClose, user }) => {
   };
   const trackedUserId = Meteor.useTracker(() => Meteor.userId());
   const currentUserId = user?._id || trackedUserId;
+  const [pendingPaymentSummary, setPendingPaymentSummary] = useState({
+    hasPendingAmount: false,
+    mainTotal: { amount: 0, currency: CADETE_PAYMENT_TARGET_CURRENCY },
+    pendingSalesCount: 0,
+    storesCount: 0,
+    totals: [],
+  });
   const pendingPaymentState = Meteor.useTracker(() => {
     if (!currentUserId) {
       return {
         ready: true,
-        summary: summarizeCadeteDeliveryPayments([]),
+        ventas: [],
       };
     }
 
@@ -71,9 +80,23 @@ const CadeteDrawerContent = ({ onClose, user }) => {
 
     return {
       ready: handle.ready(),
-      summary: summarizeCadeteDeliveryPayments(ventas),
+      ventas,
     };
   }, [currentUserId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    summarizeCadeteDeliveryPaymentsInUsd(pendingPaymentState.ventas || []).then((summary) => {
+      if (!cancelled) {
+        setPendingPaymentSummary(summary);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingPaymentState.ventas]);
 
   const openCadeteHistory = () => {
     onClose?.();
@@ -198,10 +221,10 @@ const CadeteDrawerContent = ({ onClose, user }) => {
               Pendiente a cobrar
             </Text>
             <Text style={[styles.pendingPaymentAmount, { color: palette.title }]} variant="headlineSmall">
-              {pendingPaymentState.summary.hasPendingAmount
+              {pendingPaymentSummary.hasPendingAmount
                 ? formatCadetePaymentAmount(
-                    pendingPaymentState.summary.mainTotal.amount,
-                    pendingPaymentState.summary.mainTotal.currency,
+                    pendingPaymentSummary.mainTotal.amount,
+                    pendingPaymentSummary.mainTotal.currency,
                   )
                 : pendingPaymentState.ready
                   ? "Sin pagos pendientes"
@@ -210,13 +233,13 @@ const CadeteDrawerContent = ({ onClose, user }) => {
           </View>
         </View>
         <Text style={[styles.pendingPaymentText, { color: palette.copy }]} variant="bodySmall">
-          {pendingPaymentState.summary.hasPendingAmount
-            ? `${pendingPaymentState.summary.pendingSalesCount} entrega${pendingPaymentState.summary.pendingSalesCount === 1 ? "" : "s"} pendiente${pendingPaymentState.summary.pendingSalesCount === 1 ? "" : "s"} · ${pendingPaymentState.summary.storesCount} tienda${pendingPaymentState.summary.storesCount === 1 ? "" : "s"} en desglose.`
+          {pendingPaymentSummary.hasPendingAmount
+            ? `${pendingPaymentSummary.pendingSalesCount} entrega${pendingPaymentSummary.pendingSalesCount === 1 ? "" : "s"} pendiente${pendingPaymentSummary.pendingSalesCount === 1 ? "" : "s"} · ${pendingPaymentSummary.storesCount} tienda${pendingPaymentSummary.storesCount === 1 ? "" : "s"} en desglose.`
             : "Cuando una entrega de comercio quede sin pagar al cadete, aparecerá aquí con su desglose por tienda."}
         </Text>
-        {pendingPaymentState.summary.totals.length > 1 ? (
+        {pendingPaymentSummary.totals.length > 1 ? (
           <Text style={[styles.pendingPaymentText, { color: palette.muted }]} variant="labelSmall">
-            También: {pendingPaymentState.summary.totals.slice(1).map((entry) => formatCadetePaymentAmount(entry.amount, entry.currency)).join(" · ")}
+            También: {pendingPaymentSummary.totals.slice(1).map((entry) => formatCadetePaymentAmount(entry.amount, entry.currency)).join(" · ")}
           </Text>
         ) : null}
       </Pressable>
@@ -301,19 +324,27 @@ const CadeteDrawerContent = ({ onClose, user }) => {
           </View>
         </View>
 
-        <View style={[styles.comingSoonItem, isCompactDrawer ? styles.comingSoonItemCompact : null, { backgroundColor: palette.card, borderColor: palette.border }]}>
+        <Pressable
+          onPress={openCadeteHistory}
+          style={({ pressed }) => [
+            styles.comingSoonItem,
+            isCompactDrawer ? styles.comingSoonItemCompact : null,
+            { backgroundColor: palette.card, borderColor: palette.border },
+            pressed ? styles.navItemPressed : null,
+          ]}
+        >
           <View style={[styles.navItemIconWrap, { backgroundColor: palette.cardSoft }]}> 
-            <MaterialCommunityIcons color={palette.muted} name="history" size={22} />
+            <MaterialCommunityIcons color={palette.brandStrong} name="history" size={22} />
           </View>
           <View style={styles.navItemCopy}>
             <Text style={[styles.navItemTitle, { color: palette.title }]} variant="titleSmall">
               Historial
             </Text>
             <Text style={[styles.navItemText, { color: palette.copy }]} variant="bodySmall">
-              El historial de rutas y entregas quedará disponible desde este menú.
+              El historial de rutas y entregas está disponible desde este menú.
             </Text>
           </View>
-        </View>
+        </Pressable>
       </View>
 
       <Surface style={[styles.tipCard, isCompactDrawer ? styles.tipCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
