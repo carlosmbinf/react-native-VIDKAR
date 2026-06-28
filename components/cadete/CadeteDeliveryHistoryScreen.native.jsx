@@ -199,7 +199,8 @@ const CadeteDeliveryCard = ({ onMarkPaid, onPress, palette, theme, usdBreakdowns
   const totalUsd = hasUsdBreakdowns ? getUsdTotalFromBreakdowns(usdBreakdowns) : 0;
   const hasConversionFailures =
     hasUsdBreakdowns && usdBreakdowns.some((entry) => entry?.conversionFailed);
-  const canMarkPaid = isCadetePaymentPending(venta) && hasUsdBreakdowns && !hasConversionFailures;
+  const canMarkPaid =
+    isCadetePaymentPending(venta) && hasUsdBreakdowns && !hasConversionFailures && totalUsd > 0;
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => (pressed ? styles.cardPressed : null)}>
@@ -320,6 +321,8 @@ const CadeteDeliveryDetailDialog = ({ logs, onDismiss, palette, requester, usdBr
     ? usdBreakdowns
     : getCadeteDeliveryBreakdowns(venta);
   const totalUsd = hasUsdBreakdowns ? getUsdTotalFromBreakdowns(usdBreakdowns) : 0;
+  const hasConversionFailures =
+    hasUsdBreakdowns && usdBreakdowns.some((entry) => entry?.conversionFailed);
 
   return (
     <Portal>
@@ -336,10 +339,16 @@ const CadeteDeliveryDetailDialog = ({ logs, onDismiss, palette, requester, usdBr
                 Ganancia de entrega en USD
               </Text>
               <Text style={[styles.detailHeroAmount, { color: palette.title }]} variant="headlineMedium">
-                {formatCadetePaymentAmount(totalUsd, CADETE_PAYMENT_TARGET_CURRENCY)}
+                {hasConversionFailures
+                  ? "Conversión USD pendiente"
+                  : formatCadetePaymentAmount(totalUsd, CADETE_PAYMENT_TARGET_CURRENCY)}
               </Text>
               <Text style={[styles.detailHeroText, { color: palette.muted }]} variant="bodySmall">
-                Todos los importes de CUP/UYU se muestran convertidos a dólar para el historial del cadete.
+                {hasConversionFailures
+                  ? totalUsd > 0
+                    ? `Importe convertido parcialmente: ${formatCadetePaymentAmount(totalUsd, CADETE_PAYMENT_TARGET_CURRENCY)}. Reintenta más tarde para completar el total.`
+                    : "No se pudo completar la conversión a dólar para esta venta. Reintenta más tarde antes de marcarla como pagada."
+                  : "Todos los importes de CUP/UYU se muestran convertidos a dólar para el historial del cadete."}
               </Text>
             </Surface>
 
@@ -584,6 +593,14 @@ const CadeteDeliveryHistoryScreen = () => {
     const hasConversionFailures = breakdowns.some((entry) => entry?.conversionFailed);
     const totalUsd = getUsdTotalFromBreakdowns(breakdowns);
 
+    if (!breakdowns.length || totalUsd <= 0) {
+      Alert.alert(
+        "Sin importe calculado",
+        "Esta entrega todavía no tiene un importe de pago al cadete calculable en USD.",
+      );
+      return;
+    }
+
     if (hasConversionFailures) {
       Alert.alert(
         "Conversión no disponible",
@@ -644,18 +661,20 @@ const CadeteDeliveryHistoryScreen = () => {
             Historial de entregas
           </Text>
           <Text style={[styles.heroAmount, { color: palette.title }]} variant="headlineMedium">
-            {pendingSummary.hasConvertedAmount
-              ? formatCadetePaymentAmount(
-                  pendingSummary.mainTotal.amount,
-                  pendingSummary.mainTotal.currency,
-                )
-              : pendingSummary.hasConversionFailures
+            {pendingSummary.hasConversionFailures
                 ? "Conversión USD pendiente"
+              : pendingSummary.hasConvertedAmount
+                ? formatCadetePaymentAmount(
+                    pendingSummary.mainTotal.amount,
+                    pendingSummary.mainTotal.currency,
+                  )
               : "0.00 USD"}
           </Text>
           <Text style={[styles.heroText, { color: palette.muted }]} variant="bodyMedium">
             {pendingSummary.hasConversionFailures
-              ? "Hay entregas pendientes, pero no se pudo completar la conversión a dólar para todos los importes."
+              ? pendingSummary.hasConvertedAmount
+                ? `Hay entregas pendientes con conversión incompleta. Convertido parcialmente: ${formatCadetePaymentAmount(pendingSummary.mainTotal.amount, pendingSummary.mainTotal.currency)}.`
+                : "Hay entregas pendientes, pero no se pudo completar la conversión a dólar para todos los importes."
               : "Pendiente a cobrar por entregas de comercio asignadas a tu usuario. Todos los importes se consolidan en USD."}
           </Text>
         </View>
