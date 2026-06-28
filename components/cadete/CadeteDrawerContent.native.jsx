@@ -1,18 +1,27 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
 import { BlurView } from "expo-blur";
+import { useRouter } from "expo-router";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Avatar, Divider, Surface, Text, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { syncCadeteBackgroundLocation } from "../../services/location/cadeteBackgroundLocation.native";
+import { VentasRechargeCollection } from "../collections/collections";
 import DrawerBlurShell from "../drawer/DrawerBlurShell";
+import {
+  CADETE_PAYMENT_FIELDS,
+  CADETE_PAYMENT_SELECTOR_BASE,
+  formatCadetePaymentAmount,
+  summarizeCadeteDeliveryPayments,
+} from "../comercio/pedidos/cadetePaymentUtils";
 
 const Meteor = /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
   MeteorBase
 );
 
 const CadeteDrawerContent = ({ onClose, user }) => {
+  const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
@@ -35,6 +44,39 @@ const CadeteDrawerContent = ({ onClose, user }) => {
     shadowColor: isDark ? "#000000" : "#052e16",
     exit: isDark ? "#fda4af" : "#dc2626",
     exitSoft: isDark ? "rgba(190, 24, 93, 0.2)" : "rgba(220, 38, 38, 0.08)",
+  };
+  const trackedUserId = Meteor.useTracker(() => Meteor.userId());
+  const currentUserId = user?._id || trackedUserId;
+  const pendingPaymentState = Meteor.useTracker(() => {
+    if (!currentUserId) {
+      return {
+        ready: true,
+        summary: summarizeCadeteDeliveryPayments([]),
+      };
+    }
+
+    const selector = {
+      ...CADETE_PAYMENT_SELECTOR_BASE,
+      cadeteid: currentUserId,
+      pagadoAlCadete: false,
+    };
+    const handle = Meteor.subscribe("ventasRecharge", selector, {
+      fields: CADETE_PAYMENT_FIELDS,
+    });
+    const ventas = VentasRechargeCollection.find(selector, {
+      fields: CADETE_PAYMENT_FIELDS,
+      sort: { createdAt: -1 },
+    }).fetch();
+
+    return {
+      ready: handle.ready(),
+      summary: summarizeCadeteDeliveryPayments(ventas),
+    };
+  }, [currentUserId]);
+
+  const openCadeteHistory = () => {
+    onClose?.();
+    router.push("/(cadete)/CadeteDeliveryHistory");
   };
   const handleExitCadeteMode = () => {
     Alert.alert(
@@ -134,6 +176,50 @@ const CadeteDrawerContent = ({ onClose, user }) => {
 
   const contentNode = (
     <View style={[styles.content, isCompactDrawer ? styles.contentCompact : null]}>
+      <Pressable
+        onPress={openCadeteHistory}
+        style={({ pressed }) => [
+          styles.pendingPaymentCard,
+          isCompactDrawer ? styles.pendingPaymentCardCompact : null,
+          {
+            backgroundColor: isDark ? "rgba(6, 78, 59, 0.42)" : "rgba(236, 253, 245, 0.92)",
+            borderColor: isDark ? "rgba(52, 211, 153, 0.34)" : "rgba(5, 150, 105, 0.22)",
+          },
+          pressed ? styles.pendingPaymentCardPressed : null,
+        ]}
+      >
+        <View style={styles.pendingPaymentHeader}>
+          <View style={[styles.pendingPaymentIcon, { backgroundColor: isDark ? "rgba(16, 185, 129, 0.18)" : "rgba(5, 150, 105, 0.12)" }]}>
+            <MaterialCommunityIcons color={palette.brandStrong} name="cash-clock" size={24} />
+          </View>
+          <View style={styles.pendingPaymentCopy}>
+            <Text style={[styles.pendingPaymentEyebrow, { color: palette.brandStrong }]} variant="labelMedium">
+              Pendiente a cobrar
+            </Text>
+            <Text style={[styles.pendingPaymentAmount, { color: palette.title }]} variant="headlineSmall">
+              {pendingPaymentState.summary.hasPendingAmount
+                ? formatCadetePaymentAmount(
+                    pendingPaymentState.summary.mainTotal.amount,
+                    pendingPaymentState.summary.mainTotal.currency,
+                  )
+                : pendingPaymentState.ready
+                  ? "Sin pagos pendientes"
+                  : "Calculando..."}
+            </Text>
+          </View>
+        </View>
+        <Text style={[styles.pendingPaymentText, { color: palette.copy }]} variant="bodySmall">
+          {pendingPaymentState.summary.hasPendingAmount
+            ? `${pendingPaymentState.summary.pendingSalesCount} entrega${pendingPaymentState.summary.pendingSalesCount === 1 ? "" : "s"} pendiente${pendingPaymentState.summary.pendingSalesCount === 1 ? "" : "s"} · ${pendingPaymentState.summary.storesCount} tienda${pendingPaymentState.summary.storesCount === 1 ? "" : "s"} en desglose.`
+            : "Cuando una entrega de comercio quede sin pagar al cadete, aparecerá aquí con su desglose por tienda."}
+        </Text>
+        {pendingPaymentState.summary.totals.length > 1 ? (
+          <Text style={[styles.pendingPaymentText, { color: palette.muted }]} variant="labelSmall">
+            También: {pendingPaymentState.summary.totals.slice(1).map((entry) => formatCadetePaymentAmount(entry.amount, entry.currency)).join(" · ")}
+          </Text>
+        ) : null}
+      </Pressable>
+
       <View style={[styles.metricsRow, isCompactDrawer ? styles.metricsRowCompact : null]}>
         <Surface style={[styles.metricCard, isCompactDrawer ? styles.metricCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
           <Text style={{ color: palette.brandStrong }} variant="labelMedium">
@@ -529,6 +615,50 @@ const styles = StyleSheet.create({
   navItemTitle: {
     color: "#0f172a",
     fontWeight: "800",
+  },
+  pendingPaymentAmount: {
+    fontWeight: "900",
+    letterSpacing: -0.4,
+  },
+  pendingPaymentCard: {
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 10,
+    padding: 16,
+  },
+  pendingPaymentCardCompact: {
+    borderRadius: 20,
+    gap: 8,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+  },
+  pendingPaymentCardPressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.99 }],
+  },
+  pendingPaymentCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  pendingPaymentEyebrow: {
+    fontWeight: "900",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  pendingPaymentHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+  },
+  pendingPaymentIcon: {
+    alignItems: "center",
+    borderRadius: 18,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  pendingPaymentText: {
+    lineHeight: 19,
   },
   panel: {
     backgroundColor: "transparent",
