@@ -1,3 +1,9 @@
+import MeteorBase from "@meteorrn/core";
+
+const Meteor = /** @type {typeof MeteorBase} */ (MeteorBase);
+
+export const CADETE_PAYMENT_TARGET_CURRENCY = "USD";
+
 const normalizeCurrency = (currency) =>
   String(currency || "UYU")
     .trim()
@@ -35,6 +41,37 @@ export const formatCadetePaymentAmount = (amount, currency = "UYU") => {
   return `${numericAmount.toFixed(2)} ${normalizeCurrency(currency)}`;
 };
 
+export const convertCadetePaymentAmountToUsd = (amount, currency = "UYU") =>
+  new Promise((resolve) => {
+    const numericAmount = toFiniteAmount(amount);
+    const fromCurrency = normalizeCurrency(currency);
+
+    if (!numericAmount || fromCurrency === CADETE_PAYMENT_TARGET_CURRENCY) {
+      resolve(numericAmount);
+      return;
+    }
+
+    Meteor.call(
+      "moneda.convertir",
+      numericAmount,
+      fromCurrency,
+      CADETE_PAYMENT_TARGET_CURRENCY,
+      null,
+      (error, result) => {
+        if (error) {
+          console.warn(
+            "[CadetePayment] No se pudo convertir importe a USD:",
+            error,
+          );
+          resolve(null);
+          return;
+        }
+
+        resolve(toFiniteAmount(result));
+      },
+    );
+  });
+
 export const getCadeteDeliveryBreakdowns = (venta) => {
   const desglose = venta?.producto?.comisiones?.desglosePorTienda;
 
@@ -69,6 +106,31 @@ export const getCadeteDeliveryBreakdowns = (venta) => {
       productosCount: 0,
     },
   ];
+};
+
+export const getCadeteDeliveryBreakdownsInUsd = async (venta) => {
+  const entries = getCadeteDeliveryBreakdowns(venta);
+
+  return Promise.all(
+    entries.map(async (entry) => {
+      const monedaOriginal = normalizeCurrency(entry.moneda);
+      const costoEntregaOriginal = toFiniteAmount(entry.costoEntrega);
+      const costoEntregaUsd = await convertCadetePaymentAmountToUsd(
+        entry.costoEntrega,
+        entry.moneda,
+      );
+      const conversionFailed = costoEntregaUsd === null;
+
+      return {
+        ...entry,
+        conversionFailed,
+        costoEntregaOriginal,
+        monedaOriginal,
+        costoEntrega: conversionFailed ? costoEntregaOriginal : costoEntregaUsd,
+        moneda: conversionFailed ? monedaOriginal : CADETE_PAYMENT_TARGET_CURRENCY,
+      };
+    }),
+  );
 };
 
 export const summarizeCadeteDeliveryPayments = (ventas = []) => {
@@ -106,5 +168,52 @@ export const summarizeCadeteDeliveryPayments = (ventas = []) => {
     pendingSalesCount,
     storesCount,
     totals,
+  };
+};
+
+export const summarizeCadeteDeliveryPaymentsInUsd = async (ventas = []) => {
+  let conversionFailuresCount = 0;
+  let storesCount = 0;
+  let pendingSalesCount = 0;
+  let totalUsd = 0;
+
+  await Promise.all(
+    ventas.map(async (venta) => {
+      const entries = await getCadeteDeliveryBreakdownsInUsd(venta);
+
+      if (!entries.length) {
+        return;
+      }
+
+      pendingSalesCount += venta?.pagadoAlCadete === true ? 0 : 1;
+      storesCount += entries.length;
+      totalUsd += entries.reduce(
+        (total, entry) => {
+          if (entry.conversionFailed) {
+            conversionFailuresCount += 1;
+            return total;
+          }
+
+          return total + toFiniteAmount(entry.costoEntrega);
+        },
+        0,
+      );
+    }),
+  );
+
+  return {
+    conversionFailuresCount,
+    hasConversionFailures: conversionFailuresCount > 0,
+    hasConvertedAmount: totalUsd > 0,
+    hasPendingAmount: totalUsd > 0 || pendingSalesCount > 0,
+    mainTotal: {
+      amount: totalUsd,
+      currency: CADETE_PAYMENT_TARGET_CURRENCY,
+    },
+    pendingSalesCount,
+    storesCount,
+    totals: totalUsd > 0
+      ? [{ amount: totalUsd, currency: CADETE_PAYMENT_TARGET_CURRENCY }]
+      : [],
   };
 };
