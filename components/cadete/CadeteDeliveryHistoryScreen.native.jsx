@@ -10,6 +10,7 @@ import {
   CADETE_PAYMENT_SELECTOR_BASE,
   formatCadetePaymentAmount,
   getCadeteDeliveryBreakdowns,
+  isCadetePaymentPending,
   summarizeCadeteDeliveryPayments,
 } from "../comercio/pedidos/cadetePaymentUtils";
 import AppHeader, { DEFAULT_HEADER_COLOR, useAppHeaderContentInset } from "../Header/AppHeader";
@@ -67,6 +68,15 @@ const getStatusTone = (venta, theme) => {
       color: "#16a34a",
       icon: "check-decagram-outline",
       label: "Pagado al cadete",
+    };
+  }
+
+  if (!isCadetePaymentPending(venta)) {
+    return {
+      background: theme.dark ? "rgba(59, 130, 246, 0.16)" : "rgba(37, 99, 235, 0.10)",
+      color: "#2563eb",
+      icon: "truck-delivery-outline",
+      label: "En entrega",
     };
   }
 
@@ -221,14 +231,14 @@ const CadeteDeliveryHistoryScreen = () => {
     }
 
     if (filter === "pending") {
-      return ventas.filter((venta) => venta?.pagadoAlCadete !== true);
+      return ventas.filter(isCadetePaymentPending);
     }
 
     return ventas;
   }, [filter, ventas]);
 
   const pendingSummary = useMemo(
-    () => summarizeCadeteDeliveryPayments(ventas.filter((venta) => venta?.pagadoAlCadete !== true)),
+    () => summarizeCadeteDeliveryPayments(ventas.filter(isCadetePaymentPending)),
     [ventas],
   );
 

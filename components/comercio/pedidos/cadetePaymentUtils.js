@@ -26,6 +26,9 @@ export const CADETE_PAYMENT_SELECTOR_BASE = {
   isCancelada: { $ne: true },
 };
 
+export const isCadetePaymentPending = (venta) =>
+  venta?.pagadoAlCadete !== true && String(venta?.estado || "").toUpperCase() === "ENTREGADO";
+
 export const formatCadetePaymentAmount = (amount, currency = "UYU") => {
   const numericAmount = toFiniteAmount(amount);
 

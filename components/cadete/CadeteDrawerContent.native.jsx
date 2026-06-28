@@ -58,6 +58,7 @@ const CadeteDrawerContent = ({ onClose, user }) => {
     const selector = {
       ...CADETE_PAYMENT_SELECTOR_BASE,
       cadeteid: currentUserId,
+      estado: "ENTREGADO",
       pagadoAlCadete: { $ne: true },
     };
     const handle = Meteor.subscribe("ventasRecharge", selector, {
