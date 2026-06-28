@@ -161,40 +161,40 @@ export const summarizeCadeteDeliveryPayments = (ventas = []) => {
     storesCount,
     totals,
   };
+};
 
-  export const summarizeCadeteDeliveryPaymentsInUsd = async (ventas = []) => {
-    let storesCount = 0;
-    let pendingSalesCount = 0;
-    let totalUsd = 0;
+export const summarizeCadeteDeliveryPaymentsInUsd = async (ventas = []) => {
+  let storesCount = 0;
+  let pendingSalesCount = 0;
+  let totalUsd = 0;
 
-    await Promise.all(
-      ventas.map(async (venta) => {
-        const entries = await getCadeteDeliveryBreakdownsInUsd(venta);
+  await Promise.all(
+    ventas.map(async (venta) => {
+      const entries = await getCadeteDeliveryBreakdownsInUsd(venta);
 
-        if (!entries.length) {
-          return;
-        }
+      if (!entries.length) {
+        return;
+      }
 
-        pendingSalesCount += venta?.pagadoAlCadete === true ? 0 : 1;
-        storesCount += entries.length;
-        totalUsd += entries.reduce(
-          (total, entry) => total + toFiniteAmount(entry.costoEntrega),
-          0,
-        );
-      }),
-    );
+      pendingSalesCount += venta?.pagadoAlCadete === true ? 0 : 1;
+      storesCount += entries.length;
+      totalUsd += entries.reduce(
+        (total, entry) => total + toFiniteAmount(entry.costoEntrega),
+        0,
+      );
+    }),
+  );
 
-    return {
-      hasPendingAmount: totalUsd > 0,
-      mainTotal: {
-        amount: totalUsd,
-        currency: CADETE_PAYMENT_TARGET_CURRENCY,
-      },
-      pendingSalesCount,
-      storesCount,
-      totals: totalUsd > 0
-        ? [{ amount: totalUsd, currency: CADETE_PAYMENT_TARGET_CURRENCY }]
-        : [],
-    };
+  return {
+    hasPendingAmount: totalUsd > 0,
+    mainTotal: {
+      amount: totalUsd,
+      currency: CADETE_PAYMENT_TARGET_CURRENCY,
+    },
+    pendingSalesCount,
+    storesCount,
+    totals: totalUsd > 0
+      ? [{ amount: totalUsd, currency: CADETE_PAYMENT_TARGET_CURRENCY }]
+      : [],
   };
 };
