@@ -86,10 +86,10 @@
         "expo-build-properties",
         {
           "android": {
-            "compileSdkVersion": 35,
+            "compileSdkVersion": 36,
             "minSdkVersion": 26,
-            "targetSdkVersion": 35,
-            "buildToolsVersion": "35.0.0",
+            "targetSdkVersion": 36,
+            "buildToolsVersion": "36.0.0",
             "usesCleartextTraffic": true
           },
           "ios": {
