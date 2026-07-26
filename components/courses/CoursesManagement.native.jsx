@@ -206,6 +206,25 @@ export default function CoursesManagement() {
     );
   };
 
+  const deleteVideo = (lesson) => {
+    Alert.alert(
+      "Eliminar video",
+      `Se eliminará el video de "${lesson.titulo}". Esta acción no se puede deshacer.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: () => run(
+            `delete-video-${lesson._id}`,
+            () => callMethod("cursos.media.eliminar", lesson._id),
+            "Video eliminado.",
+          ),
+        },
+      ],
+    );
+  };
+
   const createLesson = async () => {
     const result = await run("lesson", () => callMethod("cursos.lecciones.crear", selectedCourseId, lessonForm), "Lección creada.");
     if (result?.lessonId) {
@@ -324,6 +343,7 @@ export default function CoursesManagement() {
                       <IconButton icon="chevron-up" size={18} disabled={index === 0 || Boolean(workingKey)} onPress={() => moveLesson(lesson, -1)} />
                       <IconButton icon="chevron-down" size={18} disabled={index === data.lessons.length - 1 || Boolean(workingKey)} onPress={() => moveLesson(lesson, 1)} />
                     </View>
+                    {lesson?.video?.fileId ? <IconButton icon="delete-outline" iconColor="#dc2626" size={18} disabled={Boolean(workingKey)} onPress={() => deleteVideo(lesson)} /> : null}
                     <Button compact icon="upload" loading={workingKey === `upload-${lesson._id}`} disabled={Boolean(workingKey)} onPress={() => selectAndUploadVideo(lesson)}>Video</Button>
                     <Switch
                       value={Boolean(lesson.publicada)}
