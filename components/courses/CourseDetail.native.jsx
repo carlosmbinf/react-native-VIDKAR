@@ -7,8 +7,6 @@ import React from "react";
 import { Alert, Image, Modal as NativeModal, Pressable, ScrollView, StatusBar, StyleSheet, UIManager, View } from "react-native";
 import { ActivityIndicator, Button, Divider, Icon, IconButton, Surface, Text, useTheme } from "react-native-paper";
 
-import { resolveCourseMediaUrl } from "../../services/courses/courseMedia.native";
-import { getHlsServerUrl } from "../../services/meteor/client.native";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { CursosCollection, LeccionesCursoCollection, SuscripcionesCursoCollection } from "../collections/collections";
 
@@ -32,8 +30,6 @@ const COURSE_PROGRESS_SAVE_INTERVAL_SECONDS = 5;
 const callMethod = (name, ...args) => new Promise((resolve, reject) => {
   Meteor.call(name, ...args, (error, result) => (error ? reject(error) : resolve(result)));
 });
-
-const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 const readCoursePlaybackCache = async () => {
   try {
@@ -81,52 +77,6 @@ const selectCourseStartAt = async (lessonId) => {
   });
 };
 
-const joinHlsUrl = (baseUrl, path) => `${String(baseUrl || "").replace(/\/$/, "")}${String(path || "").startsWith("/") ? path : `/${path}`}`;
-
-const prepareCourseHls = async ({ lessonId, sourceUrl, hlsServerUrl, startAtSeconds = 0 }) => {
-  const startAtQuery = Number(startAtSeconds) > 0 ? `?startAt=${encodeURIComponent(Math.floor(startAtSeconds))}` : "";
-  const response = await fetch(joinHlsUrl(hlsServerUrl, `/cursos/hls/${encodeURIComponent(lessonId)}/prepare${startAtQuery}`), {
-    body: JSON.stringify({ sourceUrl }),
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    method: "POST",
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || !payload.success || !payload.sessionId) {
-    throw new Error(payload.error || "No se pudo preparar el video del curso.");
-  }
-
-  const statusUrl = joinHlsUrl(hlsServerUrl, `/cursos/hls/${encodeURIComponent(lessonId)}/status?sessionId=${encodeURIComponent(payload.sessionId)}`);
-  for (let attempt = 0; attempt < 45; attempt += 1) {
-    if (attempt > 0) await wait(1000);
-    const statusResponse = await fetch(statusUrl, { headers: { Accept: "application/json" } });
-    const statusPayload = await statusResponse.json().catch(() => ({}));
-    if (!statusResponse.ok || !statusPayload.success) {
-      throw new Error(statusPayload.error || "No se pudo consultar el video del curso.");
-    }
-    if (statusPayload.status === "error") {
-      throw new Error(statusPayload.error || "FFmpeg no pudo procesar el video del curso.");
-    }
-    if (statusPayload.playlistReady && statusPayload.playlistUrl) {
-      return {
-        durationSeconds: Number(statusPayload.durationSeconds || payload.durationSeconds || 0),
-        playlistUrl: joinHlsUrl(hlsServerUrl, statusPayload.playlistUrl),
-        sessionId: payload.sessionId,
-        startAtSeconds: Number(statusPayload.startAtSeconds || startAtSeconds || 0),
-      };
-    }
-  }
-
-  throw new Error("El video del curso está tardando demasiado en prepararse.");
-};
-
-const cancelCourseHls = async ({ lessonId, sessionId, hlsServerUrl }) => {
-  if (!lessonId || !sessionId || !hlsServerUrl) return;
-  await fetch(joinHlsUrl(hlsServerUrl, `/cursos/hls/${encodeURIComponent(lessonId)}/${encodeURIComponent(sessionId)}/cancel`), {
-    headers: { Accept: "application/json" },
-    method: "POST",
-  }).catch(() => undefined);
-};
-
 const formatPlaybackTime = (milliseconds) => {
   const totalSeconds = Math.max(0, Math.floor(Number(milliseconds || 0) / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -137,7 +87,7 @@ const formatPlaybackTime = (milliseconds) => {
     : `${minutes}:${String(seconds).padStart(2, "0")}`;
 };
 
-const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds, onClose, onRetry, onSeek }) => {
+const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds, onClose, onRetry }) => {
   const [paused, setPaused] = React.useState(false);
   const [playerError, setPlayerError] = React.useState(null);
   const [buffering, setBuffering] = React.useState(true);
@@ -192,7 +142,7 @@ const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds,
 
   const handleProgress = React.useCallback((event) => {
     const duration = Number(durationSeconds || 0) * 1000 || Number(event?.duration || 0);
-    const currentTime = Number(startAtSeconds || 0) * 1000 + Number(event?.currentTime || 0);
+    const currentTime = Number(event?.currentTime || 0);
     setPlayback({
       currentTime,
       duration,
@@ -233,7 +183,7 @@ const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds,
   const handleSeek = (seconds) => {
     if (!playback.duration) return;
     const nextTime = Math.max(0, Math.min(playback.duration, playback.currentTime + seconds * 1000));
-    onSeek(nextTime);
+    playerRef.current?.seek?.(playback.duration > 0 ? nextTime / playback.duration : 0);
   };
 
   const source = React.useMemo(() => ({
@@ -257,7 +207,11 @@ const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds,
         acceptInvalidCertificates={false}
         onLoad={(event) => {
           setBuffering(false);
-          setPlayback((current) => ({ ...current, duration: Number(durationSeconds || 0) * 1000 || Number(event?.duration || current.duration) }));
+          const duration = Number(durationSeconds || 0) * 1000 || Number(event?.duration || 0);
+          setPlayback((current) => ({ ...current, duration }));
+          if (startAtSeconds > 0 && duration > 0) {
+            playerRef.current?.seek?.(Math.min(1, startAtSeconds * 1000 / duration));
+          }
         }}
         onProgress={handleProgress}
         onBuffering={() => setBuffering(true)}
@@ -312,7 +266,6 @@ export default function CourseDetail() {
   const headerInset = useAppHeaderContentInset();
   const [working, setWorking] = React.useState(false);
   const [player, setPlayer] = React.useState(null);
-  const courseHlsSessionRef = React.useRef(null);
   const normalizedCourseId = Array.isArray(courseId) ? courseId[0] : courseId;
   const palette = {
     accent: theme.dark ? "#67e8f9" : "#0e7490",
@@ -378,23 +331,14 @@ export default function CourseDetail() {
     setWorking(true);
     try {
       const result = await callMethod("cursos.media.solicitarReproduccion", lesson._id);
-      const hlsServerUrl = getHlsServerUrl();
-      if (!hlsServerUrl) throw new Error("El servicio HLS no está configurado.");
       const startAtSeconds = await selectCourseStartAt(lesson._id);
-      const prepared = await prepareCourseHls({
-        hlsServerUrl,
-        lessonId: lesson._id,
-        sourceUrl: resolveCourseMediaUrl(result.url),
-        startAtSeconds,
-      });
-      courseHlsSessionRef.current = { hlsServerUrl, lessonId: lesson._id, sessionId: prepared.sessionId };
       setPlayer({
-        durationSeconds: prepared.durationSeconds,
+        durationSeconds: Number(lesson?.video?.durationSeconds || 0),
         lesson,
-        sourceUrl: resolveCourseMediaUrl(result.url),
-        startAtSeconds: prepared.startAtSeconds,
+        sourceUrl: result.url,
+        startAtSeconds,
         title: lesson.titulo,
-        url: prepared.playlistUrl,
+        url: result.url,
       });
     } catch (error) {
       Alert.alert("Video no disponible", error?.reason || error?.message || "No se pudo iniciar la reproducción.");
@@ -403,34 +347,8 @@ export default function CourseDetail() {
     }
   };
 
-  const seekLesson = async (milliseconds) => {
-    const currentPlayer = player;
-    if (!currentPlayer?.lesson || !currentPlayer.sourceUrl) return;
-    const nextStartAtSeconds = Math.max(0, Math.floor(Number(milliseconds || 0) / 1000));
-    await cancelCourseHls(courseHlsSessionRef.current || {});
-    courseHlsSessionRef.current = null;
-    setPlayer((current) => current ? { ...current, url: null } : current);
-    try {
-      const hlsServerUrl = getHlsServerUrl();
-      const prepared = await prepareCourseHls({ hlsServerUrl, lessonId: currentPlayer.lesson._id, sourceUrl: currentPlayer.sourceUrl, startAtSeconds: nextStartAtSeconds });
-      courseHlsSessionRef.current = { hlsServerUrl, lessonId: currentPlayer.lesson._id, sessionId: prepared.sessionId };
-      setPlayer((current) => current ? {
-        ...current,
-        durationSeconds: prepared.durationSeconds || current.durationSeconds,
-        startAtSeconds: prepared.startAtSeconds,
-        url: prepared.playlistUrl,
-      } : current);
-    } catch (error) {
-      Alert.alert("Video no disponible", error?.message || "No se pudo cambiar la posición del video.");
-      await closePlayer();
-    }
-  };
-
-  const closePlayer = async () => {
-    const session = courseHlsSessionRef.current;
-    courseHlsSessionRef.current = null;
+  const closePlayer = () => {
     setPlayer(null);
-    await cancelCourseHls(session || {});
   };
 
   if (data.loading && !data.course) {
@@ -510,8 +428,7 @@ export default function CourseDetail() {
           sourceUrl={player.url}
           startAtSeconds={player.startAtSeconds}
           onClose={closePlayer}
-          onRetry={() => seekLesson(0)}
-          onSeek={seekLesson}
+          onRetry={() => playLesson(player.lesson)}
         />
       ) : null}
     </View>
