@@ -26,12 +26,14 @@ const COURSE_FIELDS = {
 
 const isSubscriptionActive = (subscription) =>
   subscription?.estado === "ACTIVA" && new Date(subscription.fechaFin) > new Date();
+const isPrincipalAdmin = (user) => ["carlosmbinf"].includes(String(user?.username || "").toLowerCase());
 
 export default function CoursesCatalog() {
   const theme = useTheme();
   const router = useRouter();
   const headerInset = useAppHeaderContentInset();
   const dataReady = useDeferredScreenData();
+  const currentUser = Meteor.user();
   const [query, setQuery] = React.useState("");
   const palette = {
     accent: theme.dark ? "#67e8f9" : "#0e7490",
@@ -72,7 +74,7 @@ export default function CoursesCatalog() {
 
   const renderCourse = ({ item }) => {
     const subscription = subscriptions.find((entry) => entry.cursoId === item._id);
-    const active = isSubscriptionActive(subscription);
+    const active = isPrincipalAdmin(currentUser) || isSubscriptionActive(subscription);
     return (
       <Pressable
         accessibilityRole="button"
@@ -86,7 +88,7 @@ export default function CoursesCatalog() {
             <LinearGradient colors={theme.dark ? ["#113344", "#172554", "#3b2a0d"] : ["#cffafe", "#dbeafe", "#fef3c7"]} style={styles.coverFallback}><Text style={[styles.coverInitial, { color: palette.accent }]}>{item.titulo?.slice(0, 1)?.toUpperCase() || "C"}</Text></LinearGradient>
           )}
           <LinearGradient colors={["transparent", "rgba(2,8,13,0.78)"]} style={StyleSheet.absoluteFill} />
-          <View style={styles.coverTopRow}><View style={styles.categoryBadge}><Icon source="school-outline" color="#ffffff" size={14} /><Text style={styles.categoryText}>{item.categoria || "Curso"}</Text></View>{active ? <View style={styles.activeBadge}><Icon source="check-decagram" color="#bbf7d0" size={14} /><Text style={styles.activeText}>Activo</Text></View> : null}</View>
+          <View style={styles.coverTopRow}><View style={styles.categoryBadge}><Icon source="school-outline" color="#ffffff" size={14} /><Text style={styles.categoryText}>{item.categoria || "Curso"}</Text></View>{active ? <View style={styles.activeBadge}><Icon source="check-decagram" color="#bbf7d0" size={14} /><Text style={styles.activeText}>{isPrincipalAdmin(currentUser) ? "Acceso admin" : "Activo"}</Text></View> : null}</View>
           <View style={styles.coverBottom}><Text style={styles.teacher} numberOfLines={1}>{item.profesorNombre || `@${item.profesorUsername}`}</Text></View>
         </View>
           <View style={styles.cardBody}>

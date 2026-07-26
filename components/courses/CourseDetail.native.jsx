@@ -26,6 +26,7 @@ const VLC_BUFFER_OPTIONS = Object.freeze([
 const COURSE_PLAYBACK_CACHE_KEY = "vidkar.coursePlaybackCache.v1";
 const COURSE_RESUME_MIN_SECONDS = 15;
 const COURSE_PROGRESS_SAVE_INTERVAL_SECONDS = 5;
+const PRINCIPAL_USERNAMES = ["carlosmbinf", "carlombinf"];
 
 const callMethod = (name, ...args) => new Promise((resolve, reject) => {
   Meteor.call(name, ...args, (error, result) => (error ? reject(error) : resolve(result)));
@@ -266,6 +267,7 @@ export default function CourseDetail() {
   const headerInset = useAppHeaderContentInset();
   const [working, setWorking] = React.useState(false);
   const [player, setPlayer] = React.useState(null);
+  const [accessCheck, setAccessCheck] = React.useState(null);
   const normalizedCourseId = Array.isArray(courseId) ? courseId[0] : courseId;
   const palette = {
     accent: theme.dark ? "#67e8f9" : "#0e7490",
@@ -304,6 +306,27 @@ export default function CourseDetail() {
     (currentUser?.profile?.role === "admin" && data.course.adminId === Meteor.userId())
   );
   const active = data.subscription?.estado === "ACTIVA" && new Date(data.subscription.fechaFin) > new Date();
+  const administrativeAccess = PRINCIPAL_USERNAMES.includes(String(currentUser?.username || "").toLowerCase());
+  const hasAccess = active || administrativeAccess || isManager || accessCheck === true;
+
+  React.useEffect(() => {
+    let mounted = true;
+    setAccessCheck(null);
+    if (!normalizedCourseId || !currentUser || active || administrativeAccess || isManager) {
+      if (active || administrativeAccess || isManager) setAccessCheck(true);
+      return () => { mounted = false; };
+    }
+
+    callMethod("cursos.puedeAcceder", normalizedCourseId)
+      .then((result) => {
+        if (mounted) setAccessCheck(Boolean(result?.access));
+      })
+      .catch(() => {
+        if (mounted) setAccessCheck(false);
+      });
+
+    return () => { mounted = false; };
+  }, [active, administrativeAccess, currentUser, isManager, normalizedCourseId]);
 
   const addToCart = async () => {
     setWorking(true);
@@ -385,13 +408,15 @@ export default function CourseDetail() {
             <View style={styles.subscriptionCopy}>
               <View style={styles.subscriptionLabelRow}><Icon source={active ? "check-decagram" : "calendar-sync"} color={active ? "#22c55e" : palette.accent} size={19} /><Text style={[styles.subscriptionLabel, { color: palette.text }]}>{active ? "Acceso vigente" : "Suscripción mensual"}</Text></View>
               <Text style={{ color: palette.muted }}>
-                {active
+                {administrativeAccess
+                  ? "Acceso administrativo sin compra"
+                  : active
                   ? `Disponible hasta ${new Date(data.subscription.fechaFin).toLocaleDateString("es-ES")}`
                   : "30 días de acceso a todas las clases"}
               </Text>
-              {!active ? <View style={styles.priceRow}><Text style={[styles.detailPrice, { color: palette.primary }]}>{Number(data.course.precioMensual).toFixed(2)}</Text><View><Text style={[styles.currency, { color: palette.text }]}>{data.course.moneda}</Text><Text style={[styles.pricePeriod, { color: palette.muted }]}>por mes</Text></View></View> : null}
+              {!hasAccess ? <View style={styles.priceRow}><Text style={[styles.detailPrice, { color: palette.primary }]}>{Number(data.course.precioMensual).toFixed(2)}</Text><View><Text style={[styles.currency, { color: palette.text }]}>{data.course.moneda}</Text><Text style={[styles.pricePeriod, { color: palette.muted }]}>por mes</Text></View></View> : null}
             </View>
-            {!active ? (
+            {!hasAccess && accessCheck !== null ? (
               <Button mode="contained" contentStyle={styles.subscribeButtonContent} icon={data.subscription ? "calendar-refresh" : "cart-plus"} onPress={addToCart} loading={working} disabled={working}>
                 {data.subscription ? "Renovar" : "Suscribirme"}
               </Button>
@@ -413,7 +438,7 @@ export default function CourseDetail() {
                   <Text style={[styles.lessonTitle, { color: palette.text }]}>{lesson.titulo}</Text>
                   <Text style={{ color: palette.muted }} numberOfLines={2}>{lesson.descripcion || "Clase en video"}</Text>
                 </View>
-                <IconButton mode="contained-tonal" icon={active || isManager ? "play" : "lock"} accessibilityLabel={active || isManager ? `Reproducir ${lesson.titulo}` : "Lección bloqueada"} disabled={working || (!active && !isManager)} onPress={() => playLesson(lesson)} />
+                <IconButton mode="contained-tonal" icon={hasAccess ? "play" : "lock"} accessibilityLabel={hasAccess ? `Reproducir ${lesson.titulo}` : "Lección bloqueada"} disabled={working || !hasAccess} onPress={() => playLesson(lesson)} />
               </View>
             </React.Fragment>
           ))}
