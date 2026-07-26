@@ -8,11 +8,12 @@ import {
     ImageBackground,
     InteractionManager,
     Pressable,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     View,
 } from "react-native";
-import { Chip, Portal, Surface, Text } from "react-native-paper";
+import { Chip, Portal, ProgressBar, Surface, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ComercioHomeOrdersSection from "../comercio/pedidos/ComercioHomeOrdersSection.native";
@@ -260,6 +261,11 @@ const MenuPrincipalScreen = ({
   notificationsPermissionLoading = false,
   missingPriceServices = [],
   priceSetupLoading = false,
+  normalHomeCatalogs = null,
+  normalHomeCatalogsLoading = true,
+  homeRefreshing = false,
+  homeLoadProgress = { completed: 0, error: null, label: "Cargando datos del menú", total: 7 },
+  onRefresh = async () => {},
   onEnableNotifications = () => {},
   onOpenCashApprovals = () => {},
   onOpenPendingEvidence = () => {},
@@ -550,14 +556,57 @@ const MenuPrincipalScreen = ({
           />
         </RenderTraceBlock>
 
-        <ScrollView
-          contentContainerStyle={[
+        {normalHomeCatalogsLoading || homeRefreshing ? (
+          <Surface
+            elevation={2}
+            style={[styles.homeLoadingCard, { marginTop: headerInset + 12 }]}
+          >
+            <View style={styles.homeLoadingHeader}>
+              <View style={styles.homeLoadingTitleGroup}>
+                <Text style={styles.homeLoadingEyebrow}>Menú principal</Text>
+                <Text style={styles.homeLoadingLabel}>
+                  {homeLoadProgress.label}
+                </Text>
+              </View>
+              <Text style={styles.homeLoadingPercent}>
+                {Math.round(
+                  (homeLoadProgress.completed / homeLoadProgress.total) * 100,
+                )}%
+              </Text>
+            </View>
+            <ProgressBar
+              color="#fb923c"
+              progress={
+                homeLoadProgress.total > 0
+                  ? homeLoadProgress.completed / homeLoadProgress.total
+                  : 0
+              }
+              style={styles.homeLoadingProgress}
+            />
+            <Text style={styles.homeLoadingStep}>
+              {homeLoadProgress.completed} de {homeLoadProgress.total} bloques cargados
+            </Text>
+          </Surface>
+        ) : null}
+
+        {!normalHomeCatalogsLoading && !homeRefreshing ? (
+          <ScrollView
+            contentContainerStyle={[
             styles.scrollContent,
             { paddingTop: headerInset + 12 },
-          ]}
-          bounces={false}
-          overScrollMode="never"
-        >
+            ]}
+            alwaysBounceVertical
+            bounces
+            overScrollMode="always"
+            refreshControl={
+              <RefreshControl
+                colors={["#f97316"]}
+                onRefresh={onRefresh}
+                refreshing={normalHomeCatalogsLoading || homeRefreshing}
+                tintColor="#f97316"
+              />
+            }
+          >
           <Surface
             style={styles.heroCard}
             elevation={2}
@@ -1437,18 +1486,30 @@ const MenuPrincipalScreen = ({
                 name="ComercioHomeOrdersSection"
                 payload={{ position: "before-cubacel" }}
               >
-                <ComercioHomeOrdersSection />
+                <ComercioHomeOrdersSection
+                  catalogLoading={normalHomeCatalogsLoading}
+                  catalogOrders={normalHomeCatalogs?.commerceOrders}
+                />
               </RenderTraceBlock>
 
               <RenderTraceBlock
                 name="Productos"
                 payload={{ deferDelay: 0, isDegradado: false }}
               >
-                <Productos deferDelay={0} isDegradado={false} />
+                <Productos
+                  catalogProducts={normalHomeCatalogs?.dtshopProducts}
+                  catalogLoading={normalHomeCatalogsLoading}
+                  deferData={false}
+                  deferDelay={0}
+                  isDegradado={false}
+                />
               </RenderTraceBlock>
 
               <RenderTraceBlock name="ProxyVPNPackagesHorizontal">
-                <ProxyVPNPackagesHorizontal />
+                <ProxyVPNPackagesHorizontal
+                  catalogPackages={normalHomeCatalogs}
+                  catalogLoading={normalHomeCatalogsLoading}
+                />
               </RenderTraceBlock>
 
               <RenderTraceBlock name="ComercioHomeSection">
@@ -1462,7 +1523,8 @@ const MenuPrincipalScreen = ({
               </Text>
             </View>
           )}
-        </ScrollView>
+          </ScrollView>
+        ) : null}
 
         <Portal>
           {drawerMounted ? (
@@ -1540,6 +1602,54 @@ const styles = StyleSheet.create({
   deferredContentText: {
     color: "rgba(255, 255, 255, 0.72)",
     fontWeight: "700",
+  },
+  homeLoadingCard: {
+    backgroundColor: "rgba(15, 23, 42, 0.92)",
+    borderColor: "rgba(251, 146, 60, 0.3)",
+    borderRadius: 18,
+    borderWidth: 1,
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 14,
+  },
+  homeLoadingHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  homeLoadingTitleGroup: {
+    flex: 1,
+    minWidth: 0,
+  },
+  homeLoadingEyebrow: {
+    color: "#fdba74",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  homeLoadingLabel: {
+    color: "#f8fafc",
+    fontSize: 14,
+    fontWeight: "700",
+    marginTop: 3,
+  },
+  homeLoadingPercent: {
+    color: "#fb923c",
+    fontSize: 18,
+    fontWeight: "900",
+    marginLeft: 12,
+  },
+  homeLoadingProgress: {
+    backgroundColor: "rgba(148, 163, 184, 0.22)",
+    borderRadius: 99,
+    height: 7,
+    marginTop: 12,
+  },
+  homeLoadingStep: {
+    color: "rgba(226, 232, 240, 0.68)",
+    fontSize: 11,
+    marginTop: 7,
   },
   heroCard: {
     marginHorizontal: 16,

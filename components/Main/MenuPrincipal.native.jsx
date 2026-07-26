@@ -1,6 +1,6 @@
 import MeteorBase from "@meteorrn/core";
 import { router } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState, Linking } from "react-native";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
@@ -16,14 +16,7 @@ import {
 } from "../../services/notifications/PushMessaging.native";
 import {
     buildPendingEvidenceAggregate,
-    buildPendingEvidenceQuery,
-    PENDING_EVIDENCE_FIELDS,
 } from "../archivos/evidencePendingUtils";
-import {
-    PreciosCollection,
-    VentasCollection,
-    VentasRechargeCollection,
-} from "../collections/collections";
 import { userHasEmpresaRole } from "../navigator/sessionRoute";
 import MenuPrincipalScreen from "./MenuPrincipalScreen.jsx";
 
@@ -38,26 +31,6 @@ const CASH_APPROVAL_TYPE_META = {
   RECARGA: { icon: "cellphone-arrow-down", label: "Recargas" },
   REMESA: { icon: "cash-fast", label: "Remesas" },
   VPN: { icon: "shield-check", label: "VPN" },
-};
-
-const PENDING_DEBT_FIELDS = {
-  precio: 1,
-};
-
-const PENDING_CASH_APPROVAL_FIELDS = {
-  cobrado: 1,
-  createdAt: 1,
-  estado: 1,
-  isCancelada: 1,
-  isCobrado: 1,
-  metodoPago: 1,
-  monedaCobrado: 1,
-  userId: 1,
-  "producto.carritos": 1,
-  type: 1,
-  "producto.status": 1,
-  "producto.type": 1,
-  "producto.userId": 1,
 };
 
 const PROXY_PRICE_TYPES = ["megas", "fecha-proxy"];
@@ -85,6 +58,16 @@ const PRICE_SETUP_SERVICES = [
 ];
 
 const MENU_DEBUG_PREFIX = "[MenuPrincipalRender]";
+const MIN_HOME_REFRESH_MS = 700;
+const HOME_LOAD_STEPS = [
+  { label: "Cargando listado de servicios Cubacel", method: "home.getDtShopProducts" },
+  { label: "Cargando servicios Proxy/VPN", method: "home.getProxyVpnPackages" },
+  { label: "Cargando cobros pendientes", method: "home.getPendingDebt" },
+  { label: "Cargando configuración de precios", method: "home.getPriceSetup" },
+  { label: "Cargando evidencias pendientes", method: "home.getPendingEvidence" },
+  { label: "Cargando aprobaciones de efectivo", method: "home.getCashApprovals" },
+  { label: "Cargando entregas de comercio", method: "home.getCommerceOrders" },
+];
 
 const logMenuPrincipalDebug = (label, payload) => {
   const timestamp = new Date().toISOString();
@@ -310,6 +293,19 @@ const MenuPrincipalNative = () => {
   const isAdmin = isAdminUser(user);
   const isAdminPrincipal = isPrincipalAdmin(user);
   const dataReady = useDeferredScreenData();
+  const [normalHomeCatalogs, setNormalHomeCatalogs] = useState(null);
+  const [normalHomeCatalogsLoading, setNormalHomeCatalogsLoading] = useState(
+    true,
+  );
+  const [homeRefreshing, setHomeRefreshing] = useState(false);
+  const [homeLoadProgress, setHomeLoadProgress] = useState({
+    completed: 0,
+    error: null,
+    label: HOME_LOAD_STEPS[0].label,
+    total: HOME_LOAD_STEPS.length,
+  });
+  const normalHomeCatalogsRef = useRef({});
+  const normalHomeCatalogRequestIdRef = useRef(0);
   const pushPermissionRequestIdRef = useRef(0);
   const [pushPermissionState, setPushPermissionState] = useState({
     canAskAgain: true,
@@ -334,6 +330,87 @@ const MenuPrincipalNative = () => {
       router.replace("/(empresa)/EmpresaNavigator");
     }
   }, [user]);
+
+  const refreshNormalHomeCatalogs = useCallback(() => {
+    if (!dataReady || !currentUserId) {
+      return Promise.resolve();
+    }
+
+    const requestId = normalHomeCatalogRequestIdRef.current + 1;
+    normalHomeCatalogRequestIdRef.current = requestId;
+    const startedAt = Date.now();
+    const previousCatalogs = normalHomeCatalogsRef.current;
+    let loadedCatalogs = previousCatalogs;
+    let firstError = null;
+    setNormalHomeCatalogsLoading(true);
+    setHomeRefreshing(true);
+    setHomeLoadProgress({
+      completed: 0,
+      error: null,
+      label: HOME_LOAD_STEPS[0].label,
+      total: HOME_LOAD_STEPS.length,
+    });
+
+    return (async () => {
+      for (let index = 0; index < HOME_LOAD_STEPS.length; index += 1) {
+        const step = HOME_LOAD_STEPS[index];
+
+        if (normalHomeCatalogRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        setHomeLoadProgress((current) => ({
+          ...current,
+          label: step.label,
+        }));
+
+        try {
+          const result = await callMeteorMethod(step.method);
+          loadedCatalogs = { ...loadedCatalogs, ...result };
+          normalHomeCatalogsRef.current = loadedCatalogs;
+          setNormalHomeCatalogs(loadedCatalogs);
+          setHomeLoadProgress({
+            completed: index + 1,
+            error: firstError,
+            label: HOME_LOAD_STEPS[index + 1]?.label || "Carga completada",
+            total: HOME_LOAD_STEPS.length,
+          });
+        } catch (error) {
+          firstError ||= error;
+          console.warn(
+            `[MenuPrincipal] No se pudo cargar ${step.method}:`,
+            error,
+          );
+          setHomeLoadProgress((current) => ({
+            ...current,
+            error: firstError,
+            label: `No se pudo cargar: ${step.label}`,
+          }));
+        }
+      }
+
+      const remainingMs = Math.max(
+        0,
+        MIN_HOME_REFRESH_MS - (Date.now() - startedAt),
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, remainingMs));
+      if (normalHomeCatalogRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      setNormalHomeCatalogsLoading(false);
+      setHomeRefreshing(false);
+      setHomeLoadProgress((current) => ({
+        ...current,
+        label: firstError ? "Carga finalizada con errores" : "Carga completada",
+      }));
+    })();
+  }, [currentUserId, dataReady]);
+
+  useEffect(() => {
+    refreshNormalHomeCatalogs();
+  }, [refreshNormalHomeCatalogs]);
 
   const refreshPushPermissionState = useCallback(
     async ({ showLoading = false } = {}) => {
@@ -426,38 +503,20 @@ const MenuPrincipalNative = () => {
     });
   }, [currentUserId, dataReady, isAdmin, isAdminPrincipal, user?.username]);
 
-  const { pendingDebt, pendingVentasCount } = Meteor.useTracker(() => {
-    if (!dataReady || !currentUserId || !isAdmin) {
-      return {
-        pendingDebt: 0,
-        pendingVentasCount: 0,
-      };
+  const pendingDebtVentas = normalHomeCatalogs?.pendingDebtVentas || [];
+  const { pendingDebt, pendingVentasCount } = useMemo(() => {
+    if (!isAdmin || !Array.isArray(pendingDebtVentas)) {
+      return { pendingDebt: 0, pendingVentasCount: 0 };
     }
 
-    const ventasHandle = Meteor.subscribe(
-      "ventas",
-      {
-        adminId: currentUserId,
-        cobrado: false,
-      },
-      { fields: PENDING_DEBT_FIELDS },
-    );
-
-    const pendingVentas = ventasHandle.ready()
-      ? VentasCollection.find({
-          adminId: currentUserId,
-          cobrado: false,
-        }).fetch()
-      : [];
-
     return {
-      pendingDebt: pendingVentas.reduce(
+      pendingDebt: pendingDebtVentas.reduce(
         (total, venta) => total + (Number(venta?.precio) || 0),
         0,
       ),
-      pendingVentasCount: pendingVentas.length,
+      pendingVentasCount: pendingDebtVentas.length,
     };
-  }, [currentUserId, dataReady, isAdmin]);
+  }, [isAdmin, pendingDebtVentas]);
 
   useEffect(() => {
     logMenuPrincipalDebug("data:pending-debt", {
@@ -466,34 +525,15 @@ const MenuPrincipalNative = () => {
     });
   }, [pendingDebt, pendingVentasCount]);
 
-  const { missingPriceServices, priceSetupLoading } = Meteor.useTracker(() => {
-    if (!dataReady || !currentUserId || !isAdmin) {
-      return {
-        missingPriceServices: [],
-        priceSetupLoading: false,
-      };
-    }
-
-    const pricesSelector = {
-      userId: currentUserId,
-      type: { $in: PRICE_SETUP_TYPE_VALUES },
-    };
-    const pricesHandle = Meteor.subscribe("precios", pricesSelector, {
-      fields: PRICE_SETUP_FIELDS,
-    });
-    const ownServicePrices = pricesHandle.ready()
-      ? PreciosCollection.find(pricesSelector, {
-          fields: PRICE_SETUP_FIELDS,
-        }).fetch()
-      : [];
-
-    return {
-      missingPriceServices: pricesHandle.ready()
+  const ownServicePrices = normalHomeCatalogs?.ownServicePrices || [];
+  const missingPriceServices = useMemo(
+    () =>
+      isAdmin && Array.isArray(ownServicePrices)
         ? buildMissingPriceServices(ownServicePrices)
         : [],
-      priceSetupLoading: !pricesHandle.ready(),
-    };
-  }, [currentUserId, dataReady, isAdmin]);
+    [isAdmin, ownServicePrices],
+  );
+  const priceSetupLoading = isAdmin && normalHomeCatalogsLoading;
 
   useEffect(() => {
     logMenuPrincipalDebug("data:price-setup", {
@@ -502,31 +542,14 @@ const MenuPrincipalNative = () => {
     });
   }, [missingPriceServices, priceSetupLoading]);
 
-  const { pendingEvidenceCount, pendingEvidenceLoading } =
-    Meteor.useTracker(() => {
-      if (!dataReady || !currentUserId) {
-        return {
-          pendingEvidenceCount: 0,
-          pendingEvidenceLoading: false,
-        };
-      }
-
-      const query = buildPendingEvidenceQuery(currentUserId);
-      const handle = Meteor.subscribe("ventasRecharge", query, {
-        fields: PENDING_EVIDENCE_FIELDS,
-      });
-      const pendingEvidenceVentas = handle.ready()
-        ? VentasRechargeCollection.find(query, {
-            fields: PENDING_EVIDENCE_FIELDS,
-            sort: { createdAt: -1 },
-          }).fetch()
-        : [];
-
-      return {
-        ...buildPendingEvidenceAggregate(pendingEvidenceVentas),
-        pendingEvidenceLoading: !handle.ready(),
-      };
-    }, [currentUserId, dataReady]);
+  const pendingEvidenceVentas = normalHomeCatalogs?.pendingEvidenceVentas || [];
+  const { pendingEvidenceCount, pendingEvidenceLoading } = useMemo(
+    () => ({
+      ...buildPendingEvidenceAggregate(pendingEvidenceVentas),
+      pendingEvidenceLoading: normalHomeCatalogsLoading,
+    }),
+    [normalHomeCatalogsLoading, pendingEvidenceVentas],
+  );
 
   useEffect(() => {
     logMenuPrincipalDebug("data:pending-evidence", {
@@ -539,65 +562,16 @@ const MenuPrincipalNative = () => {
     pendingCashApprovalTypes,
     pendingCashApprovalsCount,
     pendingCashApprovalsLoading,
-  } = Meteor.useTracker(() => {
-    if (!dataReady || !currentUserId || !isAdmin) {
-      return {
-        pendingCashApprovalTypes: [],
-        pendingCashApprovalsCount: 0,
-        pendingCashApprovalsLoading: false,
-      };
-    }
-
-    if (!isAdminPrincipal && subordinadosLoading) {
-      return {
-        pendingCashApprovalTypes: [],
-        pendingCashApprovalsCount: 0,
-        pendingCashApprovalsLoading: false,
-      };
-    }
-
-    const cashApprovalsQuery = isAdminPrincipal
-      ? {
-          isCancelada: false,
-          isCobrado: false,
-          metodoPago: "EFECTIVO",
-        }
-      : {
-          isCancelada: false,
-          isCobrado: false,
-          metodoPago: "EFECTIVO",
-          $or: [
-            { userId: currentUserId },
-            { userId: { $in: subordinadosIds } },
-          ],
-        };
-
-    const cashApprovalsHandle = Meteor.subscribe(
-      "ventasRecharge",
-      cashApprovalsQuery,
-      { fields: PENDING_CASH_APPROVAL_FIELDS },
-    );
-    const ventasEfectivoPendientes = cashApprovalsHandle.ready()
-      ? VentasRechargeCollection.find(cashApprovalsQuery, {
-          sort: { createdAt: -1 },
-        }).fetch()
+  } = useMemo(() => {
+    const cashApprovalVentas = isAdmin
+      ? normalHomeCatalogs?.cashApprovalVentas || []
       : [];
-    const cashApprovalsSummary = buildPendingCashApprovalsSummary(
-      ventasEfectivoPendientes,
-    );
 
     return {
-      ...cashApprovalsSummary,
-      pendingCashApprovalsLoading: !cashApprovalsHandle.ready(),
+      ...buildPendingCashApprovalsSummary(cashApprovalVentas),
+      pendingCashApprovalsLoading: isAdmin && normalHomeCatalogsLoading,
     };
-  }, [
-    currentUserId,
-    dataReady,
-    isAdmin,
-    isAdminPrincipal,
-    subordinadosIdsKey,
-    subordinadosLoading,
-  ]);
+  }, [isAdmin, normalHomeCatalogs, normalHomeCatalogsLoading]);
   const appVersionInfo = getAppVersionInfo();
 
   const handleOpenPendingVentas = () => {
@@ -850,6 +824,11 @@ const MenuPrincipalNative = () => {
       notificationsPermissionLoading={pushPermissionLoading}
       missingPriceServices={missingPriceServices}
       priceSetupLoading={priceSetupLoading}
+      normalHomeCatalogs={normalHomeCatalogs}
+      normalHomeCatalogsLoading={normalHomeCatalogsLoading}
+      homeRefreshing={homeRefreshing}
+      homeLoadProgress={homeLoadProgress}
+      onRefresh={refreshNormalHomeCatalogs}
       onEnableNotifications={handleEnableNotifications}
       onOpenCashApprovals={handleOpenCashApprovals}
       onOpenPendingEvidence={handleOpenPendingEvidence}

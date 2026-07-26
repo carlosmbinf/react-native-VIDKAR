@@ -1,34 +1,10 @@
-import MeteorBase from "@meteorrn/core";
 import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Text, useTheme } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
-import { DTShopProductosCollection } from "../collections/collections";
 import CubaCelCard from "./CubaCelCard";
-
-const Meteor =
-  /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
-    MeteorBase
-  );
-
-const PRODUCTOS_DT_SHOP_FIELDS = {
-  "benefits.amount.totalIncludingTax": 1,
-  "benefits.type": 1,
-  "benefits.unit": 1,
-  description: 1,
-  id: 1,
-  name: 1,
-  ocultarFondo: 1,
-  "operator.name": 1,
-  "prices.retail.amount": 1,
-  "promotions.description": 1,
-  "promotions.endDate": 1,
-  "promotions.startDate": 1,
-  "promotions.terms": 1,
-  "promotions.title": 1,
-};
 
 const getGradientColors = (isDarkMode) => {
   if (isDarkMode) {
@@ -57,42 +33,27 @@ const TRANSPARENT_GRADIENT_COLORS = [
   "rgba(15, 23, 42, 0)",
 ];
 
-let cachedDtShopProductos = [];
-
-const Productos = ({ deferDelay = 0, isDegradado = false, topBleed = 0 }) => {
+const Productos = ({
+  catalogLoading = true,
+  catalogProducts = [],
+  deferDelay = 0,
+  deferData = true,
+  isDegradado = false,
+  topBleed = 0,
+}) => {
   const theme = useTheme();
-  const dataReady = useDeferredScreenData({
+  const deferredDataReady = useDeferredScreenData({
     delay: deferDelay,
     keepReadyOnBlur: true,
   });
+  const dataReady = deferData ? deferredDataReady : true;
   const resolvedTopBleed = isDegradado ? Math.max(Number(topBleed) || 0, 0) : 0;
   const gradientColors = isDegradado
     ? getGradientColors(theme.dark)
     : TRANSPARENT_GRADIENT_COLORS;
 
-  const { productos, ready } = Meteor.useTracker(() => {
-    const handler = Meteor.subscribe(
-      "productosDtShop",
-      {},
-      { fields: PRODUCTOS_DT_SHOP_FIELDS },
-    );
-    const subscriptionReady = handler.ready();
-
-    const fetchedProductos = subscriptionReady
-      ? DTShopProductosCollection.find({}, { sort: { id: 1 } }).fetch()
-      : cachedDtShopProductos;
-
-    return {
-      productos: dataReady ? fetchedProductos : cachedDtShopProductos,
-      ready: dataReady && subscriptionReady,
-    };
-  }, [dataReady]);
-
-  useEffect(() => {
-    if (ready) {
-      cachedDtShopProductos = Array.isArray(productos) ? productos : [];
-    }
-  }, [productos, ready]);
+  const productos = dataReady && !catalogLoading ? catalogProducts : [];
+  const ready = dataReady && !catalogLoading;
 
   const sortedProductos = useMemo(() => {
     if (!Array.isArray(productos) || productos.length === 0) {

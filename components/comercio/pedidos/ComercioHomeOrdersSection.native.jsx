@@ -1,17 +1,10 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import MeteorBase from "@meteorrn/core";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Surface, Text } from "react-native-paper";
 
-import { VentasRechargeCollection } from "../../collections/collections";
 import PedidoCard from "./components/PedidoCard";
-
-const Meteor =
-  /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
-    MeteorBase
-  );
 
 const HOME_COMMERCE_ORDERS_LIMIT = 2;
 
@@ -62,41 +55,17 @@ const getStepFromStatus = (venta) => {
   return steps[venta?.estado] || 1;
 };
 
-const ComercioHomeOrdersSection = () => {
+const ComercioHomeOrdersSection = ({ catalogOrders = [], catalogLoading = true }) => {
   const router = useRouter();
   const [expandedVentas, setExpandedVentas] = useState({});
 
-  const { loading, ventas } = Meteor.useTracker(() => {
-    const userId = Meteor.userId();
-
-    if (!userId) {
-      return { loading: false, ventas: [] };
-    }
-
-    const sub = Meteor.subscribe(
-      "ventasRecharge",
-      {
-        userId,
-        "producto.carritos.type": "COMERCIO",
-      },
-      {
-        fields: HOME_COMMERCE_ORDER_FIELDS,
-      },
-    );
-
-    const ventasData = VentasRechargeCollection.find(
-      { userId },
-      {
-        fields: HOME_COMMERCE_ORDER_FIELDS,
-        sort: { createdAt: -1 },
-      },
-    )
-      .fetch()
+  const ventas = useMemo(
+    () =>
+      (Array.isArray(catalogOrders) ? catalogOrders : [])
       .filter(isActiveCommerceOrder)
-      .slice(0, HOME_COMMERCE_ORDERS_LIMIT);
-
-    return { loading: !sub.ready(), ventas: ventasData };
-  }, []);
+      .slice(0, HOME_COMMERCE_ORDERS_LIMIT),
+    [catalogOrders],
+  );
 
   const totalPedidos = ventas.length;
 
@@ -119,7 +88,7 @@ const ComercioHomeOrdersSection = () => {
     router.push("/(normal)/PedidosComerciosList");
   }, [router]);
 
-  if (loading || ventas.length === 0) {
+  if (catalogLoading || ventas.length === 0) {
     return null;
   }
 

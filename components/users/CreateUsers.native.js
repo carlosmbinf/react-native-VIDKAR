@@ -12,6 +12,8 @@ import {
 import {
     Button,
     HelperText,
+    Icon,
+    SegmentedButtons,
     Surface,
     Text,
     TextInput,
@@ -55,6 +57,7 @@ const CreateUsers = () => {
   const [loading, setLoading] = useState(false);
   const [touched, setTouched] = useState({});
   const [showPassword, setShowPassword] = useState(false);
+  const [tipoCuenta, setTipoCuenta] = useState("user");
 
   const apellidosRef = useRef(null);
   const emailRef = useRef(null);
@@ -140,34 +143,42 @@ const CreateUsers = () => {
     }
 
     setLoading(true);
-    const user = {
-      username: form.username.trim(),
-      email: form.email.trim(),
-      password: form.contrasena,
-      firstName: form.nombre.trim(),
-      lastName: form.apellidos.trim(),
-      role: "user",
-      edad: 30,
-      creadoPor: Meteor.userId(),
-    };
+    const isProfessor = tipoCuenta === "profesor";
+    const payload = isProfessor
+      ? {
+          username: form.username.trim(),
+          email: form.email.trim(),
+          contrasena: form.contrasena,
+          nombre: form.nombre.trim(),
+          apellidos: form.apellidos.trim(),
+        }
+      : {
+          username: form.username.trim(),
+          email: form.email.trim(),
+          password: form.contrasena,
+          firstName: form.nombre.trim(),
+          lastName: form.apellidos.trim(),
+          role: "user",
+          edad: 30,
+          creadoPor: Meteor.userId(),
+        };
 
-    Meteor.call("addUser", user, (error, result) => {
+    Meteor.call(isProfessor ? "profesores.crear" : "addUser", payload, (error, result) => {
       setLoading(false);
 
-      const serverError =
-        error || (result && typeof result !== "string" ? result : null);
+      const serverError = error || (!isProfessor && result && typeof result !== "string" ? result : null);
 
       if (serverError) {
         Alert.alert(
-          "Error al crear usuario",
-          getServerErrorMessage(serverError) || "No se pudo crear el usuario.",
+          `Error al crear ${isProfessor ? "profesor" : "usuario"}`,
+          getServerErrorMessage(serverError) || `No se pudo crear el ${isProfessor ? "profesor" : "usuario"}.`,
         );
         return;
       }
 
       Alert.alert(
-        "¡Usuario creado!",
-        result || "El usuario fue creado correctamente.",
+        isProfessor ? "Profesor creado" : "Usuario creado",
+        isProfessor ? "El profesor quedó asignado a tu administración." : result || "El usuario fue creado correctamente.",
         [
           {
             text: "Ver lista",
@@ -199,8 +210,8 @@ const CreateUsers = () => {
   return (
     <View style={[styles.root, { backgroundColor: palette.screen }]}>
       <AppHeader
-        title="Agregar Usuario"
-        subtitle="Nuevo miembro del sistema"
+        title="Agregar cuenta"
+        subtitle={tipoCuenta === "profesor" ? "Nuevo profesor" : "Nuevo usuario"}
         showBackButton
         backHref="/(normal)/Users"
         onBack={handleCancel}
@@ -230,7 +241,7 @@ const CreateUsers = () => {
                 },
               ]}
             >
-              <Text style={styles.heroIcon}>👤</Text>
+              <Icon source={tipoCuenta === "profesor" ? "school-outline" : "account-plus-outline"} color={palette.accentPrimary} size={26} />
             </View>
             <View style={styles.heroText}>
               <Text
@@ -240,7 +251,7 @@ const CreateUsers = () => {
                   { color: isDark ? "#f8fafc" : "#0f172a" },
                 ]}
               >
-                Nuevo usuario
+                {tipoCuenta === "profesor" ? "Nuevo profesor" : "Nuevo usuario"}
               </Text>
               <Text variant="bodySmall" style={{ color: palette.sectionLabel }}>
                 Completa los datos para registrar la cuenta
@@ -258,6 +269,17 @@ const CreateUsers = () => {
             ]}
             elevation={isDark ? 4 : 2}
           >
+            <Text style={[styles.sectionLabel, { color: palette.sectionLabel }]}>TIPO DE CUENTA</Text>
+            <SegmentedButtons
+              value={tipoCuenta}
+              onValueChange={setTipoCuenta}
+              buttons={[
+                { value: "user", label: "Usuario", icon: "account-outline" },
+                { value: "profesor", label: "Profesor", icon: "school-outline" },
+              ]}
+              style={styles.accountType}
+            />
+
             <Text
               style={[styles.sectionLabel, { color: palette.sectionLabel }]}
             >
@@ -439,7 +461,7 @@ const CreateUsers = () => {
               contentStyle={styles.buttonContent}
               icon="account-plus"
             >
-              {loading ? "Creando..." : "Crear usuario"}
+              {loading ? "Creando..." : `Crear ${tipoCuenta === "profesor" ? "profesor" : "usuario"}`}
             </Button>
           </View>
         </ScrollView>
@@ -474,8 +496,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  heroIcon: {
-    fontSize: 26,
+  accountType: {
+    marginBottom: 18,
   },
   heroText: {
     flex: 1,

@@ -23,7 +23,10 @@ const clamp01 = (value) =>
   Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
 const formatGB = (mb) => ((Number(mb) || 0) / 1024).toFixed(2);
 
-const ProxyVPNPackagesHorizontal = () => {
+const ProxyVPNPackagesHorizontal = ({
+  catalogLoading = true,
+  catalogPackages = null,
+}) => {
   const router = useRouter();
   const theme = useTheme();
   const { width } = useWindowDimensions();
@@ -77,39 +80,28 @@ const ProxyVPNPackagesHorizontal = () => {
   }, []);
 
   useEffect(() => {
-    setLoadingPackages(true);
+    if (catalogLoading) {
+      setLoadingPackages(true);
+      return;
+    }
 
-    Meteor.call(
-      "precios.getAllProxyVPNPackages",
-      "PROXY",
-      (proxyError, proxyResult) => {
-        if (!proxyError) {
-          setPaquetesProxyMegas(
-            (proxyResult?.porMegas || []).sort((a, b) => a.megas - b.megas),
-          );
-          setPaqueteProxyTiempo(
-            proxyResult?.porTiempo?.length ? proxyResult.porTiempo[0] : null,
-          );
-        }
+    const proxyPackages = catalogPackages?.proxyPackages;
+    const vpnPackages = catalogPackages?.vpnPackages;
 
-        Meteor.call(
-          "precios.getAllProxyVPNPackages",
-          "VPN",
-          (vpnError, vpnResult) => {
-            if (!vpnError) {
-              setPaquetesVPNMegas(
-                (vpnResult?.porMegas || []).sort((a, b) => a.megas - b.megas),
-              );
-              setPaqueteVPNTiempo(
-                vpnResult?.porTiempo?.length ? vpnResult.porTiempo[0] : null,
-              );
-            }
-            setLoadingPackages(false);
-          },
-        );
-      },
+    setPaquetesProxyMegas(
+      (proxyPackages?.porMegas || []).slice().sort((a, b) => a.megas - b.megas),
     );
-  }, []);
+    setPaqueteProxyTiempo(
+      proxyPackages?.porTiempo?.length ? proxyPackages.porTiempo[0] : null,
+    );
+    setPaquetesVPNMegas(
+      (vpnPackages?.porMegas || []).slice().sort((a, b) => a.megas - b.megas),
+    );
+    setPaqueteVPNTiempo(
+      vpnPackages?.porTiempo?.length ? vpnPackages.porTiempo[0] : null,
+    );
+    setLoadingPackages(false);
+  }, [catalogLoading, catalogPackages]);
 
   const handleComprarProxy = (paquete, esPorTiempo = false) => {
     if (!userData) return;

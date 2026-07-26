@@ -36,6 +36,7 @@ const getUserInitials = (user) => {
 const getRoleLabel = (user) => {
   if (user?.username === "carlosmbinf") return "Administrador general";
   if (user?.profile?.role === "admin") return "Administrador";
+  if (user?.profile?.role === "profesor") return "Profesor";
   if (user?.modoCadete) return "Cadete activo";
   return "Usuario";
 };
@@ -43,6 +44,7 @@ const getRoleLabel = (user) => {
 const getRoleIcon = (user) => {
   if (user?.username === "carlosmbinf") return "shield-crown-outline";
   if (user?.profile?.role === "admin") return "shield-account-outline";
+  if (user?.profile?.role === "profesor") return "school-outline";
   if (user?.modoCadete) return "bike-fast";
   return "account-circle-outline";
 };
@@ -59,6 +61,11 @@ const buildServiceItems = (user) => {
   }
 
   items.push(
+    {
+      label: "Cursos",
+      icon: "book-education-outline",
+      href: "/(normal)/Cursos",
+    },
     {
       label: "Productos Cubacel",
       icon: "cellphone-wireless",
@@ -104,6 +111,11 @@ const buildAdminItems = () => [
     href: "/(normal)/Dashboard",
   },
   {
+    label: "Gestión de cursos",
+    icon: "book-cog-outline",
+    href: "/(normal)/GestionCursos",
+  },
+  {
     label: "Lista de usuarios",
     icon: "account-group-outline",
     href: "/(normal)/Users",
@@ -142,6 +154,14 @@ const buildAdminItems = () => [
     label: "Servidores",
     icon: "server-network-outline",
     href: "/(normal)/Servidores",
+  },
+];
+
+const buildProfessorItems = () => [
+  {
+    label: "Gestión de cursos",
+    icon: "book-cog-outline",
+    href: "/(normal)/GestionCursos",
   },
 ];
 
@@ -186,6 +206,7 @@ const DrawerOptionsAlls = ({
   const isLandscapeDrawer = width > height;
   const isAdmin =
     user?.profile?.role === "admin" || user?.username === "carlosmbinf";
+  const isProfessor = user?.profile?.role === "profesor";
   const isSuperAdmin = user?.username === "carlosmbinf";
   const canToggleCadete = typeof onToggleModoCadete === "function";
   const canToggleEmpresa =
@@ -238,6 +259,13 @@ const DrawerOptionsAlls = ({
       });
     }
 
+    if (isProfessor) {
+      result.push({
+        title: "Panel del profesor",
+        items: buildProfessorItems(),
+      });
+    }
+
     if (isSuperAdmin) {
       result.push({
         title: "Opciones privadas",
@@ -246,7 +274,7 @@ const DrawerOptionsAlls = ({
     }
 
     return result.filter((section) => section.items.length > 0);
-  }, [isAdmin, isSuperAdmin, user]);
+  }, [isAdmin, isProfessor, isSuperAdmin, user]);
 
   const headerNode = (
     <ImageBackground

@@ -39,6 +39,7 @@ const CART_ITEM_FIELDS = {
   cobrarUSD: 1,
   comentario: 1,
   coordenadas: 1,
+  cursoId: 1,
   direccionCuba: 1,
   entregado: 1,
   esPorTiempo: 1,
@@ -54,6 +55,7 @@ const CART_ITEM_FIELDS = {
   nombreCalle: 1,
   numeroCasa: 1,
   producto: 1,
+  profesorId: 1,
   recibirEnCuba: 1,
   tarjetaCUP: 1,
   tienda: 1,
@@ -1281,6 +1283,45 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
     );
   };
 
+  const renderCourseCard = (item) => {
+    const color = "#0F766E";
+    const title = item.producto?.titulo || "Curso VIDKAR";
+    const professor = item.producto?.profesorNombre || "Profesor VIDKAR";
+    const currency = item.monedaACobrar || "CUP";
+
+    return (
+      <CompactCartCard
+        color={color}
+        detailRows={[
+          { icon: "book-open-page-variant", label: "Curso", value: title },
+          { icon: "school-outline", label: "Profesor", value: professor },
+          { icon: "calendar-range", label: "Acceso", value: "30 días desde la aprobación del pago" },
+          { icon: "currency-usd", label: "Precio", value: `${item.cobrarUSD} ${currency}`, valueStyle: styles.priceValue },
+          { icon: "information-outline", label: "Detalle", value: item.comentario },
+        ]}
+        eliminar={eliminar}
+        eliminarPedido={eliminarPedido}
+        glowPrimaryProgress={productGlowPrimaryProgress}
+        glowSecondaryProgress={productGlowSecondaryProgress}
+        headerIcon="book-education-outline"
+        isDarkMode={isDarkMode}
+        itemId={item._id}
+        key={item._id}
+        subtitle={professor}
+        summaryBadge={
+          <Chip compact icon="calendar-month" style={[styles.proxyVpnChip, { backgroundColor: withAlpha(color, "20") }]} textStyle={{ color, fontSize: 12, fontWeight: "bold" }}>
+            Suscripción mensual
+          </Chip>
+        }
+        summaryMetrics={[
+          { accentColor: color, icon: "calendar-range", label: "Duración", value: "30 días" },
+          { accentColor: color, icon: "currency-usd", label: "Precio", value: `${item.cobrarUSD || 0} ${currency}` },
+        ]}
+        title={title}
+      />
+    );
+  };
+
   if (pedidosRemesa.length === 0) {
     return (
       <View style={styles.emptyContainer}>
@@ -1299,6 +1340,7 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
           return renderProxyVPNCard(item);
         if (item.type === "RECARGA") return renderRecargaCard(item);
         if (item.type === "REMESA") return renderRemesaCard(item);
+        if (item.type === "CURSO") return renderCourseCard(item);
         if (item.type === "COMERCIO") {
           return (
             <ComercioCard
