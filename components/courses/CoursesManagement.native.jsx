@@ -1,8 +1,10 @@
 import MeteorBase from "@meteorrn/core";
+import { BlurView } from "expo-blur";
 import * as ImagePicker from "expo-image-picker";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Button, Dialog, Divider, FAB, IconButton, Portal, Surface, Switch, Text, TextInput, useTheme } from "react-native-paper";
 
 import { uploadCourseVideo } from "../../services/courses/courseMedia.native";
@@ -10,7 +12,7 @@ import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { CursosCollection, LeccionesCursoCollection } from "../collections/collections";
 
 const Meteor = MeteorBase;
-const EMPTY_COURSE = { categoria: "", descripcion: "", moneda: "CUP", nivel: "", portadaUrl: "", precioMensual: "", titulo: "" };
+const EMPTY_COURSE = { categoria: "", descripcion: "", moneda: "CUP", nivel: "", portadaFileId: "", portadaUrl: "", precioMensual: "", titulo: "" };
 const EMPTY_LESSON = { descripcion: "", titulo: "" };
 const callMethod = (name, ...args) => new Promise((resolve, reject) => Meteor.call(name, ...args, (error, result) => error ? reject(error) : resolve(result)));
 
@@ -18,6 +20,12 @@ const inferMimeType = (asset) => {
   if (asset?.mimeType) return asset.mimeType;
   const extension = String(asset?.fileName || asset?.uri || "").split(".").pop()?.toLowerCase();
   return extension === "mov" ? "video/quicktime" : extension === "webm" ? "video/webm" : extension === "mkv" ? "video/x-matroska" : "video/mp4";
+};
+
+const inferImageMimeType = (asset) => {
+  if (asset?.mimeType) return asset.mimeType;
+  const extension = String(asset?.fileName || asset?.uri || "").split(".").pop()?.toLowerCase();
+  return extension === "png" ? "image/png" : "image/jpeg";
 };
 
 export default function CoursesManagement() {
@@ -34,13 +42,24 @@ export default function CoursesManagement() {
   const [selectedCourseId, setSelectedCourseId] = React.useState(null);
   const [workingKey, setWorkingKey] = React.useState(null);
   const [uploadProgress, setUploadProgress] = React.useState({});
+  const [coverAsset, setCoverAsset] = React.useState(null);
   const palette = {
-    background: theme.dark ? "#0d0d12" : "#f7f6f2",
-    border: theme.dark ? "rgba(251,146,60,0.24)" : "rgba(194,65,12,0.16)",
-    card: theme.dark ? "#191820" : "#ffffff",
-    muted: theme.dark ? "#b6b0aa" : "#6f675f",
-    primary: theme.dark ? "#fdba74" : "#c2410c",
-    text: theme.dark ? "#fff7ed" : "#2b211b",
+    accent: theme.dark ? "#7dd3fc" : "#0369a1",
+    background: theme.dark ? "#071018" : "#eef6f8",
+    border: theme.dark ? "rgba(125,211,252,0.18)" : "rgba(3,105,161,0.14)",
+    card: theme.dark ? "#0d1b25" : "#ffffff",
+    muted: theme.dark ? "#9eb1bd" : "#58707c",
+    primary: theme.dark ? "#fbbf24" : "#b45309",
+    text: theme.dark ? "#f8fafc" : "#10232e",
+  };
+  const inputTheme = {
+    colors: {
+      background: theme.dark ? "rgba(15,23,42,0.64)" : "rgba(255,255,255,0.92)",
+      onSurfaceVariant: palette.muted,
+      outline: theme.dark ? "rgba(148,163,184,0.24)" : "rgba(15,23,42,0.16)",
+      primary: palette.accent,
+    },
+    roundness: 14,
   };
 
   const data = Meteor.useTracker(() => {
@@ -70,14 +89,35 @@ export default function CoursesManagement() {
   };
 
   const saveCourse = async () => {
-    const payload = { ...courseForm, precioMensual: Number(courseForm.precioMensual) };
     const result = await run(
       "course",
-      () => editingCourseId ? callMethod("cursos.actualizar", editingCourseId, payload) : callMethod("cursos.crear", payload),
+      async () => {
+        const payload = { ...courseForm, precioMensual: Number(courseForm.precioMensual) };
+        if (coverAsset) {
+          const mimeType = inferImageMimeType(coverAsset);
+          const uploadedCover = await callMethod("images.upload", {
+            base64: coverAsset.base64,
+            name: coverAsset.fileName || `portada_${Date.now()}.jpg`,
+            size: coverAsset.fileSize || 0,
+            type: mimeType,
+          }, {
+            category: "COURSE",
+            channel: "COURSES",
+            source: "CoursesManagement.native.jsx",
+            sourceApp: "mobile",
+            type: "COURSE_COVER",
+          });
+          console.log("[COURSE_COVER] URL devuelta por images.upload:", uploadedCover.url);
+          payload.portadaFileId = uploadedCover.fileId;
+          payload.portadaUrl = uploadedCover.url;
+        }
+        return editingCourseId ? callMethod("cursos.actualizar", editingCourseId, payload) : callMethod("cursos.crear", payload);
+      },
       editingCourseId ? "Curso actualizado." : "Curso creado como borrador.",
     );
     if (result?.success) {
       setCourseForm(EMPTY_COURSE);
+      setCoverAsset(null);
       setCourseDialog(false);
       setSelectedCourseId(editingCourseId || result.courseId);
       setEditingCourseId(null);
@@ -91,11 +131,59 @@ export default function CoursesManagement() {
       descripcion: course.descripcion || "",
       moneda: course.moneda || "CUP",
       nivel: course.nivel || "",
+      portadaFileId: course.portadaFileId || "",
       portadaUrl: course.portadaUrl || "",
       precioMensual: String(course.precioMensual || ""),
       titulo: course.titulo || "",
     } : EMPTY_COURSE);
+    setCoverAsset(null);
     setCourseDialog(true);
+  };
+
+  const selectCourseCover = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted && permission.accessPrivileges !== "limited") {
+      Alert.alert("Permiso requerido", "Autoriza el acceso a la galería para seleccionar la portada.");
+      return;
+    }
+    const selection = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [16, 9],
+      base64: true,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (selection.canceled || !selection.assets?.[0]) return;
+    if (!selection.assets[0].base64) {
+      Alert.alert("No se pudo cargar", "La imagen seleccionada no contiene datos para subir.");
+      return;
+    }
+    setCoverAsset(selection.assets[0]);
+  };
+
+  const deleteCourse = (course) => {
+    Alert.alert(
+      "Eliminar curso",
+      `Se eliminarán el curso, sus lecciones y sus videos. Esta acción no se puede deshacer.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            const result = await run(
+              `delete-course-${course._id}`,
+              () => callMethod("cursos.eliminar", course._id),
+              "Curso eliminado.",
+            );
+            if (result?.success) {
+              if (selectedCourseId === course._id) setSelectedCourseId(null);
+              if (editingCourseId === course._id) setEditingCourseId(null);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const createLesson = async () => {
@@ -155,21 +243,28 @@ export default function CoursesManagement() {
     <View style={[styles.root, { backgroundColor: palette.background }]}>
       <AppHeader title="Gestión de cursos" subtitle={isProfessor ? "Panel del profesor" : "Supervisión administrativa"} showBackButton backHref="/(normal)/Main" overlapContent />
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: headerInset + 12 }]}>
-        <View style={styles.pageIntro}>
-          <Text variant="headlineSmall" style={[styles.pageTitle, { color: palette.text }]}>{isProfessor ? "Tus cursos" : "Cursos del equipo docente"}</Text>
-          <Text style={{ color: palette.muted }}>{isProfessor ? "Organiza clases, videos y publicación." : "Revisa los cursos de profesores asignados a tu administración."}</Text>
-        </View>
+        <LinearGradient colors={theme.dark ? ["#0e3042", "#10202b", "#2a210d"] : ["#dff4fb", "#ffffff", "#fff3d6"]} style={[styles.hero, { borderColor: palette.border }]}>
+          <View style={[styles.heroIcon, { backgroundColor: theme.dark ? "rgba(125,211,252,0.12)" : "rgba(3,105,161,0.09)" }]}><IconButton icon="school-outline" iconColor={palette.accent} size={28} /></View>
+          <View style={styles.heroCopy}>
+            <Text variant="headlineSmall" style={[styles.pageTitle, { color: palette.text }]}>{isProfessor ? "Tu estudio" : "Academia VIDKAR"}</Text>
+            <Text style={[styles.heroText, { color: palette.muted }]}>{isProfessor ? "Diseña, publica y organiza experiencias de aprendizaje." : "Supervisa el catálogo y la actividad del equipo docente."}</Text>
+          </View>
+          <View style={styles.heroMetric}><Text style={[styles.heroMetricValue, { color: palette.text }]}>{data.courses.length}</Text><Text style={[styles.heroMetricLabel, { color: palette.muted }]}>cursos</Text></View>
+        </LinearGradient>
 
         {data.loading && data.courses.length === 0 ? <ActivityIndicator /> : null}
         {data.courses.map((course) => (
-          <Surface key={course._id} style={[styles.courseRow, { backgroundColor: palette.card, borderColor: selectedCourseId === course._id ? palette.primary : palette.border }]} elevation={1}>
+          <Surface key={course._id} style={[styles.courseRow, { backgroundColor: palette.card, borderColor: selectedCourseId === course._id ? palette.accent : palette.border }]} elevation={1}>
             <View style={styles.courseCopy}>
+              <View style={styles.courseMeta}><Text style={[styles.courseCategory, { color: palette.accent }]}>{String(course.categoria || "CURSO").toUpperCase()}</Text><View style={[styles.statusDot, { backgroundColor: course.publicado ? "#22c55e" : "#f59e0b" }]} /><Text style={[styles.statusText, { color: palette.muted }]}>{course.publicado ? "Publicado" : "Borrador"}</Text></View>
               <Text variant="titleMedium" style={[styles.courseTitle, { color: palette.text }]}>{course.titulo}</Text>
-              <Text style={{ color: palette.muted }}>{course.profesorNombre} · {Number(course.precioMensual).toFixed(2)} {course.moneda}/mes</Text>
+              <Text style={{ color: palette.muted }}>{course.profesorNombre}</Text>
+              <Text style={[styles.coursePrice, { color: palette.primary }]}>{Number(course.precioMensual).toFixed(2)} {course.moneda}<Text style={[styles.coursePeriod, { color: palette.muted }]}> / mes</Text></Text>
             </View>
             <View style={styles.courseActions}>
-              {course.profesorId === Meteor.userId() ? <IconButton icon="pencil-outline" size={20} onPress={() => openCourseDialog(course)} /> : null}
-              <Button compact icon="book-open-page-variant" onPress={() => setSelectedCourseId(course._id)}>Clases</Button>
+              {course.profesorId === Meteor.userId() ? <IconButton mode="contained-tonal" icon="pencil-outline" size={19} onPress={() => openCourseDialog(course)} /> : null}
+              <IconButton mode="contained-tonal" icon="delete-outline" iconColor="#dc2626" size={19} disabled={Boolean(workingKey)} onPress={() => deleteCourse(course)} />
+              <Button compact mode={selectedCourseId === course._id ? "contained" : "outlined"} icon="book-open-page-variant" onPress={() => setSelectedCourseId(course._id)}>Clases</Button>
               <Switch
                 value={Boolean(course.publicado)}
                 disabled={workingKey === `course-${course._id}`}
@@ -194,7 +289,7 @@ export default function CoursesManagement() {
                 <React.Fragment key={lesson._id}>
                   {index > 0 ? <Divider /> : null}
                   <View style={styles.lessonRow}>
-                    <View style={styles.lessonIndex}><Text style={{ color: palette.primary, fontWeight: "900" }}>{lesson.orden}</Text></View>
+                    <View style={[styles.lessonIndex, { backgroundColor: theme.dark ? "rgba(125,211,252,0.1)" : "rgba(3,105,161,0.08)" }]}><Text style={{ color: palette.accent, fontWeight: "900" }}>{String(lesson.orden).padStart(2, "0")}</Text></View>
                     <View style={styles.lessonCopy}>
                       <Text style={[styles.lessonTitle, { color: palette.text }]}>{lesson.titulo}</Text>
                       <Text style={{ color: palette.muted }}>
@@ -227,25 +322,71 @@ export default function CoursesManagement() {
 
       {isProfessor ? <FAB icon="plus" label="Curso" style={styles.fab} onPress={() => openCourseDialog()} /> : null}
       <Portal>
-        <Dialog visible={courseDialog} onDismiss={() => !workingKey && setCourseDialog(false)}>
-          <Dialog.Title>{editingCourseId ? "Editar curso" : "Nuevo curso"}</Dialog.Title>
-          <Dialog.ScrollArea><ScrollView contentContainerStyle={styles.dialogContent}>
-            <TextInput label="Título" mode="outlined" value={courseForm.titulo} onChangeText={(value) => setCourseForm((current) => ({ ...current, titulo: value }))} />
-            <TextInput label="Descripción" mode="outlined" multiline value={courseForm.descripcion} onChangeText={(value) => setCourseForm((current) => ({ ...current, descripcion: value }))} />
-            <TextInput label="Categoría" mode="outlined" value={courseForm.categoria} onChangeText={(value) => setCourseForm((current) => ({ ...current, categoria: value }))} />
-            <TextInput label="Nivel" mode="outlined" value={courseForm.nivel} onChangeText={(value) => setCourseForm((current) => ({ ...current, nivel: value }))} />
-            <TextInput label="Precio mensual" mode="outlined" keyboardType="decimal-pad" value={courseForm.precioMensual} onChangeText={(value) => setCourseForm((current) => ({ ...current, precioMensual: value }))} />
-            <TextInput label="URL de portada (opcional)" mode="outlined" autoCapitalize="none" value={courseForm.portadaUrl} onChangeText={(value) => setCourseForm((current) => ({ ...current, portadaUrl: value }))} />
+        <Dialog visible={courseDialog} onDismiss={() => !workingKey && setCourseDialog(false)} style={[styles.dialog, { borderColor: palette.border }]}>
+          <BlurView pointerEvents="none" intensity={55} tint={theme.dark ? "dark" : "light"} experimentalBlurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined} style={StyleSheet.absoluteFill} />
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: theme.dark ? "rgba(7,16,24,0.72)" : "rgba(255,255,255,0.68)" }]} />
+          <View style={styles.dialogHeader}><View style={styles.dialogHeaderCopy}><Text style={[styles.dialogEyebrow, { color: palette.accent }]}>CONFIGURACIÓN</Text><Text variant="headlineSmall" style={[styles.dialogTitle, { color: palette.text }]}>{editingCourseId ? "Editar curso" : "Nuevo curso"}</Text><Text style={[styles.dialogSubtitle, { color: palette.muted }]}>Define la información visible y el precio mensual del curso.</Text></View><IconButton icon="close" mode="contained-tonal" style={styles.dialogClose} onPress={() => setCourseDialog(false)} disabled={Boolean(workingKey)} /></View>
+          <Dialog.ScrollArea style={styles.dialogScroll}><ScrollView contentContainerStyle={styles.dialogContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <View style={[styles.formPanel, { backgroundColor: theme.dark ? "rgba(15,23,42,0.42)" : "rgba(255,255,255,0.54)", borderColor: palette.border }]}>
+              <TextInput label="Título" mode="outlined" left={<TextInput.Icon icon="format-title" />} value={courseForm.titulo} onChangeText={(value) => setCourseForm((current) => ({ ...current, titulo: value }))} style={styles.formInput} contentStyle={styles.inputContent} outlineStyle={styles.inputOutline} theme={inputTheme} />
+              <TextInput label="Descripción" mode="outlined" left={<TextInput.Icon icon="text-long" />} multiline value={courseForm.descripcion} onChangeText={(value) => setCourseForm((current) => ({ ...current, descripcion: value }))} style={[styles.formInput, styles.textArea]} contentStyle={[styles.inputContent, styles.textAreaContent]} outlineStyle={styles.inputOutline} theme={inputTheme} />
+              <View style={styles.formRow}><TextInput style={[styles.formField, styles.formInput]} label="Categoría" mode="outlined" value={courseForm.categoria} onChangeText={(value) => setCourseForm((current) => ({ ...current, categoria: value }))} contentStyle={styles.inputContent} outlineStyle={styles.inputOutline} theme={inputTheme} /><TextInput style={[styles.formField, styles.formInput]} label="Nivel" mode="outlined" value={courseForm.nivel} onChangeText={(value) => setCourseForm((current) => ({ ...current, nivel: value }))} contentStyle={styles.inputContent} outlineStyle={styles.inputOutline} theme={inputTheme} /></View>
+            </View>
+            <View style={[styles.formPanel, { backgroundColor: theme.dark ? "rgba(15,23,42,0.42)" : "rgba(255,255,255,0.54)", borderColor: palette.border }]}>
+              <View style={styles.sectionLabelRow}><Text style={[styles.fieldLabel, { color: palette.text }]}>Precio mensual</Text><Text style={[styles.fieldHint, { color: palette.muted }]}>Importe y moneda de cobro</Text></View>
+              <View style={[styles.priceInputGroup, { backgroundColor: theme.dark ? "rgba(15,23,42,0.64)" : "rgba(255,255,255,0.92)", borderColor: palette.border }]}>
+                <TextInput
+                  accessibilityLabel="Importe mensual"
+                  activeUnderlineColor="transparent"
+                  keyboardType="decimal-pad"
+                  left={<TextInput.Icon icon="cash" />}
+                  mode="flat"
+                  placeholder="Importe"
+                  underlineColor="transparent"
+                  value={courseForm.precioMensual}
+                  onChangeText={(value) => setCourseForm((current) => ({ ...current, precioMensual: value }))}
+                  style={styles.priceAmountInput}
+                  contentStyle={styles.priceAmountContent}
+                  theme={inputTheme}
+                />
+                <View style={[styles.priceDivider, { backgroundColor: palette.border }]} />
+                <View style={styles.priceCurrencySelector} accessibilityLabel="Moneda de cobro" accessibilityRole="radiogroup">
+                  {["CUP", "USD"].map((currency) => {
+                    const selected = courseForm.moneda === currency;
+                    return (
+                      <Pressable
+                        accessibilityLabel={`Seleccionar ${currency}`}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: selected }}
+                        key={currency}
+                        onPress={() => setCourseForm((current) => ({ ...current, moneda: currency }))}
+                        style={[styles.priceCurrencyOption, selected && { backgroundColor: palette.accent }]}
+                      >
+                        <Text style={[styles.priceCurrencyText, { color: selected ? "#ffffff" : palette.text }]}>{currency}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+            <View style={[styles.formPanel, { backgroundColor: theme.dark ? "rgba(15,23,42,0.42)" : "rgba(255,255,255,0.54)", borderColor: palette.border }]}>
+              <View style={styles.coverUploadHeader}><View style={styles.coverUploadCopy}><Text style={[styles.fieldLabel, { color: palette.text }]}>Portada del curso</Text><Text style={[styles.fieldHint, { color: palette.muted }]}>Sube una imagen horizontal para el catálogo.</Text></View><Button compact mode="outlined" icon="image-plus" onPress={selectCourseCover}>Seleccionar</Button></View>
+              {coverAsset?.uri || courseForm.portadaUrl ? <Image source={{ uri: coverAsset?.uri || courseForm.portadaUrl }} style={styles.coverPreview} resizeMode="cover" /> : <View style={[styles.coverPlaceholder, { backgroundColor: theme.dark ? "rgba(125,211,252,0.08)" : "rgba(3,105,161,0.06)", borderColor: palette.border }]}><IconButton icon="image-outline" iconColor={palette.accent} size={26} /><Text style={[styles.coverPlaceholderText, { color: palette.muted }]}>Aún no has seleccionado una portada</Text></View>}
+            </View>
           </ScrollView></Dialog.ScrollArea>
-          <Dialog.Actions><Button onPress={() => setCourseDialog(false)}>Cancelar</Button><Button onPress={saveCourse} loading={workingKey === "course"}>{editingCourseId ? "Guardar" : "Crear"}</Button></Dialog.Actions>
+          <Dialog.Actions style={styles.dialogActions}><Button onPress={() => setCourseDialog(false)} style={styles.secondaryAction} labelStyle={styles.actionLabel}>Cancelar</Button><Button mode="contained" icon="check" onPress={saveCourse} loading={workingKey === "course"} style={styles.primaryAction} labelStyle={styles.actionLabel}>{editingCourseId ? "Guardar" : "Crear curso"}</Button></Dialog.Actions>
         </Dialog>
-        <Dialog visible={lessonDialog} onDismiss={() => !workingKey && setLessonDialog(false)}>
-          <Dialog.Title>Nueva lección</Dialog.Title>
-          <Dialog.Content style={styles.dialogContent}>
-            <TextInput label="Título" mode="outlined" value={lessonForm.titulo} onChangeText={(value) => setLessonForm((current) => ({ ...current, titulo: value }))} />
-            <TextInput label="Descripción" mode="outlined" multiline value={lessonForm.descripcion} onChangeText={(value) => setLessonForm((current) => ({ ...current, descripcion: value }))} />
-          </Dialog.Content>
-          <Dialog.Actions><Button onPress={() => setLessonDialog(false)}>Cancelar</Button><Button onPress={createLesson} loading={workingKey === "lesson"}>Crear</Button></Dialog.Actions>
+        <Dialog visible={lessonDialog} onDismiss={() => !workingKey && setLessonDialog(false)} style={[styles.dialog, { borderColor: palette.border }]}>
+          <BlurView pointerEvents="none" intensity={55} tint={theme.dark ? "dark" : "light"} experimentalBlurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined} style={StyleSheet.absoluteFill} />
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: theme.dark ? "rgba(7,16,24,0.72)" : "rgba(255,255,255,0.68)" }]} />
+          <View style={styles.dialogHeader}><View style={styles.dialogHeaderCopy}><Text style={[styles.dialogEyebrow, { color: palette.accent }]}>CONTENIDO</Text><Text variant="headlineSmall" style={[styles.dialogTitle, { color: palette.text }]}>Nueva lección</Text><Text style={[styles.dialogSubtitle, { color: palette.muted }]}>Organiza el contenido que verá el estudiante.</Text></View><IconButton icon="close" mode="contained-tonal" style={styles.dialogClose} onPress={() => setLessonDialog(false)} disabled={Boolean(workingKey)} /></View>
+          <Dialog.ScrollArea style={styles.dialogScroll}><ScrollView contentContainerStyle={styles.dialogContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <View style={[styles.formPanel, { backgroundColor: theme.dark ? "rgba(15,23,42,0.42)" : "rgba(255,255,255,0.54)", borderColor: palette.border }]}>
+              <TextInput label="Título" mode="outlined" left={<TextInput.Icon icon="format-title" />} value={lessonForm.titulo} onChangeText={(value) => setLessonForm((current) => ({ ...current, titulo: value }))} style={styles.formInput} contentStyle={styles.inputContent} outlineStyle={styles.inputOutline} theme={inputTheme} />
+              <TextInput label="Descripción" mode="outlined" left={<TextInput.Icon icon="text-long" />} multiline value={lessonForm.descripcion} onChangeText={(value) => setLessonForm((current) => ({ ...current, descripcion: value }))} style={[styles.formInput, styles.textArea]} contentStyle={[styles.inputContent, styles.textAreaContent]} outlineStyle={styles.inputOutline} theme={inputTheme} />
+            </View>
+          </ScrollView></Dialog.ScrollArea>
+          <Dialog.Actions style={styles.dialogActions}><Button onPress={() => setLessonDialog(false)} style={styles.secondaryAction} labelStyle={styles.actionLabel}>Cancelar</Button><Button mode="contained" icon="plus" onPress={createLesson} loading={workingKey === "lesson"} style={styles.primaryAction} labelStyle={styles.actionLabel}>Crear</Button></Dialog.Actions>
         </Dialog>
       </Portal>
     </View>
@@ -253,10 +394,37 @@ export default function CoursesManagement() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 }, content: { gap: 10, padding: 16, paddingBottom: 100 }, pageIntro: { gap: 5, marginBottom: 10 }, pageTitle: { fontWeight: "900" },
-  courseRow: { alignItems: "center", borderRadius: 8, borderWidth: 1, flexDirection: "row", gap: 10, padding: 13 }, courseCopy: { flex: 1, gap: 4 }, courseTitle: { fontWeight: "850" }, courseActions: { alignItems: "center", flexDirection: "row" },
-  empty: { padding: 24, textAlign: "center" }, lessonsSection: { marginTop: 18 }, sectionHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }, sectionCopy: { flex: 1 }, sectionTitle: { fontWeight: "850" },
-  lessonList: { borderRadius: 8, borderWidth: 1, overflow: "hidden" }, lessonRow: { alignItems: "center", flexDirection: "row", gap: 8, minHeight: 72, padding: 10 }, lessonIndex: { alignItems: "center", justifyContent: "center", width: 28 }, lessonCopy: { flex: 1, gap: 3 }, lessonTitle: { fontSize: 14, fontWeight: "800" }, previewButton: { marginTop: 12 },
-  orderActions: { alignItems: "center" },
-  fab: { bottom: 22, position: "absolute", right: 18 }, dialogContent: { gap: 12, paddingVertical: 8 },
+    root: { flex: 1 }, content: { gap: 12, padding: 16, paddingBottom: 100 }, pageTitle: { fontWeight: "900" },
+    hero: { alignItems: "center", borderRadius: 8, borderWidth: 1, flexDirection: "row", gap: 12, marginBottom: 6, overflow: "hidden", padding: 16 }, heroIcon: { alignItems: "center", borderRadius: 8, height: 52, justifyContent: "center", width: 52 }, heroCopy: { flex: 1, gap: 3 }, heroText: { fontSize: 13, lineHeight: 18 }, heroMetric: { alignItems: "center", minWidth: 52 }, heroMetricValue: { fontSize: 24, fontWeight: "900" }, heroMetricLabel: { fontSize: 11 },
+    courseRow: { alignItems: "center", borderRadius: 8, borderWidth: 1, flexDirection: "row", gap: 10, padding: 14 }, courseCopy: { flex: 1, gap: 5 }, courseTitle: { fontWeight: "850" }, courseActions: { alignItems: "center", flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", maxWidth: 210 }, courseMeta: { alignItems: "center", flexDirection: "row", gap: 6 }, courseCategory: { fontSize: 10, fontWeight: "900" }, statusDot: { borderRadius: 4, height: 6, marginLeft: 4, width: 6 }, statusText: { fontSize: 11 }, coursePrice: { fontSize: 16, fontWeight: "900" }, coursePeriod: { fontSize: 11, fontWeight: "500" },
+    empty: { padding: 24, textAlign: "center" }, lessonsSection: { marginTop: 18 }, sectionHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }, sectionCopy: { flex: 1 }, sectionTitle: { fontWeight: "850" },
+    lessonList: { borderRadius: 8, borderWidth: 1, overflow: "hidden" }, lessonRow: { alignItems: "center", flexDirection: "row", gap: 8, minHeight: 76, padding: 10 }, lessonIndex: { alignItems: "center", borderRadius: 8, height: 36, justifyContent: "center", width: 36 }, lessonCopy: { flex: 1, gap: 3 }, lessonTitle: { fontSize: 14, fontWeight: "800" }, previewButton: { marginTop: 12 },
+    orderActions: { alignItems: "center" },
+    fab: { bottom: 22, position: "absolute", right: 18 },
+    dialog: { borderRadius: 16, borderWidth: 1,  overflow: "hidden" },
+    dialogHeader: { alignItems: "flex-start", flexDirection: "row", gap: 8, justifyContent: "space-between", paddingLeft: 20, paddingRight: 14, paddingTop: 18 },
+    dialogHeaderCopy: { flex: 1, minWidth: 0, paddingTop: 2 },
+    dialogClose: { flexShrink: 0, margin: 0, marginTop: -2 },
+    dialogEyebrow: { fontSize: 10, fontWeight: "900" },
+    dialogTitle: { fontWeight: "900", lineHeight: 30 },
+    dialogSubtitle: { fontSize: 12, lineHeight: 17, marginTop: 1 },
+    dialogScroll: { borderBottomWidth: 0, borderTopWidth: 0 },
+    dialogContent: { gap: 12, paddingBottom: 8, paddingTop: 14 },
+    dialogActions: { paddingBottom: 14, paddingHorizontal: 18 },
+    formRow: { flexDirection: "row", gap: 10 },
+    formField: { flex: 1 },
+    priceSection: { gap: 9 },
+    priceInputGroup: { alignItems: "center", borderRadius: 14, borderWidth: 1, flexDirection: "row", minHeight: 58, overflow: "hidden" },
+    priceAmountInput: { backgroundColor: "transparent", flex: 1, margin: 0 },
+    priceAmountContent: { paddingHorizontal: 0 },
+    priceDivider: { height: 30, width: 1 },
+    priceCurrencySelector: { alignItems: "center", flexDirection: "row", gap: 3, paddingHorizontal: 5 },
+    priceCurrencyOption: { alignItems: "center", borderRadius: 9, justifyContent: "center", minHeight: 40, minWidth: 42, paddingHorizontal: 8 },
+    priceCurrencyText: { fontSize: 12, fontWeight: "900" },
+    coverUploadHeader: { alignItems: "center", flexDirection: "row", gap: 10, justifyContent: "space-between" },
+    coverUploadCopy: { flex: 1, gap: 2 },
+    coverPreview: { aspectRatio: 16 / 9, borderRadius: 12, marginTop: 10, width: "100%" },
+    coverPlaceholder: { alignItems: "center", aspectRatio: 16 / 9, borderRadius: 12, borderStyle: "dashed", borderWidth: 1, justifyContent: "center", marginTop: 10 },
+    coverPlaceholderText: { fontSize: 12 },
+    fieldLabel: { fontSize: 13, fontWeight: "800" },
 });
