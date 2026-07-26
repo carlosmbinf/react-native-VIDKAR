@@ -43,6 +43,7 @@ export default function CoursesManagement() {
   const [workingKey, setWorkingKey] = React.useState(null);
   const [uploadProgress, setUploadProgress] = React.useState({});
   const [coverAsset, setCoverAsset] = React.useState(null);
+  const [earningsPreview, setEarningsPreview] = React.useState({ data: null, error: null, loading: false });
   const palette = {
     accent: theme.dark ? "#7dd3fc" : "#0369a1",
     background: theme.dark ? "#071018" : "#eef6f8",
@@ -73,6 +74,25 @@ export default function CoursesManagement() {
     };
   }, [selectedCourseId]);
   const selectedCourse = data.courses.find((course) => course._id === selectedCourseId) || null;
+
+  React.useEffect(() => {
+    const amount = Number(courseForm.precioMensual);
+    if (!courseDialog || !isProfessor || !Number.isFinite(amount) || amount <= 0) {
+      setEarningsPreview({ data: null, error: null, loading: false });
+      return undefined;
+    }
+    setEarningsPreview((current) => ({ ...current, error: null, loading: true }));
+    const timer = setTimeout(() => {
+      Meteor.call("cursos.ganancias.preview", amount, courseForm.moneda, (error, result) => {
+        if (error) {
+          setEarningsPreview({ data: null, error: error.reason || error.message, loading: false });
+          return;
+        }
+        setEarningsPreview({ data: result, error: null, loading: false });
+      });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [courseDialog, courseForm.moneda, courseForm.precioMensual, isProfessor]);
 
   const run = async (key, action, successMessage) => {
     setWorkingKey(key);
@@ -351,7 +371,7 @@ export default function CoursesManagement() {
                 />
                 <View style={[styles.priceDivider, { backgroundColor: palette.border }]} />
                 <View style={styles.priceCurrencySelector} accessibilityLabel="Moneda de cobro" accessibilityRole="radiogroup">
-                  {["CUP", "USD"].map((currency) => {
+                  {["CUP", "UYU", "USD"].map((currency) => {
                     const selected = courseForm.moneda === currency;
                     return (
                       <Pressable
@@ -368,6 +388,26 @@ export default function CoursesManagement() {
                   })}
                 </View>
               </View>
+              {isProfessor ? (
+                <View style={[styles.earningsPreview, { backgroundColor: theme.dark ? "rgba(3,105,161,0.12)" : "rgba(14,116,144,0.07)", borderColor: palette.border }]}>
+                  <View style={styles.earningsPreviewHeader}>
+                    <IconButton icon="calculator-variant-outline" iconColor={palette.accent} size={20} style={styles.earningsPreviewIcon} />
+                    <View style={styles.earningsPreviewCopy}>
+                      <Text style={[styles.fieldLabel, { color: palette.text }]}>Tu ganancia estimada</Text>
+                      <Text style={[styles.fieldHint, { color: palette.muted }]}>El cálculo definitivo se fija cuando se confirma la compra.</Text>
+                    </View>
+                  </View>
+                  {earningsPreview.loading ? <ActivityIndicator size="small" /> : earningsPreview.error ? (
+                    <Text style={[styles.previewError, { color: "#dc2626" }]}>{earningsPreview.error}</Text>
+                  ) : earningsPreview.data ? (
+                    <View style={styles.earningsPreviewMetrics}>
+                      <View style={styles.previewMetric}><Text style={[styles.previewMetricLabel, { color: palette.muted }]}>Cliente</Text><Text style={[styles.previewMetricValue, { color: palette.text }]}>{Number(courseForm.precioMensual).toFixed(2)} {courseForm.moneda}</Text></View>
+                      <View style={styles.previewMetric}><Text style={[styles.previewMetricLabel, { color: palette.muted }]}>Comisión</Text><Text style={[styles.previewMetricValue, { color: palette.text }]}>{earningsPreview.data.commissionPercent}%</Text></View>
+                      <View style={styles.previewMetric}><Text style={[styles.previewMetricLabel, { color: palette.muted }]}>Recibirás</Text><Text style={[styles.previewMetricValue, { color: palette.primary }]}>{Number(earningsPreview.data.professorAmountUsd).toFixed(2)} USD</Text></View>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
             </View>
             <View style={[styles.formPanel, { backgroundColor: theme.dark ? "rgba(15,23,42,0.42)" : "rgba(255,255,255,0.54)", borderColor: palette.border }]}>
               <View style={styles.coverUploadHeader}><View style={styles.coverUploadCopy}><Text style={[styles.fieldLabel, { color: palette.text }]}>Portada del curso</Text><Text style={[styles.fieldHint, { color: palette.muted }]}>Sube una imagen horizontal para el catálogo.</Text></View><Button compact mode="outlined" icon="image-plus" onPress={selectCourseCover}>Seleccionar</Button></View>
@@ -421,6 +461,15 @@ const styles = StyleSheet.create({
     priceCurrencySelector: { alignItems: "center", flexDirection: "row", gap: 3, paddingHorizontal: 5 },
     priceCurrencyOption: { alignItems: "center", borderRadius: 9, justifyContent: "center", minHeight: 40, minWidth: 42, paddingHorizontal: 8 },
     priceCurrencyText: { fontSize: 12, fontWeight: "900" },
+    earningsPreview: { borderRadius: 8, borderWidth: 1, gap: 10, marginTop: 12, padding: 12 },
+    earningsPreviewHeader: { alignItems: "center", flexDirection: "row", gap: 8 },
+    earningsPreviewIcon: { margin: 0 },
+    earningsPreviewCopy: { flex: 1, gap: 2 },
+    earningsPreviewMetrics: { flexDirection: "row", gap: 8 },
+    previewMetric: { flex: 1, gap: 3, minWidth: 0 },
+    previewMetricLabel: { fontSize: 10, fontWeight: "700" },
+    previewMetricValue: { fontSize: 13, fontWeight: "900" },
+    previewError: { fontSize: 12, lineHeight: 17 },
     coverUploadHeader: { alignItems: "center", flexDirection: "row", gap: 10, justifyContent: "space-between" },
     coverUploadCopy: { flex: 1, gap: 2 },
     coverPreview: { aspectRatio: 16 / 9, borderRadius: 12, marginTop: 10, width: "100%" },

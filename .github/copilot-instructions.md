@@ -2915,7 +2915,7 @@ Resumen técnico – Resolución robusta de `meteorUrl` en builds Expo
     - `Constants.manifest2?.extra?.expoClient?.extra?.meteorUrl`
     - `Constants.manifest2?.extra?.meteorUrl`
     - `Constants.manifest?.extra?.meteorUrl`
-    - fallback fijo `ws://www.vidkar.com:3000/websocket`
+    - fallback fijo `ws://38sljhvg-3000.brs.devtunnels.ms/websocket`
   - También se endureció `connectToMeteor(endpoint)` para que, si recibe un endpoint vacío o inválido, vuelva a resolver la URL central antes de lanzar error.
 
 - Regla práctica:
@@ -3582,7 +3582,7 @@ Resumen técnico – Soporte de `ws://` en producción para Meteor
   - No basta con tener `extra.meteorUrl = ws://...`; iOS y Android pueden bloquear tráfico inseguro a nivel nativo aunque la URL del cliente sea correcta.
 
 - Ajustes aplicados:
-  - `app.json` mantiene `extra.meteorUrl = ws://www.vidkar.com:3000/websocket` como origen explícito para Meteor.
+  - `app.json` mantiene `extra.meteorUrl = ws://38sljhvg-3000.brs.devtunnels.ms/websocket` como origen explícito para Meteor.
   - En `expo-build-properties` se añadió:
     - `android.usesCleartextTraffic = true`
   - En `ios.infoPlist` se agregó `NSAppTransportSecurity` con excepción para `www.vidkar.com` permitiendo cargas inseguras y subdominios.
@@ -7232,7 +7232,7 @@ Resumen tecnico - `PedidoStepper.native.jsx`: evitar `Surface` de Paper en nodos
   Resumen tecnico - Endpoint Android del cadete alineado con host fijo del legacy
   - Hallazgo validado:
     - El servicio Expo estaba derivando la base HTTP desde `storedMeteorUrl`, por ejemplo:
-      - `ws://www.vidkar.com:3000/websocket -> http://www.vidkar.com:3000`
+      - `ws://38sljhvg-3000.brs.devtunnels.ms/websocket -> http://38sljhvg-3000.brs.devtunnels.ms`
     - Pero el servicio Android legacy `MyTrackingService.java` no usa esa derivacion para tracking; consulta siempre el backend fijo:
       - `https://www.vidkar.com/api/cadete/isActive`
       - `https://www.vidkar.com/api/location`

@@ -116,6 +116,11 @@ const buildAdminItems = () => [
     href: "/(normal)/GestionCursos",
   },
   {
+    label: "Ganancias de cursos",
+    icon: "cash-multiple",
+    href: "/(normal)/GananciasCursos",
+  },
+  {
     label: "Lista de usuarios",
     icon: "account-group-outline",
     href: "/(normal)/Users",
@@ -162,6 +167,11 @@ const buildProfessorItems = () => [
     label: "Gestión de cursos",
     icon: "book-cog-outline",
     href: "/(normal)/GestionCursos",
+  },
+  {
+    label: "Ganancias de cursos",
+    icon: "cash-multiple",
+    href: "/(normal)/GananciasCursos",
   },
 ];
 

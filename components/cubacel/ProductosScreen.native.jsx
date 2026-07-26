@@ -1,10 +1,17 @@
+import MeteorBase from "@meteorrn/core";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Surface, Text, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { DTShopProductosCollection } from "../collections/collections";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import Productos from "./Productos.native";
 import TableRecargas from "./TableRecargas";
+
+const Meteor =
+  /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
+    MeteorBase
+  );
 
 const getCubacelPalette = (isDarkMode) => ({
   accent: isDarkMode ? "rgba(59, 130, 246, 0.2)" : "rgba(239, 246, 255, 0.44)",
@@ -21,6 +28,16 @@ const ProductosScreen = () => {
   const theme = useTheme();
   const palette = getCubacelPalette(theme.dark);
   const headerHeight = useAppHeaderContentInset();
+  const { catalogLoading, catalogProducts } = Meteor.useTracker(() => {
+    const handler = Meteor.subscribe("productosDtShop");
+
+    return {
+      catalogLoading: !handler.ready(),
+      catalogProducts: handler.ready()
+        ? DTShopProductosCollection.find({}).fetch()
+        : [],
+    };
+  });
 
   const overviewCards = [
     { label: "Catálogo", value: "Recargas y promociones" },
@@ -46,7 +63,13 @@ const ProductosScreen = () => {
           overScrollMode="never"
           showsVerticalScrollIndicator={false}
         >
-          <Productos isDegradado={true} topBleed={headerHeight} />
+          <Productos
+            catalogLoading={catalogLoading}
+            catalogProducts={catalogProducts}
+            deferData={false}
+            isDegradado={true}
+            topBleed={headerHeight}
+          />
 
           <View style={styles.topSection}>
             <View

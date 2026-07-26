@@ -39,6 +39,15 @@ export const LeccionesCursoCollection = new Mongo.Collection("cursos_lecciones")
 export const SuscripcionesCursoCollection = new Mongo.Collection(
   "cursos_suscripciones",
 );
+export const CursosGananciasConfigCollection = new Mongo.Collection(
+  "cursos_ganancias_config",
+);
+export const CursosGananciasAsignacionesCollection = new Mongo.Collection(
+  "cursos_ganancias_asignaciones",
+);
+export const CursosGananciasMovimientosCollection = new Mongo.Collection(
+  "cursos_ganancias_movimientos",
+);
 export const EvidenciasVentasEfectivoCollection = new Mongo.Collection(
   "evidenciasVentasEfectivo",
 );
@@ -87,6 +96,9 @@ export const collections = {
   CursosCollection,
   LeccionesCursoCollection,
   SuscripcionesCursoCollection,
+  CursosGananciasConfigCollection,
+  CursosGananciasAsignacionesCollection,
+  CursosGananciasMovimientosCollection,
   EvidenciasVentasEfectivoCollection,
   TiendasComercioCollection,
   ProductosComercioCollection,
