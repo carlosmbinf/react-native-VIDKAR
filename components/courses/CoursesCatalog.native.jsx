@@ -2,27 +2,17 @@ import MeteorBase from "@meteorrn/core";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
-import { FlatList, Image, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { FlatList, Image, Pressable, RefreshControl, StyleSheet, TextInput, View } from "react-native";
 import { ActivityIndicator, Icon, Text, useTheme } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
-import { CursosCollection, SuscripcionesCursoCollection } from "../collections/collections";
+import { SuscripcionesCursoCollection } from "../collections/collections";
 
 const Meteor = MeteorBase;
-const COURSE_FIELDS = {
-  categoria: 1,
-  descripcion: 1,
-  moneda: 1,
-  nivel: 1,
-  portadaUrl: 1,
-  precioMensual: 1,
-  profesorId: 1,
-  profesorNombre: 1,
-  profesorUsername: 1,
-  publicado: 1,
-  titulo: 1,
-};
+const callMethod = (name, ...args) => new Promise((resolve, reject) => {
+  Meteor.call(name, ...args, (error, result) => (error ? reject(error) : resolve(result)));
+});
 
 const isSubscriptionActive = (subscription) =>
   subscription?.estado === "ACTIVA" && new Date(subscription.fechaFin) > new Date();
@@ -34,7 +24,11 @@ export default function CoursesCatalog() {
   const headerInset = useAppHeaderContentInset();
   const dataReady = useDeferredScreenData();
   const currentUser = Meteor.user();
+  const currentUserId = Meteor.userId();
   const [query, setQuery] = React.useState("");
+  const [courses, setCourses] = React.useState([]);
+  const [coursesLoading, setCoursesLoading] = React.useState(true);
+  const [refreshing, setRefreshing] = React.useState(false);
   const palette = {
     accent: theme.dark ? "#67e8f9" : "#0e7490",
     background: theme.dark ? "#071018" : "#edf5f7",
@@ -45,16 +39,38 @@ export default function CoursesCatalog() {
     text: theme.dark ? "#f8fafc" : "#10232e",
   };
 
-  const { courses, loading, subscriptions } = Meteor.useTracker(() => {
-    if (!dataReady || !Meteor.userId()) return { courses: [], loading: true, subscriptions: [] };
-    const coursesHandle = Meteor.subscribe("cursos.catalogo");
+  const { subscriptions, subscriptionsLoading } = Meteor.useTracker(() => {
+    if (!dataReady || !currentUserId) return { subscriptions: [], subscriptionsLoading: true };
     const subscriptionsHandle = Meteor.subscribe("cursos.suscripciones.propias");
     return {
-      courses: CursosCollection.find({ publicado: true }, { fields: COURSE_FIELDS, sort: { publishedAt: -1 } }).fetch(),
-      loading: !coursesHandle.ready() || !subscriptionsHandle.ready(),
-      subscriptions: SuscripcionesCursoCollection.find({ userId: Meteor.userId() }).fetch(),
+      subscriptions: SuscripcionesCursoCollection.find({ userId: currentUserId }).fetch(),
+      subscriptionsLoading: !subscriptionsHandle.ready(),
     };
-  }, [dataReady]);
+  }, [currentUserId, dataReady]);
+
+  const loadCourses = React.useCallback(async (isRefresh = false) => {
+    if (!dataReady || !currentUserId) {
+      setCourses([]);
+      setCoursesLoading(Boolean(dataReady));
+      return;
+    }
+
+    if (isRefresh) setRefreshing(true);
+    else setCoursesLoading(true);
+    try {
+      const result = await callMethod("cursos.catalogo.obtener");
+      setCourses(Array.isArray(result?.courses) ? result.courses : []);
+    } catch (_error) {
+      if (!isRefresh) setCourses([]);
+    } finally {
+      if (isRefresh) setRefreshing(false);
+      else setCoursesLoading(false);
+    }
+  }, [currentUserId, dataReady]);
+
+  React.useEffect(() => {
+    loadCourses();
+  }, [loadCourses]);
 
   React.useEffect(() => {
     courses.filter((course) => course.portadaUrl).forEach((course) => {
@@ -107,10 +123,17 @@ export default function CoursesCatalog() {
     <View style={[styles.root, { backgroundColor: palette.background }]}>
       <LinearGradient colors={theme.dark ? ["rgba(8,47,73,0.42)", "transparent"] : ["rgba(165,243,252,0.48)", "transparent"]} style={styles.backgroundWash} />
       <AppHeader title="Cursos" subtitle="Aprende con profesores VIDKAR" showBackButton backHref="/(normal)/Main" overlapContent />
-      <FlatList
-        contentContainerStyle={[styles.content, { paddingTop: headerInset + 14 }]}
+      {coursesLoading || subscriptionsLoading ? (
+        <View style={styles.loadingScreen}>
+          <ActivityIndicator color={palette.accent} size="large" />
+          <Text style={[styles.loadingText, { color: palette.muted }]}>Cargando cursos...</Text>
+        </View>
+      ) : <FlatList
+        contentContainerStyle={[styles.content]}
+        style={{ marginTop: headerInset + 14 }}
         data={filteredCourses}
         keyExtractor={(item) => item._id}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadCourses(true)} />}
         renderItem={renderCourse}
         ListHeaderComponent={
           <View style={styles.headerBlock}>
@@ -121,16 +144,17 @@ export default function CoursesCatalog() {
             <View style={styles.resultRow}><Text style={[styles.resultCount, { color: palette.text }]}>{filteredCourses.length} {filteredCourses.length === 1 ? "curso" : "cursos"}</Text><Text style={[styles.resultHint, { color: palette.muted }]}>Catálogo actualizado</Text></View>
           </View>
         }
-        ListEmptyComponent={loading ? <ActivityIndicator style={styles.empty} /> : (
+        ListEmptyComponent={coursesLoading || subscriptionsLoading ? <ActivityIndicator style={styles.empty} /> : (
           <View style={styles.empty}><Text style={{ color: palette.muted }}>No hay cursos que coincidan con la búsqueda.</Text></View>
         )}
       />
+      }
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1},
   backgroundWash: { height: 300, left: 0, position: "absolute", right: 0, top: 0 },
   content: { padding: 16, paddingBottom: 36 },
   headerBlock: { gap: 7, marginBottom: 18 },

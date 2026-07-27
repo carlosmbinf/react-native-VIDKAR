@@ -307,7 +307,7 @@ export default function CourseEarnings() {
     <View style={[styles.root, { backgroundColor: palette.background }]}>
       <AppHeader title="Ganancias de cursos" showBackButton backHref="/(normal)/Main" overlapContent />
       {data.loading ? <ActivityIndicator style={{ marginTop: headerInset + 80 }} /> : (
-        <FlatList contentContainerStyle={[styles.content, { paddingTop: headerInset + 12 }]} data={data.movements} keyExtractor={(item) => item._id} renderItem={renderMovement} ListHeaderComponent={listHeader} ListEmptyComponent={<Text style={[styles.empty, { color: palette.muted }]}>Todavía no hay movimientos para este beneficiario.</Text>} />
+        <FlatList contentContainerStyle={styles.content} style={{ marginTop: headerInset + 12 }} data={data.movements} keyExtractor={(item) => item._id} renderItem={renderMovement} ListHeaderComponent={listHeader} ListEmptyComponent={<Text style={[styles.empty, { color: palette.muted }]}>Todavía no hay movimientos para este beneficiario.</Text>} />
       )}
 
       <Portal>

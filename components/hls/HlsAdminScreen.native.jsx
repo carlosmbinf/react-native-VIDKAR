@@ -314,7 +314,8 @@ const HlsAdminScreen = () => {
       <AppHeader title="Streaming HLS" subtitle="Runtime del servicio" showBackButton backHref="/(normal)/Main" backgroundColor={DEFAULT_HEADER_COLOR} overlapContent />
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchRuntime()} tintColor={palette.accent} />}
-        contentContainerStyle={[styles.content, { paddingTop: headerInset + 18 }]}
+        contentContainerStyle={styles.content}
+        style={{ marginTop: headerInset + 18 }}
         showsVerticalScrollIndicator={false}
       >
         <RuntimeHero baseUrl={baseUrl} compact={isCompact} onRefresh={() => fetchRuntime()} palette={palette} refreshing={refreshing} snapshot={snapshot} />

@@ -281,7 +281,7 @@ export default function CoursesManagement() {
   return (
     <View style={[styles.root, { backgroundColor: palette.background }]}>
       <AppHeader title="Gestión de cursos" subtitle={isProfessor ? "Panel del profesor" : "Supervisión administrativa"} showBackButton backHref="/(normal)/Main" overlapContent />
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: headerInset + 12 }]}>
+      <ScrollView contentContainerStyle={styles.content} style={{ marginTop: headerInset + 12 }}>
         <LinearGradient colors={theme.dark ? ["#0e3042", "#10202b", "#2a210d"] : ["#dff4fb", "#ffffff", "#fff3d6"]} style={[styles.hero, { borderColor: palette.border }]}>
           <View style={[styles.heroIcon, { backgroundColor: theme.dark ? "rgba(125,211,252,0.12)" : "rgba(3,105,161,0.09)" }]}><IconButton icon="school-outline" iconColor={palette.accent} size={28} /></View>
           <View style={styles.heroCopy}>

@@ -91,7 +91,7 @@ const HlsAdminScreen = () => {
   return (
     <View style={[styles.screen, { backgroundColor: palette.screen }]}> 
       <AppHeader title="Streaming HLS" subtitle="Runtime del servicio" showBackButton backHref="/(normal)/Main" backgroundColor={DEFAULT_HEADER_COLOR} overlapContent />
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: headerInset + 18 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.content} style={{ marginTop: headerInset + 18 }} showsVerticalScrollIndicator={false}>
         <Surface style={styles.heroCard} elevation={0}>
           <View style={styles.heroTopRow}>
             <View style={styles.heroTitleBlock}>

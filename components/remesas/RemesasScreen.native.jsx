@@ -25,7 +25,7 @@ const RemesasScreen = () => {
         showBackButton
         overlapContent
       />
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: headerInset + 12 }]}>
+      <ScrollView contentContainerStyle={styles.content} style={{ marginTop: headerInset + 12 }}>
         {user?.permiteRemesas ? (
           <FormularioRemesa />
         ) : (

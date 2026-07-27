@@ -4,11 +4,11 @@ import * as ScreenOrientation from "expo-screen-orientation";
 import * as SecureStore from "expo-secure-store";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { Alert, Image, Modal as NativeModal, Pressable, ScrollView, StatusBar, StyleSheet, UIManager, View } from "react-native";
+import { Alert, Image, Modal as NativeModal, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, UIManager, View } from "react-native";
 import { ActivityIndicator, Button, Divider, Icon, IconButton, Surface, Text, useTheme } from "react-native-paper";
 
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
-import { CursosCollection, LeccionesCursoCollection, SuscripcionesCursoCollection } from "../collections/collections";
+import { SuscripcionesCursoCollection } from "../collections/collections";
 
 const { VLCPlayer } = require("react-native-vlc-media-player");
 const Meteor = MeteorBase;
@@ -268,7 +268,12 @@ export default function CourseDetail() {
   const [working, setWorking] = React.useState(false);
   const [player, setPlayer] = React.useState(null);
   const [accessCheck, setAccessCheck] = React.useState(null);
+  const [course, setCourse] = React.useState(null);
+  const [lessons, setLessons] = React.useState([]);
+  const [courseLoading, setCourseLoading] = React.useState(true);
+  const [refreshing, setRefreshing] = React.useState(false);
   const normalizedCourseId = Array.isArray(courseId) ? courseId[0] : courseId;
+  const currentUserId = Meteor.userId();
   const palette = {
     accent: theme.dark ? "#67e8f9" : "#0e7490",
     background: theme.dark ? "#071018" : "#edf5f7",
@@ -279,19 +284,50 @@ export default function CourseDetail() {
     text: theme.dark ? "#f8fafc" : "#10232e",
   };
 
-  const data = Meteor.useTracker(() => {
-    if (!normalizedCourseId || !Meteor.userId()) return { course: null, lessons: [], loading: true, subscription: null };
-    const catalog = Meteor.subscribe("cursos.catalogo");
-    const management = Meteor.subscribe("cursos.gestion");
-    const lessons = Meteor.subscribe("cursos.lecciones", normalizedCourseId);
+  const { subscription, subscriptionLoading } = Meteor.useTracker(() => {
+    if (!normalizedCourseId || !currentUserId) return { subscription: null, subscriptionLoading: true };
     const subscriptions = Meteor.subscribe("cursos.suscripciones.propias");
     return {
-      course: CursosCollection.findOne(normalizedCourseId),
-      lessons: LeccionesCursoCollection.find({ cursoId: normalizedCourseId }, { sort: { orden: 1 } }).fetch(),
-      loading: !catalog.ready() || !management.ready() || !lessons.ready() || !subscriptions.ready(),
-      subscription: SuscripcionesCursoCollection.findOne({ cursoId: normalizedCourseId, userId: Meteor.userId() }),
+      subscription: SuscripcionesCursoCollection.findOne({ cursoId: normalizedCourseId, userId: currentUserId }),
+      subscriptionLoading: !subscriptions.ready(),
     };
-  }, [normalizedCourseId]);
+  }, [currentUserId, normalizedCourseId]);
+
+  const loadCourseDetail = React.useCallback(async (isRefresh = false) => {
+    if (!normalizedCourseId || !currentUserId) {
+      setCourse(null);
+      setLessons([]);
+      setCourseLoading(Boolean(normalizedCourseId));
+      return;
+    }
+
+    if (isRefresh) setRefreshing(true);
+    else setCourseLoading(true);
+    try {
+      const result = await callMethod("cursos.detalle.obtener", normalizedCourseId);
+      setCourse(result?.course || null);
+      setLessons(Array.isArray(result?.lessons) ? result.lessons : []);
+    } catch (_error) {
+      if (!isRefresh) {
+        setCourse(null);
+        setLessons([]);
+      }
+    } finally {
+      if (isRefresh) setRefreshing(false);
+      else setCourseLoading(false);
+    }
+  }, [currentUserId, normalizedCourseId]);
+
+  React.useEffect(() => {
+    loadCourseDetail();
+  }, [loadCourseDetail]);
+
+  const data = {
+    course,
+    lessons,
+    loading: courseLoading || subscriptionLoading,
+    subscription,
+  };
 
   React.useEffect(() => {
     if (data.course?.portadaUrl) {
@@ -375,7 +411,15 @@ export default function CourseDetail() {
   };
 
   if (data.loading && !data.course) {
-    return <View style={[styles.center, { backgroundColor: palette.background }]}><ActivityIndicator /></View>;
+    return (
+      <View style={[styles.root, { backgroundColor: palette.background }]}>
+        <AppHeader title="Detalle del curso" showBackButton backHref="/(normal)/Cursos" />
+        <View style={styles.loadingScreen}>
+          <ActivityIndicator color={palette.accent} size="large" />
+          <Text style={[styles.loadingText, { color: palette.muted }]}>Cargando curso...</Text>
+        </View>
+      </View>
+    );
   }
   if (!data.course) {
     return <View style={[styles.center, { backgroundColor: palette.background }]}><Text>Curso no encontrado.</Text></View>;
@@ -384,7 +428,11 @@ export default function CourseDetail() {
   return (
     <View style={[styles.root, { backgroundColor: palette.background }]}>
       <AppHeader title="Detalle del curso" subtitle={data.course.profesorNombre} showBackButton backHref="/(normal)/Cursos" overlapContent />
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: headerInset + 12 }]}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        style={{ marginTop: headerInset + 12 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadCourseDetail(true)} />}
+      >
         <View style={[styles.hero, { borderColor: palette.border }]}>
           {data.course.portadaUrl ? <Image source={{ uri: data.course.portadaUrl }} style={styles.cover} /> : <LinearGradient colors={theme.dark ? ["#113344", "#172554", "#3b2a0d"] : ["#cffafe", "#dbeafe", "#fef3c7"]} style={styles.coverFallback}><Icon source="book-education-outline" color={palette.accent} size={72} /></LinearGradient>}
           <LinearGradient colors={["rgba(2,8,13,0.02)", "rgba(2,8,13,0.32)", "rgba(2,8,13,0.94)"]} locations={[0, 0.46, 1]} style={StyleSheet.absoluteFill} />

@@ -591,10 +591,8 @@ const MenuPrincipalScreen = ({
 
         {!normalHomeCatalogsLoading && !homeRefreshing ? (
           <ScrollView
-            contentContainerStyle={[
-            styles.scrollContent,
-            { paddingTop: headerInset + 12 },
-            ]}
+            contentContainerStyle={styles.scrollContent}
+            style={{ marginTop: headerInset + 12 }}
             alwaysBounceVertical
             bounces
             overScrollMode="always"
