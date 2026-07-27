@@ -4,8 +4,10 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import * as Sharing from "expo-sharing";
 import React from "react";
-import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { ActivityIndicator, Button, Dialog, Divider, Icon, Menu, Portal, SegmentedButtons, Surface, Text, TextInput, useTheme } from "react-native-paper";
+import { BarChart, LineChart } from "react-native-chart-kit";
+import { G, Polygon, Rect, Text as SvgText } from "react-native-svg";
 
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { CursosGananciasMovimientosCollection } from "../collections/collections";
@@ -33,6 +35,7 @@ const movementMeta = {
 
 export default function CourseEarnings() {
   const theme = useTheme();
+  const { width } = useWindowDimensions();
   const headerInset = useAppHeaderContentInset();
   const currentUser = Meteor.user();
   const isPrincipal = PRINCIPAL_USERNAMES.includes(String(currentUser?.username || "").toLowerCase());
@@ -51,6 +54,9 @@ export default function CourseEarnings() {
   const [errors, setErrors] = React.useState([]);
   const [working, setWorking] = React.useState(false);
   const [summary, setSummary] = React.useState({ balance: 0, generated: 0, paid: 0, reversed: 0 });
+  const [dashboard, setDashboard] = React.useState({ months: [], courses: [] });
+  const [dashboardMonths, setDashboardMonths] = React.useState(6);
+  const [activeChartPoint, setActiveChartPoint] = React.useState(null);
   const palette = {
     background: theme.dark ? "#071018" : "#edf5f7",
     border: theme.dark ? "rgba(125,211,252,0.18)" : "rgba(14,116,144,0.14)",
@@ -96,6 +102,15 @@ export default function CourseEarnings() {
     }
   }, [selectedBeneficiaryId]);
 
+  const loadDashboard = React.useCallback(async () => {
+    try {
+      const result = await callMethod("cursos.ganancias.dashboard", selectedBeneficiaryId, { months: dashboardMonths });
+      setDashboard({ months: result?.months || [], courses: result?.courses || [] });
+    } catch (error) {
+      Alert.alert("No se pudo cargar la evolución", error.reason || error.message);
+    }
+  }, [dashboardMonths, selectedBeneficiaryId]);
+
   const loadPrincipalData = React.useCallback(async () => {
     if (!isPrincipal) return;
     try {
@@ -119,6 +134,9 @@ export default function CourseEarnings() {
   React.useEffect(() => {
     loadSummary();
   }, [loadSummary, data.movements.length]);
+  React.useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard, data.movements.length]);
 
   const run = async (action, successMessage) => {
     setWorking(true);
@@ -241,6 +259,22 @@ export default function CourseEarnings() {
   const paymentAmount = paymentForm.paymentType === "TOTAL" ? summary.balance : partialAmount;
   const remainingBalance = Number.isFinite(paymentAmount) ? Math.max(0, summary.balance - paymentAmount) : summary.balance;
   const paymentInvalid = paymentForm.paymentType === "PARTIAL" && (!Number.isFinite(partialAmount) || partialAmount <= 0 || partialAmount > summary.balance);
+  const chartWidth = Math.max(280, width - 48);
+  const renderChartCallout = () => {
+    if (!activeChartPoint) return null;
+    const calloutWidth = 138;
+    const calloutHeight = 30;
+    const calloutX = Math.min(Math.max(activeChartPoint.x - calloutWidth / 2, 4), chartWidth - calloutWidth - 4);
+    const calloutY = Math.max(4, activeChartPoint.y - calloutHeight - 12);
+    const label = `${dashboard.months[activeChartPoint.index]?.month} · ${money(activeChartPoint.value)}`;
+    return (
+      <G>
+        <Rect fill={palette.text} height={calloutHeight} rx={6} width={calloutWidth} x={calloutX} y={calloutY} />
+        <Polygon fill={palette.text} points={`${activeChartPoint.x - 6},${calloutY + calloutHeight} ${activeChartPoint.x + 6},${calloutY + calloutHeight} ${activeChartPoint.x},${activeChartPoint.y - 4}`} />
+        <SvgText fill={palette.background} fontSize={11} fontWeight="900" textAnchor="middle" x={calloutX + calloutWidth / 2} y={calloutY + 19}>{label}</SvgText>
+      </G>
+    );
+  };
 
   const renderMovement = ({ item }) => {
     const meta = movementMeta[item.reason] || { color: palette.muted, icon: "swap-horizontal", label: item.reason || "Movimiento" };
@@ -287,6 +321,20 @@ export default function CourseEarnings() {
         <View style={[styles.metric, { borderColor: palette.border }]}><Text style={[styles.metricLabel, { color: palette.muted }]}>Pagado</Text><Text style={[styles.metricValue, { color: palette.text }]}>{money(summary.paid)}</Text></View>
         <View style={[styles.metric, { borderColor: palette.border }]}><Text style={[styles.metricLabel, { color: palette.muted }]}>Revertido</Text><Text style={[styles.metricValue, { color: palette.text }]}>{money(summary.reversed)}</Text></View>
       </View>
+
+      <View style={styles.periodRow}>
+        {[3, 6, 12].map((value) => <Button key={value} compact mode={dashboardMonths === value ? "contained-tonal" : "outlined"} onPress={() => setDashboardMonths(value)}>{value} meses</Button>)}
+      </View>
+
+      <Surface style={[styles.chartSurface, { backgroundColor: palette.card, borderColor: palette.border }]} elevation={0}>
+        <View style={styles.chartHeader}><Text style={[styles.sectionTitle, { color: palette.text }]}>Evolución de fondos</Text><Text style={[styles.chartCaption, { color: palette.muted }]}>USD por mes</Text></View>
+        {dashboard.months.length ? <LineChart bezier chartConfig={{ backgroundGradientFrom: palette.card, backgroundGradientTo: palette.card, color: (opacity = 1) => theme.dark ? `rgba(103,232,249,${opacity})` : `rgba(14,116,144,${opacity})`, labelColor: (opacity = 1) => theme.dark ? `rgba(226,232,240,${opacity})` : `rgba(88,112,124,${opacity})`, propsForDots: { r: "4" }, strokeWidth: 2 }} data={{ labels: dashboard.months.map((item) => item.month.slice(5)), datasets: [{ data: dashboard.months.map((item) => Number(item.creditsUsd || 0)), color: () => theme.dark ? "#67e8f9" : "#0e7490" }, { data: dashboard.months.map((item) => Number(item.debitsUsd || 0)), color: () => "#f87171" }] }} decorator={renderChartCallout} height={270} hideLegend={false} onDataPointClick={(point) => setActiveChartPoint({ index: point.index, value: point.value, x: point.x, y: point.y })} style={styles.chart} width={chartWidth} withInnerLines={false} /> : <Text style={[styles.chartEmpty, { color: palette.muted }]}>No hay datos para este período.</Text>}
+      </Surface>
+
+      <Surface style={[styles.chartSurface, { backgroundColor: palette.card, borderColor: palette.border }]} elevation={0}>
+        <View style={styles.chartHeader}><Text style={[styles.sectionTitle, { color: palette.text }]}>Cursos con mayor aporte</Text><Text style={[styles.chartCaption, { color: palette.muted }]}>Top 5</Text></View>
+        {dashboard.courses.length ? <BarChart chartConfig={{ backgroundGradientFrom: palette.card, backgroundGradientTo: palette.card, barPercentage: 0.65, color: (opacity = 1) => theme.dark ? `rgba(56,189,248,${opacity})` : `rgba(14,116,144,${opacity})`, labelColor: (opacity = 1) => theme.dark ? `rgba(226,232,240,${opacity})` : `rgba(88,112,124,${opacity})` }} data={{ labels: dashboard.courses.slice(0, 5).map((item) => String(item.courseTitle || "Curso").slice(0, 9)), datasets: [{ data: dashboard.courses.slice(0, 5).map((item) => Number(item.generatedUsd || 0)) }] }} height={220} showValuesOnTopOfBars width={Math.max(280, width - 48)} /> : <Text style={[styles.chartEmpty, { color: palette.muted }]}>Aún no hay cursos con ganancias.</Text>}
+      </Surface>
 
       {isPrincipal && errors.length ? (
         <View style={styles.errorSection}>
@@ -380,6 +428,12 @@ const styles = StyleSheet.create({
   metric: { borderBottomWidth: 2, flex: 1, gap: 4, padding: 10 },
   metricLabel: { fontSize: 10, fontWeight: "700" },
   metricValue: { fontSize: 14, fontWeight: "900" },
+  periodRow: { flexDirection: "row", gap: 8, justifyContent: "flex-end" },
+  chartSurface: { borderRadius: 8, borderWidth: 1, padding: 12 },
+  chartHeader: { alignItems: "baseline", flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
+  chartCaption: { fontSize: 11 },
+  chart: { marginLeft: -8, paddingTop: 52 },
+  chartEmpty: { minHeight: 160, padding: 28, textAlign: "center" },
   sectionTitle: { fontSize: 16, fontWeight: "900", marginTop: 5 },
   movement: { alignItems: "center", borderRadius: 8, borderWidth: 1, flexDirection: "row", gap: 10, minHeight: 72, padding: 11 },
   movementIcon: { alignItems: "center", borderRadius: 8, height: 40, justifyContent: "center", width: 40 },

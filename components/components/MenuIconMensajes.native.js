@@ -83,7 +83,7 @@ const MessageMenuContent = ({ conversations, currentUserId, onOpenThread }) => (
               right={(props) =>
                 unreadCount ? (
                   <Badge {...props}>
-                    <Text>{unreadCount}</Text>
+                    <Text style={{ color: "#ffffff" }}>{unreadCount}</Text>
                   </Badge>
                 ) : null
               }
@@ -203,7 +203,7 @@ const MenuIconMensajesNative = ({ onOpenMessages }) => {
     !loading && users.length > 0 && countMensajes ? (
       <View collapsable={false} style={styles.anchorContainer}>
         <Badge style={styles.anchorBadge}>
-          <Text>{countMensajes}</Text>
+          <Text style={{ color: theme.dark ? "#000000" : "#ffffff" }}>{countMensajes}</Text>
         </Badge>
         <IconButton
           icon="email"
