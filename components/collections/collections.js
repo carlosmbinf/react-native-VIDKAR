@@ -48,6 +48,15 @@ export const CursosGananciasAsignacionesCollection = new Mongo.Collection(
 export const CursosGananciasMovimientosCollection = new Mongo.Collection(
   "cursos_ganancias_movimientos",
 );
+export const CursosCategoriasCollection = new Mongo.Collection(
+  "cursos_categorias",
+);
+export const EvaluacionesIASesionesCollection = new Mongo.Collection(
+  "evaluaciones_ia_sesiones",
+);
+export const EvaluacionesIAAsignacionesCollection = new Mongo.Collection(
+  "evaluaciones_ia_asignaciones",
+);
 export const EvidenciasVentasEfectivoCollection = new Mongo.Collection(
   "evidenciasVentasEfectivo",
 );
@@ -99,6 +108,9 @@ export const collections = {
   CursosGananciasConfigCollection,
   CursosGananciasAsignacionesCollection,
   CursosGananciasMovimientosCollection,
+  CursosCategoriasCollection,
+  EvaluacionesIASesionesCollection,
+  EvaluacionesIAAsignacionesCollection,
   EvidenciasVentasEfectivoCollection,
   TiendasComercioCollection,
   ProductosComercioCollection,

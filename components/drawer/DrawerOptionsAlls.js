@@ -116,6 +116,11 @@ const buildAdminItems = () => [
     href: "/(normal)/GestionCursos",
   },
   {
+    label: "Evaluaciones con IA",
+    icon: "brain",
+    href: "/(normal)/EvaluacionesIA",
+  },
+  {
     label: "Ganancias de cursos",
     icon: "cash-multiple",
     href: "/(normal)/GananciasCursos",
