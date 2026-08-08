@@ -2,6 +2,7 @@ import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import MeteorBase from "@meteorrn/core";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { BlurView } from "expo-blur";
+import * as WebBrowser from "expo-web-browser";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -49,6 +50,7 @@ const LOGIN_CONFIG_FIELDS = {
 };
 const IOS_LOGIN_KEYBOARD_OFFSET = 120;
 const ANDROID_LOGIN_KEYBOARD_OFFSET = 96;
+const PRIVACY_POLICY_URL = "https://www.vidkar.com/politica-privacidad";
 
 let cachedGoogleSignInModulePromise = null;
 
@@ -262,6 +264,7 @@ const Loguin = () => {
   const scrollContentRef = React.useRef(null);
   const passwordInputRef = React.useRef(null);
   const loginButtonAnchorRef = React.useRef(null);
+  const openPrivacyPolicy = () => WebBrowser.openBrowserAsync(PRIVACY_POLICY_URL);
 
   const theme = useTheme();
   const isDarkMode = theme.dark;
@@ -1262,6 +1265,16 @@ const Loguin = () => {
                       Gestiona lo que vendes y atiendes cada día desde un solo
                       lugar.
                     </Text>
+
+                    <Button
+                      mode="text"
+                      compact
+                      onPress={openPrivacyPolicy}
+                      textColor={palette.secondaryButtonText}
+                      accessibilityLabel="Abrir política de privacidad"
+                    >
+                      Política de privacidad
+                    </Button>
 
                     {connectingToServer ? (
                       <Text

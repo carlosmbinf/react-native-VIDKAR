@@ -441,7 +441,7 @@ const executeCadeteLocationSend = async ({
     return null;
   }
 
-  const permissions = await ensureCadeteLocationPermissions({ request: true });
+  const permissions = await ensureCadeteLocationPermissions({ request: false });
   if (!permissions.granted) {
     await writeCadeteLocationStatus({
       lastError:
@@ -618,7 +618,11 @@ export const stopCadeteBackgroundLocation = async ({ clearConfig = true } = {}) 
   });
 };
 
-export const startCadeteBackgroundLocation = async ({ userId, meteorUrl } = {}) => {
+export const startCadeteBackgroundLocation = async ({
+  meteorUrl,
+  requestPermissions = true,
+  userId,
+} = {}) => {
   if (!userId) {
     await stopCadeteBackgroundLocation();
     return { reason: "missing-user", started: false };
@@ -627,7 +631,9 @@ export const startCadeteBackgroundLocation = async ({ userId, meteorUrl } = {}) 
   if (hasNativeCadeteBackgroundTracking) {
     await stopExpoCadeteLocationTaskIfRunning();
 
-    const permissions = await ensureCadeteLocationPermissions({ request: true });
+    const permissions = await ensureCadeteLocationPermissions({
+      request: requestPermissions,
+    });
     if (!permissions.granted) {
       await writeCadeteLocationStatus({
         lastError:
@@ -678,7 +684,9 @@ export const startCadeteBackgroundLocation = async ({ userId, meteorUrl } = {}) 
     return { reason: "task-not-defined", started: false };
   }
 
-  const permissions = await ensureCadeteLocationPermissions({ request: true });
+  const permissions = await ensureCadeteLocationPermissions({
+    request: requestPermissions,
+  });
   if (!permissions.granted) {
     await writeCadeteLocationStatus({
       lastError:
@@ -729,14 +737,18 @@ export const startCadeteBackgroundLocation = async ({ userId, meteorUrl } = {}) 
   return { started: true };
 };
 
-export const syncCadeteBackgroundLocation = async ({ enabled, userId } = {}) => {
+export const syncCadeteBackgroundLocation = async ({
+  enabled,
+  requestPermissions = true,
+  userId,
+} = {}) => {
   if (hasNativeCadeteBackgroundTracking) {
     if (!enabled || !userId) {
       await stopCadeteBackgroundLocation();
       return { started: false, stopped: true, native: true };
     }
 
-    return startCadeteBackgroundLocation({ userId });
+    return startCadeteBackgroundLocation({ requestPermissions, userId });
   }
 
   if (!enabled || !userId) {
@@ -744,7 +756,7 @@ export const syncCadeteBackgroundLocation = async ({ enabled, userId } = {}) => 
     return { started: false, stopped: true };
   }
 
-  return startCadeteBackgroundLocation({ userId });
+  return startCadeteBackgroundLocation({ requestPermissions, userId });
 };
 
 export const subscribeCadeteLocationStatus = (listener) => {

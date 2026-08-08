@@ -245,10 +245,38 @@ const showCadeteLocationErrorAlert = (
   );
 };
 
+const confirmCadeteLocationDisclosure = () =>
+  new Promise((resolve) => {
+    Alert.alert(
+      "Ubicación en segundo plano",
+      "Al activar el modo cadete, VIDKAR recopilará tu ubicación precisa, incluso con la app cerrada o en segundo plano, para mostrarte disponible, asignarte entregas y actualizar su estado. La ubicación se envía a VIDKAR solo mientras el modo cadete esté activo. Puedes detenerlo saliendo de este modo o revocando el permiso desde los ajustes.",
+      [
+        {
+          text: "Cancelar",
+          onPress: () => resolve(false),
+          style: "cancel",
+        },
+        {
+          text: "Continuar",
+          onPress: () => resolve(true),
+        },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    );
+  });
+
 const prepareCadeteRealtimeLocation = async (userId) => {
   if (!userId) {
     throw createCadeteLocationError(
       "No se pudo identificar tu sesión para activar el modo cadete.",
+    );
+  }
+
+  const disclosureAccepted = await confirmCadeteLocationDisclosure();
+  if (!disclosureAccepted) {
+    throw createCadeteLocationError(
+      "Debes aceptar el aviso de ubicación para activar el modo cadete.",
+      { code: "cadete-location-disclosure-declined" },
     );
   }
 
@@ -705,7 +733,18 @@ const MenuPrincipalNative = () => {
                 await prepareCadeteRealtimeLocation(currentUserId);
               }
 
-              await callMeteorMethod("users.toggleModoCadete", nextState);
+              const modeResult = await callMeteorMethod(
+                "users.toggleModoCadete",
+                nextState,
+              );
+              if (
+                modeResult?.success !== true ||
+                modeResult?.modoCadete !== nextState
+              ) {
+                throw new Error(
+                  "El servidor no confirmó el cambio al modo cadete.",
+                );
+              }
               cadeteModeActivated = nextState;
 
               const trackingResult = await syncCadeteBackgroundLocation({
@@ -720,7 +759,9 @@ const MenuPrincipalNative = () => {
                 throw new Error(trackingErrorMessage);
               }
 
-              router.replace("/");
+              router.replace(
+                nextState ? "/(cadete)/CadeteNavigator" : "/",
+              );
 
               Alert.alert(
                 "Éxito",

@@ -251,6 +251,7 @@ export default function IndexScreen() {
       try {
         await syncCadeteBackgroundLocation({
           enabled: shouldEnableCadeteTracking,
+          requestPermissions: false,
           userId: shouldEnableCadeteTracking ? userId : undefined,
         });
       } catch (error) {
