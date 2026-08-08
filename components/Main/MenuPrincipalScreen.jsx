@@ -556,43 +556,11 @@ const MenuPrincipalScreen = ({
           />
         </RenderTraceBlock>
 
-        {normalHomeCatalogsLoading || homeRefreshing ? (
-          <Surface
-            elevation={2}
-            style={[styles.homeLoadingCard, { marginTop: headerInset + 12 }]}
-          >
-            <View style={styles.homeLoadingHeader}>
-              <View style={styles.homeLoadingTitleGroup}>
-                <Text style={styles.homeLoadingEyebrow}>Menú principal</Text>
-                <Text style={styles.homeLoadingLabel}>
-                  {homeLoadProgress.label}
-                </Text>
-              </View>
-              <Text style={styles.homeLoadingPercent}>
-                {Math.round(
-                  (homeLoadProgress.completed / homeLoadProgress.total) * 100,
-                )}%
-              </Text>
-            </View>
-            <ProgressBar
-              color="#fb923c"
-              progress={
-                homeLoadProgress.total > 0
-                  ? homeLoadProgress.completed / homeLoadProgress.total
-                  : 0
-              }
-              style={styles.homeLoadingProgress}
-            />
-            <Text style={styles.homeLoadingStep}>
-              {homeLoadProgress.completed} de {homeLoadProgress.total} bloques cargados
-            </Text>
-          </Surface>
-        ) : null}
-
-        {!normalHomeCatalogsLoading && !homeRefreshing ? (
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            style={{ marginTop: headerInset + 12 }}
+        <ScrollView
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingTop: headerInset + 12 },
+            ]}
             alwaysBounceVertical
             bounces
             overScrollMode="always"
@@ -600,11 +568,42 @@ const MenuPrincipalScreen = ({
               <RefreshControl
                 colors={["#f97316"]}
                 onRefresh={onRefresh}
+                progressViewOffset={headerInset + 12}
                 refreshing={normalHomeCatalogsLoading || homeRefreshing}
                 tintColor="#f97316"
               />
             }
           >
+          {normalHomeCatalogsLoading || homeRefreshing ? (
+            <Surface elevation={2} style={styles.homeLoadingCard}>
+              <View style={styles.homeLoadingHeader}>
+                <View style={styles.homeLoadingTitleGroup}>
+                  <Text style={styles.homeLoadingEyebrow}>Menú principal</Text>
+                  <Text style={styles.homeLoadingLabel}>
+                    {homeLoadProgress.label}
+                  </Text>
+                </View>
+                <Text style={styles.homeLoadingPercent}>
+                  {Math.round(
+                    (homeLoadProgress.completed / homeLoadProgress.total) * 100,
+                  )}%
+                </Text>
+              </View>
+              <ProgressBar
+                color="#fb923c"
+                progress={
+                  homeLoadProgress.total > 0
+                    ? homeLoadProgress.completed / homeLoadProgress.total
+                    : 0
+                }
+                style={styles.homeLoadingProgress}
+              />
+              <Text style={styles.homeLoadingStep}>
+                {homeLoadProgress.completed} de {homeLoadProgress.total} bloques cargados
+              </Text>
+            </Surface>
+          ) : (
+            <>
           <Surface
             style={styles.heroCard}
             elevation={2}
@@ -1521,8 +1520,9 @@ const MenuPrincipalScreen = ({
               </Text>
             </View>
           )}
+            </>
+          )}
           </ScrollView>
-        ) : null}
 
         <Portal>
           {drawerMounted ? (

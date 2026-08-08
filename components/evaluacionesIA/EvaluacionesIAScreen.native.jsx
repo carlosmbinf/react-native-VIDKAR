@@ -1,6 +1,6 @@
 import MeteorBase from "@meteorrn/core";
 import { LinearGradient } from "expo-linear-gradient";
-import { useNavigation } from "expo-router";
+import { useLocalSearchParams, useNavigation } from "expo-router";
 import React from "react";
 import { Alert, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
@@ -107,10 +107,12 @@ const getHistoryCardVisual = (status, darkMode) => {
 export default function EvaluacionesIAScreen() {
   const theme = useTheme();
   const navigation = useNavigation();
+  const { categoriaId } = useLocalSearchParams();
   const { height: windowHeight } = useWindowDimensions();
   const headerInset = useAppHeaderContentInset();
   const currentUser = Meteor.user();
-  const allowed = currentUser?.profile?.role === "admin" || String(currentUser?.username || "").toLowerCase() === "carlosmbinf";
+  const isAdminUser = currentUser?.profile?.role === "admin" || String(currentUser?.username || "").toLowerCase() === "carlosmbinf";
+  const initialCategoryId = normalizeId(Array.isArray(categoriaId) ? categoriaId[0] : categoriaId);
   const [tab, setTab] = React.useState("evaluation");
   const [selectedCategoryId, setSelectedCategoryId] = React.useState("");
   const [session, setSession] = React.useState(null);
@@ -137,7 +139,7 @@ export default function EvaluacionesIAScreen() {
   const categoryBodyMaxHeight = Math.max(260, Math.min(windowHeight * 0.6, 560));
 
   const data = Meteor.useTracker(() => {
-    if (!allowed || !Meteor.userId()) return { categories: [], loading: false, sessions: [] };
+    if (!Meteor.userId()) return { categories: [], loading: false, sessions: [] };
     const categoriesHandle = Meteor.subscribe("evaluacionesIA.categorias");
     const sessionsHandle = Meteor.subscribe("evaluacionesIA.sesiones", { limit: 100 });
     return {
@@ -145,12 +147,21 @@ export default function EvaluacionesIAScreen() {
       loading: !categoriesHandle.ready() || !sessionsHandle.ready(),
       sessions: EvaluacionesIASesionesCollection.find({}, { sort: { createdAt: -1 } }).fetch(),
     };
-  }, [allowed]);
+  }, []);
 
   const activeSession = Boolean(session && !result);
-  const activeCategories = data.categories.filter((category) => category.activa);
+  const activeCategories = React.useMemo(
+    () => data.categories.filter((category) => category.activa),
+    [data.categories],
+  );
   const selectedCategory = activeCategories.find((category) => normalizeId(category._id) === selectedCategoryId);
   const dropdownData = activeCategories.map((category) => ({ label: category.nombre, value: normalizeId(category._id) }));
+
+  React.useEffect(() => {
+    if (initialCategoryId && activeCategories.some((category) => normalizeId(category._id) === initialCategoryId)) {
+      setSelectedCategoryId(initialCategoryId);
+    }
+  }, [activeCategories, initialCategoryId]);
 
   const showError = (error) => Alert.alert(
     "No se pudo completar",
@@ -194,7 +205,7 @@ export default function EvaluacionesIAScreen() {
     setSession(null);
     setResult(null);
     setAnswer("");
-    setSelectedCategoryId("");
+    setSelectedCategoryId(initialCategoryId || "");
   };
 
   const cancelActiveSession = async () => {
@@ -336,25 +347,16 @@ export default function EvaluacionesIAScreen() {
     );
   };
 
-  if (!allowed) {
-    return (
-      <View style={[styles.root, { backgroundColor: palette.background }]}>
-        <AppHeader title="Evaluaciones con IA" showBackButton backHref="/(normal)/Main" />
-        <View style={[styles.denied, { paddingTop: headerInset }]}><Icon source="shield-lock-outline" size={48} color={palette.muted} /><Text variant="headlineSmall">Sin acceso</Text><Text style={{ color: palette.muted, textAlign: "center" }}>Esta herramienta está disponible únicamente para administradores.</Text></View>
-      </View>
-    );
-  }
-
   return (
     <View style={[styles.root, { backgroundColor: palette.background }]}>
-      <AppHeader title="Evaluaciones con IA" subtitle="Laboratorio administrativo" showBackButton backHref="/(normal)/Main" overlapContent />
+      <AppHeader title="Evaluaciones con IA" subtitle={isAdminUser ? "Laboratorio administrativo" : "Ruta de aprendizaje"} showBackButton backHref="/(normal)/Main" overlapContent />
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: headerInset + 12 }]} keyboardShouldPersistTaps="handled">
         <LinearGradient colors={theme.dark ? ["#0a1628", "#0d3a3f"] : ["#dff8f3", "#ffffff"]} style={[styles.hero, { borderColor: palette.border }]}>
-          <View style={styles.heroCopy}><Text style={[styles.eyebrow, { color: palette.accent }]}>LABORATORIO ADMINISTRATIVO</Text><Text variant="headlineMedium" style={[styles.title, { color: palette.text }]}>Evaluaciones con IA</Text><Text style={[styles.subtitle, { color: palette.muted }]}>Categorías adaptativas, pruebas guiadas y resultados auditables.</Text></View>
+          <View style={styles.heroCopy}><Text style={[styles.eyebrow, { color: palette.accent }]}>{isAdminUser ? "LABORATORIO ADMINISTRATIVO" : "RUTA DE APRENDIZAJE"}</Text><Text variant="headlineMedium" style={[styles.title, { color: palette.text }]}>Evaluaciones con IA</Text><Text style={[styles.subtitle, { color: palette.muted }]}>Evalúa tus conocimientos y desbloquea cursos sin perder el nivel alcanzado.</Text></View>
           <Icon source="brain" size={54} color={palette.accent} />
         </LinearGradient>
 
-        <View style={[styles.tabs, { borderColor: palette.border }]}>
+        {isAdminUser ? <View style={[styles.tabs, { borderColor: palette.border }]}>
           {[
             { icon: "clipboard-text-outline", key: "evaluation", label: "Nueva prueba" },
             { icon: "shape-outline", key: "categories", label: "Categorías" },
@@ -363,7 +365,7 @@ export default function EvaluacionesIAScreen() {
             const selected = tab === item.key;
             return <Pressable accessibilityRole="tab" accessibilityState={{ selected }} key={item.key} onPress={() => !activeSession && setTab(item.key)} style={[styles.tab, selected && { backgroundColor: palette.accent }]}><Icon source={item.icon} size={20} color={selected ? "#05201f" : palette.muted} /><Text style={[styles.tabLabel, { color: selected ? "#05201f" : palette.muted }]}>{item.label}</Text></Pressable>;
           })}
-        </View>
+        </View> : null}
 
         {data.loading ? <ActivityIndicator style={styles.loader} /> : null}
 
@@ -410,13 +412,13 @@ export default function EvaluacionesIAScreen() {
           </Surface>
         ) : null}
 
-        {tab === "categories" ? <View style={styles.section}>
+        {isAdminUser && tab === "categories" ? <View style={styles.section}>
           <Button mode="contained" icon="plus" onPress={() => openCategory()}>Nueva categoría</Button>
           {!data.categories.length && !data.loading ? <Text style={[styles.empty, { color: palette.muted }]}>No hay categorías configuradas.</Text> : null}
           {data.categories.map((category) => <Surface key={normalizeId(category._id)} style={[styles.categoryCard, { backgroundColor: palette.card, borderColor: palette.border }]} elevation={0}><View style={styles.categoryHeader}><View style={styles.categoryCopy}><Text variant="titleMedium" style={{ color: palette.text }}>{category.nombre}</Text><Text style={{ color: palette.muted }}>{category.descripcion || "Sin descripción"}</Text></View><View style={[styles.status, { backgroundColor: category.activa ? "#0f766e" : "#64748b" }]}><Text style={styles.statusText}>{category.activa ? "Activa" : "Inactiva"}</Text></View></View><Text style={{ color: palette.muted }}>{category.niveles.length} niveles · máximo {category.maxPreguntas} preguntas</Text><View style={styles.actions}><Button compact onPress={() => toggleCategory(category)}>{category.activa ? "Desactivar" : "Activar"}</Button><Button compact icon="pencil-outline" onPress={() => openCategory(category)}>Editar</Button></View></Surface>)}
         </View> : null}
 
-        {tab === "history" ? <View style={styles.section}>
+        {isAdminUser && tab === "history" ? <View style={styles.section}>
           {!!data.sessions.length ? <View style={styles.historyTools}><Button compact icon="delete-sweep-outline" textColor={theme.colors.error} onPress={clearHistoryLogs}>Eliminar logs</Button></View> : null}
           {!data.sessions.length && !data.loading ? <Text style={[styles.empty, { color: palette.muted }]}>Todavía no hay pruebas registradas.</Text> : null}
           {data.sessions.map((item) => {

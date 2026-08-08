@@ -131,6 +131,10 @@ const CadeteDrawerContent = ({ onClose, user }) => {
               syncCadeteBackgroundLocation({
                 enabled: false,
               })
+              .then(() => {
+                console.log("[CadeteLocation] Tracking detenido al salir del modo cadete");
+                router.replace("/(normal)/Main");
+              })
                 .catch((trackingError) => {
                   console.warn(
                     "[CadeteLocation] No se pudo detener el tracking al salir del modo cadete:",

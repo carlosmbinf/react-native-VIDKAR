@@ -26,7 +26,7 @@ const VLC_BUFFER_OPTIONS = Object.freeze([
 const COURSE_PLAYBACK_CACHE_KEY = "vidkar.coursePlaybackCache.v1";
 const COURSE_RESUME_MIN_SECONDS = 15;
 const COURSE_PROGRESS_SAVE_INTERVAL_SECONDS = 5;
-const PRINCIPAL_USERNAMES = ["carlosmbinf", "carlombinf"];
+const PRINCIPAL_USERNAMES = ["carlosmbinf"];
 
 const callMethod = (name, ...args) => new Promise((resolve, reject) => {
   Meteor.call(name, ...args, (error, result) => (error ? reject(error) : resolve(result)));
@@ -336,8 +336,9 @@ export default function CourseDetail() {
   }, [data.course]);
 
   const currentUser = Meteor.user();
+  const isOwner = data.course?.profesorId === Meteor.userId();
   const isManager = data.course && (
-    data.course.profesorId === Meteor.userId() ||
+    isOwner ||
     currentUser?.username === "carlosmbinf" ||
     (currentUser?.profile?.role === "admin" && data.course.adminId === Meteor.userId())
   );

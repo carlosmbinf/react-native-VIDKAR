@@ -181,7 +181,7 @@ const ProxyVPNPackagesHorizontal = ({
               ratio={userData.proxyActivo && porMegas ? progress : 0}
               rightText={rightText}
               palette={{ ok: "#1565C0" }}
-              width={Math.min(230, width - 48)}
+              width={Math.min(210, width - 48)}
             />
           </View>
         </View>
@@ -243,7 +243,7 @@ const ProxyVPNPackagesHorizontal = ({
               ratio={userData.vpnActivo && porMegas ? progress : 0}
               rightText={rightText}
               palette={{ ok: "#2E7D32" }}
-              width={Math.min(230, width - 48)}
+              width={Math.min(210, width - 48)}
             />
           </View>
         </View>
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "bold",
   },
   sectionTitleContainer: {

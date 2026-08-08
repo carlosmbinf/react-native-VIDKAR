@@ -4,10 +4,11 @@ import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { NestableDraggableFlatList, NestableScrollContainer } from "react-native-draggable-flatlist";
 import { Dropdown } from "react-native-element-dropdown";
 import { ActivityIndicator, Button, Dialog, FAB, IconButton, Portal, Surface, Switch, Text, TextInput, useTheme } from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { uploadCourseVideo } from "../../services/courses/courseMedia.native";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
@@ -24,6 +25,15 @@ const normalizeCategoryId = (value) => {
   const rawValue = String(value).trim();
   const match = rawValue.match(/^ObjectI[dD]\s*\(\s*["']?([a-f\d]{24})["']?\s*\)$/i);
   return match ? match[1] : rawValue;
+};
+const normalizePriceInput = (value) => {
+  return String(value ?? "").replace(/\./g, ",");
+};
+const parsePrice = (value) => {
+  const normalized = String(value ?? "").trim().replace(",", ".");
+  if (!/^\d+(?:\.\d+)?$/.test(normalized)) return null;
+  const amount = Number(normalized);
+  return Number.isFinite(amount) ? amount : null;
 };
 
 const inferMimeType = (asset) => {
@@ -42,6 +52,8 @@ export default function CoursesManagement() {
   const theme = useTheme();
   const router = useRouter();
   const headerInset = useAppHeaderContentInset();
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const currentUser = Meteor.user();
   const isProfessor = currentUser?.profile?.role === "profesor";
   const isAdmin = currentUser?.profile?.role === "admin";
@@ -77,6 +89,10 @@ export default function CoursesManagement() {
     },
     roundness: 14,
   };
+  const dialogSize = {
+    maxHeight: Math.max(320, windowHeight - insets.top - insets.bottom - 32),
+    width: Math.min(Math.max(windowWidth - 32, 320), 680),
+  };
 
   const data = Meteor.useTracker(() => {
     if (!Meteor.userId()) return { categories: [], courses: [], lessons: [], loading: true };
@@ -92,10 +108,7 @@ export default function CoursesManagement() {
   }, [selectedCourseId]);
   const selectedCourse = data.courses.find((course) => course._id === selectedCourseId) || null;
   const selectedCategory = data.categories.find((category) => normalizeCategoryId(category._id) === courseForm.categoriaEvaluacionId) || null;
-  const categoryOptions = [
-    { label: "Sin categoría adaptativa", value: "" },
-    ...data.categories.map((category) => ({ label: category.nombre, value: normalizeCategoryId(category._id) })),
-  ];
+  const categoryOptions = data.categories.map((category) => ({ label: category.nombre, value: normalizeCategoryId(category._id) }));
   const levelOptions = [...(selectedCategory?.niveles || [])]
     .sort((left, right) => left.nivel - right.nivel)
     .map((level) => ({ label: `${level.nivel} · ${level.descripcion}`, value: String(level.nivel) }));
@@ -105,8 +118,8 @@ export default function CoursesManagement() {
   }, [data.lessons]);
 
   React.useEffect(() => {
-    const amount = Number(courseForm.precioMensual);
-    if (!courseDialog || !isProfessor || !Number.isFinite(amount) || amount <= 0) {
+    const amount = parsePrice(courseForm.precioMensual);
+    if (!courseDialog || !isProfessor || amount === null || amount <= 0) {
       setEarningsPreview({ data: null, error: null, loading: false });
       return undefined;
     }
@@ -138,10 +151,19 @@ export default function CoursesManagement() {
   }, []);
 
   const saveCourse = async () => {
+    const price = parsePrice(courseForm.precioMensual);
+    if (!Number.isFinite(price) || price <= 0) {
+      Alert.alert("Precio inválido", "Introduce un precio mensual mayor que cero. Puedes usar la coma decimal, por ejemplo 12,50.");
+      return;
+    }
+    if (!courseForm.categoriaEvaluacionId || !courseForm.nivelEvaluacion) {
+      Alert.alert("Datos incompletos", "Selecciona la categoría y el nivel requerido del curso.");
+      return;
+    }
     const result = await run(
       "course",
       async () => {
-        const payload = { ...courseForm, precioMensual: Number(courseForm.precioMensual) };
+        const payload = { ...courseForm, precioMensual: price };
         payload.categoriaEvaluacionId = normalizeCategoryId(courseForm.categoriaEvaluacionId) || undefined;
         payload.nivelEvaluacion = payload.categoriaEvaluacionId ? Number(courseForm.nivelEvaluacion || courseForm.nivel) : undefined;
         if (coverAsset) {
@@ -328,7 +350,7 @@ export default function CoursesManagement() {
   return (
     <View style={[styles.root, { backgroundColor: palette.background }]}>
       <AppHeader title="Gestión de cursos" subtitle={isProfessor ? "Panel del profesor" : "Supervisión administrativa"} showBackButton backHref="/(normal)/Main" overlapContent />
-      <NestableScrollContainer contentContainerStyle={styles.content} style={{ marginTop: headerInset + 12 }}>
+      <NestableScrollContainer contentContainerStyle={[styles.content, { paddingTop: headerInset + 12 }]}>
         <LinearGradient colors={theme.dark ? ["#0e3042", "#10202b", "#2a210d"] : ["#dff4fb", "#ffffff", "#fff3d6"]} style={[styles.hero, { borderColor: palette.border }]}>
           <View style={[styles.heroIcon, { backgroundColor: theme.dark ? "rgba(125,211,252,0.12)" : "rgba(3,105,161,0.09)" }]}><IconButton icon="school-outline" iconColor={palette.accent} size={28} /></View>
           <View style={styles.heroCopy}>
@@ -431,7 +453,7 @@ export default function CoursesManagement() {
 
       {isProfessor ? <FAB icon="plus" label="Curso" style={styles.fab} onPress={() => openCourseDialog()} /> : null}
       <Portal>
-        <Dialog visible={courseDialog} onDismiss={() => !workingKey && setCourseDialog(false)} style={[styles.dialog, { borderColor: palette.border }]}>
+        <Dialog visible={courseDialog} onDismiss={() => !workingKey && setCourseDialog(false)} style={[styles.dialog, dialogSize, { borderColor: palette.border }]}>
           <BlurView pointerEvents="none" intensity={55} tint={theme.dark ? "dark" : "light"} experimentalBlurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined} style={StyleSheet.absoluteFill} />
           <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: theme.dark ? "rgba(7,16,24,0.72)" : "rgba(255,255,255,0.68)" }]} />
           <View style={styles.dialogHeader}><View style={styles.dialogHeaderCopy}><Text style={[styles.dialogEyebrow, { color: palette.accent }]}>CONFIGURACIÓN</Text><Text variant="headlineSmall" style={[styles.dialogTitle, { color: palette.text }]}>{editingCourseId ? "Editar curso" : "Nuevo curso"}</Text><Text style={[styles.dialogSubtitle, { color: palette.muted }]}>Define la información visible y el precio mensual del curso.</Text></View><IconButton icon="close" mode="contained-tonal" style={styles.dialogClose} onPress={() => setCourseDialog(false)} disabled={Boolean(workingKey)} /></View>
@@ -447,7 +469,7 @@ export default function CoursesManagement() {
                   labelField="label"
                   valueField="value"
                   value={courseForm.categoriaEvaluacionId}
-                  onChange={(item) => setCourseForm((current) => ({ ...current, categoria: item.label === "Sin categoría adaptativa" ? "" : item.label, categoriaEvaluacionId: item.value, nivel: "", nivelEvaluacion: "" }))}
+                  onChange={(item) => setCourseForm((current) => ({ ...current, categoria: item.label, categoriaEvaluacionId: item.value, nivel: "", nivelEvaluacion: "" }))}
                   placeholder="Selecciona una categoría"
                   style={[styles.dropdown, { backgroundColor: theme.dark ? "rgba(15,23,42,0.64)" : "rgba(255,255,255,0.92)", borderColor: palette.border }]}
                   containerStyle={{ backgroundColor: palette.card }}
@@ -474,7 +496,7 @@ export default function CoursesManagement() {
                   itemTextStyle={[styles.dropdownText, { color: palette.text }]}
                   activeColor={theme.dark ? "#12343a" : "#dff8f3"}
                 />
-              </View> : <TextInput label="Nivel" mode="outlined" value={courseForm.nivel} onChangeText={(value) => setCourseForm((current) => ({ ...current, nivel: value }))} contentStyle={styles.inputContent} outlineStyle={styles.inputOutline} theme={inputTheme} />}
+              </View> : null}
             </View>
             <View style={[styles.formPanel, { backgroundColor: theme.dark ? "rgba(15,23,42,0.42)" : "rgba(255,255,255,0.54)", borderColor: palette.border }]}>
               <View style={styles.sectionLabelRow}><Text style={[styles.fieldLabel, { color: palette.text }]}>Precio mensual</Text><Text style={[styles.fieldHint, { color: palette.muted }]}>Importe y moneda de cobro</Text></View>
@@ -488,7 +510,7 @@ export default function CoursesManagement() {
                   placeholder="Importe"
                   underlineColor="transparent"
                   value={courseForm.precioMensual}
-                  onChangeText={(value) => setCourseForm((current) => ({ ...current, precioMensual: value }))}
+                  onChangeText={(value) => setCourseForm((current) => ({ ...current, precioMensual: normalizePriceInput(value) }))}
                   style={styles.priceAmountInput}
                   contentStyle={styles.priceAmountContent}
                   theme={inputTheme}
@@ -525,7 +547,7 @@ export default function CoursesManagement() {
                     <Text style={[styles.previewError, { color: "#dc2626" }]}>{earningsPreview.error}</Text>
                   ) : earningsPreview.data ? (
                     <View style={styles.earningsPreviewMetrics}>
-                      <View style={styles.previewMetric}><Text style={[styles.previewMetricLabel, { color: palette.muted }]}>Cliente</Text><Text style={[styles.previewMetricValue, { color: palette.text }]}>{Number(courseForm.precioMensual).toFixed(2)} {courseForm.moneda}</Text></View>
+                      <View style={styles.previewMetric}><Text style={[styles.previewMetricLabel, { color: palette.muted }]}>Cliente</Text><Text style={[styles.previewMetricValue, { color: palette.text }]}>{parsePrice(courseForm.precioMensual).toFixed(2)} {courseForm.moneda}</Text></View>
                       <View style={styles.previewMetric}><Text style={[styles.previewMetricLabel, { color: palette.muted }]}>Comisión</Text><Text style={[styles.previewMetricValue, { color: palette.text }]}>{earningsPreview.data.commissionPercent}%</Text></View>
                       <View style={styles.previewMetric}><Text style={[styles.previewMetricLabel, { color: palette.muted }]}>Recibirás</Text><Text style={[styles.previewMetricValue, { color: palette.primary }]}>{Number(earningsPreview.data.professorAmountUsd).toFixed(2)} USD</Text></View>
                     </View>
@@ -538,9 +560,9 @@ export default function CoursesManagement() {
               {coverAsset?.uri || courseForm.portadaUrl ? <Image source={{ uri: coverAsset?.uri || courseForm.portadaUrl }} style={styles.coverPreview} resizeMode="cover" /> : <View style={[styles.coverPlaceholder, { backgroundColor: theme.dark ? "rgba(125,211,252,0.08)" : "rgba(3,105,161,0.06)", borderColor: palette.border }]}><IconButton icon="image-outline" iconColor={palette.accent} size={26} /><Text style={[styles.coverPlaceholderText, { color: palette.muted }]}>Aún no has seleccionado una portada</Text></View>}
             </View>
           </ScrollView></Dialog.ScrollArea>
-          <Dialog.Actions style={styles.dialogActions}><Button mode="text" onPress={() => setCourseDialog(false)} style={styles.secondaryAction} contentStyle={styles.actionContent} labelStyle={[styles.actionLabel, { color: palette.accent }]}>Cancelar</Button><Button mode="contained" icon="check" onPress={saveCourse} loading={workingKey === "course"} style={styles.primaryAction} contentStyle={styles.actionContent} labelStyle={[styles.actionLabel, styles.primaryActionLabel]}>{editingCourseId ? "Guardar" : "Crear curso"}</Button></Dialog.Actions>
+          <Dialog.Actions style={styles.dialogActions}><Button mode="text" onPress={() => setCourseDialog(false)} style={styles.secondaryAction} contentStyle={styles.actionContent} labelStyle={[styles.actionLabel, { color: palette.accent }]}>Cancelar</Button><Button mode="contained" icon="check" disabled={!courseForm.categoriaEvaluacionId || !courseForm.nivelEvaluacion} onPress={saveCourse} loading={workingKey === "course"} style={styles.primaryAction} contentStyle={styles.actionContent} labelStyle={[styles.actionLabel, styles.primaryActionLabel]}>{editingCourseId ? "Guardar" : "Crear curso"}</Button></Dialog.Actions>
         </Dialog>
-        <Dialog visible={lessonDialog} onDismiss={() => !workingKey && setLessonDialog(false)} style={[styles.dialog, { borderColor: palette.border }]}>
+        <Dialog visible={lessonDialog} onDismiss={() => !workingKey && setLessonDialog(false)} style={[styles.dialog, dialogSize, { borderColor: palette.border }]}>
           <BlurView pointerEvents="none" intensity={55} tint={theme.dark ? "dark" : "light"} experimentalBlurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined} style={StyleSheet.absoluteFill} />
           <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: theme.dark ? "rgba(7,16,24,0.72)" : "rgba(255,255,255,0.68)" }]} />
           <View style={styles.dialogHeader}><View style={styles.dialogHeaderCopy}><Text style={[styles.dialogEyebrow, { color: palette.accent }]}>CONTENIDO</Text><Text variant="headlineSmall" style={[styles.dialogTitle, { color: palette.text }]}>{editingLessonId ? "Editar lección" : "Nueva lección"}</Text><Text style={[styles.dialogSubtitle, { color: palette.muted }]}>Organiza el contenido que verá el estudiante.</Text></View><IconButton icon="close" mode="contained-tonal" style={styles.dialogClose} onPress={() => setLessonDialog(false)} disabled={Boolean(workingKey)} /></View>
@@ -564,14 +586,14 @@ const styles = StyleSheet.create({
     empty: { padding: 24, textAlign: "center" }, lessonsSection: { marginTop: 18 }, sectionHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }, sectionCopy: { flex: 1, gap: 2 }, sectionTitle: { fontSize: 18, fontWeight: "850" }, lessonAddButton: { borderRadius: 20 },
     lessonDraggableList: { marginHorizontal: -8, overflow: "visible" }, lessonList: { gap: 10, overflow: "visible", paddingHorizontal: 8, paddingVertical: 8 }, lessonCard: { borderRadius: 8, borderWidth: 1, gap: 9, minHeight: 96, padding: 10, shadowColor: "#000000", shadowOffset: { height: 2, width: 0 }, shadowOpacity: 0.12, shadowRadius: 4 }, lessonCardActive: { elevation: 10, opacity: 0.98, shadowOffset: { height: 7, width: 0 }, shadowOpacity: 0.34, shadowRadius: 12, transform: [{ scale: 1.018 }], zIndex: 20 }, lessonUploadProgress: { bottom: 0, left: 0, position: "absolute", top: 0 }, lessonMain: { alignItems: "center", flexDirection: "row", gap: 9, minHeight: 38 }, lessonIndex: { alignItems: "center", borderRadius: 8, height: 34, justifyContent: "center", width: 34 }, lessonCopy: { flex: 1, gap: 3, minWidth: 0 }, lessonTitle: { fontSize: 13, fontWeight: "800" }, lessonMeta: { fontSize: 11 }, lessonUploadButton: { borderRadius: 18, flexShrink: 0 }, lessonUploadContent: { height: 32, paddingHorizontal: 7 }, lessonUploadLabel: { fontSize: 10, fontWeight: "800", marginHorizontal: 0, marginVertical: 0 }, lessonActions: { alignItems: "center", borderTopColor: "rgba(148,163,184,0.14)", borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingTop: 7 }, lessonActionGroup: { alignItems: "center", flexDirection: "row", gap: 5 }, lessonPublishGroup: { alignItems: "center", flexDirection: "row", gap: 4 }, lessonPublishLabel: { fontSize: 10, fontWeight: "700" }, lessonIconButton: { margin: 0 }, previewButton: { borderRadius: 22, marginTop: 12 }, previewButtonContent: { minHeight: 42 }, previewButtonLabel: { fontSize: 12, fontWeight: "800" },
     fab: { bottom: 22, position: "absolute", right: 18 },
-    dialog: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
+    dialog: { borderRadius: 16, borderWidth: 1, marginVertical: 16, overflow: "hidden" },
     dialogHeader: { alignItems: "flex-start", flexDirection: "row", gap: 8, justifyContent: "space-between", paddingLeft: 16, paddingRight: 10, paddingTop: 12 },
     dialogHeaderCopy: { flex: 1, minWidth: 0, paddingTop: 2 },
     dialogClose: { flexShrink: 0, margin: 0, marginTop: -2 },
     dialogEyebrow: { fontSize: 9, fontWeight: "900" },
     dialogTitle: { fontSize: 24, fontWeight: "900", lineHeight: 27 },
     dialogSubtitle: { fontSize: 11, lineHeight: 15, marginTop: 1 },
-    dialogScroll: { borderBottomWidth: 0, borderTopWidth: 0 },
+    dialogScroll: { borderBottomWidth: 0, borderTopWidth: 0, flexShrink: 1, minHeight: 0 },
     dialogContent: { gap: 8, paddingBottom: 4, paddingTop: 8 },
     dialogActions: { alignItems: "center", flexDirection: "row", gap: 8, justifyContent: "flex-end", paddingBottom: 10, paddingHorizontal: 12, paddingTop: 6 },
     actionContent: { height: 36, paddingHorizontal: 10 },

@@ -1,4 +1,4 @@
-import { Dimensions, StyleSheet, View } from "react-native";
+import { StyleSheet, useWindowDimensions, View } from "react-native";
 import {
     Button,
     IconButton,
@@ -9,9 +9,6 @@ import {
 
 import { megasToGB } from "../shared/MegasConverter";
 
-const { width } = Dimensions.get("window");
-const isTablet = width >= 768;
-
 const VPNPackageCardItem = ({
   paquete,
   isHorizontal = false,
@@ -19,80 +16,142 @@ const VPNPackageCardItem = ({
   onPress,
   theme,
 }) => {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const vpnColor = theme.dark ? "#66BB6A" : "#4CAF50";
   const isIlimitado =
     paquete?.esPorTiempo ||
     paquete?.megas === null ||
     paquete?.megas === 999999;
   const goldColor = "#FFD700";
+  const accentColor = isIlimitado ? goldColor : vpnColor;
+  const cardBackground = isIlimitado
+    ? theme.dark
+      ? "#211F14"
+      : "#FFFDF5"
+    : theme.dark
+      ? "#151F19"
+      : "#F7FCF8";
+  const tonalBackground = isIlimitado
+    ? theme.dark
+      ? "rgba(255, 215, 0, 0.14)"
+      : "#FFF6CC"
+    : theme.dark
+      ? "rgba(102, 187, 106, 0.14)"
+      : "#EAF6EC";
 
   return (
     <Surface
       style={[
         styles.packageCard,
+        {
+          backgroundColor: cardBackground,
+          borderColor: isIlimitado
+            ? theme.dark
+              ? "rgba(255, 215, 0, 0.34)"
+              : "rgba(184, 134, 11, 0.25)"
+            : theme.dark
+              ? "rgba(102, 187, 106, 0.30)"
+              : "rgba(76, 175, 80, 0.20)",
+        },
         isHorizontal && styles.packageCardHorizontal,
         isTablet && styles.packageCardTablet,
         isRecommended && !isIlimitado && styles.recommendedCard,
         isIlimitado && styles.unlimitedCard,
       ]}
-      elevation={2}
+      elevation={3}
     >
-      {isIlimitado ? (
-        <View style={[styles.premiumBadge, { backgroundColor: goldColor }]}>
-          <IconButton
-            icon="crown"
-            size={14}
-            iconColor="#000"
-            style={styles.zeroMargin}
-          />
-          <Paragraph style={[styles.premiumText, { color: "#000" }]}>
-            ⭐ PREMIUM ⭐
-          </Paragraph>
-        </View>
-      ) : null}
-
-      {!isIlimitado && isRecommended ? (
-        <View
-          style={[
-            styles.recommendedBadge,
-            { backgroundColor: theme.dark ? "#388E3C" : "#2E7D32" },
-          ]}
-        >
-          <Paragraph style={styles.recommendedText}>⭐ MÁS POPULAR</Paragraph>
-        </View>
-      ) : null}
+      <View
+        pointerEvents="none"
+        style={[styles.accentOrb, { backgroundColor: accentColor }]}
+      />
 
       <View style={styles.packageContent}>
-        <View style={styles.packageHeader}>
-          <View style={styles.packageTitleContainer}>
+        <View style={styles.metaRow}>
+          <View
+            style={[styles.serviceBadge, { backgroundColor: tonalBackground }]}
+          >
             <IconButton
-              icon={isIlimitado ? "infinity" : "shield-check"}
-              size={isTablet ? 28 : 20}
-              iconColor={isIlimitado ? goldColor : vpnColor}
-              style={styles.packageIcon}
+              icon="shield-check"
+              size={12}
+              iconColor={vpnColor}
+              style={styles.metaIcon}
             />
-            <Title
+            <Paragraph
+              style={[styles.serviceText, { color: vpnColor }]}
+              numberOfLines={1}
+            >
+              VPN
+            </Paragraph>
+          </View>
+
+          {isIlimitado || isRecommended ? (
+            <View
               style={[
-                styles.packageTitle,
-                isTablet && styles.packageTitleTablet,
-                { color: isIlimitado ? goldColor : vpnColor },
+                styles.statusBadge,
+                {
+                  backgroundColor: isIlimitado
+                    ? goldColor
+                    : theme.dark
+                      ? "#388E3C"
+                      : "#2E7D32",
+                },
               ]}
             >
-              {isIlimitado ? "ILIMITADO" : megasToGB(paquete?.megas)}
-            </Title>
+              <IconButton
+                icon={isIlimitado ? "crown" : "star"}
+                size={11}
+                iconColor={isIlimitado ? "#241F00" : "#FFFFFF"}
+                style={styles.metaIcon}
+              />
+              <Paragraph
+                style={[
+                  styles.statusText,
+                  { color: isIlimitado ? "#241F00" : "#FFFFFF" },
+                ]}
+                numberOfLines={1}
+              >
+                {isIlimitado ? "PREMIUM" : "POPULAR"}
+              </Paragraph>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.packageHeader}>
+          <View style={styles.packageTitleContainer}>
+            <View
+              style={[styles.iconContainer, { backgroundColor: tonalBackground }]}
+            >
+              <IconButton
+                icon={isIlimitado ? "infinity" : "database-outline"}
+                size={isTablet ? 25 : 21}
+                iconColor={accentColor}
+                style={styles.packageIcon}
+              />
+            </View>
+            <View style={styles.packageTitleCopy}>
+              <Paragraph style={styles.packageEyebrow}>
+                {isIlimitado ? "30 DÍAS" : "CAPACIDAD"}
+              </Paragraph>
+              <Title
+                style={[
+                  styles.packageTitle,
+                  isTablet && styles.packageTitleTablet,
+                  { color: accentColor },
+                ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {isIlimitado ? "Ilimitado" : megasToGB(paquete?.megas)}
+              </Title>
+            </View>
           </View>
 
           <View
             style={[
               styles.priceContainer,
               {
-                backgroundColor: isIlimitado
-                  ? theme.dark
-                    ? "rgba(255, 215, 0, 0.15)"
-                    : "#FFF9E6"
-                  : theme.dark
-                    ? "rgba(102, 187, 106, 0.15)"
-                    : "#E8F5E9",
+                backgroundColor: tonalBackground,
               },
             ]}
           >
@@ -102,6 +161,7 @@ const VPNPackageCardItem = ({
                 isTablet && styles.packagePriceTablet,
                 { color: isIlimitado ? goldColor : vpnColor },
               ]}
+              numberOfLines={1}
             >
               ${paquete?.precio}
             </Paragraph>
@@ -110,23 +170,12 @@ const VPNPackageCardItem = ({
                 styles.priceCurrency,
                 { color: isIlimitado ? goldColor : vpnColor },
               ]}
+                numberOfLines={1}
             >
               CUP
             </Paragraph>
           </View>
         </View>
-
-        {isIlimitado ? (
-          <Paragraph
-            style={[
-              styles.unlimitedDescription,
-              isTablet && styles.packageDescriptionTablet,
-            ]}
-            numberOfLines={1}
-          >
-            🔒 Navegación ilimitada 30 días
-          </Paragraph>
-        ) : null}
 
         {!!paquete?.detalles ? (
           <Paragraph
@@ -145,6 +194,10 @@ const VPNPackageCardItem = ({
           <Button
             mode="contained"
             onPress={onPress}
+            accessibilityLabel={`Comprar paquete VPN ${
+              isIlimitado ? "ilimitado" : megasToGB(paquete?.megas)
+            } por ${paquete?.precio} CUP`}
+            accessibilityHint="Abre el resumen de compra del paquete VPN"
             icon={isIlimitado ? "lightning-bolt" : "cart-plus"}
             buttonColor={
               isIlimitado
@@ -175,61 +228,61 @@ const VPNPackageCardItem = ({
 
 const styles = StyleSheet.create({
   buyButton: {
-    borderRadius: 30,
+    borderRadius: 14,
+    width: "100%",
   },
   buyButtonContent: {
+    minHeight: 38,
     paddingVertical: 2,
   },
   buyButtonLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "bold",
   },
   buyButtonLabelGold: {
     fontWeight: "900",
   },
   buyButtonLabelTablet: {
-    fontSize: 15,
+    fontSize: 13,
   },
   buyButtonTablet: {
-    borderRadius: 30,
+    borderRadius: 14,
   },
   packageActions: {
     justifyContent: "center",
     marginTop: "auto",
   },
   packageCard: {
-    borderLeftColor: "#4CAF50",
-    borderLeftWidth: 4,
-    borderRadius: 30,
-    marginBottom: 16,
-    minHeight: 180,
-    width: 280,
-    marginHorizontal: 15,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 12,
+    minHeight: 196,
+    overflow: "hidden",
+    width: 268,
   },
   packageCardHorizontal: {
     alignSelf: "stretch",
     height: "100%",
     marginBottom: 0,
-    marginRight: 16,
+    marginRight: 12,
   },
   packageCardTablet: {
-    minHeight: 200,
-    width: 320,
+    minHeight: 212,
+    width: 316,
   },
   packageContent: {
     flex: 1,
     justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    padding: 14,
   },
   packageDescription: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 11,
+    lineHeight: 15,
     marginTop: 4,
   },
   packageDescriptionTablet: {
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 17,
   },
   packageHeader: {
     alignItems: "center",
@@ -240,87 +293,110 @@ const styles = StyleSheet.create({
   packageIcon: {
     margin: 0,
   },
+  accentOrb: {
+    borderRadius: 80,
+    height: 150,
+    opacity: 0.06,
+    position: "absolute",
+    right: -64,
+    top: -70,
+    width: 150,
+  },
+  iconContainer: {
+    alignItems: "center",
+    borderRadius: 14,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  metaIcon: {
+    height: 20,
+    margin: 0,
+    width: 20,
+  },
+  metaRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
   packagePrice: {
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 16,
+    fontWeight: "800",
   },
   packagePriceTablet: {
-    fontSize: 20,
+    fontSize: 18,
   },
   packageTitle: {
     fontSize: 18,
-    fontWeight: "bold",
-    marginLeft: 4,
+    fontWeight: "900",
+    lineHeight: 22,
   },
   packageTitleContainer: {
     alignItems: "center",
     flex: 1,
     flexDirection: "row",
+    minWidth: 0,
+  },
+  packageTitleCopy: {
+    flex: 1,
+    marginLeft: 10,
+    minWidth: 0,
+  },
+  packageEyebrow: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    lineHeight: 12,
+    opacity: 0.62,
   },
   packageTitleTablet: {
-    fontSize: 24,
+    fontSize: 21,
   },
-  premiumBadge: {
+  serviceBadge: {
     alignItems: "center",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderRadius: 999,
     flexDirection: "row",
-    justifyContent: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
-  premiumText: {
+  serviceText: {
     fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 2,
-    marginLeft: 4,
+    fontWeight: "800",
+    letterSpacing: 1.1,
   },
   priceContainer: {
     alignItems: "baseline",
-    borderRadius: 30,
+    borderRadius: 12,
     flexDirection: "row",
-    paddingHorizontal: 10,
+    flexShrink: 0,
+    paddingHorizontal: 7,
     paddingVertical: 4,
   },
   priceCurrency: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "600",
     marginLeft: 4,
   },
-  recommendedBadge: {
+  statusBadge: {
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    marginTop: 0,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderRadius: 999,
+    flexDirection: "row",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
   recommendedCard: {
     borderColor: "#FFD700",
-    borderLeftColor: "#FFD700",
-    borderLeftWidth: 2,
-    borderWidth: 2,
+    borderWidth: 1,
   },
-  recommendedText: {
-    fontSize: 10,
-    fontWeight: "bold",
-    letterSpacing: 1,
+  statusText: {
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 0.8,
   },
   unlimitedCard: {
     borderColor: "#FFD700",
-    borderLeftColor: "#FFD700",
-    borderLeftWidth: 2,
-    borderWidth: 2,
-  },
-  unlimitedDescription: {
-    fontSize: 13,
-    fontWeight: "600",
-    lineHeight: 18,
-    marginBottom: 4,
-    marginTop: 4,
-    textAlign: "center",
-  },
-  zeroMargin: {
-    margin: 0,
+    borderWidth: 1,
   },
 });
 

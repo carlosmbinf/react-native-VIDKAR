@@ -180,7 +180,7 @@ const VPNPackageCard = () => {
             <Animated.View
               key={item}
               style={{
-                height: 180,
+                height: isTablet ? 236 : 220,
                 marginBottom: gutter,
                 marginRight,
                 opacity,
@@ -247,7 +247,7 @@ const VPNPackageCard = () => {
         style={[
           animatedStyle,
           {
-            height: 180,
+            height: isTablet ? 236 : 220,
             marginBottom: gutter,
             marginRight,
             width: cardWidthPx,
@@ -258,21 +258,23 @@ const VPNPackageCard = () => {
           style={[
             styles.packageCard,
             isRecommended && styles.recommendedCard,
-            { height: "100%" },
+            {
+              backgroundColor: theme.dark ? "#151F19" : "#F7FCF8",
+              borderColor: isRecommended
+                ? theme.dark
+                  ? "rgba(255, 215, 0, 0.38)"
+                  : "rgba(184, 134, 11, 0.28)"
+                : theme.dark
+                  ? "rgba(102, 187, 106, 0.30)"
+                  : "rgba(76, 175, 80, 0.20)",
+              height: "100%",
+            },
           ]}
         >
-          {isRecommended ? (
-            <View
-              style={[
-                styles.recommendedBadge,
-                { backgroundColor: theme.colors.tertiary },
-              ]}
-            >
-              <Paragraph style={styles.recommendedText}>
-                ⭐ MÁS POPULAR
-              </Paragraph>
-            </View>
-          ) : null}
+          <View
+            pointerEvents="none"
+            style={[styles.accentOrb, { backgroundColor: vpnColor }]}
+          />
 
           <View
             style={[
@@ -280,23 +282,85 @@ const VPNPackageCard = () => {
               !isTablet && styles.packageContentMobile,
             ]}
           >
-            <View style={styles.packageHeader}>
-              <View style={styles.packageTitleContainer}>
+            <View style={styles.metaRow}>
+              <View
+                style={[
+                  styles.serviceBadge,
+                  {
+                    backgroundColor: theme.dark
+                      ? "rgba(102, 187, 106, 0.14)"
+                      : "#EAF6EC",
+                  },
+                ]}
+              >
                 <IconButton
                   icon="shield-check"
-                  size={isTablet ? 28 : 20}
+                  size={12}
                   iconColor={vpnColor}
-                  style={styles.packageIcon}
+                  style={styles.metaIcon}
                 />
-                <Title
+                <Paragraph
+                  style={[styles.serviceText, { color: vpnColor }]}
+                  numberOfLines={1}
+                >
+                  VPN
+                </Paragraph>
+              </View>
+              {isRecommended ? (
+                <View
                   style={[
-                    styles.packageTitle,
-                    isTablet && styles.packageTitleTablet,
-                    { color: vpnColor },
+                    styles.statusBadge,
+                    {
+                      backgroundColor: theme.dark ? "#388E3C" : "#2E7D32",
+                    },
                   ]}
                 >
-                  {megasToGB(paquete.megas)}
-                </Title>
+                  <IconButton
+                    icon="star"
+                    size={11}
+                    iconColor="#FFFFFF"
+                    style={styles.metaIcon}
+                  />
+                    <Paragraph style={styles.statusText} numberOfLines={1}>
+                      POPULAR
+                    </Paragraph>
+                </View>
+              ) : null}
+            </View>
+
+            <View style={styles.packageHeader}>
+              <View style={styles.packageTitleContainer}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    {
+                      backgroundColor: theme.dark
+                        ? "rgba(102, 187, 106, 0.14)"
+                        : "#EAF6EC",
+                    },
+                  ]}
+                >
+                  <IconButton
+                    icon="database-outline"
+                    size={isTablet ? 25 : 21}
+                    iconColor={vpnColor}
+                    style={styles.packageIcon}
+                  />
+                </View>
+                <View style={styles.packageTitleCopy}>
+                  <Paragraph style={styles.packageEyebrow}>CAPACIDAD</Paragraph>
+                  <Title
+                    style={[
+                      styles.packageTitle,
+                      isTablet && styles.packageTitleTablet,
+                      { color: vpnColor },
+                    ]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {megasToGB(paquete.megas)}
+                  </Title>
+                </View>
               </View>
               <View
                 style={[
@@ -314,6 +378,7 @@ const VPNPackageCard = () => {
                     isTablet && styles.packagePriceTablet,
                     { color: vpnColor },
                   ]}
+                  numberOfLines={1}
                 >
                   ${paquete.precio}
                 </Paragraph>
@@ -339,6 +404,10 @@ const VPNPackageCard = () => {
               <Button
                 mode="contained"
                 onPress={() => handleComprarPaquete(paquete)}
+                accessibilityLabel={`Comprar paquete VPN ${megasToGB(
+                  paquete.megas,
+                )} por ${paquete.precio} CUP`}
+                accessibilityHint="Abre el resumen de compra del paquete VPN"
                 icon="cart-plus"
                 buttonColor={
                   isRecommended
@@ -379,7 +448,7 @@ const VPNPackageCard = () => {
     const cols = Math.max(1, columnsCount);
     const totalGutter = gutter * (cols - 1);
     const baseCardWidthPx = Math.floor((containerWidth - totalGutter) / cols);
-    const premiumWidthDelta = 100;
+    const premiumWidthDelta = 8;
     const cardWidthPx = Math.min(
       baseCardWidthPx + premiumWidthDelta,
       containerWidth,
@@ -391,24 +460,28 @@ const VPNPackageCard = () => {
           animatedStyle,
           {
             alignSelf: "flex-start",
-            height: 220,
+            height: isTablet ? 252 : 232,
             marginBottom: gutter,
             width: cardWidthPx,
           },
         ]}
       >
-        <Surface style={[styles.unlimitedCard, { height: "100%" }]}>
-          <View style={[styles.premiumBadge, { backgroundColor: goldColor }]}>
-            <IconButton
-              icon="crown"
-              size={14}
-              iconColor="#000"
-              style={{ margin: 0 }}
-            />
-            <Paragraph style={[styles.premiumText, { color: "#000" }]}>
-              ⭐ PREMIUM ⭐
-            </Paragraph>
-          </View>
+        <Surface
+          style={[
+            styles.unlimitedCard,
+            {
+              backgroundColor: theme.dark ? "#211F14" : "#FFFDF5",
+              borderColor: theme.dark
+                ? "rgba(255, 215, 0, 0.38)"
+                : "rgba(184, 134, 11, 0.28)",
+              height: "100%",
+            },
+          ]}
+        >
+          <View
+            pointerEvents="none"
+            style={[styles.accentOrb, { backgroundColor: goldColor }]}
+          />
 
           <View
             style={[
@@ -416,23 +489,81 @@ const VPNPackageCard = () => {
               !isTablet && styles.packageContentMobile,
             ]}
           >
+            <View style={styles.metaRow}>
+              <View
+                style={[
+                  styles.serviceBadge,
+                  {
+                    backgroundColor: theme.dark
+                      ? "rgba(255, 215, 0, 0.14)"
+                      : "#FFF6CC",
+                  },
+                ]}
+              >
+                <IconButton
+                  icon="shield-check"
+                  size={12}
+                  iconColor={goldColor}
+                  style={styles.metaIcon}
+                />
+                <Paragraph
+                  style={[styles.serviceText, { color: goldColor }]}
+                  numberOfLines={1}
+                >
+                  VPN
+                </Paragraph>
+              </View>
+              <View
+                style={[styles.statusBadge, { backgroundColor: goldColor }]}
+              >
+                <IconButton
+                  icon="crown"
+                  size={11}
+                  iconColor="#241F00"
+                  style={styles.metaIcon}
+                />
+                <Paragraph
+                  style={[styles.statusText, { color: "#241F00" }]}
+                  numberOfLines={1}
+                >
+                  PREMIUM
+                </Paragraph>
+              </View>
+            </View>
+
             <View style={styles.packageHeader}>
               <View style={styles.packageTitleContainer}>
-                <IconButton
-                  icon="infinity"
-                  size={isTablet ? 32 : 24}
-                  iconColor={goldColor}
-                  style={styles.packageIcon}
-                />
-                <Title
+                <View
                   style={[
-                    styles.unlimitedTitle,
-                    isTablet && styles.packageTitleTablet,
-                    { color: goldColor },
+                    styles.iconContainer,
+                    {
+                      backgroundColor: theme.dark
+                        ? "rgba(255, 215, 0, 0.14)"
+                        : "#FFF6CC",
+                    },
                   ]}
                 >
-                  ILIMITADO
-                </Title>
+                  <IconButton
+                    icon="infinity"
+                    size={isTablet ? 27 : 23}
+                    iconColor={goldColor}
+                    style={styles.packageIcon}
+                  />
+                </View>
+                <View style={styles.packageTitleCopy}>
+                  <Paragraph style={styles.packageEyebrow}>30 DÍAS</Paragraph>
+                  <Title
+                    style={[
+                      styles.unlimitedTitle,
+                      isTablet && styles.packageTitleTablet,
+                      { color: goldColor },
+                    ]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    Ilimitado
+                  </Title>
+                </View>
               </View>
               <View
                 style={[
@@ -451,6 +582,7 @@ const VPNPackageCard = () => {
                     isTablet && styles.packagePriceTablet,
                     { color: goldColor },
                   ]}
+                  numberOfLines={1}
                 >
                   ${paquetePorTiempo.precio}
                 </Paragraph>
@@ -459,16 +591,6 @@ const VPNPackageCard = () => {
                 </Paragraph>
               </View>
             </View>
-
-            <Paragraph
-              style={[
-                styles.unlimitedDescription,
-                isTablet && styles.packageDescriptionTablet,
-              ]}
-              numberOfLines={1}
-            >
-              🔒 Navegación ilimitada 30 días
-            </Paragraph>
 
             {paquetePorTiempo.detalles ? (
               <Paragraph
@@ -486,6 +608,8 @@ const VPNPackageCard = () => {
               <Button
                 mode="contained"
                 onPress={() => handleComprarPaquete(paquetePorTiempo, true)}
+                accessibilityLabel={`Comprar paquete VPN ilimitado por ${paquetePorTiempo.precio} CUP`}
+                accessibilityHint="Abre el resumen de compra del paquete VPN Premium"
                 icon="lightning-bolt"
                 buttonColor={goldColor}
                 textColor="#000"
@@ -655,9 +779,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   packageCard: {
-    borderLeftColor: "#2196F3",
-    borderLeftWidth: 4,
-    borderRadius: 30,
+    borderRadius: 20,
+    borderWidth: 1,
     flex: 1,
     justifyContent: "space-between",
     overflow: "hidden",
@@ -665,21 +788,20 @@ const styles = StyleSheet.create({
   packageContent: {
     flex: 1,
     justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   packageContentMobile: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    padding: 14,
   },
   packageDescription: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 10,
+    lineHeight: 14,
     marginTop: 4,
   },
   packageDescriptionTablet: {
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 16,
   },
   packageHeader: {
     alignItems: "center",
@@ -688,40 +810,72 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   packageIcon: { margin: 0 },
-  packagePrice: { fontSize: 18, fontWeight: "bold" },
-  packagePriceTablet: { fontSize: 20 },
-  packageTitle: { fontSize: 20, fontWeight: "bold", marginLeft: 4 },
+  accentOrb: {
+    borderRadius: 90,
+    height: 170,
+    opacity: 0.06,
+    position: "absolute",
+    right: -72,
+    top: -78,
+    width: 170,
+  },
+  iconContainer: {
+    alignItems: "center",
+    borderRadius: 14,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  metaIcon: { height: 20, margin: 0, width: 20 },
+  metaRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  packagePrice: { fontSize: 16, fontWeight: "bold" },
+  packagePriceTablet: { fontSize: 18 },
+  packageTitle: { fontSize: 16, fontWeight: "900", lineHeight: 20 },
   packageTitleContainer: {
     alignItems: "center",
     flex: 1,
     flexDirection: "row",
+    minWidth: 0,
   },
-  packageTitleTablet: { fontSize: 24 },
+  packageTitleCopy: { flex: 1, marginLeft: 10, minWidth: 0 },
+  packageEyebrow: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    lineHeight: 12,
+    opacity: 0.62,
+  },
+  packageTitleTablet: { fontSize: 19 },
   packagesContainer: { marginVertical: 8 },
   packagesContainerGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "flex-start",
   },
-  premiumBadge: {
+  serviceBadge: {
     alignItems: "center",
     flexDirection: "row",
-    justifyContent: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
-  premiumText: {
-    fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 2,
-    marginLeft: 4,
+  serviceText: {
+    fontSize: 8,
+    fontWeight: "800",
+    letterSpacing: 1.1,
   },
   priceContainer: {
     alignItems: "baseline",
-    borderRadius: 30,
+    borderRadius: 12,
     flexDirection: "row",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    flexShrink: 0,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
   },
   priceContainerShadow: {
     elevation: 2,
@@ -731,26 +885,27 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   priceCurrency: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "600",
     marginLeft: 4,
   },
-  recommendedBadge: {
+  statusBadge: {
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    borderRadius: 999,
+    flexDirection: "row",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
   recommendedCard: {
     borderColor: "#FFD700",
-    borderLeftColor: "#FFD700",
-    // borderLeftWidth: 2,
-    borderRadius: 30,
-    borderWidth: 2,
+    borderRadius: 20,
+    borderWidth: 1,
   },
-  recommendedText: {
-    fontSize: 10,
-    fontWeight: "bold",
-    letterSpacing: 1,
+  statusText: {
+    color: "#FFFFFF",
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 0.8,
   },
   scrollContainer: { flex: 1 },
   scrollContent: { paddingBottom: 24 },
@@ -761,9 +916,8 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   skeletonCard: {
-    borderLeftColor: "#E0E0E0",
-    borderLeftWidth: 4,
-    borderRadius: 30,
+    borderRadius: 20,
+    borderWidth: 1,
     flex: 1,
     padding: 16,
   },
@@ -789,44 +943,34 @@ const styles = StyleSheet.create({
   titleContainer: { alignItems: "center", flex: 1, flexDirection: "row" },
   titleTablet: { fontSize: 28 },
   unlimitedCard: {
-    borderColor: "#FFD700",
-    borderLeftColor: "#FFD700",
-    borderLeftWidth: 2,
-    borderRadius: 30,
-    borderWidth: 2,
-    height: 220,
+    borderRadius: 20,
+    borderWidth: 1,
+    height: 232,
     marginBottom: 16,
     overflow: "hidden",
   },
-  unlimitedDescription: {
-    fontSize: 13,
-    fontWeight: "600",
-    lineHeight: 18,
-    marginBottom: 4,
-    marginTop: 4,
-    textAlign: "center",
-  },
   unlimitedTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "900",
-    letterSpacing: 1,
-    marginLeft: 4,
+    lineHeight: 22,
   },
   buyButton: {
-    borderRadius: 30,
+    borderRadius: 14,
+    width: "100%",
   },
   buyButtonTablet: {
-    borderRadius: 30,
+    borderRadius: 14,
   },
   buyButtonContent: {
+    minHeight: 38,
     paddingVertical: 2,
   },
   buyButtonLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "bold",
   },
   buyButtonLabelTablet: {
-    fontSize: 15,
+    fontSize: 13,
   },
 });
 

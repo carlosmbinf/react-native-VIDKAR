@@ -1,8 +1,13 @@
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { BlurView } from "expo-blur";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+    AccessibilityInfo,
+    Animated,
+    Easing,
     ImageBackground,
     Platform,
+    Pressable,
     ScrollView,
     StyleSheet,
     View,
@@ -10,7 +15,6 @@ import {
 } from "react-native";
 import {
     Avatar,
-    Button,
     Divider,
     Drawer,
     IconButton,
@@ -20,6 +24,123 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import DrawerBlurShell from "./DrawerBlurShell";
+
+const CARD_PRESS_IN_DURATION_MS = 140;
+const CARD_PRESS_OUT_DURATION_MS = 220;
+
+const ModeActionCard = ({
+  accessibilityLabel,
+  actionLabel,
+  description,
+  icon,
+  onPress,
+  title,
+}) => {
+  const pressProgress = useRef(new Animated.Value(0)).current;
+  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (mounted) {
+        setReduceMotionEnabled(enabled);
+      }
+    });
+
+    const subscription = AccessibilityInfo.addEventListener(
+      "reduceMotionChanged",
+      setReduceMotionEnabled,
+    );
+
+    return () => {
+      mounted = false;
+      pressProgress.stopAnimation();
+      subscription?.remove?.();
+    };
+  }, [pressProgress]);
+
+  const animatePress = (pressed) => {
+    pressProgress.stopAnimation();
+
+    if (reduceMotionEnabled) {
+      pressProgress.setValue(0);
+      return;
+    }
+
+    Animated.timing(pressProgress, {
+      duration: pressed
+        ? CARD_PRESS_IN_DURATION_MS
+        : CARD_PRESS_OUT_DURATION_MS,
+      easing: Easing.out(Easing.cubic),
+      toValue: pressed ? 1 : 0,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const animatedStyle = reduceMotionEnabled
+    ? null
+    : {
+        transform: [
+          {
+            translateY: pressProgress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 1],
+            }),
+          },
+          {
+            scale: pressProgress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [1, 0.985],
+            }),
+          },
+        ],
+      };
+
+  return (
+    <Animated.View style={[styles.modeCardMotion, animatedStyle]}>
+      <Surface style={styles.footerCard} elevation={1}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}
+          onPress={onPress}
+          onPressIn={() => animatePress(true)}
+          onPressOut={() => animatePress(false)}
+          style={({ pressed }) => [
+            styles.modeRow,
+            pressed ? styles.modeRowPressed : null,
+          ]}
+        >
+          <View style={styles.modeIconWrap}>
+            <MaterialCommunityIcons color="#a5b4fc" name={icon} size={20} />
+          </View>
+          <View style={styles.modeCopyWrap}>
+            <Text variant="titleSmall" style={styles.footerTitle}>
+              {title}
+            </Text>
+            <Text
+              numberOfLines={1}
+              variant="bodySmall"
+              style={styles.footerCopy}
+            >
+              {description}
+            </Text>
+          </View>
+          <View style={styles.modeAction}>
+            <Text variant="labelMedium" style={styles.modeActionLabel}>
+              {actionLabel}
+            </Text>
+            <MaterialCommunityIcons
+              color="#a5b4fc"
+              name="chevron-right"
+              size={18}
+            />
+          </View>
+        </Pressable>
+      </Surface>
+    </Animated.View>
+  );
+};
 
 const getUserInitials = (user) => {
   const username = user?.username?.trim();
@@ -232,8 +353,8 @@ const DrawerOptionsAlls = ({
     : "Entrar en modo cadete";
   const cadeteButtonIcon = user?.modoCadete ? "bike-off" : "bike-fast";
   const cadeteHelperCopy = user?.modoCadete
-    ? "Dejarás de aparecer disponible para nuevas entregas hasta que vuelvas a activarlo."
-    : "Activa tu disponibilidad operativa desde el drawer igual que en la app legacy.";
+    ? "Disponible para recibir nuevas entregas."
+    : "Activa tu disponibilidad para entregas.";
   const empresaButtonLabel = user?.modoEmpresa
     ? "Salir del modo empresa"
     : "Entrar en modo empresa";
@@ -241,8 +362,8 @@ const DrawerOptionsAlls = ({
     ? "store-off-outline"
     : "storefront-outline";
   const empresaHelperCopy = user?.modoEmpresa
-    ? "Volverás al menú normal; tus tiendas, productos y pedidos se mantienen guardados."
-    : "Gestiona tus tiendas, productos y pedidos desde el panel de empresa.";
+    ? "Panel de tiendas y pedidos activo."
+    : "Gestiona tus tiendas, productos y pedidos.";
 
   const sections = useMemo(() => {
     const result = [
@@ -406,50 +527,24 @@ const DrawerOptionsAlls = ({
         ]}
       >
         {canToggleCadete ? (
-          <Surface style={styles.footerCard} elevation={0}>
-            <Text variant="titleSmall" style={styles.footerTitle}>
-              Modo cadete
-            </Text>
-            <Text variant="bodySmall" style={styles.footerCopy}>
-              {cadeteHelperCopy}
-            </Text>
-            <Button
-              mode={user?.modoCadete ? "contained-tonal" : "contained"}
-              icon={cadeteButtonIcon}
-              style={styles.footerButton}
-              contentStyle={styles.footerButtonContent}
-              labelStyle={styles.footerButtonLabel}
-              buttonColor="#4f5df6"
-              textColor="#f8fafc"
-              onPress={() => onToggleModoCadete?.()}
-              disabled={false}
-            >
-              {cadeteButtonLabel}
-            </Button>
-          </Surface>
+          <ModeActionCard
+            accessibilityLabel={cadeteButtonLabel}
+            actionLabel={user?.modoCadete ? "Salir" : "Entrar"}
+            description={cadeteHelperCopy}
+            icon={cadeteButtonIcon}
+            onPress={() => onToggleModoCadete?.()}
+            title="Modo cadete"
+          />
         ) : null}
         {canToggleEmpresa ? (
-          <Surface style={styles.footerCard} elevation={0}>
-            <Text variant="titleSmall" style={styles.footerTitle}>
-              Modo empresa
-            </Text>
-            <Text variant="bodySmall" style={styles.footerCopy}>
-              {empresaHelperCopy}
-            </Text>
-            <Button
-              mode={user?.modoEmpresa ? "contained-tonal" : "contained"}
-              icon={empresaButtonIcon}
-              style={styles.footerButton}
-              contentStyle={styles.footerButtonContent}
-              labelStyle={styles.footerButtonLabel}
-              buttonColor="#4f5df6"
-              textColor="#f8fafc"
-              onPress={() => onToggleModoEmpresa?.()}
-              disabled={false}
-            >
-              {empresaButtonLabel}
-            </Button>
-          </Surface>
+          <ModeActionCard
+            accessibilityLabel={empresaButtonLabel}
+            actionLabel={user?.modoEmpresa ? "Salir" : "Entrar"}
+            description={empresaHelperCopy}
+            icon={empresaButtonIcon}
+            onPress={() => onToggleModoEmpresa?.()}
+            title="Modo empresa"
+          />
         ) : null}
       </View>
     ) : null;
@@ -599,42 +694,64 @@ const styles = StyleSheet.create({
   footerDock: {
     paddingHorizontal: 12,
     paddingTop: 6,
-    gap: 8,
+    gap: 6,
   },
   footerDockScrollable: {
     paddingTop: 2,
+  },
+  modeCardMotion: {
+    borderRadius: 14,
   },
   footerCard: {
     backgroundColor: "rgba(15, 23, 42, 0.72)",
     borderColor: "rgba(148, 163, 184, 0.26)",
     borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  modeRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    minHeight: 66,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  modeRowPressed: {
+    backgroundColor: "rgba(79, 93, 246, 0.14)",
+  },
+  modeIconWrap: {
+    alignItems: "center",
+    backgroundColor: "rgba(79, 93, 246, 0.18)",
+    borderRadius: 10,
+    height: 38,
+    justifyContent: "center",
+    width: 38,
+  },
+  modeCopyWrap: {
+    flex: 1,
+    marginLeft: 10,
+    minWidth: 0,
   },
   footerTitle: {
     color: "#f8fafc",
-    fontSize: 14,
-    fontWeight: "800",
-    marginBottom: 2,
-  },
-  footerCopy: {
-    color: "#cbd5e1",
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  footerButton: {
-    marginTop: 10,
-    borderRadius: 12,
-  },
-  footerButtonContent: {
-    minHeight: 38,
-    paddingVertical: 0,
-  },
-  footerButtonLabel: {
     fontSize: 13,
     fontWeight: "800",
-    marginVertical: 0,
+  },
+  footerCopy: {
+    color: "#94a3b8",
+    fontSize: 11,
+    lineHeight: 14,
+    marginTop: 2,
+  },
+  modeAction: {
+    alignItems: "center",
+    flexDirection: "row",
+    marginLeft: 8,
+  },
+  modeActionLabel: {
+    color: "#c7d2fe",
+    fontSize: 11,
+    fontWeight: "800",
   },
 });
 

@@ -1,8 +1,8 @@
 import MeteorBase from "@meteorrn/core";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import React from "react";
-import { FlatList, Image, Pressable, RefreshControl, StyleSheet, TextInput, View } from "react-native";
+import { FlatList, Image, Pressable, RefreshControl, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
 import { ActivityIndicator, Icon, Text, useTheme } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
@@ -21,6 +21,7 @@ const isPrincipalAdmin = (user) => ["carlosmbinf"].includes(String(user?.usernam
 export default function CoursesCatalog() {
   const theme = useTheme();
   const router = useRouter();
+  const { width: windowWidth } = useWindowDimensions();
   const headerInset = useAppHeaderContentInset();
   const dataReady = useDeferredScreenData();
   const currentUser = Meteor.user();
@@ -68,9 +69,9 @@ export default function CoursesCatalog() {
     }
   }, [currentUserId, dataReady]);
 
-  React.useEffect(() => {
+  useFocusEffect(React.useCallback(() => {
     loadCourses();
-  }, [loadCourses]);
+  }, [loadCourses]));
 
   React.useEffect(() => {
     courses.filter((course) => course.portadaUrl).forEach((course) => {
@@ -87,15 +88,26 @@ export default function CoursesCatalog() {
         .some((value) => String(value).toLocaleLowerCase("es").includes(normalized)),
     );
   }, [courses, query]);
+  const groupedCourses = React.useMemo(() => filteredCourses.reduce((groups, course) => {
+    const key = course.categoriaEvaluacionId || `legacy:${course.categoria || "General"}`;
+    const existing = groups.find((group) => group.key === key);
+    if (existing) existing.courses.push(course);
+    else groups.push({ courses: [course], key, name: course.categoria || "General" });
+    return groups;
+  }, []), [filteredCourses]);
+  const cardWidth = Math.min(windowWidth >= 768 ? 360 : windowWidth * 0.82, windowWidth - 40);
 
   const renderCourse = ({ item }) => {
     const subscription = subscriptions.find((entry) => entry.cursoId === item._id);
-    const active = isPrincipalAdmin(currentUser) || isSubscriptionActive(subscription);
+    const isOwner = item.profesorId === currentUserId;
+    const active = isPrincipalAdmin(currentUser) || isOwner || isSubscriptionActive(subscription);
+    const locked = Boolean(item.bloqueadoPorNivel) && !isPrincipalAdmin(currentUser) && !isOwner;
     return (
       <Pressable
         accessibilityRole="button"
-        onPress={() => router.push(`/(normal)/CursoDetalle?courseId=${encodeURIComponent(item._id)}`)}
-        style={({ pressed }) => [styles.card, { backgroundColor: palette.card, borderColor: palette.border, opacity: pressed ? 0.92 : 1 }]}
+        accessibilityState={{ disabled: locked }}
+        onPress={locked ? undefined : () => router.push(`/(normal)/CursoDetalle?courseId=${encodeURIComponent(item._id)}`)}
+        style={({ pressed }) => [styles.card, { backgroundColor: palette.card, borderColor: locked ? palette.primary : palette.border, opacity: pressed ? 0.92 : 1, width: cardWidth }]}
       >
         <View style={styles.coverFrame}>
           {item.portadaUrl ? (
@@ -104,8 +116,9 @@ export default function CoursesCatalog() {
             <LinearGradient colors={theme.dark ? ["#113344", "#172554", "#3b2a0d"] : ["#cffafe", "#dbeafe", "#fef3c7"]} style={styles.coverFallback}><Text style={[styles.coverInitial, { color: palette.accent }]}>{item.titulo?.slice(0, 1)?.toUpperCase() || "C"}</Text></LinearGradient>
           )}
           <LinearGradient colors={["transparent", "rgba(2,8,13,0.78)"]} style={StyleSheet.absoluteFill} />
-          <View style={styles.coverTopRow}><View style={styles.categoryBadge}><Icon source="school-outline" color="#ffffff" size={14} /><Text style={styles.categoryText}>{item.categoria || "Curso"}</Text></View>{active ? <View style={styles.activeBadge}><Icon source="check-decagram" color="#bbf7d0" size={14} /><Text style={styles.activeText}>{isPrincipalAdmin(currentUser) ? "Acceso admin" : "Activo"}</Text></View> : null}</View>
+              <View style={styles.coverTopRow}><View style={styles.categoryBadge}><Icon source="school-outline" color="#ffffff" size={14} /><Text style={styles.categoryText}>{item.categoria || "Curso"}</Text></View>{active ? <View style={styles.activeBadge}><Icon source="check-decagram" color="#bbf7d0" size={14} /><Text style={styles.activeText}>{isPrincipalAdmin(currentUser) || isOwner ? "Acceso sin suscripción" : "Activo"}</Text></View> : null}</View>
           <View style={styles.coverBottom}><Text style={styles.teacher} numberOfLines={1}>{item.profesorNombre || `@${item.profesorUsername}`}</Text></View>
+          {locked ? <View style={styles.lockOverlay}><Icon source="lock-outline" color="#ffffff" size={28} /><Text style={styles.lockTitle}>Requiere nivel {item.nivelRequerido}</Text><Text style={styles.lockCaption}>Tu nivel: {item.nivelUsuario === null ? "sin evaluar" : item.nivelUsuario}</Text></View> : null}
         </View>
           <View style={styles.cardBody}>
             <Text variant="titleLarge" style={[styles.title, { color: palette.text }]} numberOfLines={2}>{item.titulo}</Text>
@@ -114,27 +127,41 @@ export default function CoursesCatalog() {
               <View style={styles.levelRow}><Icon source="signal" color={palette.muted} size={15} /><Text style={[styles.level, { color: palette.muted }]}>{item.nivel}</Text></View>
               <View style={styles.priceBlock}><Text style={[styles.price, { color: palette.primary }]}>{Number(item.precioMensual).toFixed(2)} {item.moneda}</Text><Text style={[styles.period, { color: palette.muted }]}>por mes</Text></View>
             </View>
+            {locked ? <Pressable accessibilityRole="button" onPress={() => router.push(`/(normal)/EvaluacionesIA?categoriaId=${encodeURIComponent(item.categoriaEvaluacionId)}`)} style={[styles.reEvaluateButton, { borderColor: palette.primary }]}><Icon source="school-outline" color={palette.primary} size={17} /><Text style={[styles.reEvaluateText, { color: palette.primary }]}>Reevaluarme</Text></Pressable> : null}
           </View>
       </Pressable>
     );
   };
+
+  const renderCategory = ({ item }) => (
+    <View style={styles.categorySection}>
+      <Text variant="titleLarge" style={[styles.categoryTitle, { color: palette.text }]}>{item.name}</Text>
+      <FlatList
+        contentContainerStyle={styles.courseRail}
+        data={item.courses}
+        horizontal
+        keyExtractor={(course) => course._id}
+        renderItem={renderCourse}
+        showsHorizontalScrollIndicator={false}
+      />
+    </View>
+  );
 
   return (
     <View style={[styles.root, { backgroundColor: palette.background }]}>
       <LinearGradient colors={theme.dark ? ["rgba(8,47,73,0.42)", "transparent"] : ["rgba(165,243,252,0.48)", "transparent"]} style={styles.backgroundWash} />
       <AppHeader title="Cursos" subtitle="Aprende con profesores VIDKAR" showBackButton backHref="/(normal)/Main" overlapContent />
       {coursesLoading || subscriptionsLoading ? (
-        <View style={styles.loadingScreen}>
+        <View style={[styles.loadingScreen, { marginTop: headerInset + 14 }]}>
           <ActivityIndicator color={palette.accent} size="large" />
           <Text style={[styles.loadingText, { color: palette.muted }]}>Cargando cursos...</Text>
         </View>
       ) : <FlatList
-        contentContainerStyle={[styles.content]}
-        style={{ marginTop: headerInset + 14 }}
-        data={filteredCourses}
-        keyExtractor={(item) => item._id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadCourses(true)} />}
-        renderItem={renderCourse}
+        contentContainerStyle={[styles.content, { paddingTop: headerInset + 16 }]}
+        data={groupedCourses}
+        keyExtractor={(item) => item.key}
+        refreshControl={<RefreshControl onRefresh={() => loadCourses(true)} progressViewOffset={headerInset + 14} refreshing={refreshing} />}
+        renderItem={renderCategory}
         ListHeaderComponent={
           <View style={styles.headerBlock}>
             <Text style={[styles.eyebrow, { color: palette.accent }]}>VIDKAR ACADEMY</Text>
@@ -164,17 +191,25 @@ const styles = StyleSheet.create({
   search: { alignItems: "center", borderRadius: 8, borderWidth: 1, flexDirection: "row", gap: 10, minHeight: 52, paddingHorizontal: 14 },
   searchInput: { flex: 1, fontSize: 14, minHeight: 50, paddingVertical: 0 },
   resultRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginTop: 3 }, resultCount: { fontSize: 13, fontWeight: "800" }, resultHint: { fontSize: 11 },
-  card: { borderRadius: 8, borderWidth: 1, marginBottom: 14, overflow: "hidden" },
+  categorySection: { gap: 9, marginBottom: 22 },
+  categoryTitle: { fontWeight: "900" },
+  courseRail: { gap: 12, paddingRight: 16 },
+  card: { borderRadius: 8, borderWidth: 1, overflow: "hidden" },
   coverFrame: { aspectRatio: 16 / 7, position: "relative", width: "100%" },
   cover: { height: "100%", width: "100%" },
   coverFallback: { alignItems: "center", height: "100%", justifyContent: "center", width: "100%" },
   coverInitial: { fontSize: 46, fontWeight: "900" },
   coverTopRow: { flexDirection: "row", justifyContent: "space-between", left: 12, position: "absolute", right: 12, top: 12 }, categoryBadge: { alignItems: "center", backgroundColor: "rgba(2,8,13,0.58)", borderRadius: 6, flexDirection: "row", gap: 5, paddingHorizontal: 9, paddingVertical: 5 }, categoryText: { color: "#ffffff", fontSize: 10, fontWeight: "800" }, activeBadge: { alignItems: "center", backgroundColor: "rgba(20,83,45,0.72)", borderRadius: 6, flexDirection: "row", gap: 5, paddingHorizontal: 9, paddingVertical: 5 }, activeText: { color: "#dcfce7", fontSize: 10, fontWeight: "800" },
   coverBottom: { bottom: 10, left: 12, position: "absolute", right: 12 },
+  lockOverlay: { alignItems: "center", backgroundColor: "rgba(2,8,13,0.78)", bottom: 0, gap: 3, justifyContent: "center", left: 0, position: "absolute", right: 0, top: 0 },
+  lockTitle: { color: "#ffffff", fontSize: 14, fontWeight: "900" },
+  lockCaption: { color: "rgba(255,255,255,0.8)", fontSize: 11 },
   cardBody: { gap: 8, padding: 15 },
   title: { fontWeight: "800", letterSpacing: 0 },
   teacher: { color: "rgba(255,255,255,0.86)", fontSize: 12, fontWeight: "700" },
   description: { fontSize: 13, lineHeight: 19 },
   footerRow: { alignItems: "flex-end", flexDirection: "row", justifyContent: "space-between", marginTop: 3 }, levelRow: { alignItems: "center", flexDirection: "row", flex: 1, gap: 5 }, level: { fontSize: 12 }, priceBlock: { alignItems: "flex-end" }, price: { fontSize: 17, fontWeight: "900" }, period: { fontSize: 10 },
+  reEvaluateButton: { alignItems: "center", borderRadius: 8, borderWidth: 1, flexDirection: "row", gap: 7, justifyContent: "center", marginTop: 4, minHeight: 40 },
+  reEvaluateText: { fontSize: 12, fontWeight: "900" },
   empty: { alignItems: "center", justifyContent: "center", minHeight: 180 },
 });
