@@ -4,7 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Alert, Image, InteractionManager, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { NestableDraggableFlatList, NestableScrollContainer } from "react-native-draggable-flatlist";
 import { Dropdown } from "react-native-element-dropdown";
 import { ActivityIndicator, Button, Dialog, FAB, IconButton, Portal, Surface, Switch, Text, TextInput, useTheme } from "react-native-paper";
@@ -112,6 +112,7 @@ export default function CoursesManagement() {
   const levelOptions = [...(selectedCategory?.niveles || [])]
     .sort((left, right) => left.nivel - right.nivel)
     .map((level) => ({ label: `${level.nivel} · ${level.descripcion}`, value: String(level.nivel) }));
+  const parsedCoursePrice = parsePrice(courseForm.precioMensual);
 
   React.useEffect(() => {
     if (!reorderingLessonsRef.current) setOrderedLessons(data.lessons);
@@ -151,6 +152,7 @@ export default function CoursesManagement() {
   }, []);
 
   const saveCourse = async () => {
+    const courseIdBeingSaved = editingCourseId;
     const price = parsePrice(courseForm.precioMensual);
     if (!Number.isFinite(price) || price <= 0) {
       Alert.alert("Precio inválido", "Introduce un precio mensual mayor que cero. Puedes usar la coma decimal, por ejemplo 12,50.");
@@ -184,16 +186,18 @@ export default function CoursesManagement() {
           payload.portadaFileId = uploadedCover.fileId;
           payload.portadaUrl = uploadedCover.url;
         }
-        return editingCourseId ? callMethod("cursos.actualizar", editingCourseId, payload) : callMethod("cursos.crear", payload);
+        return courseIdBeingSaved ? callMethod("cursos.actualizar", courseIdBeingSaved, payload) : callMethod("cursos.crear", payload);
       },
-      editingCourseId ? "Curso actualizado." : "Curso creado como borrador.",
+      null,
     );
     if (result?.success) {
+      const savedCourseId = courseIdBeingSaved || result.courseId;
       setCourseForm(EMPTY_COURSE);
       setCoverAsset(null);
       setCourseDialog(false);
-      setSelectedCourseId(editingCourseId || result.courseId);
+      if (savedCourseId) setSelectedCourseId(savedCourseId);
       setEditingCourseId(null);
+      InteractionManager.runAfterInteractions(() => Alert.alert("Listo", courseIdBeingSaved ? "Curso actualizado." : "Curso creado como borrador."));
     }
   };
 
@@ -545,9 +549,9 @@ export default function CoursesManagement() {
                   </View>
                   {earningsPreview.loading ? <ActivityIndicator size="small" /> : earningsPreview.error ? (
                     <Text style={[styles.previewError, { color: "#dc2626" }]}>{earningsPreview.error}</Text>
-                  ) : earningsPreview.data ? (
+                  ) : earningsPreview.data && parsedCoursePrice !== null ? (
                     <View style={styles.earningsPreviewMetrics}>
-                      <View style={styles.previewMetric}><Text style={[styles.previewMetricLabel, { color: palette.muted }]}>Cliente</Text><Text style={[styles.previewMetricValue, { color: palette.text }]}>{parsePrice(courseForm.precioMensual).toFixed(2)} {courseForm.moneda}</Text></View>
+                      <View style={styles.previewMetric}><Text style={[styles.previewMetricLabel, { color: palette.muted }]}>Cliente</Text><Text style={[styles.previewMetricValue, { color: palette.text }]}>{parsedCoursePrice.toFixed(2)} {courseForm.moneda}</Text></View>
                       <View style={styles.previewMetric}><Text style={[styles.previewMetricLabel, { color: palette.muted }]}>Comisión</Text><Text style={[styles.previewMetricValue, { color: palette.text }]}>{earningsPreview.data.commissionPercent}%</Text></View>
                       <View style={styles.previewMetric}><Text style={[styles.previewMetricLabel, { color: palette.muted }]}>Recibirás</Text><Text style={[styles.previewMetricValue, { color: palette.primary }]}>{Number(earningsPreview.data.professorAmountUsd).toFixed(2)} USD</Text></View>
                     </View>
