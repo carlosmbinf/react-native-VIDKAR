@@ -932,6 +932,45 @@ const WizardConStepper = ({ initialLocation = null }) => {
     }
 
     setProcessing(true);
+    const esVentaProxyVPN =
+      tieneProxyVPN &&
+      Array.isArray(pedidosRemesa) &&
+      pedidosRemesa.length > 0 &&
+      pedidosRemesa.every((item) => item.type === "PROXY" || item.type === "VPN");
+    const generarVenta = (precioOficial) => {
+      Meteor.call(
+        "generarVentaEfectivo",
+        {
+          producto: compra,
+          precioOficial,
+          comisionesComercio,
+        },
+        monedaFinalUI || "CUP",
+        (saleError, success) => {
+          setProcessing(false);
+          if (saleError) {
+            Alert.alert(
+              "Error",
+              saleError.reason || "No se pudo generar la venta.",
+            );
+            return;
+          }
+
+          if (success) {
+            Alert.alert(
+              "Venta generada",
+              "La orden fue creada correctamente. Ahora puede subir su evidencia de pago.",
+            );
+          }
+        },
+      );
+    };
+
+    if (esVentaProxyVPN) {
+      generarVenta(Number(totalAPagar));
+      return;
+    }
+
     Meteor.call(
       "moneda.convertir",
       Number(totalAPagar),
@@ -950,34 +989,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
           return;
         }
 
-        const ventaData = {
-          producto: compra,
-          precioOficial: totalAPagarConvertido,
-          comisionesComercio,
-        };
-
-        Meteor.call(
-          "generarVentaEfectivo",
-          ventaData,
-          monedaFinalUI || "CUP",
-          (saleError, success) => {
-            setProcessing(false);
-            if (saleError) {
-              Alert.alert(
-                "Error",
-                saleError.reason || "No se pudo generar la venta.",
-              );
-              return;
-            }
-
-            if (success) {
-              Alert.alert(
-                "Venta generada",
-                "La orden fue creada correctamente. Ahora puede subir su evidencia de pago.",
-              );
-            }
-          },
-        );
+        generarVenta(totalAPagarConvertido);
       },
     );
   };

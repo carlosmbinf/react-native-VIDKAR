@@ -130,7 +130,6 @@ const DrawerBottom = ({
               { transform: [{ translateY }], maxHeight: maxSheetHeight },
             ]}
             pointerEvents="auto"
-            {...panResponder.panHandlers}
           >
             <Surface
               elevation={elevation}
@@ -175,7 +174,7 @@ const DrawerBottom = ({
                   },
                 ]}
               />
-              <View style={styles.handleZone}>
+              <View style={styles.handleZone} {...panResponder.panHandlers}>
                 <View
                   style={[
                     styles.handle,

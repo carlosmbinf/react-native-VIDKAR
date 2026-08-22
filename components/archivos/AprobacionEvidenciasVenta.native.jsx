@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Animated,
+  Dimensions,
   Image,
   Pressable,
   ScrollView,
@@ -40,6 +41,8 @@ const Meteor =
     MeteorBase
   );
 
+const { height: WINDOW_HEIGHT } = Dimensions.get("window");
+
 const getEvidencePreviewPalette = (isDarkMode) => ({
   border: isDarkMode ? "rgba(226, 232, 240, 0.14)" : "rgba(15, 23, 42, 0.1)",
   copy: isDarkMode ? "#cbd5e1" : "#475569",
@@ -69,6 +72,21 @@ const EVIDENCIA_VENTA_FIELDS = {
 
 const EVIDENCIA_FIELDS = {
   _id: 1,
+  "analisisIA.amountMatch": 1,
+  "analisisIA.confidence": 1,
+  "analisisIA.dateWithinAllowedWindow": 1,
+  "analisisIA.decision": 1,
+  "analisisIA.errorCode": 1,
+  "analisisIA.estado": 1,
+  "analisisIA.fraudSignals": 1,
+  "analisisIA.imageQuality": 1,
+  "analisisIA.paymentAmount": 1,
+  "analisisIA.paymentCurrency": 1,
+  "analisisIA.paymentDate": 1,
+  "analisisIA.reasonCodes": 1,
+  "analisisIA.recipientMatch": 1,
+  "analisisIA.reference": 1,
+  "analisisIA.summary": 1,
   aprobado: 1,
   cancelada: 1,
   cancelado: 1,
@@ -90,6 +108,112 @@ const ESTADOS = {
   APROBADA: "APROBADA",
   PENDIENTE: "PENDIENTE",
   RECHAZADA: "RECHAZADA",
+};
+
+const ANALISIS_IA_ESTADOS = {
+  COMPLETADO: "COMPLETADO",
+  ERROR: "ERROR",
+  PENDIENTE: "PENDIENTE",
+  PROCESANDO: "PROCESANDO",
+};
+
+const ANALYSIS_REASON_LABELS = {
+  ACCOUNT_MISMATCH: "Destinatario no visible o no coincide",
+  ACCOUNT_MISSING: "Destinatario no visible o no coincide",
+  AMOUNT_MISMATCH: "Monto no coincide",
+  DATE_MISMATCH: "Fecha fuera de rango",
+  DATE_OUT_OF_WINDOW: "Fecha fuera de rango",
+  DESTINATION_ACCOUNT_MISMATCH: "Destinatario no visible o no coincide",
+  DESTINATION_ACCOUNT_MISSING: "Destinatario no visible o no coincide",
+  PAYMENT_AMOUNT_MISMATCH: "Monto no coincide",
+  PAYMENT_DATE_OUT_OF_WINDOW: "Fecha fuera de rango",
+  RECIPIENT_MISMATCH: "Destinatario no visible o no coincide",
+  RECIPIENT_MISSING: "Destinatario no visible o no coincide",
+};
+
+const normalizeAnalysisReason = (value) => {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) {
+    return null;
+  }
+
+  const normalizedValue = rawValue
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+  const compactKey = normalizedValue.replace(/[\s-]+/g, "_");
+  if (ANALYSIS_REASON_LABELS[compactKey]) {
+    return ANALYSIS_REASON_LABELS[compactKey];
+  }
+
+  if (
+    /(TRANSFERENTE|REMITENTE|SENDER|PAYER|ORIGINATOR)/.test(normalizedValue) &&
+    /(MISMATCH|DIFFERENT|NO COINCIDE|DISTINT)/.test(normalizedValue)
+  ) {
+    return null;
+  }
+  if (/(AMOUNT|MONTO)/.test(normalizedValue) && /(MISMATCH|NO COINCIDE|INCORRECT)/.test(normalizedValue)) {
+    return "Monto no coincide";
+  }
+  if (/(DATE|FECHA|HORA)/.test(normalizedValue) && /(WINDOW|RANGO|FUERA|MISMATCH|NO COINCIDE)/.test(normalizedValue)) {
+    return "Fecha fuera de rango";
+  }
+  if (
+    /(ACCOUNT|CUENTA|DESTINATARIO|RECIPIENT)/.test(normalizedValue) &&
+    /(MISSING|MISMATCH|NO VISIBLE|NO COINCIDE|INCORRECT)/.test(normalizedValue)
+  ) {
+    return "Destinatario no visible o no coincide";
+  }
+
+  return rawValue.replace(/[_-]+/g, " ").slice(0, 120);
+};
+
+const getAnalysisReasonChips = (values) =>
+  [...new Set((Array.isArray(values) ? values : []).map(normalizeAnalysisReason).filter(Boolean))];
+
+const normalizeAnalisisIA = (analisisIA) => {
+  if (!analisisIA || typeof analisisIA !== "object") {
+    return null;
+  }
+
+  const estado = Object.values(ANALISIS_IA_ESTADOS).includes(analisisIA.estado)
+    ? analisisIA.estado
+    : ANALISIS_IA_ESTADOS.PENDIENTE;
+
+  return {
+    amountMatch:
+      typeof analisisIA.amountMatch === "boolean" ? analisisIA.amountMatch : null,
+    confidence:
+      Number.isFinite(Number(analisisIA.confidence))
+        ? Math.max(0, Math.min(1, Number(analisisIA.confidence)))
+        : null,
+    dateWithinAllowedWindow:
+      typeof analisisIA.dateWithinAllowedWindow === "boolean"
+        ? analisisIA.dateWithinAllowedWindow
+        : null,
+    decision: analisisIA.decision || null,
+    errorCode: analisisIA.errorCode || null,
+    estado,
+    fraudSignals: Array.isArray(analisisIA.fraudSignals)
+      ? analisisIA.fraudSignals.filter((item) => typeof item === "string")
+      : [],
+    imageQuality: analisisIA.imageQuality || null,
+    paymentAmount:
+      Number.isFinite(Number(analisisIA.paymentAmount))
+        ? Number(analisisIA.paymentAmount)
+        : null,
+    paymentCurrency: analisisIA.paymentCurrency || null,
+    paymentDate: analisisIA.paymentDate || null,
+    reasonCodes: Array.isArray(analisisIA.reasonCodes)
+      ? analisisIA.reasonCodes.filter((item) => typeof item === "string")
+      : [],
+    recipientMatch:
+      typeof analisisIA.recipientMatch === "boolean"
+        ? analisisIA.recipientMatch
+        : null,
+    reference: analisisIA.reference || null,
+    summary: analisisIA.summary || null,
+  };
 };
 
 const mapEvidenciaDoc = (evidencia, index) => {
@@ -119,6 +243,7 @@ const mapEvidenciaDoc = (evidencia, index) => {
     _id: evidencia._id,
     _idx: index,
     aprobado,
+    analisisIA: normalizeAnalisisIA(evidencia.analisisIA),
     createdAt: evidencia.createdAt || evidencia.fecha || null,
     descripcion: evidencia.descripcion || "",
     estado,
@@ -1222,6 +1347,184 @@ const AprobacionEvidenciasVenta = ({
     return null;
   };
 
+  const renderAnalisisIA = (analisisIA) => {
+    if (!analisisIA) {
+      return null;
+    }
+
+    const stateDetails = {
+      [ANALISIS_IA_ESTADOS.PENDIENTE]: {
+        icon: "clock-outline",
+        label: "Pendiente de análisis",
+        message: "Aún no iniciado.",
+        style: styles.analysisPendingChip,
+      },
+      [ANALISIS_IA_ESTADOS.PROCESANDO]: {
+        icon: "progress-clock",
+        label: "Analizando evidencia",
+        message: "Análisis en curso.",
+        style: styles.analysisProcessingChip,
+      },
+      [ANALISIS_IA_ESTADOS.ERROR]: {
+        icon: "alert-circle-outline",
+        label: "Error de análisis",
+        message: "Revisar evidencia manualmente.",
+        style: styles.analysisErrorChip,
+      },
+      [ANALISIS_IA_ESTADOS.COMPLETADO]: {
+        icon: "robot-outline",
+        label: "Análisis completado",
+        message: null,
+        style: styles.analysisCompletedChip,
+      },
+    }[analisisIA.estado];
+    const comparisonFields = [
+      { label: "Importe coincide", value: analisisIA.amountMatch },
+      {
+        label: "Fecha en rango",
+        value: analisisIA.dateWithinAllowedWindow,
+      },
+      { label: "Cuenta destino", value: analisisIA.recipientMatch },
+    ].filter((item) => item.value !== null);
+    const detailChips = [
+      analisisIA.paymentAmount !== null
+        ? `Importe: ${formatCurrency(analisisIA.paymentAmount, analisisIA.paymentCurrency || "CUP")}`
+        : null,
+      analisisIA.paymentDate ? `Fecha: ${analisisIA.paymentDate}` : null,
+      analisisIA.reference ? `Ref: ${analisisIA.reference}` : null,
+    ].filter(Boolean);
+    const reasonChips = getAnalysisReasonChips([
+      ...analisisIA.reasonCodes,
+      ...analisisIA.fraudSignals,
+    ]);
+
+    return (
+      <Surface
+        style={[
+          styles.analysisBox,
+          {
+            backgroundColor: previewPalette.soft,
+            borderColor: previewPalette.border,
+          },
+        ]}
+        elevation={0}
+        accessibilityLabel={`Análisis de inteligencia artificial: ${stateDetails.label}`}
+      >
+        <Text style={[styles.analysisTitle, { color: previewPalette.copy }]}>
+          Análisis IA
+        </Text>
+        <Chip
+          compact
+          icon={stateDetails.icon}
+          style={[styles.analysisStateChip, stateDetails.style]}
+          textStyle={styles.chipText}
+        >
+          {stateDetails.label}
+        </Chip>
+
+        {analisisIA.estado === ANALISIS_IA_ESTADOS.PROCESANDO ? (
+          <ActivityIndicator
+            size="small"
+            style={styles.analysisSpinner}
+            accessibilityLabel="Análisis de evidencia en curso"
+          />
+        ) : null}
+        {stateDetails.message ? (
+          <Text style={[styles.analysisMessage, { color: previewPalette.copy }]}>
+            {stateDetails.message}
+          </Text>
+        ) : null}
+        {analisisIA.errorCode ? (
+          <Text style={[styles.analysisErrorCode, { color: previewPalette.muted }]}>
+            Código: {analisisIA.errorCode}
+          </Text>
+        ) : null}
+
+        {analisisIA.estado === ANALISIS_IA_ESTADOS.COMPLETADO ? (
+          <>
+            <View style={styles.analysisDetailsRow}>
+              {analisisIA.decision ? (
+                <Chip compact icon="gavel" style={styles.analysisDecisionChip} textStyle={styles.chipText}>
+                  Decisión: {analisisIA.decision}
+                </Chip>
+              ) : null}
+              {analisisIA.confidence !== null ? (
+                <Chip compact icon="percent" style={styles.analysisConfidenceChip} textStyle={styles.chipText}>
+                  Confianza: {Math.round(analisisIA.confidence * 100)}%
+                </Chip>
+              ) : null}
+              {analisisIA.imageQuality ? (
+                <Chip compact icon="image-outline" style={styles.analysisNeutralChip} textStyle={styles.chipText}>
+                  Imagen: {analisisIA.imageQuality}
+                </Chip>
+              ) : null}
+            </View>
+
+            {analisisIA.summary ? (
+              <Text style={[styles.analysisSummary, { color: previewPalette.copy }]}>
+                {analisisIA.summary}
+              </Text>
+            ) : null}
+
+            {detailChips.length > 0 ? (
+              <View style={styles.analysisDetailsRow}>
+                {detailChips.map((detail) => (
+                  <Chip
+                    key={detail}
+                    compact
+                    style={styles.analysisDataChip}
+                    textStyle={styles.chipText}
+                  >
+                    {detail}
+                  </Chip>
+                ))}
+              </View>
+            ) : null}
+
+            {comparisonFields.length > 0 ? (
+              <View style={styles.analysisDetailsRow}>
+                {comparisonFields.map((item) => (
+                  <Chip
+                    key={item.label}
+                    compact
+                    icon={item.value ? "check-circle-outline" : "close-circle-outline"}
+                    style={item.value ? styles.analysisMatchChip : styles.analysisMismatchChip}
+                    textStyle={styles.chipText}
+                  >
+                    {item.label}: {item.value ? "Sí" : "No"}
+                  </Chip>
+                ))}
+              </View>
+            ) : null}
+
+            {reasonChips.length > 0 ? (
+              <>
+                <Text style={[styles.analysisListLabel, { color: previewPalette.muted }]}>
+                  Motivos
+                </Text>
+                <View style={styles.analysisDetailsRow}>
+                  {reasonChips.map((reason) => (
+                    <Chip
+                      key={reason}
+                      compact
+                      style={styles.analysisReasonChip}
+                      textStyle={styles.chipText}
+                    >
+                      {reason}
+                    </Chip>
+                  ))}
+                </View>
+              </>
+            ) : null}
+          </>
+        ) : null}
+        <Text style={[styles.analysisDisclaimer, { color: previewPalette.muted }]}>
+          Resultado orientativo: la decisión final corresponde al administrador.
+        </Text>
+      </Surface>
+    );
+  };
+
   const miniEvidenceImageUrl = evidencias[0]?.imageUrl;
   const cargando = !evidenciasSubsc;
 
@@ -1557,80 +1860,90 @@ const AprobacionEvidenciasVenta = ({
         >
           {preview ? (
             <View style={styles.previewWrapper}>
-              <ZoomableImage
-                uri={preview.imageUrl}
-                style={styles.previewImage}
-              />
-              <View
-                style={[
-                  styles.metaBox,
-                  {
-                    backgroundColor: previewPalette.surface,
-                    borderColor: previewPalette.border,
-                  },
-                ]}
+              <ScrollView
+                contentContainerStyle={styles.previewScrollContent}
+                nestedScrollEnabled
+                showsVerticalScrollIndicator
+                style={styles.previewScroll}
               >
-                <View style={styles.metaRow}>
-                  {preview.estado === ESTADOS.APROBADA ? (
-                    <Chip
-                      mode="outlined"
-                      compact
-                      icon="check"
-                      style={styles.chipOk}
-                      textStyle={styles.chipText}
-                    >
-                      Aprobada
-                    </Chip>
+                <ZoomableImage
+                  uri={preview.imageUrl}
+                  style={styles.previewImage}
+                />
+                <View
+                  style={[
+                    styles.metaBox,
+                    {
+                      backgroundColor: previewPalette.surface,
+                      borderColor: previewPalette.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.metaRow}>
+                    {preview.estado === ESTADOS.APROBADA ? (
+                      <Chip
+                        mode="outlined"
+                        compact
+                        icon="check"
+                        style={styles.chipOk}
+                        textStyle={styles.chipText}
+                      >
+                        Aprobada
+                      </Chip>
+                    ) : null}
+                    {preview.estado === ESTADOS.RECHAZADA ? (
+                      <Chip
+                        mode="outlined"
+                        compact
+                        icon="close-octagon"
+                        style={styles.chipDenied}
+                        textStyle={styles.chipText}
+                      >
+                        Rechazada
+                      </Chip>
+                    ) : null}
+                    {preview.estado === ESTADOS.PENDIENTE ? (
+                      <Chip
+                        mode="outlined"
+                        compact
+                        icon="progress-clock"
+                        style={styles.chipPending}
+                        textStyle={styles.chipText}
+                      >
+                        Pendiente
+                      </Chip>
+                    ) : null}
+                    <Text style={[styles.fechaText, { color: previewPalette.copy }]}>
+                      {preview.createdAt
+                        ? moment(preview.createdAt).format("DD/MM/YYYY HH:mm")
+                        : "Sin fecha"}
+                    </Text>
+                  </View>
+                  {preview.size ? (
+                    <Text style={[styles.sizeText, { color: previewPalette.muted }]}>
+                      Tamaño: {(preview.size / 1024 / 1024).toFixed(2)} MB
+                    </Text>
                   ) : null}
-                  {preview.estado === ESTADOS.RECHAZADA ? (
-                    <Chip
-                      mode="outlined"
-                      compact
-                      icon="close-octagon"
-                      style={styles.chipDenied}
-                      textStyle={styles.chipText}
+                  {preview.descripcion ? (
+                    <Text
+                      style={[
+                        styles.descText,
+                        {
+                          backgroundColor: previewPalette.soft,
+                          borderColor: previewPalette.border,
+                          color: previewPalette.copy,
+                        },
+                      ]}
                     >
-                      Rechazada
-                    </Chip>
+                      {preview.descripcion}
+                    </Text>
                   ) : null}
-                  {preview.estado === ESTADOS.PENDIENTE ? (
-                    <Chip
-                      mode="outlined"
-                      compact
-                      icon="progress-clock"
-                      style={styles.chipPending}
-                      textStyle={styles.chipText}
-                    >
-                      Pendiente
-                    </Chip>
-                  ) : null}
-                  <Text style={[styles.fechaText, { color: previewPalette.copy }]}>
-                    {preview.createdAt
-                      ? moment(preview.createdAt).format("DD/MM/YYYY HH:mm")
-                      : "Sin fecha"}
-                  </Text>
+                  {renderAnalisisIA(preview.analisisIA)}
                 </View>
-                {preview.size ? (
-                  <Text style={[styles.sizeText, { color: previewPalette.muted }]}>
-                    Tamaño: {(preview.size / 1024 / 1024).toFixed(2)} MB
-                  </Text>
-                ) : null}
-                {preview.descripcion ? (
-                  <Text
-                    style={[
-                      styles.descText,
-                      {
-                        backgroundColor: previewPalette.soft,
-                        borderColor: previewPalette.border,
-                        color: previewPalette.copy,
-                      },
-                    ]}
-                  >
-                    {preview.descripcion}
-                  </Text>
-                ) : null}
+              </ScrollView>
 
-                <View style={styles.actionsRow}>
+              <View style={styles.previewActionsFooter}>
+                <View style={styles.previewActionsRow}>
                   {preview.estado === ESTADOS.PENDIENTE ? (
                     <>
                       <Button
@@ -1669,7 +1982,7 @@ const AprobacionEvidenciasVenta = ({
 };
 
 const styles = StyleSheet.create({
-  actionBtn: { marginRight: 10 },
+  actionBtn: { flex: 1, marginRight: 10 },
   actionsContainer: {
     flexDirection: "row",
     gap: 12,
@@ -1678,6 +1991,40 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   actionsRow: { alignItems: "center", flexDirection: "row", marginTop: 16 },
+  analysisBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 12,
+  },
+  analysisCompletedChip: { alignSelf: "flex-start", backgroundColor: "#dcfce7" },
+  analysisConfidenceChip: { backgroundColor: "#dbeafe", marginRight: 6 },
+  analysisDataChip: { backgroundColor: "#dbeafe", marginRight: 6 },
+  analysisDecisionChip: { backgroundColor: "#ede9fe", marginRight: 6 },
+  analysisDetailsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 8,
+  },
+  analysisDisclaimer: { fontSize: 10, fontStyle: "italic", marginTop: 10 },
+  analysisErrorChip: { alignSelf: "flex-start", backgroundColor: "#fee2e2" },
+  analysisErrorCode: { fontSize: 11, marginTop: 6 },
+  analysisListLabel: { fontSize: 11, fontWeight: "700", marginTop: 10 },
+  analysisMatchChip: { backgroundColor: "#dcfce7" },
+  analysisMessage: { fontSize: 12, marginTop: 8 },
+  analysisMismatchChip: { backgroundColor: "#fee2e2" },
+  analysisNeutralChip: { backgroundColor: "#e2e8f0" },
+  analysisPendingChip: { alignSelf: "flex-start", backgroundColor: "#fef3c7" },
+  analysisReasonChip: { backgroundColor: "#fee2e2" },
+  analysisProcessingChip: {
+    alignSelf: "flex-start",
+    backgroundColor: "#dbeafe",
+  },
+  analysisSpinner: { alignSelf: "flex-start", marginTop: 8 },
+  analysisStateChip: { marginTop: 6 },
+  analysisSummary: { fontSize: 12, lineHeight: 18, marginTop: 10 },
+  analysisTitle: { fontSize: 14, fontWeight: "700" },
   approveButton: { borderRadius: 22, flex: 1 },
   approveButtonContent: { height: 44 },
   aprobadaInfo: { color: "#2e7d32", fontSize: 12, fontWeight: "600" },
@@ -1744,7 +2091,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#000",
     borderRadius: 12,
-    height: 500,
+    height: 320,
     justifyContent: "center",
     overflow: "hidden",
     width: "100%",
@@ -1794,6 +2141,20 @@ const styles = StyleSheet.create({
   miniIcon: { margin: 0, padding: 0 },
   miniRowIcon: { margin: 0, marginRight: 4, padding: 0 },
   previewImage: { height: "100%", width: "100%" },
+  previewActionsFooter: {
+    borderTopColor: "rgba(148, 163, 184, 0.25)",
+    borderTopWidth: 1,
+    paddingBottom: 4,
+    paddingTop: 10,
+  },
+  previewActionsRow: {
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  previewScroll: {
+    maxHeight: Math.min(520, WINDOW_HEIGHT * 0.58),
+  },
+  previewScrollContent: { paddingBottom: 12 },
   previewWrapper: { paddingBottom: 10 },
   productsScroll: { marginBottom: 12, maxHeight: 300 },
   rejectButton: {
