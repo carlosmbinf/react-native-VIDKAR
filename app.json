@@ -148,6 +148,10 @@
                 {
                   "targetName": "VidkarWatch",
                   "bundleIdentifier": "com.vidkar.watchkitapp"
+                },
+                {
+                  "targetName": "NotificationService",
+                  "bundleIdentifier": "com.vidkar.notificationservice"
                 }
               ]
             }
