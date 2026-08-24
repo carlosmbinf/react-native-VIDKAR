@@ -3,7 +3,7 @@ import * as Application from "expo-application";
 import Constants from "expo-constants";
 import { router } from "expo-router";
 import React from "react";
-import { Platform, StatusBar, StyleSheet } from "react-native";
+import { Alert, Platform, StatusBar, StyleSheet } from "react-native";
 import { ActivityIndicator, Surface, Text, useTheme } from "react-native-paper";
 
 import CadeteNavigator from "../components/cadete/CadeteNavigator";
@@ -15,6 +15,8 @@ import PushNotificationDialogHost from "../components/shared/PushNotificationDia
 import UpdateRequired from "../components/update/UpdateRequired";
 import { syncCadeteBackgroundLocation } from "../services/location/cadeteBackgroundLocation.native";
 import {
+  APPROVE_EVIDENCE_ACTION,
+  REJECT_EVIDENCE_ACTION,
     registerPushTokenForActiveSession,
     registerPushTokenForUser,
     resolvePushNavigationTarget,
@@ -41,6 +43,9 @@ const METEOR_CONNECTION_TIMEOUT_MS = 10_000;
 const METEOR_CONNECTION_POLL_MS = 500;
 
 const ROOT_USER_FIELDS = WATCH_ROOT_USER_FIELDS;
+const PUSH_ACTION_SESSION_RETRIES = 20;
+const PUSH_ACTION_SESSION_DELAY_MS = 500;
+
 const resolveCurrentBuildNumber = () => {
   const nativeBuildNumber = parseInt(Application.nativeBuildVersion ?? "", 10);
 
@@ -268,6 +273,99 @@ export default function IndexScreen() {
   React.useEffect(() => {
     let active = true;
 
+    const waitForPushActionSession = async () => {
+      for (
+        let attempt = 0;
+        attempt < PUSH_ACTION_SESSION_RETRIES;
+        attempt += 1
+      ) {
+        if (Meteor.userId() && Meteor.status()?.connected) {
+          return true;
+        }
+
+        await new Promise((resolve) => {
+          setTimeout(resolve, PUSH_ACTION_SESSION_DELAY_MS);
+        });
+      }
+
+      return Boolean(Meteor.userId() && Meteor.status()?.connected);
+    };
+
+    const handleNotificationAction = async (
+      notification: any,
+      actionIdentifier: string,
+    ) => {
+      const data = (notification?.request?.content?.data || {}) as Record<
+        string,
+        unknown
+      >;
+      if (data.notificationType !== "EVIDENCIA_MANUAL_REVIEW") {
+        return;
+      }
+
+      const evidenciaId =
+        typeof data.evidenciaId === "string"
+          ? data.evidenciaId
+          : typeof data.evidenceId === "string"
+            ? data.evidenceId
+            : "";
+      const ventaId =
+        typeof data.ventaId === "string" ? data.ventaId : undefined;
+
+      if (!evidenciaId) {
+        Alert.alert(
+          "Vidkar",
+          "La notificación no contiene una evidencia válida.",
+        );
+        return;
+      }
+
+      const sessionReady = await waitForPushActionSession();
+      if (!sessionReady) {
+        Alert.alert(
+          "Vidkar",
+          "No se pudo conectar la sesión. Abra la aplicación e inténtelo nuevamente.",
+        );
+        return;
+      }
+
+      const methodName =
+        actionIdentifier === APPROVE_EVIDENCE_ACTION
+          ? "archivos.aprobarEvidencia"
+          : actionIdentifier === REJECT_EVIDENCE_ACTION
+            ? "archivos.denegarEvidencia"
+            : null;
+      if (!methodName) {
+        return;
+      }
+
+      try {
+        const result = await new Promise<any>((resolve, reject) => {
+          Meteor.call(
+            methodName,
+            evidenciaId,
+            ventaId
+              ? { ventaId, source: "PUSH_ACTION" }
+              : { source: "PUSH_ACTION" },
+            (error: any, response: any) =>
+              error ? reject(error) : resolve(response),
+          );
+        });
+        Alert.alert(
+          "Vidkar",
+          result?.message ||
+            (actionIdentifier === APPROVE_EVIDENCE_ACTION
+              ? "Evidencia aprobada y venta procesada."
+              : "Evidencia rechazada."),
+        );
+      } catch (error: any) {
+        Alert.alert(
+          "Vidkar",
+          error?.reason || error?.message || "No se pudo procesar la acción.",
+        );
+      }
+    };
+
     const queuePushNavigation = async (notification: any) => {
       const notificationId = notification?.request?.identifier || null;
 
@@ -283,6 +381,7 @@ export default function IndexScreen() {
     };
 
     setupPushListeners({
+      onNotificationAction: handleNotificationAction,
       onInitialNotification: queuePushNavigation,
       onNotificationOpenedApp: queuePushNavigation,
       onToken: async (token) => {

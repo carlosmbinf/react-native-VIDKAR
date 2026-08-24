@@ -24,6 +24,10 @@ type SetupOptions = {
   onForegroundMessage?: (
     notification: Notifications.Notification,
   ) => void | Promise<void>;
+  onNotificationAction?: (
+    notification: Notifications.Notification,
+    actionIdentifier: string,
+  ) => void | Promise<void>;
   onInitialNotification?: (
     notification: Notifications.Notification,
   ) => void | Promise<void>;
@@ -47,6 +51,10 @@ export type PushDialogPayload = {
   reason: PushDialogReason;
   title: string;
 };
+
+export const MANUAL_REVIEW_NOTIFICATION_CATEGORY = "EVIDENCIA_MANUAL_REVIEW";
+export const APPROVE_EVIDENCE_ACTION = "APPROVE_EVIDENCE";
+export const REJECT_EVIDENCE_ACTION = "REJECT_EVIDENCE";
 
 const Meteor = MeteorBase as unknown as {
   call: (...args: any[]) => void;
@@ -351,6 +359,32 @@ const ensureAndroidNotificationChannel = async () => {
   return DEFAULT_CHANNEL_ID;
 };
 
+const ensureNotificationCategories = async () => {
+  await Notifications.setNotificationCategoryAsync(
+    MANUAL_REVIEW_NOTIFICATION_CATEGORY,
+    [
+      {
+        identifier: APPROVE_EVIDENCE_ACTION,
+        buttonTitle: "Aprobar",
+        options: { opensAppToForeground: true },
+      },
+      {
+        identifier: REJECT_EVIDENCE_ACTION,
+        buttonTitle: "Rechazar",
+        options: {
+          isDestructive: true,
+          opensAppToForeground: true,
+        },
+      },
+    ],
+    { previewPlaceholder: "Evidencia pendiente de revisión" },
+  );
+};
+
+const isManualReviewAction = (actionIdentifier: string) =>
+  actionIdentifier === APPROVE_EVIDENCE_ACTION ||
+  actionIdentifier === REJECT_EVIDENCE_ACTION;
+
 const getExpoProjectId = () => {
   const easProjectId =
     Constants.easConfig?.projectId ||
@@ -618,6 +652,12 @@ export const sendMessage = async (payload: SendMessagePayload) => {
 
 export const setupPushListeners = async (options?: SetupOptions) => {
   await ensureAndroidNotificationChannel();
+  await ensureNotificationCategories().catch((error) => {
+    console.warn(
+      "[PushMessaging] No se pudieron registrar las acciones de notificación:",
+      error,
+    );
+  });
   await badgeManager.reset();
 
   const granted = await requestPermissionsIfNeeded();
@@ -675,6 +715,14 @@ export const setupPushListeners = async (options?: SetupOptions) => {
       await badgeManager.reset();
 
       const notification = response.notification;
+        if (isManualReviewAction(response.actionIdentifier)) {
+          await options?.onNotificationAction?.(
+            notification,
+            response.actionIdentifier,
+          );
+          return;
+        }
+
       if (!isForCurrentUser(notification)) {
         return;
       }
@@ -687,6 +735,16 @@ export const setupPushListeners = async (options?: SetupOptions) => {
     .then(async (response) => {
       if (response) {
         await badgeManager.reset();
+        if (
+          isManualReviewAction(response.actionIdentifier) &&
+          options?.onNotificationAction
+        ) {
+          await options.onNotificationAction(
+            response.notification,
+            response.actionIdentifier,
+          );
+          return;
+        }
         if (isForCurrentUser(response.notification)) {
           await showPushDialog(response.notification, "opened");
           await options?.onInitialNotification?.(response.notification);
