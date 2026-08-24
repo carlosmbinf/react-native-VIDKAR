@@ -27,8 +27,8 @@ import {
     TextInput,
 } from "react-native-paper";
 
+import { buildMeteorHttpBaseUrl } from "../../services/meteor/evidenceImages";
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
-import { getMeteorUrl } from "../../services/meteor/client.native";
 import { Mensajes as MensajesCollection } from "../collections/collections";
 import { EMPRESA_BRAND } from "../empresa/styles/empresaTheme";
 import AppHeader from "../Header/AppHeader";
@@ -84,41 +84,31 @@ const CHAT_IMAGE_PICKER_OPTIONS = {
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const LOADING_CARD_MAX_WIDTH = Math.min(Math.max(SCREEN_WIDTH * 0.54, 360), 620);
 
-const toHttpOriginFromMeteorUrl = (value) => {
-  if (typeof value !== "string" || !value.trim()) {
-    return null;
-  }
-
-  try {
-    const parsedMeteorUrl = new URL(value);
-    const protocol = parsedMeteorUrl.protocol === "wss:" ? "https:" : "http:";
-    return `${protocol}//${parsedMeteorUrl.host}`;
-  } catch (_error) {
-    return null;
-  }
-};
-
 const normalizeChatAssetUrl = (value) => {
   if (typeof value !== "string" || !value.trim()) {
     return "";
   }
 
+  const trimmedValue = value.trim();
+
+  // `images.upload` ya devuelve la URL pública configurada en ROOT_URL.
+  // No la reemplazamos por el origen del WebSocket, porque en producción
+  // ese origen incluye el puerto interno de Meteor y no es descargable por
+  // Expo/APNs/FCM (por ejemplo, https://www.vidkar.com -> :3000).
+  if (/^(data:|blob:|https?:\/\/)/i.test(trimmedValue)) {
+    return trimmedValue;
+  }
+
   try {
-    const parsedAssetUrl = new URL(value);
-    const activeMeteorOrigin = toHttpOriginFromMeteorUrl(getMeteorUrl());
+    const publicAssetOrigin = buildMeteorHttpBaseUrl();
 
-    if (!activeMeteorOrigin) {
-      return value;
+    if (!publicAssetOrigin) {
+      return trimmedValue;
     }
 
-    const parsedActiveOrigin = new URL(activeMeteorOrigin);
-    if (parsedActiveOrigin.host === parsedAssetUrl.host) {
-      return value;
-    }
-
-    return `${parsedActiveOrigin.origin}${parsedAssetUrl.pathname}${parsedAssetUrl.search}${parsedAssetUrl.hash}`;
+    return new URL(trimmedValue, publicAssetOrigin).toString();
   } catch (_error) {
-    return value;
+    return trimmedValue;
   }
 };
 

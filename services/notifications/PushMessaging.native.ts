@@ -53,8 +53,12 @@ export type PushDialogPayload = {
 };
 
 export const MANUAL_REVIEW_NOTIFICATION_CATEGORY = "EVIDENCIA_MANUAL_REVIEW";
+export const APPROVED_EVIDENCE_SALE_REVIEW_CATEGORY =
+  "EVIDENCIA_APROBADA_VENTA_PENDIENTE";
 export const APPROVE_EVIDENCE_ACTION = "APPROVE_EVIDENCE";
 export const REJECT_EVIDENCE_ACTION = "REJECT_EVIDENCE";
+export const APPROVE_SALE_ACTION = "APPROVE_SALE";
+export const OPEN_SALE_APPROVAL_ACTION = "OPEN_SALE_APPROVAL";
 
 const Meteor = MeteorBase as unknown as {
   call: (...args: any[]) => void;
@@ -237,11 +241,16 @@ export const resolvePushNavigationTarget = (
     "chatUserId",
     "conversationUserId",
   ]);
+  const explicitSaleId = getStringDataValue(data, ["ventaId", "saleId"]);
 
   if (explicitPathname) {
+    const params = {
+      ...(explicitItem ? { item: explicitItem } : {}),
+      ...(explicitSaleId ? { ventaId: explicitSaleId } : {}),
+    };
     return {
       pathname: explicitPathname,
-      params: explicitItem ? { item: explicitItem } : undefined,
+      params: Object.keys(params).length > 0 ? params : undefined,
     };
   }
 
@@ -379,11 +388,29 @@ const ensureNotificationCategories = async () => {
     ],
     { previewPlaceholder: "Evidencia pendiente de revisión" },
   );
+  await Notifications.setNotificationCategoryAsync(
+    APPROVED_EVIDENCE_SALE_REVIEW_CATEGORY,
+    [
+      {
+        identifier: APPROVE_SALE_ACTION,
+        buttonTitle: "Aprobar venta",
+        options: { opensAppToForeground: true },
+      },
+      {
+        identifier: OPEN_SALE_APPROVAL_ACTION,
+        buttonTitle: "Abrir venta",
+        options: { opensAppToForeground: true },
+      },
+    ],
+    { previewPlaceholder: "Venta pendiente de aprobación" },
+  );
 };
 
 const isManualReviewAction = (actionIdentifier: string) =>
   actionIdentifier === APPROVE_EVIDENCE_ACTION ||
-  actionIdentifier === REJECT_EVIDENCE_ACTION;
+  actionIdentifier === REJECT_EVIDENCE_ACTION ||
+  actionIdentifier === APPROVE_SALE_ACTION ||
+  actionIdentifier === OPEN_SALE_APPROVAL_ACTION;
 
 const getExpoProjectId = () => {
   const easProjectId =

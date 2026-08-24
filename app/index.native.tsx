@@ -16,14 +16,16 @@ import UpdateRequired from "../components/update/UpdateRequired";
 import { syncCadeteBackgroundLocation } from "../services/location/cadeteBackgroundLocation.native";
 import {
   APPROVE_EVIDENCE_ACTION,
+  APPROVE_SALE_ACTION,
+  OPEN_SALE_APPROVAL_ACTION,
   REJECT_EVIDENCE_ACTION,
-    registerPushTokenForActiveSession,
-    registerPushTokenForUser,
-    resolvePushNavigationTarget,
-    setupPushListeners,
+  registerPushTokenForActiveSession,
+  registerPushTokenForUser,
+  resolvePushNavigationTarget,
+  setupPushListeners,
 } from "../services/notifications/PushMessaging.native";
 import {
-    WATCH_ROOT_USER_FIELDS,
+  WATCH_ROOT_USER_FIELDS,
 } from "../services/watch/watchDashboard";
 
 const Meteor = MeteorBase as unknown as {
@@ -299,7 +301,11 @@ export default function IndexScreen() {
         string,
         unknown
       >;
-      if (data.notificationType !== "EVIDENCIA_MANUAL_REVIEW") {
+      const isManualReviewNotification =
+        data.notificationType === "EVIDENCIA_MANUAL_REVIEW";
+      const isApprovedEvidenceNotification =
+        data.notificationType === "EVIDENCIA_APROBADA_VENTA_PENDIENTE";
+      if (!isManualReviewNotification && !isApprovedEvidenceNotification) {
         return;
       }
 
@@ -312,7 +318,11 @@ export default function IndexScreen() {
       const ventaId =
         typeof data.ventaId === "string" ? data.ventaId : undefined;
 
-      if (!evidenciaId) {
+      if (
+        !evidenciaId &&
+        actionIdentifier !== APPROVE_SALE_ACTION &&
+        actionIdentifier !== OPEN_SALE_APPROVAL_ACTION
+      ) {
         Alert.alert(
           "Vidkar",
           "La notificación no contiene una evidencia válida.",
@@ -330,12 +340,23 @@ export default function IndexScreen() {
       }
 
       const methodName =
-        actionIdentifier === APPROVE_EVIDENCE_ACTION
-          ? "archivos.aprobarEvidencia"
-          : actionIdentifier === REJECT_EVIDENCE_ACTION
+        actionIdentifier === APPROVE_SALE_ACTION && isApprovedEvidenceNotification
+          ? "ventas.aprobarVenta"
+          : actionIdentifier === APPROVE_EVIDENCE_ACTION && isManualReviewNotification
+            ? "archivos.aprobarEvidencia"
+            : actionIdentifier === REJECT_EVIDENCE_ACTION && isManualReviewNotification
             ? "archivos.denegarEvidencia"
             : null;
+      if (actionIdentifier === OPEN_SALE_APPROVAL_ACTION) {
+        setPendingPushNavigationNotification(notification);
+        return;
+      }
       if (!methodName) {
+        return;
+      }
+
+      if (methodName === "ventas.aprobarVenta" && !ventaId) {
+        Alert.alert("Vidkar", "La notificación no contiene una venta válida.");
         return;
       }
 
@@ -343,10 +364,12 @@ export default function IndexScreen() {
         const result = await new Promise<any>((resolve, reject) => {
           Meteor.call(
             methodName,
-            evidenciaId,
-            ventaId
-              ? { ventaId, source: "PUSH_ACTION" }
-              : { source: "PUSH_ACTION" },
+            methodName === "ventas.aprobarVenta" ? ventaId : evidenciaId,
+            methodName === "ventas.aprobarVenta"
+              ? { source: "PUSH_ACTION_SALE" }
+              : ventaId
+                ? { ventaId, source: "PUSH_ACTION" }
+                : { source: "PUSH_ACTION" },
             (error: any, response: any) =>
               error ? reject(error) : resolve(response),
           );
@@ -355,8 +378,10 @@ export default function IndexScreen() {
           "Vidkar",
           result?.message ||
             (actionIdentifier === APPROVE_EVIDENCE_ACTION
-              ? "Evidencia aprobada y venta procesada."
-              : "Evidencia rechazada."),
+              ? "Evidencia aprobada. La venta queda pendiente de aprobación."
+              : actionIdentifier === APPROVE_SALE_ACTION
+                ? "Venta aprobada y procesada."
+                : "Evidencia rechazada."),
         );
       } catch (error: any) {
         Alert.alert(
