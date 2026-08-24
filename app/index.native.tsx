@@ -356,7 +356,9 @@ export default function IndexScreen() {
       }
 
       if (methodName === "ventas.aprobarVenta" && !ventaId) {
-        Alert.alert("Vidkar", "La notificación no contiene una venta válida.");
+        if (actionIdentifier !== APPROVE_SALE_ACTION) {
+          Alert.alert("Vidkar", "La notificación no contiene una venta válida.");
+        }
         return;
       }
 
@@ -374,6 +376,12 @@ export default function IndexScreen() {
               error ? reject(error) : resolve(response),
           );
         });
+        if (actionIdentifier === APPROVE_SALE_ACTION) {
+          console.info("[PushMessaging] Venta aprobada desde notificación", {
+            ventaId,
+          });
+          return;
+        }
         Alert.alert(
           "Vidkar",
           result?.message ||
@@ -384,6 +392,13 @@ export default function IndexScreen() {
                 : "Evidencia rechazada."),
         );
       } catch (error: any) {
+        if (actionIdentifier === APPROVE_SALE_ACTION) {
+          console.warn("[PushMessaging] No se pudo aprobar la venta desde notificación", {
+            error: error?.reason || error?.message || "push-sale-approval-error",
+            ventaId,
+          });
+          return;
+        }
         Alert.alert(
           "Vidkar",
           error?.reason || error?.message || "No se pudo procesar la acción.",

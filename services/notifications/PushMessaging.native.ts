@@ -1,9 +1,11 @@
 import MeteorBase from "@meteorrn/core";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
+import * as TaskManager from "expo-task-manager";
 import { AppState, PermissionsAndroid, Platform } from "react-native";
 import { canAccessPushTokenDashboards } from "../../components/users/pushTokens/utils";
 import { getAppVersionInfo } from "../app/appVersion";
+import { ensureMeteorConnection } from "../meteor/client.native";
 
 type PushData = Record<string, string | number | boolean | null | undefined>;
 
@@ -60,6 +62,10 @@ export const REJECT_EVIDENCE_ACTION = "REJECT_EVIDENCE";
 export const APPROVE_SALE_ACTION = "APPROVE_SALE";
 export const OPEN_SALE_APPROVAL_ACTION = "OPEN_SALE_APPROVAL";
 
+const BACKGROUND_SALE_APPROVAL_TASK = "vidkar-background-sale-approval-v1";
+const BACKGROUND_SALE_APPROVAL_SESSION_RETRIES = 20;
+const BACKGROUND_SALE_APPROVAL_SESSION_DELAY_MS = 500;
+
 const Meteor = MeteorBase as unknown as {
   call: (...args: any[]) => void;
   user?: () => { username?: string } | null;
@@ -81,6 +87,105 @@ const wait = (ms: number) =>
   new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+
+const isApprovedEvidenceSaleNotification = (data: unknown) => {
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+
+  return (
+    (data as Record<string, unknown>).notificationType ===
+    APPROVED_EVIDENCE_SALE_REVIEW_CATEGORY
+  );
+};
+
+const getBackgroundNotificationResponse = (data: unknown) => {
+  if (!data || typeof data !== "object" || !("actionIdentifier" in data)) {
+    return null;
+  }
+
+  const response = data as Notifications.NotificationResponse;
+  return response.actionIdentifier === APPROVE_SALE_ACTION ? response : null;
+};
+
+const approveSaleFromBackgroundNotification = async (
+  response: Notifications.NotificationResponse,
+) => {
+  const data = getNotificationData(response.notification);
+  const ventaId = typeof data.ventaId === "string" ? data.ventaId : "";
+
+  if (!ventaId || !isApprovedEvidenceSaleNotification(data)) {
+    return;
+  }
+
+  try {
+    await ensureMeteorConnection();
+
+    for (
+      let attempt = 0;
+      attempt < BACKGROUND_SALE_APPROVAL_SESSION_RETRIES;
+      attempt += 1
+    ) {
+      if (Meteor.userId()) {
+        break;
+      }
+
+      await wait(BACKGROUND_SALE_APPROVAL_SESSION_DELAY_MS);
+    }
+
+    if (!Meteor.userId()) {
+      throw new Error("No se pudo restaurar la sesión para aprobar la venta.");
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      Meteor.call(
+        "ventas.aprobarVenta",
+        ventaId,
+        { source: "PUSH_ACTION_SALE" },
+        (error: any) => (error ? reject(error) : resolve()),
+      );
+    });
+
+    console.info("[PushMessaging] Venta aprobada desde tarea en segundo plano", {
+      ventaId,
+    });
+  } catch (error: any) {
+    console.warn(
+      "[PushMessaging] No se pudo aprobar la venta desde tarea en segundo plano",
+      {
+        error: error?.reason || error?.message || "background-sale-approval-error",
+        ventaId,
+      },
+    );
+  }
+};
+
+if (!TaskManager.isTaskDefined(BACKGROUND_SALE_APPROVAL_TASK)) {
+  TaskManager.defineTask<Notifications.NotificationTaskPayload>(
+    BACKGROUND_SALE_APPROVAL_TASK,
+    async ({ data, error }) => {
+      if (error) {
+        console.warn(
+          "[PushMessaging] La tarea de notificación falló antes de aprobar la venta",
+          error,
+        );
+        return;
+      }
+
+      const response = getBackgroundNotificationResponse(data);
+      if (response) {
+        await approveSaleFromBackgroundNotification(response);
+      }
+    },
+  );
+}
+
+Notifications.registerTaskAsync(BACKGROUND_SALE_APPROVAL_TASK).catch((error) => {
+  console.warn(
+    "[PushMessaging] No se pudo registrar la tarea de aprobación de venta",
+    error,
+  );
+});
 
 const normalizePushToken = (tokenData: unknown) => {
   if (typeof tokenData === "string" && tokenData.trim().length > 0) {
@@ -394,7 +499,7 @@ const ensureNotificationCategories = async () => {
       {
         identifier: APPROVE_SALE_ACTION,
         buttonTitle: "Aprobar venta",
-        options: { opensAppToForeground: true },
+        options: { opensAppToForeground: false },
       },
       {
         identifier: OPEN_SALE_APPROVAL_ACTION,
