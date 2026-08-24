@@ -327,6 +327,11 @@ const buildPrivateItems = () => [
     icon: "map-marker-account-outline",
     href: "/(normal)/MapaUsuarios",
   },
+  {
+    label: "Centro antifraude",
+    icon: "shield-search-outline",
+    href: "/(normal)/CentroAntifraude",
+  },
 ];
 
 const DrawerOptionsAlls = ({
