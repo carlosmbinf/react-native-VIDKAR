@@ -1,5 +1,3 @@
-import { buildEvidenceImageUrl } from "../meteor/evidenceImages";
-
 const BYTES_IN_MB_BINARY = 1024 * 1024;
 
 export const WATCH_ROOT_USER_FIELDS = {
@@ -463,7 +461,7 @@ const buildDebtorSummaries = (debtSales = [], usersById = new Map()) => {
     });
 };
 
-const buildWatchEvidenceItem = (evidenceDoc) => {
+const buildWatchEvidenceItem = (evidenceDoc, evidenceImageUrls = {}) => {
   const evidenceId = normalizeUserId(evidenceDoc?._id);
   if (!evidenceId) {
     return null;
@@ -489,15 +487,15 @@ const buildWatchEvidenceItem = (evidenceDoc) => {
     description:
       toStringOrNull(evidenceDoc?.descripcion) ??
       toStringOrNull(evidenceDoc?.detalles),
-    hasPreview: true,
+    hasPreview: Boolean(evidenceImageUrls[evidenceId]),
     id: evidenceId,
-    imageUrl: buildEvidenceImageUrl(evidenceId),
+    imageUrl: evidenceImageUrls[evidenceId] || null,
     rejected,
     statusLabel: rejected ? "Rechazada" : approved ? "Aprobada" : "Pendiente",
   };
 };
 
-const buildEvidenceBySaleMap = (evidences = []) =>
+const buildEvidenceBySaleMap = (evidences = [], evidenceImageUrls = {}) =>
   evidences.reduce((accumulator, evidenceDoc) => {
     const saleId = normalizeUserId(evidenceDoc?.ventaId);
     if (!saleId) {
@@ -521,7 +519,7 @@ const buildEvidenceBySaleMap = (evidences = []) =>
         evidenceDoc?.estado === "RECHAZADA",
     );
 
-    const evidenceItem = buildWatchEvidenceItem(evidenceDoc);
+    const evidenceItem = buildWatchEvidenceItem(evidenceDoc, evidenceImageUrls);
 
     accumulator.set(saleId, {
       approvedCount: currentValue.approvedCount + (approved ? 1 : 0),
@@ -747,6 +745,7 @@ export const buildWatchDashboardPayload = ({
   connections = [],
   currentUser = null,
   debtSales = [],
+  evidenceImageUrls = {},
   pendingEvidenceVentas = [],
   rechargeBalance = null,
   users = [],
@@ -776,7 +775,10 @@ export const buildWatchDashboardPayload = ({
     (total, debtor) => total + toNumber(debtor.salesCount),
     0,
   );
-  const evidenceBySaleMap = buildEvidenceBySaleMap(approvalEvidences);
+  const evidenceBySaleMap = buildEvidenceBySaleMap(
+    approvalEvidences,
+    evidenceImageUrls,
+  );
   const pendingApprovals = approvalVentas
     .map((sale) =>
       buildApprovalItem(sale, {

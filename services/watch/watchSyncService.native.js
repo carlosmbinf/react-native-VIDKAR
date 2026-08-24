@@ -7,7 +7,10 @@ import {
     VentasCollection,
     VentasRechargeCollection,
 } from "../../components/collections/collections";
-import { buildEvidenceImageUrl } from "../meteor/evidenceImages";
+import {
+  requestEvidenceImageUrls,
+  requestEvidenceImageUrl,
+} from "../meteor/evidenceImages";
 import {
     clearWatchUserSnapshot,
     replyToWatchMessage,
@@ -49,6 +52,7 @@ let latestSession = { ready: false, user: null, userId: null };
 let previousUserId;
 let lastImmediateUserId = null;
 let emptySessionAlreadyCleared = false;
+let dashboardSyncGeneration = 0;
 let rechargeBalance = null;
 let rechargeBalanceFetching = false;
 let rechargeBalanceIntervalId = null;
@@ -295,7 +299,7 @@ const syncImmediateUserSnapshot = ({ ready, user, userId }) => {
     });
 };
 
-const buildReactiveWatchPayload = ({ ready, user, userId }) => {
+const buildReactiveWatchPayload = async ({ ready, user, userId }) => {
   if (Platform.OS !== "ios" || !userId || !ready || !user) {
     return { watchPayload: null, watchReady: false };
   }
@@ -449,20 +453,27 @@ const buildReactiveWatchPayload = ({ ready, user, userId }) => {
     approvalVentasHandle.ready() &&
     (approvalEvidencesHandle ? approvalEvidencesHandle.ready() : true);
 
+  if (!allReady) {
+    return { watchPayload: null, watchReady: false };
+  }
+
+  const evidenceImageUrls = await requestEvidenceImageUrls(
+    approvalEvidences.map((evidence) => evidence?._id),
+  );
+
   return {
-    watchPayload: allReady
-      ? buildWatchDashboardPayload({
-          approvalEvidences,
-          approvalVentas,
-          connections,
-          currentUser: user,
-          debtSales,
-          pendingEvidenceVentas,
-          rechargeBalance,
-          users: usersForWatch,
-        })
-      : null,
-    watchReady: allReady,
+    watchPayload: buildWatchDashboardPayload({
+      approvalEvidences,
+      approvalVentas,
+      connections,
+      currentUser: user,
+      debtSales,
+      evidenceImageUrls,
+      pendingEvidenceVentas,
+      rechargeBalance,
+      users: usersForWatch,
+    }),
+    watchReady: true,
   };
 };
 
@@ -567,14 +578,15 @@ const handleWatchMessage = (message) => {
       return;
     }
 
-    const imageUrl = buildEvidenceImageUrl(evidenceId);
+    requestEvidenceImageUrl(evidenceId).then((imageUrl) => {
+      if (!imageUrl) {
+        throw new Error("No se pudo preparar la URL de la imagen");
+      }
 
-    // console.log(
-    //   "[WatchConnectivity] Evidence preview request:",
-    //   JSON.stringify({ evidenceId, imageUrl }),
-    // );
-
-    if (!imageUrl) {
+      return sendWatchMessage({ type: "evidencePreview", evidenceId, imageUrl });
+    }).then(() => {
+      sendReply({ ok: true, type: "requestEvidencePreview", evidenceId });
+    }).catch((error) => {
       sendWatchMessage({
         type: "evidencePreviewUnavailable",
         evidenceId,
@@ -583,26 +595,9 @@ const handleWatchMessage = (message) => {
       sendReply({
         ok: false,
         error: "evidence_preview_unavailable",
-        message: "No se pudo preparar la URL de la imagen.",
+        message: getWatchErrorMessage(error, "No se pudo preparar la URL de la imagen."),
       });
-      return;
-    }
-
-    sendWatchMessage({ type: "evidencePreview", evidenceId, imageUrl })
-      .then(() => {
-        sendReply({ ok: true, type: "requestEvidencePreview", evidenceId });
-      })
-      .catch((error) => {
-        sendReply({
-          ok: false,
-          error: "evidence_preview_send_failed",
-          message: getWatchErrorMessage(error, "No se pudo enviar la evidencia al Watch."),
-        });
-        // console.warn(
-        //   "[WatchConnectivity] No se pudo enviar la URL de evidencia al Watch:",
-        //   error,
-        // );
-      });
+    });
     return;
   }
 
@@ -709,7 +704,8 @@ const handleWatchMessage = (message) => {
 };
 
 const runDashboardAutorun = () => {
-  dashboardComputation = Tracker.autorun(() => {
+  dashboardComputation = Tracker.autorun(async () => {
+    const dashboardGeneration = ++dashboardSyncGeneration;
     const userId = Meteor.userId();
     let ready = false;
     let user = null;
@@ -728,11 +724,15 @@ const runDashboardAutorun = () => {
     syncRechargeBalancePolling({ ready, user, userId });
     syncImmediateUserSnapshot({ ready, user, userId });
 
-    const { watchPayload, watchReady } = buildReactiveWatchPayload({
+    const { watchPayload, watchReady } = await buildReactiveWatchPayload({
       ready,
       user,
       userId,
     });
+
+    if (dashboardGeneration !== dashboardSyncGeneration) {
+      return;
+    }
 
     // console.log(
     //   "[WatchSyncService] sync effect",
@@ -813,6 +813,7 @@ export const stopWatchConnectivityService = () => {
   messageCleanup = null;
   dashboardComputation?.stop?.();
   dashboardComputation = null;
+  dashboardSyncGeneration += 1;
 };
 
 startWatchConnectivityService();

@@ -29,7 +29,7 @@ import {
   useTheme,
 } from "react-native-paper";
 
-import { buildEvidenceImageUrl } from "../../services/meteor/evidenceImages";
+import { requestEvidenceImageUrls } from "../../services/meteor/evidenceImages";
 import {
   EvidenciasVentasEfectivoCollection,
   VentasRechargeCollection,
@@ -216,7 +216,7 @@ const normalizeAnalisisIA = (analisisIA) => {
   };
 };
 
-const mapEvidenciaDoc = (evidencia, index) => {
+const mapEvidenciaDoc = (evidencia, index, imageUrl = null) => {
   const aprobado = !!evidencia.aprobado;
   const cancelFlag = !!(
     evidencia.cancelado ||
@@ -247,7 +247,7 @@ const mapEvidenciaDoc = (evidencia, index) => {
     createdAt: evidencia.createdAt || evidencia.fecha || null,
     descripcion: evidencia.descripcion || "",
     estado,
-    imageUrl: buildEvidenceImageUrl(evidencia._id),
+    imageUrl,
     raw: evidencia,
     rechazado,
     size: evidencia.size || 0,
@@ -596,6 +596,8 @@ const AprobacionEvidenciasVenta = ({
     error: null,
     loading: false,
   });
+  const [evidenceImageUrls, setEvidenceImageUrls] = useState({});
+  const [loadingEvidenceImages, setLoadingEvidenceImages] = useState(false);
 
   useEffect(() => {
     Animated.timing(expandAnimation, {
@@ -652,10 +654,52 @@ const AprobacionEvidenciasVenta = ({
     ).fetch();
   }, [ventaId]);
 
+  const evidenceIds = useMemo(
+    () =>
+      (Array.isArray(evidenciasSubsc) ? evidenciasSubsc : [])
+        .map((evidencia) => evidencia?._id)
+        .filter(Boolean),
+    [evidenciasSubsc],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (evidenceIds.length === 0) {
+      setEvidenceImageUrls({});
+      setLoadingEvidenceImages(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setLoadingEvidenceImages(true);
+    requestEvidenceImageUrls(evidenceIds)
+      .then((imageUrls) => {
+        if (!cancelled) {
+          setEvidenceImageUrls(imageUrls);
+        }
+      })
+      .catch(() => null)
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingEvidenceImages(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [evidenceIds]);
+
   const evidencias = useMemo(() => {
     const raw = Array.isArray(evidenciasSubsc) ? evidenciasSubsc : [];
-    return raw.map(mapEvidenciaDoc).filter((evidencia) => !!evidencia.imageUrl);
-  }, [evidenciasSubsc]);
+    return raw
+      .map((evidencia, index) =>
+        mapEvidenciaDoc(evidencia, index, evidenceImageUrls[evidencia?._id]),
+      )
+      .filter((evidencia) => !!evidencia.imageUrl);
+  }, [evidenceImageUrls, evidenciasSubsc]);
 
   const preview = useMemo(() => {
     if (!previewId) {
@@ -1526,7 +1570,7 @@ const AprobacionEvidenciasVenta = ({
   };
 
   const miniEvidenceImageUrl = evidencias[0]?.imageUrl;
-  const cargando = !evidenciasSubsc;
+  const cargando = !evidenciasSubsc || loadingEvidenceImages;
 
   if (!ventaActual) {
     return null;

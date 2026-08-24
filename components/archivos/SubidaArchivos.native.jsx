@@ -28,7 +28,7 @@ import {
     useTheme,
 } from "react-native-paper";
 
-import { buildEvidenceImageUrl } from "../../services/meteor/evidenceImages";
+import { requestEvidenceImageUrls } from "../../services/meteor/evidenceImages";
 import {
     EvidenciasVentasEfectivoCollection,
     VentasRechargeCollection,
@@ -57,6 +57,7 @@ const UPLOAD_VENTA_FIELDS = {
 
 const UPLOAD_EVIDENCIA_FIELDS = {
   _id: 1,
+  "analisisIA.summary": 1,
   aprobado: 1,
   cancelada: 1,
   cancelado: 1,
@@ -201,7 +202,7 @@ const getVentaUserId = (ventaDoc, fallbackVenta) => {
   );
 };
 
-const mapEvidenciaDoc = (evidencia, index) => {
+const mapEvidenciaDoc = (evidencia, index, imageUrl = null) => {
   const aprobado = !!evidencia.aprobado;
   const cancelFlag = !!(
     evidencia.cancelado ||
@@ -227,12 +228,18 @@ const mapEvidenciaDoc = (evidencia, index) => {
   return {
     _id: evidencia._id,
     _idx: index,
+    analysis: {
+      summary:
+        typeof evidencia?.analisisIA?.summary === "string"
+          ? evidencia.analisisIA.summary.trim()
+          : "",
+    },
     aprobado,
     createdAt:
       evidencia.createdAt || evidencia.fecha || evidencia.fechaSubida || null,
     descripcion: evidencia.descripcion || evidencia.detalles || "",
     estado,
-    imageUrl: buildEvidenceImageUrl(evidencia._id),
+    imageUrl,
     raw: evidencia,
     rechazado,
     size: evidencia.size || evidencia.tamano || 0,
@@ -406,6 +413,8 @@ const SubidaArchivos = ({ venta }) => {
     error: null,
     loading: false,
   });
+  const [evidenceImageUrls, setEvidenceImageUrls] = useState({});
+  const [loadingEvidenceImages, setLoadingEvidenceImages] = useState(false);
   const categoria = "general";
 
   const ventaReact = Meteor.useTracker(() => {
@@ -674,10 +683,52 @@ const SubidaArchivos = ({ venta }) => {
     ).fetch();
   }, [ventaId]);
 
+  const evidenceIds = useMemo(
+    () =>
+      (Array.isArray(evidenciasSubsc) ? evidenciasSubsc : [])
+        .map((evidencia) => evidencia?._id)
+        .filter(Boolean),
+    [evidenciasSubsc],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (evidenceIds.length === 0) {
+      setEvidenceImageUrls({});
+      setLoadingEvidenceImages(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setLoadingEvidenceImages(true);
+    requestEvidenceImageUrls(evidenceIds)
+      .then((imageUrls) => {
+        if (!cancelled) {
+          setEvidenceImageUrls(imageUrls);
+        }
+      })
+      .catch(() => null)
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingEvidenceImages(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [evidenceIds]);
+
   const evidencias = useMemo(() => {
     const raw = Array.isArray(evidenciasSubsc) ? evidenciasSubsc : [];
-    return raw.map(mapEvidenciaDoc).filter((evidencia) => !!evidencia.imageUrl);
-  }, [evidenciasSubsc]);
+    return raw
+      .map((evidencia, index) =>
+        mapEvidenciaDoc(evidencia, index, evidenceImageUrls[evidencia?._id]),
+      )
+      .filter((evidencia) => !!evidencia.imageUrl);
+  }, [evidenceImageUrls, evidenciasSubsc]);
 
   const tieneEvidencias = evidencias.length > 0;
   const uploadInhabilitado = useMemo(
@@ -1299,7 +1350,14 @@ const SubidaArchivos = ({ venta }) => {
               ) : null}
             </View>
 
-            {tieneEvidencias ? (
+            {loadingEvidenceImages && !tieneEvidencias ? (
+              <View style={styles.emptyEvidenceState}>
+                <ActivityIndicator size="small" />
+                <Text style={[styles.evidenciasSubtitle, { color: uploadPalette.muted }]}>
+                  Cargando evidencias...
+                </Text>
+              </View>
+            ) : tieneEvidencias ? (
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -1542,6 +1600,12 @@ const SubidaArchivos = ({ venta }) => {
                   {preview.descripcion}
                 </Text>
               ) : null}
+              {preview.analysis?.summary ? (
+                <View style={styles.analysisBox}>
+                  <Text style={styles.analysisLabel}>Motivo del análisis IA</Text>
+                  <Text style={styles.analysisSummary}>{preview.analysis.summary}</Text>
+                </View>
+              ) : null}
               <Button
                 mode="contained-tonal"
                 icon="delete"
@@ -1601,6 +1665,25 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   archivoTamaño: { color: "#212529", fontSize: 12, fontWeight: "600" },
+  analysisBox: {
+    backgroundColor: "#e8f1ff",
+    borderColor: "#b6d4fe",
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 10,
+    padding: 10,
+  },
+  analysisLabel: {
+    color: "#1d4ed8",
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  analysisSummary: {
+    color: "#1e293b",
+    fontSize: 12,
+    lineHeight: 18,
+  },
   badgeEstado: {
     backgroundColor: "#00000088",
     borderRadius: 4,
