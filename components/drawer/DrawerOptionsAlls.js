@@ -329,7 +329,7 @@ const buildPrivateItems = () => [
   },
   {
     label: "Centro antifraude",
-    icon: "shield-search-outline",
+    icon: "shield-alert-outline",
     href: "/(normal)/CentroAntifraude",
   },
 ];

@@ -9,7 +9,7 @@ import useSafeBack from "../navigation/useSafeBack";
 
 const Meteor = /** @type {typeof MeteorBase} */ (MeteorBase);
 const PRINCIPAL_USERNAME = "carlosmbinf";
-const INITIAL_FILTERS = { dateFrom: "", dateTo: "", fraudOnly: false, page: 1, pageSize: 15, search: "", status: "TODAS" };
+const INITIAL_FILTERS = { dateFrom: "", dateTo: "", fraudOnly: false, investigationScope: "INVESTIGABLE", page: 1, pageSize: 15, search: "", status: "TODAS" };
 
 const callMethod = (name, ...args) => new Promise((resolve, reject) => {
   Meteor.call(name, ...args, (error, result) => (error ? reject(error) : resolve(result)));
@@ -17,7 +17,7 @@ const callMethod = (name, ...args) => new Promise((resolve, reject) => {
 
 const formatDate = (value) => value ? new Date(value).toLocaleString("es-ES", { day: "2-digit", hour: "2-digit", minute: "2-digit", month: "2-digit", year: "numeric" }) : "Sin fecha";
 const getStatusColor = (status) => status === "APROBADA" ? "#86efac" : status === "RECHAZADA" ? "#fca5a5" : "#fde68a";
-const getRisk = (item) => item?.fraudAttemptCount > 0 || item?.analisisIA?.decision === "INVALIDA";
+const getRisk = (item) => item?.investigationReasons?.length > 0 || item?.fraudAttemptCount > 0 || item?.analisisIA?.decision === "INVALIDA";
 
 const FilterModal = ({ filters, onApply, onClose, visible }) => {
   const [draft, setDraft] = useState(filters);
@@ -29,11 +29,13 @@ const FilterModal = ({ filters, onApply, onClose, visible }) => {
         <Appbar.Header style={styles.appbar}><Appbar.BackAction color="#fff" onPress={onClose} /><Appbar.Content color="#fff" title="Filtrar investigaciones" /></Appbar.Header>
         <ScrollView contentContainerStyle={styles.modalContent}>
           <TextInput label="Buscar ID, venta, referencia o usuario" mode="outlined" onChangeText={(value) => update("search", value)} style={styles.input} value={draft.search} />
+          <Text style={styles.filterLabel} variant="labelLarge">Alcance de investigación</Text>
+          <View style={styles.chipRow}>{[["INVESTIGABLE", "Casos investigables"], ["INTENTOS_FRAUDE", "Intentos registrados"], ["RECHAZADAS", "Rechazadas"], ["SOSPECHOSAS", "Sospechosas"], ["TODAS", "Todas las evidencias"]].map(([scope, label]) => <Chip key={scope} onPress={() => update("investigationScope", scope)} selected={draft.investigationScope === scope} style={styles.filterChip}>{label}</Chip>)}</View>
           <Text style={styles.filterLabel} variant="labelLarge">Estado de evidencia</Text>
           <View style={styles.chipRow}>{["TODAS", "PENDIENTE", "APROBADA", "RECHAZADA"].map((status) => <Chip key={status} onPress={() => update("status", status)} selected={draft.status === status} style={styles.filterChip}>{status === "TODAS" ? "Todas" : status}</Chip>)}</View>
           <TextInput autoCapitalize="none" label="Desde (YYYY-MM-DD)" mode="outlined" onChangeText={(value) => update("dateFrom", value)} style={styles.input} value={draft.dateFrom} />
           <TextInput autoCapitalize="none" label="Hasta (YYYY-MM-DD)" mode="outlined" onChangeText={(value) => update("dateTo", value)} style={styles.input} value={draft.dateTo} />
-          <Button icon="alert-outline" mode={draft.fraudOnly ? "contained" : "outlined"} onPress={() => update("fraudOnly", !draft.fraudOnly)} style={styles.filterButton}>Solo con señales antifraude</Button>
+          <Button icon="alert-outline" mode={draft.investigationScope === "INTENTOS_FRAUDE" ? "contained" : "outlined"} onPress={() => update("investigationScope", "INTENTOS_FRAUDE")} style={styles.filterButton}>Ver intentos registrados</Button>
           <Button mode="contained" onPress={() => { onApply(draft); onClose(); }} style={styles.applyButton}>Aplicar filtros</Button>
         </ScrollView>
       </Surface>
@@ -126,7 +128,7 @@ export default function AntifraudCenterNative() {
         renderItem={({ item }) => <EvidenceCard item={item} onPress={openDetail} />}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={<View><Surface elevation={2} style={styles.hero}><Text style={styles.eyebrow} variant="labelSmall">Investigación antifraude</Text><Text style={styles.heroTitle} variant="headlineSmall">Todas las evidencias, en un solo lugar</Text><Text style={styles.heroCopy} variant="bodyMedium">Revisa riesgo, decisiones IA y auditoría sin descargar imágenes masivamente.</Text><View style={styles.statsRow}><Stat label="Total" value={summary.total || 0} /><Stat label="Pendientes" value={summary.pending || 0} /><Stat label="Riesgo" value={summary.fraudFlagged || 0} /></View></Surface><RankingPanel users={summary.users} />{error ? <Text style={styles.error} variant="bodySmall">{error}</Text> : null}{loading ? <View style={styles.loading}><ActivityIndicator color="#93c5fd" size="large" /><Text style={styles.muted}>Cargando investigaciones…</Text></View> : null}</View>}
-        ListEmptyComponent={!loading ? <Surface style={styles.empty}><MaterialCommunityIcons color="#93c5fd" name="shield-search-outline" size={42} /><Text style={styles.cardTitle} variant="titleMedium">No hay evidencias para estos filtros</Text><Text style={styles.muted}>Abre el filtro para cambiar el criterio de búsqueda.</Text></Surface> : null}
+        ListEmptyComponent={!loading ? <Surface style={styles.empty}><MaterialCommunityIcons color="#93c5fd" name="shield-alert-outline" size={42} /><Text style={styles.cardTitle} variant="titleMedium">No hay evidencias para estos filtros</Text><Text style={styles.muted}>Abre el filtro para cambiar el criterio de búsqueda.</Text></Surface> : null}
         ListFooterComponent={<View style={styles.pagination}><Button disabled={loading || filters.page <= 1} onPress={() => changePage(filters.page - 1)}>Anterior</Button><Text style={styles.muted}>Página {filters.page}</Text><Button disabled={loading || !data?.hasNext} onPress={() => changePage(filters.page + 1)}>Siguiente</Button></View>}
         showsVerticalScrollIndicator={false}
       />
