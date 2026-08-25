@@ -72,7 +72,8 @@
     "react-native-svg": "^15.15.4",
     "react-native-vlc-media-player": "^1.0.98",
     "react-native-web": "~0.21.0",
-    "react-native-worklets": "0.5.1"
+    "react-native-worklets": "0.5.1",
+    "vidkar-ios-integration": "file:modules/vidkar-ios-integration"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",

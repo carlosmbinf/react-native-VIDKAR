@@ -23,6 +23,10 @@
       "buildNumber": "872",
       "bundleIdentifier": "com.vidkar",
       "appleTeamId": "4TWB6RN383",
+      "associatedDomains": [
+        "applinks:vidkar.com",
+        "applinks:www.vidkar.com"
+      ],
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleDisplayName": "Vidkar",
@@ -80,6 +84,7 @@
       "./plugins/with-vidkar-xcode-object-version.js",
       "./plugins/with-vidkar-android-pip.js",
       "./plugins/with-vidkar-vlc-media-player.js",
+      "./plugins/with-vidkar-scene-deep-links.js",
       "./node_modules/@react-native-google-signin/google-signin/app.plugin.js",
       "expo-apple-authentication",
       [

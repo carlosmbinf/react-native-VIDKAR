@@ -7600,6 +7600,10 @@ vaul@^1.1.2:
   dependencies:
     "@radix-ui/react-dialog" "^1.1.1"
 
+"vidkar-ios-integration@file:modules/vidkar-ios-integration":
+  version "1.0.0"
+  resolved "file:modules/vidkar-ios-integration"
+
 vlq@^1.0.0:
   version "1.0.1"
   resolved "https://registry.npmjs.org/vlq/-/vlq-1.0.1.tgz"

@@ -34,6 +34,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { getMeteorUrl } from "../../services/meteor/client.native";
+import {
+  buildMovieSpotlightItem,
+  replaceSpotlightItems,
+  SPOTLIGHT_DOMAINS,
+} from "vidkar-ios-integration";
 import AppHeader, {
     DEFAULT_HEADER_COLOR,
     useAppHeaderContentInset,
@@ -1124,6 +1129,27 @@ const DownloadVideosHome = () => {
     () => catalogMovies.filter((movie) => isVisibleMovie(movie) && isPlayableExtension(movie)),
     [catalogMovies],
   );
+
+  React.useEffect(() => {
+    if (!currentUser?._id) return undefined;
+
+    let cancelled = false;
+    const indexMovies = async () => {
+      const items = canAccessMovies
+        ? visibleMovies.map(buildMovieSpotlightItem).filter(Boolean)
+        : [];
+      if (!cancelled) {
+        await replaceSpotlightItems(items, SPOTLIGHT_DOMAINS.movies).catch((error) => {
+          console.warn("[Spotlight] No se pudo indexar el catálogo de películas:", error?.message || error);
+        });
+      }
+    };
+
+    indexMovies();
+    return () => {
+      cancelled = true;
+    };
+  }, [canAccessMovies, currentUser?._id, visibleMovies]);
 
   const genreOptions = React.useMemo(() => {
     const genres = new Map();
