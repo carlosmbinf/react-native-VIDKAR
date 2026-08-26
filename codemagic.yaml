@@ -94,7 +94,7 @@ workflows:
     #       include: true
 
     integrations:
-      app_store_connect: "VidkarAPIKey"
+      app_store_connect: "VidkarAPIKey2"
 
     environment:
       ios_signing:
@@ -234,7 +234,7 @@ workflows:
           include: true
 
     integrations:
-      app_store_connect: "VidkarAPIKey"
+      app_store_connect: "VidkarAPIKey2"
 
     environment:
       android_signing:
