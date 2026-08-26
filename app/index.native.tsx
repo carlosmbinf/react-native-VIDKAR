@@ -27,6 +27,7 @@ import {
 import {
   WATCH_ROOT_USER_FIELDS,
 } from "../services/watch/watchDashboard";
+import { syncUserSpotlightIndex } from "../services/spotlight/spotlight";
 
 const Meteor = MeteorBase as unknown as {
   useTracker: <T>(reactiveFn: () => T) => T;
@@ -139,6 +140,16 @@ export default function IndexScreen() {
       };
     },
   );
+
+  React.useEffect(() => {
+    if (userId && !ready) {
+      return;
+    }
+
+    syncUserSpotlightIndex(user ? [user] : []).catch((error) => {
+      console.warn("[Spotlight] No se pudo sincronizar el usuario actual:", error);
+    });
+  }, [ready, user, userId]);
 
   React.useEffect(() => {
     let cancelled = false;

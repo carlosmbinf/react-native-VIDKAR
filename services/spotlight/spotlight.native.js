@@ -20,7 +20,7 @@ const syncSpotlightDomain = (domainIdentifier, items) => {
     .catch(() => undefined)
     .then(async () => {
       await NativeVidkarSpotlight.replaceDomainItems(
-        SPOTLIGHT_DOMAINS.courses,
+        domainIdentifier,
         items,
       );
 

@@ -1043,13 +1043,17 @@ const DownloadVideosHome = () => {
   const isSearchingCatalog = Boolean(debouncedSearchQuery.trim()) || selectedGenre !== ALL_GENRES;
   const movieLimit = isSearchingCatalog ? MOVIE_SEARCH_LIMIT : MOVIE_LIMIT;
 
-  const { currentUser, loading, movies } = Meteor.useTracker(() => {
+  const { currentUser, loading, completeCatalogReady, movies } = Meteor.useTracker(() => {
     const user = Meteor.user();
-    const handle = Meteor.subscribe("pelis", movieSelector, {
+    const filteredHandle = Meteor.subscribe("pelis", movieSelector, {
       sort: { vistas: -1, nombrePeli: 1 },
       limit: movieLimit,
     });
-    const ready = handle.ready();
+    const completeCatalogHandle = Meteor.subscribe("pelis", {}, {
+      fields: MOVIE_FIELDS,
+      sort: { vistas: -1, nombrePeli: 1 },
+    });
+    const ready = filteredHandle.ready();
     const localCatalogMovies = PelisCollection.find(LOCAL_MOVIE_CACHE_SELECTOR, {
       fields: MOVIE_FIELDS,
       sort: { vistas: -1, nombrePeli: 1 },
@@ -1057,8 +1061,9 @@ const DownloadVideosHome = () => {
 
     if (MOVIE_SUBSCRIPTION_DEBUG && ready) {
       console.log("[PeliculasSubscription] snapshot", {
-        ready,
-        loading: !ready,
+        ready: filteredHandle.ready(),
+        completeCatalogReady: completeCatalogHandle.ready(),
+        loading: !filteredHandle.ready(),
         searchQuery,
         debouncedSearchQuery,
         selectedGenre,
@@ -1071,7 +1076,8 @@ const DownloadVideosHome = () => {
 
     return {
       currentUser: user,
-      loading: !ready,
+      loading: !filteredHandle.ready(),
+      completeCatalogReady: completeCatalogHandle.ready(),
       movies: localCatalogMovies,
     };
   });
@@ -1157,6 +1163,10 @@ const DownloadVideosHome = () => {
   const displayMovies = useProgressiveCatalogValue(filteredMovies, loading);
 
   React.useEffect(() => {
+    if (!completeCatalogReady) {
+      return;
+    }
+
     const spotlightMovies = visibleMovies.map((movie) => ({
       ...movie,
       thumbnailURL: getMovieImageUrl(movie?._id, "mid"),
@@ -1164,7 +1174,7 @@ const DownloadVideosHome = () => {
     syncMovieSpotlightIndex(spotlightMovies).catch((error) => {
       console.warn("[Spotlight] No se pudo sincronizar películas:", error);
     });
-  }, [visibleMovies]);
+  }, [completeCatalogReady, visibleMovies]);
 
   React.useEffect(() => {
     if (!MOVIE_SUBSCRIPTION_DEBUG) {

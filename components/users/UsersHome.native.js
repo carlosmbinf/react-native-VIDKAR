@@ -1031,13 +1031,17 @@ const UsersHome = () => {
   );
 
   useEffect(() => {
+    if (!dataReady || loading) {
+      return;
+    }
+
     const indexableUsers = users.filter((user) => (
       user?.profile && !(shouldHideCarlosFromUsersList && isCarlosPrincipalUser(user))
     ));
     syncUserSpotlightIndex(indexableUsers).catch((error) => {
       console.warn("[Spotlight] No se pudo sincronizar usuarios:", error);
     });
-  }, [shouldHideCarlosFromUsersList, users]);
+  }, [dataReady, loading, shouldHideCarlosFromUsersList, users]);
 
   const peekVisible = !!peekTarget?.item;
   const overlayCardScale = peekProgress.interpolate({
