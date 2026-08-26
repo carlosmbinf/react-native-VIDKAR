@@ -14,6 +14,7 @@ import { userHasEmpresaRole } from "../components/navigator/sessionRoute";
 import PushNotificationDialogHost from "../components/shared/PushNotificationDialogHost.native";
 import UpdateRequired from "../components/update/UpdateRequired";
 import { syncCadeteBackgroundLocation } from "../services/location/cadeteBackgroundLocation.native";
+import { syncConsumptionWidget } from "../services/widget/consumptionWidget.native";
 import {
   APPROVE_EVIDENCE_ACTION,
   APPROVE_SALE_ACTION,
@@ -140,6 +141,23 @@ export default function IndexScreen() {
       };
     },
   );
+
+  React.useEffect(() => {
+    syncConsumptionWidget(user);
+  }, [
+    user?._id,
+    user?.username,
+    user?.megasGastadosinBytes,
+    user?.megas,
+    user?.baneado,
+    user?.isIlimitado,
+    user?.fechaSubscripcion,
+    user?.vpnMbGastados,
+    user?.vpnmegas,
+    user?.vpn,
+    user?.vpnisIlimitado,
+    user?.vpnfechaSubscripcion,
+  ]);
 
   React.useEffect(() => {
     if (userId && !ready) {

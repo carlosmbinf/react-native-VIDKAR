@@ -24,6 +24,9 @@
       "bundleIdentifier": "com.vidkar",
       "appleTeamId": "4TWB6RN383",
       "googleServicesFile": "./GoogleService-Info.plist",
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.vidkar.shared"]
+      },
       "infoPlist": {
         "CFBundleDisplayName": "Vidkar",
         "CFBundleName": "Vidkar",
@@ -152,6 +155,10 @@
                 {
                   "targetName": "NotificationService",
                   "bundleIdentifier": "com.vidkar.notificationservice"
+                },
+                {
+                  "targetName": "VidkarConsumptionWidget",
+                  "bundleIdentifier": "com.vidkar.consumption-widget"
                 }
               ]
             }

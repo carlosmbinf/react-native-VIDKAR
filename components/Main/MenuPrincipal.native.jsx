@@ -18,6 +18,7 @@ import {
     buildPendingEvidenceAggregate,
 } from "../archivos/evidencePendingUtils";
 import { userHasEmpresaRole } from "../navigator/sessionRoute";
+import { syncConsumptionWidget } from "../../services/widget/consumptionWidget.native";
 import MenuPrincipalScreen from "./MenuPrincipalScreen.jsx";
 
 const Meteor =
@@ -352,6 +353,24 @@ const MenuPrincipalNative = () => {
       username: user?.username || null,
     });
   }, [user?._id, user?.username]);
+
+  useEffect(() => {
+    syncConsumptionWidget(user);
+  }, [
+    user?._id,
+    user?.username,
+    user?.profile?.firstName,
+    user?.baneado,
+    user?.megas,
+    user?.megasGastadosinBytes,
+    user?.isIlimitado,
+    user?.fechaSubscripcion,
+    user?.vpn,
+    user?.vpnmegas,
+    user?.vpnMbGastados,
+    user?.vpnisIlimitado,
+    user?.vpnfechaSubscripcion,
+  ]);
 
   useEffect(() => {
     if (user?.modoEmpresa && userHasEmpresaRole(user)) {
