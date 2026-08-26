@@ -198,8 +198,24 @@ workflows:
         script: |
           xcode-project use-profiles
 
+      - name: Show Release signing settings
+        script: |
+          cd ios
+          for TARGET_NAME in "$BUNDLE_ID" "$WATCH_TARGET" "$NOTIFICATION_SERVICE_TARGET"; do
+            if [[ "$TARGET_NAME" == "$BUNDLE_ID" ]]; then
+              TARGET_NAME="$XCODE_SCHEME"
+            fi
+            echo "--- Firma Release: $TARGET_NAME ---"
+            xcodebuild \
+              -project Vidkar.xcodeproj \
+              -target "$TARGET_NAME" \
+              -configuration Release \
+              -showBuildSettings | grep -E "TARGET_NAME|PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER"
+          done
+
       - name: Build IPA
         script: |
+          set -o pipefail
           WORKSPACE_PATH="${XCODE_WORKSPACE:-Vidkar.xcworkspace}"
           SCHEME_NAME="${XCODE_SCHEME:-Vidkar}"
           if [[ "$WORKSPACE_PATH" != /* && "$WORKSPACE_PATH" != ios/* ]]; then
@@ -212,10 +228,11 @@ workflows:
           echo "Construyendo $SCHEME_NAME desde $WORKSPACE_PATH"
           xcode-project build-ipa \
             --workspace "$WORKSPACE_PATH" \
-            --scheme "$SCHEME_NAME"
+            --scheme "$SCHEME_NAME" 2>&1 | tee build-ipa.log
 
     artifacts:
       - build/ios/ipa/*.ipa
+      - build-ipa.log
 
     publishing:
       app_store_connect:
@@ -386,8 +403,24 @@ workflows:
         script: |
           xcode-project use-profiles
 
+      - name: Show Release signing settings
+        script: |
+          cd ios
+          for TARGET_NAME in "$BUNDLE_ID" "$WATCH_TARGET" "$NOTIFICATION_SERVICE_TARGET"; do
+            if [[ "$TARGET_NAME" == "$BUNDLE_ID" ]]; then
+              TARGET_NAME="$XCODE_SCHEME"
+            fi
+            echo "--- Firma Release: $TARGET_NAME ---"
+            xcodebuild \
+              -project Vidkar.xcodeproj \
+              -target "$TARGET_NAME" \
+              -configuration Release \
+              -showBuildSettings | grep -E "TARGET_NAME|PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER"
+          done
+
       - name: Build IPA
         script: |
+          set -o pipefail
           WORKSPACE_PATH="${XCODE_WORKSPACE:-Vidkar.xcworkspace}"
           SCHEME_NAME="${XCODE_SCHEME:-Vidkar}"
           if [[ "$WORKSPACE_PATH" != /* && "$WORKSPACE_PATH" != ios/* ]]; then
@@ -400,11 +433,12 @@ workflows:
           echo "Construyendo $SCHEME_NAME desde $WORKSPACE_PATH"
           xcode-project build-ipa \
             --workspace "$WORKSPACE_PATH" \
-            --scheme "$SCHEME_NAME"
+            --scheme "$SCHEME_NAME" 2>&1 | tee build-ipa.log
 
     artifacts:
       - android/app/build/outputs/**/*.aab
       - build/ios/ipa/*.ipa
+      - build-ipa.log
 
     publishing:
       google_play:
