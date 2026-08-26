@@ -4,7 +4,6 @@ import Constants from "expo-constants";
 import { router } from "expo-router";
 import React from "react";
 import { Alert, Platform, StatusBar, StyleSheet } from "react-native";
-import { clearSpotlight, SPOTLIGHT_DOMAINS } from "vidkar-ios-integration";
 import { ActivityIndicator, Surface, Text, useTheme } from "react-native-paper";
 
 import CadeteNavigator from "../components/cadete/CadeteNavigator";
@@ -15,11 +14,6 @@ import { userHasEmpresaRole } from "../components/navigator/sessionRoute";
 import PushNotificationDialogHost from "../components/shared/PushNotificationDialogHost.native";
 import UpdateRequired from "../components/update/UpdateRequired";
 import { syncCadeteBackgroundLocation } from "../services/location/cadeteBackgroundLocation.native";
-import {
-  parseVidkarDeepLink,
-  subscribeToVidkarDeepLinks,
-} from "../services/navigation/vidkarDeepLinks.native";
-import type { VidkarDeepLinkTarget } from "../services/navigation/vidkarDeepLinks.native";
 import {
   APPROVE_EVIDENCE_ACTION,
   APPROVE_SALE_ACTION,
@@ -53,14 +47,6 @@ const METEOR_CONNECTION_POLL_MS = 500;
 const ROOT_USER_FIELDS = WATCH_ROOT_USER_FIELDS;
 const PUSH_ACTION_SESSION_RETRIES = 20;
 const PUSH_ACTION_SESSION_DELAY_MS = 500;
-type CadeteTrackingSyncOptions = {
-  enabled: boolean;
-  requestPermissions: boolean;
-  userId?: string | null;
-};
-const syncCadeteTrackingWithOptions = syncCadeteBackgroundLocation as unknown as (
-  options: CadeteTrackingSyncOptions,
-) => Promise<unknown>;
 
 const resolveCurrentBuildNumber = () => {
   const nativeBuildNumber = parseInt(Application.nativeBuildVersion ?? "", 10);
@@ -113,7 +99,6 @@ export default function IndexScreen() {
   const theme = useTheme();
   const pushCleanupRef = React.useRef<null | (() => void)>(null);
   const lastHandledPushNavigationIdRef = React.useRef<string | null>(null);
-  const [pendingDeepLink, setPendingDeepLink] = React.useState<VidkarDeepLinkTarget | null>(null);
   const [pendingPushNavigationNotification, setPendingPushNavigationNotification] = React.useState<any>(null);
   const [versionGate, setVersionGate] = React.useState({
     checkingVersion: false,
@@ -154,31 +139,6 @@ export default function IndexScreen() {
       };
     },
   );
-
-  React.useEffect(() => {
-    let lastUrl: string | null = null;
-    const queueDeepLink = (url: string) => {
-      if (url === lastUrl) return;
-      lastUrl = url;
-
-      const target = parseVidkarDeepLink(url);
-      if (target) setPendingDeepLink(target);
-    };
-
-    return subscribeToVidkarDeepLinks(queueDeepLink);
-  }, []);
-
-  React.useEffect(() => {
-    if (userId) return;
-
-    Promise.all([
-      clearSpotlight(SPOTLIGHT_DOMAINS.courses),
-      clearSpotlight(SPOTLIGHT_DOMAINS.movies),
-      clearSpotlight(),
-    ]).catch((error) => {
-      console.warn("[Spotlight] No se pudo limpiar el catálogo al cerrar sesión:", error?.message || error);
-    });
-  }, [userId]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -296,7 +256,7 @@ export default function IndexScreen() {
 
     const syncCadeteTracking = async () => {
       try {
-        await syncCadeteTrackingWithOptions({
+        await syncCadeteBackgroundLocation({
           enabled: shouldEnableCadeteTracking,
           requestPermissions: false,
           userId: shouldEnableCadeteTracking ? userId : undefined,
@@ -514,22 +474,6 @@ export default function IndexScreen() {
       });
     });
   }, [pendingPushNavigationNotification, ready, user?.modoEmpresa, userId]);
-
-  React.useEffect(() => {
-    if (!pendingDeepLink || !userId || !ready || versionGate.updateRequired) {
-      return;
-    }
-
-    const target = pendingDeepLink;
-    setPendingDeepLink(null);
-
-    requestAnimationFrame(() => {
-      router.push({
-        pathname: target.pathname as never,
-        params: target.params,
-      });
-    });
-  }, [pendingDeepLink, ready, userId, versionGate.updateRequired]);
 
   React.useEffect(() => {
     if (!userId) {

@@ -80,26 +80,36 @@ const patchWatchSigning = () => {
   }
 
   const originalFunction = functionMatch[0];
-  const nextFunction = originalFunction
+  let nextFunction = originalFunction
     .replace(/\n\s+CODE_SIGN_IDENTITY: "Apple (Development|Distribution)",/g, "")
     .replace(/\n\s+"CODE_SIGN_IDENTITY\[sdk=watchos\*\]": "Apple (Development|Distribution)",/g, "")
     .replace(/\n\s+DEVELOPMENT_TEAM: "4TWB6RN383",/g, "")
     .replace(/\n\s+PROVISIONING_PROFILE_SPECIFIER: "",/g, "");
 
+  nextFunction = nextFunction.replace(
+    /(debug: \{\n\s+\.\.\.common,)/,
+    `$1\n            CODE_SIGN_IDENTITY: "Apple Development",\n            "CODE_SIGN_IDENTITY[sdk=watchos*]": "Apple Development",\n            DEVELOPMENT_TEAM: "4TWB6RN383",\n            PROVISIONING_PROFILE_SPECIFIER: "",`,
+  );
+
+  nextFunction = nextFunction.replace(
+    /(release: \{\n\s+\.\.\.common,)/,
+    `$1\n            CODE_SIGN_IDENTITY: "Apple Development",\n            DEVELOPMENT_TEAM: "4TWB6RN383",\n            PROVISIONING_PROFILE_SPECIFIER: "",`,
+  );
+
   if (
-    nextFunction.includes('"CODE_SIGN_IDENTITY[sdk=watchos*]": "Apple Development"') ||
-    nextFunction.includes('CODE_SIGN_IDENTITY: "Apple Development"') ||
+    !nextFunction.includes('"CODE_SIGN_IDENTITY[sdk=watchos*]": "Apple Development"') ||
+    !nextFunction.includes('CODE_SIGN_IDENTITY: "Apple Development"') ||
     nextFunction.includes('"CODE_SIGN_IDENTITY[sdk=watchos*]": "Apple Distribution"') ||
     nextFunction.includes('CODE_SIGN_IDENTITY: "Apple Distribution"')
   ) {
-    console.warn("[patch-apple-targets-watch-prebuild] No se pudieron eliminar las identidades manuales del Watch.");
+    console.warn("[patch-apple-targets-watch-prebuild] No se pudieron insertar los signing identities del Watch.");
     return false;
   }
 
   const nextSource = source.replace(originalFunction, nextFunction);
 
   if (nextSource === source) {
-    console.log("[patch-apple-targets-watch-prebuild] El Watch ya usa firma automatica sin identidad manual.");
+    console.log("[patch-apple-targets-watch-prebuild] Signing del Watch ya esta alineado.");
     return false;
   }
 

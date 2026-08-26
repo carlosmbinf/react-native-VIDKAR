@@ -6,11 +6,6 @@ import { FlatList, Image, Pressable, RefreshControl, StyleSheet, TextInput, View
 import { ActivityIndicator, Icon, Text, useTheme } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
-import {
-  buildCourseSpotlightItem,
-  replaceSpotlightItems,
-  SPOTLIGHT_DOMAINS,
-} from "vidkar-ios-integration";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { SuscripcionesCursoCollection } from "../collections/collections";
 
@@ -83,25 +78,6 @@ export default function CoursesCatalog() {
       console.log("[COURSE_COVER] URL recibida en catálogo:", course._id, course.portadaUrl);
     });
   }, [courses]);
-
-  React.useEffect(() => {
-    if (!currentUserId) return undefined;
-
-    let cancelled = false;
-    const indexCourses = async () => {
-      const items = courses.map(buildCourseSpotlightItem).filter(Boolean);
-      if (!cancelled) {
-        await replaceSpotlightItems(items, SPOTLIGHT_DOMAINS.courses).catch((error) => {
-          console.warn("[Spotlight] No se pudo indexar el catálogo de cursos:", error?.message || error);
-        });
-      }
-    };
-
-    indexCourses();
-    return () => {
-      cancelled = true;
-    };
-  }, [courses, currentUserId]);
 
   const filteredCourses = React.useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("es");

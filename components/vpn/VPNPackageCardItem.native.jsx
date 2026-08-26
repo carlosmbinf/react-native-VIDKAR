@@ -265,7 +265,6 @@ const styles = StyleSheet.create({
     height: "100%",
     marginBottom: 0,
     marginRight: 12,
-    transform: [{ translateX: 16 }],
   },
   packageCardTablet: {
     minHeight: 212,
