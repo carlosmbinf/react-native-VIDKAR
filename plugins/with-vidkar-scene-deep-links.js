@@ -47,23 +47,11 @@ const patchAppDelegate = (appDelegateFile) => {
   if (!appDelegateFile) return;
 
   const source = fs.readFileSync(appDelegateFile, "utf8");
-  const propertyMarker = "  var reactNativeDelegate: ExpoReactNativeFactoryDelegate?";
-  const propertyReplacement = "  var window: UIWindow?\n  var reactNativeDelegate: ExpoReactNativeFactoryDelegate?";
-  const withWindowProperty = source.includes("  var window: UIWindow?")
-    ? source
-    : source.replace(propertyMarker, propertyReplacement);
   const marker = "    let launchWindow = UIWindow(frame: UIScreen.main.bounds)\n    launchWindow.makeKeyAndVisible()";
   const replacement = "    let launchWindow = UIWindow(frame: UIScreen.main.bounds)\n    self.window = launchWindow\n    launchWindow.makeKeyAndVisible()";
-  let nextSource = withWindowProperty.includes("self.window = launchWindow")
-    ? withWindowProperty
-    : withWindowProperty.replace(marker, replacement);
-
-  if (!nextSource.includes("factory.startReactNative(withModuleName:")) {
-    nextSource = nextSource.replace(
-      "    bindReactNativeFactory(factory)\n",
-      "    bindReactNativeFactory(factory)\n    factory.startReactNative(withModuleName: \"main\", in: launchWindow, launchOptions: launchOptions)\n",
-    );
-  }
+  const nextSource = source.includes("self.window = launchWindow")
+    ? source
+    : source.replace(marker, replacement);
 
   if (nextSource !== source) {
     fs.writeFileSync(appDelegateFile, nextSource);

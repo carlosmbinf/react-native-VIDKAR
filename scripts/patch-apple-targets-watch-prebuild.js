@@ -93,14 +93,14 @@ const patchWatchSigning = () => {
 
   nextFunction = nextFunction.replace(
     /(release: \{\n\s+\.\.\.common,)/,
-    `$1\n            CODE_SIGN_IDENTITY: "Apple Distribution",\n            "CODE_SIGN_IDENTITY[sdk=watchos*]": "Apple Distribution",\n            DEVELOPMENT_TEAM: "4TWB6RN383",\n            PROVISIONING_PROFILE_SPECIFIER: "",`,
+    `$1\n            CODE_SIGN_IDENTITY: "Apple Development",\n            DEVELOPMENT_TEAM: "4TWB6RN383",\n            PROVISIONING_PROFILE_SPECIFIER: "",`,
   );
 
   if (
     !nextFunction.includes('"CODE_SIGN_IDENTITY[sdk=watchos*]": "Apple Development"') ||
     !nextFunction.includes('CODE_SIGN_IDENTITY: "Apple Development"') ||
-    !nextFunction.includes('"CODE_SIGN_IDENTITY[sdk=watchos*]": "Apple Distribution"') ||
-    !nextFunction.includes('CODE_SIGN_IDENTITY: "Apple Distribution"')
+    nextFunction.includes('"CODE_SIGN_IDENTITY[sdk=watchos*]": "Apple Distribution"') ||
+    nextFunction.includes('CODE_SIGN_IDENTITY: "Apple Distribution"')
   ) {
     console.warn("[patch-apple-targets-watch-prebuild] No se pudieron insertar los signing identities del Watch.");
     return false;

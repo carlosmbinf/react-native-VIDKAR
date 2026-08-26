@@ -105,7 +105,6 @@ workflows:
       xcode: latest
       cocoapods: default
       vars:
-        APPLE_TEAM_ID: "4TWB6RN383"
         BUNDLE_ID: "com.vidkar"
         XCODE_WORKSPACE: "Vidkar.xcworkspace"
         XCODE_SCHEME: "Vidkar"
@@ -187,14 +186,26 @@ workflows:
             -sdk watchos \
             -showBuildSettings | grep -E "PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|CURRENT_PROJECT_VERSION|MARKETING_VERSION|WKCompanion|WATCHOS_DEPLOYMENT_TARGET"
 
+      - name: Validate iOS provisioning profiles
+        script: |
+          bash ./scripts/validate-ios-signing-profiles.sh \
+            "$BUNDLE_ID" \
+            "$WATCH_BUNDLE_ID" \
+            "$NOTIFICATION_SERVICE_BUNDLE_ID"
+
+      # 🔐 Aplicar perfiles/certificados ya resueltos por Codemagic
+      - name: Setup signing
+        script: |
+          xcode-project use-profiles
+
       - name: Build IPA
         script: |
-          bash ./scripts/build-ios-ipa-codemagic.sh
+          xcode-project build-ipa \
+            --workspace "ios/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
 
     artifacts:
       - build/ios/ipa/*.ipa
-      - build-ipa.log
-      - build/ios/results/*.xcresult
 
     publishing:
       app_store_connect:
@@ -240,7 +251,6 @@ workflows:
       xcode: latest
       cocoapods: default
       vars:
-        APPLE_TEAM_ID: "4TWB6RN383"
         BUNDLE_ID: "com.vidkar"
         XCODE_WORKSPACE: "Vidkar.xcworkspace"
         XCODE_SCHEME: "Vidkar"
@@ -355,15 +365,26 @@ workflows:
             -sdk watchos \
             -showBuildSettings | grep -E "PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|CURRENT_PROJECT_VERSION|MARKETING_VERSION|WKCompanion|WATCHOS_DEPLOYMENT_TARGET"
 
+      - name: Validate iOS provisioning profiles
+        script: |
+          bash ./scripts/validate-ios-signing-profiles.sh \
+            "$BUNDLE_ID" \
+            "$WATCH_BUNDLE_ID" \
+            "$NOTIFICATION_SERVICE_BUNDLE_ID"
+
+      - name: Setup signing
+        script: |
+          xcode-project use-profiles
+
       - name: Build IPA
         script: |
-          bash ./scripts/build-ios-ipa-codemagic.sh
+          xcode-project build-ipa \
+            --workspace "ios/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
 
     artifacts:
       - android/app/build/outputs/**/*.aab
       - build/ios/ipa/*.ipa
-      - build-ipa.log
-      - build/ios/results/*.xcresult
 
     publishing:
       google_play:
