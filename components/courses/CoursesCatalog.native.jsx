@@ -6,6 +6,7 @@ import { FlatList, Image, Pressable, RefreshControl, StyleSheet, TextInput, View
 import { ActivityIndicator, Icon, Text, useTheme } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
+import { syncCourseSpotlightIndex } from "../../services/spotlight/spotlight";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { SuscripcionesCursoCollection } from "../collections/collections";
 
@@ -60,7 +61,11 @@ export default function CoursesCatalog() {
     else setCoursesLoading(true);
     try {
       const result = await callMethod("cursos.catalogo.obtener");
-      setCourses(Array.isArray(result?.courses) ? result.courses : []);
+      const nextCourses = Array.isArray(result?.courses) ? result.courses : [];
+      setCourses(nextCourses);
+      syncCourseSpotlightIndex(nextCourses).catch((error) => {
+        console.warn("[Spotlight] No se pudo sincronizar el catálogo de cursos:", error);
+      });
     } catch (_error) {
       if (!isRefresh) setCourses([]);
     } finally {

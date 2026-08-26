@@ -9,6 +9,7 @@ import {
 } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import SpotlightNavigation from "../components/spotlight/SpotlightNavigation.native";
 import { useColorScheme } from "../hooks/use-color-scheme";
 
 export default function RootLayout() {
@@ -32,6 +33,7 @@ export default function RootLayout() {
         <PaperProvider theme={theme}>
           <Portal.Host>
             <Stack screenOptions={{ headerShown: false }} />
+            <SpotlightNavigation />
           </Portal.Host>
         </PaperProvider>
       </SafeAreaProvider>

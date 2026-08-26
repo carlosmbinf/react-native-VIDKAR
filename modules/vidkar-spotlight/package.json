@@ -1,0 +1,15 @@
+{
+  "name": "vidkar-spotlight",
+  "version": "1.0.0",
+  "description": "Modulo local Expo para indexar contenido de VIDKAR en iOS Spotlight.",
+  "license": "UNLICENSED",
+  "author": "VIDKAR",
+  "homepage": "https://vidkar.com",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "peerDependencies": {
+    "expo": "*",
+    "react-native": "*"
+  }
+}
