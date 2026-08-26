@@ -68,6 +68,11 @@ public final class VidkarSpotlightModule: Module {
     attributes.title = title
     attributes.contentDescription = rawItem["description"] as? String
 
+    if let thumbnailURLString = rawItem["thumbnailURL"] as? String,
+       let thumbnailURL = URL(string: thumbnailURLString) {
+      attributes.thumbnailURL = thumbnailURL
+    }
+
     if let metadata = rawItem["metadata"] as? [String: Any] {
       attributes.keywords = metadata["keywords"] as? [String]
       attributes.contentType = metadata["contentType"] as? String

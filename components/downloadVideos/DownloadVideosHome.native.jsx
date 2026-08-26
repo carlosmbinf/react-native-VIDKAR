@@ -39,6 +39,7 @@ import AppHeader, {
     useAppHeaderContentInset,
 } from "../Header/AppHeader";
 import { PelisCollection } from "../collections/collections";
+import { syncMovieSpotlightIndex } from "../../services/spotlight/spotlight";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
@@ -1154,6 +1155,16 @@ const DownloadVideosHome = () => {
     });
   }, [debouncedSearchQuery, selectedGenre, visibleMovies]);
   const displayMovies = useProgressiveCatalogValue(filteredMovies, loading);
+
+  React.useEffect(() => {
+    const spotlightMovies = visibleMovies.map((movie) => ({
+      ...movie,
+      thumbnailURL: getMovieImageUrl(movie?._id, "mid"),
+    }));
+    syncMovieSpotlightIndex(spotlightMovies).catch((error) => {
+      console.warn("[Spotlight] No se pudo sincronizar películas:", error);
+    });
+  }, [visibleMovies]);
 
   React.useEffect(() => {
     if (!MOVIE_SUBSCRIPTION_DEBUG) {

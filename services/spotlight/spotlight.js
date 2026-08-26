@@ -3,4 +3,7 @@ export const syncCourseSpotlightIndex = async () => ({
   supported: false,
 });
 
+export const syncUserSpotlightIndex = syncCourseSpotlightIndex;
+export const syncMovieSpotlightIndex = syncCourseSpotlightIndex;
+
 export const subscribeToSpotlightSelections = () => () => {};

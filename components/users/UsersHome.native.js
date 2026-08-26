@@ -29,6 +29,7 @@ import { Online, PushTokens } from "../collections/collections";
 import ServiceProgressPill from "../shared/ServiceProgressPill";
 import UserAvatar from "./UserAvatar";
 import { canAccessPushTokenDashboards } from "./pushTokens/utils";
+import { syncUserSpotlightIndex } from "../../services/spotlight/spotlight";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
@@ -1028,6 +1029,15 @@ const UsersHome = () => {
   const normalUsers = filteredUsers.filter(
     (user) => user.profile?.role !== "admin",
   );
+
+  useEffect(() => {
+    const indexableUsers = users.filter((user) => (
+      user?.profile && !(shouldHideCarlosFromUsersList && isCarlosPrincipalUser(user))
+    ));
+    syncUserSpotlightIndex(indexableUsers).catch((error) => {
+      console.warn("[Spotlight] No se pudo sincronizar usuarios:", error);
+    });
+  }, [shouldHideCarlosFromUsersList, users]);
 
   const peekVisible = !!peekTarget?.item;
   const overlayCardScale = peekProgress.interpolate({

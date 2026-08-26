@@ -3,18 +3,18 @@ import { Platform } from "react-native";
 
 import {
   buildCourseSpotlightItems,
+  buildMovieSpotlightItems,
+  buildUserSpotlightItems,
   SPOTLIGHT_DOMAINS,
 } from "./spotlightItems";
 
 const NativeVidkarSpotlight = requireOptionalNativeModule("VidkarSpotlight");
 let spotlightSyncQueue = Promise.resolve();
 
-export const syncCourseSpotlightIndex = (courses) => {
+const syncSpotlightDomain = (domainIdentifier, items) => {
   if (Platform.OS !== "ios" || !NativeVidkarSpotlight) {
     return Promise.resolve({ indexed: 0, supported: false });
   }
-
-  const items = buildCourseSpotlightItems(courses);
 
   spotlightSyncQueue = spotlightSyncQueue
     .catch(() => undefined)
@@ -29,6 +29,18 @@ export const syncCourseSpotlightIndex = (courses) => {
 
   return spotlightSyncQueue;
 };
+
+export const syncCourseSpotlightIndex = (courses) => (
+  syncSpotlightDomain(SPOTLIGHT_DOMAINS.courses, buildCourseSpotlightItems(courses))
+);
+
+export const syncUserSpotlightIndex = (users) => (
+  syncSpotlightDomain(SPOTLIGHT_DOMAINS.users, buildUserSpotlightItems(users))
+);
+
+export const syncMovieSpotlightIndex = (movies) => (
+  syncSpotlightDomain(SPOTLIGHT_DOMAINS.movies, buildMovieSpotlightItems(movies))
+);
 
 export const subscribeToSpotlightSelections = (listener) => {
   if (
