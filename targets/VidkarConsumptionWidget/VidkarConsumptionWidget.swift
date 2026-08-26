@@ -169,12 +169,13 @@ private extension Color {
 @main
 struct VidkarConsumptionWidgetBundle: WidgetBundle {
     var body: some Widget {
-        WidgetConfiguration(
+        StaticConfiguration(
             kind: "VidkarConsumptionWidget",
-            provider: ConsumptionProvider()
-        ) { entry in
+            provider: ConsumptionProvider(),
+            content: { entry in
             ConsumptionWidgetView(entry: entry)
-        }
+            }
+        )
         .configurationDisplayName("Consumo Proxy y VPN")
         .description("Consulta rápidamente tu consumo de Proxy y VPN.")
         .supportedFamilies([.systemSmall, .systemMedium])
