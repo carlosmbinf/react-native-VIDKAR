@@ -105,6 +105,7 @@ workflows:
       xcode: latest
       cocoapods: default
       vars:
+        APPLE_TEAM_ID: "4TWB6RN383"
         BUNDLE_ID: "com.vidkar"
         XCODE_WORKSPACE: "Vidkar.xcworkspace"
         XCODE_SCHEME: "Vidkar"
@@ -186,53 +187,14 @@ workflows:
             -sdk watchos \
             -showBuildSettings | grep -E "PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|CURRENT_PROJECT_VERSION|MARKETING_VERSION|WKCompanion|WATCHOS_DEPLOYMENT_TARGET"
 
-      - name: Validate iOS provisioning profiles
-        script: |
-          bash ./scripts/validate-ios-signing-profiles.sh \
-            "$BUNDLE_ID" \
-            "$WATCH_BUNDLE_ID" \
-            "$NOTIFICATION_SERVICE_BUNDLE_ID"
-
-      # 🔐 Aplicar perfiles/certificados ya resueltos por Codemagic
-      - name: Setup signing
-        script: |
-          xcode-project use-profiles
-
-      - name: Show Release signing settings
-        script: |
-          cd ios
-          for TARGET_NAME in "$BUNDLE_ID" "$WATCH_TARGET" "$NOTIFICATION_SERVICE_TARGET"; do
-            if [[ "$TARGET_NAME" == "$BUNDLE_ID" ]]; then
-              TARGET_NAME="$XCODE_SCHEME"
-            fi
-            echo "--- Firma Release: $TARGET_NAME ---"
-            xcodebuild \
-              -project Vidkar.xcodeproj \
-              -target "$TARGET_NAME" \
-              -configuration Release \
-              -showBuildSettings | grep -E "TARGET_NAME|PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER"
-          done
-
       - name: Build IPA
         script: |
-          set -o pipefail
-          WORKSPACE_PATH="${XCODE_WORKSPACE:-Vidkar.xcworkspace}"
-          SCHEME_NAME="${XCODE_SCHEME:-Vidkar}"
-          if [[ "$WORKSPACE_PATH" != /* && "$WORKSPACE_PATH" != ios/* ]]; then
-            WORKSPACE_PATH="ios/$WORKSPACE_PATH"
-          fi
-          test -d "$WORKSPACE_PATH" || {
-            echo "No se encontró el workspace iOS: $WORKSPACE_PATH" >&2
-            exit 1
-          }
-          echo "Construyendo $SCHEME_NAME desde $WORKSPACE_PATH"
-          xcode-project build-ipa \
-            --workspace "$WORKSPACE_PATH" \
-            --scheme "$SCHEME_NAME" 2>&1 | tee build-ipa.log
+          bash ./scripts/build-ios-ipa-codemagic.sh
 
     artifacts:
       - build/ios/ipa/*.ipa
       - build-ipa.log
+      - build/ios/results/*.xcresult
 
     publishing:
       app_store_connect:
@@ -278,6 +240,7 @@ workflows:
       xcode: latest
       cocoapods: default
       vars:
+        APPLE_TEAM_ID: "4TWB6RN383"
         BUNDLE_ID: "com.vidkar"
         XCODE_WORKSPACE: "Vidkar.xcworkspace"
         XCODE_SCHEME: "Vidkar"
@@ -392,53 +355,15 @@ workflows:
             -sdk watchos \
             -showBuildSettings | grep -E "PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|CURRENT_PROJECT_VERSION|MARKETING_VERSION|WKCompanion|WATCHOS_DEPLOYMENT_TARGET"
 
-      - name: Validate iOS provisioning profiles
-        script: |
-          bash ./scripts/validate-ios-signing-profiles.sh \
-            "$BUNDLE_ID" \
-            "$WATCH_BUNDLE_ID" \
-            "$NOTIFICATION_SERVICE_BUNDLE_ID"
-
-      - name: Setup signing
-        script: |
-          xcode-project use-profiles
-
-      - name: Show Release signing settings
-        script: |
-          cd ios
-          for TARGET_NAME in "$BUNDLE_ID" "$WATCH_TARGET" "$NOTIFICATION_SERVICE_TARGET"; do
-            if [[ "$TARGET_NAME" == "$BUNDLE_ID" ]]; then
-              TARGET_NAME="$XCODE_SCHEME"
-            fi
-            echo "--- Firma Release: $TARGET_NAME ---"
-            xcodebuild \
-              -project Vidkar.xcodeproj \
-              -target "$TARGET_NAME" \
-              -configuration Release \
-              -showBuildSettings | grep -E "TARGET_NAME|PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER"
-          done
-
       - name: Build IPA
         script: |
-          set -o pipefail
-          WORKSPACE_PATH="${XCODE_WORKSPACE:-Vidkar.xcworkspace}"
-          SCHEME_NAME="${XCODE_SCHEME:-Vidkar}"
-          if [[ "$WORKSPACE_PATH" != /* && "$WORKSPACE_PATH" != ios/* ]]; then
-            WORKSPACE_PATH="ios/$WORKSPACE_PATH"
-          fi
-          test -d "$WORKSPACE_PATH" || {
-            echo "No se encontró el workspace iOS: $WORKSPACE_PATH" >&2
-            exit 1
-          }
-          echo "Construyendo $SCHEME_NAME desde $WORKSPACE_PATH"
-          xcode-project build-ipa \
-            --workspace "$WORKSPACE_PATH" \
-            --scheme "$SCHEME_NAME" 2>&1 | tee build-ipa.log
+          bash ./scripts/build-ios-ipa-codemagic.sh
 
     artifacts:
       - android/app/build/outputs/**/*.aab
       - build/ios/ipa/*.ipa
       - build-ipa.log
+      - build/ios/results/*.xcresult
 
     publishing:
       google_play:
