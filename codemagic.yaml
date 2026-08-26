@@ -200,9 +200,19 @@ workflows:
 
       - name: Build IPA
         script: |
+          WORKSPACE_PATH="${XCODE_WORKSPACE:-Vidkar.xcworkspace}"
+          SCHEME_NAME="${XCODE_SCHEME:-Vidkar}"
+          if [[ "$WORKSPACE_PATH" != /* && "$WORKSPACE_PATH" != ios/* ]]; then
+            WORKSPACE_PATH="ios/$WORKSPACE_PATH"
+          fi
+          test -d "$WORKSPACE_PATH" || {
+            echo "No se encontró el workspace iOS: $WORKSPACE_PATH" >&2
+            exit 1
+          }
+          echo "Construyendo $SCHEME_NAME desde $WORKSPACE_PATH"
           xcode-project build-ipa \
-            --workspace "ios/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME"
+            --workspace "$WORKSPACE_PATH" \
+            --scheme "$SCHEME_NAME"
 
     artifacts:
       - build/ios/ipa/*.ipa
@@ -378,9 +388,19 @@ workflows:
 
       - name: Build IPA
         script: |
+          WORKSPACE_PATH="${XCODE_WORKSPACE:-Vidkar.xcworkspace}"
+          SCHEME_NAME="${XCODE_SCHEME:-Vidkar}"
+          if [[ "$WORKSPACE_PATH" != /* && "$WORKSPACE_PATH" != ios/* ]]; then
+            WORKSPACE_PATH="ios/$WORKSPACE_PATH"
+          fi
+          test -d "$WORKSPACE_PATH" || {
+            echo "No se encontró el workspace iOS: $WORKSPACE_PATH" >&2
+            exit 1
+          }
+          echo "Construyendo $SCHEME_NAME desde $WORKSPACE_PATH"
           xcode-project build-ipa \
-            --workspace "ios/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME"
+            --workspace "$WORKSPACE_PATH" \
+            --scheme "$SCHEME_NAME"
 
     artifacts:
       - android/app/build/outputs/**/*.aab
