@@ -71,7 +71,6 @@ workflows:
       google_play:
         credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
         track: internal
-        changes_not_sent_for_review: true
 
       email:
         recipients:
@@ -390,7 +389,6 @@ workflows:
       google_play:
         credentials: $GOOGLE_PLAY_SERVICE_ACCOUNT_CREDENTIALS
         track: internal
-        # changes_not_sent_for_review: true
 
       app_store_connect:
         auth: integration
