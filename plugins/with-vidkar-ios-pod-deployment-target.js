@@ -7,7 +7,7 @@ const pkg = {
   version: "1.0.0",
 };
 
-const IOS_DEPLOYMENT_TARGET = "16.0";
+const IOS_DEPLOYMENT_TARGET = "16.4";
 const POST_INSTALL_MARKER = "[with-vidkar-ios-pod-deployment-target]";
 
 const POD_TARGET_SETTINGS = `

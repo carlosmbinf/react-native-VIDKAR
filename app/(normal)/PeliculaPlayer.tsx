@@ -1,4 +1,4 @@
-import PeliculaPlayer from "../../components/downloadVideos/PeliculaPlayer.native";
+import PeliculaPlayer from "../../components/downloadVideos/PeliculaPlayer";
 
 export default function PeliculaPlayerScreen() {
   return <PeliculaPlayer />;

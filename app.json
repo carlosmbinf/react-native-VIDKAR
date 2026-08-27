@@ -5,15 +5,6 @@
     "version": "4.0.875",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
-    "splash": {
-      "image": "./assets/images/splash-transparent.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#09111f",
-      "dark": {
-        "image": "./assets/images/splash-transparent.png",
-        "backgroundColor": "#09111f"
-      }
-    },
     "scheme": "vidkar",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -92,7 +83,7 @@
             "usesCleartextTraffic": true
           },
           "ios": {
-            "deploymentTarget": "16.0",
+            "deploymentTarget": "16.4",
             "useFrameworks": "static"
           }
         }

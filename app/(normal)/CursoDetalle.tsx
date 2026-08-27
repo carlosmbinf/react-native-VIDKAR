@@ -1,3 +1,3 @@
-import CourseDetail from "../../components/courses/CourseDetail.native";
+import CourseDetail from "../../components/courses/CourseDetail";
 
 export default CourseDetail;
