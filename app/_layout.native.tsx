@@ -5,7 +5,6 @@ import {
     MD3DarkTheme,
     MD3LightTheme,
     PaperProvider,
-    Portal,
 } from "react-native-paper";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -31,10 +30,8 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <PaperProvider theme={theme}>
-          <Portal.Host>
-            <Stack screenOptions={{ headerShown: false }} />
-            <SpotlightNavigation />
-          </Portal.Host>
+          <Stack screenOptions={{ headerShown: false }} />
+          <SpotlightNavigation />
         </PaperProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
