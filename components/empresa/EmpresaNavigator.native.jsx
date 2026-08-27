@@ -1,8 +1,8 @@
 import MeteorBase from "@meteorrn/core";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
-import { Portal, useTheme } from "react-native-paper";
+import { Animated, Modal, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import { useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { resolveSessionRoute } from "../navigator/sessionRoute";
@@ -48,64 +48,63 @@ const EmpresaNavigator = () => {
   }, [router, user, userId]);
 
   useEffect(() => {
-    if (!drawerOpen) {
-      translateX.setValue(-drawerWidth);
-    }
-  }, [drawerOpen, drawerWidth, translateX]);
-
-  useEffect(() => {
-    if (drawerOpen) {
-      setDrawerMounted(true);
-      Animated.parallel([
-        Animated.timing(translateX, {
-          duration: 240,
-          toValue: 0,
-          useNativeDriver: true,
-        }),
-        Animated.timing(overlayOpacity, {
-          duration: 220,
-          toValue: 1,
-          useNativeDriver: true,
-        }),
-      ]).start();
-      return;
+    if (!drawerMounted) {
+      return undefined;
     }
 
-    Animated.parallel([
+    const animation = Animated.parallel([
       Animated.timing(translateX, {
-        duration: 200,
-        toValue: -drawerWidth,
+        duration: drawerOpen ? 240 : 200,
+        toValue: drawerOpen ? 0 : -drawerWidth,
         useNativeDriver: true,
       }),
       Animated.timing(overlayOpacity, {
-        duration: 180,
-        toValue: 0,
+        duration: drawerOpen ? 220 : 180,
+        toValue: drawerOpen ? 1 : 0,
         useNativeDriver: true,
       }),
-    ]).start(({ finished }) => {
-      if (finished) {
+    ]);
+    animation.start(({ finished }) => {
+      if (finished && !drawerOpen) {
         setDrawerMounted(false);
       }
     });
-  }, [drawerOpen, drawerWidth, overlayOpacity, translateX]);
+
+    return () => animation.stop();
+  }, [drawerMounted, drawerOpen, drawerWidth, overlayOpacity, translateX]);
+
+  const openDrawer = () => {
+    translateX.stopAnimation();
+    overlayOpacity.stopAnimation();
+    translateX.setValue(-drawerWidth);
+    overlayOpacity.setValue(0);
+    setDrawerMounted(true);
+    setDrawerOpen(true);
+  };
+
+  const closeDrawer = () => setDrawerOpen(false);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]} edges={[]}>
       <View style={[styles.screen, { backgroundColor: palette.background }]}> 
-        <PedidosPreparacionScreen onOpenDrawer={() => setDrawerOpen(true)} />
+          <PedidosPreparacionScreen onOpenDrawer={openDrawer} />
 
-        <Portal>
-          {drawerMounted ? (
-            <View pointerEvents="box-none" style={styles.drawerPortal}>
+        <Modal
+          animationType="none"
+          onRequestClose={closeDrawer}
+          transparent
+          visible={drawerMounted}
+        >
+          <View style={styles.drawerPortal}>
               <Animated.View
-                pointerEvents="box-none"
+                pointerEvents="none"
                 style={[styles.drawerOverlay, { opacity: overlayOpacity }]}
-              >
-                <Pressable
-                  onPress={() => setDrawerOpen(false)}
-                  style={styles.drawerOverlayPressable}
-                />
-              </Animated.View>
+              />
+              <Pressable
+                accessibilityLabel="Cerrar menú"
+                onPress={closeDrawer}
+                style={styles.drawerOverlayPressable}
+              />
               <Animated.View
                 style={[
                   styles.drawerPanel,
@@ -118,11 +117,10 @@ const EmpresaNavigator = () => {
                   },
                 ]}
               >
-                <EmpresaDrawerContent onClose={() => setDrawerOpen(false)} user={user} />
+                <EmpresaDrawerContent onClose={closeDrawer} user={user} />
               </Animated.View>
-            </View>
-          ) : null}
-        </Portal>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -135,21 +133,26 @@ const styles = StyleSheet.create({
   },
   drawerOverlayPressable: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 1000,
   },
   drawerPanel: {
     borderRightWidth: 1,
-    height: "100%",
+    bottom: 0,
+    elevation: 1001,
+    left: 0,
+    position: "absolute",
     shadowOffset: {
       width: 12,
       height: 0,
     },
     shadowOpacity: 0.14,
     shadowRadius: 22,
+    top: 0,
+    zIndex: 1001,
   },
   drawerPortal: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
     flexDirection: "row",
-    zIndex: 20,
   },
   safeArea: {
     flex: 1,

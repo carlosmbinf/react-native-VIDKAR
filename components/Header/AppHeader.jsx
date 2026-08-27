@@ -85,6 +85,7 @@ const AppHeader = ({
         styles.headerFrame,
         floating && styles.floatingHeader,
         {
+          backgroundColor: getHeaderOverlayColor(backgroundColor, 0.92),
           marginBottom: !floating && overlapContent ? -resolvedHeaderHeight : 0,
           minHeight: resolvedHeaderHeight,
           paddingTop: topInset,
@@ -137,7 +138,6 @@ const AppHeader = ({
 
 const styles = StyleSheet.create({
   headerFrame: {
-    backgroundColor: "transparent",
     elevation: 12,
     overflow: "hidden",
     position: "relative",

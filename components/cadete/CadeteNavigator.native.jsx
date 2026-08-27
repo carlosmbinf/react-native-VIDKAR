@@ -1,7 +1,7 @@
 import MeteorBase from "@meteorrn/core";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
-import { Appbar, Portal, Surface } from "react-native-paper";
+import { Animated, Modal, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Appbar, Surface } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import HomePedidosComercio from "../comercio/pedidos/HomePedidosComercio";
@@ -27,46 +27,41 @@ const CadeteNavigator = () => {
   const overlayOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (!drawerOpen) {
-      translateX.setValue(-drawerWidth);
-    }
-  }, [drawerOpen, drawerWidth, translateX]);
-
-  useEffect(() => {
-    if (drawerOpen) {
-      setDrawerMounted(true);
-      Animated.parallel([
-        Animated.timing(translateX, {
-          duration: 240,
-          toValue: 0,
-          useNativeDriver: true,
-        }),
-        Animated.timing(overlayOpacity, {
-          duration: 220,
-          toValue: 1,
-          useNativeDriver: true,
-        }),
-      ]).start();
-      return;
+    if (!drawerMounted) {
+      return undefined;
     }
 
-    Animated.parallel([
+    const animation = Animated.parallel([
       Animated.timing(translateX, {
-        duration: 200,
-        toValue: -drawerWidth,
+        duration: drawerOpen ? 240 : 200,
+        toValue: drawerOpen ? 0 : -drawerWidth,
         useNativeDriver: true,
       }),
       Animated.timing(overlayOpacity, {
-        duration: 180,
-        toValue: 0,
+        duration: drawerOpen ? 220 : 180,
+        toValue: drawerOpen ? 1 : 0,
         useNativeDriver: true,
       }),
-    ]).start(({ finished }) => {
-      if (finished) {
+    ]);
+    animation.start(({ finished }) => {
+      if (finished && !drawerOpen) {
         setDrawerMounted(false);
       }
     });
-  }, [drawerOpen, drawerWidth, overlayOpacity, translateX]);
+
+    return () => animation.stop();
+  }, [drawerMounted, drawerOpen, drawerWidth, overlayOpacity, translateX]);
+
+  const openDrawer = () => {
+    translateX.stopAnimation();
+    overlayOpacity.stopAnimation();
+    translateX.setValue(-drawerWidth);
+    overlayOpacity.setValue(0);
+    setDrawerMounted(true);
+    setDrawerOpen(true);
+  };
+
+  const closeDrawer = () => setDrawerOpen(false);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
@@ -78,7 +73,7 @@ const CadeteNavigator = () => {
             <Appbar.Action
               icon="menu"
               iconColor="#ffffff"
-              onPress={() => setDrawerOpen(true)}
+              onPress={openDrawer}
             />
           }
           subtitle={user?.username ? `Modo cadete · ${user.username}` : "Modo cadete activo"}
@@ -87,18 +82,22 @@ const CadeteNavigator = () => {
 
         <HomePedidosComercio />
 
-        <Portal>
-          {drawerMounted ? (
-            <View pointerEvents="box-none" style={styles.drawerPortal}>
+        <Modal
+          animationType="none"
+          onRequestClose={closeDrawer}
+          transparent
+          visible={drawerMounted}
+        >
+          <View style={styles.drawerPortal}>
               <Animated.View
-                pointerEvents="box-none"
+                pointerEvents="none"
                 style={[styles.drawerOverlay, { opacity: overlayOpacity }]}
-              >
-                <Pressable
-                  onPress={() => setDrawerOpen(false)}
-                  style={styles.drawerOverlayPressable}
-                />
-              </Animated.View>
+              />
+              <Pressable
+                accessibilityLabel="Cerrar menú"
+                onPress={closeDrawer}
+                style={styles.drawerOverlayPressable}
+              />
               <Animated.View
                 style={[
                   styles.drawerPanel,
@@ -109,11 +108,10 @@ const CadeteNavigator = () => {
                   },
                 ]}
               >
-                <CadeteDrawerContent onClose={() => setDrawerOpen(false)} user={user} />
+                <CadeteDrawerContent onClose={closeDrawer} user={user} />
               </Animated.View>
-            </View>
-          ) : null}
-        </Portal>
+          </View>
+        </Modal>
       </Surface>
     </SafeAreaView>
   );
@@ -126,14 +124,19 @@ const styles = StyleSheet.create({
   },
   drawerOverlayPressable: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 1000,
   },
   drawerPanel: {
-    height: "100%",
+    bottom: 0,
+    elevation: 1001,
+    left: 0,
+    position: "absolute",
+    top: 0,
+    zIndex: 1001,
   },
   drawerPortal: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
     flexDirection: "row",
-    zIndex: 20,
   },
   safeArea: {
     backgroundColor: "#f3f5fb",

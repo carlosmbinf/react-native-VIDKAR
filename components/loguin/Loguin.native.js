@@ -856,7 +856,12 @@ const Loguin = () => {
       <ImageBackground
         source={require("../files/space-bg-shadowcodex.jpg")}
         style={styles.backgroundImage}
+        imageStyle={styles.backgroundImageStyle}
         resizeMode="cover"
+      />
+      <View
+        pointerEvents="none"
+        style={[styles.backgroundOverlay, { backgroundColor: palette.backgroundOverlay }]}
       />
 
       <SafeAreaView style={styles.safeArea} edges={["top"]}>

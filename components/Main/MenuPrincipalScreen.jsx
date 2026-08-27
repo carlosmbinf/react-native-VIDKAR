@@ -7,13 +7,14 @@ import {
     Easing,
     ImageBackground,
     InteractionManager,
+    Modal,
     Pressable,
     RefreshControl,
     ScrollView,
     StyleSheet,
     View,
 } from "react-native";
-import { Chip, Portal, ProgressBar, Surface, Text } from "react-native-paper";
+import { Chip, ProgressBar, Surface, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ComercioHomeOrdersSection from "../comercio/pedidos/ComercioHomeOrdersSection.native";
@@ -359,41 +360,45 @@ const MenuPrincipalScreen = ({
   }, [drawerMounted, drawerOpen]);
 
   useEffect(() => {
-    if (drawerOpen) {
-      setDrawerMounted(true);
-      Animated.parallel([
-        Animated.timing(translateX, {
-          toValue: 0,
-          duration: 240,
-          useNativeDriver: true,
-        }),
-        Animated.timing(overlayOpacity, {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      return;
+    if (!drawerMounted) {
+      return undefined;
     }
 
-    Animated.parallel([
+    translateX.stopAnimation();
+    overlayOpacity.stopAnimation();
+    const animation = Animated.parallel([
       Animated.timing(translateX, {
-        toValue: -DRAWER_WIDTH,
-        duration: 200,
+        toValue: drawerOpen ? 0 : -DRAWER_WIDTH,
+        duration: drawerOpen ? 240 : 200,
         useNativeDriver: true,
       }),
       Animated.timing(overlayOpacity, {
-        toValue: 0,
-        duration: 180,
+        toValue: drawerOpen ? 1 : 0,
+        duration: drawerOpen ? 220 : 180,
         useNativeDriver: true,
       }),
-    ]).start(({ finished }) => {
-      if (finished) {
+    ]);
+    animation.start(({ finished }) => {
+      if (finished && !drawerOpen) {
         setDrawerMounted(false);
       }
     });
-  }, [drawerOpen, overlayOpacity, translateX]);
+
+    return () => animation.stop();
+  }, [drawerMounted, drawerOpen, overlayOpacity, translateX]);
+
+  const openDrawer = () => {
+    translateX.stopAnimation();
+    overlayOpacity.stopAnimation();
+    translateX.setValue(-DRAWER_WIDTH);
+    overlayOpacity.setValue(0);
+    setDrawerMounted(true);
+    setDrawerOpen(true);
+  };
+
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+  };
 
   useEffect(() => {
     if (!heroCardSize.width || !heroCardSize.height) {
@@ -540,7 +545,7 @@ const MenuPrincipalScreen = ({
           <MenuHeader
             title="VIDKAR"
             subtitle="Menú principal"
-            onOpenDrawer={() => setDrawerOpen(true)}
+            onOpenDrawer={openDrawer}
             onOpenProfile={() => navigateTo("/(normal)/User")}
             onOpenMessages={(item) => {
               if (item) {
@@ -1524,18 +1529,22 @@ const MenuPrincipalScreen = ({
           )}
           </ScrollView>
 
-        <Portal>
-          {drawerMounted ? (
-            <View style={styles.drawerPortal} pointerEvents="box-none">
+        <Modal
+          animationType="none"
+          onRequestClose={closeDrawer}
+          transparent
+          visible={drawerMounted}
+        >
+          <View style={styles.drawerPortal}>
               <Animated.View
                 style={[styles.drawerOverlay, { opacity: overlayOpacity }]}
-                pointerEvents="box-none"
-              >
-                <Pressable
-                  style={styles.drawerOverlayPressable}
-                  onPress={() => setDrawerOpen(false)}
-                />
-              </Animated.View>
+                pointerEvents="none"
+              />
+              <Pressable
+                accessibilityLabel="Cerrar menú"
+                onPress={closeDrawer}
+                style={styles.drawerOverlayPressable}
+              />
               <Animated.View
                 style={[styles.drawerPanel, { transform: [{ translateX }] }]}
               >
@@ -1548,15 +1557,14 @@ const MenuPrincipalScreen = ({
                     user={user}
                     currentPath={pathname}
                     onNavigate={navigateTo}
-                    onClose={() => setDrawerOpen(false)}
+                    onClose={closeDrawer}
                     onToggleModoCadete={onToggleModoCadete}
                     onToggleModoEmpresa={onToggleModoEmpresa}
                   />
                 </RenderTraceBlock>
               </Animated.View>
-            </View>
-          ) : null}
-        </Portal>
+          </View>
+        </Modal>
       </Surface>
     </SafeAreaView>
   );
@@ -2492,10 +2500,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(224, 231, 255, 0.12)",
   },
   drawerPortal: {
-    ...StyleSheet.absoluteFillObject,
-    elevation: 1000,
+    flex: 1,
     flexDirection: "row",
-    zIndex: 1000,
   },
   drawerOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -2503,10 +2509,15 @@ const styles = StyleSheet.create({
   drawerOverlayPressable: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(15, 23, 42, 0.38)",
+    zIndex: 1000,
   },
   drawerPanel: {
+    backgroundColor: "#071120",
+    bottom: 0,
     elevation: 1001,
-    height: "100%",
+    left: 0,
+    position: "absolute",
+    top: 0,
     width: DRAWER_WIDTH,
     zIndex: 1001,
   },

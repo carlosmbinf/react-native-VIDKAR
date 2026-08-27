@@ -11,7 +11,10 @@ const DrawerBlurShell = ({ children, elevation = 4, overlayColor, style }) => {
       : "rgba(255, 255, 255, 0.58)");
 
   return (
-    <Surface elevation={elevation} style={[styles.shell, style]}>
+    <Surface
+      elevation={elevation}
+      style={[styles.shell, { backgroundColor: theme.dark ? "#071120" : "#f8fafc" }, style]}
+    >
       <BlurView
         intensity={34}
         tint={theme.dark ? "dark" : "light"}
@@ -43,7 +46,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   shell: {
-    backgroundColor: "transparent",
     flex: 1,
     overflow: "hidden",
   },

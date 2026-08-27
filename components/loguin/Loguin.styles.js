@@ -4,11 +4,11 @@ export const getLoginPalette = (isDarkMode) =>
   isDarkMode
     ? {
         altText: "rgba(226, 232, 240, 0.82)",
-        backgroundOverlay: "rgba(4, 10, 24, 0.1)",
+        backgroundOverlay: "rgba(4, 10, 24, 0.64)",
         blurCardAccent: "rgba(96, 165, 250, 0.14)",
         blurCardBorder: "rgba(255,255,255,0.18)",
         blurCardGlow: "rgba(59, 130, 246, 0.18)",
-        blurCardOverlay: "rgba(5, 10, 22, 0.28)",
+        blurCardOverlay: "rgba(5, 10, 22, 0.76)",
         blurCardSheen: "rgba(255,255,255,0.08)",
         brandDescription: "rgba(226, 232, 240, 0.86)",
         brandEyebrow: "#93c5fd",
@@ -38,11 +38,11 @@ export const getLoginPalette = (isDarkMode) =>
       }
     : {
         altText: "rgba(226, 232, 240, 0.78)",
-        backgroundOverlay: "rgba(4, 10, 24, 0.08)",
+        backgroundOverlay: "rgba(4, 10, 24, 0.68)",
         blurCardAccent: "rgba(96, 165, 250, 0.12)",
         blurCardBorder: "rgba(255,255,255,0.16)",
         blurCardGlow: "rgba(59, 130, 246, 0.16)",
-        blurCardOverlay: "rgba(5, 10, 22, 0.24)",
+        blurCardOverlay: "rgba(5, 10, 22, 0.78)",
         blurCardSheen: "rgba(255,255,255,0.08)",
         brandDescription: "rgba(226, 232, 240, 0.82)",
         brandEyebrow: "#93c5fd",
@@ -81,6 +81,10 @@ export const loginScreenStyles = StyleSheet.create({
   },
   backgroundImage: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#071120",
+  },
+  backgroundImageStyle: {
+    opacity: 0.86,
   },
   backgroundOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -195,6 +199,7 @@ export const loginScreenStyles = StyleSheet.create({
     marginBottom: 16,
   },
   screen: {
+    backgroundColor: "#071120",
     flex: 1,
   },
   dividerLine: {
@@ -257,6 +262,7 @@ export const loginScreenStyles = StyleSheet.create({
     borderRadius: 32,
   },
   safeArea: {
+    backgroundColor: "transparent",
     flex: 1,
   },
   input: {
@@ -310,13 +316,14 @@ export const loginScreenStyles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 20,
-    paddingVertical: 28,
+    paddingVertical: 20,
   },
   scrollContentCentered: {
     justifyContent: "center",
   },
   scrollContentStacked: {
     justifyContent: "flex-start",
+    paddingTop: 12,
   },
   serverRow: {
     flexDirection: "row",

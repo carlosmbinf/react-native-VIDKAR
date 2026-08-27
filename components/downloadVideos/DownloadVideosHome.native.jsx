@@ -11,6 +11,7 @@ import {
     KeyboardAvoidingView,
     Linking,
     ActivityIndicator as NativeActivityIndicator,
+    Modal,
     PanResponder,
     Platform,
     Pressable,
@@ -839,6 +840,8 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
   const gestureStartYRef = React.useRef(hiddenTranslateY);
   const scrollOffsetRef = React.useRef(0);
   const [expanded, setExpanded] = React.useState(false);
+  const [mounted, setMounted] = React.useState(Boolean(visible));
+  const dismissingRef = React.useRef(false);
 
   const snapTo = React.useCallback(
     (toValue, callback) => {
@@ -861,17 +864,32 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
   );
 
   const dismissWithAnimation = React.useCallback(() => {
-    snapTo(hiddenTranslateY, onDismiss);
+    if (dismissingRef.current) {
+      return;
+    }
+
+    dismissingRef.current = true;
+    snapTo(hiddenTranslateY, () => {
+      setMounted(false);
+      onDismiss?.();
+    });
   }, [hiddenTranslateY, onDismiss, snapTo]);
 
   React.useEffect(() => {
     if (visible) {
+      dismissingRef.current = false;
+      setMounted(true);
       translateY.setValue(hiddenTranslateY);
       currentYRef.current = hiddenTranslateY;
       setExpanded(false);
       requestAnimationFrame(() => snapTo(collapsedTranslateY));
+      return undefined;
     }
-  }, [collapsedTranslateY, hiddenTranslateY, snapTo, translateY, visible]);
+
+    if (mounted && !dismissingRef.current) {
+      snapTo(hiddenTranslateY, () => setMounted(false));
+    }
+  }, [collapsedTranslateY, hiddenTranslateY, mounted, snapTo, translateY, visible]);
 
   const panResponder = React.useMemo(
     () =>
@@ -912,12 +930,18 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
     [collapsedTranslateY, dismissWithAnimation, expanded, hiddenTranslateY, snapTo, translateY],
   );
 
-  if (!visible || !resolvedMovie) {
+  if (!mounted || !resolvedMovie) {
     return null;
   }
 
   return (
-    <Portal>
+    <Modal
+      animationType="none"
+      onRequestClose={dismissWithAnimation}
+      statusBarTranslucent
+      transparent
+      visible={mounted}
+    >
       <Pressable style={styles.drawerBackdrop} onPress={dismissWithAnimation} />
       <Animated.View
         {...panResponder.panHandlers}
@@ -1011,7 +1035,7 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
           </View>
         </ScrollView>
       </Animated.View>
-    </Portal>
+    </Modal>
   );
 };
 

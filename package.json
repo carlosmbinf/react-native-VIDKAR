@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
-    "postinstall": "node ./scripts/patch-apple-targets-watch-prebuild.js && node ./scripts/patch-vlc-media-player.js",
+    "postinstall": "node ./scripts/patch-apple-targets-watch-prebuild.js && node ./scripts/patch-vlc-media-player.js && node ./scripts/patch-react-native-paper-portals.js",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",

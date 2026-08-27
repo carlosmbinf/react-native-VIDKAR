@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import {
     Animated,
     Dimensions,
+    Modal,
     PanResponder,
     Platform,
     Pressable,
@@ -12,7 +13,6 @@ import {
 import {
     Divider,
     IconButton,
-    Portal,
     Surface,
     Text,
     useTheme,
@@ -39,17 +39,31 @@ const DrawerBottom = ({
   const [contentHeight, setContentHeight] = useState(0);
   const maxSheetHeight = SCREEN_HEIGHT * 0.85;
   const sheetHeight = Math.min(contentHeight || maxSheetHeight, maxSheetHeight);
+  const [mounted, setMounted] = useState(Boolean(open));
 
   useEffect(() => {
     if (!isBottom) {
-      return;
+      return undefined;
+    }
+
+    translateY.stopAnimation();
+
+    if (open) {
+      setMounted(true);
+      translateY.setValue(SCREEN_HEIGHT);
     }
 
     Animated.timing(translateY, {
       toValue: open ? 0 : SCREEN_HEIGHT,
       duration: open ? 260 : 220,
       useNativeDriver: true,
-    }).start();
+    }).start(({ finished }) => {
+      if (finished && !open) {
+        setMounted(false);
+      }
+    });
+
+    return () => translateY.stopAnimation();
   }, [isBottom, open, translateY]);
 
   const panResponder = useRef(
@@ -69,11 +83,7 @@ const DrawerBottom = ({
         }
 
         if (gestureState.dy > sheetHeight * 0.25 || gestureState.vy > 1.1) {
-          Animated.timing(translateY, {
-            toValue: SCREEN_HEIGHT,
-            duration: 200,
-            useNativeDriver: true,
-          }).start(() => onClose?.());
+          onClose?.();
           return;
         }
 
@@ -114,12 +124,17 @@ const DrawerBottom = ({
   ) : null;
 
   return (
-    <Portal>
-      {open ? (
-        <View style={styles.portalContainer} pointerEvents="box-none">
+    <Modal
+      animationType="none"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      transparent
+      visible={mounted}
+    >
+      <View style={styles.portalContainer}>
           <Pressable
             style={[
-              StyleSheet.absoluteFill,
+              styles.backdropPressable,
               { backgroundColor: `rgba(0,0,0,${overlayOpacity})` },
             ]}
             onPress={() => onClose?.()}
@@ -194,8 +209,7 @@ const DrawerBottom = ({
             </Surface>
           </Animated.View>
         </View>
-      ) : null}
-    </Portal>
+    </Modal>
   );
 };
 
@@ -204,13 +218,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
   },
+  backdropPressable: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1000,
+  },
   bottomContent: {
     paddingBottom: 20,
     paddingHorizontal: 16,
     paddingTop: 4,
   },
   bottomSheetWrapper: {
+    elevation: 1001,
     width: "100%",
+    zIndex: 1001,
   },
   bottomSurface: {
     borderTopLeftRadius: 22,
@@ -238,7 +258,9 @@ const styles = StyleSheet.create({
   },
   portalContainer: {
     ...StyleSheet.absoluteFillObject,
+    elevation: 1000,
     justifyContent: "flex-end",
+    flex: 1,
     zIndex: 9999,
   },
   sheetTint: {
