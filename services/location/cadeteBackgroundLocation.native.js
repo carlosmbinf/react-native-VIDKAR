@@ -737,6 +737,9 @@ export const startCadeteBackgroundLocation = async ({
   return { started: true };
 };
 
+/**
+ * @param {{enabled?: boolean, requestPermissions?: boolean, userId?: string}} options
+ */
 export const syncCadeteBackgroundLocation = async ({
   enabled,
   requestPermissions = true,

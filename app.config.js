@@ -24,17 +24,21 @@ function getFallbackPatch(config) {
   return "0";
 }
 
-module.exports = () => {
+module.exports = ({ config } = {}) => {
+  const appConfig = {
+    ...staticAppConfig,
+    ...config,
+  };
   const versionBase =
-    process.env.APP_VERSION_BASE || getVersionBase(staticAppConfig.version);
+    process.env.APP_VERSION_BASE || getVersionBase(appConfig.version);
   const versionPatch =
-    process.env.APP_VERSION_PATCH || getFallbackPatch(staticAppConfig);
+    process.env.APP_VERSION_PATCH || getFallbackPatch(appConfig);
 
   return {
-    ...staticAppConfig,
+    ...appConfig,
     version: `${versionBase}.${versionPatch}`,
     plugins: [
-      ...staticAppConfig.plugins,
+      ...appConfig.plugins,
       [
         "@pksung1/expo-store-signing",
         {

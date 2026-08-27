@@ -16,7 +16,6 @@
     },
     "scheme": "vidkar",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
@@ -53,7 +52,6 @@
         }
       },
       "versionCode": 872,
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.vidkar",
       "googleServicesFile": "./google-services.json",
@@ -80,6 +78,7 @@
       "./plugins/with-vidkar-xcode-object-version.js",
       "./plugins/with-vidkar-android-pip.js",
       "./plugins/with-vidkar-vlc-media-player.js",
+      "./plugins/with-vidkar-ios-pod-deployment-target.js",
       "./node_modules/@react-native-google-signin/google-signin/app.plugin.js",
       "expo-apple-authentication",
       [
@@ -93,6 +92,7 @@
             "usesCleartextTraffic": true
           },
           "ios": {
+            "deploymentTarget": "16.0",
             "useFrameworks": "static"
           }
         }

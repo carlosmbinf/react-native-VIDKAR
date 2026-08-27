@@ -1,4 +1,4 @@
-export const syncCourseSpotlightIndex = async () => ({
+export const syncCourseSpotlightIndex = async (_items = []) => ({
   indexed: 0,
   supported: false,
 });
