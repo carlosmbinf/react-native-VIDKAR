@@ -86,6 +86,7 @@ const ProxyVpnUsageWidget = (
   const family = environment.widgetFamily;
   const isSmall = family === "systemSmall";
   const isMedium = family === "systemMedium";
+  const isLarge = family === "systemLarge";
   const selectedService =
     environment.configuration?.service === "vpn" ? "vpn" : "proxy";
   const isFullColor =
@@ -178,79 +179,83 @@ const ProxyVpnUsageWidget = (
   };
 
   const renderChartPanel = () => {
-    const chartData = props.dailyUsage.flatMap((point) => [
-      {
-        color: COLORS.blue,
-        x: point.label,
-        y: Math.max(0, Number(point.proxy || 0)),
-      },
-      {
-        color: COLORS.green,
-        x: point.label,
-        y: Math.max(0, Number(point.vpn || 0)),
-      },
-    ]);
-    const proxyTotal = dailyTotal(props, "proxy");
-    const vpnTotal = dailyTotal(props, "vpn");
+    const data = getService(selectedService);
+    const chartData = props.dailyUsage.map((point) => ({
+      color: data.accent,
+      x: point.label,
+      y: Math.max(0, Number(point[selectedService] || 0)),
+    }));
+    const total = dailyTotal(props, selectedService);
 
     return (
       <VStack
         alignment="leading"
-        spacing={3}
+        spacing={7}
         modifiers={[
-          background("#16FFFFFF"),
-          clipShape("roundedRectangle", 10),
+          background("#14FFFFFF"),
+          clipShape("roundedRectangle", 16),
           frame({ maxWidth: Infinity }),
-          padding({ all: 8 }),
+          padding({ all: 12 }),
         ]}
       >
         <HStack spacing={4}>
+          <VStack alignment="leading" spacing={2}>
+            <Text
+              modifiers={[
+                font({ size: 12, weight: "bold" }),
+                foregroundStyle(primaryText),
+              ]}
+            >
+              Consumo de hoy
+            </Text>
+            <Text
+              modifiers={[
+                font({ size: 10, weight: "medium" }),
+                foregroundStyle(secondaryText),
+              ]}
+            >
+              {data.title} · últimos bloques
+            </Text>
+          </VStack>
+          <Spacer />
           <Text
             modifiers={[
-              font({ size: 11, weight: "bold" }),
-              foregroundStyle(primaryText),
+              font({ size: 18, weight: "bold" }),
+              foregroundStyle(data.accent),
             ]}
           >
-            Consumo de hoy
+            {total.toFixed(2)} MB
           </Text>
-          <Spacer />
+        </HStack>
+        <Chart
+          animate={false}
+          barStyle={{ cornerRadius: 4, width: 7 }}
+          data={
+            chartData.length > 0
+              ? chartData
+              : [{ color: data.accent, x: "—", y: 0 }]
+          }
+          modifiers={[frame({ height: 112, maxWidth: Infinity })]}
+          showGrid
+          showLegend={false}
+          type="bar"
+        />
+        <HStack spacing={5}>
+          <Image
+            systemName={data.icon}
+            modifiers={[foregroundStyle(data.accent)]}
+          />
           <Text
             modifiers={[
               font({ size: 10, weight: "semibold" }),
               foregroundStyle(secondaryText),
             ]}
           >
-            {props.dailyUsage.length > 0 ? "12 bloques" : "Sin datos"}
+            {props.dailyUsage.length > 0
+              ? `${props.dailyUsage.length} bloques registrados`
+              : "Aún no hay datos de consumo"}
           </Text>
         </HStack>
-        <HStack spacing={10}>
-          <Text
-            modifiers={[font({ size: 9, weight: "semibold" }), foregroundStyle(COLORS.blue)]}
-          >
-            ● Proxy {proxyTotal.toFixed(2)} MB
-          </Text>
-          <Text
-            modifiers={[font({ size: 9, weight: "semibold" }), foregroundStyle(COLORS.green)]}
-          >
-            ● VPN {vpnTotal.toFixed(2)} MB
-          </Text>
-        </HStack>
-        <Chart
-          animate={false}
-          barStyle={{ cornerRadius: 3, width: 4 }}
-          data={
-            chartData.length > 0
-              ? chartData
-              : [
-                  { color: COLORS.blue, x: "—", y: 0 },
-                  { color: COLORS.green, x: "—", y: 0 },
-                ]
-          }
-          modifiers={[frame({ height: 76, maxWidth: Infinity })]}
-          showGrid
-          showLegend={false}
-          type="bar"
-        />
       </VStack>
     );
   };
@@ -265,26 +270,26 @@ const ProxyVpnUsageWidget = (
     >
       <VStack
         alignment="leading"
-        spacing={isSmall ? 9 : 8}
-        modifiers={[padding({ all: isSmall ? 13 : 14 })]}
+        spacing={isSmall ? 10 : isMedium ? 11 : 12}
+        modifiers={[padding({ all: isSmall ? 12 : isMedium ? 14 : 16 })]}
       >
         <HStack spacing={7}>
           <Image systemName="network" modifiers={[foregroundStyle("#42A5F5")]} />
           <Text
             modifiers={[
-              font({ size: isSmall ? 13 : 14, weight: "bold" }),
+              font({ size: isSmall ? 13 : 15, weight: "bold" }),
               foregroundStyle(primaryText),
             ]}
           >
-            Consumo VIDKAR
+            VIDKAR
           </Text>
           <Spacer />
           {!isSmall ? (
             <Link
               destination="vidkar://?widgetRefresh=1"
-              label="Actualizar"
+              label="↻"
               modifiers={[
-                font({ size: 10, weight: "semibold" }),
+                font({ size: 17, weight: "bold" }),
                 foregroundStyle("#90CAF9"),
               ]}
             />
@@ -314,31 +319,26 @@ const ProxyVpnUsageWidget = (
             true,
           )
         ) : isMedium ? (
-          <VStack alignment="leading" spacing={7}>
-            {renderServiceCard("proxy")}
-            {renderServiceCard("vpn")}
-          </VStack>
-        ) : props.isAdmin ? (
-          <VStack alignment="leading" spacing={8}>
-            <Text modifiers={[font({ size: 16, weight: "bold" }), foregroundStyle(primaryText)]}>
-              Proxy + VPN
-            </Text>
-            {renderChartPanel()}
-          </VStack>
+          <HStack spacing={8}>
+            {renderServiceCard("proxy", true)}
+            {renderServiceCard("vpn", true)}
+          </HStack>
+        ) : isLarge ? (
+          renderChartPanel()
         ) : (
           renderServiceCard(selectedService, true)
         )}
 
-        <HStack>
+        <HStack spacing={4}>
           <Text modifiers={[font({ size: 9, weight: "medium" }), foregroundStyle(secondaryText)]}>
             Actualizado {props.updatedAt}
           </Text>
           <Spacer />
-          <Link
-            destination="vidkar://?widgetRefresh=1"
-            label="Actualizar"
-            modifiers={[font({ size: 9, weight: "semibold" }), foregroundStyle("#90CAF9")]}
-          />
+          {!isSmall ? (
+            <Text modifiers={[font({ size: 9, weight: "semibold" }), foregroundStyle(secondaryText)]}>
+              Toca para actualizar
+            </Text>
+          ) : null}
         </HStack>
       </VStack>
     </ZStack>
