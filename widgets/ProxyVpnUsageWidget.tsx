@@ -33,16 +33,6 @@ type WidgetConfiguration = {
 
 type ServiceKey = "proxy" | "vpn";
 
-const COLORS = {
-  blue: "#42A5F5",
-  blueSoft: "#1A2196F3",
-  green: "#66BB6A",
-  greenSoft: "#1A4CAF50",
-  muted: "#B8C8E3",
-  panel: "#16FFFFFF",
-  text: "#FFFFFF",
-};
-
 const ExpoWidgets: WidgetApi | null = (() => {
   try {
     // expo-widgets solo está disponible en una development/production build iOS.
