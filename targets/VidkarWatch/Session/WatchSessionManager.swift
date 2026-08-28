@@ -270,6 +270,10 @@ final class WatchSessionManager: NSObject, ObservableObject, WCSessionDelegate {
         }
     }
 
+    func sessionDidBecomeInactive(_ session: WCSession) {}
+
+    func sessionDidDeactivate(_ session: WCSession) {}
+
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
         print("[VidkarWatch] didReceiveApplicationContext keys=\(Array(applicationContext.keys).sorted())")
         handlePayload(applicationContext)
