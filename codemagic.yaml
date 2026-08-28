@@ -224,8 +224,7 @@ workflows:
             COMPILER_INDEX_STORE_ENABLE=NO \
             DEVELOPMENT_TEAM=4TWB6RN383 \
             CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            "CODE_SIGN_IDENTITY[sdk=watchos*]=Apple Distribution"
+            CODE_SIGN_IDENTITY="Apple Distribution"
 
           xcodebuild \
             -exportArchive \
@@ -432,8 +431,7 @@ workflows:
             COMPILER_INDEX_STORE_ENABLE=NO \
             DEVELOPMENT_TEAM=4TWB6RN383 \
             CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            "CODE_SIGN_IDENTITY[sdk=watchos*]=Apple Distribution"
+            CODE_SIGN_IDENTITY="Apple Distribution"
 
           xcodebuild \
             -exportArchive \
