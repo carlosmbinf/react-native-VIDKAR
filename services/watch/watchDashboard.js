@@ -324,7 +324,7 @@ const buildConnectionState = (user, connections = []) => {
   };
 };
 
-const buildUsageSnapshot = (user, connections) => {
+export const buildWatchUsageSnapshot = (user, connections = []) => {
   const connectionState = buildConnectionState(user, connections);
 
   const proxyEnabled = user?.baneado === false;
@@ -623,7 +623,7 @@ const buildWatchUserProfile = (user, context) => {
   }
 
   const debtAmount = toNumber(context?.debtMap?.get(normalizeUserId(user._id)));
-  const usage = buildUsageSnapshot(user, context?.connections || []);
+  const usage = buildWatchUsageSnapshot(user, context?.connections || []);
 
   return {
     createdAt: toStringOrNull(

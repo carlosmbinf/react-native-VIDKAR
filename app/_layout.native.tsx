@@ -9,6 +9,7 @@ import {
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import SpotlightNavigation from "../components/spotlight/SpotlightNavigation.native";
+import ProxyVpnWidgetSyncHost from "../components/widgets/ProxyVpnWidgetSyncHost";
 import { useColorScheme } from "../hooks/use-color-scheme";
 
 export default function RootLayout() {
@@ -32,6 +33,7 @@ export default function RootLayout() {
         <PaperProvider theme={theme}>
           <Stack screenOptions={{ headerShown: false }} />
           <SpotlightNavigation />
+          <ProxyVpnWidgetSyncHost />
         </PaperProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
