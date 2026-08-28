@@ -1,7 +1,8 @@
 import { BlurView } from "expo-blur";
+import { useIsFocused } from "expo-router/react-navigation";
 import React from "react";
 import { Platform, StyleSheet, View } from "react-native";
-import { Appbar } from "react-native-paper";
+import { Appbar, Portal } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import useSafeBack, { useCanNavigateBack } from "../navigation/useSafeBack";
@@ -46,6 +47,7 @@ const AppHeader = ({
   left,
   onBack,
   overlapContent = false,
+  portal = true,
   showBackButton,
   statusBarHeight = 0,
   subtitle,
@@ -53,6 +55,7 @@ const AppHeader = ({
   title,
   titleStyle,
 }) => {
+  const isFocused = useIsFocused();
   const canNavigateBack = useCanNavigateBack();
   const safeBack = useSafeBack(backHref);
   const resolvedHeaderHeight = useAppHeaderContentInset(includeSafeAreaTop);
@@ -80,12 +83,17 @@ const AppHeader = ({
     ) : null);
 
   const headerNode = (
-    <View
+    <BlurView
+      intensity={glassIntensity}
+      tint="systemMaterial"
+      experimentalBlurMethod={
+        Platform.OS === "android" ? "dimezisBlurView" : undefined
+      }
+      renderToHardwareTextureAndroid={true}
       style={[
         styles.headerFrame,
-        floating && styles.floatingHeader,
+        (floating || portal) && styles.floatingHeader,
         {
-          backgroundColor: getHeaderOverlayColor(backgroundColor, 0.92),
           marginBottom: !floating && overlapContent ? -resolvedHeaderHeight : 0,
           minHeight: resolvedHeaderHeight,
           paddingTop: topInset,
@@ -93,15 +101,6 @@ const AppHeader = ({
         containerStyle,
       ]}
     >
-      <BlurView
-        intensity={glassIntensity}
-        tint="dark"
-        style={styles.blurLayer}
-        experimentalBlurMethod={
-          Platform.OS === "android" ? "dimezisBlurView" : undefined
-        }
-        renderToHardwareTextureAndroid={true}
-      />
       <View
         pointerEvents="none"
         style={[
@@ -130,15 +129,30 @@ const AppHeader = ({
         {actions || null}
       </Appbar.Header>
       <View pointerEvents="none" style={styles.bottomBorder} />
-    </View>
+    </BlurView>
   );
 
-  return headerNode;
+  if (!portal) {
+    return headerNode;
+  }
+
+  if (!isFocused) {
+    return null;
+  }
+
+  return (
+    <>
+      {!floating && !overlapContent ? (
+        <View style={{ height: resolvedHeaderHeight }} />
+      ) : null}
+      <Portal>{headerNode}</Portal>
+    </>
+  );
 };
 
 const styles = StyleSheet.create({
   headerFrame: {
-    elevation: 12,
+    backgroundColor: "transparent",
     overflow: "hidden",
     position: "relative",
     width: "100%",
@@ -150,9 +164,6 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     zIndex: 20,
-  },
-  blurLayer: {
-    ...StyleSheet.absoluteFillObject,
   },
   colorOverlay: {
     ...StyleSheet.absoluteFillObject,

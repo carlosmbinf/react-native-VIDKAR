@@ -22,6 +22,7 @@ const MenuHeader = ({
 
   return (
     <AppHeader
+      blurContent
       backgroundColor={backgroundColor}
       overlapContent
       title={title || "VIDKAR"}

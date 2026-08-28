@@ -3,9 +3,8 @@ import MeteorBase from "@meteorrn/core";
 import React, { useCallback, useEffect, useState } from "react";
 import { FlatList, Image, Modal, ScrollView, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Appbar, Button, Card, Chip, Divider, Surface, Text, TextInput } from "react-native-paper";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import useSafeBack from "../navigation/useSafeBack";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 
 const Meteor = /** @type {typeof MeteorBase} */ (MeteorBase);
 const PRINCIPAL_USERNAME = "carlosmbinf";
@@ -20,14 +19,14 @@ const getStatusColor = (status) => status === "APROBADA" ? "#86efac" : status ==
 const getRisk = (item) => item?.investigationReasons?.length > 0 || item?.fraudAttemptCount > 0 || item?.analisisIA?.decision === "INVALIDA";
 
 const FilterModal = ({ filters, onApply, onClose, visible }) => {
+  const headerInset = useAppHeaderContentInset();
   const [draft, setDraft] = useState(filters);
   useEffect(() => { if (visible) setDraft(filters); }, [filters, visible]);
   const update = (key, value) => setDraft((current) => ({ ...current, [key]: value, page: 1 }));
   return (
     <Modal animationType="slide" onRequestClose={onClose} visible={visible}>
       <Surface style={styles.modalSurface}>
-        <Appbar.Header style={styles.appbar}><Appbar.BackAction color="#fff" onPress={onClose} /><Appbar.Content color="#fff" title="Filtrar investigaciones" /></Appbar.Header>
-        <ScrollView contentContainerStyle={styles.modalContent}>
+        <ScrollView contentContainerStyle={[styles.modalContent, { paddingTop: headerInset + 18 }]}>
           <TextInput label="Buscar ID, venta, referencia o usuario" mode="outlined" onChangeText={(value) => update("search", value)} style={styles.input} value={draft.search} />
           <Text style={styles.filterLabel} variant="labelLarge">Alcance de investigación</Text>
           <View style={styles.chipRow}>{[["INVESTIGABLE", "Casos investigables"], ["INTENTOS_FRAUDE", "Intentos registrados"], ["RECHAZADAS", "Rechazadas"], ["SOSPECHOSAS", "Sospechosas"], ["TODAS", "Todas las evidencias"]].map(([scope, label]) => <Chip key={scope} onPress={() => update("investigationScope", scope)} selected={draft.investigationScope === scope} style={styles.filterChip}>{label}</Chip>)}</View>
@@ -38,6 +37,7 @@ const FilterModal = ({ filters, onApply, onClose, visible }) => {
           <Button icon="alert-outline" mode={draft.investigationScope === "INTENTOS_FRAUDE" ? "contained" : "outlined"} onPress={() => update("investigationScope", "INTENTOS_FRAUDE")} style={styles.filterButton}>Ver intentos registrados</Button>
           <Button mode="contained" onPress={() => { onApply(draft); onClose(); }} style={styles.applyButton}>Aplicar filtros</Button>
         </ScrollView>
+        <AppHeader backHref="/(normal)/Main" backgroundColor="#1e3a8a" floating onBack={onClose} portal={false} showBackButton title="Filtrar investigaciones" />
       </Surface>
     </Modal>
   );
@@ -72,11 +72,13 @@ const EvidenceCard = ({ item, onPress }) => (
   </Card>
 );
 
-const DetailModal = ({ detail, onClose }) => (
-  <Modal animationType="slide" onRequestClose={onClose} visible={Boolean(detail)}>
-    <Surface style={styles.modalSurface}>
-      <Appbar.Header style={styles.appbar}><Appbar.BackAction color="#fff" onPress={onClose} /><Appbar.Content color="#fff" title="Investigación" /></Appbar.Header>
-      <ScrollView contentContainerStyle={styles.modalContent}>
+const DetailModal = ({ detail, onClose }) => {
+  const headerInset = useAppHeaderContentInset();
+
+  return (
+    <Modal animationType="slide" onRequestClose={onClose} visible={Boolean(detail)}>
+      <Surface style={styles.modalSurface}>
+        <ScrollView contentContainerStyle={[styles.modalContent, { paddingTop: headerInset + 18 }]}>
         {detail?.image?.imageUrl ? <Image accessibilityLabel="Evidencia de pago" source={{ uri: detail.image.imageUrl }} style={styles.evidenceImage} /> : <Text style={styles.muted}>La imagen no está disponible.</Text>}
         {detail?.evidence ? <>
           <Text style={styles.cardTitle} variant="titleLarge">Evidencia #{String(detail.evidence._id).slice(-8).toUpperCase()}</Text>
@@ -86,14 +88,15 @@ const DetailModal = ({ detail, onClose }) => (
           {detail.relatedEvidence?.length ? <View style={styles.detailSection}><Divider /><Text style={styles.sectionTitle} variant="titleMedium">Comparación visual</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.comparisonScroll}><View style={styles.comparisonItem}><Text style={styles.muted} variant="labelSmall">Bajo análisis</Text><Image accessibilityLabel="Evidencia bajo análisis" source={{ uri: detail.image?.imageUrl }} style={styles.comparisonImage} /></View>{detail.relatedEvidence.map((related, index) => <View key={related._id} style={styles.comparisonItem}><Text style={styles.muted} variant="labelSmall">Relacionada {index + 1}</Text>{related.image?.imageUrl ? <Image accessibilityLabel="Evidencia relacionada" source={{ uri: related.image.imageUrl }} style={styles.comparisonImage} /> : <Text style={styles.muted}>Imagen no disponible.</Text>}</View>)}</ScrollView></View> : null}
           <View style={styles.detailSection}><Divider /><Text style={styles.sectionTitle} variant="titleMedium">Auditoría relacionada</Text>{detail.fraudAttempts?.length ? detail.fraudAttempts.map((attempt) => <View key={attempt._id} style={styles.attempt}><Chip compact style={styles.riskChip}>{attempt.tipo || "Señal antifraude"}</Chip><Text style={styles.muted} variant="bodySmall">{attempt.reason || attempt.motivo || "Referencia relacionada detectada."} · {formatDate(attempt.createdAt)}</Text></View>) : <Text style={styles.muted}>No hay intentos relacionados registrados.</Text>}</View>
         </> : null}
-      </ScrollView>
-    </Surface>
-  </Modal>
-);
+        </ScrollView>
+        <AppHeader backHref="/(normal)/Main" backgroundColor="#1e3a8a" floating onBack={onClose} portal={false} showBackButton title="Investigación" />
+      </Surface>
+    </Modal>
+  );
+};
 
 export default function AntifraudCenterNative() {
-  const insets = useSafeAreaInsets();
-  const safeBack = useSafeBack("/(normal)/Main");
+  const headerInset = useAppHeaderContentInset();
   const user = Meteor.useTracker(() => Meteor.user(), []);
   const allowed = String(user?.username || "").toLowerCase() === PRINCIPAL_USERNAME;
   const [filters, setFilters] = useState(INITIAL_FILTERS);
@@ -120,11 +123,10 @@ export default function AntifraudCenterNative() {
   if (!allowed) return <Surface style={styles.surface}><Text style={styles.denied} variant="titleMedium">Esta sección está reservada al Administrador Principal.</Text></Surface>;
   return (
     <Surface style={styles.surface}>
-      <Appbar.Header style={[styles.appbar, { paddingTop: insets.top, height: insets.top + 56 }]}><Appbar.BackAction color="#fff" onPress={safeBack} /><Appbar.Content color="#fff" title="Centro antifraude" /><Appbar.Action accessibilityLabel="Filtrar" color="#fff" icon="filter-variant" onPress={() => setFilterVisible(true)} /></Appbar.Header>
       <FlatList
         data={data?.items || []}
         keyExtractor={(item) => item._id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingTop: headerInset + 16 }]}
         renderItem={({ item }) => <EvidenceCard item={item} onPress={openDetail} />}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={<View><Surface elevation={2} style={styles.hero}><Text style={styles.eyebrow} variant="labelSmall">Investigación antifraude</Text><Text style={styles.heroTitle} variant="headlineSmall">Todas las evidencias, en un solo lugar</Text><Text style={styles.heroCopy} variant="bodyMedium">Revisa riesgo, decisiones IA y auditoría sin descargar imágenes masivamente.</Text><View style={styles.statsRow}><Stat label="Total" value={summary.total || 0} /><Stat label="Pendientes" value={summary.pending || 0} /><Stat label="Riesgo" value={summary.fraudFlagged || 0} /></View></Surface><RankingPanel users={summary.users} />{error ? <Text style={styles.error} variant="bodySmall">{error}</Text> : null}{loading ? <View style={styles.loading}><ActivityIndicator color="#93c5fd" size="large" /><Text style={styles.muted}>Cargando investigaciones…</Text></View> : null}</View>}
@@ -132,6 +134,7 @@ export default function AntifraudCenterNative() {
         ListFooterComponent={<View style={styles.pagination}><Button disabled={loading || filters.page <= 1} onPress={() => changePage(filters.page - 1)}>Anterior</Button><Text style={styles.muted}>Página {filters.page}</Text><Button disabled={loading || !data?.hasNext} onPress={() => changePage(filters.page + 1)}>Siguiente</Button></View>}
         showsVerticalScrollIndicator={false}
       />
+      <AppHeader actions={<Appbar.Action accessibilityLabel="Filtrar" iconColor="#fff" icon="filter-variant" onPress={() => setFilterVisible(true)} />} backHref="/(normal)/Main" backgroundColor="#1e3a8a" floating portal={false} showBackButton title="Centro antifraude" />
       <FilterModal filters={filters} onApply={(next) => { setFilters(next); load(next); }} onClose={() => setFilterVisible(false)} visible={filterVisible} />
       {detailLoading ? <View style={styles.detailLoading}><ActivityIndicator color="#fff" size="large" /></View> : null}
       <DetailModal detail={detail} onClose={() => setDetail(null)} />
@@ -143,7 +146,6 @@ const Stat = ({ label, value }) => <View style={styles.stat}><Text style={styles
 
 const styles = StyleSheet.create({
   surface: { backgroundColor: "#0f172a", flex: 1 },
-  appbar: { backgroundColor: "#1e3a8a" },
   listContent: { padding: 16, paddingBottom: 36 },
   hero: { backgroundColor: "#111c44", borderRadius: 24, marginBottom: 14, padding: 18 },
   eyebrow: { color: "#93c5fd", fontWeight: "800", letterSpacing: 0.8, textTransform: "uppercase" },
