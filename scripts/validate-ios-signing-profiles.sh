@@ -27,8 +27,7 @@ matches_bundle_identifier() {
   local profile_bundle_identifier="$1"
   local requested_bundle_identifier="$2"
 
-  [[ "$profile_bundle_identifier" == "$requested_bundle_identifier" ]] ||
-    [[ "$profile_bundle_identifier" == "${requested_bundle_identifier%.*}.*" ]]
+  [[ "$profile_bundle_identifier" == "$requested_bundle_identifier" ]]
 }
 
 for bundle_identifier in "$@"; do

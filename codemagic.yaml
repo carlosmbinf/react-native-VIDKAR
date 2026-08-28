@@ -111,6 +111,8 @@ workflows:
         WATCH_BUNDLE_ID: "com.vidkar.watchkitapp"
         NOTIFICATION_SERVICE_TARGET: "NotificationService"
         NOTIFICATION_SERVICE_BUNDLE_ID: "com.vidkar.notificationservice"
+        WIDGET_TARGET: "ExpoWidgetsTarget"
+        WIDGET_BUNDLE_ID: "com.vidkar.ExpoWidgetsTarget"
 
     cache:
       cache_paths:
@@ -190,7 +192,8 @@ workflows:
           bash ./scripts/validate-ios-signing-profiles.sh \
             "$BUNDLE_ID" \
             "$WATCH_BUNDLE_ID" \
-            "$NOTIFICATION_SERVICE_BUNDLE_ID"
+            "$NOTIFICATION_SERVICE_BUNDLE_ID" \
+            "$WIDGET_BUNDLE_ID"
 
       # 🔐 Aplicar perfiles/certificados ya resueltos por Codemagic
       - name: Setup signing
@@ -257,6 +260,8 @@ workflows:
         WATCH_BUNDLE_ID: "com.vidkar.watchkitapp"
         NOTIFICATION_SERVICE_TARGET: "NotificationService"
         NOTIFICATION_SERVICE_BUNDLE_ID: "com.vidkar.notificationservice"
+        WIDGET_TARGET: "ExpoWidgetsTarget"
+        WIDGET_BUNDLE_ID: "com.vidkar.ExpoWidgetsTarget"
 
     cache:
       cache_paths:
@@ -369,7 +374,8 @@ workflows:
           bash ./scripts/validate-ios-signing-profiles.sh \
             "$BUNDLE_ID" \
             "$WATCH_BUNDLE_ID" \
-            "$NOTIFICATION_SERVICE_BUNDLE_ID"
+            "$NOTIFICATION_SERVICE_BUNDLE_ID" \
+            "$WIDGET_BUNDLE_ID"
 
       - name: Setup signing
         script: |
