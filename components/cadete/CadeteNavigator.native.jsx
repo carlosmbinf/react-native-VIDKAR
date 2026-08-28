@@ -96,7 +96,7 @@ const CadeteNavigator = () => {
               <Pressable
                 accessibilityLabel="Cerrar menú"
                 onPress={closeDrawer}
-                style={styles.drawerOverlayPressable}
+                style={[styles.drawerOverlayPressable, { left: drawerWidth }]}
               />
               <Animated.View
                 style={[
@@ -123,7 +123,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(15, 23, 42, 0.38)",
   },
   drawerOverlayPressable: {
-    ...StyleSheet.absoluteFillObject,
+    bottom: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
     zIndex: 1000,
   },
   drawerPanel: {

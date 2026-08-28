@@ -2507,8 +2507,12 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   drawerOverlayPressable: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(15, 23, 42, 0.38)",
+    bottom: 0,
+    // backgroundColor: "rgba(15, 23, 42, 0.38)",
+    left: DRAWER_WIDTH,
+    position: "absolute",
+    right: 0,
+    top: 0,
     zIndex: 1000,
   },
   drawerPanel: {

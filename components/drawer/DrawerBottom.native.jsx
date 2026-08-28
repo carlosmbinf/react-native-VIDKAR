@@ -189,7 +189,10 @@ const DrawerBottom = ({
                   },
                 ]}
               />
-              <View style={styles.handleZone} {...panResponder.panHandlers}>
+              <View 
+              style={styles.handleZone} 
+              {...panResponder.panHandlers}
+              >
                 <View
                   style={[
                     styles.handle,
@@ -228,7 +231,10 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   bottomSheetWrapper: {
+    bottom: 0,
     elevation: 1001,
+    left: 0,
+    position: "absolute",
     width: "100%",
     zIndex: 1001,
   },
