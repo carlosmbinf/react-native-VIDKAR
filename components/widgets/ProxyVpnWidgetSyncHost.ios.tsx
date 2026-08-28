@@ -8,10 +8,25 @@ import ProxyVpnUsageWidget, {
 } from "../../widgets/ProxyVpnUsageWidget";
 
 const Meteor = MeteorBase as unknown as {
+  call: (
+    methodName: string,
+    callback: (error: Error | null, result?: unknown) => void,
+  ) => void;
   subscribe: (...args: unknown[]) => { ready: () => boolean };
   useTracker: <T>(reactiveFn: () => T) => T;
   user: () => Record<string, unknown> | null;
   userId: () => string | null;
+};
+
+export type WidgetDailyUsagePoint = {
+  label: string;
+  proxy: number;
+  vpn: number;
+};
+
+type ProxyVpnWidgetSnapshot = ProxyVpnUsageWidgetProps & {
+  dailyUsage: WidgetDailyUsagePoint[];
+  isAdmin: boolean;
 };
 
 const WIDGET_USER_FIELDS = {
@@ -25,10 +40,14 @@ const WIDGET_USER_FIELDS = {
   vpnfechaSubscripcion: 1,
   vpnmegas: 1,
   vpnisIlimitado: 1,
+  username: 1,
+  "profile.role": 1,
 };
 
 const createSignedOutSnapshot = (): ProxyVpnUsageWidgetProps => ({
   authenticated: false,
+  dailyUsage: [],
+  isAdmin: false,
   proxyEnabled: false,
   proxyProgress: 0,
   proxyStatus: "Inactivo",
@@ -55,7 +74,7 @@ const publishSnapshot = (snapshot: ProxyVpnUsageWidgetProps) => {
 };
 
 export default function ProxyVpnWidgetSyncHost() {
-  const latestSnapshotRef = React.useRef<ProxyVpnUsageWidgetProps>(
+  const latestSnapshotRef = React.useRef<ProxyVpnWidgetSnapshot>(
     createSignedOutSnapshot(),
   );
   const { ready, user, userId } = Meteor.useTracker(() => {
@@ -91,8 +110,17 @@ export default function ProxyVpnWidgetSyncHost() {
     }
 
     const usage = buildWatchUsageSnapshot(user, []);
-    const snapshot: ProxyVpnUsageWidgetProps = {
+    const profile = user.profile;
+    const isAdmin =
+      user.username === "carlosmbinf" ||
+      (typeof profile === "object" &&
+        profile !== null &&
+        "role" in profile &&
+        profile.role === "admin");
+    const snapshot: ProxyVpnWidgetSnapshot = {
       authenticated: true,
+      dailyUsage: [],
+      isAdmin,
       proxyEnabled: usage.proxy.enabled,
       proxyProgress: usage.proxy.progress,
       proxyStatus: usage.proxy.isUnlimited
@@ -114,6 +142,27 @@ export default function ProxyVpnWidgetSyncHost() {
 
     latestSnapshotRef.current = snapshot;
     publishSnapshot(snapshot);
+
+    Meteor.call("getWidgetDailyUsage", (error, result) => {
+      if (error || !Array.isArray(result)) {
+        return;
+      }
+
+      const dailyUsage = result.filter(
+        (point): point is WidgetDailyUsagePoint =>
+          Boolean(point) &&
+          typeof point === "object" &&
+          "label" in point &&
+          typeof point.label === "string" &&
+          "proxy" in point &&
+          Number.isFinite(Number(point.proxy)) &&
+          "vpn" in point &&
+          Number.isFinite(Number(point.vpn)),
+      );
+      const refreshedSnapshot = { ...latestSnapshotRef.current, dailyUsage };
+      latestSnapshotRef.current = refreshedSnapshot;
+      publishSnapshot(refreshedSnapshot);
+    });
   }, [ready, user, userId]);
 
   React.useEffect(() => {

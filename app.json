@@ -130,6 +130,23 @@
               "name": "ProxyVpnUsageWidget",
               "displayName": "Consumo Proxy y VPN",
               "description": "Consulta el consumo y estado de tus servicios Proxy y VPN.",
+              "ios": {
+                "configuration": {
+                  "title": "Servicio",
+                  "description": "Elige qué servicio mostrar en el widget pequeño",
+                  "parameters": {
+                    "service": {
+                      "type": "enum",
+                      "title": "Servicio",
+                      "values": [
+                        { "name": "Proxy", "value": "proxy" },
+                        { "name": "VPN", "value": "vpn" }
+                      ],
+                      "default": "proxy"
+                    }
+                  }
+                }
+              },
               "contentMarginsDisabled": true,
               "supportedFamilies": [
                 "systemSmall",
