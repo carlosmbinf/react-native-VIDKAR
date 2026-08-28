@@ -101,7 +101,7 @@ workflows:
         bundle_identifier: com.vidkar
         # Codemagic también busca perfiles com.vidkar.*; deben existir perfiles App Store para cada extensión.
       node: 22
-      xcode: latest
+      xcode: 26.4.1
       cocoapods: default
       vars:
         BUNDLE_ID: "com.vidkar"
@@ -200,11 +200,38 @@ workflows:
         script: |
           xcode-project use-profiles
 
+          echo "Release signing settings after use-profiles:"
+          xcodebuild \
+            -workspace "ios/$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -showBuildSettings | grep -E "(^    TARGET_BUILD_DIR|PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_IDENTITY|CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER)"
+
       - name: Build IPA
         script: |
-          xcode-project build-ipa \
-            --workspace "ios/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME"
+          set -o pipefail
+          ARCHIVE_PATH="$CM_BUILD_DIR/build/ios/xcarchive/Vidkar.xcarchive"
+          EXPORT_PATH="$CM_BUILD_DIR/build/ios/ipa"
+
+          rm -rf "$ARCHIVE_PATH" "$EXPORT_PATH"
+          mkdir -p "$EXPORT_PATH"
+
+          xcodebuild \
+            -workspace "ios/$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -archivePath "$ARCHIVE_PATH" \
+            archive \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            DEVELOPMENT_TEAM=4TWB6RN383 \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            "CODE_SIGN_IDENTITY[sdk=watchos*]=Apple Distribution"
+
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportOptionsPlist "$HOME/export_options.plist" \
+            -exportPath "$EXPORT_PATH"
 
     artifacts:
       - build/ios/ipa/*.ipa
@@ -250,7 +277,7 @@ workflows:
         - vidkar
       node: 22
       java: 17
-      xcode: latest
+      xcode: 26.4.1
       cocoapods: default
       vars:
         BUNDLE_ID: "com.vidkar"
@@ -381,11 +408,38 @@ workflows:
         script: |
           xcode-project use-profiles
 
+          echo "Release signing settings after use-profiles:"
+          xcodebuild \
+            -workspace "ios/$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -showBuildSettings | grep -E "(^    TARGET_BUILD_DIR|PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN_IDENTITY|CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER)"
+
       - name: Build IPA
         script: |
-          xcode-project build-ipa \
-            --workspace "ios/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME"
+          set -o pipefail
+          ARCHIVE_PATH="$CM_BUILD_DIR/build/ios/xcarchive/Vidkar.xcarchive"
+          EXPORT_PATH="$CM_BUILD_DIR/build/ios/ipa"
+
+          rm -rf "$ARCHIVE_PATH" "$EXPORT_PATH"
+          mkdir -p "$EXPORT_PATH"
+
+          xcodebuild \
+            -workspace "ios/$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -archivePath "$ARCHIVE_PATH" \
+            archive \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            DEVELOPMENT_TEAM=4TWB6RN383 \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            "CODE_SIGN_IDENTITY[sdk=watchos*]=Apple Distribution"
+
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportOptionsPlist "$HOME/export_options.plist" \
+            -exportPath "$EXPORT_PATH"
 
     artifacts:
       - android/app/build/outputs/**/*.aab
