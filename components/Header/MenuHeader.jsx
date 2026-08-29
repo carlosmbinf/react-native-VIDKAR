@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { Appbar, Menu } from "react-native-paper";
+import { Appbar, Menu, useTheme } from "react-native-paper";
 
 import WizardConStepper from "../carritoCompras/WizardConStepper.native";
 import MenuIconMensajes from "../components/MenuIconMensajes.native";
@@ -16,13 +16,14 @@ const MenuHeader = ({
   onOpenMessages,
   onLogout,
 }) => {
+  const theme = useTheme();
   const [menuVisible, setMenuVisible] = useState(false);
 
   const closeMenu = () => setMenuVisible(false);
+  const headerIconColor = !theme.dark ? "#0f172a" : "#ffffff";
 
   return (
     <AppHeader
-      blurContent
       backgroundColor={backgroundColor}
       overlapContent
       title={title || "VIDKAR"}
@@ -30,7 +31,11 @@ const MenuHeader = ({
       titleStyle={styles.title}
       subtitleStyle={styles.subtitle}
       left={
-        <Appbar.Action icon="menu" iconColor="#fff" onPress={onOpenDrawer} />
+        <Appbar.Action
+          icon="menu"
+          iconColor={headerIconColor}
+          onPress={onOpenDrawer}
+        />
       }
       actions={
         <View style={styles.actionsRow}>
@@ -42,7 +47,7 @@ const MenuHeader = ({
             anchor={
               <Appbar.Action
                 icon="dots-vertical"
-                iconColor="#fff"
+                iconColor={headerIconColor}
                 onPress={() => setMenuVisible(true)}
               />
             }
