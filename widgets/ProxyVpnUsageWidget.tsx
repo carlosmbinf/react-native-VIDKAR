@@ -1,5 +1,4 @@
 import {
-  Chart,
   HStack,
   Image,
   Link,
@@ -62,12 +61,6 @@ export type ProxyVpnUsageWidgetProps = {
   updatedAt: string;
 };
 
-const dailyTotal = (props: ProxyVpnUsageWidgetProps, service: ServiceKey) =>
-  props.dailyUsage.reduce(
-    (total, point) => total + Number(point?.[service] || 0),
-    0,
-  );
-
 const ProxyVpnUsageWidget = (
   props: ProxyVpnUsageWidgetProps,
   environment: WidgetEnvironment<WidgetConfiguration>,
@@ -84,21 +77,20 @@ const ProxyVpnUsageWidget = (
   const selectedService =
     environment.configuration?.service === "vpn" ? "vpn" : "proxy";
 
-  // iOS 18+ removes/recolors widget backgrounds in tinted mode. Explicit
-  // translucent cards become the bright cyan blocks seen in the screenshot,
-  // so the accented layout intentionally uses the system's glass/tint instead.
+  // iOS tinted/Liquid Glass mode replaces the widget background and recolors
+  // transparent content. Keep the detailed color treatment only in fullColor.
   const primaryText = isFullColor
     ? "#FFFFFF"
     : { type: "hierarchical" as const, style: "primary" as const };
   const secondaryText = isFullColor
-    ? "#B8C8E3"
+    ? "#AEBED8"
     : { type: "hierarchical" as const, style: "secondary" as const };
 
   const getService = (service: ServiceKey) =>
     service === "proxy"
       ? {
-          accent: "#42A5F5",
-          backgroundColor: "#1A2196F3",
+          accent: "#4DA3FF",
+          backgroundColor: "#152B67",
           enabled: props.proxyEnabled,
           icon: "globe" as SFSymbol,
           progress: props.proxyProgress,
@@ -107,8 +99,8 @@ const ProxyVpnUsageWidget = (
           used: props.proxyUsed,
         }
       : {
-          accent: "#66BB6A",
-          backgroundColor: "#1A4CAF50",
+          accent: "#69D27B",
+          backgroundColor: "#163A32",
           enabled: props.vpnEnabled,
           icon: "shield.lefthalf.filled" as SFSymbol,
           progress: props.vpnProgress,
@@ -117,31 +109,26 @@ const ProxyVpnUsageWidget = (
           used: props.vpnUsed,
         };
 
+  const imageModifiers = (accent: string) => [
+    foregroundStyle(accent),
+    ...(isAccented ? [widgetAccentedRenderingMode("accented")] : []),
+  ];
+
   const renderServiceCard = (service: ServiceKey, compact = false) => {
     const data = getService(service);
-    const cardModifiers = [
-      ...(isFullColor ? [background(data.backgroundColor)] : []),
-      clipShape("roundedRectangle", compact ? 14 : 11),
-      padding({ all: compact ? 12 : 9 }),
-      frame({ maxWidth: Infinity }),
-    ];
 
     return (
       <VStack
         alignment="leading"
-        spacing={compact ? 7 : 5}
-        modifiers={cardModifiers}
+        spacing={compact ? 8 : 6}
+        modifiers={[
+          ...(isFullColor ? [background(data.backgroundColor)] : []),
+          clipShape("roundedRectangle", compact ? 16 : 13),
+          padding({ all: compact ? 13 : 10 }),
+        ]}
       >
         <HStack spacing={6}>
-          <Image
-            systemName={data.icon}
-            modifiers={[
-              foregroundStyle(data.accent),
-              ...(isAccented
-                ? [widgetAccentedRenderingMode("accented")]
-                : []),
-            ]}
-          />
+          <Image systemName={data.icon} modifiers={imageModifiers(data.accent)} />
           <Text
             modifiers={[
               font({ size: compact ? 14 : 12, weight: "bold" }),
@@ -165,20 +152,17 @@ const ProxyVpnUsageWidget = (
 
         <Text
           modifiers={[
-            font({
-              size: compact ? 22 : 11,
-              weight: compact ? "bold" : "medium",
-            }),
+            font({ size: compact ? 24 : 12, weight: compact ? "bold" : "medium" }),
             foregroundStyle(compact ? primaryText : secondaryText),
             lineLimit(1),
           ]}
         >
-          {compact ? data.used : `Consumido: ${data.used}`}
+          {data.used}
         </Text>
 
-        {data.enabled && !isAccented ? (
+        {compact && data.enabled && !isAccented ? (
           <ProgressView
-            value={data.progress}
+            value={Math.max(0, Math.min(1, data.progress))}
             modifiers={[progressViewStyle("linear"), tint(data.accent)]}
           />
         ) : null}
@@ -189,27 +173,21 @@ const ProxyVpnUsageWidget = (
   const renderLoginCard = () => (
     <VStack
       alignment="leading"
-      spacing={5}
+      spacing={7}
       modifiers={[
-        ...(isFullColor ? [background("#16FFFFFF")] : []),
-        clipShape("roundedRectangle", 14),
-        padding({ all: isSmall ? 11 : 12 }),
-        frame({ maxWidth: Infinity }),
+        ...(isFullColor ? [background("#142B4C")] : []),
+        clipShape("roundedRectangle", 16),
+        padding({ all: isSmall ? 12 : 14 }),
       ]}
     >
-      <HStack spacing={7}>
+      <HStack spacing={8}>
         <Image
           systemName="person.crop.circle.badge.arrow.right"
-          modifiers={[
-            foregroundStyle("#42A5F5"),
-            ...(isAccented
-              ? [widgetAccentedRenderingMode("accented")]
-              : []),
-          ]}
+          modifiers={imageModifiers("#4DA3FF")}
         />
         <Text
           modifiers={[
-            font({ size: isSmall ? 16 : 17, weight: "bold" }),
+            font({ size: isSmall ? 16 : 18, weight: "bold" }),
             foregroundStyle(primaryText),
             lineLimit(1),
           ]}
@@ -229,36 +207,35 @@ const ProxyVpnUsageWidget = (
     </VStack>
   );
 
-  const renderChartPanel = () => {
-    const data = getService(selectedService);
-    const chartData = props.dailyUsage.map((point) => ({
-      color: data.accent,
-      x: point.label,
-      y: Math.max(0, Number(point[selectedService] || 0)),
-    }));
-    const total = dailyTotal(props, selectedService);
+  const renderActivity = () => {
+    const service = selectedService;
+    const data = getService(service);
+    const points = props.dailyUsage.slice(-7);
+    const maxValue = Math.max(
+      1,
+      ...points.map((point) => Math.max(0, Number(point[service]) || 0)),
+    );
 
     return (
       <VStack
         alignment="leading"
-        spacing={7}
+        spacing={9}
         modifiers={[
-          ...(isFullColor ? [background("#14FFFFFF")] : []),
+          ...(isFullColor ? [background("#0E2037")] : []),
           clipShape("roundedRectangle", 16),
-          frame({ maxWidth: Infinity }),
-          padding({ all: 12 }),
+          padding({ all: 13 }),
         ]}
       >
-        <HStack spacing={4}>
+        <HStack spacing={6}>
           <VStack alignment="leading" spacing={2}>
             <Text
               modifiers={[
-                font({ size: 12, weight: "bold" }),
+                font({ size: 15, weight: "bold" }),
                 foregroundStyle(primaryText),
                 lineLimit(1),
               ]}
             >
-              Consumo de hoy
+              Actividad reciente
             </Text>
             <Text
               modifiers={[
@@ -267,84 +244,119 @@ const ProxyVpnUsageWidget = (
                 lineLimit(1),
               ]}
             >
-              {data.title} · últimos bloques
+              Consumo de {data.title.toLowerCase()} · últimos 7 bloques
             </Text>
           </VStack>
           <Spacer />
-          <Text
-            modifiers={[
-              font({ size: 18, weight: "bold" }),
-              foregroundStyle(data.accent),
-              lineLimit(1),
-            ]}
-          >
-            {total.toFixed(2)} MB
-          </Text>
+          <Image systemName={data.icon} modifiers={imageModifiers(data.accent)} />
         </HStack>
-        <Chart
-          animate={false}
-          barStyle={{ cornerRadius: 4, width: 7 }}
-          data={
-            chartData.length > 0
-              ? chartData
-              : [{ color: data.accent, x: "—", y: 0 }]
-          }
-          modifiers={[frame({ height: 112, maxWidth: Infinity })]}
-          showGrid={isFullColor}
-          showLegend={false}
-          type="bar"
-        />
-        <HStack spacing={5}>
-          <Image
-            systemName={data.icon}
-            modifiers={[
-              foregroundStyle(data.accent),
-              ...(isAccented
-                ? [widgetAccentedRenderingMode("accented")]
-                : []),
-            ]}
-          />
+
+        {points.length > 0 ? (
+          <VStack alignment="leading" spacing={7}>
+            {points.map((point, index) => {
+              const value = Math.max(0, Number(point[service]) || 0);
+              const ratio = Math.max(0, Math.min(1, value / maxValue));
+
+              return (
+                <VStack key={`${point.label}-${index}`} alignment="leading" spacing={3}>
+                  <HStack spacing={6}>
+                    <Text
+                      modifiers={[
+                        font({ size: 10, weight: "semibold" }),
+                        foregroundStyle(secondaryText),
+                        lineLimit(1),
+                      ]}
+                    >
+                      {point.label}
+                    </Text>
+                    <Spacer />
+                    <Text
+                      modifiers={[
+                        font({ size: 10, weight: "bold" }),
+                        foregroundStyle(primaryText),
+                        lineLimit(1),
+                      ]}
+                    >
+                      {value.toFixed(2)} MB
+                    </Text>
+                  </HStack>
+                  <ProgressView
+                    value={ratio}
+                    modifiers={[
+                      progressViewStyle("linear"),
+                      tint(data.accent),
+                    ]}
+                  />
+                </VStack>
+              );
+            })}
+          </VStack>
+        ) : (
           <Text
             modifiers={[
-              font({ size: 10, weight: "semibold" }),
+              font({ size: 11, weight: "medium" }),
               foregroundStyle(secondaryText),
-              lineLimit(1),
             ]}
           >
-            {props.dailyUsage.length > 0
-              ? `${props.dailyUsage.length} bloques registrados`
-              : "Aún no hay datos de consumo"}
+            Todavía no hay datos de consumo para mostrar.
           </Text>
-        </HStack>
+        )}
       </VStack>
     );
   };
 
+  const renderLargeContent = () => (
+    <VStack alignment="leading" spacing={10}>
+      <HStack spacing={8}>
+        <VStack alignment="leading" spacing={2} modifiers={[frame({ maxWidth: Infinity })]}>
+          <Text
+            modifiers={[
+              font({ size: 17, weight: "bold" }),
+              foregroundStyle(primaryText),
+              lineLimit(1),
+            ]}
+          >
+            Tus servicios
+          </Text>
+          <Text
+            modifiers={[
+              font({ size: 10, weight: "medium" }),
+              foregroundStyle(secondaryText),
+              lineLimit(1),
+            ]}
+          >
+            Estado y consumo actual
+          </Text>
+        </VStack>
+        <Spacer />
+      </HStack>
+
+      <HStack spacing={9}>
+        <VStack modifiers={[frame({ maxWidth: Infinity })]}>
+          {renderServiceCard("proxy", true)}
+        </VStack>
+        <VStack modifiers={[frame({ maxWidth: Infinity })]}>
+          {renderServiceCard("vpn", true)}
+        </VStack>
+      </HStack>
+
+      {renderActivity()}
+    </VStack>
+  );
+
   const renderAuthenticatedContent = () => {
-    if (isSmall) {
-      return renderServiceCard(selectedService, true);
-    }
+    if (isSmall) return renderServiceCard(selectedService, true);
 
     if (isMedium) {
       return (
-        <HStack spacing={8} modifiers={[frame({ maxWidth: Infinity })]}>
+        <HStack spacing={8}>
           {renderServiceCard("proxy", true)}
           {renderServiceCard("vpn", true)}
         </HStack>
       );
     }
 
-    if (isLarge) {
-      return (
-        <VStack alignment="leading" spacing={9}>
-          <HStack spacing={8}>
-            {renderServiceCard("proxy", true)}
-            {renderServiceCard("vpn", true)}
-          </HStack>
-          {renderChartPanel()}
-        </VStack>
-      );
-    }
+    if (isLarge) return renderLargeContent();
 
     return renderServiceCard(selectedService, true);
   };
@@ -353,7 +365,7 @@ const ProxyVpnUsageWidget = (
     <ZStack
       alignment="leading"
       modifiers={[
-        containerBackground(isFullColor ? "#091526" : "#000000", "widget"),
+        containerBackground(isFullColor ? "#081524" : "#000000", "widget"),
         clipShape("containerRelativeShape"),
       ]}
     >
@@ -363,15 +375,7 @@ const ProxyVpnUsageWidget = (
         modifiers={[padding({ all: isSmall ? 12 : isMedium ? 14 : 16 })]}
       >
         <HStack spacing={7}>
-          <Image
-            systemName="network"
-            modifiers={[
-              foregroundStyle("#42A5F5"),
-              ...(isAccented
-                ? [widgetAccentedRenderingMode("accented")]
-                : []),
-            ]}
-          />
+          <Image systemName="network" modifiers={imageModifiers("#4DA3FF")} />
           <Text
             modifiers={[
               font({ size: isSmall ? 13 : 15, weight: "bold" }),
