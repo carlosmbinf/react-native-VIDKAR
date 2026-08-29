@@ -72,3 +72,51 @@ for (const targetFile of menuTargets) {
   fs.writeFileSync(targetFile, nextContent, "utf8");
   cleanedCount += 1;
 }
+
+// The users peek is a screen-level overlay with custom coordinates and animation.
+// Keeping it inside Paper's Portal makes the outside Pressable depend on the
+// PortalManager layer. Use RN's native transparent Modal instead so the entire
+// window participates in hit testing and onRequestClose can dismiss it reliably.
+const usersHomeTarget = path.join(
+  __dirname,
+  "..",
+  "components",
+  "users",
+  "UsersHome.native.js",
+);
+
+if (fs.existsSync(usersHomeTarget)) {
+  const originalUsersHome = fs.readFileSync(usersHomeTarget, "utf8");
+  let nextUsersHome = originalUsersHome;
+
+  nextUsersHome = nextUsersHome.replace(
+    /\n    Pressable,\n    StyleSheet,/,
+    "\n    Pressable,\n    StyleSheet,\n    Modal,",
+  );
+
+  nextUsersHome = nextUsersHome.replace(
+    /\n    Chip,\n    Portal,\n    Searchbar,/,
+    "\n    Chip,\n    Searchbar,",
+  );
+
+  nextUsersHome = nextUsersHome.replace(
+    /      <Portal>\n        \{peekVisible && peekTarget\?\.layout \? \(/,
+    "      <Modal\n        animationType=\"none\"\n        transparent\n        visible={peekVisible && !!peekTarget?.layout}\n        presentationStyle=\"overFullScreen\"\n        onRequestClose={() => closePeek()}\n      >\n        {peekVisible && peekTarget?.layout ? (",
+  );
+
+  nextUsersHome = nextUsersHome.replace(
+    /        \) : null\}\n      <\/Portal>/,
+    "        ) : null}\n      </Modal>",
+  );
+
+  if (nextUsersHome !== originalUsersHome) {
+    fs.writeFileSync(usersHomeTarget, nextUsersHome, "utf8");
+    console.log(
+      "[patch-react-native-paper-portals] UsersHome peek convertido a Modal nativo transparente.",
+    );
+  } else {
+    console.log(
+      "[patch-react-native-paper-portals] UsersHome peek ya está usando Modal nativo o no requiere cambios.",
+    );
+  }
+}
