@@ -2,12 +2,13 @@ import { BlurView } from "expo-blur";
 import { useIsFocused } from "expo-router/react-navigation";
 import React from "react";
 import { Platform, StyleSheet, View } from "react-native";
-import { Appbar, Portal } from "react-native-paper";
+import { Appbar, Portal, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import useSafeBack, { useCanNavigateBack } from "../navigation/useSafeBack";
 
 export const DEFAULT_HEADER_COLOR = "#0f172a";
+export const LIGHT_HEADER_COLOR = "#d5dfeb";
 export const APP_HEADER_HEIGHT = 56;
 
 export const useAppHeaderContentInset = (includeSafeAreaTop = true) => {
@@ -36,7 +37,7 @@ const getHeaderOverlayColor = (backgroundColor, opacity = 0.36) => {
 const AppHeader = ({
   actions,
   backHref,
-  backIconColor = "#ffffff",
+  backIconColor,
   backgroundColor = DEFAULT_HEADER_COLOR,
   containerStyle,
   elevated = true,
@@ -55,11 +56,22 @@ const AppHeader = ({
   title,
   titleStyle,
 }) => {
+  const theme = useTheme();
   const isFocused = useIsFocused();
   const canNavigateBack = useCanNavigateBack();
   const safeBack = useSafeBack(backHref);
   const resolvedHeaderHeight = useAppHeaderContentInset(includeSafeAreaTop);
   const topInset = resolvedHeaderHeight - APP_HEADER_HEIGHT;
+  const isDefaultHeader = backgroundColor === DEFAULT_HEADER_COLOR;
+  const resolvedBackgroundColor =
+    !theme.dark && isDefaultHeader ? LIGHT_HEADER_COLOR : backgroundColor;
+  const headerForegroundColor =
+    !theme.dark && isDefaultHeader ? "#0f172a" : "#ffffff";
+  const headerSubtitleColor =
+    !theme.dark && isDefaultHeader
+      ? "rgba(15, 23, 42, 0.68)"
+      : "rgba(255, 255, 255, 0.8)";
+  const resolvedBackIconColor = backIconColor || headerForegroundColor;
 
   const handleBack = React.useCallback(() => {
     if (typeof onBack === "function") {
@@ -79,7 +91,10 @@ const AppHeader = ({
   const resolvedLeft =
     left ||
     (shouldShowBackButton ? (
-      <Appbar.BackAction iconColor={backIconColor} onPress={handleBack} />
+      <Appbar.BackAction
+        iconColor={resolvedBackIconColor}
+        onPress={handleBack}
+      />
     ) : null);
 
   const headerNode = (
@@ -107,13 +122,23 @@ const AppHeader = ({
           styles.colorOverlay,
           {
             backgroundColor: getHeaderOverlayColor(
-              backgroundColor,
-              glassOverlayOpacity,
+              resolvedBackgroundColor,
+              !theme.dark && isDefaultHeader ? 0.78 : glassOverlayOpacity,
             ),
           },
         ]}
       />
-      <View pointerEvents="none" style={styles.sheenOverlay} />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.sheenOverlay,
+          {
+            backgroundColor: theme.dark
+              ? "rgba(255, 255, 255, 0.055)"
+              : "rgba(255, 255, 255, 0.16)",
+          },
+        ]}
+      />
       <Appbar.Header
         elevated={elevated}
         statusBarHeight={statusBarHeight}
@@ -123,12 +148,30 @@ const AppHeader = ({
         <Appbar.Content
           title={title}
           subtitle={subtitle}
-          titleStyle={[styles.title, titleStyle]}
-          subtitleStyle={[styles.subtitle, subtitleStyle]}
+          titleStyle={[
+            styles.title,
+            { color: headerForegroundColor },
+            titleStyle,
+          ]}
+          subtitleStyle={[
+            styles.subtitle,
+            { color: headerSubtitleColor },
+            subtitleStyle,
+          ]}
         />
         {actions || null}
       </Appbar.Header>
-      <View pointerEvents="none" style={styles.bottomBorder} />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.bottomBorder,
+          {
+            backgroundColor: theme.dark
+              ? "rgba(255, 255, 255, 0.13)"
+              : "rgba(15, 23, 42, 0.14)",
+          },
+        ]}
+      />
     </BlurView>
   );
 
@@ -170,14 +213,12 @@ const styles = StyleSheet.create({
   },
   sheenOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255, 255, 255, 0.055)",
   },
   header: {
     backgroundColor: "transparent",
     height: APP_HEADER_HEIGHT,
   },
   bottomBorder: {
-    backgroundColor: "rgba(255, 255, 255, 0.13)",
     bottom: 0,
     height: StyleSheet.hairlineWidth,
     left: 0,
@@ -185,12 +226,9 @@ const styles = StyleSheet.create({
     right: 0,
   },
   title: {
-    color: "#ffffff",
     fontWeight: "800",
   },
-  subtitle: {
-    color: "rgba(255, 255, 255, 0.8)",
-  },
+  subtitle: {},
 });
 
 export default AppHeader;
