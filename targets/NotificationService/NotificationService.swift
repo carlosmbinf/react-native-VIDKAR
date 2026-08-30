@@ -57,16 +57,26 @@ final class NotificationService: UNNotificationServiceExtension {
   }
 
   private func imageURL(from userInfo: [AnyHashable: Any]) -> URL? {
+    let body = userInfo["body"] as? [String: Any]
+    let data = userInfo["data"] as? [String: Any]
+    let bodyData = body?["data"] as? [String: Any]
+    let richContent = body?["_richContent"] as? [String: Any]
     let candidates: [Any?] = [
-      (userInfo["body"] as? [String: Any])?["_richContent"].flatMap {
-        ($0 as? [String: Any])?["image"]
-      },
-      (userInfo["data"] as? [String: Any])?["notificationImageUrl"],
-      (userInfo["data"] as? [String: Any])?["imageUrl"],
-      (userInfo["data"] as? [String: Any])?["image_url"],
-      (userInfo["data"] as? [String: Any])?["image"],
-      (userInfo["data"] as? [String: Any])?["attachmentUrl"],
-      (userInfo["data"] as? [String: Any])?["attachment"],
+      richContent?["image"],
+      data?["notificationImageUrl"],
+      data?["imageUrl"],
+      data?["image_url"],
+      data?["image"],
+      data?["attachmentUrl"],
+      data?["attachment"],
+      bodyData?["notificationImageUrl"],
+      bodyData?["imageUrl"],
+      bodyData?["image_url"],
+      bodyData?["image"],
+      bodyData?["attachmentUrl"],
+      bodyData?["attachment"],
+      (data?["attachments"] as? [[String: Any]])?.first?["url"],
+      (bodyData?["attachments"] as? [[String: Any]])?.first?["url"],
       (userInfo["attachments"] as? [[String: Any]])?.first?["url"],
       userInfo["notificationImageUrl"],
       userInfo["imageUrl"],
