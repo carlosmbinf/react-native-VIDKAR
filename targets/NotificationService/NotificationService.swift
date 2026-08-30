@@ -57,15 +57,34 @@ final class NotificationService: UNNotificationServiceExtension {
   }
 
   private func imageURL(from userInfo: [AnyHashable: Any]) -> URL? {
-    guard let body = userInfo["body"] as? [String: Any],
-          let richContent = body["_richContent"] as? [String: Any],
-          let image = richContent["image"] as? String,
-          let url = URL(string: image),
-          url.scheme?.lowercased() == "https" else {
-      return nil
+    let candidates: [Any?] = [
+      (userInfo["body"] as? [String: Any])?["_richContent"].flatMap {
+        ($0 as? [String: Any])?["image"]
+      },
+      (userInfo["data"] as? [String: Any])?["notificationImageUrl"],
+      (userInfo["data"] as? [String: Any])?["imageUrl"],
+      (userInfo["data"] as? [String: Any])?["image_url"],
+      (userInfo["data"] as? [String: Any])?["image"],
+      (userInfo["data"] as? [String: Any])?["attachmentUrl"],
+      (userInfo["data"] as? [String: Any])?["attachment"],
+      (userInfo["attachments"] as? [[String: Any]])?.first?["url"],
+      userInfo["notificationImageUrl"],
+      userInfo["imageUrl"],
+      userInfo["image_url"],
+      userInfo["image"]
+    ]
+
+    for candidate in candidates {
+      guard let image = candidate as? String,
+            let url = URL(string: image),
+            url.scheme?.lowercased() == "https" else {
+        continue
+      }
+
+      return url
     }
 
-    return url
+    return nil
   }
 
   private func imageFileExtension(for response: HTTPURLResponse, url: URL) -> String {
