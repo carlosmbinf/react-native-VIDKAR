@@ -370,7 +370,7 @@ const getMovieImageUrl = (movieId, quality = "low") => {
   }
 
   const mediaOrigin = getHttpOriginFromMeteorUrl(getMeteorUrl());
-  return `${mediaOrigin}/imagenesPeliculas?calidad=${quality}&&idPeli=${encodeURIComponent(movieId)}`;
+  return `${mediaOrigin}/imagenesPeliculas?calidad=${quality}&idPeli=${encodeURIComponent(movieId)}`;
 };
 
 const resolveMovieStreamUrl = (movie) => {
