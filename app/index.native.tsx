@@ -98,6 +98,8 @@ const getRequiredBuildNumber = (propertyKey: string) =>
 
 export default function IndexScreen() {
   const theme = useTheme();
+  const statusBarStyle =
+    Platform.OS === "android" || theme.dark ? "light-content" : "dark-content";
   const pushCleanupRef = React.useRef<null | (() => void)>(null);
   const lastHandledPushNavigationIdRef = React.useRef<string | null>(null);
   const [pendingPushNavigationNotification, setPendingPushNavigationNotification] = React.useState<any>(null);
@@ -512,8 +514,7 @@ export default function IndexScreen() {
           <StatusBar
             translucent
             backgroundColor="transparent"
-            // barStyle={theme.dark ? "light-content" : "dark-content"}
-            barStyle={"light-content"}
+            barStyle={statusBarStyle}
           />
           <ActivityIndicator
             animating
@@ -533,7 +534,7 @@ export default function IndexScreen() {
         <StatusBar
           translucent
           backgroundColor="transparent"
-          barStyle="light-content"
+          barStyle={statusBarStyle}
         />
         <UpdateRequired
           currentVersion={versionGate.currentBuildNumber ?? 0}
@@ -550,8 +551,7 @@ export default function IndexScreen() {
         <StatusBar
           translucent
           backgroundColor="transparent"
-          // barStyle={theme.dark ? "light-content" : "dark-content"}
-          barStyle={"light-content"}
+          barStyle={statusBarStyle}
         />
         <CadeteNavigator />
       </>
@@ -569,8 +569,7 @@ export default function IndexScreen() {
         <StatusBar
           translucent
           backgroundColor="transparent"
-          // barStyle={theme.dark ? "light-content" : "dark-content"}
-          barStyle={"dark-content"}
+          barStyle={statusBarStyle}
         />
         <EmpresaNavigator />
       </>
@@ -584,8 +583,7 @@ export default function IndexScreen() {
         <StatusBar
           // translucent
           // backgroundColor="transparent"
-          // barStyle={theme.dark ? "light-content" : "dark-content"}
-          barStyle={"light-content"}
+          barStyle={statusBarStyle}
         />
         <MenuPrincipal />
       </>
@@ -598,8 +596,7 @@ export default function IndexScreen() {
       <StatusBar
         translucent
         backgroundColor="transparent"
-        // barStyle={theme.dark ? "light-content" : "dark-content"}
-        barStyle={"light-content"}
+        barStyle={statusBarStyle}
       />
       <Loguin />
     </>

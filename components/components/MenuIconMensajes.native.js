@@ -104,6 +104,7 @@ const MenuIconMensajesNative = ({ onOpenMessages }) => {
     ? DARK_MENU_GLASS_TINT
     : LIGHT_MENU_GLASS_TINT;
   const blurTint = theme.dark ? "dark" : "light";
+  const headerIconColor = "#ffffff";
   const currentUserId = Meteor.useTracker(() => Meteor.userId());
 
   useEffect(() => {
@@ -207,7 +208,7 @@ const MenuIconMensajesNative = ({ onOpenMessages }) => {
         </Badge>
         <IconButton
           icon="email"
-          iconColor="#ffffff"
+          iconColor={headerIconColor}
           size={25}
           onPress={handleAnchorPress}
         />
@@ -216,7 +217,7 @@ const MenuIconMensajesNative = ({ onOpenMessages }) => {
       <View collapsable={false} style={styles.anchorContainer}>
         <IconButton
           icon="email"
-          iconColor="white"
+          iconColor={headerIconColor}
           size={25}
           onPress={handleAnchorPress}
         />

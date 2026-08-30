@@ -10,7 +10,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "build": "node ./scripts/patch-apple-targets-watch-prebuild.js && node ./scripts/patch-react-native-paper-portals.js && expo prebuild"
+    "build": "node ./scripts/patch-apple-targets-watch-prebuild.js && node ./scripts/patch-vlc-media-player.js && node ./scripts/patch-react-native-paper-portals.js && expo prebuild"
   },
   "dependencies": {
     "@bacons/apple-targets": "^4.0.6",

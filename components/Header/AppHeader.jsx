@@ -5,10 +5,12 @@ import { Platform, StyleSheet, View } from "react-native";
 import { Appbar, Portal, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { appHeaderBlurTargetRef } from "./appHeaderBlurTarget";
 import useSafeBack, { useCanNavigateBack } from "../navigation/useSafeBack";
 
 export const DEFAULT_HEADER_COLOR = "#0f172a";
-export const LIGHT_HEADER_COLOR = "#d5dfeb";
+export const MENU_PRINCIPAL_HEADER_COLOR = "#1e3a8a";
+export const CADETE_HEADER_COLOR = "#13803d";
 export const APP_HEADER_HEIGHT = 56;
 
 export const useAppHeaderContentInset = (includeSafeAreaTop = true) => {
@@ -39,11 +41,12 @@ const AppHeader = ({
   backHref,
   backIconColor,
   backgroundColor = DEFAULT_HEADER_COLOR,
+  blurTarget,
   containerStyle,
   elevated = true,
   floating = false,
   glassIntensity = 42,
-  glassOverlayOpacity = 0.36,
+  glassOverlayOpacity = 0.68,
   includeSafeAreaTop = true,
   left,
   onBack,
@@ -62,16 +65,14 @@ const AppHeader = ({
   const safeBack = useSafeBack(backHref);
   const resolvedHeaderHeight = useAppHeaderContentInset(includeSafeAreaTop);
   const topInset = resolvedHeaderHeight - APP_HEADER_HEIGHT;
-  const isDefaultHeader = backgroundColor === DEFAULT_HEADER_COLOR;
-  const resolvedBackgroundColor =
-    !theme.dark && isDefaultHeader ? LIGHT_HEADER_COLOR : backgroundColor;
-  const headerForegroundColor =
-    !theme.dark && isDefaultHeader ? "#0f172a" : "#ffffff";
-  const headerSubtitleColor =
-    !theme.dark && isDefaultHeader
-      ? "rgba(15, 23, 42, 0.68)"
-      : "rgba(255, 255, 255, 0.8)";
+  const resolvedBackgroundColor = backgroundColor;
+  const headerForegroundColor = "#ffffff";
+  const headerSubtitleColor = "rgba(255, 255, 255, 0.82)";
   const resolvedBackIconColor = backIconColor || headerForegroundColor;
+  const resolvedBlurTarget =
+    Platform.OS === "android"
+      ? blurTarget ?? appHeaderBlurTargetRef
+      : undefined;
 
   const handleBack = React.useCallback(() => {
     if (typeof onBack === "function") {
@@ -99,9 +100,11 @@ const AppHeader = ({
 
   const headerNode = (
     <BlurView
+      blurTarget={resolvedBlurTarget}
+      blurReductionFactor={4}
       intensity={glassIntensity}
-      tint="systemMaterial"
-      experimentalBlurMethod={
+      tint="dark"
+      blurMethod={
         Platform.OS === "android" ? "dimezisBlurView" : undefined
       }
       renderToHardwareTextureAndroid={true}
@@ -123,7 +126,7 @@ const AppHeader = ({
           {
             backgroundColor: getHeaderOverlayColor(
               resolvedBackgroundColor,
-              !theme.dark && isDefaultHeader ? 0.78 : glassOverlayOpacity,
+              glassOverlayOpacity,
             ),
           },
         ]}
@@ -135,7 +138,7 @@ const AppHeader = ({
           {
             backgroundColor: theme.dark
               ? "rgba(255, 255, 255, 0.055)"
-              : "rgba(255, 255, 255, 0.16)",
+              : "rgba(255, 255, 255, 0.055)",
           },
         ]}
       />

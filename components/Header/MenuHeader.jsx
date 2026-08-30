@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { Appbar, Menu, useTheme } from "react-native-paper";
+import { Appbar, Menu } from "react-native-paper";
 
 import WizardConStepper from "../carritoCompras/WizardConStepper.native";
 import MenuIconMensajes from "../components/MenuIconMensajes.native";
-import AppHeader, { DEFAULT_HEADER_COLOR } from "./AppHeader";
+import AppHeader, { MENU_PRINCIPAL_HEADER_COLOR } from "./AppHeader";
 import BlurMenuSurface, { blurMenuContentStyle } from "./BlurMenuSurface";
 
 const MenuHeader = ({
-  backgroundColor = DEFAULT_HEADER_COLOR,
+  backgroundColor = MENU_PRINCIPAL_HEADER_COLOR,
   title,
   subtitle,
   onOpenDrawer,
@@ -16,11 +16,10 @@ const MenuHeader = ({
   onOpenMessages,
   onLogout,
 }) => {
-  const theme = useTheme();
   const [menuVisible, setMenuVisible] = useState(false);
 
   const closeMenu = () => setMenuVisible(false);
-  const headerIconColor = !theme.dark ? "#0f172a" : "#ffffff";
+  const headerIconColor = "#ffffff";
 
   return (
     <AppHeader

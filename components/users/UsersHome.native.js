@@ -6,8 +6,10 @@ import {
     Animated,
     Dimensions,
     FlatList,
+    Modal,
     Platform,
     Pressable,
+    StatusBar,
     StyleSheet,
     useWindowDimensions,
     View,
@@ -25,6 +27,7 @@ import {
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
+import { appHeaderBlurTargetRef } from "../Header/appHeaderBlurTarget";
 import { Online, PushTokens } from "../collections/collections";
 import ServiceProgressPill from "../shared/ServiceProgressPill";
 import UserAvatar from "./UserAvatar";
@@ -1044,6 +1047,17 @@ const UsersHome = () => {
   }, [dataReady, loading, shouldHideCarlosFromUsersList, users]);
 
   const peekVisible = !!peekTarget?.item;
+  const PeekOverlayHost = Platform.OS === "android" ? Modal : Portal;
+  const peekOverlayHostProps = Platform.OS === "android"
+    ? {
+        animationType: "none",
+        onRequestClose: () => closePeek(),
+        presentationStyle: "overFullScreen",
+        statusBarTranslucent: true,
+        transparent: true,
+        visible: peekVisible && !!peekTarget?.layout,
+      }
+    : {};
   const overlayCardScale = peekProgress.interpolate({
     inputRange: [0, 1],
     outputRange: [0.992, 1.03],
@@ -1482,11 +1496,27 @@ const UsersHome = () => {
         />
       )}
 
-      <Portal>
+      <PeekOverlayHost {...peekOverlayHostProps}>
+        {Platform.OS === "android" ? (
+          <StatusBar
+            backgroundColor="transparent"
+            barStyle="light-content"
+            translucent
+          />
+        ) : null}
         {peekVisible && peekTarget?.layout ? (
-          <View style={styles.peekPortalLayer} pointerEvents="box-none">
+          <View
+            style={
+              Platform.OS === "android"
+                ? styles.peekModalLayer
+                : styles.peekPortalLayer
+            }
+          >
             <Pressable
-              style={StyleSheet.absoluteFill}
+              style={[
+                StyleSheet.absoluteFill,
+                Platform.OS === "ios" ? styles.peekBackdropPressable : null,
+              ]}
               onPress={() => closePeek()}
             >
               <Animated.View
@@ -1507,6 +1537,7 @@ const UsersHome = () => {
               ]}
             >
               <Animated.View
+                pointerEvents="none"
                 style={[
                   styles.peekFloatingCard,
                   {
@@ -1554,11 +1585,14 @@ const UsersHome = () => {
                 ]}
               >
                 <BlurView
-                  intensity={20}
-                  tint={theme.dark ? "dark" : "light"}
-                  experimentalBlurMethod={
+                  blurMethod={
                     Platform.OS === "android" ? "dimezisBlurView" : undefined
                   }
+                  blurTarget={
+                    Platform.OS === "android" ? appHeaderBlurTargetRef : undefined
+                  }
+                  intensity={20}
+                  tint={theme.dark ? "dark" : "light"}
                   renderToHardwareTextureAndroid={true}
                   style={[
                     styles.peekMenuBlur,
@@ -1754,7 +1788,7 @@ const UsersHome = () => {
             </View>
           </View>
         ) : null}
-      </Portal>
+      </PeekOverlayHost>
     </Surface>
   );
 };
@@ -1961,11 +1995,18 @@ const styles = StyleSheet.create({
   loadingState: { flex: 1, justifyContent: "center", alignItems: "center" },
   peekPortalLayer: {
     ...StyleSheet.absoluteFillObject,
+    flex: 1,
     zIndex: 999,
+  },
+  peekModalLayer: {
+    flex: 1,
   },
   peekBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "#020617",
+  },
+  peekBackdropPressable: {
+    zIndex: 1,
   },
   peekOverlayColumn: {
     position: "absolute",

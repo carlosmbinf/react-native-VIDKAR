@@ -6,6 +6,7 @@ import {
     DARK_MENU_GLASS_TINT,
     LIGHT_MENU_GLASS_TINT,
 } from "../shared/GlassMenuSurface";
+import { appHeaderBlurTargetRef } from "./appHeaderBlurTarget";
 
 const BlurMenuSurface = ({ children }) => {
   const theme = useTheme();
@@ -16,9 +17,11 @@ const BlurMenuSurface = ({ children }) => {
 
   return (
     <BlurView
-      experimentalBlurMethod={
+      blurTarget={Platform.OS === "android" ? appHeaderBlurTargetRef : undefined}
+      blurMethod={
         Platform.OS === "android" ? "dimezisBlurView" : undefined
       }
+      blurReductionFactor={4}
       intensity={15}
       renderToHardwareTextureAndroid
       style={[styles.surface, { backgroundColor: menuTintColor }]}

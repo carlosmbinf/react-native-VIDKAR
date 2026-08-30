@@ -1,4 +1,5 @@
 import { Stack } from "expo-router";
+import { BlurTargetView } from "expo-blur";
 import React, { useMemo } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
@@ -10,6 +11,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import SpotlightNavigation from "../components/spotlight/SpotlightNavigation.native";
 import ProxyVpnWidgetSyncHost from "../components/widgets/ProxyVpnWidgetSyncHost";
+import { appHeaderBlurTargetRef } from "../components/Header/appHeaderBlurTarget";
 import { useColorScheme } from "../hooks/use-color-scheme";
 
 export default function RootLayout() {
@@ -31,7 +33,9 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <PaperProvider theme={theme}>
-          <Stack screenOptions={{ headerShown: false }} />
+          <BlurTargetView ref={appHeaderBlurTargetRef} style={{ flex: 1 }}>
+            <Stack screenOptions={{ headerShown: false }} />
+          </BlurTargetView>
           <SpotlightNavigation />
           <ProxyVpnWidgetSyncHost />
         </PaperProvider>

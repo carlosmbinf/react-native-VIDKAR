@@ -31,7 +31,7 @@ export const GlassMenuSurface = ({
           style={styles.surface}
           isInteractive
           glassEffectStyle={glassEffectStyle}
-          //   tintColor={tintColor}
+          tintColor={tintColor}
         >
           {children}
         </GlassView>

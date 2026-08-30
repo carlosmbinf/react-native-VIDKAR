@@ -1,12 +1,10 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { BlurView } from "expo-blur";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
     AccessibilityInfo,
     Animated,
     Easing,
     ImageBackground,
-    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -99,7 +97,7 @@ const ModeActionCard = ({
 
   return (
     <Animated.View style={[styles.modeCardMotion, animatedStyle]}>
-      <Surface style={styles.footerCard} elevation={1}>
+      <Surface elevation={0} style={styles.footerCard}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={accessibilityLabel}
@@ -433,15 +431,6 @@ const DrawerOptionsAlls = ({
       ]}
       imageStyle={styles.heroImage}
     >
-      <BlurView
-        intensity={24}
-        tint="dark"
-        style={StyleSheet.absoluteFill}
-        experimentalBlurMethod={
-          Platform.OS === "android" ? "dimezisBlurView" : undefined
-        }
-        renderToHardwareTextureAndroid={true}
-      />
       <View
         style={[
           styles.heroOverlay,
@@ -484,12 +473,12 @@ const DrawerOptionsAlls = ({
 
   const menuNode = (
     <Surface
+      elevation={0}
       style={[
         styles.contentSurface,
         isLandscapeDrawer ? styles.contentSurfaceScrollable : null,
         { paddingBottom: 16 },
       ]}
-      elevation={0}
     >
       <View>
         {sections.map((section, sectionIndex) => (
@@ -708,7 +697,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   footerCard: {
-    backgroundColor: "rgba(15, 23, 42, 0.72)",
+    backgroundColor: "#1e293b",
     borderColor: "rgba(148, 163, 184, 0.26)",
     borderWidth: 1,
     borderRadius: 14,

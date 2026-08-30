@@ -1,8 +1,9 @@
 import MeteorBase from "@meteorrn/core";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Modal, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
-import { useTheme } from "react-native-paper";
+import { Animated, Modal, Pressable, StatusBar, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Portal, useTheme } from "react-native-paper";
+import { Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { resolveSessionRoute } from "../navigator/sessionRoute";
@@ -89,12 +90,31 @@ const EmpresaNavigator = () => {
       <View style={[styles.screen, { backgroundColor: palette.background }]}> 
           <PedidosPreparacionScreen onOpenDrawer={openDrawer} />
 
-        <Modal
+        {Platform.OS === "ios" ? (
+          drawerMounted ? (
+            <Portal>
+              <View style={styles.drawerPortal}>
+                <Animated.View pointerEvents="none" style={[styles.drawerOverlay, { opacity: overlayOpacity }]} />
+                <Pressable accessibilityLabel="Cerrar menú" onPress={closeDrawer} style={styles.drawerOverlayPressable} />
+                <Animated.View style={[styles.drawerPanel, { borderRightColor: palette.border, maxWidth: drawerWidth, transform: [{ translateX }], width: drawerWidth }]}>
+                  <EmpresaDrawerContent onClose={closeDrawer} user={user} />
+                </Animated.View>
+              </View>
+            </Portal>
+          ) : null
+        ) : (<Modal
           animationType="none"
           onRequestClose={closeDrawer}
+          presentationStyle="overFullScreen"
           transparent
+          statusBarTranslucent
           visible={drawerMounted}
         >
+          <StatusBar
+            backgroundColor="transparent"
+            barStyle="light-content"
+            translucent
+          />
           <View style={styles.drawerPortal}>
               <Animated.View
                 pointerEvents="none"
@@ -120,7 +140,7 @@ const EmpresaNavigator = () => {
                 <EmpresaDrawerContent onClose={closeDrawer} user={user} />
               </Animated.View>
           </View>
-        </Modal>
+        </Modal>)}
       </View>
     </SafeAreaView>
   );
@@ -141,15 +161,8 @@ const styles = StyleSheet.create({
   drawerPanel: {
     borderRightWidth: 1,
     bottom: 0,
-    elevation: 1001,
     left: 0,
     position: "absolute",
-    shadowOffset: {
-      width: 12,
-      height: 0,
-    },
-    shadowOpacity: 0.14,
-    shadowRadius: 22,
     top: 0,
     zIndex: 1001,
   },

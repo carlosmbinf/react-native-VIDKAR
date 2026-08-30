@@ -1,9 +1,8 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
-import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Avatar, Divider, Surface, Text, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -153,15 +152,6 @@ const CadeteDrawerContent = ({ onClose, user }) => {
 
   const headerNode = (
     <View style={styles.headerFrame}>
-      <BlurView
-        intensity={24}
-        tint={isDark ? "dark" : "light"}
-        style={StyleSheet.absoluteFill}
-        experimentalBlurMethod={
-          Platform.OS === "android" ? "dimezisBlurView" : undefined
-        }
-        renderToHardwareTextureAndroid={true}
-      />
       <View
         pointerEvents="none"
         style={[
@@ -256,7 +246,7 @@ const CadeteDrawerContent = ({ onClose, user }) => {
       </Pressable>
 
       <View style={[styles.metricsRow, isCompactDrawer ? styles.metricsRowCompact : null]}>
-        <Surface style={[styles.metricCard, isCompactDrawer ? styles.metricCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
+        <Surface elevation={0} style={[styles.metricCard, isCompactDrawer ? styles.metricCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
           <Text style={{ color: palette.brandStrong }} variant="labelMedium">
             Estado
           </Text>
@@ -264,7 +254,7 @@ const CadeteDrawerContent = ({ onClose, user }) => {
             Disponible
           </Text>
         </Surface>
-        <Surface style={[styles.metricCard, isCompactDrawer ? styles.metricCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
+        <Surface elevation={0} style={[styles.metricCard, isCompactDrawer ? styles.metricCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
           <Text style={{ color: palette.brandStrong }} variant="labelMedium">
             Tracking
           </Text>
@@ -279,7 +269,7 @@ const CadeteDrawerContent = ({ onClose, user }) => {
           Operación
         </Text>
 
-        <Surface style={[styles.infoCard, isCompactDrawer ? styles.infoCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
+        <Surface elevation={0} style={[styles.infoCard, isCompactDrawer ? styles.infoCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
           <View style={[styles.infoCardIconWrap, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.8)" }]}>
             <MaterialCommunityIcons color={palette.brandStrong} name="crosshairs-gps" size={22} />
           </View>
@@ -358,7 +348,7 @@ const CadeteDrawerContent = ({ onClose, user }) => {
         </Pressable>
       </View>
 
-      <Surface style={[styles.tipCard, isCompactDrawer ? styles.tipCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
+      <Surface elevation={0} style={[styles.tipCard, isCompactDrawer ? styles.tipCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
         <Text style={[styles.tipTitle, { color: palette.title }]} variant="labelLarge">
           Recomendación
         </Text>
@@ -410,7 +400,6 @@ const CadeteDrawerContent = ({ onClose, user }) => {
   return (
     <View style={styles.safeArea}>
       <DrawerBlurShell
-        elevation={4}
         overlayColor={isDark ? "rgba(4, 20, 11, 0.72)" : "rgba(245, 250, 247, 0.58)"}
         style={styles.panel}
       >

@@ -2,7 +2,9 @@ import { BlurView } from "expo-blur";
 import { Platform, StyleSheet, View } from "react-native";
 import { Surface, useTheme } from "react-native-paper";
 
-const DrawerBlurShell = ({ children, elevation = 4, overlayColor, style }) => {
+import { appHeaderBlurTargetRef } from "../Header/appHeaderBlurTarget";
+
+const DrawerBlurShell = ({ children, overlayColor, style }) => {
   const theme = useTheme();
   const resolvedOverlayColor =
     overlayColor ||
@@ -12,14 +14,17 @@ const DrawerBlurShell = ({ children, elevation = 4, overlayColor, style }) => {
 
   return (
     <Surface
-      elevation={elevation}
-      style={[styles.shell, { backgroundColor: theme.dark ? "#071120" : "#f8fafc" }, style]}
+      elevation={0}
+      style={[styles.shell, style]}
     >
       <BlurView
+        blurTarget={
+          Platform.OS === "android" ? appHeaderBlurTargetRef : undefined
+        }
         intensity={34}
         tint={theme.dark ? "dark" : "light"}
         style={StyleSheet.absoluteFill}
-        experimentalBlurMethod={
+        blurMethod={
           Platform.OS === "android" ? "dimezisBlurView" : undefined
         }
         renderToHardwareTextureAndroid={true}
@@ -46,6 +51,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   shell: {
+    backgroundColor: "transparent",
     flex: 1,
     overflow: "hidden",
   },

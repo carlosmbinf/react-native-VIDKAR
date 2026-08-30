@@ -1,8 +1,7 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
-import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Avatar, Divider, Surface, Text, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -19,6 +18,7 @@ const DrawerMetric = ({ compact, icon, label, palette, value }) => {
   if (compact) {
     return (
       <Surface
+        elevation={0}
         style={[
           styles.metricItem,
           styles.metricItemCompact,
@@ -45,6 +45,7 @@ const DrawerMetric = ({ compact, icon, label, palette, value }) => {
 
   return (
     <Surface
+      elevation={0}
       style={[
         styles.metricItem,
         compact ? styles.metricItemCompact : null,
@@ -169,15 +170,6 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
   const headerNode = (
     <>
       <View style={styles.headerFrame}>
-        <BlurView
-          intensity={24}
-          tint={theme.dark ? "dark" : "light"}
-          style={StyleSheet.absoluteFill}
-          experimentalBlurMethod={
-            Platform.OS === "android" ? "dimezisBlurView" : undefined
-          }
-          renderToHardwareTextureAndroid={true}
-        />
         <View
           pointerEvents="none"
           style={[
@@ -285,6 +277,7 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
       </View>
 
       <Surface
+        elevation={0}
         style={[
           styles.tipCard,
           isCompactDrawer ? styles.tipCardCompact : null,
@@ -350,7 +343,6 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
   return (
     <View style={styles.safeArea}>
       <DrawerBlurShell
-        elevation={4}
         overlayColor={theme.dark ? "rgba(15, 23, 42, 0.72)" : "rgba(255, 255, 255, 0.58)"}
         style={styles.panel}
       >

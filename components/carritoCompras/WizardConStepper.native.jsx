@@ -1921,7 +1921,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
       <View style={{ position: "relative" }}>
         <IconButton
           icon="cart"
-          iconColor="white"
+          iconColor="#ffffff"
           onPress={() => setVisible(true)}
           size={24}
         />

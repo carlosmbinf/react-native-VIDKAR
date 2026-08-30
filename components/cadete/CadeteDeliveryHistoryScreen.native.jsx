@@ -25,7 +25,7 @@ import {
   isCadetePaymentPending,
   summarizeCadeteDeliveryPaymentsInUsd,
 } from "../comercio/pedidos/cadetePaymentUtils";
-import AppHeader, { DEFAULT_HEADER_COLOR, useAppHeaderContentInset } from "../Header/AppHeader";
+import AppHeader, { CADETE_HEADER_COLOR, useAppHeaderContentInset } from "../Header/AppHeader";
 
 const Meteor = /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
   MeteorBase
@@ -730,7 +730,7 @@ const CadeteDeliveryHistoryScreen = () => {
   return (
     <View style={[styles.screen, { backgroundColor: palette.background }]}> 
       <AppHeader
-        backgroundColor={DEFAULT_HEADER_COLOR}
+        backgroundColor={CADETE_HEADER_COLOR}
         overlapContent
         showBackButton
         subtitle="Pagos, rutas y entregas de comercio"

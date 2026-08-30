@@ -7,23 +7,26 @@ import {
     PanResponder,
     Platform,
     Pressable,
+    StatusBar,
     StyleSheet,
     View,
 } from "react-native";
 import {
     Divider,
     IconButton,
+    Portal,
     Surface,
     Text,
     useTheme,
 } from "react-native-paper";
+
+import { appHeaderBlurTargetRef } from "../Header/appHeaderBlurTarget";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const DrawerBottom = ({
   actions = [],
   children,
-  elevation = 4,
   headerStyle,
   onClose,
   open,
@@ -123,95 +126,102 @@ const DrawerBottom = ({
     </>
   ) : null;
 
-  return (
+  const drawerContent = (
+    <View style={styles.portalContainer}>
+        <Pressable
+          style={[
+            styles.backdropPressable,
+            { backgroundColor: `rgba(0,0,0,${overlayOpacity})` },
+          ]}
+          onPress={() => onClose?.()}
+        />
+        <Animated.View
+          style={[
+            styles.bottomSheetWrapper,
+            { transform: [{ translateY }], maxHeight: maxSheetHeight },
+          ]}
+          pointerEvents="auto"
+        >
+          <Surface
+            elevation={0}
+            style={[
+              styles.bottomSurface,
+              {
+                backgroundColor: "transparent",
+                maxHeight: maxSheetHeight,
+              },
+              surfaceStyle,
+            ]}
+          >
+            {theme.dark ? (
+              <BlurView
+                blurTarget={Platform.OS === "android" ? appHeaderBlurTargetRef : undefined}
+                intensity={42}
+                tint="dark"
+                style={StyleSheet.absoluteFill}
+                blurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
+                renderToHardwareTextureAndroid={true}
+              />
+            ) : (
+              <BlurView
+                blurTarget={Platform.OS === "android" ? appHeaderBlurTargetRef : undefined}
+                intensity={42}
+                tint="light"
+                style={StyleSheet.absoluteFill}
+                blurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
+                renderToHardwareTextureAndroid={true}
+              />
+            )}
+            <View
+              pointerEvents="none"
+              style={[
+                styles.sheetTint,
+                {
+                  backgroundColor: theme.dark
+                    ? "rgba(6, 12, 24, 0.68)"
+                    : "rgba(255, 255, 255, 0.62)",
+                },
+              ]}
+            />
+            <View style={styles.handleZone} {...panResponder.panHandlers}>
+              <View
+                style={[
+                  styles.handle,
+                  { backgroundColor: theme.colors.outlineVariant || "#ccc" },
+                ]}
+              />
+            </View>
+            {headerNode}
+            <View
+              style={styles.bottomContent}
+              onLayout={(event) => {
+                setContentHeight(event.nativeEvent.layout.height + 30);
+              }}
+            >
+              {children}
+            </View>
+          </Surface>
+        </Animated.View>
+      </View>
+  );
+
+  return Platform.OS === "ios" ? (
+    mounted ? <Portal>{drawerContent}</Portal> : null
+  ) : (
     <Modal
       animationType="none"
       onRequestClose={onClose}
+      presentationStyle="overFullScreen"
       statusBarTranslucent
       transparent
       visible={mounted}
     >
-      <View style={styles.portalContainer}>
-          <Pressable
-            style={[
-              styles.backdropPressable,
-              { backgroundColor: `rgba(0,0,0,${overlayOpacity})` },
-            ]}
-            onPress={() => onClose?.()}
-          />
-          <Animated.View
-            style={[
-              styles.bottomSheetWrapper,
-              { transform: [{ translateY }], maxHeight: maxSheetHeight },
-            ]}
-            pointerEvents="auto"
-          >
-            <Surface
-              elevation={elevation}
-              style={[
-                styles.bottomSurface,
-                {
-                  backgroundColor: "transparent",
-                  maxHeight: maxSheetHeight,
-                },
-                surfaceStyle,
-              ]}
-            >
-              {theme.dark ? (
-                <BlurView
-                  intensity={42}
-                  tint="dark"
-                  style={StyleSheet.absoluteFill}
-                  experimentalBlurMethod={
-                    Platform.OS === "android" ? "dimezisBlurView" : undefined
-                  }
-                  renderToHardwareTextureAndroid={true}
-                />
-              ) : (
-                <BlurView
-                  intensity={42}
-                  tint="light"
-                  style={StyleSheet.absoluteFill}
-                  experimentalBlurMethod={
-                    Platform.OS === "android" ? "dimezisBlurView" : undefined
-                  }
-                  renderToHardwareTextureAndroid={true}
-                />
-              )}
-              <View
-                pointerEvents="none"
-                style={[
-                  styles.sheetTint,
-                  {
-                    backgroundColor: theme.dark
-                      ? "rgba(6, 12, 24, 0.68)"
-                      : "rgba(255, 255, 255, 0.62)",
-                  },
-                ]}
-              />
-              <View 
-              style={styles.handleZone} 
-              {...panResponder.panHandlers}
-              >
-                <View
-                  style={[
-                    styles.handle,
-                    { backgroundColor: theme.colors.outlineVariant || "#ccc" },
-                  ]}
-                />
-              </View>
-              {headerNode}
-              <View
-                style={styles.bottomContent}
-                onLayout={(event) => {
-                  setContentHeight(event.nativeEvent.layout.height + 30);
-                }}
-              >
-                {children}
-              </View>
-            </Surface>
-          </Animated.View>
-        </View>
+      <StatusBar
+        backgroundColor="transparent"
+        barStyle="light-content"
+        translucent
+      />
+      {drawerContent}
     </Modal>
   );
 };
@@ -232,7 +242,6 @@ const styles = StyleSheet.create({
   },
   bottomSheetWrapper: {
     bottom: 0,
-    elevation: 1001,
     left: 0,
     position: "absolute",
     width: "100%",
@@ -264,7 +273,6 @@ const styles = StyleSheet.create({
   },
   portalContainer: {
     ...StyleSheet.absoluteFillObject,
-    elevation: 1000,
     justifyContent: "flex-end",
     flex: 1,
     zIndex: 9999,

@@ -1,11 +1,12 @@
 import MeteorBase from "@meteorrn/core";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Modal, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
-import { Appbar, Surface } from "react-native-paper";
+import { Animated, Modal, Pressable, StatusBar, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Appbar, Portal, Surface } from "react-native-paper";
+import { Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import HomePedidosComercio from "../comercio/pedidos/HomePedidosComercio";
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { CADETE_HEADER_COLOR } from "../Header/AppHeader";
 import CadeteDrawerContent from "./CadeteDrawerContent";
 
 const Meteor = /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -67,7 +68,7 @@ const CadeteNavigator = () => {
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <Surface style={styles.screen}>
         <AppHeader
-          backgroundColor="#13803d"
+          backgroundColor={CADETE_HEADER_COLOR}
           overlapContent
           left={
             <Appbar.Action
@@ -82,12 +83,31 @@ const CadeteNavigator = () => {
 
         <HomePedidosComercio />
 
-        <Modal
+        {Platform.OS === "ios" ? (
+          drawerMounted ? (
+            <Portal>
+              <View style={styles.drawerPortal}>
+                <Animated.View pointerEvents="none" style={[styles.drawerOverlay, { opacity: overlayOpacity }]} />
+                <Pressable accessibilityLabel="Cerrar menú" onPress={closeDrawer} style={[styles.drawerOverlayPressable, { left: drawerWidth }]} />
+                <Animated.View style={[styles.drawerPanel, { maxWidth: drawerWidth, transform: [{ translateX }], width: drawerWidth }]}>
+                  <CadeteDrawerContent onClose={closeDrawer} user={user} />
+                </Animated.View>
+              </View>
+            </Portal>
+          ) : null
+        ) : (<Modal
           animationType="none"
           onRequestClose={closeDrawer}
+          presentationStyle="overFullScreen"
           transparent
+          statusBarTranslucent
           visible={drawerMounted}
         >
+          <StatusBar
+            backgroundColor="transparent"
+            barStyle="light-content"
+            translucent
+          />
           <View style={styles.drawerPortal}>
               <Animated.View
                 pointerEvents="none"
@@ -111,7 +131,7 @@ const CadeteNavigator = () => {
                 <CadeteDrawerContent onClose={closeDrawer} user={user} />
               </Animated.View>
           </View>
-        </Modal>
+        </Modal>)}
       </Surface>
     </SafeAreaView>
   );
@@ -131,7 +151,6 @@ const styles = StyleSheet.create({
   },
   drawerPanel: {
     bottom: 0,
-    elevation: 1001,
     left: 0,
     position: "absolute",
     top: 0,

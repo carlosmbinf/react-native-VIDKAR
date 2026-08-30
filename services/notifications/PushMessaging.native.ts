@@ -1,6 +1,7 @@
 import MeteorBase from "@meteorrn/core";
+import { isRunningInExpoGo } from "expo";
 import Constants from "expo-constants";
-import * as Notifications from "expo-notifications";
+import type * as Notifications from "expo-notifications";
 import * as TaskManager from "expo-task-manager";
 import { AppState, PermissionsAndroid, Platform } from "react-native";
 import { canAccessPushTokenDashboards } from "../../components/users/pushTokens/utils";
@@ -76,6 +77,24 @@ const DEFAULT_CHANNEL_ID = "default";
 const DEFAULT_CHANNEL_NAME = "General";
 
 const EXPO_PUSH_TOKEN_PREFIXES = ["ExponentPushToken[", "ExpoPushToken["];
+
+const isExpoGoRuntime = isRunningInExpoGo();
+
+let notificationsModule: typeof Notifications | null = null;
+
+const getNotifications = () => {
+  if (isExpoGoRuntime) {
+    return null;
+  }
+
+  if (!notificationsModule) {
+    // La carga diferida evita el side effect incompatible de Expo Go al importar el módulo.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    notificationsModule = require("expo-notifications") as typeof Notifications;
+  }
+
+  return notificationsModule;
+};
 
 let activePushDialog: PushDialogPayload | null = null;
 
@@ -160,7 +179,10 @@ const approveSaleFromBackgroundNotification = async (
   }
 };
 
-if (!TaskManager.isTaskDefined(BACKGROUND_SALE_APPROVAL_TASK)) {
+if (
+  !isExpoGoRuntime &&
+  !TaskManager.isTaskDefined(BACKGROUND_SALE_APPROVAL_TASK)
+) {
   TaskManager.defineTask<Notifications.NotificationTaskPayload>(
     BACKGROUND_SALE_APPROVAL_TASK,
     async ({ data, error }) => {
@@ -180,12 +202,18 @@ if (!TaskManager.isTaskDefined(BACKGROUND_SALE_APPROVAL_TASK)) {
   );
 }
 
-Notifications.registerTaskAsync(BACKGROUND_SALE_APPROVAL_TASK).catch((error) => {
-  console.warn(
-    "[PushMessaging] No se pudo registrar la tarea de aprobación de venta",
-    error,
-  );
-});
+const notificationsAtStartup = getNotifications();
+
+if (notificationsAtStartup) {
+  notificationsAtStartup
+    .registerTaskAsync(BACKGROUND_SALE_APPROVAL_TASK)
+    .catch((error) => {
+      console.warn(
+        "[PushMessaging] No se pudo registrar la tarea de aprobación de venta",
+        error,
+      );
+    });
+}
 
 const normalizePushToken = (tokenData: unknown) => {
   if (typeof tokenData === "string" && tokenData.trim().length > 0) {
@@ -206,10 +234,12 @@ const normalizePushToken = (tokenData: unknown) => {
 
 let currentAppState = AppState.currentState;
 
-Notifications.setNotificationHandler({
-  handleNotification: async (notification) => {
+const notificationsForHandler = getNotifications();
+
+notificationsForHandler?.setNotificationHandler({
+  handleNotification: async () => {
     const isInForeground = currentAppState === "active";
-    
+
     return {
       shouldPlaySound: !isInForeground,
       shouldSetBadge: !isInForeground,
@@ -456,14 +486,15 @@ const buildPlatformString = () => {
 };
 
 const ensureAndroidNotificationChannel = async () => {
-  if (Platform.OS !== "android") {
+  const notifications = getNotifications();
+  if (Platform.OS !== "android" || !notifications) {
     return DEFAULT_CHANNEL_ID;
   }
 
-  await Notifications.setNotificationChannelAsync(DEFAULT_CHANNEL_ID, {
-    importance: Notifications.AndroidImportance.HIGH,
+  await notifications.setNotificationChannelAsync(DEFAULT_CHANNEL_ID, {
+    importance: notifications.AndroidImportance.HIGH,
     lightColor: "#3f51b5",
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    lockscreenVisibility: notifications.AndroidNotificationVisibility.PUBLIC,
     name: DEFAULT_CHANNEL_NAME,
     showBadge: true,
     sound: "default",
@@ -474,7 +505,12 @@ const ensureAndroidNotificationChannel = async () => {
 };
 
 const ensureNotificationCategories = async () => {
-  await Notifications.setNotificationCategoryAsync(
+  const notifications = getNotifications();
+  if (!notifications) {
+    return;
+  }
+
+  await notifications.setNotificationCategoryAsync(
     MANUAL_REVIEW_NOTIFICATION_CATEGORY,
     [
       {
@@ -493,7 +529,7 @@ const ensureNotificationCategories = async () => {
     ],
     { previewPlaceholder: "Evidencia pendiente de revisión" },
   );
-  await Notifications.setNotificationCategoryAsync(
+  await notifications.setNotificationCategoryAsync(
     APPROVED_EVIDENCE_SALE_REVIEW_CATEGORY,
     [
       {
@@ -546,8 +582,13 @@ class BadgeManager {
   }
 
   async getCount() {
+    const notifications = getNotifications();
+    if (!notifications) {
+      return 0;
+    }
+
     try {
-      return await Notifications.getBadgeCountAsync();
+      return await notifications.getBadgeCountAsync();
     } catch {
       return 0;
     }
@@ -556,7 +597,10 @@ class BadgeManager {
   async increment() {
     try {
       const currentBadge = await this.getCount();
-      await Notifications.setBadgeCountAsync(currentBadge + 1);
+      const notifications = getNotifications();
+      if (notifications) {
+        await notifications.setBadgeCountAsync(currentBadge + 1);
+      }
     } catch {
       // no-op
     }
@@ -564,7 +608,10 @@ class BadgeManager {
 
   async reset() {
     try {
-      await Notifications.setBadgeCountAsync(0);
+      const notifications = getNotifications();
+      if (notifications) {
+        await notifications.setBadgeCountAsync(0);
+      }
     } catch {
       // no-op
     }
@@ -574,6 +621,11 @@ class BadgeManager {
 export const badgeManager = BadgeManager.getInstance();
 
 export const requestPermissionsIfNeeded = async () => {
+  const notifications = getNotifications();
+  if (!notifications) {
+    return false;
+  }
+
   if (Platform.OS === "android" && Platform.Version >= 33) {
     try {
       await PermissionsAndroid.request(
@@ -584,16 +636,16 @@ export const requestPermissionsIfNeeded = async () => {
     }
   }
 
-  const currentPermissions = await Notifications.getPermissionsAsync();
+  const currentPermissions = await notifications.getPermissionsAsync();
   if (
     currentPermissions.granted ||
     currentPermissions.ios?.status ===
-      Notifications.IosAuthorizationStatus.PROVISIONAL
+      notifications.IosAuthorizationStatus.PROVISIONAL
   ) {
     return true;
   }
 
-  const requestedPermissions = await Notifications.requestPermissionsAsync({
+  const requestedPermissions = await notifications.requestPermissionsAsync({
     android: {},
     ios: {
       allowAlert: true,
@@ -605,16 +657,25 @@ export const requestPermissionsIfNeeded = async () => {
   return (
     requestedPermissions.granted ||
     requestedPermissions.ios?.status ===
-      Notifications.IosAuthorizationStatus.PROVISIONAL
+      notifications.IosAuthorizationStatus.PROVISIONAL
   );
 };
 
 export const getPushNotificationPermissionState = async () => {
-  const permissions = await Notifications.getPermissionsAsync();
+  const notifications = getNotifications();
+  if (!notifications) {
+    return {
+      canAskAgain: false,
+      granted: false,
+      status: "undetermined" as const,
+    };
+  }
+
+  const permissions = await notifications.getPermissionsAsync();
   const iosStatus = permissions.ios?.status;
   const granted =
     permissions.granted ||
-    iosStatus === Notifications.IosAuthorizationStatus.PROVISIONAL;
+    iosStatus === notifications.IosAuthorizationStatus.PROVISIONAL;
 
   return {
     canAskAgain: permissions.canAskAgain !== false,
@@ -624,6 +685,10 @@ export const getPushNotificationPermissionState = async () => {
 };
 
 const getExpoPushToken = async () => {
+  if (isExpoGoRuntime) {
+    return null;
+  }
+
   const projectId = getExpoProjectId();
   if (!projectId) {
     console.warn(
@@ -632,7 +697,12 @@ const getExpoPushToken = async () => {
     return null;
   }
 
-  const expoToken = await Notifications.getExpoPushTokenAsync({ projectId });
+  const notifications = getNotifications();
+  if (!notifications) {
+    return null;
+  }
+
+  const expoToken = await notifications.getExpoPushTokenAsync({ projectId });
   const token = normalizePushToken(expoToken?.data);
   return isExpoPushToken(token) ? token : null;
 };
@@ -666,6 +736,10 @@ export const registerPushTokenForUser = async (
   userId?: string,
   providedToken?: string | null,
 ) => {
+  if (isExpoGoRuntime) {
+    return null;
+  }
+
   const currentUserId = userId || Meteor.userId();
   if (!currentUserId) {
     return null;
@@ -723,6 +797,10 @@ export const registerPushTokenForActiveSession = async (
 };
 
 export const unregisterPushTokenForUser = async (userId?: string) => {
+  if (isExpoGoRuntime) {
+    return;
+  }
+
   const currentUserId = userId || Meteor.userId();
   if (!currentUserId) {
     return;
@@ -783,6 +861,11 @@ export const sendMessage = async (payload: SendMessagePayload) => {
 };
 
 export const setupPushListeners = async (options?: SetupOptions) => {
+  const notifications = getNotifications();
+  if (!notifications) {
+    return () => undefined;
+  }
+
   await ensureAndroidNotificationChannel();
   await ensureNotificationCategories().catch((error) => {
     console.warn(
@@ -810,7 +893,7 @@ export const setupPushListeners = async (options?: SetupOptions) => {
     },
   );
 
-  const foregroundSubscription = Notifications.addNotificationReceivedListener(
+  const foregroundSubscription = notifications.addNotificationReceivedListener(
     async (notification) => {
       if (!isForCurrentUser(notification)) {
         return;
@@ -822,7 +905,7 @@ export const setupPushListeners = async (options?: SetupOptions) => {
     },
   );
 
-  const tokenRefreshSubscription = Notifications.addPushTokenListener(
+  const tokenRefreshSubscription = notifications.addPushTokenListener(
     async (tokenInfo) => {
       const fallbackToken = normalizePushToken(tokenInfo?.data);
       const token = isExpoPushToken(fallbackToken)
@@ -843,7 +926,7 @@ export const setupPushListeners = async (options?: SetupOptions) => {
   );
 
   const notificationResponseSubscription =
-    Notifications.addNotificationResponseReceivedListener(async (response) => {
+    notifications.addNotificationResponseReceivedListener(async (response) => {
       await badgeManager.reset();
 
       const notification = response.notification;
@@ -863,7 +946,8 @@ export const setupPushListeners = async (options?: SetupOptions) => {
       await options?.onNotificationOpenedApp?.(notification);
     });
 
-  Notifications.getLastNotificationResponseAsync()
+  notifications
+    .getLastNotificationResponseAsync()
     .then(async (response) => {
       if (response) {
         await badgeManager.reset();
@@ -887,7 +971,7 @@ export const setupPushListeners = async (options?: SetupOptions) => {
 
   return () => {
     foregroundSubscription.remove();
-    tokenRefreshSubscription.remove();
+    tokenRefreshSubscription?.remove();
     notificationResponseSubscription.remove();
     appStateSubscription.remove();
   };

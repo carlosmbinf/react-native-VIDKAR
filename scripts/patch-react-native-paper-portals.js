@@ -73,19 +73,10 @@ for (const targetFile of menuTargets) {
   cleanedCount += 1;
 }
 
-// The users peek is a screen-level overlay with custom coordinates and animation.
-// Keeping it inside Paper's Portal makes the outside Pressable depend on the
-// PortalManager layer. Use RN's native transparent Modal instead so the entire
-// window participates in hit testing and onRequestClose can dismiss it reliably.
-const usersHomeTarget = path.join(
-  __dirname,
-  "..",
-  "components",
-  "users",
-  "UsersHome.native.js",
-);
+// UsersHome elige Portal en iOS y Modal nativo en Android desde el código fuente.
+const usersHomeTarget = null;
 
-if (fs.existsSync(usersHomeTarget)) {
+if (usersHomeTarget && fs.existsSync(usersHomeTarget)) {
   const originalUsersHome = fs.readFileSync(usersHomeTarget, "utf8");
   let nextUsersHome = originalUsersHome;
 

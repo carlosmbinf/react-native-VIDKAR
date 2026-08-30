@@ -239,6 +239,7 @@ const CachedMovieImageBackground = ({ children, imageStyle, source, style }) => 
 
   const showLoading = imageState === "loading";
   const showError = imageState === "error" || imageState === "empty";
+  const imageSource = uri ? { uri, cacheKey: uri } : null;
 
   return (
     <View style={style}>
@@ -250,10 +251,11 @@ const CachedMovieImageBackground = ({ children, imageStyle, source, style }) => 
       />
       {uri ? (
         <ExpoImage
-          source={{ uri }}
+          source={imageSource}
           style={[StyleSheet.absoluteFillObject, imageStyle]}
           contentFit="cover"
           cachePolicy="memory-disk"
+          recyclingKey={uri}
           transition={180}
           onLoad={() => setImageState("loaded")}
           onError={() => setImageState("error")}
@@ -1498,7 +1500,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(2, 6, 23, 0.18)",
+    backgroundColor: "transparent",
   },
   movieImageLoadingBadge: {
     minHeight: 32,

@@ -8,19 +8,24 @@ import {
     ImageBackground,
     InteractionManager,
     Modal,
+    Platform,
     Pressable,
     RefreshControl,
     ScrollView,
+    StatusBar,
     StyleSheet,
     View,
 } from "react-native";
-import { Chip, ProgressBar, Surface, Text } from "react-native-paper";
+  import { Chip, Portal, ProgressBar, Surface, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ComercioHomeOrdersSection from "../comercio/pedidos/ComercioHomeOrdersSection.native";
 import Productos from "../cubacel/Productos";
 import DrawerOptionsAlls from "../drawer/DrawerOptionsAlls";
-import { useAppHeaderContentInset } from "../Header/AppHeader";
+import {
+  MENU_PRINCIPAL_HEADER_COLOR,
+  useAppHeaderContentInset,
+} from "../Header/AppHeader";
 import MenuHeader from "../Header/MenuHeader";
 import ComercioHomeSection from "../productos/ComercioHomeSection.native";
 import ProxyVPNPackagesHorizontal from "../proxyVPN/ProxyVPNPackagesHorizontal";
@@ -543,6 +548,7 @@ const MenuPrincipalScreen = ({
 
         <RenderTraceBlock name="MenuHeader" style={styles.headerTraceBlock}>
           <MenuHeader
+            backgroundColor={MENU_PRINCIPAL_HEADER_COLOR}
             title="VIDKAR"
             subtitle="Menú principal"
             onOpenDrawer={openDrawer}
@@ -1529,12 +1535,41 @@ const MenuPrincipalScreen = ({
           )}
           </ScrollView>
 
+        {Platform.OS === "ios" ? (
+          drawerMounted ? (
+            <Portal>
+              <View style={styles.drawerPortal}>
+                <Animated.View style={[styles.drawerOverlay, { opacity: overlayOpacity }]} pointerEvents="none" />
+                <Pressable accessibilityLabel="Cerrar menú" onPress={closeDrawer} style={styles.drawerOverlayPressable} />
+                <Animated.View style={[styles.drawerPanel, { transform: [{ translateX }] }]}>
+                  <RenderTraceBlock name="DrawerOptionsAlls" payload={{ drawerOpen }} style={styles.drawerTraceBlock}>
+                    <DrawerOptionsAlls
+                      user={user}
+                      currentPath={pathname}
+                      onNavigate={navigateTo}
+                      onClose={closeDrawer}
+                      onToggleModoCadete={onToggleModoCadete}
+                      onToggleModoEmpresa={onToggleModoEmpresa}
+                    />
+                  </RenderTraceBlock>
+                </Animated.View>
+              </View>
+            </Portal>
+          ) : null
+        ) : (
         <Modal
           animationType="none"
           onRequestClose={closeDrawer}
+          presentationStyle="overFullScreen"
           transparent
+          statusBarTranslucent
           visible={drawerMounted}
         >
+          <StatusBar
+            backgroundColor="transparent"
+            barStyle="light-content"
+            translucent
+          />
           <View style={styles.drawerPortal}>
               <Animated.View
                 style={[styles.drawerOverlay, { opacity: overlayOpacity }]}
@@ -1565,6 +1600,7 @@ const MenuPrincipalScreen = ({
               </Animated.View>
           </View>
         </Modal>
+        )}
       </Surface>
     </SafeAreaView>
   );
@@ -2516,9 +2552,7 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   drawerPanel: {
-    backgroundColor: "#071120",
     bottom: 0,
-    elevation: 1001,
     left: 0,
     position: "absolute",
     top: 0,
