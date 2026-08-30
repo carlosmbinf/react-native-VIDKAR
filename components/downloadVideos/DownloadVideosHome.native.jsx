@@ -1,6 +1,5 @@
 import MeteorBase from "@meteorrn/core";
 import { BlurView } from "expo-blur";
-import { Image as ExpoImage } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
@@ -8,6 +7,7 @@ import {
     Alert,
     Animated,
     FlatList,
+    ImageBackground,
     KeyboardAvoidingView,
     Linking,
     ActivityIndicator as NativeActivityIndicator,
@@ -239,8 +239,6 @@ const CachedMovieImageBackground = ({ children, imageStyle, source, style }) => 
 
   const showLoading = imageState === "loading";
   const showError = imageState === "error" || imageState === "empty";
-  const imageSource = uri ? { uri, cacheKey: uri } : null;
-
   return (
     <View style={style}>
       <LinearGradient
@@ -250,13 +248,11 @@ const CachedMovieImageBackground = ({ children, imageStyle, source, style }) => 
         style={[StyleSheet.absoluteFillObject, imageStyle]}
       />
       {uri ? (
-        <ExpoImage
-          source={imageSource}
-          style={[StyleSheet.absoluteFillObject, imageStyle]}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-          recyclingKey={uri}
-          transition={180}
+        <ImageBackground
+          source={{ uri }}
+          resizeMode="cover"
+          imageStyle={imageStyle}
+          style={StyleSheet.absoluteFillObject}
           onLoad={() => setImageState("loaded")}
           onError={() => setImageState("error")}
         />
