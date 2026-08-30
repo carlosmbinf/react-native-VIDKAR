@@ -27,6 +27,7 @@ import {
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
+import { buildMeteorHttpBaseUrl } from "../../services/meteor/evidenceImages";
 import { sendMessage } from "../../services/notifications/PushMessaging.native";
 import { PushTokens } from "../collections/collections";
 import AppHeader from "../Header/AppHeader";
@@ -141,6 +142,26 @@ const buildNotificationImageMetadata = ({ recipientCount, senderMode }) => ({
   targetAudience: "CLIENTES",
   recipientCount,
 });
+
+const normalizeCampaignAssetUrl = (value) => {
+  if (typeof value !== "string" || !value.trim()) {
+    return "";
+  }
+
+  const trimmedValue = value.trim();
+  if (/^(data:|blob:|https?:\/\/)/i.test(trimmedValue)) {
+    return trimmedValue;
+  }
+
+  try {
+    const publicAssetOrigin = buildMeteorHttpBaseUrl();
+    return publicAssetOrigin
+      ? new URL(trimmedValue, publicAssetOrigin).toString()
+      : trimmedValue;
+  } catch (_error) {
+    return trimmedValue;
+  }
+};
 
 const formatDate = (value) => {
   if (!value) {
@@ -799,11 +820,19 @@ const PushOffersScreen = () => {
               senderMode,
               ...(imagePayload?.url
                 ? {
-                    attachment: imagePayload.url,
-                    attachmentUrl: imagePayload.url,
-                    image: imagePayload.url,
-                    imageUrl: imagePayload.url,
-                    image_url: imagePayload.url,
+                    attachment: normalizeCampaignAssetUrl(imagePayload.url),
+                    attachmentUrl: normalizeCampaignAssetUrl(imagePayload.url),
+                    image: normalizeCampaignAssetUrl(imagePayload.url),
+                    imageUrl: normalizeCampaignAssetUrl(imagePayload.url),
+                    image_url: normalizeCampaignAssetUrl(imagePayload.url),
+                    notificationImageUrl: normalizeCampaignAssetUrl(imagePayload.url),
+                    attachments: [
+                      {
+                        fileId: imagePayload.fileId,
+                        kind: "image",
+                        url: normalizeCampaignAssetUrl(imagePayload.url),
+                      },
+                    ],
                     notificationAssetType: "NOTIFICACION",
                     notificationImageFileId: imagePayload.fileId,
                     notificationImageFileName: imagePayload.fileName,
