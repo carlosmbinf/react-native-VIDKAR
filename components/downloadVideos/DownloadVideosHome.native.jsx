@@ -245,16 +245,16 @@ const CachedMovieImageBackground = ({ children, imageStyle, source, style }) => 
         colors={["#111827", "#1f2937", "#020617"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[StyleSheet.absoluteFillObject, imageStyle]}
+        style={[StyleSheet.absoluteFill, imageStyle]}
       />
       {uri ? (
         <ImageBackground
           source={{ uri }}
           resizeMode="cover"
           imageStyle={imageStyle}
-          style={StyleSheet.absoluteFillObject}
-          onLoad={() => setImageState("loaded")}
-          onError={() => setImageState("error")}
+          style={StyleSheet.absoluteFill}
+          onLoad={(e) => {setImageState("loaded")}}
+          onError={() => {console.log("Error loading image"); setImageState("error")}}
         />
       ) : null}
       {showLoading ? (
@@ -1493,7 +1493,7 @@ const styles = StyleSheet.create({
     opacity: 0.98,
   },
   movieImageLoadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "transparent",
@@ -1514,7 +1514,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   movieImageErrorOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(2, 6, 23, 0.56)",
@@ -1698,16 +1698,20 @@ const styles = StyleSheet.create({
   },
   posterImage: {
     flex: 1,
-    justifyContent: "space-between",
   },
   posterImageStyle: {
     borderRadius: 8,
   },
   posterTopRow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     padding: 9,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    zIndex: 2,
   },
   posterBadge: {
     borderRadius: 4,
@@ -1736,8 +1740,13 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   posterFooter: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     padding: 12,
     gap: 4,
+    zIndex: 2,
   },
   posterTitle: {
     color: "#fff",
@@ -1787,7 +1796,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   movieDialogGlassOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   movieDialogHeader: {
     alignItems: "center",
@@ -1972,7 +1981,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   drawerBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.44)",
   },
   bottomDrawer: {

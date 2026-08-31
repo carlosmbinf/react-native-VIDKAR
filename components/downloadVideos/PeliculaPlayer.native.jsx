@@ -1863,11 +1863,11 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   videoTapLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1,
   },
   playerLoadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
@@ -1879,7 +1879,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   playerOverlayCenter: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 18,
@@ -2019,7 +2019,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   fullscreenSubtitleOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.24)",
   },

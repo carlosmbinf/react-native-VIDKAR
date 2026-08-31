@@ -781,11 +781,11 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   peekOverlayScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(255,255,255,0.06)",
   },
   noPromoBackgroundOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(6, 16, 30, 0.52)",
   },
   imageBackgroundBorder: {
@@ -1012,11 +1012,11 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   peekPortalLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 999,
   },
   peekBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "#020617",
   },
   peekOverlayColumn: {
@@ -1064,7 +1064,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   peekTrayThumbScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(5, 12, 24, 0.2)",
   },
   peekTrayCopy: {

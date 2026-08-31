@@ -1023,7 +1023,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     backgroundColor: "rgba(15, 23, 42, 0.12)",
     justifyContent: "center",

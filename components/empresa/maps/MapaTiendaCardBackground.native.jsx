@@ -34,7 +34,7 @@ const MapaTiendaCardBackground = ({ children, tienda, fill = false, height = 164
   }
 
   const wrapperStyle = fill ? styles.wrapperFill : { height };
-  const mapStyle = fill ? StyleSheet.absoluteFillObject : [StyleSheet.absoluteFillObject, { minHeight: height }];
+  const mapStyle = fill ? StyleSheet.absoluteFill : [StyleSheet.absoluteFill, { minHeight: height }];
 
   return (
     <View style={[styles.wrapper, wrapperStyle]}>
@@ -62,11 +62,11 @@ const MapaTiendaCardBackground = ({ children, tienda, fill = false, height = 164
 
 const styles = StyleSheet.create({
   scrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(15, 23, 42, 0.16)",
   },
   overlayContent: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   wrapper: {
     width: "100%",

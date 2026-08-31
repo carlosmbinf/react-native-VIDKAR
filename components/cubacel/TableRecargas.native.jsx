@@ -1428,7 +1428,7 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   modalBackdropTint: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   dialogTitleContainer: {
     alignItems: "center",

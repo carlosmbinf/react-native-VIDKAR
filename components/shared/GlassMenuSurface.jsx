@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fallbackSurface: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderColor: "rgba(255,255,255,0.22)",
     borderRadius: 30,
     borderWidth: 1,

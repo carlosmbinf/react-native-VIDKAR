@@ -80,14 +80,14 @@ export const loginScreenStyles = StyleSheet.create({
     textTransform: "uppercase",
   },
   backgroundImage: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "#071120",
   },
   backgroundImageStyle: {
     opacity: 0.86,
   },
   backgroundOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   blurCard: {
     backgroundColor: "transparent",

@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     top: 16,
   },
   map: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   mapWrap: {
     borderRadius: 28,

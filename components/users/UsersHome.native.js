@@ -850,7 +850,7 @@ const UserListCard = ({
 const UsersHome = () => {
   const theme = useTheme();
   const headerInset = useAppHeaderContentInset();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const layout = useMemo(() => getUsersLayout(width), [width]);
   const canViewPushTokens = Meteor.useTracker(
     () => canAccessPushTokenDashboards(Meteor.user()),
@@ -1585,6 +1585,7 @@ const UsersHome = () => {
                 ]}
               >
                 <BlurView
+                  key={`${width}-${height}`}
                   blurMethod={
                     Platform.OS === "android" ? "dimezisBlurView" : undefined
                   }
@@ -1994,7 +1995,7 @@ const styles = StyleSheet.create({
   },
   loadingState: { flex: 1, justifyContent: "center", alignItems: "center" },
   peekPortalLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     flex: 1,
     zIndex: 999,
   },
@@ -2002,7 +2003,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   peekBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "#020617",
   },
   peekBackdropPressable: {
@@ -2039,7 +2040,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   peekMenuOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   peekHandle: {
     alignSelf: "center",

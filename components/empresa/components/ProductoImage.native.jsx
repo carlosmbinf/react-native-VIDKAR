@@ -97,7 +97,7 @@ const ProductoImage = ({ productoId, size = 104, fill = false, style = null }) =
 
 const styles = StyleSheet.create({
   fillLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   image: {
     borderRadius: 16,

@@ -1218,7 +1218,7 @@ const styles = StyleSheet.create({
     margin: 0,
   },
   deletingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     backgroundColor: "rgba(15, 23, 42, 0.12)",
     borderRadius: 24,

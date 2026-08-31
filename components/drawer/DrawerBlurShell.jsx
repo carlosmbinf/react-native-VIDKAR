@@ -1,11 +1,12 @@
 import { BlurView } from "expo-blur";
-import { Platform, StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Surface, useTheme } from "react-native-paper";
 
 import { appHeaderBlurTargetRef } from "../Header/appHeaderBlurTarget";
 
 const DrawerBlurShell = ({ children, overlayColor, style }) => {
   const theme = useTheme();
+  const { width, height } = useWindowDimensions();
   const resolvedOverlayColor =
     overlayColor ||
     (theme.dark
@@ -18,6 +19,7 @@ const DrawerBlurShell = ({ children, overlayColor, style }) => {
       style={[styles.shell, style]}
     >
       <BlurView
+        key={`${width}-${height}`}
         blurTarget={
           Platform.OS === "android" ? appHeaderBlurTargetRef : undefined
         }

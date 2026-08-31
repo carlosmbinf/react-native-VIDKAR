@@ -1,7 +1,7 @@
 import { BlurView } from "expo-blur";
 import { useIsFocused } from "expo-router/react-navigation";
 import React from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Appbar, Portal, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -62,6 +62,7 @@ const AppHeader = ({
   const theme = useTheme();
   const isFocused = useIsFocused();
   const canNavigateBack = useCanNavigateBack();
+  const { width, height } = useWindowDimensions();
   const safeBack = useSafeBack(backHref);
   const resolvedHeaderHeight = useAppHeaderContentInset(includeSafeAreaTop);
   const topInset = resolvedHeaderHeight - APP_HEADER_HEIGHT;
@@ -98,27 +99,31 @@ const AppHeader = ({
       />
     ) : null);
 
+  const headerStyle = [
+    styles.headerFrame,
+    (floating || portal) && styles.floatingHeader,
+    {
+      marginBottom: !floating && overlapContent ? -resolvedHeaderHeight : 0,
+      minHeight: resolvedHeaderHeight,
+      paddingTop: topInset,
+    },
+    containerStyle,
+  ];
+
   const headerNode = (
-    <BlurView
-      blurTarget={resolvedBlurTarget}
-      blurReductionFactor={4}
-      intensity={glassIntensity}
-      tint="dark"
-      blurMethod={
-        Platform.OS === "android" ? "dimezisBlurView" : undefined
-      }
-      renderToHardwareTextureAndroid={true}
-      style={[
-        styles.headerFrame,
-        (floating || portal) && styles.floatingHeader,
-        {
-          marginBottom: !floating && overlapContent ? -resolvedHeaderHeight : 0,
-          minHeight: resolvedHeaderHeight,
-          paddingTop: topInset,
-        },
-        containerStyle,
-      ]}
-    >
+    <View style={headerStyle}>
+      <BlurView
+        key={`${width}-${height}`}
+        blurTarget={resolvedBlurTarget}
+        blurReductionFactor={4}
+        intensity={glassIntensity}
+        tint="dark"
+        blurMethod={
+          Platform.OS === "android" ? "dimezisBlurView" : undefined
+        }
+        renderToHardwareTextureAndroid={true}
+        style={StyleSheet.absoluteFill}
+      />
       <View
         pointerEvents="none"
         style={[
@@ -175,7 +180,7 @@ const AppHeader = ({
           },
         ]}
       />
-    </BlurView>
+    </View>
   );
 
   if (!portal) {
@@ -212,10 +217,10 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   colorOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   sheenOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   header: {
     backgroundColor: "transparent",

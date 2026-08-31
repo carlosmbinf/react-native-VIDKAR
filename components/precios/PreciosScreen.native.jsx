@@ -1680,7 +1680,7 @@ const styles = StyleSheet.create({
     top: -24,
   },
   dialogGlassOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   dialogHeader: {
     alignItems: "center",

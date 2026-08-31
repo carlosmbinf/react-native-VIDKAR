@@ -1018,11 +1018,11 @@ const styles = StyleSheet.create({
     minHeight: 342,
   },
   storeHeroFade: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     top: "44%",
   },
   storeHeroTint: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   storeHeroContent: {
     flex: 1,
@@ -1058,7 +1058,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   contentFooterBlurOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   contentFooterBody: {
     gap: 10,

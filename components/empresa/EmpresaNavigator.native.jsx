@@ -148,7 +148,7 @@ const EmpresaNavigator = () => {
 
 const styles = StyleSheet.create({
   drawerOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(21, 15, 44, 0.38)",
   },
   drawerOverlayPressable: {

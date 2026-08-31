@@ -2,7 +2,6 @@ import { BlurView } from "expo-blur";
 import { useEffect, useRef, useState } from "react";
 import {
     Animated,
-    Dimensions,
     Modal,
     PanResponder,
     Platform,
@@ -10,6 +9,7 @@ import {
     StatusBar,
     StyleSheet,
     View,
+    useWindowDimensions,
 } from "react-native";
 import {
     Divider,
@@ -21,8 +21,6 @@ import {
 } from "react-native-paper";
 
 import { appHeaderBlurTargetRef } from "../Header/appHeaderBlurTarget";
-
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const DrawerBottom = ({
   actions = [],
@@ -37,10 +35,11 @@ const DrawerBottom = ({
   title,
 }) => {
   const theme = useTheme();
+  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const isBottom = side === "bottom";
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const translateY = useRef(new Animated.Value(screenHeight)).current;
   const [contentHeight, setContentHeight] = useState(0);
-  const maxSheetHeight = SCREEN_HEIGHT * 0.85;
+  const maxSheetHeight = screenHeight * 0.85;
   const sheetHeight = Math.min(contentHeight || maxSheetHeight, maxSheetHeight);
   const [mounted, setMounted] = useState(Boolean(open));
 
@@ -53,11 +52,11 @@ const DrawerBottom = ({
 
     if (open) {
       setMounted(true);
-      translateY.setValue(SCREEN_HEIGHT);
+      translateY.setValue(screenHeight);
     }
 
     Animated.timing(translateY, {
-      toValue: open ? 0 : SCREEN_HEIGHT,
+      toValue: open ? 0 : screenHeight,
       duration: open ? 260 : 220,
       useNativeDriver: true,
     }).start(({ finished }) => {
@@ -67,7 +66,17 @@ const DrawerBottom = ({
     });
 
     return () => translateY.stopAnimation();
-  }, [isBottom, open, translateY]);
+  }, [isBottom, open, screenHeight, screenWidth, translateY]);
+
+  useEffect(() => {
+    if (!isBottom || !mounted) {
+      return;
+    }
+
+    translateY.stopAnimation();
+    translateY.setValue(open ? 0 : screenHeight);
+    setContentHeight(0);
+  }, [isBottom, mounted, open, screenHeight, screenWidth, translateY]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -155,6 +164,7 @@ const DrawerBottom = ({
           >
             {theme.dark ? (
               <BlurView
+                key={`${screenWidth}-${screenHeight}-dark`}
                 blurTarget={Platform.OS === "android" ? appHeaderBlurTargetRef : undefined}
                 intensity={42}
                 tint="dark"
@@ -164,6 +174,7 @@ const DrawerBottom = ({
               />
             ) : (
               <BlurView
+                key={`${screenWidth}-${screenHeight}-light`}
                 blurTarget={Platform.OS === "android" ? appHeaderBlurTargetRef : undefined}
                 intensity={42}
                 tint="light"
@@ -232,7 +243,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   backdropPressable: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1000,
   },
   bottomContent: {
@@ -272,13 +283,13 @@ const styles = StyleSheet.create({
     paddingTop: 6,
   },
   portalContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: "flex-end",
     flex: 1,
     zIndex: 9999,
   },
   sheetTint: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   title: {
     flex: 1,

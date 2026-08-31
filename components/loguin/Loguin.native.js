@@ -8,7 +8,6 @@ import React, { useEffect, useState } from "react";
 import {
     Alert,
     Animated,
-    Dimensions,
     Easing,
     ImageBackground,
     Keyboard,
@@ -17,6 +16,7 @@ import {
     Platform,
     ScrollView,
     StyleSheet,
+    useWindowDimensions,
     View,
 } from "react-native";
 import { Button, Text, TextInput, useTheme } from "react-native-paper";
@@ -53,9 +53,6 @@ const ANDROID_LOGIN_KEYBOARD_OFFSET = 96;
 const PRIVACY_POLICY_URL = "https://www.vidkar.com/politica-privacidad";
 
 let cachedGoogleSignInModulePromise = null;
-
-const { width: screenWidth } = Dimensions.get("window");
-const { height: screenHeight } = Dimensions.get("window");
 
 const loadGoogleSignInModule = async () => {
   if (cachedGoogleSignInModulePromise) {
@@ -240,6 +237,7 @@ const LoginBlurCard = ({ children, palette }) => {
 };
 
 const Loguin = () => {
+  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const [ipserver, setIpserver] = useState(() => {
     const meteorUrl = getMeteorUrl() || "ws://www.vidkar.com:3000/websocket";
     return meteorUrl
@@ -249,11 +247,7 @@ const Loguin = () => {
   });
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [windowMetrics, setWindowMetrics] = useState({
-    height: screenHeight,
-    width: screenWidth,
-  });
-  const [isLandscape, setIsLandscape] = useState(screenWidth > screenHeight);
+  const isLandscape = screenWidth > screenHeight;
   const [showServerInput, setShowServerInput] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [connectingToServer, setConnectingToServer] = useState(false);
@@ -374,15 +368,6 @@ const Loguin = () => {
       }
     })();
 
-    const dimSub = Dimensions.addEventListener("change", ({ window }) => {
-      const { width, height } = window || {};
-      setWindowMetrics({ height, width });
-      setIsLandscape(width > height);
-    });
-
-    return () => {
-      dimSub?.remove?.();
-    };
   }, []);
 
   useEffect(() => {
@@ -848,7 +833,7 @@ const Loguin = () => {
     minWidth: "100%",
   };
 
-  const isLargeScreen = windowMetrics.width >= 980;
+  const isLargeScreen = screenWidth >= 980;
   const shouldUseSplitLayout = isLandscape || isLargeScreen;
 
   return (

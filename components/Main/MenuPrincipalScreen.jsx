@@ -1621,13 +1621,13 @@ const styles = StyleSheet.create({
     zIndex: 30,
   },
   backgroundImage: {
-    // ...StyleSheet.absoluteFillObject,
+    // ...StyleSheet.absoluteFill,
   },
   backgroundImageStyle: {
     opacity: 0.18,
   },
   backdrop: {
-    // ...StyleSheet.absoluteFillObject,
+    // ...StyleSheet.absoluteFill,
     // backgroundColor: "rgba(238, 242, 255, 0.94)",
   },
   scrollContent: {
@@ -2540,7 +2540,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   drawerOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   drawerOverlayPressable: {
     bottom: 0,

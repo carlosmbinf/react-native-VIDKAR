@@ -1,5 +1,5 @@
 import { BlurView } from "expo-blur";
-import { Platform, StyleSheet } from "react-native";
+import { Platform, StyleSheet, useWindowDimensions } from "react-native";
 import { useTheme } from "react-native-paper";
 
 import {
@@ -10,6 +10,7 @@ import { appHeaderBlurTargetRef } from "./appHeaderBlurTarget";
 
 const BlurMenuSurface = ({ children }) => {
   const theme = useTheme();
+  const { width, height } = useWindowDimensions();
   const blurTint = theme.dark ? "dark" : "light";
   const menuTintColor = theme.dark
     ? DARK_MENU_GLASS_TINT
@@ -17,6 +18,7 @@ const BlurMenuSurface = ({ children }) => {
 
   return (
     <BlurView
+      key={`${width}-${height}`}
       blurTarget={Platform.OS === "android" ? appHeaderBlurTargetRef : undefined}
       blurMethod={
         Platform.OS === "android" ? "dimezisBlurView" : undefined

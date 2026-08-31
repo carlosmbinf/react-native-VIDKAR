@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   dialogTint: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   dialogScrollArea: {
     borderBottomWidth: 0,

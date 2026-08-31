@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   pillAmbientLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: 0.5,
   },
   pillGlow: {

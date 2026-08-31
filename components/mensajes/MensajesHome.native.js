@@ -1554,10 +1554,10 @@ const styles = StyleSheet.create({
     zIndex: 12,
   },
   composerBlurLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   composerGlassOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   composerContent: {
     alignItems: "flex-end",

@@ -376,14 +376,14 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   backdropFade: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     top: "66%",
   },
   backdropTint: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   backgroundImage: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   card: {
     borderRadius: 26,
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   contentFooterBlurOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   contentFooterCompact: {
     borderRadius: 20,
@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
     width: 176,
   },
   mediaGlowWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   mediaHeaderRow: {
     alignItems: "center",

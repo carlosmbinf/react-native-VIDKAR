@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     color: "#dc2626",
   },
   mapOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   mapWrapper: {
     borderRadius: 18,
