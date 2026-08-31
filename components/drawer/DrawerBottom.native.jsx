@@ -53,30 +53,25 @@ const DrawerBottom = ({
     if (open) {
       setMounted(true);
       translateY.setValue(screenHeight);
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 260,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(translateY, {
+        toValue: screenHeight,
+        duration: 220,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          setMounted(false);
+        }
+      });
     }
-
-    Animated.timing(translateY, {
-      toValue: open ? 0 : screenHeight,
-      duration: open ? 260 : 220,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished && !open) {
-        setMounted(false);
-      }
-    });
 
     return () => translateY.stopAnimation();
-  }, [isBottom, open, screenHeight, screenWidth, translateY]);
-
-  useEffect(() => {
-    if (!isBottom || !mounted) {
-      return;
-    }
-
-    translateY.stopAnimation();
-    translateY.setValue(open ? 0 : screenHeight);
-    setContentHeight(0);
-  }, [isBottom, mounted, open, screenHeight, screenWidth, translateY]);
+  }, [isBottom, open, screenHeight, translateY]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -95,7 +90,13 @@ const DrawerBottom = ({
         }
 
         if (gestureState.dy > sheetHeight * 0.25 || gestureState.vy > 1.1) {
-          onClose?.();
+          Animated.timing(translateY, {
+            toValue: screenHeight,
+            duration: 180,
+            useNativeDriver: true,
+          }).start(() => {
+            onClose?.();
+          });
           return;
         }
 
@@ -115,9 +116,11 @@ const DrawerBottom = ({
   const headerNode = showHeader ? (
     <>
       <View style={[styles.header, headerStyle]}>
-        <Text style={styles.title} numberOfLines={1}>
-          {title}
-        </Text>
+        <View style={styles.headerTitleContainer} {...panResponder.panHandlers}>
+          <Text style={styles.title} numberOfLines={1}>
+            {title}
+          </Text>
+        </View>
         <View style={styles.actionsRow}>
           {actions.map((action, index) => (
             <IconButton
@@ -282,6 +285,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 6,
   },
+  headerTitleContainer: {
+    flex: 1,
+    paddingVertical: 6,
+  },
   portalContainer: {
     ...StyleSheet.absoluteFill,
     justifyContent: "flex-end",
@@ -292,7 +299,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
   },
   title: {
-    flex: 1,
     fontSize: 17,
     fontWeight: "600",
   },

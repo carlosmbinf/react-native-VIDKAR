@@ -1,9 +1,18 @@
 import MeteorBase from "@meteorrn/core";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Modal, Pressable, StatusBar, StyleSheet, useWindowDimensions, View } from "react-native";
+import {
+  Animated,
+  Modal,
+  PanResponder,
+  Platform,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { Portal, useTheme } from "react-native-paper";
-import { Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { resolveSessionRoute } from "../navigator/sessionRoute";
@@ -35,6 +44,11 @@ const EmpresaNavigator = () => {
   const [drawerMounted, setDrawerMounted] = useState(false);
   const translateX = useRef(new Animated.Value(-drawerWidth)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const drawerWidthRef = useRef(drawerWidth);
+
+  useEffect(() => {
+    drawerWidthRef.current = drawerWidth;
+  }, [drawerWidth]);
 
   useEffect(() => {
     if (!userId || !user) {
@@ -85,6 +99,49 @@ const EmpresaNavigator = () => {
 
   const closeDrawer = () => setDrawerOpen(false);
 
+  const drawerPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        gestureState.dx < -4 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+      onPanResponderGrant: () => {
+        translateX.stopAnimation();
+        overlayOpacity.stopAnimation();
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const currentDrawerWidth = drawerWidthRef.current;
+        const nextTranslateX = Math.max(
+          -currentDrawerWidth,
+          Math.min(0, gestureState.dx),
+        );
+
+        translateX.setValue(nextTranslateX);
+        overlayOpacity.setValue(1 - Math.abs(nextTranslateX) / currentDrawerWidth);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const currentDrawerWidth = drawerWidthRef.current;
+        const shouldClose =
+          -gestureState.dx > currentDrawerWidth * 0.25 || gestureState.vx < -1.1;
+
+        Animated.parallel([
+          Animated.timing(translateX, {
+            toValue: shouldClose ? -currentDrawerWidth : 0,
+            duration: shouldClose ? 180 : 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(overlayOpacity, {
+            toValue: shouldClose ? 0 : 1,
+            duration: shouldClose ? 160 : 180,
+            useNativeDriver: true,
+          }),
+        ]).start(({ finished }) => {
+          if (finished && shouldClose) {
+            closeDrawer();
+          }
+        });
+      },
+    }),
+  ).current;
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]} edges={[]}>
       <View style={[styles.screen, { backgroundColor: palette.background }]}> 
@@ -96,7 +153,10 @@ const EmpresaNavigator = () => {
               <View style={styles.drawerPortal}>
                 <Animated.View pointerEvents="none" style={[styles.drawerOverlay, { opacity: overlayOpacity }]} />
                 <Pressable accessibilityLabel="Cerrar menú" onPress={closeDrawer} style={styles.drawerOverlayPressable} />
-                <Animated.View style={[styles.drawerPanel, { borderRightColor: palette.border, maxWidth: drawerWidth, transform: [{ translateX }], width: drawerWidth }]}>
+                <Animated.View
+                  {...drawerPanResponder.panHandlers}
+                  style={[styles.drawerPanel, { borderRightColor: palette.border, maxWidth: drawerWidth, transform: [{ translateX }], width: drawerWidth }]}
+                >
                   <EmpresaDrawerContent onClose={closeDrawer} user={user} />
                 </Animated.View>
               </View>
@@ -126,6 +186,7 @@ const EmpresaNavigator = () => {
                 style={[styles.drawerOverlayPressable, { left: drawerWidth }]}
               />
               <Animated.View
+                {...drawerPanResponder.panHandlers}
                 style={[
                   styles.drawerPanel,
                   {

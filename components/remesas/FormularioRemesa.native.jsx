@@ -1,15 +1,18 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
 import { useEffect, useMemo, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
 import {
     Button,
-    Card,
+    Chip,
+    Divider,
     HelperText,
     IconButton,
+    Surface,
     Text,
     TextInput,
+    useTheme,
 } from "react-native-paper";
 
 const Meteor = MeteorBase;
@@ -26,6 +29,9 @@ const initialForm = {
 };
 
 const FormularioRemesa = () => {
+  const theme = useTheme();
+  const isDark = Boolean(theme?.dark);
+
   const [descuento, setDescuento] = useState(0);
   const [form, setForm] = useState(initialForm);
   const [isFocusMetodo, setIsFocusMetodo] = useState(false);
@@ -33,12 +39,36 @@ const FormularioRemesa = () => {
   const [open, setOpen] = useState(false);
   const [precioCUP, setPrecioCUP] = useState(0);
   const [properties, setProperties] = useState([]);
+  const [loadingProps, setLoadingProps] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const colors = useMemo(
+    () => ({
+      accent: isDark ? "#38bdf8" : "#0284c7",
+      background: isDark ? "rgba(15, 23, 42, 0.96)" : "#ffffff",
+      bannerBg: isDark ? "rgba(2, 132, 199, 0.12)" : "rgba(2, 132, 199, 0.08)",
+      bannerBorder: isDark ? "rgba(56, 189, 248, 0.28)" : "rgba(2, 132, 199, 0.22)",
+      border: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.08)",
+      chipBg: isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.04)",
+      dropdownBg: isDark ? "#1e293b" : "#ffffff",
+      inputBg: isDark ? "rgba(30, 41, 59, 0.6)" : "rgba(248, 250, 252, 0.9)",
+      muted: isDark ? "#94a3b8" : "#64748b",
+      primary: isDark ? "#60a5fa" : "#2563eb",
+      success: isDark ? "#4ade80" : "#16a34a",
+      successBg: isDark ? "rgba(34, 197, 94, 0.12)" : "rgba(34, 197, 94, 0.08)",
+      surface: isDark ? "#0f172a" : "#ffffff",
+      text: isDark ? "#f8fafc" : "#0f172a",
+    }),
+    [isDark],
+  );
 
   useEffect(() => {
+    setLoadingProps(true);
     Meteor.call(
       "property.get",
       ["REMESA", "PRECIO", "DESCUENTOS"],
       (error, result) => {
+        setLoadingProps(false);
         if (error) {
           console.error("Error al obtener propiedades:", error);
           return;
@@ -99,8 +129,15 @@ const FormularioRemesa = () => {
     }
   }, [properties]);
 
-  const valorEntregar =
-    Number(form.cobrarUSD || 0) * Number(precioCUP - descuento);
+  const tasaEfectiva = Math.max(0, Number(precioCUP - descuento));
+  const montoNumerico = Number(form.cobrarUSD || 0);
+  const valorEntregar = montoNumerico * tasaEfectiva;
+
+  const formatearNumero = (value) =>
+    Number(value || 0).toLocaleString("es-ES", {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 0,
+    });
 
   const formatearTarjeta = (value) => {
     const soloNumeros = String(value || "")
@@ -127,10 +164,14 @@ const FormularioRemesa = () => {
     });
   };
 
+  const handleQuickAmount = (amount) => {
+    handleChange("cobrarUSD", String(amount));
+  };
+
   const handleSubmit = () => {
     const userId = Meteor.userId();
     if (!userId) {
-      alert("Debe estar logueado para realizar esta acción.");
+      alert("Debe iniciar sesión para realizar esta acción.");
       return;
     }
 
@@ -147,7 +188,7 @@ const FormularioRemesa = () => {
     }
 
     if (form.monedaRecibirEnCuba === "CUP" && !form.metodoPago) {
-      errores.push("Debe seleccionar el método de pago.");
+      errores.push("Debe seleccionar el método de entrega.");
     }
 
     if (
@@ -162,15 +203,16 @@ const FormularioRemesa = () => {
 
     if (form.metodoPago === "EFECTIVO" || form.monedaRecibirEnCuba !== "CUP") {
       if (!form.direccionCuba?.trim()) {
-        errores.push("Debe indicar la dirección a entregar en Cuba.");
+        errores.push("Debe indicar la dirección de entrega en Cuba.");
       }
     }
 
     if (errores.length) {
-      alert(`Por favor corrija:\n- ${errores.join("\n- ")}`);
+      alert(`Por favor verifique los siguientes campos:\n- ${errores.join("\n- ")}`);
       return;
     }
 
+    setIsSubmitting(true);
     const nuevoCarrito = {
       cobrarUSD: form.cobrarUSD,
       comentario: form.comentario,
@@ -185,19 +227,20 @@ const FormularioRemesa = () => {
       monedaRecibirEnCuba: form.monedaRecibirEnCuba,
       nombre: form.nombre,
       precioDolar: precioCUP,
-      recibirEnCuba: Number(form.cobrarUSD) * Number(precioCUP - descuento),
+      recibirEnCuba: valorEntregar,
       tarjetaCUP: form.metodoPago === "TRANSFERENCIA" ? form.tarjetaCUP : "",
       type: "REMESA",
     };
 
     Meteor.call("insertarCarrito", nuevoCarrito, (error) => {
+      setIsSubmitting(false);
       if (error) {
         console.error("Error al insertar en el carrito:", error);
-        alert(`Error: ${error.reason}`);
+        alert(`Error: ${error.reason || "No se pudo añadir al carrito"}`);
         return;
       }
 
-      alert("✅ Remesa añadida al carrito");
+      alert("✅ Remesa añadida al carrito con éxito.");
       setForm(initialForm);
       setOpen(false);
     });
@@ -206,258 +249,547 @@ const FormularioRemesa = () => {
   const renderIcon = (iconName, focused) => (
     <MaterialCommunityIcons
       name={iconName}
-      size={20}
-      color={focused ? "#1976D2" : "#666"}
+      size={18}
+      color={focused ? colors.primary : colors.muted}
       style={styles.dropdownIcon}
     />
   );
 
   return (
-    <View style={styles.container}>
-      <Card style={styles.card} elevation={5} mode="outlined">
-        <Card.Title
-          title={open ? "Formulario de Remesa" : "Agregar nueva remesa"}
-          right={(props) => (
+    <Surface
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
+      ]}
+      elevation={1}
+    >
+      <Pressable
+        onPress={() => setOpen((current) => !current)}
+        style={styles.headerPressable}
+        android_ripple={{ color: colors.chipBg }}
+      >
+        <View style={styles.headerLeft}>
+          <View
+            style={[
+              styles.iconWrapper,
+              { backgroundColor: open ? colors.bannerBg : colors.chipBg },
+            ]}
+          >
             <IconButton
-              {...props}
-              icon={open ? "chevron-up" : "plus"}
-              onPress={() => setOpen((current) => !current)}
+              icon={open ? "currency-usd" : "send-outline"}
+              size={20}
+              iconColor={colors.primary}
+              style={styles.zeroMargin}
             />
-          )}
+          </View>
+          <View style={styles.headerTextCol}>
+            <Text
+              variant="titleMedium"
+              style={[styles.headerTitle, { color: colors.text }]}
+            >
+              {open ? "Nueva Remesa a Cuba" : "Enviar nueva remesa"}
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={[styles.headerSubtitle, { color: colors.muted }]}
+            >
+              Calcula la tasa en vivo y añade directamente a tu carrito
+            </Text>
+          </View>
+        </View>
+        <IconButton
+          icon={open ? "chevron-up" : "plus"}
+          size={22}
+          iconColor={colors.primary}
+          style={styles.zeroMargin}
         />
-        {open ? (
-          <Card.Content>
-            <TextInput
-              label="Nombre del destinatario"
-              value={form.nombre}
-              onChangeText={(value) => handleChange("nombre", value)}
-              style={styles.input}
-              mode="outlined"
-              dense
-            />
+      </Pressable>
 
+      {open ? (
+        <View style={styles.formContainer}>
+          <Divider style={[styles.formDivider, { backgroundColor: colors.border }]} />
+
+          {/* Destinatario */}
+          <Text variant="labelLarge" style={[styles.fieldSectionLabel, { color: colors.text }]}>
+            1. Destinatario en Cuba
+          </Text>
+
+          <TextInput
+            label="Nombre y Apellidos completos"
+            value={form.nombre}
+            onChangeText={(value) => handleChange("nombre", value)}
+            style={[styles.input, { backgroundColor: colors.inputBg }]}
+            mode="outlined"
+            placeholder="Ej. Juan Pérez González"
+            outlineColor={colors.border}
+            activeOutlineColor={colors.primary}
+            left={<TextInput.Icon icon="account-outline" color={colors.muted} />}
+          />
+
+          {/* Moneda y Método */}
+          <Text
+            variant="labelLarge"
+            style={[styles.fieldSectionLabel, { color: colors.text, marginTop: 8 }]}
+          >
+            2. Moneda y Entrega
+          </Text>
+
+          <View style={styles.dropdownContainer}>
+            <Text style={[styles.dropdownLabel, { color: colors.muted }]}>
+              Moneda a recibir en Cuba
+            </Text>
+            <Dropdown
+              style={[
+                styles.dropdown,
+                {
+                  backgroundColor: colors.inputBg,
+                  borderColor: isFocusMoneda ? colors.primary : colors.border,
+                },
+              ]}
+              placeholderStyle={[styles.placeholderStyle, { color: colors.muted }]}
+              selectedTextStyle={[styles.selectedTextStyle, { color: colors.text }]}
+              inputSearchStyle={styles.inputSearchStyle}
+              keyboardAvoiding
+              containerStyle={[
+                styles.containerStyle,
+                { backgroundColor: colors.dropdownBg, borderColor: colors.border },
+              ]}
+              iconStyle={styles.iconStyle}
+              data={monedas}
+              search
+              maxHeight={200}
+              labelField="label"
+              valueField="value"
+              placeholder={!isFocusMoneda ? "Selecciona moneda..." : "..."}
+              searchPlaceholder="Buscar moneda..."
+              value={form.monedaRecibirEnCuba}
+              onFocus={() => setIsFocusMoneda(true)}
+              onBlur={() => setIsFocusMoneda(false)}
+              onChange={(item) => {
+                handleChange("monedaRecibirEnCuba", item.value);
+                setIsFocusMoneda(false);
+              }}
+              renderLeftIcon={() => renderIcon("cash-multiple", isFocusMoneda)}
+            />
+          </View>
+
+          {form.monedaRecibirEnCuba === "CUP" ? (
             <View style={styles.dropdownContainer}>
-              <Text style={styles.dropdownLabel}>Moneda a cobrar en Cuba</Text>
+              <Text style={[styles.dropdownLabel, { color: colors.muted }]}>
+                Método de pago / entrega
+              </Text>
               <Dropdown
                 style={[
                   styles.dropdown,
-                  isFocusMoneda && styles.dropdownFocused,
+                  {
+                    backgroundColor: colors.inputBg,
+                    borderColor: isFocusMetodo ? colors.primary : colors.border,
+                  },
                 ]}
-                placeholderStyle={styles.placeholderStyle}
-                selectedTextStyle={styles.selectedTextStyle}
+                placeholderStyle={[styles.placeholderStyle, { color: colors.muted }]}
+                selectedTextStyle={[styles.selectedTextStyle, { color: colors.text }]}
                 inputSearchStyle={styles.inputSearchStyle}
                 keyboardAvoiding
-                containerStyle={styles.containerStyle}
+                containerStyle={[
+                  styles.containerStyle,
+                  { backgroundColor: colors.dropdownBg, borderColor: colors.border },
+                ]}
                 iconStyle={styles.iconStyle}
-                data={monedas}
+                data={metodosPagoCUP}
                 search
                 maxHeight={200}
                 labelField="label"
                 valueField="value"
-                placeholder={!isFocusMoneda ? "Seleccione moneda..." : "..."}
+                placeholder={!isFocusMetodo ? "Selecciona método..." : "..."}
                 searchPlaceholder="Buscar..."
-                value={form.monedaRecibirEnCuba}
-                onFocus={() => setIsFocusMoneda(true)}
-                onBlur={() => setIsFocusMoneda(false)}
+                value={form.metodoPago}
+                onFocus={() => setIsFocusMetodo(true)}
+                onBlur={() => setIsFocusMetodo(false)}
                 onChange={(item) => {
-                  handleChange("monedaRecibirEnCuba", item.value);
-                  setIsFocusMoneda(false);
+                  handleChange("metodoPago", item.value);
+                  setIsFocusMetodo(false);
                 }}
-                renderLeftIcon={() =>
-                  renderIcon("cash-multiple", isFocusMoneda)
-                }
+                renderLeftIcon={() => renderIcon("credit-card-outline", isFocusMetodo)}
               />
             </View>
+          ) : null}
 
-            {form.monedaRecibirEnCuba === "CUP" ? (
-              <View style={styles.dropdownContainer}>
-                <Text style={styles.dropdownLabel}>Método de pago</Text>
-                <Dropdown
-                  style={[
-                    styles.dropdown,
-                    isFocusMetodo && styles.dropdownFocused,
-                  ]}
-                  placeholderStyle={styles.placeholderStyle}
-                  selectedTextStyle={styles.selectedTextStyle}
-                  inputSearchStyle={styles.inputSearchStyle}
-                  keyboardAvoiding
-                  containerStyle={styles.containerStyle}
-                  iconStyle={styles.iconStyle}
-                  data={metodosPagoCUP}
-                  search
-                  maxHeight={200}
-                  labelField="label"
-                  valueField="value"
-                  placeholder={!isFocusMetodo ? "Seleccione método..." : "..."}
-                  searchPlaceholder="Buscar..."
-                  value={form.metodoPago}
-                  onFocus={() => setIsFocusMetodo(true)}
-                  onBlur={() => setIsFocusMetodo(false)}
-                  onChange={(item) => {
-                    handleChange("metodoPago", item.value);
-                    setIsFocusMetodo(false);
-                  }}
-                  renderLeftIcon={() =>
-                    renderIcon("credit-card-outline", isFocusMetodo)
-                  }
-                />
-              </View>
-            ) : null}
-
-            {form.monedaRecibirEnCuba !== "CUP" && form.monedaRecibirEnCuba ? (
-              <Text style={styles.info}>
-                Método de pago: <Text style={styles.bold}>EFECTIVO</Text> (único
-                disponible)
+          {form.monedaRecibirEnCuba && form.monedaRecibirEnCuba !== "CUP" ? (
+            <Surface
+              style={[
+                styles.infoBadge,
+                { backgroundColor: colors.bannerBg, borderColor: colors.bannerBorder },
+              ]}
+              elevation={0}
+            >
+              <IconButton
+                icon="information-outline"
+                size={18}
+                iconColor={colors.accent}
+                style={styles.zeroMargin}
+              />
+              <Text style={[styles.infoBadgeText, { color: colors.text }]}>
+                Método de entrega: <Text style={styles.bold}>EFECTIVO</Text> en domicilio.
               </Text>
-            ) : null}
+            </Surface>
+          ) : null}
 
-            <TextInput
-              label="Monto a enviar en USD"
-              value={form.cobrarUSD}
-              onChangeText={(value) => handleChange("cobrarUSD", value)}
-              style={styles.input}
-              mode="outlined"
-              dense
-              keyboardType="numeric"
-            />
+          {/* Monto e importe */}
+          <Text
+            variant="labelLarge"
+            style={[styles.fieldSectionLabel, { color: colors.text, marginTop: 8 }]}
+          >
+            3. Monto y Cálculo
+          </Text>
 
-            <HelperText type="info" visible={Boolean(valorEntregar)}>
-              Valor a entregar en Cuba:{" "}
-              {Number.isFinite(Number(valorEntregar))
-                ? valorEntregar.toFixed(2)
-                : 0}{" "}
-              {form.monedaRecibirEnCuba}
+          <TextInput
+            label="Monto a enviar (USD)"
+            value={form.cobrarUSD}
+            onChangeText={(value) => handleChange("cobrarUSD", value)}
+            style={[styles.input, { backgroundColor: colors.inputBg }]}
+            mode="outlined"
+            keyboardType="numeric"
+            placeholder="0.00"
+            outlineColor={colors.border}
+            activeOutlineColor={colors.primary}
+            left={<TextInput.Icon icon="currency-usd" color={colors.muted} />}
+          />
+
+          {/* Chips de montos rápidos */}
+          <View style={styles.quickAmountsRow}>
+            {[50, 100, 150, 200, 300].map((amt) => (
+              <Chip
+                key={amt}
+                compact
+                onPress={() => handleQuickAmount(amt)}
+                style={[
+                  styles.quickChip,
+                  {
+                    backgroundColor:
+                      form.cobrarUSD === String(amt)
+                        ? colors.bannerBg
+                        : colors.chipBg,
+                    borderColor:
+                      form.cobrarUSD === String(amt)
+                        ? colors.primary
+                        : colors.border,
+                  },
+                ]}
+                textStyle={{
+                  color:
+                    form.cobrarUSD === String(amt)
+                      ? colors.primary
+                      : colors.muted,
+                  fontSize: 11,
+                  fontWeight: "600",
+                }}
+              >
+                ${amt}
+              </Chip>
+            ))}
+          </View>
+
+          {/* Banner con desglose en vivo */}
+          {form.monedaRecibirEnCuba ? (
+            <Surface
+              style={[
+                styles.calculationCard,
+                {
+                  backgroundColor: colors.bannerBg,
+                  borderColor: colors.bannerBorder,
+                },
+              ]}
+              elevation={0}
+            >
+              <View style={styles.calcRow}>
+                <Text style={[styles.calcLabel, { color: colors.muted }]}>
+                  Tasa de cambio:
+                </Text>
+                <Text style={[styles.calcValue, { color: colors.text }]}>
+                  1 USD = {formatearNumero(tasaEfectiva)} {form.monedaRecibirEnCuba}
+                </Text>
+              </View>
+
+              {descuento > 0 ? (
+                <View style={styles.calcRow}>
+                  <Text style={[styles.calcLabel, { color: colors.muted }]}>
+                    Descuento aplicado:
+                  </Text>
+                  <Text style={[styles.calcValue, { color: colors.success }]}>
+                    -{formatearNumero(descuento)} {form.monedaRecibirEnCuba}
+                  </Text>
+                </View>
+              ) : null}
+
+              <Divider style={[styles.calcDivider, { backgroundColor: colors.bannerBorder }]} />
+
+              <View style={styles.calcTotalRow}>
+                <Text style={[styles.calcTotalLabel, { color: colors.text }]}>
+                  El destinatario recibe:
+                </Text>
+                <Text style={[styles.calcTotalValue, { color: colors.primary }]}>
+                  {valorEntregar > 0
+                    ? `${valorEntregar.toLocaleString("es-ES", {
+                        maximumFractionDigits: 2,
+                        minimumFractionDigits: 2,
+                      })} ${form.monedaRecibirEnCuba}`
+                    : `0.00 ${form.monedaRecibirEnCuba}`}
+                </Text>
+              </View>
+            </Surface>
+          ) : (
+            <HelperText type="info" visible style={{ color: colors.muted }}>
+              💡 Selecciona una moneda para ver la tasa de cambio en vivo.
             </HelperText>
+          )}
 
-            {form.metodoPago === "TRANSFERENCIA" &&
-            form.monedaRecibirEnCuba === "CUP" ? (
+          {/* Datos según método */}
+          {form.metodoPago === "TRANSFERENCIA" &&
+          form.monedaRecibirEnCuba === "CUP" ? (
+            <View style={{ marginTop: 8 }}>
               <TextInput
-                label="Número de tarjeta CUP"
+                label="Número de tarjeta CUP (16 dígitos)"
                 value={form.tarjetaCUP}
                 onChangeText={(value) => handleChange("tarjetaCUP", value)}
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.inputBg }]}
                 mode="outlined"
-                dense
                 keyboardType="numeric"
-                placeholder="0000 0000 0000 0000"
+                maxLength={19}
+                placeholder="9225 XXXX XXXX XXXX"
+                outlineColor={colors.border}
+                activeOutlineColor={colors.primary}
+                left={<TextInput.Icon icon="credit-card-outline" color={colors.muted} />}
               />
-            ) : null}
+            </View>
+          ) : null}
 
-            {form.metodoPago === "EFECTIVO" ||
-            form.monedaRecibirEnCuba !== "CUP" ? (
+          {form.metodoPago === "EFECTIVO" ||
+          (form.monedaRecibirEnCuba && form.monedaRecibirEnCuba !== "CUP") ? (
+            <View style={{ marginTop: 8 }}>
               <TextInput
-                label="Dirección en Cuba"
+                label="Dirección de entrega en Cuba"
                 value={form.direccionCuba}
                 onChangeText={(value) => handleChange("direccionCuba", value)}
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.inputBg }]}
                 mode="outlined"
-                dense
                 multiline
                 numberOfLines={2}
+                placeholder="Calle, número, entrecalles, municipio y provincia..."
+                outlineColor={colors.border}
+                activeOutlineColor={colors.primary}
+                left={<TextInput.Icon icon="map-marker-outline" color={colors.muted} />}
               />
-            ) : null}
+            </View>
+          ) : null}
 
-            <TextInput
-              label="Comentario (opcional)"
-              value={form.comentario}
-              onChangeText={(value) => handleChange("comentario", value)}
-              style={styles.input}
-              mode="outlined"
-              dense
-              multiline
-              numberOfLines={3}
-            />
+          <TextInput
+            label="Comentario o nota adicional (opcional)"
+            value={form.comentario}
+            onChangeText={(value) => handleChange("comentario", value)}
+            style={[styles.input, { backgroundColor: colors.inputBg, marginTop: 8 }]}
+            mode="outlined"
+            multiline
+            numberOfLines={2}
+            placeholder="Instrucciones especiales para el repartidor o receptor..."
+            outlineColor={colors.border}
+            activeOutlineColor={colors.primary}
+            left={<TextInput.Icon icon="note-text-outline" color={colors.muted} />}
+          />
 
-            <Button
-              mode="contained"
-              onPress={handleSubmit}
-              style={styles.submitButton}
-            >
-              Agregar al carrito
-            </Button>
-          </Card.Content>
-        ) : null}
-      </Card>
-    </View>
+          <Button
+            mode="contained"
+            onPress={handleSubmit}
+            loading={isSubmitting}
+            disabled={isSubmitting || loadingProps}
+            icon="cart-plus"
+            style={[styles.submitButton, { backgroundColor: colors.primary }]}
+            contentStyle={styles.submitButtonContent}
+            labelStyle={styles.submitButtonLabel}
+          >
+            Añadir Remesa al Carrito
+          </Button>
+        </View>
+      ) : null}
+    </Surface>
   );
 };
 
 const styles = StyleSheet.create({
   bold: {
-    fontWeight: "bold",
+    fontWeight: "700",
+  },
+  calcDivider: {
+    marginVertical: 6,
+  },
+  calcLabel: {
+    fontSize: 12,
+  },
+  calcRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  calcTotalLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  calcTotalRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 2,
+  },
+  calcTotalValue: {
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  calcValue: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  calculationCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    marginVertical: 10,
+    padding: 12,
   },
   card: {
-    borderRadius: 20,
-    margin: 16,
-    maxWidth: 400,
-  },
-  container: {
-    justifyContent: "center",
-    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    overflow: "hidden",
   },
   containerStyle: {
-    borderRadius: 20,
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-    flex: 1,
-    top: -50,
+    borderRadius: 12,
+    borderWidth: 1,
+    elevation: 4,
+    marginTop: 4,
   },
   dropdown: {
-    backgroundColor: "transparent",
-    borderColor: "#999",
-    borderRadius: 4,
+    borderRadius: 10,
     borderWidth: 1,
-    height: 40,
+    height: 46,
     paddingHorizontal: 12,
   },
   dropdownContainer: {
-    marginBottom: 16,
-  },
-  dropdownFocused: {
-    borderColor: "#1976D2",
-    borderWidth: 2,
+    marginBottom: 12,
   },
   dropdownIcon: {
     marginRight: 8,
   },
   dropdownLabel: {
-    color: "#666",
     fontSize: 12,
-    fontWeight: "500",
-    marginBottom: 4,
-    marginLeft: 4,
+    fontWeight: "600",
+    marginBottom: 6,
+    marginLeft: 2,
+  },
+  fieldSectionLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  formContainer: {
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+  },
+  formDivider: {
+    marginBottom: 16,
+  },
+  headerLeft: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: 12,
+  },
+  headerPressable: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  headerTextCol: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 15,
+    fontWeight: "700",
   },
   iconStyle: {
-    height: 20,
-    width: 20,
+    height: 18,
+    width: 18,
   },
-  info: {
-    color: "gray",
-    fontSize: 14,
-    marginBottom: 16,
-    marginVertical: 8,
+  iconWrapper: {
+    alignItems: "center",
+    borderRadius: 12,
+    height: 38,
+    justifyContent: "center",
+    width: 38,
+  },
+  infoBadge: {
+    alignItems: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    marginBottom: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  infoBadgeText: {
+    flex: 1,
+    fontSize: 12,
   },
   input: {
-    borderRadius: 20,
-    marginBottom: 12,
+    borderRadius: 10,
+    fontSize: 14,
+    marginBottom: 10,
   },
   inputSearchStyle: {
     borderRadius: 8,
-    fontSize: 14,
-    height: 40,
+    fontSize: 13,
+    height: 38,
   },
   placeholderStyle: {
-    color: "#999",
-    fontSize: 14,
+    fontSize: 13,
+  },
+  quickAmountsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 10,
+    marginTop: -4,
+  },
+  quickChip: {
+    borderRadius: 8,
+    borderWidth: 1,
   },
   selectedTextStyle: {
-    color: "#333",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
   },
   submitButton: {
-    borderRadius: 10,
-    marginTop: 16,
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  submitButtonContent: {
+    height: 46,
+  },
+  submitButtonLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  zeroMargin: {
+    margin: 0,
   },
 });
 

@@ -8,6 +8,7 @@ import {
     ImageBackground,
     InteractionManager,
     Modal,
+    PanResponder,
     Platform,
     Pressable,
     RefreshControl,
@@ -404,6 +405,48 @@ const MenuPrincipalScreen = ({
   const closeDrawer = () => {
     setDrawerOpen(false);
   };
+
+  const drawerPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        gestureState.dx < -4 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+      onPanResponderGrant: () => {
+        translateX.stopAnimation();
+        overlayOpacity.stopAnimation();
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const nextTranslateX = Math.max(
+          -DRAWER_WIDTH,
+          Math.min(0, gestureState.dx),
+        );
+        const progress = 1 - Math.abs(nextTranslateX) / DRAWER_WIDTH;
+
+        translateX.setValue(nextTranslateX);
+        overlayOpacity.setValue(progress);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const shouldClose =
+          -gestureState.dx > DRAWER_WIDTH * 0.25 || gestureState.vx < -1.1;
+
+        Animated.parallel([
+          Animated.timing(translateX, {
+            toValue: shouldClose ? -DRAWER_WIDTH : 0,
+            duration: shouldClose ? 180 : 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(overlayOpacity, {
+            toValue: shouldClose ? 0 : 1,
+            duration: shouldClose ? 160 : 180,
+            useNativeDriver: true,
+          }),
+        ]).start(({ finished }) => {
+          if (finished && shouldClose) {
+            closeDrawer();
+          }
+        });
+      },
+    }),
+  ).current;
 
   useEffect(() => {
     if (!heroCardSize.width || !heroCardSize.height) {
@@ -1541,7 +1584,7 @@ const MenuPrincipalScreen = ({
               <View style={styles.drawerPortal}>
                 <Animated.View style={[styles.drawerOverlay, { opacity: overlayOpacity }]} pointerEvents="none" />
                 <Pressable accessibilityLabel="Cerrar menú" onPress={closeDrawer} style={styles.drawerOverlayPressable} />
-                <Animated.View style={[styles.drawerPanel, { transform: [{ translateX }] }]}>
+                <Animated.View {...drawerPanResponder.panHandlers} style={[styles.drawerPanel, { transform: [{ translateX }] }]}>
                   <RenderTraceBlock name="DrawerOptionsAlls" payload={{ drawerOpen }} style={styles.drawerTraceBlock}>
                     <DrawerOptionsAlls
                       user={user}
@@ -1581,6 +1624,7 @@ const MenuPrincipalScreen = ({
                 style={styles.drawerOverlayPressable}
               />
               <Animated.View
+                {...drawerPanResponder.panHandlers}
                 style={[styles.drawerPanel, { transform: [{ translateX }] }]}
               >
                 <RenderTraceBlock

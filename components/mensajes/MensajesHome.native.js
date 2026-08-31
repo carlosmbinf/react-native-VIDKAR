@@ -1,5 +1,5 @@
 import MeteorBase from "@meteorrn/core";
-import { BlurView } from "expo-blur";
+import { BlurTargetView, BlurView } from "expo-blur";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, usePathname } from "expo-router";
@@ -10,13 +10,14 @@ import {
     Dimensions,
     FlatList,
     Image,
-    Keyboard,
     KeyboardAvoidingView,
     Linking,
     Platform,
     StyleSheet,
+    TextInput as RNTextInput,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
     ActivityIndicator,
     Avatar,
@@ -24,7 +25,6 @@ import {
     Menu,
     Surface,
     Text,
-    TextInput,
 } from "react-native-paper";
 
 import { buildMeteorHttpBaseUrl } from "../../services/meteor/evidenceImages";
@@ -242,94 +242,94 @@ const getInitials = (label) => {
 const getConversationPalette = (isDark) => {
   if (isDark) {
     return {
-      screen: "#020617",
-      headerBackground: "#0f172a",
-      backgroundTop: "#0b1220",
-      backgroundBottom: "#020617",
-      heroBackground: "rgba(15, 23, 42, 0.82)",
-      heroBorder: "rgba(148, 163, 184, 0.18)",
-      heroMuted: "#94a3b8",
-      heroStrong: "#f8fafc",
-      heroAccent: "#c7d2fe",
-      timelineBackground: "rgba(15, 23, 42, 0.76)",
-      timelineBorder: "rgba(148, 163, 184, 0.16)",
-      ownBubble: "#4f46e5",
-      ownBubbleBorder: "rgba(199, 210, 254, 0.18)",
-      otherBubble: "rgba(15, 23, 42, 0.94)",
-      otherBubbleBorder: "rgba(148, 163, 184, 0.2)",
-      ownText: "#ffffff",
-      otherText: "#e2e8f0",
-      ownMeta: "rgba(255, 255, 255, 0.74)",
-      otherMeta: "#94a3b8",
-      senderName: "#c7d2fe",
-      datePillBackground: "rgba(30, 41, 59, 0.88)",
-      datePillBorder: "rgba(99, 102, 241, 0.22)",
-      datePillText: "#cbd5f5",
-      emptyIconBackground: "rgba(79, 70, 229, 0.16)",
-      emptyIcon: "#c7d2fe",
-      title: "#f8fafc",
-      subtitle: "#cbd5e1",
-      subtle: "#94a3b8",
-      inputBackground: "rgba(15, 23, 42, 0.9)",
-      inputBorder: "rgba(99, 102, 241, 0.22)",
-      inputText: "#f8fafc",
-      inputPlaceholder: "#94a3b8",
-      composerBackground: "rgba(2, 6, 23, 0.34)",
-      composerBorder: "rgba(148, 163, 184, 0.14)",
-      sendBackground: "#4f46e5",
-      sendDisabledBackground: "rgba(51, 65, 85, 0.72)",
+      screen: "#030712",
+      headerBackground: "#0b0f19",
+      backgroundTop: "#0b0f19",
+      backgroundBottom: "#030712",
+      heroBackground: "rgba(17, 24, 39, 0.8)",
+      heroBorder: "rgba(255, 255, 255, 0.08)",
+      heroMuted: "#9ca3af",
+      heroStrong: "#f9fafb",
+      heroAccent: "#93c5fd",
+      timelineBackground: "rgba(17, 24, 39, 0.7)",
+      timelineBorder: "rgba(255, 255, 255, 0.06)",
+      ownBubble: "#1e3a8a",
+      ownBubbleBorder: "rgba(96, 165, 250, 0.25)",
+      otherBubble: "#111827",
+      otherBubbleBorder: "rgba(255, 255, 255, 0.08)",
+      ownText: "#f0f9ff",
+      otherText: "#f3f4f6",
+      ownMeta: "rgba(224, 242, 254, 0.65)",
+      otherMeta: "#9ca3af",
+      senderName: "#93c5fd",
+      datePillBackground: "rgba(17, 24, 39, 0.85)",
+      datePillBorder: "rgba(255, 255, 255, 0.08)",
+      datePillText: "#cbd5e1",
+      emptyIconBackground: "rgba(37, 99, 235, 0.12)",
+      emptyIcon: "#93c5fd",
+      title: "#f9fafb",
+      subtitle: "#9ca3af",
+      subtle: "#6b7280",
+      inputBackground: "rgba(255, 255, 255, 0.08)",
+      inputBorder: "rgba(255, 255, 255, 0.12)",
+      inputText: "#f9fafb",
+      inputPlaceholder: "#9ca3af",
+      composerBackground: "transparent",
+      composerBorder: "rgba(255, 255, 255, 0.08)",
+      sendBackground: "#2563eb",
+      sendDisabledBackground: "rgba(31, 41, 55, 0.6)",
       sendIcon: "#ffffff",
-      sendDisabledIcon: "#64748b",
-      separator: "rgba(148, 163, 184, 0.08)",
-      infoPillBackground: "rgba(79, 70, 229, 0.14)",
-      infoPillText: "#c7d2fe",
+      sendDisabledIcon: "#6b7280",
+      separator: "rgba(255, 255, 255, 0.06)",
+      infoPillBackground: "rgba(37, 99, 235, 0.12)",
+      infoPillText: "#93c5fd",
       shadow: "#000000",
     };
   }
 
   return {
-    screen: "#eef4ff",
+    screen: "#f8fafc",
     headerBackground: "#0f172a",
-    backgroundTop: "#e6eeff",
-    backgroundBottom: "#f8fbff",
-    heroBackground: "rgba(255, 255, 255, 0.94)",
-    heroBorder: "rgba(99, 102, 241, 0.14)",
+    backgroundTop: "#f1f5f9",
+    backgroundBottom: "#f8fafc",
+    heroBackground: "rgba(255, 255, 255, 0.95)",
+    heroBorder: "rgba(0, 0, 0, 0.06)",
     heroMuted: "#64748b",
     heroStrong: "#0f172a",
-    heroAccent: "#3730a3",
+    heroAccent: "#2563eb",
     timelineBackground: "rgba(255, 255, 255, 0.92)",
-    timelineBorder: "rgba(99, 102, 241, 0.1)",
-    ownBubble: "#4f46e5",
-    ownBubbleBorder: "rgba(79, 70, 229, 0.16)",
+    timelineBorder: "rgba(0, 0, 0, 0.05)",
+    ownBubble: "#2563eb",
+    ownBubbleBorder: "rgba(37, 99, 235, 0.3)",
     otherBubble: "#ffffff",
-    otherBubbleBorder: "rgba(99, 102, 241, 0.12)",
+    otherBubbleBorder: "rgba(0, 0, 0, 0.07)",
     ownText: "#ffffff",
     otherText: "#0f172a",
-    ownMeta: "rgba(255, 255, 255, 0.72)",
-    otherMeta: "#64748b",
-    senderName: "#3730a3",
-    datePillBackground: "rgba(224, 231, 255, 0.92)",
-    datePillBorder: "rgba(99, 102, 241, 0.18)",
-    datePillText: "#4338ca",
-    emptyIconBackground: "rgba(79, 70, 229, 0.1)",
-    emptyIcon: "#4338ca",
+    ownMeta: "rgba(255, 255, 255, 0.75)",
+    otherMeta: "#94a3b8",
+    senderName: "#2563eb",
+    datePillBackground: "rgba(255, 255, 255, 0.9)",
+    datePillBorder: "rgba(0, 0, 0, 0.08)",
+    datePillText: "#475569",
+    emptyIconBackground: "rgba(37, 99, 235, 0.08)",
+    emptyIcon: "#2563eb",
     title: "#0f172a",
-    subtitle: "#475569",
-    subtle: "#64748b",
-    inputBackground: "#ffffff",
-    inputBorder: "rgba(99, 102, 241, 0.16)",
+    subtitle: "#64748b",
+    subtle: "#94a3b8",
+    inputBackground: "rgba(0, 0, 0, 0.04)",
+    inputBorder: "rgba(0, 0, 0, 0.08)",
     inputText: "#0f172a",
-    inputPlaceholder: "#64748b",
-    composerBackground: "rgba(255, 255, 255, 0.5)",
-    composerBorder: "rgba(99, 102, 241, 0.12)",
-    sendBackground: "#4f46e5",
-    sendDisabledBackground: "rgba(203, 213, 225, 0.9)",
+    inputPlaceholder: "#94a3b8",
+    composerBackground: "transparent",
+    composerBorder: "rgba(0, 0, 0, 0.06)",
+    sendBackground: "#2563eb",
+    sendDisabledBackground: "rgba(226, 232, 240, 0.8)",
     sendIcon: "#ffffff",
     sendDisabledIcon: "#94a3b8",
-    separator: "rgba(99, 102, 241, 0.08)",
-    infoPillBackground: "rgba(79, 70, 229, 0.08)",
-    infoPillText: "#4338ca",
-    shadow: "rgba(15, 23, 42, 0.18)",
+    separator: "rgba(0, 0, 0, 0.05)",
+    infoPillBackground: "rgba(37, 99, 235, 0.08)",
+    infoPillText: "#2563eb",
+    shadow: "rgba(15, 23, 42, 0.08)",
   };
 };
 
@@ -343,18 +343,14 @@ class MensajesHomeScreen extends React.Component {
       isDarkMode: Appearance?.getColorScheme?.() === "dark",
       isSending: false,
       isUploadingImage: false,
-      keyboardHeight: 0,
       message: "",
       messageText: "",
       screenHeight: SCREEN_HEIGHT - 90,
     };
 
     this.flatListRef = React.createRef();
-  this.attachmentButtonRef = React.createRef();
-    this.keyboardDidHideSub = null;
-    this.keyboardDidShowSub = null;
-    this.keyboardWillHideSub = null;
-    this.keyboardWillShowSub = null;
+    this.attachmentButtonRef = React.createRef();
+    this.composerBlurTargetRef = React.createRef();
     this.palette = getConversationPalette(this.state.isDarkMode);
   }
 
@@ -365,26 +361,6 @@ class MensajesHomeScreen extends React.Component {
       },
     );
 
-    if (Platform.OS === "ios") {
-      this.keyboardWillShowSub = Keyboard.addListener(
-        "keyboardWillShow",
-        this.keyboardWillShow,
-      );
-      this.keyboardWillHideSub = Keyboard.addListener(
-        "keyboardWillHide",
-        this.keyboardWillHide,
-      );
-      return;
-    }
-
-    this.keyboardDidShowSub = Keyboard.addListener(
-      "keyboardDidShow",
-      this.keyboardDidShow,
-    );
-    this.keyboardDidHideSub = Keyboard.addListener(
-      "keyboardDidHide",
-      this.keyboardDidHide,
-    );
   }
 
   componentDidUpdate(prevProps) {
@@ -403,26 +379,6 @@ class MensajesHomeScreen extends React.Component {
 
   componentWillUnmount() {
     this.appearanceSubscription?.remove?.();
-    this.keyboardWillShowSub?.remove();
-    this.keyboardWillHideSub?.remove();
-    this.keyboardDidShowSub?.remove();
-    this.keyboardDidHideSub?.remove();
-  }
-
-  keyboardWillShow = (event) => {
-    this.setState({ keyboardHeight: event.endCoordinates.height });
-  };
-
-  keyboardWillHide = () => {
-    this.setState({ keyboardHeight: 0 });
-  };
-
-  keyboardDidShow = (event) => {
-    this.setState({ keyboardHeight: event.endCoordinates.height });
-  };
-
-  keyboardDidHide = () => {
-    this.setState({ keyboardHeight: 0 });
   };
 
   handleSend = async () => {
@@ -775,7 +731,7 @@ class MensajesHomeScreen extends React.Component {
           <View
             style={[
               styles.messageBubble,
-              styles.messageBubbleWidth,
+              hasImage ? styles.messageBubbleWithImage : null,
               isMyMessage
                 ? [
                     styles.myMessageBubble,
@@ -819,7 +775,12 @@ class MensajesHomeScreen extends React.Component {
               </Text>
             ) : null}
 
-            <View style={styles.messageFooter}>
+            <View
+              style={[
+                styles.messageFooter,
+                hasImage ? styles.messageFooterWithImage : null,
+              ]}
+            >
               <Text
                 style={[
                   styles.timeText,
@@ -922,16 +883,18 @@ class MensajesHomeScreen extends React.Component {
   };
 
   render() {
-    const { loading, myTodoTasks, user, userLabel } = this.props;
+    const { insets, loading, myTodoTasks, user, userLabel } = this.props;
     const {
       attachmentMenuAnchor,
       attachmentMenuVisible,
       isDarkMode,
       isSending,
       isUploadingImage,
-      keyboardHeight,
       messageText,
     } = this.state;
+
+    const bottomInset = insets?.bottom ?? (Platform.OS === "ios" ? 20 : 8);
+    const composerBottomPadding = Math.max(bottomInset, 0);
 
     const palette = getConversationPalette(isDarkMode);
     const attachmentMenuTint = isDarkMode
@@ -1001,11 +964,15 @@ class MensajesHomeScreen extends React.Component {
         >
           <KeyboardAvoidingView
             style={styles.container}
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-            keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={0}
           >
             <View style={styles.contentContainer}>
-              <View style={styles.messagesBody}>
+              <BlurTargetView
+                ref={this.composerBlurTargetRef}
+                collapsable={false}
+                style={styles.messagesBody}
+              >
                 {myTodoTasks.length === 0 ? (
                   this.renderEmptyState()
                 ) : (
@@ -1030,88 +997,72 @@ class MensajesHomeScreen extends React.Component {
                     maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
                   />
                 )}
-              </View>
+              </BlurTargetView>
             </View>
 
-            <View
+            <BlurView
               style={[
                 styles.composerWrapper,
                 {
                   borderTopColor: palette.composerBorder,
+                  paddingBottom: composerBottomPadding,
                 },
-                Platform.OS === "android" && keyboardHeight > 0
-                  ? { marginBottom: keyboardHeight }
-                  : null,
               ]}
+              tint={isDarkMode ? "dark" : "light"}
+              intensity={15}
+              blurTarget={
+                Platform.OS === "android" ? this.composerBlurTargetRef : undefined
+              }
+              blurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
+              renderToHardwareTextureAndroid
             >
-              <BlurView
-                pointerEvents="none"
-                tint={isDarkMode ? "dark" : "light"}
-                intensity={34}
-                style={styles.composerBlurLayer}
-                experimentalBlurMethod={
-                  Platform.OS === "android" ? "dimezisBlurView" : undefined
-                }
-                renderToHardwareTextureAndroid={true}
-              />
-              <View
-                pointerEvents="none"
-                style={[
-                  styles.composerGlassOverlay,
-                  { backgroundColor: palette.composerBackground },
-                ]}
-              />
-              <View style={styles.composerContent}>
-                <Menu
-                  visible={attachmentMenuVisible && Boolean(attachmentMenuAnchor)}
-                  onDismiss={this.closeAttachmentMenu}
-                  anchor={attachmentMenuAnchor || { x: 20, y: SCREEN_HEIGHT - 120 }}
-                  contentStyle={styles.attachmentMenu}
+              <Menu
+                visible={attachmentMenuVisible && Boolean(attachmentMenuAnchor)}
+                onDismiss={this.closeAttachmentMenu}
+                anchor={attachmentMenuAnchor || { x: 20, y: SCREEN_HEIGHT - 120 }}
+                contentStyle={styles.attachmentMenu}
+              >
+                <BlurView
+                  tint={attachmentMenuBlurTint}
+                  style={[
+                    styles.attachmentMenuSurface,
+                    {
+                      backgroundColor: attachmentMenuTint,
+                      borderColor: "rgba(255,255,255,0.22)",
+                    },
+                  ]}
+                  intensity={15}
+                  experimentalBlurMethod="dimezisBlurView"
                 >
-                  <BlurView
-                    tint={attachmentMenuBlurTint}
-                    style={[
-                      styles.attachmentMenuSurface,
-                      {
-                        backgroundColor: attachmentMenuTint,
-                        borderColor: "rgba(255,255,255,0.22)",
-                      },
-                    ]}
-                    intensity={15}
-                    experimentalBlurMethod="dimezisBlurView"
-                  >
-                    <Menu.Item
-                      leadingIcon="image-multiple"
-                      title="Fotos y videos"
-                      onPress={this.handleSelectChatImage}
-                    />
-                  </BlurView>
-                </Menu>
+                  <Menu.Item
+                    leadingIcon="image-multiple"
+                    title="Fotos y videos"
+                    onPress={this.handleSelectChatImage}
+                  />
+                </BlurView>
+              </Menu>
+
+              <View style={styles.composerContent}>
 
                 <View
                   ref={this.attachmentButtonRef}
                   collapsable={false}
                   style={styles.attachmentAnchorContainer}
                 >
-                  <Surface
-                    elevation={0}
+                  <IconButton
+                    icon={isUploadingImage ? "progress-upload" : "plus"}
+                    size={20}
+                    disabled={!user || isSending}
+                    onPress={this.openAttachmentMenu}
+                    iconColor={user && !isSending ? palette.sendBackground : palette.sendDisabledIcon}
                     style={[
-                      styles.attachmentButtonWrap,
+                      styles.attachmentButton,
                       {
                         backgroundColor: palette.inputBackground,
                         borderColor: palette.inputBorder,
                       },
                     ]}
-                  >
-                    <IconButton
-                      icon={isUploadingImage ? "progress-upload" : "plus"}
-                      size={24}
-                      disabled={!user || isSending}
-                      onPress={this.openAttachmentMenu}
-                      iconColor={palette.sendBackground}
-                      style={styles.attachmentButton}
-                    />
-                  </Surface>
+                  />
                 </View>
 
                 <View
@@ -1123,13 +1074,11 @@ class MensajesHomeScreen extends React.Component {
                     },
                   ]}
                 >
-                  <TextInput
-                    mode="flat"
+                  <RNTextInput
                     value={messageText}
                     onChangeText={(nextMessageText) =>
                       this.setState({ messageText: nextMessageText })
                     }
-                    onSubmitEditing={this.sendNow}
                     placeholder={
                       user
                         ? `Escribe a ${userLabel || "tu contacto"}...`
@@ -1139,51 +1088,39 @@ class MensajesHomeScreen extends React.Component {
                     style={[
                       styles.composerInput,
                       {
-                        backgroundColor: palette.inputBackground,
                         color: palette.inputText,
                       },
                     ]}
-                    theme={{
-                      colors: {
-                        primary: palette.sendBackground,
-                        background: palette.inputBackground,
-                        onSurfaceVariant: palette.inputPlaceholder,
-                        text: palette.inputText,
-                      },
-                    }}
-                    underlineColor="transparent"
-                    disabled={!user || isSending}
-                    returnKeyType="send"
+                    multiline
+                    maxLength={undefined}
+                    editable={Boolean(user) && !isSending}
+                    textAlignVertical="center"
                   />
                 </View>
 
-                <Surface
-                  elevation={0}
+                <IconButton
+                  icon={isSending ? "progress-clock" : "arrow-up"}
+                  size={20}
+                  disabled={!messageText.trim() || !user || isSending}
+                  onPress={this.sendNow}
+                  iconColor={
+                    messageText.trim() && user && !isSending
+                      ? palette.sendIcon
+                      : palette.sendDisabledIcon
+                  }
                   style={[
-                    styles.sendButtonWrap,
+                    styles.sendButton,
                     {
                       backgroundColor:
                         messageText.trim() && user && !isSending
                           ? palette.sendBackground
                           : palette.sendDisabledBackground,
+                      borderColor: palette.inputBorder,
                     },
                   ]}
-                >
-                  <IconButton
-                    icon={isSending ? "progress-clock" : "send"}
-                    size={22}
-                    disabled={!messageText.trim() || !user || isSending}
-                    onPress={this.sendNow}
-                    iconColor={
-                      messageText.trim() && user && !isSending
-                        ? palette.sendIcon
-                        : palette.sendDisabledIcon
-                    }
-                    style={styles.sendButton}
-                  />
-                </Surface>
+                />
               </View>
-            </View>
+            </BlurView>
           </KeyboardAvoidingView>
         </LinearGradient>
       </View>
@@ -1358,9 +1295,12 @@ const MensajesHomeNative = (props) => {
     setMessageLimit((currentLimit) => currentLimit + MESSAGE_PAGE_SIZE);
   }, [hasMoreMessages, isLoadingMore]);
 
+  const insets = useSafeAreaInsets();
+
   return (
     <MensajesHomeScreen
       {...props}
+      insets={insets}
       headerBackHref={headerBackHref}
       headerBackgroundColor={headerBackgroundColor}
       hasMoreMessages={hasMoreMessages}
@@ -1403,34 +1343,35 @@ const styles = StyleSheet.create({
   messagesList: {
     flexGrow: 1,
     paddingHorizontal: 12,
-    paddingBottom: 126,
-    paddingTop: 92,
+    paddingBottom: 16,
+    paddingTop: 88,
   },
   messageRowBlock: {
     width: "100%",
   },
   dateSeparatorWrap: {
     alignItems: "center",
-    marginBottom: 8,
-    marginTop: 10,
+    marginBottom: 6,
+    marginTop: 8,
   },
   dateSeparator: {
-    borderRadius: 999,
+    borderRadius: 12,
     borderWidth: 1,
-    minWidth: 120,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    minWidth: 90,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
   },
   dateText: {
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 10.5,
+    fontWeight: "600",
     textAlign: "center",
     textTransform: "capitalize",
   },
   messageContainer: {
     alignItems: "flex-end",
     flexDirection: "row",
-    marginBottom: 8,
+    maxWidth: "100%",
+    marginBottom: 5,
   },
   myMessageContainer: {
     justifyContent: "flex-end",
@@ -1440,56 +1381,67 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     justifyContent: "flex-end",
-    marginBottom: 4,
-    marginRight: 8,
+    marginBottom: 2,
+    marginRight: 6,
   },
   avatarSpacer: {
-    width: 34,
+    width: 30,
   },
   messageBubble: {
-    borderRadius: 24,
+    alignSelf: "flex-start",
+    borderRadius: 16,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    shadowColor: "rgba(15, 23, 42, 0.18)",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 18,
+    flexShrink: 1,
+    maxWidth: "75%",
+    overflow: "hidden",
+    paddingHorizontal: 11,
+    paddingTop: 8,
+    paddingBottom: 6,
   },
-  messageBubbleWidth: {
-    maxWidth: Math.min(SCREEN_WIDTH * 0.76, 360),
+  messageBubbleWithImage: {
+    width: Math.min(SCREEN_WIDTH * 0.7, 260),
+    paddingHorizontal: 4,
+    paddingTop: 4,
+    paddingBottom: 4,
   },
   myMessageBubble: {
-    borderBottomRightRadius: 8,
+    borderBottomRightRadius: 4,
   },
   otherMessageBubble: {
-    borderBottomLeftRadius: 8,
+    borderBottomLeftRadius: 4,
   },
   senderName: {
-    fontSize: 12,
-    fontWeight: "800",
-    marginBottom: 6,
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 3,
   },
   messageText: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 13.5,
+    lineHeight: 18.5,
+    flexShrink: 1,
   },
   messageFooter: {
     alignItems: "center",
     flexDirection: "row",
+    gap: 2,
     justifyContent: "flex-end",
-    marginTop: 8,
+    marginTop: 3,
+  },
+  messageFooterWithImage: {
+    marginTop: 2,
+    paddingBottom: 2,
+    paddingHorizontal: 4,
   },
   timeText: {
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10,
+    fontWeight: "500",
   },
   checkIcon: {
-    margin: -6,
+    margin: -8,
     marginLeft: 0,
   },
   trailingSpacer: {
-    width: 6,
+    width: 4,
   },
   emptyContainer: {
     alignItems: "center",
@@ -1500,129 +1452,121 @@ const styles = StyleSheet.create({
   },
   emptyIconWrap: {
     alignItems: "center",
-    borderRadius: 24,
-    height: 72,
+    borderRadius: 20,
+    height: 56,
     justifyContent: "center",
-    marginBottom: 14,
-    width: 72,
+    marginBottom: 12,
+    width: 56,
   },
   emptyText: {
-    fontSize: 20,
-    fontWeight: "800",
-    marginBottom: 8,
+    fontSize: 17,
+    fontWeight: "700",
+    marginBottom: 6,
     textAlign: "center",
   },
   emptySubtext: {
-    fontSize: 14,
-    lineHeight: 21,
-    maxWidth: 320,
+    fontSize: 13,
+    lineHeight: 19,
+    maxWidth: 280,
     textAlign: "center",
   },
   paginationLoaderWrap: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
     justifyContent: "center",
-    paddingBottom: 8,
-    paddingTop: 12,
+    paddingBottom: 6,
+    paddingTop: 8,
   },
   paginationLoaderText: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: "500",
   },
   paginationHintWrap: {
     alignItems: "center",
     justifyContent: "center",
     paddingBottom: 4,
-    paddingTop: 8,
+    paddingTop: 6,
   },
   paginationHintText: {
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 10.5,
+    fontWeight: "500",
   },
   composerWrapper: {
     borderTopWidth: 1,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    bottom: 0,
-    left: 0,
     overflow: "hidden",
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    position: "absolute",
-    right: 0,
+    paddingHorizontal: 10,
+    paddingTop: 6,
     zIndex: 12,
-  },
-  composerBlurLayer: {
-    ...StyleSheet.absoluteFill,
-  },
-  composerGlassOverlay: {
-    ...StyleSheet.absoluteFill,
   },
   composerContent: {
     alignItems: "flex-end",
+    borderRadius: 22,
     flexDirection: "row",
-    gap: 10,
-    paddingBottom: Platform.OS === "ios" ? 22 : 16,
+    gap: 6,
+    overflow: "hidden",
   },
   inputShell: {
-    borderRadius: 24,
+    borderRadius: 19,
     borderWidth: 1,
     flex: 1,
-    minHeight: 54,
-    overflow: "hidden",
-  },
-  attachmentButtonWrap: {
-    alignItems: "center",
-    borderRadius: 24,
-    borderWidth: 1,
-    height: 54,
+    minHeight: 38,
+    maxHeight: 100,
     justifyContent: "center",
     overflow: "hidden",
-    width: 54,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === "ios" ? 7 : 4,
   },
   attachmentAnchorContainer: {
     alignItems: "center",
     justifyContent: "center",
   },
   attachmentButton: {
+    borderRadius: 19,
+    borderWidth: 1,
+    height: 38,
     margin: 0,
+    width: 38,
   },
   attachmentMenu: {
     backgroundColor: "transparent",
-    borderRadius: 18,
+    borderRadius: 14,
     overflow: "hidden",
     padding: 0,
-    width: 188,
+    width: 170,
   },
   attachmentMenuSurface: {
-    borderRadius: 18,
-    borderWidth: 2,
+    borderRadius: 14,
+    borderWidth: 1,
     overflow: "hidden",
   },
   composerInput: {
-    fontSize: 15,
-    minHeight: 54,
-    paddingHorizontal: 2,
-  },
-  sendButtonWrap: {
-    alignItems: "center",
-    borderRadius: 24,
-    height: 54,
-    justifyContent: "center",
-    width: 54,
-  },
-  sendButton: {
+    fontSize: 14.5,
+    lineHeight: 20,
+    maxHeight: 80,
+    minHeight: 20,
+    paddingTop: 0,
+    paddingBottom: 0,
+    paddingHorizontal: 0,
     margin: 0,
   },
+  sendButton: {
+    borderRadius: 19,
+    borderWidth: 1,
+    height: 38,
+    margin: 0,
+    width: 38,
+  },
   messageImage: {
-    borderRadius: 18,
-    height: Math.min(SCREEN_HEIGHT * 0.34, 260),
-    marginBottom: 8,
-    width: Math.min(SCREEN_WIDTH * 0.62, 220),
+    borderRadius: 12,
+    alignSelf: "center",
+    height: 220,
+    width: "100%",
   },
   imageCaption: {
-    marginTop: 2,
+    marginTop: 4,
+    paddingHorizontal: 4,
+    paddingBottom: 2,
   },
   loadingStateWrap: {
     alignItems: "center",
