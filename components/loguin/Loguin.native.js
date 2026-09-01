@@ -239,7 +239,7 @@ const LoginBlurCard = ({ children, palette }) => {
 const Loguin = () => {
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const [ipserver, setIpserver] = useState(() => {
-    const meteorUrl = getMeteorUrl() || "wss://www.vidkar.com:3000/websocket";
+    const meteorUrl = getMeteorUrl() || "ws://www.vidkar.com:3000/websocket";
     return meteorUrl
       .replace("ws://", "")
       .replace(":3000/websocket", "")
@@ -349,7 +349,7 @@ const Loguin = () => {
   useEffect(() => {
     (async () => {
       const configuredServer =
-        getMeteorUrl() || "wss://www.vidkar.com:3000/websocket";
+        getMeteorUrl() || "ws://www.vidkar.com:3000/websocket";
 
       try {
         const status = Meteor.status?.();
