@@ -219,12 +219,12 @@ const buildCinemaItems = (user) => user?.subscipcionPelis === true ? [
   {
     label: "Peliculas",
     icon: "movie-open-outline",
-    href: "/(normal)/PeliculasVideos",
+    href: "/(normal)/Cinema/Peliculas",
   },
   {
     label: "Series",
     icon: "television-classic",
-    href: "/(normal)/Series",
+    href: "/(normal)/Cinema/Series",
   },
 ] : [];
 

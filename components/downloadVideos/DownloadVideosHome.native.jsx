@@ -41,7 +41,7 @@ import AppHeader, {
 } from "../Header/AppHeader";
 import { PelisCollection } from "../collections/collections";
 import { syncMovieSpotlightIndex } from "../../services/spotlight/spotlight";
-import CinemaBottomNav from "../cinema/CinemaBottomNav.native";
+import ModernBottomDrawer from "../cinema/ModernBottomDrawer.native";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
@@ -825,216 +825,90 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
   const actors = normalizeActors(resolvedMovie?.actors);
   const streamUrl = resolveMovieStreamUrl(resolvedMovie);
   const imageUrl = getMovieImageUrl(resolvedMovie?._id, "mid");
-  const insets = useSafeAreaInsets();
-  const { height, width } = useWindowDimensions();
-  const drawerMaxWidth = Math.min(width, 760);
-  const isCenteredDrawer = width > 820;
-  const drawerSideInset = isCenteredDrawer ? Math.max((width - drawerMaxWidth) / 2, 0) : 0;
-  const sheetHeight = Math.max(420, height - Math.max(insets.top, 12) - 18);
-  const collapsedHeight = Math.min(370, Math.max(310, height * 0.42));
-  const collapsedTranslateY = Math.max(sheetHeight - collapsedHeight, 0);
-  const hiddenTranslateY = sheetHeight + 48;
-  const translateY = React.useRef(new Animated.Value(hiddenTranslateY)).current;
-  const currentYRef = React.useRef(hiddenTranslateY);
-  const gestureStartYRef = React.useRef(hiddenTranslateY);
-  const scrollOffsetRef = React.useRef(0);
-  const [expanded, setExpanded] = React.useState(false);
-  const [mounted, setMounted] = React.useState(Boolean(visible));
-  const dismissingRef = React.useRef(false);
 
-  const snapTo = React.useCallback(
-    (toValue, callback) => {
-      currentYRef.current = toValue;
-      setExpanded(toValue === 0);
-      Animated.spring(translateY, {
-        toValue,
-        useNativeDriver: true,
-        damping: 24,
-        stiffness: 230,
-        mass: 0.9,
-      }).start(({ finished }) => {
-        if (finished) {
-          callback?.();
-        }
-      });
-
-    },
-    [translateY],
-  );
-
-  const dismissWithAnimation = React.useCallback(() => {
-    if (dismissingRef.current) {
-      return;
-    }
-
-    dismissingRef.current = true;
-    snapTo(hiddenTranslateY, () => {
-      setMounted(false);
-      onDismiss?.();
-    });
-  }, [hiddenTranslateY, onDismiss, snapTo]);
-
-  React.useEffect(() => {
-    if (visible) {
-      dismissingRef.current = false;
-      setMounted(true);
-      translateY.setValue(hiddenTranslateY);
-      currentYRef.current = hiddenTranslateY;
-      setExpanded(false);
-      requestAnimationFrame(() => snapTo(collapsedTranslateY));
-      return undefined;
-    }
-
-    if (mounted && !dismissingRef.current) {
-      snapTo(hiddenTranslateY, () => setMounted(false));
-    }
-  }, [collapsedTranslateY, hiddenTranslateY, mounted, snapTo, translateY, visible]);
-
-  const panResponder = React.useMemo(
-    () =>
-      PanResponder.create({
-        onPanResponderGrant: () => {
-          gestureStartYRef.current = currentYRef.current;
-        },
-        onMoveShouldSetPanResponder: (_event, gestureState) =>
-          Math.abs(gestureState.dy) > 8 &&
-          Math.abs(gestureState.dy) > Math.abs(gestureState.dx) &&
-          (!expanded || (scrollOffsetRef.current <= 0 && gestureState.dy > 0)),
-        onPanResponderTerminationRequest: () => false,
-        onPanResponderMove: (_event, gestureState) => {
-          const nextY = Math.min(hiddenTranslateY, Math.max(0, gestureStartYRef.current + gestureState.dy));
-          translateY.setValue(nextY);
-        },
-        onPanResponderRelease: (_event, gestureState) => {
-          const nextY = Math.min(hiddenTranslateY, Math.max(0, gestureStartYRef.current + gestureState.dy));
-
-          if (gestureState.vy > 1.1 || nextY > collapsedTranslateY + 120) {
-            if (currentYRef.current <= 24) {
-              snapTo(collapsedTranslateY);
-              return;
-            }
-
-            dismissWithAnimation();
-            return;
-          }
-
-          if (gestureState.dy < -48 || nextY < collapsedTranslateY * 0.55) {
-            snapTo(0);
-            return;
-          }
-
-          snapTo(collapsedTranslateY);
-        },
-      }),
-    [collapsedTranslateY, dismissWithAnimation, expanded, hiddenTranslateY, snapTo, translateY],
-  );
-
-  if (!mounted || !resolvedMovie) {
+  if (!visible && !resolvedMovie) {
     return null;
   }
 
   return (
-    <Modal
-      animationType="none"
-      onRequestClose={dismissWithAnimation}
-      statusBarTranslucent
-      transparent
-      visible={mounted}
-    >
-      <Pressable style={styles.drawerBackdrop} onPress={dismissWithAnimation} />
-      <Animated.View
-        {...panResponder.panHandlers}
-        style={[
-          styles.bottomDrawer,
-          {
-            height: sheetHeight,
-            left: isCenteredDrawer ? drawerSideInset : 0,
-            right: isCenteredDrawer ? undefined : 0,
-            width: isCenteredDrawer ? drawerMaxWidth : undefined,
-            backgroundColor: palette.surfaceElevated,
-            transform: [{ translateY }],
-          },
-        ]}
-      >
-        <View style={styles.drawerHandleZone}>
-          <View style={[styles.drawerHandle, { backgroundColor: palette.border }]} />
-          <View style={styles.drawerHandleTextRow}>
-            <Text variant="labelMedium" style={[styles.drawerHint, { color: palette.subtle }]}>
-              {expanded ? "Desliza hacia abajo para contraer" : "Desliza hacia arriba para ver todo"}
+    <ModernBottomDrawer
+      visible={visible}
+      onDismiss={onDismiss}
+      palette={{
+        surface: palette.surfaceElevated || palette.surface,
+        border: palette.border,
+        muted: palette.muted,
+      }}
+      maxHeightFraction={0.9}
+      header={
+        <View style={styles.drawerModernHeader}>
+          <View style={{ flex: 1 }}>
+            <Text variant="labelLarge" style={styles.drawerEyebrow}>VIDKAR CINEMA</Text>
+            <Text variant="titleMedium" style={[styles.drawerHeaderTitle, { color: palette.text }]} numberOfLines={1}>
+              {getMovieTitle(resolvedMovie)}
             </Text>
-            <IconButton icon="close" size={18} iconColor={palette.muted} onPress={dismissWithAnimation} style={styles.drawerCloseButton} />
+          </View>
+          <IconButton icon="close" size={20} iconColor={palette.muted} onPress={onDismiss} style={{ margin: 0 }} />
+        </View>
+      }
+    >
+      <CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.drawerHero} imageStyle={styles.drawerHeroImage}>
+        <LinearGradient colors={["rgba(0,0,0,0.04)", "rgba(0,0,0,0.88)"]} style={StyleSheet.absoluteFill} />
+        <View style={styles.drawerHeroContent}>
+          <Text variant="headlineSmall" style={styles.drawerTitle} numberOfLines={3}>{getMovieTitle(resolvedMovie)}</Text>
+          <View style={styles.metaRow}>
+            <MetaPill icon="calendar-blank-outline" label={getMovieYear(resolvedMovie)} palette={palette} />
+            <MetaPill icon="eye-outline" label={`${getMovieViews(resolvedMovie).toFixed(0)} vistas`} palette={palette} />
+            {resolvedMovie?.extension ? <MetaPill label={String(resolvedMovie.extension).toUpperCase()} palette={palette} strong /> : null}
           </View>
         </View>
+      </CachedMovieImageBackground>
 
-        <ScrollView
-          scrollEnabled={expanded}
-          showsVerticalScrollIndicator={expanded}
-          scrollEventThrottle={16}
-          onScroll={(event) => {
-            scrollOffsetRef.current = Math.max(event.nativeEvent.contentOffset.y || 0, 0);
-          }}
-          contentContainerStyle={[styles.drawerScrollContent, { paddingBottom: Math.max(insets.bottom, 18) + 18 }]}
-        >
-          <CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.drawerHero} imageStyle={styles.drawerHeroImage}>
-            <LinearGradient colors={["rgba(0,0,0,0.04)", "rgba(0,0,0,0.86)"]} style={StyleSheet.absoluteFill} />
-            <View style={styles.drawerHeroContent}>
-              <Text variant="labelLarge" style={styles.drawerEyebrow}>VIDKAR CINEMA</Text>
-              <Text variant="headlineSmall" style={styles.drawerTitle} numberOfLines={expanded ? 4 : 2}>{getMovieTitle(resolvedMovie)}</Text>
-              <View style={styles.metaRow}>
-                <MetaPill icon="calendar-blank-outline" label={getMovieYear(resolvedMovie)} palette={palette} />
-                <MetaPill icon="eye-outline" label={`${getMovieViews(resolvedMovie).toFixed(0)} vistas`} palette={palette} />
-                {resolvedMovie?.extension ? <MetaPill label={String(resolvedMovie.extension).toUpperCase()} palette={palette} strong /> : null}
-              </View>
-            </View>
-          </CachedMovieImageBackground>
+      {loading ? (
+        <View style={styles.detailLoadingRow}>
+          <NativeActivityIndicator color={palette.accent} />
+          <Text variant="bodyMedium" style={{ color: palette.muted }}>Cargando detalles...</Text>
+        </View>
+      ) : null}
 
-          {loading ? (
-            <View style={styles.detailLoadingRow}>
-              <NativeActivityIndicator color={palette.accent} />
-              <Text variant="bodyMedium" style={{ color: palette.muted }}>Cargando detalles...</Text>
-            </View>
-          ) : null}
+      <View style={styles.drawerBody}>
+        <View style={styles.dialogActions}>
+          <Button mode="contained" icon="play" buttonColor={palette.accent} textColor={palette.onAccent} style={styles.dialogActionButton} disabled={!streamUrl} onPress={() => onPlay?.(resolvedMovie)}>
+            Reproducir
+          </Button>
+          <Button mode="outlined" icon="youtube" textColor={palette.text} style={[styles.dialogActionButton, { borderColor: palette.border }]} disabled={!resolvedMovie?.urlTrailer} onPress={() => onTrailer?.(resolvedMovie)}>
+            Trailer
+          </Button>
+        </View>
 
-          <View style={styles.drawerBody}>
-            <View style={styles.dialogActions}>
-              <Button mode="contained" icon="play" buttonColor={palette.accent} textColor={palette.onAccent} style={styles.dialogActionButton} disabled={!streamUrl} onPress={() => onPlay?.(resolvedMovie)}>
-                Reproducir
-              </Button>
-              <Button mode="outlined" icon="youtube" textColor={palette.text} style={[styles.dialogActionButton, { borderColor: palette.border }]} disabled={!resolvedMovie?.urlTrailer} onPress={() => onTrailer?.(resolvedMovie)}>
-                Trailer
-              </Button>
-            </View>
+        <Text variant="bodyLarge" style={[styles.description, { color: palette.muted }]}>
+          {getMovieSummary(resolvedMovie)}
+        </Text>
 
-            <Text variant="bodyLarge" style={[styles.description, { color: palette.muted }]} numberOfLines={expanded ? undefined : 3}>
-              {getMovieSummary(resolvedMovie)}
-            </Text>
-
-            {genres.length ? (
-              <View style={styles.genreWrap}>
-                {genres.map((genre) => (
-                  <Chip key={genre} compact style={[styles.detailGenreChip, { backgroundColor: palette.surfaceStrong }]} textStyle={{ color: palette.text }}>
-                    {genre}
-                  </Chip>
-                ))}
-              </View>
-            ) : null}
-
-            {actors.length ? (
-              <Surface style={[styles.detailBlock, { backgroundColor: palette.surfaceSoft, borderColor: palette.border }]} elevation={0}>
-                <Text variant="labelLarge" style={[styles.detailBlockLabel, { color: palette.subtle }]}>Reparto destacado</Text>
-                <Text variant="bodyMedium" style={[styles.detailBlockCopy, { color: palette.text }]}>{actors.join("  |  ")}</Text>
-              </Surface>
-            ) : null}
-
-            <Surface style={[styles.detailBlock, { backgroundColor: palette.surfaceSoft, borderColor: palette.border }]} elevation={0}>
-              <Text variant="labelLarge" style={[styles.detailBlockLabel, { color: palette.subtle }]}>Informacion de reproduccion</Text>
-              <Text variant="bodyMedium" style={[styles.detailBlockCopy, { color: palette.text }]}>Formato: {resolvedMovie?.extension ? String(resolvedMovie.extension).toUpperCase() : "No registrado"}</Text>
-              <Text variant="bodyMedium" style={[styles.detailBlockCopy, { color: palette.text }]}>Tamano: {resolvedMovie?.tamano || "No registrado"}</Text>
-            </Surface>
+        {genres.length ? (
+          <View style={styles.genreWrap}>
+            {genres.map((genre) => (
+              <Chip key={genre} compact style={[styles.detailGenreChip, { backgroundColor: palette.surfaceStrong }]} textStyle={{ color: palette.text }}>
+                {genre}
+              </Chip>
+            ))}
           </View>
-        </ScrollView>
-      </Animated.View>
-    </Modal>
+        ) : null}
+
+        {actors.length ? (
+          <Surface style={[styles.detailBlock, { backgroundColor: palette.surfaceSoft, borderColor: palette.border }]} elevation={0}>
+            <Text variant="labelLarge" style={[styles.detailBlockLabel, { color: palette.subtle }]}>Reparto destacado</Text>
+            <Text variant="bodyMedium" style={[styles.detailBlockCopy, { color: palette.text }]}>{actors.join("  |  ")}</Text>
+          </Surface>
+        ) : null}
+
+        <Surface style={[styles.detailBlock, { backgroundColor: palette.surfaceSoft, borderColor: palette.border }]} elevation={0}>
+          <Text variant="labelLarge" style={[styles.detailBlockLabel, { color: palette.subtle }]}>Informacion de reproduccion</Text>
+          <Text variant="bodyMedium" style={[styles.detailBlockCopy, { color: palette.text }]}>Formato: {resolvedMovie?.extension ? String(resolvedMovie.extension).toUpperCase() : "No registrado"}</Text>
+          <Text variant="bodyMedium" style={[styles.detailBlockCopy, { color: palette.text }]}>Tamano: {resolvedMovie?.tamano || "No registrado"}</Text>
+        </Surface>
+      </View>
+    </ModernBottomDrawer>
   );
 };
 
@@ -1474,7 +1348,6 @@ const DownloadVideosHome = () => {
         onClose={() => setAddMovieOpen(false)}
         onCreated={handleMovieCreated}
       />
-      <CinemaBottomNav />
     </View>
   );
 };
@@ -2035,6 +1908,21 @@ const styles = StyleSheet.create({
   drawerHero: {
     minHeight: 244,
     justifyContent: "flex-end",
+    borderRadius: 20,
+    overflow: "hidden",
+    marginHorizontal: 2,
+    marginBottom: 8,
+  },
+  drawerModernHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    paddingHorizontal: 6,
+    paddingBottom: 6,
+  },
+  drawerHeaderTitle: {
+    fontWeight: "900",
   },
   drawerHeroImage: {
     opacity: 0.96,

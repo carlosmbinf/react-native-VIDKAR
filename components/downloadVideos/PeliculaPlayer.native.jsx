@@ -1222,7 +1222,7 @@ const PeliculaPlayer = () => {
       return;
     }
 
-    router.replace("/(normal)/PeliculasVideos");
+    router.replace("/(normal)/Cinema/Peliculas");
   }, [durationMs, persistPlaybackState, playback.currentTime, playerMode, router]);
 
   const handleOpenFullscreen = React.useCallback(() => {
