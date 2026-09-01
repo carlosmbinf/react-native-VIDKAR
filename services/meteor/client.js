@@ -1,6 +1,6 @@
 import Meteor from "@meteorrn/core";
 
-const DEFAULT_METEOR_URL = "ws://www.vidkar.com:3000/websocket";
+const DEFAULT_METEOR_URL = "wss://www.vidkar.com:3000/websocket";
 const DEFAULT_HLS_SERVER_URL = "https://hls.vidkar.com";
 
 const webAsyncStorage = {
@@ -24,7 +24,7 @@ function normalizeMeteorUrl(value) {
   }
 
   const trimmedValue = value.trim();
-  return trimmedValue ? trimmedValue : null;
+  return /^wss?:\/\//i.test(trimmedValue) ? trimmedValue : null;
 }
 
 function normalizeHttpBaseUrl(value) {
@@ -41,23 +41,19 @@ function normalizeHttpBaseUrl(value) {
 }
 
 export function getMeteorUrl() {
-  // const meteorUrlCandidates = [
-  //   process.env.EXPO_PUBLIC_METEOR_URL,
-  //   Constants.expoConfig?.extra?.meteorUrl,
-  //   Constants.manifest2?.extra?.expoClient?.extra?.meteorUrl,
-  //   Constants.manifest2?.extra?.meteorUrl,
-  //   Constants.manifest?.extra?.meteorUrl,
-  //   DEFAULT_METEOR_URL,
-  // ];
+  const meteorUrlCandidates = [
+    process.env.EXPO_PUBLIC_METEOR_URL,
+    DEFAULT_METEOR_URL,
+  ];
 
-  // for (const candidate of meteorUrlCandidates) {
-  //   const normalizedMeteorUrl = normalizeMeteorUrl(candidate);
-  //   if (normalizedMeteorUrl) {
-  //     return normalizedMeteorUrl;
-  //   }
-  // }
+  for (const candidate of meteorUrlCandidates) {
+    const normalizedMeteorUrl = normalizeMeteorUrl(candidate);
+    if (normalizedMeteorUrl) {
+      return normalizedMeteorUrl;
+    }
+  }
 
-  return DEFAULT_METEOR_URL || null;
+  return null;
 }
 
 export function getHlsServerUrl() {

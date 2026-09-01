@@ -34,6 +34,9 @@ export const DTShopProductosCollection = new Mongo.Collection(
   "dtshopProductos_Recharge",
 );
 export const PelisCollection = new Mongo.Collection("pelisRegister");
+export const SeriesCollection = new Mongo.Collection("series");
+export const TemporadasCollection = new Mongo.Collection("seriesTemporadas");
+export const CapitulosCollection = new Mongo.Collection("seriesCapitulos");
 export const CursosCollection = new Mongo.Collection("cursos");
 export const LeccionesCursoCollection = new Mongo.Collection("cursos_lecciones");
 export const SuscripcionesCursoCollection = new Mongo.Collection(
@@ -102,6 +105,9 @@ export const collections = {
   RegionsCollection,
   DTShopProductosCollection,
   PelisCollection,
+  SeriesCollection,
+  TemporadasCollection,
+  CapitulosCollection,
   CursosCollection,
   LeccionesCursoCollection,
   SuscripcionesCursoCollection,

@@ -41,6 +41,7 @@ import AppHeader, {
 } from "../Header/AppHeader";
 import { PelisCollection } from "../collections/collections";
 import { syncMovieSpotlightIndex } from "../../services/spotlight/spotlight";
+import CinemaBottomNav from "../cinema/CinemaBottomNav.native";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
@@ -1473,6 +1474,7 @@ const DownloadVideosHome = () => {
         onClose={() => setAddMovieOpen(false)}
         onCreated={handleMovieCreated}
       />
+      <CinemaBottomNav />
     </View>
   );
 };
@@ -1482,7 +1484,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 34,
+    paddingBottom: 118,
   },
   hero: {
     minHeight: 440,

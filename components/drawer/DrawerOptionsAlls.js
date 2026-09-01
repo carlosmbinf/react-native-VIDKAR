@@ -171,14 +171,6 @@ const getRoleIcon = (user) => {
 const buildServiceItems = (user) => {
   const items = [];
 
-  if (user?.subscipcionPelis === true) {
-    items.push({
-      label: "Peliculas",
-      icon: "movie-open-outline",
-      href: "/(normal)/PeliculasVideos",
-    });
-  }
-
   items.push(
     {
       label: "Cursos",
@@ -222,6 +214,19 @@ const buildServiceItems = (user) => {
 
   return items;
 };
+
+const buildCinemaItems = (user) => user?.subscipcionPelis === true ? [
+  {
+    label: "Peliculas",
+    icon: "movie-open-outline",
+    href: "/(normal)/PeliculasVideos",
+  },
+  {
+    label: "Series",
+    icon: "television-classic",
+    href: "/(normal)/Series",
+  },
+] : [];
 
 const buildAdminItems = () => [
   {
@@ -385,6 +390,10 @@ const DrawerOptionsAlls = ({
       //     },
       //   ],
       // },
+      {
+        title: "Cinema",
+        items: buildCinemaItems(user),
+      },
       {
         title: "Servicios VidKar",
         items: buildServiceItems(user),
