@@ -2,7 +2,7 @@ import Meteor from "@meteorrn/core";
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 
-const DEFAULT_METEOR_URL = "ws://www.vidkar.com:3000/websocket";
+const DEFAULT_METEOR_URL = "wss://www.vidkar.com:3000/websocket";
 const DEFAULT_HLS_SERVER_URL = "https://hls.vidkar.com";
 
 const meteorAsyncStorage = {

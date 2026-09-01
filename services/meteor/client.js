@@ -1,6 +1,6 @@
 import Meteor from "@meteorrn/core";
 
-const DEFAULT_METEOR_URL = "ws://www.vidkar.com:3000/websocket";
+const DEFAULT_METEOR_URL = "wss://www.vidkar.com:3000/websocket";
 const DEFAULT_HLS_SERVER_URL = "https://hls.vidkar.com";
 
 const webAsyncStorage = {
