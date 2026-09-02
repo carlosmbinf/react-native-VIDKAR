@@ -125,8 +125,8 @@ export default function SeriesCatalog() {
       Animated.timing(adminSheetTranslateY, { duration: 220, easing: Easing.linear, toValue: 0, useNativeDriver: true }),
     ]).start();
   }, [adminBackdropOpacity, adminModal, adminSheetTranslateY]);
-  const closeAdminModal = React.useCallback(() => {
-    if (adminLoading) return;
+  const closeAdminModal = React.useCallback((force = false) => {
+    if (adminLoading && !force) return;
     Animated.parallel([
       Animated.timing(adminBackdropOpacity, { duration: 220, easing: Easing.linear, toValue: 0, useNativeDriver: true }),
       Animated.timing(adminSheetTranslateY, { duration: 220, easing: Easing.linear, toValue: 42, useNativeDriver: true }),
@@ -139,11 +139,23 @@ export default function SeriesCatalog() {
     if (adminMode === "url") {
       if (!urlForm.urlSerie.trim() || !/^\d{4}$/.test(urlForm.year) || !urlForm.seriesName.trim()) return Alert.alert("Datos incompletos", "Completa URL, año y nombre de la serie.");
       setAdminLoading(true);
-      return Meteor.call("insertAsyncSeriesByTemporadasURL", { urlSerie: urlForm.urlSerie.trim(), year: Number(urlForm.year), seriesName: urlForm.seriesName.trim() }, (error) => { setAdminLoading(false); if (error) return Alert.alert("No se pudo importar", error.reason || error.message); closeAdminModal(); Alert.alert("Importación iniciada", `Se procesará ${urlForm.seriesName.trim()}.`); });
+      const seriesName = urlForm.seriesName.trim();
+      Meteor.call("insertAsyncSeriesByTemporadasURL", { urlSerie: urlForm.urlSerie.trim(), year: Number(urlForm.year), seriesName }, (error) => {
+        if (error) Alert.alert("No se pudo iniciar la importación", error.reason || error.message);
+      });
+      setAdminLoading(false);
+      closeAdminModal(true);
+      return Alert.alert("Importación iniciada", `El servidor continuará procesando ${seriesName} en segundo plano.`);
     }
     if (!manualForm.nombre.trim() || !manualForm.url.trim() || !manualForm.poster.trim() || !/^\d{4}$/.test(manualForm.year)) return Alert.alert("Datos incompletos", "Completa nombre, año, video y póster.");
     setAdminLoading(true);
-    Meteor.call("insertAsyncSeries", { ...manualForm, nombre: manualForm.nombre.trim(), year: Number(manualForm.year), temporada: Number(manualForm.temporada), capitulo: Number(manualForm.capitulo), nombreCapitulo: manualForm.nombreCapitulo.trim() || `${manualForm.nombre.trim()} S${String(manualForm.temporada).padStart(2, "0")}E${String(manualForm.capitulo).padStart(2, "0")}`, url: manualForm.url.trim(), poster: manualForm.poster.trim(), subtitle: manualForm.subtitle.trim(), extension: manualForm.extension.trim().toLowerCase(), mostrar: Boolean(manualForm.mostrar) }, (error) => { setAdminLoading(false); if (error) return Alert.alert("No se pudo agregar", error.reason || error.message); closeAdminModal(); Alert.alert("Serie actualizada", `Se agregó el capítulo a ${manualForm.nombre.trim()}.`); });
+    const seriesName = manualForm.nombre.trim();
+    Meteor.call("insertAsyncSeries", { ...manualForm, nombre: seriesName, year: Number(manualForm.year), temporada: Number(manualForm.temporada), capitulo: Number(manualForm.capitulo), nombreCapitulo: manualForm.nombreCapitulo.trim() || `${seriesName} S${String(manualForm.temporada).padStart(2, "0")}E${String(manualForm.capitulo).padStart(2, "0")}`, url: manualForm.url.trim(), poster: manualForm.poster.trim(), subtitle: manualForm.subtitle.trim(), extension: manualForm.extension.trim().toLowerCase(), mostrar: Boolean(manualForm.mostrar) }, (error) => {
+      if (error) Alert.alert("No se pudo iniciar la creación", error.reason || error.message);
+    });
+    setAdminLoading(false);
+    closeAdminModal(true);
+    Alert.alert("Creación iniciada", `El servidor continuará procesando el capítulo de ${seriesName} en segundo plano.`);
   }, [adminMode, closeAdminModal, manualForm, urlForm]);
 
   if (!userReady || !currentUser) return <View style={[styles.center, { backgroundColor: palette.background }]}><ActivityIndicator color={palette.accent} size="large" /></View>;
