@@ -16,7 +16,6 @@ const CACHE_KEY = "vidkar.seriesPlaybackCache.v1";
 const RESUME_MIN_SECONDS = 15;
 const SAVE_INTERVAL_SECONDS = 5;
 const HLS_POLL_MS = 2500;
-const PLAYBACK_TOKEN_REFRESH_MS = 10 * 60 * 1000;
 const PLAYER_ERROR = "El servicio de video no está disponible en este momento.";
 const BUFFER_OPTIONS = ["--network-caching=1500", "--live-caching=1500", "--file-caching=1200", "--disc-caching=1200", "--http-reconnect", "--avcodec-fast"];
 const SUBTITLE_SIZE_OPTIONS = [
@@ -33,7 +32,6 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const titleOf = (chapter) => chapter?.nombre || chapter?.titulo || "Capítulo";
 const numberOf = (chapter) => chapter?.capitulo || chapter?.numeroCapitulo || "";
 const formatTime = (milliseconds) => { const total = Math.floor(Math.max(0, Number(milliseconds) || 0) / 1000); const hours = Math.floor(total / 3600); const minutes = Math.floor((total % 3600) / 60); const seconds = total % 60; return hours ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}` : `${minutes}:${String(seconds).padStart(2, "0")}`; };
-const withToken = (url, token) => `${url}${url.includes("?") ? "&" : "?"}playbackToken=${encode(token)}`;
 const readCache = async () => { try { const value = await SecureStore.getItemAsync(CACHE_KEY); return value ? JSON.parse(value) : {}; } catch (_error) { return {}; } };
 const saveProgress = async (id, playback, chapter) => { try { const cache = await readCache(); cache[id] = { ...cache[id], chapter: { _id: id, nombre: titleOf(chapter) }, playback: { ...playback, updatedAt: new Date().toISOString() } }; await SecureStore.setItemAsync(CACHE_KEY, JSON.stringify(cache)); } catch (_error) { /* El progreso local no debe interrumpir la reproducción. */ } };
 
@@ -85,7 +83,7 @@ const SeriesPlayer = () => {
   const loadPlayback = React.useCallback(() => {
     if (!chapterId) { setLoading(false); setError("No se recibió un capítulo válido."); return; }
     setLoading(true); setError(""); setStreamError(""); setPlaylistUrl(null); setToken(""); setHasFrame(false); setPaused(false); viewRegisteredRef.current = false;
-    prepareChapterPlayback(chapterId).then((result) => { if (!result?.chapter || !result.playbackToken) throw new Error("No se pudo autorizar el capítulo."); setChapter(result.chapter); setSeries(result.series || null); setSeason(result.season || null); setToken(result.playbackToken); }).catch((nextError) => setError(nextError?.reason || nextError?.message || "No se pudo preparar el capítulo.")).finally(() => setLoading(false));
+    prepareChapterPlayback(chapterId).then((result) => { if (!result?.chapter) throw new Error("No se pudo obtener el capítulo."); setChapter(result.chapter); setSeries(result.series || null); setSeason(result.season || null); setToken(""); }).catch((nextError) => setError(nextError?.reason || nextError?.message || "No se pudo preparar el capítulo.")).finally(() => setLoading(false));
   }, [chapterId]);
 
   React.useEffect(() => { loadPlayback(); }, [loadPlayback]);
@@ -98,37 +96,31 @@ const SeriesPlayer = () => {
   }, [chapterId]);
 
   React.useEffect(() => {
-    if (!token || !chapterId || !resumeReady || resume) return undefined;
+    if (!chapterId || !resumeReady || resume) return undefined;
     let cancelled = false;
     const controller = new AbortController();
     const sessionId = createSessionId();
     const base = `/series/hls/${encode(chapterId)}`;
-    const query = `sessionId=${encode(sessionId)}&playbackToken=${encode(token)}${startAtMs > 0 ? `&startAt=${Math.floor(startAtMs / 1000)}` : ""}`;
+    const query = `sessionId=${encode(sessionId)}${startAtMs > 0 ? `&startAt=${Math.floor(startAtMs / 1000)}` : ""}`;
     const prepareUrl = joinUrl(hlsOrigin, `${base}/prepare?${query}`);
-    const statusUrl = joinUrl(hlsOrigin, `${base}/status?sessionId=${encode(sessionId)}&playbackToken=${encode(token)}`);
-    const cancelUrl = joinUrl(hlsOrigin, `${base}/${encode(sessionId)}/cancel?playbackToken=${encode(token)}`);
-    const fallbackPlaylist = joinUrl(hlsOrigin, `${base}/${encode(sessionId)}/index.m3u8?playbackToken=${encode(token)}`);
+    const statusUrl = joinUrl(hlsOrigin, `${base}/status?sessionId=${encode(sessionId)}`);
+    const cancelUrl = joinUrl(hlsOrigin, `${base}/${encode(sessionId)}/cancel`);
+    const fallbackPlaylist = joinUrl(hlsOrigin, `${base}/${encode(sessionId)}/index.m3u8`);
     cancelUrlRef.current = cancelUrl;
     const clearPoll = () => { if (pollTimerRef.current) clearTimeout(pollTimerRef.current); pollTimerRef.current = null; };
-    const applyStatus = (status) => { if (cancelled) return; if (status?.playlistReady || status?.ready) setPlaylistUrl(status.playlistUrl ? (status.playlistUrl.includes("playbackToken=") ? joinUrl(hlsOrigin, status.playlistUrl) : withToken(joinUrl(hlsOrigin, status.playlistUrl), token)) : fallbackPlaylist); if (Number(status?.durationSeconds) > 0) { setDuration(Number(status.durationSeconds) * 1000); durationRef.current = Number(status.durationSeconds) * 1000; } };
+    const applyStatus = (status) => { if (cancelled) return; if (status?.playlistReady || status?.ready) setPlaylistUrl(status.playlistUrl ? joinUrl(hlsOrigin, status.playlistUrl) : fallbackPlaylist); if (Number(status?.durationSeconds) > 0) { setDuration(Number(status.durationSeconds) * 1000); durationRef.current = Number(status.durationSeconds) * 1000; } };
     const poll = async () => { if (cancelled) return; try { const response = await fetch(statusUrl, { signal: controller.signal }); const status = await response.json(); if (!response.ok || status?.success === false || status?.status === "error") throw new Error(status?.error || PLAYER_ERROR); applyStatus(status); if (!status?.playlistReady && status?.status !== "ready") pollTimerRef.current = setTimeout(poll, HLS_POLL_MS); } catch (nextError) { if (!cancelled) setStreamError(nextError?.message || PLAYER_ERROR); } };
     setPlaylistUrl(null); setStreamError("");
     fetch(prepareUrl, { method: "POST", signal: controller.signal }).then(async (response) => { const status = await response.json(); if (!response.ok || status?.success === false) throw new Error(status?.error || PLAYER_ERROR); applyStatus(status); if (!status?.playlistReady && status?.status !== "ready") pollTimerRef.current = setTimeout(poll, HLS_POLL_MS); }).catch((nextError) => { if (!cancelled) setStreamError(nextError?.message || PLAYER_ERROR); });
     return () => { cancelled = true; controller.abort(); clearPoll(); cancelSeriesHlsSession(cancelUrl); };
   }, [cancelSeriesHlsSession, chapterId, hlsOrigin, resume, resumeReady, startAtMs, streamReload, token]);
 
-  React.useEffect(() => {
-    if (!playlistUrl || !chapterId) return undefined;
-    const timer = setInterval(() => { prepareChapterPlayback(chapterId).then((result) => { if (!result?.playbackToken) return; setToken(result.playbackToken); setStartAtMs(currentTimeRef.current); setPlaylistUrl(null); setHasFrame(false); setStreamError(""); setStreamReload((value) => value + 1); }).catch(() => null); }, PLAYBACK_TOKEN_REFRESH_MS);
-    return () => clearInterval(timer);
-  }, [chapterId, playlistUrl]);
-
   React.useEffect(() => { ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => null); return () => { ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.DEFAULT).catch(() => null); }; }, []);
   React.useEffect(() => () => { cancelSeriesHlsSession(cancelUrlRef.current); }, [cancelSeriesHlsSession]);
   React.useEffect(() => { currentTimeRef.current = currentTime; durationRef.current = duration; const seconds = Math.floor(currentTime / 1000); if (chapterId && seconds >= RESUME_MIN_SECONDS && Math.abs(seconds - lastSavedRef.current) >= SAVE_INTERVAL_SECONDS) { lastSavedRef.current = seconds; saveProgress(chapterId, { completed: false, currentTime: seconds, duration: Math.floor(duration / 1000) }, chapter); } }, [chapter, chapterId, currentTime, duration]);
 
   const selectedSubtitleSize = SUBTITLE_SIZE_OPTIONS.find((item) => item.id === subtitleSizeId) || SUBTITLE_SIZE_OPTIONS[1];
-  const subtitleUrl = chapterId && token ? joinUrl(hlsOrigin, `/getsubtitleSeries?idCapitulo=${encode(chapterId)}&playbackToken=${encode(token)}`) : undefined;
+  const subtitleUrl = chapterId ? joinUrl(hlsOrigin, `/getsubtitleSeries?idCapitulo=${encode(chapterId)}`) : undefined;
   const source = playlistUrl ? { uri: playlistUrl, initType: 2, initOptions: [...BUFFER_OPTIONS, `--freetype-rel-fontsize=${selectedSubtitleSize.relativeFontSize}`, `--sub-text-scale=${selectedSubtitleSize.textScale}`], acceptInvalidCertificates: false } : null;
   const progress = duration > 0 ? clamp(currentTime / duration, 0, 1) : 0;
   const retry = React.useCallback(() => { setStartAtMs(0); setPlaylistUrl(null); setStreamError(""); setHasFrame(false); setStreamReload((value) => value + 1); loadPlayback(); }, [loadPlayback]);
