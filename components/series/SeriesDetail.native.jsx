@@ -33,6 +33,10 @@ function listOf(value) {
   return [];
 }
 
+const chapterImageOf = (chapter, fallback) => (
+  chapter?.urlBackgroundHTTPS || chapter?.urlBackground || chapter?.poster || fallback || null
+);
+
 export default function SeriesDetail({ idSerie }) {
   const theme = useTheme();
   const router = useRouter();
@@ -343,9 +347,9 @@ export default function SeriesDetail({ idSerie }) {
                     ]}
                   >
                     <View style={styles.chapterThumbWrapper}>
-                      {chapter.poster || posterUri ? (
+                      {chapterImageOf(chapter, posterUri) ? (
                         <Image
-                          source={{ uri: chapter.poster || posterUri }}
+                          source={{ uri: chapterImageOf(chapter, posterUri) }}
                           style={styles.chapterThumb}
                         />
                       ) : (

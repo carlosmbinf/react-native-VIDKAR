@@ -79,7 +79,7 @@ const SeriesPlayer = () => {
     fetch(normalizedUrl, { method: "POST", keepalive: true }).catch(() => null);
   }, []);
 
-  const handleBack = React.useCallback(() => { cancelSeriesHlsSession(cancelUrlRef.current); if (router.canGoBack()) router.back(); else router.replace("/(normal)/Cinema/Series"); }, [cancelSeriesHlsSession, router]);
+  const handleBack = React.useCallback(() => { cancelSeriesHlsSession(cancelUrlRef.current); if (router.canGoBack()) router.back(); else router.replace("/Cinema/Series"); }, [cancelSeriesHlsSession, router]);
   const loadPlayback = React.useCallback(() => {
     if (!chapterId) { setLoading(false); setError("No se recibió un capítulo válido."); return; }
     setLoading(true); setError(""); setStreamError(""); setPlaylistUrl(null); setToken(""); setHasFrame(false); setPaused(false); viewRegisteredRef.current = false;
