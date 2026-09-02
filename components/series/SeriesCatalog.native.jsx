@@ -58,7 +58,7 @@ export default function SeriesCatalog() {
   const headerInset = useAppHeaderContentInset();
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
-  const { user: currentUser, userReady } = useCurrentSession();
+  const { connected, user: currentUser, userId: currentUserId, userReady } = useCurrentSession();
   const [query, setQuery] = React.useState("");
   const [genre, setGenre] = React.useState(ALL_GENRES);
   const [selected, setSelected] = React.useState(null);
@@ -86,8 +86,8 @@ export default function SeriesCatalog() {
   const popular = filtered.slice(0, 18);
 
   React.useEffect(() => {
-    if (userReady && !currentUser) router.replace("/(auth)/Loguin");
-  }, [currentUser, router, userReady]);
+    if (connected && userReady && !currentUserId && !currentUser) router.replace("/(auth)/Loguin");
+  }, [connected, currentUser, currentUserId, router, userReady]);
 
   const openDetails = React.useCallback((item) => {
     setSelected(item);
