@@ -251,25 +251,16 @@ const HlsAdminScreen = () => {
   const [error, setError] = React.useState(null);
 
   const fetchRuntime = React.useCallback(async ({ silent = false } = {}) => {
-    if (!baseUrl) {
-      setError("No se encontro la URL del servicio HLS en la configuracion de la app.");
-      setLoading(false);
-      return;
-    }
-
     if (!silent) setRefreshing(true);
     setError(null);
 
     try {
-      const response = await fetch(`${baseUrl}/api/runtime`, {
-        headers: { Accept: "application/json" },
+      const payload = await new Promise((resolve, reject) => {
+        Meteor.call("hlsRuntime", (methodError, result) => {
+          if (methodError) reject(methodError);
+          else resolve(result);
+        });
       });
-
-      if (!response.ok) {
-        throw new Error("El servicio HLS no esta disponible en este momento.");
-      }
-
-      const payload = await response.json();
       setSnapshot(normalizeHlsRuntimeSnapshot(payload));
     } catch (runtimeError) {
       setError(runtimeError?.message || "El servicio HLS no esta disponible en este momento.");

@@ -11,7 +11,7 @@ import {
     useTheme,
 } from "react-native-paper";
 
-import { getHlsServerUrl } from "../../services/meteor/client";
+import Meteor, { getHlsServerUrl } from "../../services/meteor/client";
 import AppHeader, { DEFAULT_HEADER_COLOR, useAppHeaderContentInset } from "../Header/AppHeader";
 import {
     DEFAULT_HLS_REFRESH_INTERVAL_MS,
@@ -51,25 +51,16 @@ const HlsAdminScreen = () => {
   const [error, setError] = React.useState(null);
 
   const fetchRuntime = React.useCallback(async () => {
-    if (!baseUrl) {
-      setError("No se encontro la URL del servicio HLS en la configuracion.");
-      setLoading(false);
-      return;
-    }
-
     setRefreshing(true);
     setError(null);
 
     try {
-      const response = await fetch(`${baseUrl}/api/runtime`, {
-        headers: { Accept: "application/json" },
+      const payload = await new Promise((resolve, reject) => {
+        Meteor.call("hlsRuntime", (methodError, result) => {
+          if (methodError) reject(methodError);
+          else resolve(result);
+        });
       });
-
-      if (!response.ok) {
-        throw new Error("El servicio HLS no esta disponible en este momento.");
-      }
-
-      const payload = await response.json();
       setSnapshot(normalizeHlsRuntimeSnapshot(payload));
     } catch (runtimeError) {
       setError(runtimeError?.message || "El servicio HLS no esta disponible en este momento.");

@@ -373,7 +373,7 @@ export default function SeriesDetail({ idSerie }) {
                       </Text>
                       <Text numberOfLines={2} style={[styles.chapterDescription, { color: palette.muted }]}>
                         {chapter.descripcion ||
-                          (chapter.subtitle
+                          (chapter.subtitulo || chapter.subtitle
                             ? `Subtítulos: ${chapter.subtitle}`
                             : "Disponible para reproducción.")}
                       </Text>
