@@ -21,6 +21,7 @@ const ProxyPurchaseScreen = () => {
   const [calculatingPrice, setCalculatingPrice] = useState(false);
   const [precioCalculado, setPrecioCalculado] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [months, setMonths] = useState(1);
 
   const paquete = useMemo(() => {
     try {
@@ -54,6 +55,7 @@ const ProxyPurchaseScreen = () => {
         megas: paquete.megas,
         type: "PROXY",
         userId: user._id,
+        cantidad: paquete.esPorTiempo ? months : 1,
       },
       (error, result) => {
         if (error) {
@@ -66,7 +68,7 @@ const ProxyPurchaseScreen = () => {
         setCalculatingPrice(false);
       },
     );
-  }, [paquete, safeBack]);
+  }, [months, paquete, safeBack]);
 
   const handleConfirmarCompra = () => {
     if (!paquete || !precioCalculado) {
@@ -85,6 +87,7 @@ const ProxyPurchaseScreen = () => {
         precioBaseProxyVPN: parseNumber(precioCalculado?.precioBase),
         producto: paquete,
         type: "PROXY",
+        cantidad: paquete.esPorTiempo ? months : 1,
       },
       (error) => {
         setSubmitting(false);
@@ -124,7 +127,9 @@ const ProxyPurchaseScreen = () => {
       onConfirm={handleConfirmarCompra}
       packageData={paquete}
       packageIcon="wifi"
-      price={precioCalculado?.precioBase}
+      months={months}
+      onMonthsChange={setMonths}
+      price={precioCalculado?.precioTotal || precioCalculado?.precioBase}
       serviceName="Proxy"
       submitting={submitting}
     />

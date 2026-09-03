@@ -1189,6 +1189,9 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
     const label = isProxy ? "PROXY" : "VPN";
     const esIlimitado = isUnlimitedProxyVpnItem(item);
     const capacityLabel = getProxyVpnCapacityLabel(item);
+    const meses = Math.max(1, Number(item.cantidad ?? item.producto?.cantidad) || 1);
+    const precioUnitario = Number(item.cobrarUSD) || 0;
+    const precioTotal = esIlimitado ? precioUnitario * meses : precioUnitario;
     return (
       <CompactCartCard
         color={color}
@@ -1203,9 +1206,20 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
           {
             icon: "currency-usd",
             label: "Precio",
-            value: `$${item.cobrarUSD} CUP`,
+            value: `${precioTotal.toFixed(2)} ${item.monedaACobrar || "CUP"}`,
             valueStyle: styles.priceValue,
           },
+          ...(esIlimitado
+            ? [{
+                icon: "calendar-month",
+                label: "Meses contratados",
+                value: String(meses),
+              }, {
+                icon: "cash-clock",
+                label: "Precio mensual",
+                value: `${precioUnitario.toFixed(2)} ${item.monedaACobrar || "CUP"}`,
+              }]
+            : []),
           {
             icon: "credit-card",
             label: "Método de pago",
@@ -1250,7 +1264,7 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
                 style={styles.infinityIcon}
               />
               <Paragraph style={styles.unlimitedChipText}>
-                ILIMITADO - 30 días
+                ILIMITADO - {meses} {meses === 1 ? "mes" : "meses"}
               </Paragraph>
             </View>
           ) : (
@@ -1268,14 +1282,22 @@ const ListaPedidosRemesa = ({ eliminar = false, items, useScroll = true }) => {
           {
             accentColor: color,
             icon: esIlimitado ? "calendar-range" : "database",
-            label: esIlimitado ? "Límite" : "Capacidad",
-            value: capacityLabel,
+            label: esIlimitado ? "Duración" : "Capacidad",
+            value: esIlimitado ? `${meses * 30} días` : capacityLabel,
           },
+          ...(esIlimitado
+            ? [{
+                accentColor: color,
+                icon: "calendar-month",
+                label: "Meses",
+                value: String(meses),
+              }]
+            : []),
           {
             accentColor: color,
             icon: "currency-usd",
-            label: "Precio",
-            value: `$${item.cobrarUSD || 0} CUP`,
+            label: esIlimitado ? "Total a cobrar" : "Precio",
+            value: `${precioTotal.toFixed(2)} ${item.monedaACobrar || "CUP"}`,
           },
         ]}
         title={`Paquete ${label}`}

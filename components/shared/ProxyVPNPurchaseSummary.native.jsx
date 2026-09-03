@@ -8,6 +8,7 @@ import {
   IconButton,
   Surface,
   Text,
+  TextInput,
   useTheme,
 } from "react-native-paper";
 
@@ -25,8 +26,10 @@ const ProxyVPNPurchaseSummary = ({
   calculatingPrice,
   onCancel,
   onConfirm,
+  onMonthsChange,
   packageData,
   packageIcon,
+  months = 1,
   price,
   serviceName,
   submitting,
@@ -115,7 +118,7 @@ const ProxyVPNPurchaseSummary = ({
                   numberOfLines={2}
                   ellipsizeMode="tail"
                 >
-                  {isUnlimited ? "Vigencia de 30 días" : "Paquete por consumo"}
+                  {isUnlimited ? `Vigencia de ${months * 30} días` : "Paquete por consumo"}
                 </Text>
               </View>
             </View>
@@ -128,6 +131,29 @@ const ProxyVPNPurchaseSummary = ({
               >
                 {description}
               </Text>
+            ) : null}
+
+            {isUnlimited ? (
+              <View style={styles.monthsSection}>
+                <Text variant="labelLarge" style={{ color: theme.colors.onSurface }}>
+                  Cantidad de meses
+                </Text>
+                <TextInput
+                  accessibilityLabel="Cantidad de meses"
+                  keyboardType="number-pad"
+                  mode="outlined"
+                  onChangeText={(value) => {
+                    const parsed = Number(value);
+                    if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 120) {
+                      onMonthsChange?.(parsed);
+                    }
+                  }}
+                  value={String(months)}
+                />
+                <Text variant="bodySmall" style={{ color: mutedColor }}>
+                  Cada mes equivale a 30 días de servicio ilimitado.
+                </Text>
+              </View>
             ) : null}
 
             <Divider style={[styles.divider, { backgroundColor: borderColor }]} />
@@ -400,6 +426,10 @@ const styles = StyleSheet.create({
     gap: 10,
     justifyContent: "center",
     minHeight: 108,
+  },
+  monthsSection: {
+    gap: 8,
+    marginTop: 18,
   },
   packageTitle: {
     fontWeight: "800",

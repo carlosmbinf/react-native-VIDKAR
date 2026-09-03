@@ -21,6 +21,7 @@ const VPNPurchaseScreen = () => {
   const [calculatingPrice, setCalculatingPrice] = useState(false);
   const [precioCalculado, setPrecioCalculado] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [months, setMonths] = useState(1);
 
   const paquete = useMemo(() => {
     try {
@@ -54,6 +55,7 @@ const VPNPurchaseScreen = () => {
         megas: paquete.megas,
         type: "VPN",
         userId: user._id,
+        cantidad: paquete.esPorTiempo ? months : 1,
       },
       (error, result) => {
         if (error) {
@@ -66,7 +68,7 @@ const VPNPurchaseScreen = () => {
         setCalculatingPrice(false);
       },
     );
-  }, [paquete, safeBack]);
+  }, [months, paquete, safeBack]);
 
   const handleConfirmarCompra = () => {
     if (!paquete || !precioCalculado) {
@@ -85,6 +87,7 @@ const VPNPurchaseScreen = () => {
         precioBaseProxyVPN: parseNumber(precioCalculado?.precioBase),
         producto: paquete,
         type: "VPN",
+        cantidad: paquete.esPorTiempo ? months : 1,
       },
       (error) => {
         setSubmitting(false);
@@ -124,7 +127,9 @@ const VPNPurchaseScreen = () => {
       onConfirm={handleConfirmarCompra}
       packageData={paquete}
       packageIcon="shield-check"
-      price={precioCalculado?.precioBase}
+      months={months}
+      onMonthsChange={setMonths}
+      price={precioCalculado?.precioTotal || precioCalculado?.precioBase}
       serviceName="VPN"
       submitting={submitting}
     />
