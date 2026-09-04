@@ -13,6 +13,10 @@
       "buildNumber": "872",
       "bundleIdentifier": "com.vidkar",
       "appleTeamId": "4TWB6RN383",
+      "associatedDomains": [
+        "applinks:www.vidkar.com",
+        "applinks:vidkar.com"
+      ],
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "CFBundleDisplayName": "Vidkar",

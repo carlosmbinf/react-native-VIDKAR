@@ -3,7 +3,7 @@ import * as Application from "expo-application";
 import Constants from "expo-constants";
 import { router } from "expo-router";
 import React from "react";
-import { Alert, Platform, StatusBar, StyleSheet } from "react-native";
+import { Alert, Linking, Platform, StatusBar, StyleSheet } from "react-native";
 import { ActivityIndicator, Surface, Text, useTheme } from "react-native-paper";
 
 import CadeteNavigator from "../components/cadete/CadeteNavigator";
@@ -28,6 +28,10 @@ import {
   WATCH_ROOT_USER_FIELDS,
 } from "../services/watch/watchDashboard";
 import { syncUserSpotlightIndex } from "../services/spotlight/spotlight";
+import {
+  getUniversalLinkKey,
+  resolveUniversalLink,
+} from "../services/navigation/universalLinks";
 
 const Meteor = MeteorBase as unknown as {
   useTracker: <T>(reactiveFn: () => T) => T;
@@ -103,6 +107,9 @@ export default function IndexScreen() {
   const pushCleanupRef = React.useRef<null | (() => void)>(null);
   const lastHandledPushNavigationIdRef = React.useRef<string | null>(null);
   const [pendingPushNavigationNotification, setPendingPushNavigationNotification] = React.useState<any>(null);
+  const lastHandledUniversalLinkRef = React.useRef<string | null>(null);
+  const [pendingUniversalLink, setPendingUniversalLink] =
+    React.useState<string | null>(null);
   const [versionGate, setVersionGate] = React.useState({
     checkingVersion: false,
     updateRequired: false,
@@ -255,6 +262,63 @@ export default function IndexScreen() {
       cancelled = true;
     };
   }, [userId]);
+
+  React.useEffect(() => {
+    let active = true;
+
+    const queueUniversalLink = (url: string | null) => {
+      if (!active || !url) {
+        return;
+      }
+
+      const linkKey = getUniversalLinkKey(url);
+      if (lastHandledUniversalLinkRef.current === linkKey) {
+        return;
+      }
+
+      if (!resolveUniversalLink(url)) {
+        return;
+      }
+
+      lastHandledUniversalLinkRef.current = linkKey;
+      setPendingUniversalLink(url);
+    };
+
+    Linking.getInitialURL()
+      .then(queueUniversalLink)
+      .catch((error) => {
+        console.warn("[UniversalLinks] No se pudo leer la URL inicial:", error);
+      });
+
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      queueUniversalLink(url);
+    });
+
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!pendingUniversalLink || !ready || !userId) {
+      return;
+    }
+
+    const navigationTarget = resolveUniversalLink(pendingUniversalLink);
+    setPendingUniversalLink(null);
+
+    if (!navigationTarget) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      router.replace({
+        pathname: navigationTarget.pathname as never,
+        params: navigationTarget.params,
+      });
+    });
+  }, [pendingUniversalLink, ready]);
 
   React.useEffect(() => {
     if (userId && !ready) {
