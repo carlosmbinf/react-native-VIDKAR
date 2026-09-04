@@ -36,17 +36,6 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
     return { pathname: "/(normal)/Main" };
   }
 
-  export function getUniversalLinkKey(url: string): string {
-    try {
-      const parsedUrl = new URL(url);
-      const pathname =
-        parsedUrl.pathname === "/" ? "/" : parsedUrl.pathname.replace(/\/+$/, "");
-      return `${parsedUrl.protocol}//${parsedUrl.hostname.toLowerCase()}${pathname}${parsedUrl.search}`;
-    } catch {
-      return url;
-    }
-  }
-
   switch (section.toLowerCase()) {
     case "peliculas":
       return { pathname: "/(normal)/PeliculasVideos" };
@@ -61,5 +50,16 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
       return { pathname: "/(normal)/Mensajes" };
     default:
       return null;
+  }
+}
+
+export function getUniversalLinkKey(url: string): string {
+  try {
+    const parsedUrl = new URL(url);
+    const pathname =
+      parsedUrl.pathname === "/" ? "/" : parsedUrl.pathname.replace(/\/+$/, "");
+    return `${parsedUrl.protocol}//${parsedUrl.hostname.toLowerCase()}${pathname}${parsedUrl.search}`;
+  } catch {
+    return url;
   }
 }

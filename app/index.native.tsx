@@ -318,7 +318,7 @@ export default function IndexScreen() {
         params: navigationTarget.params,
       });
     });
-  }, [pendingUniversalLink, ready]);
+  }, [pendingUniversalLink, ready, userId]);
 
   React.useEffect(() => {
     if (userId && !ready) {
