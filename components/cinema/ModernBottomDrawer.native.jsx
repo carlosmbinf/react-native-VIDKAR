@@ -12,7 +12,7 @@ import { BlurView } from "expo-blur";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   ReduceMotion,
-  runOnJS,
+  cancelAnimation,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -20,6 +20,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { scheduleOnRN } from "react-native-worklets";
 
 /**
  * ModernBottomDrawer
@@ -73,10 +74,23 @@ export default function ModernBottomDrawer({
   const [mounted, setMounted] = useState(Boolean(visible));
   const isClosingRef = useRef(false);
   const scrollOffsetRef = useRef(0);
+  const animationRevisionRef = useRef(0);
+  const dismissRequestedRef = useRef(false);
+  const visibleRef = useRef(visible);
+  const previousVisibleRef = useRef(visible);
+  if (visible && !previousVisibleRef.current) {
+    dismissRequestedRef.current = false;
+  }
+  visibleRef.current = visible;
+  previousVisibleRef.current = visible;
 
   const openSheet = useCallback(() => {
+    animationRevisionRef.current += 1;
     isClosingRef.current = false;
     scrollOffsetRef.current = 0;
+    dismissRequestedRef.current = false;
+    cancelAnimation(translateY);
+    cancelAnimation(opacity);
     setMounted(true);
     translateY.set(expandedOffset + 60);
     opacity.set(0);
@@ -84,21 +98,33 @@ export default function ModernBottomDrawer({
     translateY.set(withSpring(expandedOffset, reducedMotion ? { duration: 1, dampingRatio: 1 } : { duration: 300, dampingRatio: 0.8, reduceMotion: ReduceMotion.System }));
   }, [expandedOffset, opacity, reducedMotion, translateY]);
 
-  const finishClose = useCallback(() => {
+  const finishClose = useCallback((revision) => {
+    if (
+      revision !== animationRevisionRef.current
+      || (visibleRef.current && !dismissRequestedRef.current)
+    ) {
+      return;
+    }
+    isClosingRef.current = false;
     setMounted(false);
     onDismiss?.();
   }, [onDismiss]);
 
   const closeSheet = useCallback(
-    (velocity = 0) => {
-      if (isClosingRef.current) return;
+    (velocity = 0, force = false) => {
+      if (isClosingRef.current && !force) return;
       isClosingRef.current = true;
+      dismissRequestedRef.current = true;
+      const revision = animationRevisionRef.current + 1;
+      animationRevisionRef.current = revision;
+      cancelAnimation(translateY);
+      cancelAnimation(opacity);
 
       const duration = velocity > 1.5 ? 160 : 220;
 
       opacity.set(withTiming(0, { duration: duration * 0.9 }));
-      translateY.set(withTiming(expandedHeight + 60, { duration }, (finished) => {
-        if (finished) runOnJS(finishClose)();
+      translateY.set(withTiming(expandedHeight + 60, { duration }, () => {
+        scheduleOnRN(finishClose, revision);
       }));
     },
     [expandedHeight, finishClose, opacity, translateY]
@@ -107,10 +133,10 @@ export default function ModernBottomDrawer({
   useEffect(() => {
     if (visible) {
       openSheet();
-    } else if (mounted && !isClosingRef.current) {
-      closeSheet();
+    } else if (mounted) {
+      closeSheet(0, true);
     }
-  }, [closeSheet, mounted, openSheet, visible]);
+  }, [closeSheet, isLandscape, mounted, openSheet, visible]);
 
   const panGesture = useMemo(() => Gesture.Pan()
     .activeOffsetY([-8, 8])
@@ -126,7 +152,7 @@ export default function ModernBottomDrawer({
       const current = translateY.get();
       const projected = current + event.velocityY * 0.18;
       if (projected > expandedOffset * 0.35 || event.velocityY > 1100) {
-        runOnJS(closeSheet)(event.velocityY);
+        scheduleOnRN(closeSheet, event.velocityY);
         return;
       }
       const target = projected < expandedOffset * 0.55 ? 0 : expandedOffset;
