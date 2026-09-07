@@ -58,6 +58,10 @@ export default function SeriesCatalog() {
   const headerInset = useAppHeaderContentInset();
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
+  const heroHeight = Math.min(
+    isLandscape ? 440 : 600,
+    Math.max(isLandscape ? 380 : 540, width * (isLandscape ? 0.48 : 0.86)),
+  );
   const { connected, user: currentUser, userId: currentUserId, userReady } = useCurrentSession();
   const [query, setQuery] = React.useState("");
   const [genre, setGenre] = React.useState(ALL_GENRES);
@@ -162,9 +166,9 @@ export default function SeriesCatalog() {
   if (currentUser.subscipcionPelis !== true) return <Restricted onBack={() => router.replace("/(normal)/Main")} palette={palette} />;
 
   return <View style={[styles.screen, { backgroundColor: palette.background }]}>
-    <AppHeader backgroundColor={DEFAULT_HEADER_COLOR} overlapContent showBackButton title="Series" backHref="/(normal)/Main" actions={canManageSeries ? <IconButton accessibilityLabel="Agregar serie" icon="movie-plus" iconColor="#fff" onPress={() => setAdminModal(true)} /> : null} />
+    <AppHeader backgroundColor={DEFAULT_HEADER_COLOR} elevated={false} overlapContent showBackButton title="Series" transparent backHref="/(normal)/Main" actions={canManageSeries ? <IconButton accessibilityLabel="Agregar serie" icon="movie-plus" iconColor="#fff" onPress={() => setAdminModal(true)} /> : null} />
     <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(insets.bottom, 16) + 112 }]} showsVerticalScrollIndicator={false} bounces={false} alwaysBounceVertical={false} overScrollMode="never" contentInsetAdjustmentBehavior="never">
-      {featured ? <View style={styles.hero}><ImageBackground source={imageOf(featured) ? { uri: imageOf(featured) } : undefined} style={[styles.heroImage, { minHeight: Math.max(430, width * 0.94) }]} imageStyle={styles.heroImageStyle}><LinearGradient colors={["rgba(2,6,23,0.04)", "rgba(2,6,23,0.72)", palette.background]} locations={[0, 0.54, 1]} style={StyleSheet.absoluteFill} /><View style={[styles.heroContent, { paddingTop: headerInset + 18 }]}><Text style={styles.eyebrow}>VIDKAR CINEMA · SERIES</Text><View style={styles.searchBox}><IconButton icon="magnify" iconColor="#fff" style={{ margin: 0 }} /><TextInput value={query} onChangeText={setQuery} placeholder="Buscar serie, género o actor" placeholderTextColor="rgba(255,255,255,0.58)" style={styles.searchInput} /></View><FlatList data={genres} horizontal keyExtractor={(item) => item} renderItem={({ item }) => <Chip compact onPress={() => setGenre(item)} selected={genre === item} showSelectedCheck={false} style={[styles.genreChip, isLandscape && styles.genreChipLandscape, genre === item && { backgroundColor: palette.accent }]} textStyle={[styles.genreChipLabel, { color: "#fff" }]}>{item}</Chip>} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.genreList} /><Text numberOfLines={3} style={styles.heroTitle}>{titleOf(featured)}</Text><Text style={styles.heroMeta}>{yearOf(featured)}  ·  {listOf(featured.clasificacion)[0] || "Serie"}</Text><Text numberOfLines={3} style={styles.heroCopy}>{summaryOf(featured)}</Text><View style={styles.heroActions}><Button mode="contained" buttonColor={palette.accent} textColor="#fff" icon="play" onPress={() => openDetails(featured)}>Explorar</Button><Button mode="outlined" textColor="#fff" onPress={() => openDetails(featured)}>Detalles</Button></View></View></ImageBackground></View> : null}
+      {featured ? <View style={styles.hero}><ImageBackground source={imageOf(featured) ? { uri: imageOf(featured) } : undefined} style={[styles.heroImage, { height: heroHeight }]} imageStyle={styles.heroImageStyle}><BlurView intensity={18} tint="dark" experimentalBlurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined} renderToHardwareTextureAndroid style={StyleSheet.absoluteFill} pointerEvents="none" /><LinearGradient colors={["rgba(0,0,0,0.12)", "rgba(0,0,0,0.62)", palette.background]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFill} /><View style={[styles.heroContent, !isLandscape && styles.heroContentPortrait, { paddingTop: headerInset + (isLandscape ? 18 : 56) }]}><Text style={styles.eyebrow}>VIDKAR CINEMA · SERIES</Text><View style={styles.heroSearchSurface}><View style={styles.heroSearchInputRow}><IconButton icon="magnify" iconColor="rgba(255,255,255,0.78)" size={20} style={styles.heroSearchIcon} /><TextInput value={query} onChangeText={setQuery} placeholder="Buscar serie, género o actor" placeholderTextColor="rgba(255,255,255,0.58)" style={styles.heroSearchInput} /></View><FlatList data={genres} horizontal keyExtractor={(item) => item} renderItem={({ item }) => { const selected = genre === item; return <Chip compact selected={selected} showSelectedCheck={false} selectedColor="#fff" style={[styles.heroGenreChip, { backgroundColor: selected ? palette.accent : "rgba(255,255,255,0.28)", borderColor: selected ? palette.accent : "rgba(255,255,255,0.44)" }]} textStyle={[styles.heroGenreChipText, { color: "#fff" }]} onPress={() => setGenre(item)}>{item}</Chip>; }} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.heroGenreList} /></View><Text numberOfLines={3} style={styles.heroTitle}>{titleOf(featured)}</Text><Text style={styles.heroMeta}>{yearOf(featured)}  ·  {listOf(featured.clasificacion)[0] || "Serie"}</Text><Text numberOfLines={3} style={styles.heroCopy}>{summaryOf(featured)}</Text><View style={styles.heroActions}><Button mode="contained" buttonColor={palette.accent} textColor="#fff" icon="play" onPress={() => openDetails(featured)}>Explorar</Button><Button mode="outlined" textColor="#fff" onPress={() => openDetails(featured)}>Detalles</Button></View></View></ImageBackground></View> : null}
       {loading && !tracker.series.length ? <View style={styles.loading}><ActivityIndicator color={palette.accent} /><Text style={{ color: palette.muted }}>Cargando catálogo de series...</Text></View> : null}
       {!loading && !filtered.length ? <Surface style={[styles.empty, { backgroundColor: palette.surface, borderColor: palette.border }]} elevation={0}><IconButton icon="television-off" iconColor={palette.muted} size={36} /><Text style={{ color: palette.text }}>No hay series para mostrar</Text></Surface> : null}
       <SeriesRow items={popular} onPress={openDetails} palette={palette} title="Para descubrir" />
@@ -307,14 +311,18 @@ const styles = StyleSheet.create({
   hero: { overflow: "hidden" },
   heroImage: { justifyContent: "flex-end" },
   heroImageStyle: { opacity: 0.96 },
-  heroContent: { flex: 1, justifyContent: "flex-end", paddingBottom: 28, paddingHorizontal: 18 },
+  heroContent: { flex: 1, gap: 12, justifyContent: "flex-end", paddingBottom: 28, paddingHorizontal: 18 },
+  heroContentPortrait: { justifyContent: "flex-start" },
   eyebrow: { color: "#c7d2fe", fontSize: 12, fontWeight: "900", letterSpacing: 1.2, marginBottom: 10 },
-  searchBox: { alignItems: "center", backgroundColor: "rgba(2,6,23,0.72)", borderColor: "rgba(255,255,255,0.32)", borderRadius: 12, borderWidth: 1, flexDirection: "row", maxWidth: 560, minHeight: 50 },
+  heroSearchSurface: { backgroundColor: "rgba(2,6,23,0.72)", borderColor: "rgba(255,255,255,0.34)", borderRadius: 8, borderWidth: 1, maxWidth: 560, overflow: "hidden", width: "100%" },
+  heroSearchInputRow: { alignItems: "center", flexDirection: "row", minHeight: 50, paddingHorizontal: 6 },
+  heroSearchIcon: { margin: 0 },
+  heroSearchInput: { color: "#fff", flex: 1, fontSize: 15, fontWeight: "700", minHeight: 42, paddingVertical: 0 },
   searchInput: { color: "#fff", flex: 1, fontSize: 15, fontWeight: "700", paddingHorizontal: 2 },
-  genreList: { gap: 8, paddingVertical: 10 },
-  genreChip: { backgroundColor: "rgba(255,255,255,0.22)", borderColor: "rgba(255,255,255,0.32)", borderWidth: 1, height: 30, minHeight: 30, paddingVertical: 0 },
-  genreChipLandscape: { height: 28, minHeight: 28 },
-  genreChipLabel: { fontSize: 12, fontWeight: "800", lineHeight: 16, marginVertical: 0, paddingVertical: 0 },
+  genreListViewport: { minHeight: 48 },
+  heroGenreList: { gap: 8, paddingHorizontal: 12, paddingBottom: 12, paddingTop: 4 },
+  heroGenreChip: { borderRadius: 999, borderWidth: 1, minHeight: 36 },
+  heroGenreChipText: { fontSize: 13, fontWeight: "900" },
   heroTitle: { color: "#fff", fontSize: 38, fontWeight: "900", lineHeight: 43, maxWidth: 650 },
   heroMeta: { color: "rgba(255,255,255,0.82)", fontSize: 16, fontWeight: "800", marginTop: 10 },
   heroCopy: { color: "rgba(255,255,255,0.78)", fontSize: 16, lineHeight: 23, marginTop: 12, maxWidth: 590 },

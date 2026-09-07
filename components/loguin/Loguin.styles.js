@@ -4,7 +4,7 @@ export const getLoginPalette = (isDarkMode) =>
   isDarkMode
     ? {
         altText: "rgba(226, 232, 240, 0.82)",
-        backgroundOverlay: "rgba(4, 10, 24, 0.64)",
+        backgroundOverlay: "rgba(4, 10, 24, 0.38)",
         blurCardAccent: "rgba(96, 165, 250, 0.14)",
         blurCardBorder: "rgba(255,255,255,0.18)",
         blurCardGlow: "rgba(59, 130, 246, 0.18)",
@@ -38,7 +38,7 @@ export const getLoginPalette = (isDarkMode) =>
       }
     : {
         altText: "rgba(226, 232, 240, 0.78)",
-        backgroundOverlay: "rgba(4, 10, 24, 0.68)",
+        backgroundOverlay: "rgba(4, 10, 24, 0.42)",
         blurCardAccent: "rgba(96, 165, 250, 0.12)",
         blurCardBorder: "rgba(255,255,255,0.16)",
         blurCardGlow: "rgba(59, 130, 246, 0.16)",
@@ -84,7 +84,7 @@ export const loginScreenStyles = StyleSheet.create({
     backgroundColor: "#071120",
   },
   backgroundImageStyle: {
-    opacity: 0.86,
+    opacity: 1,
   },
   backgroundOverlay: {
     ...StyleSheet.absoluteFill,
@@ -199,7 +199,11 @@ export const loginScreenStyles = StyleSheet.create({
     marginBottom: 16,
   },
   screen: {
-    backgroundColor: "#071120",
+    backgroundColor: "transparent",
+    flex: 1,
+  },
+  transparentContent: {
+    backgroundColor: "transparent",
     flex: 1,
   },
   dividerLine: {

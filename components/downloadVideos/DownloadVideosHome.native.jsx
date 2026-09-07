@@ -820,6 +820,8 @@ const HeroMovieFilters = ({
 );
 
 const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onDismiss, onPlay, onTrailer }) => {
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
   const resolvedMovie = detail || movie;
   const genres = normalizeGenres(resolvedMovie?.clasificacion);
   const actors = normalizeActors(resolvedMovie?.actors);
@@ -852,7 +854,7 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
         </View>
       }
     >
-      <CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.drawerHero} imageStyle={styles.drawerHeroImage}>
+      <CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={[styles.drawerHero, isLandscape && styles.drawerHeroLandscape]} imageStyle={styles.drawerHeroImage}>
         <LinearGradient colors={["rgba(0,0,0,0.04)", "rgba(0,0,0,0.88)"]} style={StyleSheet.absoluteFill} />
         <View style={styles.drawerHeroContent}>
           <Text variant="headlineSmall" style={styles.drawerTitle} numberOfLines={3}>{getMovieTitle(resolvedMovie)}</Text>
@@ -1230,6 +1232,8 @@ const DownloadVideosHome = () => {
           showBackButton
           backHref="/(normal)/Main"
           backgroundColor={DEFAULT_HEADER_COLOR}
+          elevated={false}
+          transparent
         />
         <View style={[styles.loadingContent, { paddingTop: headerInset + 20 }]}> 
           <EmptyState palette={palette} loading style={styles.loadingEmptyState} />
@@ -1246,6 +1250,8 @@ const DownloadVideosHome = () => {
           showBackButton
           backHref="/(normal)/Main"
           backgroundColor={DEFAULT_HEADER_COLOR}
+          elevated={false}
+          transparent
         />
         <View style={[styles.restrictedContent, { paddingTop: headerInset + 20 }]}>
           <Surface style={[styles.restrictedCard, { backgroundColor: palette.surface, borderColor: palette.border }]} elevation={0}>
@@ -1267,7 +1273,9 @@ const DownloadVideosHome = () => {
         showBackButton
         backHref="/(normal)/Main"
         backgroundColor={DEFAULT_HEADER_COLOR}
+        elevated={false}
         overlapContent
+        transparent
         actions={canAddMovies ? <IconButton icon="plus" iconColor="#ffffff" onPress={() => setAddMovieOpen(true)} /> : null}
       />
       <ScrollView
@@ -1912,6 +1920,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginHorizontal: 2,
     marginBottom: 8,
+  },
+  drawerHeroLandscape: {
+    minHeight: 180,
+    maxHeight: 220,
   },
   drawerModernHeader: {
     flexDirection: "row",

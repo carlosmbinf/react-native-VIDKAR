@@ -866,7 +866,7 @@ const Loguin = () => {
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
-            style={styles.screen}
+            style={styles.transparentContent}
           >
             <View
               ref={scrollContentRef}

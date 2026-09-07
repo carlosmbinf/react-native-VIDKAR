@@ -41,8 +41,12 @@ export default function SeriesDetail({ idSerie }) {
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
-  const heroHeight = Math.max(380, windowWidth * 0.95);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isLandscape = windowWidth > windowHeight;
+  const heroHeight = Math.min(
+    isLandscape ? 360 : 520,
+    Math.max(isLandscape ? 300 : 380, windowWidth * (isLandscape ? 0.48 : 0.78)),
+  );
   const palette = {
     accent: theme.dark ? "#818cf8" : "#4f46e5",
     background: theme.dark ? "#090d16" : "#f8fafc",
@@ -183,9 +187,11 @@ export default function SeriesDetail({ idSerie }) {
     <View style={[styles.screen, { backgroundColor: palette.background }]}>
       <AppHeader
         backgroundColor={DEFAULT_HEADER_COLOR}
+        elevated={false}
         overlapContent
         showBackButton
         title={serie.nombre || "Detalles de la Serie"}
+        transparent
         onBackPress={() => router.back()}
       />
 
@@ -204,7 +210,7 @@ export default function SeriesDetail({ idSerie }) {
         <View style={styles.heroContainer}>
           <ImageBackground
             source={posterUri ? { uri: posterUri } : undefined}
-            style={[styles.heroBanner, { minHeight: heroHeight }]}
+            style={[styles.heroBanner, { height: heroHeight }]}
             imageStyle={styles.heroImageStyle}
           >
             <LinearGradient

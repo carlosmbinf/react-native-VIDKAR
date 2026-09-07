@@ -1,14 +1,24 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Animated,
   Modal,
-  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
   View,
+  Platform,
   useWindowDimensions,
 } from "react-native";
+import { BlurView } from "expo-blur";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  ReduceMotion,
+  runOnJS,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
@@ -30,45 +40,54 @@ export default function ModernBottomDrawer({
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
 
-  const isWide = width > 768;
-  const sheetMaxWidth = Math.min(width - 32, 680);
-  const sheetHeight = Math.min(
-    Math.max(minHeight, height * maxHeightFraction),
-    height - Math.max(insets.top, 16) - 16
+  const isLandscape = width > height;
+  const isWide = width > 768 || isLandscape;
+  const sheetMaxWidth = Math.min(width - 32, isLandscape ? 820 : 680);
+  const availableHeight = height - Math.max(insets.top, 16) - 16;
+  const minimumSheetHeight = isLandscape
+    ? Math.min(minHeight, 280)
+    : Math.min(minHeight, 360);
+  const maxSheetHeight = Math.min(
+    Math.max(minimumSheetHeight, height * (isLandscape ? Math.min(maxHeightFraction, 0.78) : maxHeightFraction)),
+    availableHeight,
   );
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
+  const measuredSheetHeight = headerHeight > 0 && contentHeight > 0
+    ? headerHeight + contentHeight + Math.max(insets.bottom, 16)
+    : maxSheetHeight;
+  const expandedHeight = Math.max(
+    minimumSheetHeight,
+    Math.min(availableHeight, maxSheetHeight, measuredSheetHeight),
+  );
+  const collapsedHeight = Math.min(
+    expandedHeight,
+    minimumSheetHeight,
+  );
+  const expandedOffset = expandedHeight - collapsedHeight;
+  const reducedMotion = useReducedMotion();
 
-  const translateY = useRef(new Animated.Value(sheetHeight + 60)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useSharedValue(expandedOffset + 60);
+  const opacity = useSharedValue(0);
+  const startY = useSharedValue(0);
   const [mounted, setMounted] = useState(Boolean(visible));
   const isClosingRef = useRef(false);
-  const currentYRef = useRef(sheetHeight + 60);
   const scrollOffsetRef = useRef(0);
 
   const openSheet = useCallback(() => {
     isClosingRef.current = false;
     scrollOffsetRef.current = 0;
     setMounted(true);
-    translateY.setValue(sheetHeight + 60);
-    currentYRef.current = sheetHeight + 60;
-    opacity.setValue(0);
+    translateY.set(expandedOffset + 60);
+    opacity.set(0);
+    opacity.set(withTiming(1, { duration: 220, reduceMotion: ReduceMotion.System }));
+    translateY.set(withSpring(expandedOffset, reducedMotion ? { duration: 1, dampingRatio: 1 } : { duration: 300, dampingRatio: 0.8, reduceMotion: ReduceMotion.System }));
+  }, [expandedOffset, opacity, reducedMotion, translateY]);
 
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 220,
-        useNativeDriver: true,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        damping: 26,
-        stiffness: 280,
-        mass: 0.85,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      currentYRef.current = 0;
-    });
-  }, [opacity, sheetHeight, translateY]);
+  const finishClose = useCallback(() => {
+    setMounted(false);
+    onDismiss?.();
+  }, [onDismiss]);
 
   const closeSheet = useCallback(
     (velocity = 0) => {
@@ -77,25 +96,12 @@ export default function ModernBottomDrawer({
 
       const duration = velocity > 1.5 ? 160 : 220;
 
-      Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: duration * 0.9,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: sheetHeight + 60,
-          duration,
-          useNativeDriver: true,
-        }),
-      ]).start(({ finished }) => {
-        if (finished) {
-          setMounted(false);
-          onDismiss?.();
-        }
-      });
+      opacity.set(withTiming(0, { duration: duration * 0.9 }));
+      translateY.set(withTiming(expandedHeight + 60, { duration }, (finished) => {
+        if (finished) runOnJS(finishClose)();
+      }));
     },
-    [onDismiss, opacity, sheetHeight, translateY]
+    [expandedHeight, finishClose, opacity, translateY]
   );
 
   useEffect(() => {
@@ -106,61 +112,31 @@ export default function ModernBottomDrawer({
     }
   }, [closeSheet, mounted, openSheet, visible]);
 
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponder: (_evt, gestureState) => {
-          // Solo capturar gestos verticales hacia abajo
-          return (
-            scrollOffsetRef.current <= 0 &&
-            gestureState.dy > 6 &&
-            Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5
-          );
-        },
-        onMoveShouldSetPanResponderCapture: (_evt, gestureState) => {
-          return (
-            scrollOffsetRef.current <= 0 &&
-            gestureState.dy > 6 &&
-            Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.25
-          );
-        },
-        onPanResponderTerminationRequest: () => false,
-        onShouldBlockNativeResponder: () => true,
-        onPanResponderGrant: () => {
-          // Iniciar seguimiento
-        },
-        onPanResponderMove: (_evt, gestureState) => {
-          if (gestureState.dy > 0) {
-            translateY.setValue(gestureState.dy);
-            const progress = Math.max(0, 1 - gestureState.dy / sheetHeight);
-            opacity.setValue(progress);
-          }
-        },
-        onPanResponderRelease: (_evt, gestureState) => {
-          if (gestureState.dy > 120 || gestureState.vy > 0.8) {
-            closeSheet(gestureState.vy);
-          } else {
-            // Regresar a posición abierta con rebote sutil
-            Animated.parallel([
-              Animated.spring(translateY, {
-                toValue: 0,
-                damping: 24,
-                stiffness: 300,
-                mass: 0.8,
-                useNativeDriver: true,
-              }),
-              Animated.timing(opacity, {
-                toValue: 1,
-                duration: 150,
-                useNativeDriver: true,
-              }),
-            ]).start();
-          }
-        },
-      }),
-    [closeSheet, opacity, sheetHeight, translateY]
-  );
+  const panGesture = useMemo(() => Gesture.Pan()
+    .activeOffsetY([-8, 8])
+    .failOffsetX([-40, 40])
+    .onStart(() => {
+      startY.set(translateY.get());
+    })
+    .onUpdate((event) => {
+      const nextY = Math.max(0, Math.min(expandedOffset, startY.get() + event.translationY));
+      translateY.set(nextY);
+    })
+    .onEnd((event) => {
+      const current = translateY.get();
+      const projected = current + event.velocityY * 0.18;
+      if (projected > expandedOffset * 0.35 || event.velocityY > 1100) {
+        runOnJS(closeSheet)(event.velocityY);
+        return;
+      }
+      const target = projected < expandedOffset * 0.55 ? 0 : expandedOffset;
+      translateY.set(withSpring(target, { duration: 300, dampingRatio: 0.8, velocity: event.velocityY, reduceMotion: ReduceMotion.System }));
+    }), [closeSheet, collapsedHeight, expandedOffset, startY, translateY]);
+
+  const sheetAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.get(),
+    transform: [{ translateY: translateY.get() }],
+  }));
 
   if (!mounted) return null;
 
@@ -174,38 +150,62 @@ export default function ModernBottomDrawer({
       visible={mounted}
       animationType="none"
       statusBarTranslucent
+      supportedOrientations={["portrait", "landscape", "landscape-left", "landscape-right"]}
       onRequestClose={() => closeSheet()}
     >
       <View style={styles.container}>
-        <Animated.View style={[styles.backdrop, { opacity }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => closeSheet()} />
-        </Animated.View>
+        <View style={styles.backdrop}>
+          <Pressable
+            accessibilityLabel="Cerrar detalles"
+            accessibilityRole="button"
+            onPress={closeSheet}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
 
         <Animated.View
-          {...panResponder.panHandlers}
+          pointerEvents="box-none"
           style={[
             styles.sheet,
+            sheetAnimatedStyle,
             {
-              maxHeight: sheetHeight,
-              backgroundColor,
+              height: expandedHeight,
+              maxHeight: expandedHeight,
+              backgroundColor: "transparent",
               borderColor,
-              transform: [{ translateY }],
               paddingBottom: Math.max(insets.bottom, 16),
             },
+            isLandscape && styles.sheetLandscape,
             isWide && {
               width: sheetMaxWidth,
               alignSelf: "center",
               borderBottomLeftRadius: 28,
               borderBottomRightRadius: 28,
-              marginBottom: Math.max(insets.bottom, 20),
+              marginBottom: isLandscape ? -84 : Math.max(insets.bottom, 20),
             },
           ]}
         >
+          <BlurView
+            intensity={56}
+            tint="dark"
+            experimentalBlurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
+            renderToHardwareTextureAndroid
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+          <View
+            pointerEvents="none"
+            style={[styles.sheetGlassOverlay, { backgroundColor: "rgba(15, 23, 42, 0.42)" }]}
+          />
+          <View pointerEvents="none" style={styles.sheetGlassBorder} />
+          <View pointerEvents="none" style={styles.sheetTopHighlight} />
           {/* Zona de agarre / Handle para arrastrar */}
-          <View style={styles.handleContainer}>
-            {!hideHandle && <View style={[styles.handleBar, { backgroundColor: handleColor }]} />}
-            {header}
-          </View>
+          <GestureDetector gesture={panGesture}>
+            <View onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)} style={styles.handleContainer}>
+              {!hideHandle && <View style={[styles.handleBar, { backgroundColor: handleColor }]} />}
+              {header}
+            </View>
+          </GestureDetector>
 
           {/* Contenido scrolleable */}
           <ScrollView
@@ -216,6 +216,7 @@ export default function ModernBottomDrawer({
             contentInsetAdjustmentBehavior="never"
             contentContainerStyle={styles.scrollContent}
             style={styles.scroll}
+            onContentSizeChange={(_contentWidth, nextContentHeight) => setContentHeight(nextContentHeight)}
             onScroll={(event) => {
               scrollOffsetRef.current = Math.max(0, event.nativeEvent.contentOffset.y);
             }}
@@ -242,13 +243,38 @@ const styles = StyleSheet.create({
     width: "100%",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -8 },
     shadowOpacity: 0.32,
     shadowRadius: 24,
     elevation: 24,
+  },
+  sheetLandscape: {
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+  sheetGlassOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  sheetTopHighlight: {
+    backgroundColor: "rgba(255, 255, 255, 0.24)",
+    height: 1,
+    left: 28,
+    position: "absolute",
+    right: 28,
+    top: 0,
+  },
+  sheetGlassBorder: {
+    borderColor: "rgba(255, 255, 255, 0.24)",
+    borderRadius: 28,
+    borderWidth: 1,
+    bottom: 0,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
   },
   handleContainer: {
     width: "100%",

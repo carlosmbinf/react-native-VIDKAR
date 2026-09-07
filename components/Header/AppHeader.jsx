@@ -58,6 +58,7 @@ const AppHeader = ({
   subtitleStyle,
   title,
   titleStyle,
+  transparent = false,
 }) => {
   const theme = useTheme();
   const isFocused = useIsFocused();
@@ -112,41 +113,45 @@ const AppHeader = ({
 
   const headerNode = (
     <View style={headerStyle}>
-      <BlurView
-        key={`${width}-${height}`}
-        blurTarget={resolvedBlurTarget}
-        blurReductionFactor={4}
-        intensity={glassIntensity}
-        tint="dark"
-        blurMethod={
-          Platform.OS === "android" ? "dimezisBlurView" : undefined
-        }
-        renderToHardwareTextureAndroid={true}
-        style={StyleSheet.absoluteFill}
-      />
-      <View
-        pointerEvents="none"
-        style={[
-          styles.colorOverlay,
-          {
-            backgroundColor: getHeaderOverlayColor(
-              resolvedBackgroundColor,
-              glassOverlayOpacity,
-            ),
-          },
-        ]}
-      />
-      <View
-        pointerEvents="none"
-        style={[
-          styles.sheenOverlay,
-          {
-            backgroundColor: theme.dark
-              ? "rgba(255, 255, 255, 0.055)"
-              : "rgba(255, 255, 255, 0.055)",
-          },
-        ]}
-      />
+      {!transparent ? (
+        <>
+          <BlurView
+            key={`${width}-${height}`}
+            blurTarget={resolvedBlurTarget}
+            blurReductionFactor={4}
+            intensity={glassIntensity}
+            tint="dark"
+            blurMethod={
+              Platform.OS === "android" ? "dimezisBlurView" : undefined
+            }
+            renderToHardwareTextureAndroid={true}
+            style={StyleSheet.absoluteFill}
+          />
+          <View
+            pointerEvents="none"
+            style={[
+              styles.colorOverlay,
+              {
+                backgroundColor: getHeaderOverlayColor(
+                  resolvedBackgroundColor,
+                  glassOverlayOpacity,
+                ),
+              },
+            ]}
+          />
+          <View
+            pointerEvents="none"
+            style={[
+              styles.sheenOverlay,
+              {
+                backgroundColor: theme.dark
+                  ? "rgba(255, 255, 255, 0.055)"
+                  : "rgba(255, 255, 255, 0.055)",
+              },
+            ]}
+          />
+        </>
+      ) : null}
       <Appbar.Header
         elevated={elevated}
         statusBarHeight={statusBarHeight}
@@ -169,17 +174,19 @@ const AppHeader = ({
         />
         {actions || null}
       </Appbar.Header>
-      <View
-        pointerEvents="none"
-        style={[
-          styles.bottomBorder,
-          {
-            backgroundColor: theme.dark
-              ? "rgba(255, 255, 255, 0.13)"
-              : "rgba(15, 23, 42, 0.14)",
-          },
-        ]}
-      />
+      {!transparent ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.bottomBorder,
+            {
+              backgroundColor: theme.dark
+                ? "rgba(255, 255, 255, 0.13)"
+                : "rgba(15, 23, 42, 0.14)",
+            },
+          ]}
+        />
+      ) : null}
     </View>
   );
 
@@ -207,14 +214,14 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     position: "relative",
     width: "100%",
-    zIndex: 20,
+    zIndex: 1000,
   },
   floatingHeader: {
     left: 0,
     position: "absolute",
     right: 0,
     top: 0,
-    zIndex: 20,
+    zIndex: 1000,
   },
   colorOverlay: {
     ...StyleSheet.absoluteFill,
