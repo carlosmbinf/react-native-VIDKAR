@@ -43,12 +43,12 @@ export default function ModernBottomDrawer({
   const isLandscape = width > height;
   const isWide = width > 768 || isLandscape;
   const sheetMaxWidth = Math.min(width - 32, isLandscape ? 820 : 680);
-  const availableHeight = height - Math.max(insets.top, 16) - 16;
+  const availableHeight = height - Math.max(insets.top, 16) - Math.max(insets.bottom, 16);
   const minimumSheetHeight = isLandscape
     ? Math.min(minHeight, 280)
     : Math.min(minHeight, 360);
   const maxSheetHeight = Math.min(
-    Math.max(minimumSheetHeight, height * (isLandscape ? Math.min(maxHeightFraction, 0.78) : maxHeightFraction)),
+    Math.max(minimumSheetHeight, height * maxHeightFraction),
     availableHeight,
   );
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -181,7 +181,7 @@ export default function ModernBottomDrawer({
               alignSelf: "center",
               borderBottomLeftRadius: 28,
               borderBottomRightRadius: 28,
-              marginBottom: isLandscape ? -84 : Math.max(insets.bottom, 20),
+              marginBottom: Math.max(insets.bottom, 16),
             },
           ]}
         >

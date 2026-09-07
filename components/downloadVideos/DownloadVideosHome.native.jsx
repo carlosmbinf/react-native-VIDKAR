@@ -1273,8 +1273,10 @@ const DownloadVideosHome = () => {
         showBackButton
         backHref="/(normal)/Main"
         backgroundColor={DEFAULT_HEADER_COLOR}
+        containerStyle={{ zIndex: 1 }}
         elevated={false}
         overlapContent
+        portal={false}
         transparent
         actions={canAddMovies ? <IconButton icon="plus" iconColor="#ffffff" onPress={() => setAddMovieOpen(true)} /> : null}
       />
