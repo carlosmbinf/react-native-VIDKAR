@@ -5,7 +5,7 @@ const Productos = () => (
   <ScreenFallback
     title="Productos Cubacel"
     legacyPath="components/cubacel/Productos.jsx"
-    description="La lista horizontal de productos Cubacel está implementada en la variante nativa para Expo."
+    description="El catálogo responsivo de tarjetas Cubacel está implementado en la variante nativa para Expo."
   />
 );
 

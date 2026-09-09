@@ -1,9 +1,11 @@
 import MeteorBase from "@meteorrn/core";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
     Animated,
     Dimensions,
+      Image,
     ImageBackground,
     InteractionManager,
     Platform,
@@ -47,20 +49,112 @@ const normalizeToArray = (value) => {
   return [];
 };
 
-const extractPromoImageUrl = (promos) => {
-  for (const promotion of normalizeToArray(promos)) {
-    const text = [promotion?.terms, promotion?.description, promotion?.title]
-      .filter(Boolean)
-      .join(" ");
-    const markdownImage = text.match(/!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/i);
-    if (markdownImage?.[1]) {
-      return markdownImage[1];
+const extractPromoImageUrl = (promos, product = null) => {
+  const promotionsList = normalizeToArray(promos);
+
+  for (const promotion of promotionsList) {
+    if (!promotion || typeof promotion !== "object") {
+      continue;
     }
-    const plainUrl = text.match(/https?:\/\/[^\s)]+/i);
-    if (plainUrl?.[0]) {
-      return plainUrl[0];
+
+    // 1. Direct image properties on promotion object
+    const directUrl =
+      promotion.imageUrl ||
+      promotion.image_url ||
+      promotion.image ||
+      promotion.bannerUrl ||
+      promotion.banner_url ||
+      promotion.mediaUrl ||
+      promotion.media_url ||
+      promotion.src;
+
+    if (
+      typeof directUrl === "string" &&
+      directUrl.trim().length > 0 &&
+      directUrl.trim().startsWith("http")
+    ) {
+      return directUrl.trim();
+    }
+
+    // 2. Search text fields (terms, terms_and_conditions, description, title)
+    const textSources = [
+      promotion.terms,
+      promotion.terms_and_conditions,
+      promotion.description,
+      promotion.title,
+    ]
+      .filter((text) => typeof text === "string" && text.trim().length > 0)
+      .join(" ");
+
+    if (textSources) {
+      // Markdown image: ![alt](https://...)
+      const markdownMatch = textSources.match(
+        /!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/i,
+      );
+      if (markdownMatch?.[1]) {
+        return markdownMatch[1].trim();
+      }
+
+      // HTML img tag src: <img src="https://..." />
+      const htmlMatch = textSources.match(
+        /<img[^>]+src=["'](https?:\/\/[^"'\s]+)["']/i,
+      );
+      if (htmlMatch?.[1]) {
+        return htmlMatch[1].trim();
+      }
+
+      // Image URL with extension
+      const imageExtMatch = textSources.match(
+        /https?:\/\/[^\s<>"')]+?\.(?:png|jpg|jpeg|webp|gif|svg)(?:\?[^\s<>"')]*|)/i,
+      );
+      if (imageExtMatch?.[0]) {
+        return imageExtMatch[0].replace(/[.,;:)]+$/, "").trim();
+      }
+
+      // Any plain HTTP/HTTPS URL
+      const plainUrlMatch = textSources.match(/https?:\/\/[^\s<>"')]+/i);
+      if (plainUrlMatch?.[0]) {
+        return plainUrlMatch[0].replace(/[.,;:)]+$/, "").trim();
+      }
     }
   }
+
+  // 3. Direct image properties or description on product object
+  if (product && typeof product === "object") {
+    const productUrl =
+      product.imageUrl ||
+      product.image_url ||
+      product.image ||
+      product.bannerUrl ||
+      product.banner_url ||
+      product.mediaUrl ||
+      product.media_url;
+
+    if (
+      typeof productUrl === "string" &&
+      productUrl.trim().length > 0 &&
+      productUrl.trim().startsWith("http")
+    ) {
+      return productUrl.trim();
+    }
+
+    if (typeof product.description === "string" && product.description.trim()) {
+      const descMarkdownMatch = product.description.match(
+        /!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/i,
+      );
+      if (descMarkdownMatch?.[1]) {
+        return descMarkdownMatch[1].trim();
+      }
+
+      const descUrlMatch = product.description.match(
+        /https?:\/\/[^\s<>"')]+?\.(?:png|jpg|jpeg|webp|gif|svg)(?:\?[^\s<>"')]*|)/i,
+      );
+      if (descUrlMatch?.[0]) {
+        return descUrlMatch[0].replace(/[.,;:)]+$/, "").trim();
+      }
+    }
+  }
+
   return null;
 };
 
@@ -139,7 +233,7 @@ const getCachedConvertedPrice = (amount, currency) => {
   return task;
 };
 
-const CubaCelCard = ({ product }) => {
+const CubaCelCard = ({ product, fullWidth = false, style }) => {
   const {
     benefits,
     description,
@@ -199,15 +293,19 @@ const CubaCelCard = ({ product }) => {
   const promotion = hasPromo ? normalizedPromotions[0] : null;
   const promoStatus = getPromoStatus(promotion);
   const promoImageUrl = useMemo(
-    () => extractPromoImageUrl(normalizedPromotions),
-    [normalizedPromotions],
+    () => extractPromoImageUrl(normalizedPromotions, product),
+    [normalizedPromotions, product],
   );
   const promoStartDate = formatPromoDate(promotion?.startDate);
   const promoEndDate = formatPromoDate(promotion?.endDate);
   const localFallback = require("./Gemini_Generated_Image_rtg44brtg44brtg4.png");
-  const backgroundSource =
-    promoImageUrl && !bgLoadError ? { uri: promoImageUrl } : localFallback;
+  const promoImageSource =
+    promoImageUrl && !bgLoadError ? { uri: promoImageUrl }  : localFallback;
   const contextPromoTitle = promotion?.title || name || operadorNombre;
+
+  useEffect(() => {
+    setBgLoadError(false);
+  }, [promoImageUrl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -373,47 +471,41 @@ const CubaCelCard = ({ product }) => {
   });
 
   const renderCardVisual = ({ showPeekHint = false, overlayMode = false }) => (
-    <Card style={[styles.card, overlayMode ? styles.overlayCard : null]}>
+    <Card
+      style={[
+        styles.card,
+        fullWidth ? styles.cardFullWidth : styles.cardCarousel,
+        !hasPromo ? styles.cardNoPromo : null,
+        overlayMode ? styles.overlayCard : null,
+      ]}
+    >
       <ImageBackground
-        source={backgroundSource}
+        source={promoImageSource}
         defaultSource={Platform.OS === "ios" ? localFallback : undefined}
         onError={() => setBgLoadError(true)}
         resizeMode="cover"
-        imageStyle={styles.imageBackgroundBorder}
-        style={styles.imageBackground}
-        blurRadius={ocultarFondo || !promoImageUrl ? 35 : 0}
-      >
-        {!hasPromo ? <View style={styles.noPromoBackgroundOverlay} /> : null}
-        <View style={overlayMode ? styles.peekOverlayScrim : null} />
+        style={styles.imageLayer}
+        blurRadius={ocultarFondo ? 35 : 0}
+      />
+      <View style={styles.cardSurface}>
+        
 
-        {hasPromo && promoStatus ? (
-          <View
-            style={[
-              styles.ribbonContainer,
-              promoStatus === "ADELANTADA"
-                ? styles.ribbonContainerAdelantada
-                : null,
+        {hasPromo ? (
+          <LinearGradient
+            colors={[
+              "rgba(5, 12, 24, 0.42)",
+              "rgba(5, 12, 24, 0.08)",
+              "rgba(4, 9, 20, 0.58)",
+              "rgba(3, 7, 18, 0.78)",
             ]}
-          >
-            <Text style={styles.ribbonText}>
-              {promoStatus === "ACTIVA"
-                ? "🎁 PROMOCIÓN ACTIVA"
-                : "⏰ ADELANTA PROMO"}
-            </Text>
-          </View>
-        ) : null}
+            locations={[0, 0.3, 0.68, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+        ) : (
+          <View style={styles.noPromoBackgroundOverlay} />
+        )}
 
-        {/* {showPeekHint ? (
-          <View style={styles.contextHintBadge}>
-            <IconButton
-              icon="gesture-tap-hold"
-              iconColor="#fff"
-              size={14}
-              style={styles.contextHintIcon}
-            />
-            <Text style={styles.contextHintText}>Mantener</Text>
-          </View>
-        ) : null} */}
+        {overlayMode ? <View style={styles.peekOverlayScrim} /> : null}
 
         <View
           style={[
@@ -519,77 +611,104 @@ const CubaCelCard = ({ product }) => {
               </View>
             </View>
           ) : (
-            <>
-              <View style={styles.row}>
-                {!promoImageUrl ? (
-                  <>
-                    <IconButton icon="cellphone" iconColor="white" size={16} />
+            <View style={styles.promoContent}>
+              <View style={styles.promoTopRow}>
+                <View style={styles.promoTag}>
+                  <View style={styles.promoTagDot} />
+                  <Text style={styles.promoTagText}>{operadorNombre}</Text>
+                </View>
+
+                {promoStatus ? (
+                  <View
+                    style={[
+                      styles.promoStatusBadge,
+                      promoStatus === "ADELANTADA"
+                        ? styles.promoStatusBadgeAdelantada
+                        : styles.promoStatusBadgeActiva,
+                    ]}
+                  >
                     <Text
-                      style={styles.title}
-                      numberOfLines={2}
-                      ellipsizeMode="tail"
+                      style={[
+                        styles.promoStatusBadgeText,
+                        promoStatus === "ADELANTADA"
+                          ? styles.promoStatusBadgeTextAdelantada
+                          : styles.promoStatusBadgeTextActiva,
+                      ]}
                     >
-                      {operadorNombre}
+                      {promoStatus === "ACTIVA"
+                        ? "🎁 PROMO ACTIVA"
+                        : "⏰ ADELANTA PROMO"}
                     </Text>
-                  </>
+                  </View>
                 ) : null}
               </View>
 
-              {benefitsText !== "" && !promoImageUrl ? (
-                <Text
-                  style={styles.beneficios}
-                >{`Beneficios: \n${benefitsText}`}</Text>
-              ) : null}
+              <View style={styles.promoMiddleBlock}>
+                <Text style={styles.promoTitle} numberOfLines={1}>
+                  {promotion?.title || name || "Oferta Especial"}
+                </Text>
+                {promoStartDate && promoEndDate ? (
+                  <View style={styles.promoDatesRow}>
+                    <IconButton
+                      icon="calendar-clock"
+                      iconColor="#93c5fd"
+                      size={14}
+                      style={styles.promoCalendarIcon}
+                    />
+                    <Text style={styles.promoDatesText}>
+                      {`${promoStartDate} - ${promoEndDate}`}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
 
-              <View style={styles.chips}>
-                <View style={styles.chipsComponentGreen}>
-                  <Text style={styles.chipText}>
+              <View style={styles.noPromoPriceRow}>
+                <View style={styles.promoPrimaryPriceChip}>
+                  <Text style={styles.noPromoPrimaryPriceLabel}>Precio</Text>
+                  <Text
+                    style={styles.noPromoPrimaryPriceValue}
+                    numberOfLines={1}
+                  >
                     {toMoneyLabel(precioUSD, "USD")}
                   </Text>
                 </View>
 
-                {!loadingPrecios && precioCUP !== null ? (
-                  <View style={styles.chipsComponentBlue}>
-                    <Text style={styles.chipText}>
-                      {toMoneyLabel(precioCUP, "CUP")}
-                    </Text>
-                  </View>
-                ) : null}
+                <View style={styles.noPromoSecondaryPriceWrap}>
+                  {!loadingPrecios && precioCUP !== null ? (
+                    <View style={styles.noPromoSecondaryPricePillBlue}>
+                      <Text
+                        style={styles.noPromoSecondaryPriceText}
+                        numberOfLines={1}
+                      >
+                        {toMoneyLabel(precioCUP, "CUP")}
+                      </Text>
+                    </View>
+                  ) : null}
 
-                {!loadingPrecios && precioUYU !== null ? (
-                  <View style={styles.chipsComponentOrange}>
-                    <Text style={styles.chipText}>
-                      {toMoneyLabel(precioUYU, "UYU")}
-                    </Text>
-                  </View>
-                ) : null}
+                  {!loadingPrecios && precioUYU !== null ? (
+                    <View style={styles.noPromoSecondaryPricePillOrange}>
+                      <Text
+                        style={styles.noPromoSecondaryPriceText}
+                        numberOfLines={1}
+                      >
+                        {toMoneyLabel(precioUYU, "UYU")}
+                      </Text>
+                    </View>
+                  ) : null}
 
-                {loadingPrecios ? (
-                  <View style={styles.chipsComponentGray}>
-                    <Text style={styles.chipText}>Cargando Precios...</Text>
-                  </View>
-                ) : null}
+                  {loadingPrecios ? (
+                    <View style={styles.noPromoSecondaryPricePillGray}>
+                      <Text style={styles.noPromoSecondaryPriceText}>
+                        Cargando precios...
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
               </View>
-            </>
+            </View>
           )}
         </View>
-
-        {hasPromo && promoStartDate && promoEndDate ? (
-          <View style={styles.promoFooter}>
-            <View style={styles.promoFooterContent}>
-              <IconButton
-                icon="calendar-clock"
-                iconColor="#fff"
-                size={14}
-                style={styles.promoFooterIcon}
-              />
-              <Text
-                style={styles.promoFooterText}
-              >{`${promoStartDate} - ${promoEndDate}`}</Text>
-            </View>
-          </View>
-        ) : null}
-      </ImageBackground>
+      </View>
     </Card>
   );
 
@@ -598,11 +717,21 @@ const CubaCelCard = ({ product }) => {
   }
 
   return (
-    <View style={styles.rootContainer}>
-      <View ref={cardRef} collapsable={false}>
+    <View
+      style={[
+        fullWidth ? styles.rootContainerFull : styles.rootContainerCarousel,
+        style,
+      ]}
+    >
+      <View
+        ref={cardRef}
+        collapsable={false}
+        style={fullWidth ? styles.fullWidth : null}
+      >
         <Animated.View
           style={[
             styles.cardWrapper,
+            fullWidth ? styles.fullWidth : null,
             peekVisible ? styles.cardWrapperHidden : null,
             {
               transform: [{ scale: pressScale }],
@@ -615,6 +744,7 @@ const CubaCelCard = ({ product }) => {
             onPressIn={() => animatePressState(true)}
             onPressOut={() => animatePressState(false)}
             delayLongPress={500}
+            style={fullWidth ? styles.fullWidth : null}
           >
             {renderCardVisual({ showPeekHint: true })}
           </Pressable>
@@ -671,17 +801,18 @@ const CubaCelCard = ({ product }) => {
                 <View style={styles.peekTrayHandle} />
 
                 <View style={styles.peekTrayHeader}>
-                  <ImageBackground
-                    source={backgroundSource}
-                    defaultSource={
-                      Platform.OS === "ios" ? localFallback : undefined
-                    }
-                    imageStyle={styles.peekTrayThumbBorder}
-                    resizeMode="cover"
-                    style={styles.peekTrayThumb}
-                  >
+                  <View style={styles.peekTrayThumb}>
+                    <Image
+                      source={promoImageSource}
+                      defaultSource={
+                        Platform.OS === "ios" ? localFallback : undefined
+                      }
+                      onError={() => setBgLoadError(true)}
+                      resizeMode="cover"
+                      style={styles.peekTrayThumbImage}
+                    />
                     <View style={styles.peekTrayThumbScrim} />
-                  </ImageBackground>
+                  </View>
 
                   <View style={styles.peekTrayCopy}>
                     <Text style={styles.peekTrayEyebrow}>Menu contextual</Text>
@@ -739,15 +870,39 @@ const CubaCelCard = ({ product }) => {
 };
 
 const styles = StyleSheet.create({
-  rootContainer: {
+  rootContainerCarousel: {
     margin: 15,
+  },
+  rootContainerFull: {
+    margin: 0,
+    width: "100%",
+  },
+  fullWidth: {
+    width: "100%",
   },
   card: {
     backgroundColor: "#0b3d2e",
     borderRadius: 20,
-    height: 150,
     overflow: "hidden",
-    width: 280,
+    position: "relative",
+  },
+  cardSurface: {
+    flex: 1,
+    minHeight: 0,
+    // position: "relative",
+    ...StyleSheet.absoluteFill,
+  },
+  cardCarousel: {
+    height: 205,
+    width: 285,
+  },
+  cardFullWidth: {
+    height: 205,
+    width: "100%",
+  },
+  cardNoPromo: {
+    height: undefined,
+    minHeight: 205,
   },
   overlayCard: {
     elevation: 14,
@@ -772,13 +927,13 @@ const styles = StyleSheet.create({
   cardWrapperHidden: {
     opacity: 0.0,
   },
-  imageBackground: {
+  imageLayer: {
+    // ...StyleSheet.absoluteFill,
     borderRadius: 20,
-    flex: 1,
-    justifyContent: "space-between",
-    paddingBottom: 0,
-    margin: 0,
-    backgroundColor: "transparent",
+    height: "100%",
+    overflow: "hidden",
+    // width: "100%",
+    maxHeight: 200,
   },
   peekOverlayScrim: {
     ...StyleSheet.absoluteFill,
@@ -788,22 +943,16 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(6, 16, 30, 0.52)",
   },
-  imageBackgroundBorder: {
-    borderRadius: 20,
-    minHeight: 200,
-    minWidth: "100%",
-    maxHeight: 200,
-    maxWidth: "100%",
-    position: "absolute",
-  },
   cardContent: {
     flex: 1,
     justifyContent: "space-between",
-    minHeight: 120,
+    minHeight: 205,
     overflow: "hidden",
     paddingBottom: 8,
     paddingTop: 10,
     backgroundColor: "transparent",
+    position: "relative",
+    zIndex: 1,
   },
   noPromoContent: {
     flex: 1,
@@ -1060,6 +1209,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     width: 88,
   },
+  peekTrayThumbImage: {
+    ...StyleSheet.absoluteFill,
+    height: "100%",
+    width: "100%",
+  },
   peekTrayThumbBorder: {
     borderRadius: 16,
   },
@@ -1131,114 +1285,120 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   title: {
+    flex: 1,
     flexShrink: 1,
     flexWrap: "wrap",
     fontSize: 14,
     fontWeight: "bold",
-    maxWidth: 200,
+    maxWidth: "85%",
   },
   beneficios: {
     fontSize: 12,
     marginLeft: 8,
-    // marginTop: -35,
   },
-  chips: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    justifyContent: "flex-start",
-    paddingTop: 8,
-    paddingBottom: 0,
-    paddingLeft: 8,
+  promoContent: {
+    flex: 1,
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 10,
   },
-  chipsComponentGreen: {
-    alignContent: "center",
-    backgroundColor: "#4caf50",
-    borderRadius: 25,
-    justifyContent: "center",
-    paddingBottom: 4,
-    paddingHorizontal: 8,
-    paddingTop: 4,
-  },
-  chipsComponentBlue: {
-    alignContent: "center",
-    backgroundColor: "#2196f3",
-    borderRadius: 25,
-    justifyContent: "center",
-    paddingBottom: 4,
-    paddingHorizontal: 8,
-    paddingTop: 4,
-  },
-  chipsComponentOrange: {
-    alignContent: "center",
-    backgroundColor: "#ff9800",
-    borderRadius: 25,
-    justifyContent: "center",
-    paddingBottom: 4,
-    paddingHorizontal: 8,
-    paddingTop: 4,
-  },
-  chipsComponentGray: {
-    alignContent: "center",
-    backgroundColor: "#9e9e9e",
-    borderRadius: 25,
-    justifyContent: "center",
-    paddingBottom: 4,
-    paddingHorizontal: 8,
-    paddingTop: 4,
-  },
-  chipText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "600",
-  },
-  ribbonContainer: {
+  promoTopRow: {
     alignItems: "center",
-    backgroundColor: "#4caf50",
-    elevation: 5,
-    justifyContent: "center",
-    paddingHorizontal: 45,
-    paddingVertical: 6,
-    position: "absolute",
-    right: -55,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4.65,
-    top: 25,
-    transform: [{ rotate: "45deg" }],
-    zIndex: 100,
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
-  ribbonContainerAdelantada: {
-    backgroundColor: "#FF6F00",
+  promoTag: {
+    alignItems: "center",
+    backgroundColor: "rgba(10, 20, 36, 0.72)",
+    borderColor: "rgba(255, 255, 255, 0.22)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    paddingHorizontal: 9,
+    paddingVertical: 5,
   },
-  ribbonText: {
-    color: "white",
-    fontSize: 9,
+  promoTagDot: {
+    backgroundColor: "#38bdf8",
+    borderRadius: 999,
+    height: 6,
+    marginRight: 6,
+    width: 6,
+  },
+  promoTagText: {
+    color: "#ffffff",
+    fontSize: 10,
     fontWeight: "800",
-    textAlign: "center",
+    letterSpacing: 0.6,
     textTransform: "uppercase",
   },
-  promoFooter: {
-    backgroundColor: "rgba(0, 0, 102, 0.80)",
-    width: "100%",
-    height: 32,
+  promoStatusBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  promoFooterContent: {
+  promoStatusBadgeActiva: {
+    backgroundColor: "rgba(16, 185, 129, 0.26)",
+    borderColor: "rgba(52, 211, 153, 0.45)",
+  },
+  promoStatusBadgeAdelantada: {
+    backgroundColor: "rgba(245, 158, 11, 0.28)",
+    borderColor: "rgba(251, 191, 36, 0.48)",
+  },
+  promoStatusBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  promoStatusBadgeTextActiva: {
+    color: "#6ee7b7",
+  },
+  promoStatusBadgeTextAdelantada: {
+    color: "#fde68a",
+  },
+  promoMiddleBlock: {
+    marginVertical: 4,
+  },
+  promoTitle: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "900",
+    letterSpacing: -0.2,
+    textShadowColor: "rgba(0, 0, 0, 0.8)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  promoDatesRow: {
     alignItems: "center",
     flexDirection: "row",
-    justifyContent: "center",
+    marginTop: 2,
   },
-  promoFooterIcon: {
+  promoCalendarIcon: {
     margin: 0,
+    marginLeft: -6,
     padding: 0,
   },
-  promoFooterText: {
-    color: "#fff",
-    fontSize: 10,
+  promoDatesText: {
+    color: "rgba(219, 234, 254, 0.95)",
+    fontSize: 11,
     fontWeight: "700",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
+    letterSpacing: 0.3,
+    textShadowColor: "rgba(0, 0, 0, 0.8)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  promoPrimaryPriceChip: {
+    backgroundColor: "rgba(16, 110, 75, 0.94)",
+    borderColor: "rgba(255, 255, 255, 0.18)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: "center",
+    marginRight: 8,
+    minHeight: 38,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
 });
 

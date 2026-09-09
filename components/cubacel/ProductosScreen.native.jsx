@@ -1,4 +1,5 @@
 import MeteorBase from "@meteorrn/core";
+import { useMemo } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Surface, Text, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -6,7 +7,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { DTShopProductosCollection } from "../collections/collections";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import Productos from "./Productos.native";
-import TableRecargas from "./TableRecargas";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -39,10 +39,16 @@ const ProductosScreen = () => {
     };
   });
 
+  const promoCount = useMemo(() => {
+    return catalogProducts.filter(
+      (p) => Array.isArray(p?.promotions) && p.promotions.length > 0,
+    ).length;
+  }, [catalogProducts]);
+
   const overviewCards = [
-    { label: "Catálogo", value: "Recargas y promociones" },
-    { label: "Historial", value: "Seguimiento de ventas" },
-    { label: "Pagos", value: "Evidencias en efectivo" },
+    { label: "Disponibles", value: `${catalogProducts.length} ofertas` },
+    { label: "Promociones", value: `${promoCount} activas` },
+    { label: "Entrega", value: "Inmediata" },
   ];
 
   return (
@@ -63,14 +69,6 @@ const ProductosScreen = () => {
           overScrollMode="never"
           showsVerticalScrollIndicator={false}
         >
-          <Productos
-            catalogLoading={catalogLoading}
-            catalogProducts={catalogProducts}
-            deferData={false}
-            isDegradado={true}
-            topBleed={headerHeight}
-          />
-
           <View style={styles.topSection}>
             <View
               style={[
@@ -89,7 +87,7 @@ const ProductosScreen = () => {
                       { color: palette.textMuted },
                     ]}
                   >
-                    Resumen operativo
+                    Catálogo Cubacel
                   </Text>
                   <Text
                     style={[
@@ -97,7 +95,7 @@ const ProductosScreen = () => {
                       { color: palette.textPrimary },
                     ]}
                   >
-                    Catálogo Cubacel
+                    Recargas y Promociones
                   </Text>
                   <Text
                     style={[
@@ -105,8 +103,7 @@ const ProductosScreen = () => {
                       { color: palette.textSecondary },
                     ]}
                   >
-                    Accede a ofertas activas, revisa el historial de recargas y
-                    mantén el seguimiento del pago en una sola superficie.
+                    Accede a las ofertas disponibles y envía saldo internacional a Cuba con confirmación automática.
                   </Text>
                 </View>
                 <View
@@ -171,17 +168,12 @@ const ProductosScreen = () => {
             </View>
           </View>
 
-          <View
-            style={[
-              styles.tableContainer,
-              {
-                backgroundColor: palette.shell,
-                borderColor: palette.border,
-              },
-            ]}
-          >
-            <TableRecargas useScroll={false} />
-          </View>
+          <Productos
+            catalogLoading={catalogLoading}
+            catalogProducts={catalogProducts}
+            deferData={false}
+            variant="grid"
+          />
         </ScrollView>
 
         <AppHeader
@@ -189,7 +181,7 @@ const ProductosScreen = () => {
           elevated={false}
           floating
           showBackButton
-          subtitle="Ofertas, recargas y seguimiento"
+          subtitle="Ofertas y recargas disponibles"
           title="Productos Cubacel"
         />
       </Surface>
@@ -293,13 +285,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800",
     lineHeight: 19,
-  },
-  tableContainer: {
-    borderRadius: 24,
-    borderWidth: 1,
-    marginHorizontal: 12,
-    marginTop: 2,
-    overflow: "hidden",
   },
 });
 

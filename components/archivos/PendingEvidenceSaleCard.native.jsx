@@ -1,7 +1,7 @@
 import MeteorBase from "@meteorrn/core";
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Chip, Surface, Text } from "react-native-paper";
+import { Chip, Surface, Text, useTheme } from "react-native-paper";
 
 import {
   EvidenciasVentasEfectivoCollection,
@@ -36,6 +36,38 @@ const CARD_VENTA_FIELDS = {
 };
 
 export default function PendingEvidenceSaleCardNative({ venta }) {
+  const theme = useTheme();
+  const palette = theme.dark
+    ? {
+        card: "#0d1538",
+        border: "rgba(148,163,184,0.16)",
+        primaryText: "#f8fafc",
+        secondaryText: "rgba(226,232,240,0.74)",
+        mutedText: "rgba(191,219,254,0.78)",
+        accent: "#93c5fd",
+        neutralChip: "rgba(255,255,255,0.08)",
+        neutralChipText: "#e2e8f0",
+        typeChip: "rgba(99,102,241,0.16)",
+        typeChipText: "#e0e7ff",
+        openChip: "rgba(255,255,255,0.08)",
+        openChipBorder: "rgba(148,163,184,0.14)",
+        openText: "#e0f2fe",
+      }
+    : {
+        card: "#ffffff",
+        border: "rgba(15,23,42,0.10)",
+        primaryText: "#0f172a",
+        secondaryText: "#475569",
+        mutedText: "#64748b",
+        accent: "#2563eb",
+        neutralChip: "#f1f5f9",
+        neutralChipText: "#475569",
+        typeChip: "#eef2ff",
+        typeChipText: "#3730a3",
+        openChip: "#eff6ff",
+        openChipBorder: "#bfdbfe",
+        openText: "#1d4ed8",
+      };
   const [expanded, setExpanded] = useState(false);
   const [comisionesInfo, setComisionesInfo] = useState({
     data: null,
@@ -180,7 +212,7 @@ export default function PendingEvidenceSaleCardNative({ venta }) {
   }, [monedaFinalParaComisiones, tiendaIdParaComisiones, ventaId]);
 
   return (
-    <Surface elevation={3} style={styles.card}>
+    <Surface elevation={3} style={[styles.card, { backgroundColor: palette.card, borderColor: palette.border }]}>
       <Pressable
         accessibilityRole="button"
         onPress={() => setExpanded((current) => !current)}
@@ -191,13 +223,13 @@ export default function PendingEvidenceSaleCardNative({ venta }) {
       >
         <View style={styles.headerRow}>
           <View style={styles.headerCopy}>
-            <Text style={styles.eyebrow} variant="labelSmall">
+            <Text style={[styles.eyebrow, { color: palette.accent }]} variant="labelSmall">
               Compra pendiente de evidencia
             </Text>
-            <Text style={styles.title} variant="titleMedium">
+            <Text style={[styles.title, { color: palette.primaryText }]} variant="titleMedium">
               {summary.title}
             </Text>
-            <Text style={styles.meta} variant="bodySmall">
+            <Text style={[styles.meta, { color: palette.mutedText }]} variant="bodySmall">
               Pedido #{String(ventaId || "").slice(-6).toUpperCase()} • {summary.createdAtLabel}
             </Text>
 
@@ -207,25 +239,31 @@ export default function PendingEvidenceSaleCardNative({ venta }) {
                   key={type.key}
                   compact
                   icon={type.icon}
-                  style={styles.typeChip}
-                  textStyle={styles.typeChipText}
+                  style={[styles.typeChip, { backgroundColor: palette.typeChip }]}
+                  textStyle={[styles.typeChipText, { color: palette.typeChipText }]}
                 >
                   {type.label}
                 </Chip>
               ))}
-              <Chip compact style={styles.countChip} textStyle={styles.countChipText}>
+              <Chip compact style={[styles.countChip, { backgroundColor: palette.neutralChip }]} textStyle={[styles.countChipText, { color: palette.neutralChipText }]}>
                 {summary.itemCount} item{summary.itemCount === 1 ? "" : "s"}
               </Chip>
               <Chip
                 compact
-                style={hasEvidence ? styles.evidenceReadyChip : styles.evidencePendingChip}
-                textStyle={hasEvidence ? styles.evidenceReadyChipText : styles.evidencePendingChipText}
+                style={[
+                  hasEvidence ? styles.evidenceReadyChip : styles.evidencePendingChip,
+                  { backgroundColor: hasEvidence ? (theme.dark ? "rgba(34,197,94,0.16)" : "#dcfce7") : (theme.dark ? "rgba(248,113,113,0.14)" : "#fef2f2") },
+                ]}
+                textStyle={[
+                  hasEvidence ? styles.evidenceReadyChipText : styles.evidencePendingChipText,
+                  { color: hasEvidence ? (theme.dark ? "#dcfce7" : "#15803d") : (theme.dark ? "#fecaca" : "#b91c1c") },
+                ]}
               >
                 {evidenceStatusLabel}
               </Chip>
             </View>
 
-            <Text style={styles.copy} variant="bodySmall">
+            <Text style={[styles.copy, { color: palette.secondaryText }]} variant="bodySmall">
               {hasEvidence
                 ? `Esta compra ya tiene ${evidenceCount} evidencia${evidenceCount === 1 ? "" : "s"} subida${evidenceCount === 1 ? "" : "s"}. ${expanded ? "Oculta" : "Abre"} el card para revisar o cargar otra.`
                 : `${expanded ? "Oculta" : "Abre"} el card para revisar el monto, confirmar la operación y subir el comprobante.`}
@@ -233,11 +271,19 @@ export default function PendingEvidenceSaleCardNative({ venta }) {
           </View>
 
           <View style={styles.headerAside}>
-            <Chip compact style={styles.amountChip} textStyle={styles.amountChipText}>
+            <Chip compact style={[styles.amountChip, { borderColor: palette.border }]} textStyle={[styles.amountChipText, { color: theme.dark ? "#dcfce7" : "#15803d" }]}>
               {amountLabel}
             </Chip>
-            <View style={expanded ? styles.expandIndicatorOpen : styles.expandIndicator}>
-              <Text style={styles.expandIndicatorText} variant="labelLarge">
+            <View
+              style={[
+                expanded ? styles.expandIndicatorOpen : styles.expandIndicator,
+                {
+                  backgroundColor: expanded ? (theme.dark ? "rgba(125,211,252,0.14)" : "#eff6ff") : palette.openChip,
+                  borderColor: expanded ? (theme.dark ? "rgba(125,211,252,0.18)" : "#bfdbfe") : palette.openChipBorder,
+                },
+              ]}
+            >
+              <Text style={[styles.expandIndicatorText, { color: palette.openText }]} variant="labelLarge">
                 {expanded ? "Ocultar" : "Abrir"}
               </Text>
             </View>

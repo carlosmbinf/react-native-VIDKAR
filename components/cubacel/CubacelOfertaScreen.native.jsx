@@ -61,20 +61,112 @@ const normalizeToArray = (value) => {
   return [];
 };
 
-const extractPromoImageUrl = (promos) => {
-  for (const promotion of normalizeToArray(promos)) {
-    const text = [promotion?.terms, promotion?.description, promotion?.title]
-      .filter(Boolean)
-      .join(" ");
-    const markdownImage = text.match(/!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/i);
-    if (markdownImage?.[1]) {
-      return markdownImage[1];
+const extractPromoImageUrl = (promos, product = null) => {
+  const promotionsList = normalizeToArray(promos);
+
+  for (const promotion of promotionsList) {
+    if (!promotion || typeof promotion !== "object") {
+      continue;
     }
-    const plainUrl = text.match(/https?:\/\/[^\s)]+/i);
-    if (plainUrl?.[0]) {
-      return plainUrl[0];
+
+    // 1. Direct image properties on promotion object
+    const directUrl =
+      promotion.imageUrl ||
+      promotion.image_url ||
+      promotion.image ||
+      promotion.bannerUrl ||
+      promotion.banner_url ||
+      promotion.mediaUrl ||
+      promotion.media_url ||
+      promotion.src;
+
+    if (
+      typeof directUrl === "string" &&
+      directUrl.trim().length > 0 &&
+      directUrl.trim().startsWith("http")
+    ) {
+      return directUrl.trim();
+    }
+
+    // 2. Search text fields (terms, terms_and_conditions, description, title)
+    const textSources = [
+      promotion.terms,
+      promotion.terms_and_conditions,
+      promotion.description,
+      promotion.title,
+    ]
+      .filter((text) => typeof text === "string" && text.trim().length > 0)
+      .join(" ");
+
+    if (textSources) {
+      // Markdown image: ![alt](https://...)
+      const markdownMatch = textSources.match(
+        /!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/i,
+      );
+      if (markdownMatch?.[1]) {
+        return markdownMatch[1].trim();
+      }
+
+      // HTML img tag src: <img src="https://..." />
+      const htmlMatch = textSources.match(
+        /<img[^>]+src=["'](https?:\/\/[^"'\s]+)["']/i,
+      );
+      if (htmlMatch?.[1]) {
+        return htmlMatch[1].trim();
+      }
+
+      // Image URL with extension
+      const imageExtMatch = textSources.match(
+        /https?:\/\/[^\s<>"')]+?\.(?:png|jpg|jpeg|webp|gif|svg)(?:\?[^\s<>"')]*|)/i,
+      );
+      if (imageExtMatch?.[0]) {
+        return imageExtMatch[0].replace(/[.,;:)]+$/, "").trim();
+      }
+
+      // Any plain HTTP/HTTPS URL
+      const plainUrlMatch = textSources.match(/https?:\/\/[^\s<>"')]+/i);
+      if (plainUrlMatch?.[0]) {
+        return plainUrlMatch[0].replace(/[.,;:)]+$/, "").trim();
+      }
     }
   }
+
+  // 3. Direct image properties or description on product object
+  if (product && typeof product === "object") {
+    const productUrl =
+      product.imageUrl ||
+      product.image_url ||
+      product.image ||
+      product.bannerUrl ||
+      product.banner_url ||
+      product.mediaUrl ||
+      product.media_url;
+
+    if (
+      typeof productUrl === "string" &&
+      productUrl.trim().length > 0 &&
+      productUrl.trim().startsWith("http")
+    ) {
+      return productUrl.trim();
+    }
+
+    if (typeof product.description === "string" && product.description.trim()) {
+      const descMarkdownMatch = product.description.match(
+        /!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/i,
+      );
+      if (descMarkdownMatch?.[1]) {
+        return descMarkdownMatch[1].trim();
+      }
+
+      const descUrlMatch = product.description.match(
+        /https?:\/\/[^\s<>"')]+?\.(?:png|jpg|jpeg|webp|gif|svg)(?:\?[^\s<>"')]*|)/i,
+      );
+      if (descUrlMatch?.[0]) {
+        return descUrlMatch[0].replace(/[.,;:)]+$/, "").trim();
+      }
+    }
+  }
+
   return null;
 };
 
@@ -144,8 +236,8 @@ const CubacelOfertaScreen = () => {
   const additionalPromotions = normalizedPromotions.slice(1);
   const benefitsText = useMemo(() => getBenefitsText(product), [product]);
   const promoImageUrl = useMemo(
-    () => extractPromoImageUrl(normalizedPromotions),
-    [normalizedPromotions],
+    () => extractPromoImageUrl(normalizedPromotions, product),
+    [normalizedPromotions, product],
   );
 
   const localFallback = require("./Gemini_Generated_Image_rtg44brtg44brtg4.png");

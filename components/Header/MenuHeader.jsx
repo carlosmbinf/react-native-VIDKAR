@@ -13,6 +13,7 @@ const MenuHeader = ({
   subtitle,
   onOpenDrawer,
   onOpenProfile,
+  onOpenPurchases,
   onOpenMessages,
   onLogout,
 }) => {
@@ -60,6 +61,14 @@ const MenuHeader = ({
                 onPress={() => {
                   closeMenu();
                   onOpenProfile?.();
+                }}
+              />
+              <Menu.Item
+                leadingIcon="receipt-text-outline"
+                title="Mis compras"
+                onPress={() => {
+                  closeMenu();
+                  onOpenPurchases?.();
                 }}
               />
               <Menu.Item

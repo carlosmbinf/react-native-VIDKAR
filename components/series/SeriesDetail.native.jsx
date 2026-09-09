@@ -598,7 +598,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(99, 102, 241, 0.2)",
   },
   playOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(0, 0, 0, 0.3)",

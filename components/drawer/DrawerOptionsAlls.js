@@ -198,6 +198,11 @@ const buildServiceItems = (user) => {
       href: "/(normal)/ProxyVPNHistory",
     },
     {
+      label: "Mis compras",
+      icon: "receipt-text-outline",
+      href: "/(normal)/MisCompras",
+    },
+    {
       label: "Comercios",
       icon: "storefront-outline",
       href: "/(normal)/ComerciosList",

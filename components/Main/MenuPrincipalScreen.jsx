@@ -596,6 +596,7 @@ const MenuPrincipalScreen = ({
             subtitle="Menú principal"
             onOpenDrawer={openDrawer}
             onOpenProfile={() => navigateTo("/(normal)/User")}
+            onOpenPurchases={() => navigateTo("/(normal)/MisCompras")}
             onOpenMessages={(item) => {
               if (item) {
                 navigateTo(

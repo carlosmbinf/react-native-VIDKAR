@@ -1,6 +1,5 @@
 import MeteorBase from "@meteorrn/core";
-import { useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   RefreshControl,
@@ -11,12 +10,12 @@ import {
   useWindowDimensions,
 } from "react-native";
 import {
-  ActivityIndicator,
   Button,
   Chip,
   DataTable,
   Divider,
   IconButton,
+  SegmentedButtons,
   Surface,
   Text,
   useTheme,
@@ -29,7 +28,7 @@ import {
   VentasCollection,
   VentasRechargeCollection,
 } from "../collections/collections";
-import VentaDetailModal from "./VentaDetailModal.native";
+import VentaDetailModal from "../ventas/VentaDetailModal.native";
 import {
   CATEGORIES,
   CATEGORY_COLORS,
@@ -37,13 +36,13 @@ import {
   detectSaleCategory,
   formatDateShort,
   formatMoney,
-  getCartItemType,
   getEvidenceMeta,
   getSaleItems,
   getSaleSpecificDetail,
   getStatusMeta,
+  normalizeCurrency,
   normalizeText,
-} from "./ventasUtils";
+} from "../ventas/ventasUtils";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
@@ -96,7 +95,8 @@ const DIRECT_VENTAS_FIELDS = {
   userId: 1,
 };
 
-const EVIDENCIA_FIELDS = {
+// Solo metadata para el listado; la imagen se solicita al abrir el detalle.
+const EVIDENCIA_METADATA_FIELDS = {
   _id: 1,
   "analisisIA.amountMatch": 1,
   "analisisIA.confidence": 1,
@@ -111,13 +111,9 @@ const EVIDENCIA_FIELDS = {
   "analisisIA.reference": 1,
   "analisisIA.summary": 1,
   aprobado: 1,
-  base64: 1,
   cancelada: 1,
   cancelado: 1,
   createdAt: 1,
-  data: 1,
-  dataB64: 1,
-  dataBase64: 1,
   denegado: 1,
   descripcion: 1,
   detalles: 1,
@@ -134,50 +130,38 @@ const EVIDENCIA_FIELDS = {
   ventaId: 1,
 };
 
-export default function VentasList() {
+export default function MisComprasScreen() {
   const theme = useTheme();
   const headerInset = useAppHeaderContentInset();
   const { width: windowWidth } = useWindowDimensions();
   const isTablet = windowWidth >= 768;
 
-  const { id, pago } = useLocalSearchParams();
-  const routeId = typeof id === "string" ? id : Array.isArray(id) ? id[0] : null;
-  const routePago = typeof pago === "string" ? pago : Array.isArray(pago) ? pago[0] : null;
-  const initialPagoFilter =
-    routePago === "PAGADO" || routePago === "PENDIENTE" ? routePago : "TODOS";
-
-  // State
-  const [fetchLimit, setFetchLimit] = useState(FETCH_LIMIT_OPTIONS[1]); // 100
+  // View state
+  const [scope, setScope] = useState("own"); // 'own' | 'all'
   const [viewMode, setViewMode] = useState(isTablet ? "table" : "cards"); // 'table' | 'cards'
   const [selectedCategory, setSelectedCategory] = useState("TODAS");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState(initialPagoFilter);
+  const [selectedStatus, setSelectedStatus] = useState("TODOS");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("TODOS");
   const [selectedEvidenceFilter, setSelectedEvidenceFilter] = useState("TODOS");
+  const [fetchLimit, setFetchLimit] = useState(FETCH_LIMIT_OPTIONS[1]); // 100
   const [page, setPage] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(OPTIONS_PER_PAGE[0]);
   const [showFilters, setShowFilters] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Modal Detail State
-  const [selectedVenta, setSelectedVenta] = useState(null);
+  const [selectedPurchase, setSelectedPurchase] = useState(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
 
   const dataReady = useDeferredScreenData();
 
-  useEffect(() => {
-    setSelectedStatus(initialPagoFilter);
-  }, [initialPagoFilter]);
-
   // Reactive data fetching
   const {
-    currentUserId,
-    currentUsername,
     isAdmin,
     isGeneralAdmin,
     ready,
-    routeUsername,
-    ventasUnificadas,
+    comprasUnificadas,
   } = Meteor.useTracker(() => {
     const user = Meteor.user();
     const cUserId = user?._id;
@@ -192,12 +176,11 @@ export default function VentasList() {
         isAdmin: false,
         isGeneralAdmin: false,
         ready: false,
-        routeUsername: "",
-        ventasUnificadas: [],
+        comprasUnificadas: [],
       };
     }
 
-    // 1. Subordinated users subscription (if admin)
+    // Subordinates lookup for admins
     let subordinadosIds = [];
     if (isAdm && !isGenAdmin) {
       Meteor.subscribe("user", { bloqueadoDesbloqueadoPor: cUserId }, { fields: { _id: 1 } });
@@ -207,31 +190,35 @@ export default function VentasList() {
         .map((u) => u._id);
     }
 
-    // 2. Query construction
+    // Build query based on scope
     const buildScopeQuery = () => {
-      const userCondition = routeId
-        ? { $or: [{ userId: routeId }, { adminId: routeId }, { idUser: routeId }] }
-        : null;
-
-      if (isGenAdmin) {
-        return userCondition || {};
+      if (scope === "all" && isAdm) {
+        if (isGenAdmin) {
+          return {};
+        }
+        return {
+          $or: [
+            { userId: cUserId },
+            { idUser: cUserId },
+            { adminId: cUserId },
+            ...(subordinadosIds.length > 0 ? [{ userId: { $in: subordinadosIds } }] : []),
+          ],
+        };
       }
 
-      const ownCondition = {
+      // "own" scope
+      return {
         $or: [
           { userId: cUserId },
           { idUser: cUserId },
-          { adminId: cUserId },
-          ...(subordinadosIds.length > 0 ? [{ userId: { $in: subordinadosIds } }] : []),
+          { "producto.userId": cUserId },
         ],
       };
-
-      return userCondition ? { $and: [ownCondition, userCondition] } : ownCondition;
     };
 
     const scopeQuery = buildScopeQuery();
 
-    // 3. Subscriptions
+    // Subscriptions
     const rechargeSub = Meteor.subscribe("ventasRecharge", scopeQuery, {
       fields: RECARGAS_VENTA_FIELDS,
       sort: { createdAt: -1 },
@@ -250,21 +237,20 @@ export default function VentasList() {
       { fields: { _id: 1, username: 1, "profile.role": 1 } },
     );
 
-    // Fetch recharge docs
+    // Fetch documents
     const rechargeDocs = VentasRechargeCollection.find(scopeQuery, {
       fields: RECARGAS_VENTA_FIELDS,
       sort: { createdAt: -1 },
       limit: fetchLimit,
     }).fetch();
 
-    // Fetch direct docs
     const directDocs = VentasCollection.find(scopeQuery, {
       fields: DIRECT_VENTAS_FIELDS,
       sort: { createdAt: -1 },
       limit: fetchLimit,
     }).fetch();
 
-    // 4. Candidate IDs for evidence subscription
+    // Evidence subscription
     const candidateEvidenceIds = [];
     for (const doc of rechargeDocs) {
       if (doc._id) candidateEvidenceIds.push(String(doc._id));
@@ -281,16 +267,15 @@ export default function VentasList() {
       const evSub = Meteor.subscribe(
         "evidenciasVentasEfectivoRecharge",
         { ventaId: { $in: uniqueEvidenceIds } },
-        { fields: EVIDENCIA_FIELDS },
+        { fields: EVIDENCIA_METADATA_FIELDS },
       );
       evidenceSubReady = evSub.ready();
       fetchedEvidencias = EvidenciasVentasEfectivoCollection.find(
         { ventaId: { $in: uniqueEvidenceIds } },
-        { fields: EVIDENCIA_FIELDS },
+        { fields: EVIDENCIA_METADATA_FIELDS },
       ).fetch();
     }
 
-    // Map evidence by ventaId
     const evidenceMap = new Map();
     for (const ev of fetchedEvidencias) {
       if (ev.ventaId) {
@@ -298,29 +283,24 @@ export default function VentasList() {
       }
     }
 
-    // Route user name resolution
-    const routeUserDoc = routeId ? Meteor.users.findOne(routeId) : null;
-
-    // Helper for usernames
     const resolveUsername = (uId) => {
       if (!uId) return "";
-      if (uId === "SERVER") return "SERVER";
+      if (uId === "SERVER") return "Vidkar";
       return Meteor.users.findOne(uId)?.username || "";
     };
 
-    // 5. Unify sales
+    // Unify purchases
     const unified = [];
 
-    // Map recharge sales
+    // Map recharge purchases
     for (const doc of rechargeDocs) {
       const buyerId = doc.userId || doc.idUser || doc.producto?.userId;
       const rawItems = getSaleItems(doc);
-      const buyerName = resolveUsername(buyerId) || "Usuario";
-      const adminName = resolveUsername(doc.adminId) || (doc.adminId === "SERVER" ? "SERVER" : "Administración");
+      const buyerName = resolveUsername(buyerId) || "Tú";
+      const adminName = resolveUsername(doc.adminId) || "Vidkar";
       const category = detectSaleCategory(doc);
       const statusDerived = deriveSaleStatus(doc);
 
-      // Find matched evidence
       let matchedEvidence = evidenceMap.get(String(doc._id)) || null;
       if (!matchedEvidence) {
         for (const it of rawItems) {
@@ -331,8 +311,10 @@ export default function VentasList() {
         }
       }
 
-      const totalAmount = Number(doc.precioOficial ?? doc.monto ?? doc.cobrado ?? 0);
-      const currency = doc.monedaPrecioOficial || doc.monedaCobrado || "CUP";
+      const totalAmount = Number(doc.cobrado ?? doc.precioOficial ?? doc.monto ?? 0);
+      const currency = normalizeCurrency(
+        doc.monedaCobrado || doc.monedaPrecioOficial,
+      );
 
       unified.push({
         _id: doc._id,
@@ -355,10 +337,10 @@ export default function VentasList() {
       });
     }
 
-    // Map direct sales (VentasCollection)
+    // Map direct purchases (VentasCollection)
     for (const doc of directDocs) {
-      const buyerName = resolveUsername(doc.userId) || "Usuario";
-      const adminName = resolveUsername(doc.adminId) || "SERVER";
+      const buyerName = resolveUsername(doc.userId) || "Tú";
+      const adminName = resolveUsername(doc.adminId) || "Vidkar";
       const statusDerived = doc.cobrado ? "ENTREGADO" : "PENDIENTE_PAGO";
 
       unified.push({
@@ -380,7 +362,7 @@ export default function VentasList() {
         items: [],
         evidence: null,
         rawDoc: doc,
-        specificDetail: doc.comentario ? "Nota: " + doc.comentario : "Venta directa " + (doc.type || ""),
+        specificDetail: doc.comentario ? "Nota: " + doc.comentario : "Compra directa " + (doc.type || ""),
       });
     }
 
@@ -399,91 +381,80 @@ export default function VentasList() {
       isAdmin: isAdm,
       isGeneralAdmin: isGenAdmin,
       ready: isAllReady,
-      routeUsername: routeUserDoc?.username || "",
-      ventasUnificadas: unified,
+      comprasUnificadas: unified,
     };
-  }, [dataReady, fetchLimit, routeId, refreshKey]);
+  }, [dataReady, fetchLimit, scope, refreshKey]);
 
   // Derived category counts
   const categoryCounts = useMemo(() => {
-    const counts = { TODAS: ventasUnificadas.length };
+    const counts = { TODAS: comprasUnificadas.length };
     for (const cat of CATEGORIES) {
       if (cat.key !== "TODAS") {
         counts[cat.key] = 0;
       }
     }
-    for (const sale of ventasUnificadas) {
-      if (counts[sale.category] !== undefined) {
-        counts[sale.category] += 1;
+    for (const purchase of comprasUnificadas) {
+      if (counts[purchase.category] !== undefined) {
+        counts[purchase.category] += 1;
       }
     }
     return counts;
-  }, [ventasUnificadas]);
+  }, [comprasUnificadas]);
 
-  // Filtered sales
-  const filteredVentas = useMemo(() => {
-    let result = ventasUnificadas;
+  // Filtered purchases
+  const filteredCompras = useMemo(() => {
+    let result = comprasUnificadas;
 
     // 1. Category Filter
     if (selectedCategory !== "TODAS") {
-      result = result.filter((sale) => sale.category === selectedCategory);
+      result = result.filter((p) => p.category === selectedCategory);
     }
 
     // 2. Status Filter
     if (selectedStatus !== "TODOS") {
       if (selectedStatus === "PAGADO") {
-        result = result.filter((sale) => sale.statusDerived === "ENTREGADO");
+        result = result.filter((p) => p.statusDerived === "ENTREGADO");
       } else if (selectedStatus === "PENDIENTE") {
         result = result.filter(
-          (sale) =>
-            sale.statusDerived === "PENDIENTE_PAGO" ||
-            sale.statusDerived === "PENDIENTE_ENTREGA",
+          (p) =>
+            p.statusDerived === "PENDIENTE_PAGO" ||
+            p.statusDerived === "PENDIENTE_ENTREGA",
         );
       } else if (selectedStatus === "CANCELADO") {
-        result = result.filter((sale) => sale.statusDerived === "CANCELADO");
+        result = result.filter((p) => p.statusDerived === "CANCELADO");
       }
     }
 
     // 3. Payment Method Filter
     if (selectedPaymentMethod !== "TODOS") {
       result = result.filter(
-        (sale) =>
-          normalizeText(sale.metodoPago) === normalizeText(selectedPaymentMethod),
+        (p) =>
+          normalizeText(p.metodoPago) === normalizeText(selectedPaymentMethod),
       );
     }
 
     // 4. Evidence Filter
     if (selectedEvidenceFilter !== "TODOS") {
       if (selectedEvidenceFilter === "CON_EVIDENCIA") {
-        result = result.filter((sale) => !!sale.evidence);
+        result = result.filter((p) => !!p.evidence);
       } else if (selectedEvidenceFilter === "SIN_EVIDENCIA") {
-        result = result.filter((sale) => !sale.evidence);
-      } else if (selectedEvidenceFilter === "APROBADA") {
-        result = result.filter((sale) => sale.evidence?.aprobado === true);
-      } else if (selectedEvidenceFilter === "PENDIENTE_REVISION") {
-        result = result.filter(
-          (sale) =>
-            sale.evidence &&
-            !sale.evidence.aprobado &&
-            !sale.evidence.denegado &&
-            !sale.evidence.rechazado,
-        );
+        result = result.filter((p) => !p.evidence);
       }
     }
 
     // 5. Search query
     const q = normalizeText(searchQuery);
     if (q) {
-      result = result.filter((sale) => {
+      result = result.filter((p) => {
         const pool = [
-          sale._id,
-          sale.userusername,
-          sale.adminusername,
-          sale.comentario,
-          sale.specificDetail,
-          sale.metodoPago,
-          sale.category,
-          String(sale.precio),
+          p._id,
+          p.userusername,
+          p.adminusername,
+          p.comentario,
+          p.specificDetail,
+          p.metodoPago,
+          p.category,
+          String(p.precio),
         ];
         return pool.some((val) => normalizeText(val).includes(q));
       });
@@ -491,66 +462,70 @@ export default function VentasList() {
 
     return result;
   }, [
+    comprasUnificadas,
     searchQuery,
     selectedCategory,
     selectedEvidenceFilter,
     selectedPaymentMethod,
     selectedStatus,
-    ventasUnificadas,
   ]);
 
   // KPI Metrics
   const metrics = useMemo(() => {
-    let totalFacturadoCUP = 0;
-    let totalFacturadoUSD = 0;
+    let totalCUP = 0;
+    let totalUSD = 0;
     let pendientes = 0;
     let entregadas = 0;
     let conEvidencia = 0;
 
-    for (const sale of ventasUnificadas) {
-      if (sale.moneda === "USD") {
-        totalFacturadoUSD += sale.precio;
-      } else {
-        totalFacturadoCUP += sale.precio;
+    for (const p of comprasUnificadas) {
+      const currency = normalizeCurrency(p.moneda, "");
+      const isApproved = p.statusDerived === "ENTREGADO";
+
+      if (isApproved && currency === "USD") {
+        totalUSD += p.precio;
+      } else if (isApproved && currency === "CUP") {
+        totalCUP += p.precio;
       }
 
       if (
-        sale.statusDerived === "PENDIENTE_PAGO" ||
-        sale.statusDerived === "PENDIENTE_ENTREGA"
+        p.statusDerived === "PENDIENTE_PAGO" ||
+        p.statusDerived === "PENDIENTE_ENTREGA"
       ) {
         pendientes += 1;
-      } else if (sale.statusDerived === "ENTREGADO") {
+      } else if (p.statusDerived === "ENTREGADO") {
         entregadas += 1;
       }
 
-      if (sale.evidence) {
+      if (p.evidence) {
         conEvidencia += 1;
       }
     }
 
     return {
-      totalVentas: ventasUnificadas.length,
-      totalFacturadoCUP,
-      totalFacturadoUSD,
+      total: comprasUnificadas.length,
+      totalCUP,
+      totalUSD,
       pendientes,
       entregadas,
       conEvidencia,
     };
-  }, [ventasUnificadas]);
+  }, [comprasUnificadas]);
 
   // Unique payment methods
   const paymentMethods = useMemo(() => {
     const methods = new Set(
-      ventasUnificadas.map((v) => v.metodoPago).filter(Boolean),
+      comprasUnificadas.map((v) => v.metodoPago).filter(Boolean),
     );
     return ["TODOS", ...methods];
-  }, [ventasUnificadas]);
+  }, [comprasUnificadas]);
 
   // Pagination
   useEffect(() => {
     setPage(0);
   }, [
     fetchLimit,
+    scope,
     searchQuery,
     selectedCategory,
     selectedEvidenceFilter,
@@ -558,12 +533,12 @@ export default function VentasList() {
     selectedStatus,
   ]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredVentas.length / itemsPerPage));
+  const totalPages = Math.max(1, Math.ceil(filteredCompras.length / itemsPerPage));
   const from = page * itemsPerPage;
-  const to = Math.min((page + 1) * itemsPerPage, filteredVentas.length);
-  const visibleVentas = useMemo(
-    () => filteredVentas.slice(from, to),
-    [filteredVentas, from, to],
+  const to = Math.min((page + 1) * itemsPerPage, filteredCompras.length);
+  const visibleCompras = useMemo(
+    () => filteredCompras.slice(from, to),
+    [filteredCompras, from, to],
   );
 
   const activeFiltersCount = [
@@ -583,14 +558,14 @@ export default function VentasList() {
     setPage(0);
   };
 
-  const handleOpenDetail = (sale) => {
-    setSelectedVenta(sale);
+  const handleOpenDetail = (purchase) => {
+    setSelectedPurchase(purchase);
     setDetailModalVisible(true);
   };
 
   const handleCloseDetail = () => {
     setDetailModalVisible(false);
-    setSelectedVenta(null);
+    setSelectedPurchase(null);
   };
 
   const panelBg = theme.dark ? "#0a1324" : "#ffffff";
@@ -599,19 +574,22 @@ export default function VentasList() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.dark ? "#050b16" : "#f1f5f9" }]}>
       <AppHeader
-        title="Listado de Ventas"
+        title="Mis compras"
         subtitle={
-          routeId
-            ? "Ventas filtradas para @" + (routeUsername || routeId)
-            : !isGeneralAdmin
-              ? "Tus compras, recargas, pedidos y comprobantes"
-              : "Control integral de compras, evidencias y transacciones"
+          scope === "all"
+            ? "Historial global de ventas y compras en VIDKAR"
+            : "Tus compras, recargas, pedidos y comprobantes en tiempo real"
         }
         showBackButton
         backHref="/(normal)/Main"
         overlapContent
         actions={
           <View style={styles.headerActions}>
+            <IconButton
+              icon="refresh"
+              iconColor="#ffffff"
+              onPress={() => setRefreshKey((k) => k + 1)}
+            />
             <IconButton
               icon={viewMode === "table" ? "view-grid-outline" : "table-large"}
               iconColor="#ffffff"
@@ -635,32 +613,49 @@ export default function VentasList() {
           />
         }
       >
+        {/* SCOPE SELECTION (for Admin / General Admin) */}
+        {isAdmin ? (
+          <Surface style={[styles.scopeSurface, { backgroundColor: panelBg, borderColor: borderCol }]}>
+            <Text style={styles.scopeTitle}>Alcance de visualización</Text>
+            <SegmentedButtons
+              accessibilityLabel="Seleccionar alcance de compras"
+              buttons={[
+                { value: "own", label: "Mis compras personales", icon: "account-outline" },
+                { value: "all", label: "Todas las compras", icon: "view-list-outline" },
+              ]}
+              onValueChange={setScope}
+              value={scope}
+              style={styles.segmentedButtons}
+            />
+          </Surface>
+        ) : null}
+
         {/* KPI METRICS STRIP */}
         <Surface style={[styles.kpiContainer, { backgroundColor: panelBg, borderColor: borderCol }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.kpiScroll}>
             <View style={styles.kpiItem}>
-              <Text style={styles.kpiLabel}>Total Registros</Text>
+              <Text style={styles.kpiLabel}>Total Compras</Text>
               <Text style={[styles.kpiValue, { color: theme.dark ? "#f8fafc" : "#0f172a" }]}>
-                {metrics.totalVentas}
+                {metrics.total}
               </Text>
             </View>
 
             <View style={styles.kpiDivider} />
 
             <View style={styles.kpiItem}>
-              <Text style={styles.kpiLabel}>Facturado CUP</Text>
+              <Text style={styles.kpiLabel}>Total CUP aprobado</Text>
               <Text style={[styles.kpiValue, { color: "#38bdf8" }]}>
-                {formatMoney(metrics.totalFacturadoCUP, "CUP")}
+                {formatMoney(metrics.totalCUP, "CUP")}
               </Text>
             </View>
 
-            {metrics.totalFacturadoUSD > 0 ? (
+            {metrics.totalUSD > 0 ? (
               <>
                 <View style={styles.kpiDivider} />
                 <View style={styles.kpiItem}>
-                  <Text style={styles.kpiLabel}>Facturado USD</Text>
+                  <Text style={styles.kpiLabel}>Total USD aprobado</Text>
                   <Text style={[styles.kpiValue, { color: "#34d399" }]}>
-                    {"$" + metrics.totalFacturadoUSD.toFixed(2) + " USD"}
+                    {"$" + metrics.totalUSD.toFixed(2) + " USD"}
                   </Text>
                 </View>
               </>
@@ -687,7 +682,7 @@ export default function VentasList() {
             <View style={styles.kpiDivider} />
 
             <View style={styles.kpiItem}>
-              <Text style={styles.kpiLabel}>Con Evidencia</Text>
+              <Text style={styles.kpiLabel}>Con Comprobante</Text>
               <Text style={[styles.kpiValue, { color: "#a855f7" }]}>
                 {metrics.conEvidencia}
               </Text>
@@ -735,7 +730,7 @@ export default function VentasList() {
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Buscar por usuario, ID, teléfono, servicio..."
+              placeholder="Buscar por ID, servicio, teléfono, nota o destinatario..."
               placeholderTextColor="#94a3b8"
               style={[styles.searchInput, { color: theme.dark ? "#f8fafc" : "#0f172a" }]}
             />
@@ -773,8 +768,6 @@ export default function VentasList() {
                   {[
                     { key: "TODOS", label: "Todas" },
                     { key: "CON_EVIDENCIA", label: "Con comprobante" },
-                    { key: "PENDIENTE_REVISION", label: "En revisión" },
-                    { key: "APROBADA", label: "Aprobadas" },
                     { key: "SIN_EVIDENCIA", label: "Sin comprobante" },
                   ].map((ev) => (
                     <Chip
@@ -835,7 +828,7 @@ export default function VentasList() {
           ) : activeFiltersCount > 0 ? (
             <View style={styles.activeFiltersIndicatorRow}>
               <Chip icon="filter" compact style={styles.activeFiltersChip} textStyle={styles.activeFiltersChipText}>
-                {activeFiltersCount + " filtro" + (activeFiltersCount > 1 ? "s" : "") + " aplicado" + (activeFiltersCount > 1 ? "s" : "")}
+                {activeFiltersCount + " filtro" + (activeFiltersCount > 1 ? "s" : "") + " activo" + (activeFiltersCount > 1 ? "s" : "")}
               </Chip>
               <Button compact mode="text" onPress={handleClearFilters}>
                 Limpiar
@@ -847,7 +840,7 @@ export default function VentasList() {
         {/* RESULTS HEADER */}
         <View style={styles.resultsHeaderRow}>
           <Text style={styles.resultsCountText}>
-            {"Mostrando " + filteredVentas.length + " venta" + (filteredVentas.length !== 1 ? "s" : "")}
+            {"Mostrando " + filteredCompras.length + " compra" + (filteredCompras.length !== 1 ? "s" : "")}
           </Text>
           <View style={styles.viewModeToggle}>
             <Button
@@ -872,14 +865,14 @@ export default function VentasList() {
         </View>
 
         {/* EMPTY STATE */}
-        {filteredVentas.length === 0 ? (
+        {filteredCompras.length === 0 ? (
           <Surface style={[styles.emptyCard, { backgroundColor: panelBg, borderColor: borderCol }]}>
             <IconButton icon="package-variant-closed" size={44} iconColor="#94a3b8" />
-            <Text style={styles.emptyTitle}>No se encontraron ventas</Text>
+            <Text style={styles.emptyTitle}>No se encontraron compras</Text>
             <Text style={styles.emptySubtitle}>
               {activeFiltersCount > 0
                 ? "No hay resultados para los filtros seleccionados. Prueba a limpiarlos."
-                : "No hay registros de compras o ventas disponibles en este momento."}
+                : "Aún no tienes compras o transacciones registradas en este alcance."}
             </Text>
             {activeFiltersCount > 0 ? (
               <Button mode="outlined" icon="filter-remove" onPress={handleClearFilters} style={styles.emptyBtn}>
@@ -891,32 +884,30 @@ export default function VentasList() {
           /* TABLE VIEW (DataTable) */
           <Surface style={[styles.tableContainer, { backgroundColor: panelBg, borderColor: borderCol }]}>
             <ScrollView horizontal showsHorizontalScrollIndicator>
-              <DataTable style={{ minWidth: 960 }}>
+              <DataTable style={{ minWidth: 1000 }}>
                 <DataTable.Header>
                   <DataTable.Title style={{ width: 90 }}>Fecha</DataTable.Title>
                   <DataTable.Title style={{ width: 130 }}>Tipo</DataTable.Title>
-                  <DataTable.Title style={{ width: 140 }}>Usuario / Admin</DataTable.Title>
+                  <DataTable.Title style={{ width: 140 }}>{scope === "all" ? "Usuario / Admin" : "Responsable"}</DataTable.Title>
                   <DataTable.Title style={{ width: 230 }}>Detalle del Servicio</DataTable.Title>
                   <DataTable.Title numeric style={{ width: 110 }}>Monto</DataTable.Title>
                   <DataTable.Title style={{ width: 110 }}>Método</DataTable.Title>
                   <DataTable.Title style={{ width: 130 }}>Estado</DataTable.Title>
-                  <DataTable.Title style={{ width: 140 }}>Evidencia</DataTable.Title>
                   <DataTable.Title numeric style={{ width: 60 }}>Ver</DataTable.Title>
                 </DataTable.Header>
 
-                {visibleVentas.map((sale) => {
-                  const catMeta = CATEGORY_COLORS[sale.category] || CATEGORY_COLORS.OTROS;
-                  const stMeta = getStatusMeta(sale.statusDerived, theme.dark);
-                  const evMeta = getEvidenceMeta(sale.evidence, sale, theme.dark);
+                {visibleCompras.map((purchase) => {
+                  const catMeta = CATEGORY_COLORS[purchase.category] || CATEGORY_COLORS.OTROS;
+                  const stMeta = getStatusMeta(purchase.statusDerived, theme.dark);
 
                   return (
                     <DataTable.Row
-                      key={sale._id}
-                      onPress={() => handleOpenDetail(sale)}
+                      key={purchase._id}
+                      onPress={() => handleOpenDetail(purchase)}
                       style={styles.tableRow}
                     >
                       <DataTable.Cell style={{ width: 90 }}>
-                        <Text style={styles.tableCellDate}>{formatDateShort(sale.createdAt)}</Text>
+                        <Text style={styles.tableCellDate}>{formatDateShort(purchase.createdAt)}</Text>
                       </DataTable.Cell>
 
                       <DataTable.Cell style={{ width: 130 }}>
@@ -932,30 +923,32 @@ export default function VentasList() {
 
                       <DataTable.Cell style={{ width: 140 }}>
                         <View style={styles.tableUserCol}>
-                          <Text numberOfLines={1} style={styles.tableUsername}>
-                            {"@" + sale.userusername}
-                          </Text>
+                          {scope === "all" ? (
+                            <Text numberOfLines={1} style={styles.tableUsername}>
+                              {"@" + purchase.userusername}
+                            </Text>
+                          ) : null}
                           <Text numberOfLines={1} style={styles.tableAdminText}>
-                            {"Resp: " + sale.adminusername}
+                            {"Resp: " + purchase.adminusername}
                           </Text>
                         </View>
                       </DataTable.Cell>
 
                       <DataTable.Cell style={{ width: 230 }}>
                         <Text numberOfLines={2} style={styles.tableDetailText}>
-                          {sale.specificDetail}
+                          {purchase.specificDetail}
                         </Text>
                       </DataTable.Cell>
 
                       <DataTable.Cell numeric style={{ width: 110 }}>
                         <Text style={styles.tableAmountText}>
-                          {formatMoney(sale.precio, sale.moneda)}
+                          {formatMoney(purchase.precio, purchase.moneda)}
                         </Text>
                       </DataTable.Cell>
 
                       <DataTable.Cell style={{ width: 110 }}>
                         <Text numberOfLines={1} style={styles.tableMethodText}>
-                          {sale.metodoPago}
+                          {purchase.metodoPago}
                         </Text>
                       </DataTable.Cell>
 
@@ -973,25 +966,11 @@ export default function VentasList() {
                         </View>
                       </DataTable.Cell>
 
-                      <DataTable.Cell style={{ width: 140 }}>
-                        <Chip
-                          compact
-                          icon={evMeta.icon}
-                          style={[
-                            styles.tableEvidenceChip,
-                            { backgroundColor: evMeta.backgroundColor, borderColor: evMeta.borderColor },
-                          ]}
-                          textStyle={[styles.tableEvidenceChipText, { color: evMeta.textColor }]}
-                        >
-                          {evMeta.label}
-                        </Chip>
-                      </DataTable.Cell>
-
                       <DataTable.Cell numeric style={{ width: 60 }}>
                         <IconButton
                           icon="eye-outline"
                           size={18}
-                          onPress={() => handleOpenDetail(sale)}
+                          onPress={() => handleOpenDetail(purchase)}
                           style={styles.zeroMargin}
                         />
                       </DataTable.Cell>
@@ -1005,7 +984,7 @@ export default function VentasList() {
               page={page}
               numberOfPages={totalPages}
               onPageChange={setPage}
-              label={(from + 1) + "-" + to + " de " + filteredVentas.length}
+              label={(from + 1) + "-" + to + " de " + filteredCompras.length}
               numberOfItemsPerPageList={OPTIONS_PER_PAGE}
               numberOfItemsPerPage={itemsPerPage}
               onItemsPerPageChange={(val) => {
@@ -1018,15 +997,15 @@ export default function VentasList() {
         ) : (
           /* CARDS VIEW */
           <View style={styles.cardsContainer}>
-            {visibleVentas.map((sale) => {
-              const catMeta = CATEGORY_COLORS[sale.category] || CATEGORY_COLORS.OTROS;
-              const stMeta = getStatusMeta(sale.statusDerived, theme.dark);
-              const evMeta = getEvidenceMeta(sale.evidence, sale, theme.dark);
+            {visibleCompras.map((purchase) => {
+              const catMeta = CATEGORY_COLORS[purchase.category] || CATEGORY_COLORS.OTROS;
+              const stMeta = getStatusMeta(purchase.statusDerived, theme.dark);
+              const evMeta = getEvidenceMeta(purchase.evidence, purchase, theme.dark);
 
               return (
                 <Pressable
-                  key={sale._id}
-                  onPress={() => handleOpenDetail(sale)}
+                  key={purchase._id}
+                  onPress={() => handleOpenDetail(purchase)}
                   style={styles.cardPressable}
                 >
                   <Surface style={[styles.saleCard, { backgroundColor: panelBg, borderColor: borderCol }]}>
@@ -1041,7 +1020,7 @@ export default function VentasList() {
                         >
                           {catMeta.label}
                         </Chip>
-                        <Text style={styles.cardDateText}>{formatDateShort(sale.createdAt)}</Text>
+                        <Text style={styles.cardDateText}>{formatDateShort(purchase.createdAt)}</Text>
                       </View>
 
                       <View
@@ -1059,21 +1038,23 @@ export default function VentasList() {
 
                     {/* Card Body */}
                     <View style={styles.cardBody}>
-                      <View style={styles.cardUserRow}>
-                        <Text style={styles.cardUserLabel}>Cliente:</Text>
-                        <Text numberOfLines={1} style={styles.cardUserVal}>
-                          {"@" + sale.userusername}
-                        </Text>
-                        <Text style={styles.cardAdminVal}>{"• Admin: " + sale.adminusername}</Text>
-                      </View>
+                      {scope === "all" ? (
+                        <View style={styles.cardUserRow}>
+                          <Text style={styles.cardUserLabel}>Cliente:</Text>
+                          <Text numberOfLines={1} style={styles.cardUserVal}>
+                            {"@" + purchase.userusername}
+                          </Text>
+                          <Text style={styles.cardAdminVal}>{"• Resp: " + purchase.adminusername}</Text>
+                        </View>
+                      ) : null}
 
                       <Text numberOfLines={2} style={styles.cardDetailText}>
-                        {sale.specificDetail}
+                        {purchase.specificDetail}
                       </Text>
 
-                      {sale.comentario && sale.category !== "BALANCE" ? (
+                      {purchase.comentario && purchase.category !== "BALANCE" ? (
                         <Text numberOfLines={1} style={styles.cardCommentPreview}>
-                          {"💬 " + sale.comentario}
+                          {"💬 " + purchase.comentario}
                         </Text>
                       ) : null}
                     </View>
@@ -1082,9 +1063,9 @@ export default function VentasList() {
                     <View style={styles.cardFooter}>
                       <View style={styles.cardPriceBlock}>
                         <Text style={styles.cardAmountText}>
-                          {formatMoney(sale.precio, sale.moneda)}
+                          {formatMoney(purchase.precio, purchase.moneda)}
                         </Text>
-                        <Text style={styles.cardMethodText}>{sale.metodoPago}</Text>
+                        <Text style={styles.cardMethodText}>{purchase.metodoPago}</Text>
                       </View>
 
                       <View style={styles.cardFooterActions}>
@@ -1102,7 +1083,7 @@ export default function VentasList() {
                         <IconButton
                           icon="chevron-right"
                           size={20}
-                          onPress={() => handleOpenDetail(sale)}
+                          onPress={() => handleOpenDetail(purchase)}
                           style={styles.cardChevron}
                         />
                       </View>
@@ -1118,7 +1099,7 @@ export default function VentasList() {
                 page={page}
                 numberOfPages={totalPages}
                 onPageChange={setPage}
-                label={(from + 1) + "-" + to + " de " + filteredVentas.length}
+                label={(from + 1) + "-" + to + " de " + filteredCompras.length}
                 numberOfItemsPerPageList={OPTIONS_PER_PAGE}
                 numberOfItemsPerPage={itemsPerPage}
                 onItemsPerPageChange={(val) => {
@@ -1132,14 +1113,14 @@ export default function VentasList() {
         )}
       </ScrollView>
 
-      {/* DETAIL & EVIDENCE MODAL */}
+      {/* DETAIL & EVIDENCE MODAL (With real image, AI analysis, package breakdown and upload support) */}
       <VentaDetailModal
-        evidence={selectedVenta?.evidence}
+        evidence={selectedPurchase?.evidence}
         isAdmin={isAdmin}
         isGeneralAdmin={isGeneralAdmin}
         onActionComplete={() => setRefreshKey((k) => k + 1)}
         onDismiss={handleCloseDetail}
-        sale={selectedVenta}
+        sale={selectedPurchase}
         visible={detailModalVisible}
       />
     </View>
@@ -1158,6 +1139,22 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingBottom: 40,
     paddingHorizontal: 14,
+  },
+  scopeSurface: {
+    borderRadius: 20,
+    borderWidth: 1,
+    elevation: 2,
+    gap: 8,
+    padding: 14,
+  },
+  scopeTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    opacity: 0.75,
+    textTransform: "uppercase",
+  },
+  segmentedButtons: {
+    borderRadius: 12,
   },
   kpiContainer: {
     borderRadius: 20,
@@ -1388,14 +1385,6 @@ const styles = StyleSheet.create({
   },
   tableStatusText: {
     fontSize: 11,
-    fontWeight: "700",
-  },
-  tableEvidenceChip: {
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  tableEvidenceChipText: {
-    fontSize: 10,
     fontWeight: "700",
   },
   zeroMargin: {

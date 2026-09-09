@@ -20,11 +20,10 @@ import {
     useTheme,
 } from "react-native-paper";
 
-import { appHeaderBlurTargetRef } from "../Header/appHeaderBlurTarget";
-
 const DrawerBottom = ({
   actions = [],
   children,
+  contentAtTopRef,
   headerStyle,
   onClose,
   open,
@@ -35,7 +34,7 @@ const DrawerBottom = ({
   title,
 }) => {
   const theme = useTheme();
-  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
+  const { height: screenHeight } = useWindowDimensions();
   const isBottom = side === "bottom";
   const translateY = useRef(new Animated.Value(screenHeight)).current;
   const [contentHeight, setContentHeight] = useState(0);
@@ -109,6 +108,50 @@ const DrawerBottom = ({
     }),
   ).current;
 
+  const contentPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponderCapture: (_, gestureState) =>
+        isBottom &&
+        contentAtTopRef?.current === true &&
+        gestureState.dy > 4 &&
+        Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        isBottom &&
+        contentAtTopRef?.current === true &&
+        gestureState.dy > 4 &&
+        Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+      onPanResponderMove: (_, gestureState) => {
+        if (!isBottom || gestureState.dy <= 0) {
+          return;
+        }
+
+        translateY.setValue(gestureState.dy);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (!isBottom) {
+          return;
+        }
+
+        if (gestureState.dy > sheetHeight * 0.25 || gestureState.vy > 1.1) {
+          Animated.timing(translateY, {
+            toValue: screenHeight,
+            duration: 180,
+            useNativeDriver: true,
+          }).start(() => {
+            onClose?.();
+          });
+          return;
+        }
+
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 180,
+          useNativeDriver: true,
+        }).start();
+      },
+    }),
+  ).current;
+
   if (!isBottom) {
     return null;
   }
@@ -140,9 +183,9 @@ const DrawerBottom = ({
 
   const drawerContent = (
     <View style={styles.portalContainer}>
-        <Pressable
-          style={[
-            styles.backdropPressable,
+      <Pressable
+        style={[
+          styles.backdropPressable,
             { backgroundColor: `rgba(0,0,0,${overlayOpacity})` },
           ]}
           onPress={() => onClose?.()}
@@ -165,35 +208,22 @@ const DrawerBottom = ({
               surfaceStyle,
             ]}
           >
-            {theme.dark ? (
-              <BlurView
-                key={`${screenWidth}-${screenHeight}-dark`}
-                blurTarget={Platform.OS === "android" ? appHeaderBlurTargetRef : undefined}
-                intensity={42}
-                tint="dark"
-                style={StyleSheet.absoluteFill}
-                blurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
-                renderToHardwareTextureAndroid={true}
-              />
-            ) : (
-              <BlurView
-                key={`${screenWidth}-${screenHeight}-light`}
-                blurTarget={Platform.OS === "android" ? appHeaderBlurTargetRef : undefined}
-                intensity={42}
-                tint="light"
-                style={StyleSheet.absoluteFill}
-                blurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
-                renderToHardwareTextureAndroid={true}
-              />
-            )}
+            <BlurView
+              intensity={56}
+              tint={theme.dark ? "dark" : "light"}
+              experimentalBlurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
+              renderToHardwareTextureAndroid
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
             <View
               pointerEvents="none"
               style={[
                 styles.sheetTint,
                 {
                   backgroundColor: theme.dark
-                    ? "rgba(6, 12, 24, 0.68)"
-                    : "rgba(255, 255, 255, 0.62)",
+                    ? "rgba(15, 23, 42, 0.42)"
+                    : "rgba(255, 255, 255, 0.34)",
                 },
               ]}
             />
@@ -208,6 +238,7 @@ const DrawerBottom = ({
             {headerNode}
             <View
               style={styles.bottomContent}
+              {...(contentAtTopRef ? contentPanResponder.panHandlers : {})}
               onLayout={(event) => {
                 setContentHeight(event.nativeEvent.layout.height + 30);
               }}

@@ -34,6 +34,7 @@ import {
     VentasRechargeCollection,
 } from "../collections/collections";
 import DrawerBottom from "../drawer/DrawerBottom.native";
+import ZoomableEvidenceImage from "../shared/ZoomableEvidenceImage.native";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -1546,10 +1547,9 @@ const SubidaArchivos = ({ venta }) => {
       >
         {preview ? (
           <View style={styles.previewWrapper}>
-            <Image
+            <ZoomableEvidenceImage
               source={{ uri: preview.imageUrl }}
               style={styles.previewImage}
-              resizeMode="contain"
             />
             <View style={styles.previewMetaBox}>
               {preview.estado === ESTADOS.APROBADA ? (
@@ -1606,16 +1606,32 @@ const SubidaArchivos = ({ venta }) => {
                   <Text style={styles.analysisSummary}>{preview.analysis.summary}</Text>
                 </View>
               ) : null}
-              <Button
-                mode="contained-tonal"
-                icon="delete"
-                onPress={handleEliminarEvidencias}
-                disabled={eliminando || uploadInhabilitado}
-                loading={eliminando}
-                style={styles.botonEliminar}
-              >
-                Eliminar evidencia
-              </Button>
+              <View style={styles.previewActions}>
+                <Text style={styles.previewActionsLabel}>Acciones de evidencia</Text>
+                <View style={styles.previewActionGroup}>
+                  <Button
+                    mode="outlined"
+                    icon="delete-outline"
+                    onPress={handleEliminarEvidencias}
+                    disabled={eliminando || uploadInhabilitado}
+                    loading={eliminando}
+                    textColor="#b91c1c"
+                    style={styles.botonEliminar}
+                    contentStyle={styles.previewActionContent}
+                  >
+                    Eliminar evidencia
+                  </Button>
+                  <Button
+                    icon="close"
+                    mode="contained-tonal"
+                    onPress={() => setPreview(null)}
+                    style={styles.botonCerrarEvidencia}
+                    contentStyle={styles.previewActionContent}
+                  >
+                    Cerrar evidencia
+                  </Button>
+                </View>
+              </View>
             </View>
           </View>
         ) : null}
@@ -1697,7 +1713,15 @@ const styles = StyleSheet.create({
   badgeEstadoOk: { color: "#2ecc71" },
   badgeEstadoText: { color: "#fff", fontSize: 9, fontWeight: "600" },
   boton: { height: 44, justifyContent: "center", marginBottom: 14 },
-  botonEliminar: { marginTop: 14 },
+  botonCerrarEvidencia: {
+    borderRadius: 14,
+    minHeight: 46,
+  },
+  botonEliminar: {
+    borderColor: "#ef4444",
+    borderRadius: 14,
+    minHeight: 46,
+  },
   botonSubir: { height: 44, justifyContent: "center", marginTop: 6 },
   chipAprobado: { borderColor: "#2ecc71" },
   chipEstadoText: { fontSize: 11 },
@@ -1974,6 +1998,27 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     height: 280,
     width: "100%",
+  },
+  previewActionContent: {
+    height: 46,
+    paddingHorizontal: 10,
+  },
+  previewActionGroup: {
+    gap: 12,
+  },
+  previewActions: {
+    borderTopColor: "rgba(148, 163, 184, 0.24)",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+    marginTop: 18,
+    paddingTop: 16,
+  },
+  previewActionsLabel: {
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
   },
   previewMetaBox: { marginTop: 12 },
   previewTamano: { color: "#555", fontSize: 11, marginTop: 2 },

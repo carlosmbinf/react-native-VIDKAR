@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   chapter: { alignItems: "center", borderBottomWidth: 1, flexDirection: "row", gap: 8, minHeight: 62, paddingVertical: 8 },
   adminModalRoot: { flex: 1, justifyContent: "flex-end" },
   adminBackdrop: { backgroundColor: "rgba(2,6,23,0.72)", bottom: 0, left: 0, position: "absolute", right: 0, top: 0 },
-  adminBackdropOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(2,6,23,0.42)" },
+  adminBackdropOverlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(2,6,23,0.42)" },
   adminSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "92%", padding: 18 },
   adminHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   adminModes: { flexDirection: "row", gap: 8, marginBottom: 8 },

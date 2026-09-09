@@ -46,6 +46,8 @@ const Meteor = MeteorBase as unknown as {
 };
 
 const VERSION_CHECK_TIMEOUT_MS = 5_000;
+const VERSION_CHECK_RETRIES = 2;
+const VERSION_CHECK_RETRY_DELAY_MS = 500;
 const METEOR_CONNECTION_TIMEOUT_MS = 10_000;
 const METEOR_CONNECTION_POLL_MS = 500;
 
@@ -82,23 +84,72 @@ const resolveCurrentBuildNumber = () => {
   return 0;
 };
 
-const getRequiredBuildNumber = (propertyKey: string) =>
+class VersionCheckTimeoutError extends Error {
+  constructor() {
+    super("Timeout esperando respuesta del servidor");
+    this.name = "VersionCheckTimeoutError";
+  }
+}
+
+const callRequiredBuildNumber = (propertyKey: string) =>
   new Promise<string | null>((resolve, reject) => {
+    let settled = false;
     const timeout = setTimeout(() => {
-      reject(new Error("Timeout esperando respuesta del servidor"));
-    }, VERSION_CHECK_TIMEOUT_MS);
-
-    Meteor.call("property.getValor", "CONFIG", propertyKey, (error, result) => {
-      clearTimeout(timeout);
-
-      if (error) {
-        reject(error);
+      if (settled) {
         return;
       }
 
-      resolve(result ?? null);
-    });
+      settled = true;
+      reject(new VersionCheckTimeoutError());
+    }, VERSION_CHECK_TIMEOUT_MS);
+
+    try {
+      Meteor.call("property.getValor", "CONFIG", propertyKey, (error, result) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        clearTimeout(timeout);
+
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve(result ?? null);
+      });
+    } catch (error) {
+      settled = true;
+      clearTimeout(timeout);
+      reject(error);
+    }
   });
+
+const getRequiredBuildNumber = async (propertyKey: string) => {
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < VERSION_CHECK_RETRIES; attempt += 1) {
+    try {
+      return await callRequiredBuildNumber(propertyKey);
+    } catch (error) {
+      lastError = error;
+
+      if (
+        !(error instanceof VersionCheckTimeoutError) ||
+        attempt === VERSION_CHECK_RETRIES - 1
+      ) {
+        throw error;
+      }
+
+      await new Promise((resolve) => {
+        setTimeout(resolve, VERSION_CHECK_RETRY_DELAY_MS);
+      });
+    }
+  }
+
+  throw lastError ?? new Error("No se pudo consultar la versión mínima");
+};
 
 export default function IndexScreen() {
   const theme = useTheme();
@@ -237,7 +288,20 @@ export default function IndexScreen() {
           requiredBuildNumber,
         });
       } catch (error) {
-        console.error("[IndexScreen] Error en checkAppVersion:", error);
+        if (error instanceof VersionCheckTimeoutError) {
+          console.warn(
+            "[IndexScreen] No se pudo comprobar la versión mínima tras reintentar:",
+            {
+              propertyKey:
+                Platform.OS === "android"
+                  ? "androidVersionMinCompilation"
+                  : "iosVersionMinCompilation",
+              meteorStatus: Meteor.status(),
+            },
+          );
+        } else {
+          console.error("[IndexScreen] Error en checkAppVersion:", error);
+        }
 
         setSafeVersionGate((previousState) => ({
           ...previousState,

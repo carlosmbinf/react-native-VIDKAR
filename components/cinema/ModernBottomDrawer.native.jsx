@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(2, 6, 23, 0.65)",
   },
   sheet: {
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 28,
   },
   sheetGlassOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   sheetTopHighlight: {
     backgroundColor: "rgba(255, 255, 255, 0.24)",
