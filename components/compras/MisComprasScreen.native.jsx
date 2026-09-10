@@ -25,6 +25,7 @@ import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import {
   EvidenciasVentasEfectivoCollection,
+  TransaccionRecargasCollection,
   VentasCollection,
   VentasRechargeCollection,
 } from "../collections/collections";
@@ -37,6 +38,7 @@ import {
   formatDateShort,
   formatMoney,
   getEvidenceMeta,
+  getRechargeStatusPresentation,
   getSaleItems,
   getSaleSpecificDetail,
   getStatusMeta,
@@ -65,6 +67,31 @@ const RECARGAS_VENTA_FIELDS = {
   isCancelada: 1,
   isCobrado: 1,
   metodoPago: 1,
+  paymentProvider: 1,
+  paymentId: 1,
+  paymentCaptureId: 1,
+  "refundBasis.currency": 1,
+  "refundBasis.items": 1,
+  "refundBasis.subtotal": 1,
+  "refundBasis.totalWithCommissions": 1,
+  "refunds.idempotencyKey": 1,
+  "refunds.provider": 1,
+  "refunds.mode": 1,
+  "refunds.includeCommission": 1,
+  "refunds.selectedItemIds": 1,
+  "refunds.requestedAmount": 1,
+  "refunds.amount": 1,
+  "refunds.currency": 1,
+  "refunds.status": 1,
+  "refunds.externalRefundId": 1,
+  "refunds.createdAt": 1,
+  "refunds.completedAt": 1,
+  "refunds.failedAt": 1,
+  refundedAmount: 1,
+  refundableAmount: 1,
+  refundCurrency: 1,
+  refundStatus: 1,
+  lastRefundAt: 1,
   monedaCobrado: 1,
   monedaPrecioOficial: 1,
   monto: 1,
@@ -80,6 +107,16 @@ const RECARGAS_VENTA_FIELDS = {
   tipo: 1,
   type: 1,
   userId: 1,
+};
+
+const TRANSACCION_RECARGA_FIELDS = {
+  _id: 1,
+  externalId: 1,
+  id: 1,
+  "status.message": 1,
+  "status.id": 1,
+  error: 1,
+  updatedAt: 1,
 };
 
 const DIRECT_VENTAS_FIELDS = {
@@ -244,6 +281,15 @@ export default function MisComprasScreen() {
       limit: fetchLimit,
     }).fetch();
 
+    const rechargeItemIds = [...new Set(rechargeDocs.flatMap((doc) => getSaleItems(doc).filter((item) => String(item?.type || item?.producto?.type || "").toUpperCase() === "RECARGA").map((item) => item?._id).filter(Boolean).map(String)))];
+    const transactionsSub = rechargeItemIds.length > 0
+      ? Meteor.subscribe("transacciones", { externalId: { $in: rechargeItemIds } }, { fields: TRANSACCION_RECARGA_FIELDS })
+      : null;
+    const transactions = rechargeItemIds.length > 0
+      ? TransaccionRecargasCollection.find({ externalId: { $in: rechargeItemIds } }, { fields: TRANSACCION_RECARGA_FIELDS }).fetch()
+      : [];
+    const transactionsByExternalId = new Map(transactions.map((transaction) => [String(transaction.externalId), transaction]));
+
     const directDocs = VentasCollection.find(scopeQuery, {
       fields: DIRECT_VENTAS_FIELDS,
       sort: { createdAt: -1 },
@@ -295,11 +341,17 @@ export default function MisComprasScreen() {
     // Map recharge purchases
     for (const doc of rechargeDocs) {
       const buyerId = doc.userId || doc.idUser || doc.producto?.userId;
-      const rawItems = getSaleItems(doc);
+      const rawItems = getSaleItems(doc).map((item) => {
+        if (String(item?.type || item?.producto?.type || "").toUpperCase() !== "RECARGA") return item;
+        const transaction = transactionsByExternalId.get(String(item?._id));
+        return transaction
+          ? { ...item, dtshopStatus: transaction.status?.message || "", dtshopTransactionId: transaction.id, dtshopError: transaction.error || null }
+          : item;
+      });
       const buyerName = resolveUsername(buyerId) || "Tú";
       const adminName = resolveUsername(doc.adminId) || "Vidkar";
       const category = detectSaleCategory(doc);
-      const statusDerived = deriveSaleStatus(doc);
+      const statusDerived = deriveSaleStatus({ ...doc, producto: { ...doc.producto, carritos: rawItems } });
 
       let matchedEvidence = evidenceMap.get(String(doc._id)) || null;
       if (!matchedEvidence) {
@@ -328,7 +380,19 @@ export default function MisComprasScreen() {
         adminusername: adminName,
         precio: totalAmount,
         moneda: currency,
+        cobrado: Number(doc.cobrado || 0),
+        monedaCobrado: doc.monedaCobrado || null,
         metodoPago: doc.metodoPago || "No especificado",
+        paymentProvider: doc.paymentProvider || doc.metodoPago || null,
+        paymentId: doc.paymentId || null,
+        paymentCaptureId: doc.paymentCaptureId || null,
+        refundBasis: doc.refundBasis || null,
+        refunds: doc.refunds || [],
+        refundedAmount: Number(doc.refundedAmount || 0),
+        refundableAmount: doc.refundableAmount,
+        refundCurrency: doc.refundCurrency || doc.monedaCobrado || null,
+        refundStatus: doc.refundStatus || null,
+        lastRefundAt: doc.lastRefundAt || null,
         comentario: doc.comentario || "",
         items: rawItems,
         evidence: matchedEvidence,
@@ -373,7 +437,7 @@ export default function MisComprasScreen() {
       return timeB - timeA;
     });
 
-    const isAllReady = rechargeSub.ready() && directSub.ready() && usersSub.ready() && evidenceSubReady;
+    const isAllReady = rechargeSub.ready() && directSub.ready() && usersSub.ready() && evidenceSubReady && (!transactionsSub || transactionsSub.ready());
 
     return {
       currentUserId: cUserId,
@@ -413,15 +477,16 @@ export default function MisComprasScreen() {
     // 2. Status Filter
     if (selectedStatus !== "TODOS") {
       if (selectedStatus === "PAGADO") {
-        result = result.filter((p) => p.statusDerived === "ENTREGADO");
+        result = result.filter((p) => ["ENTREGADO", "RECARGA_ENTREGADA", "RECARGA_EN_PROCESO", "RECARGA_NO_ENTREGADA"].includes(p.statusDerived));
       } else if (selectedStatus === "PENDIENTE") {
         result = result.filter(
           (p) =>
             p.statusDerived === "PENDIENTE_PAGO" ||
-            p.statusDerived === "PENDIENTE_ENTREGA",
+            p.statusDerived === "PENDIENTE_ENTREGA" ||
+            p.statusDerived === "RECARGA_EN_PROCESO",
         );
       } else if (selectedStatus === "CANCELADO") {
-        result = result.filter((p) => p.statusDerived === "CANCELADO");
+        result = result.filter((p) => ["CANCELADO", "RECARGA_NO_ENTREGADA"].includes(p.statusDerived));
       }
     }
 
@@ -480,7 +545,7 @@ export default function MisComprasScreen() {
 
     for (const p of comprasUnificadas) {
       const currency = normalizeCurrency(p.moneda, "");
-      const isApproved = p.statusDerived === "ENTREGADO";
+      const isApproved = ["ENTREGADO", "RECARGA_ENTREGADA"].includes(p.statusDerived);
 
       if (isApproved && currency === "USD") {
         totalUSD += p.precio;
@@ -490,10 +555,11 @@ export default function MisComprasScreen() {
 
       if (
         p.statusDerived === "PENDIENTE_PAGO" ||
-        p.statusDerived === "PENDIENTE_ENTREGA"
+        p.statusDerived === "PENDIENTE_ENTREGA" ||
+        p.statusDerived === "RECARGA_EN_PROCESO"
       ) {
         pendientes += 1;
-      } else if (p.statusDerived === "ENTREGADO") {
+      } else if (["ENTREGADO", "RECARGA_ENTREGADA"].includes(p.statusDerived)) {
         entregadas += 1;
       }
 
@@ -899,6 +965,7 @@ export default function MisComprasScreen() {
                 {visibleCompras.map((purchase) => {
                   const catMeta = CATEGORY_COLORS[purchase.category] || CATEGORY_COLORS.OTROS;
                   const stMeta = getStatusMeta(purchase.statusDerived, theme.dark);
+                  const rechargeStatus = getRechargeStatusPresentation(purchase, theme.dark);
 
                   return (
                     <DataTable.Row
@@ -953,17 +1020,63 @@ export default function MisComprasScreen() {
                       </DataTable.Cell>
 
                       <DataTable.Cell style={{ width: 130 }}>
-                        <View
-                          style={[
-                            styles.tableStatusBadge,
-                            { backgroundColor: stMeta.backgroundColor, borderColor: stMeta.borderColor },
-                          ]}
-                        >
-                          <View style={[styles.statusDot, { backgroundColor: stMeta.dotColor }]} />
-                          <Text numberOfLines={1} style={[styles.tableStatusText, { color: stMeta.textColor }]}>
-                            {stMeta.shortLabel}
-                          </Text>
-                        </View>
+                        {rechargeStatus ? (
+                          <View style={styles.rechargeStatusPair}>
+                            {[rechargeStatus.payment, rechargeStatus.delivery].map((part, index) => (
+                              <View
+                                key={part.label}
+                                style={[
+                                  styles.rechargeStatusPart,
+                                  {
+                                    backgroundColor: part.backgroundColor,
+                                    borderLeftColor:
+                                      index === 1
+                                        ? "rgba(226, 232, 240, 0.22)"
+                                        : "transparent",
+                                    borderLeftWidth:
+                                      index === 1 ? StyleSheet.hairlineWidth : 0,
+                                  },
+                                ]}
+                              >
+                                <View
+                                  style={[
+                                    styles.statusDot,
+                                    { backgroundColor: part.dotColor, marginRight: 4 },
+                                  ]}
+                                />
+                                <Text
+                                  numberOfLines={1}
+                                  style={[styles.rechargeStatusText, { color: part.textColor }]}
+                                >
+                                  {part.label}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        ) : (
+                          <View
+                            style={[
+                              styles.tableStatusBadge,
+                              {
+                                backgroundColor: stMeta.backgroundColor,
+                                borderColor: stMeta.borderColor,
+                              },
+                            ]}
+                          >
+                            <View style={[styles.statusDot, { backgroundColor: stMeta.dotColor }]} />
+                            <Text
+                              numberOfLines={1}
+                              style={[styles.tableStatusText, { color: stMeta.textColor }]}
+                            >
+                              {stMeta.shortLabel}
+                            </Text>
+                          </View>
+                        )}
+                        {purchase.refundStatus ? (
+                          <Chip compact style={styles.refundChip} textStyle={styles.refundChipText}>
+                            {purchase.refundStatus === "FULL" ? "Reembolsada" : "Reembolso parcial"}
+                          </Chip>
+                        ) : null}
                       </DataTable.Cell>
 
                       <DataTable.Cell numeric style={{ width: 60 }}>
@@ -1000,6 +1113,7 @@ export default function MisComprasScreen() {
             {visibleCompras.map((purchase) => {
               const catMeta = CATEGORY_COLORS[purchase.category] || CATEGORY_COLORS.OTROS;
               const stMeta = getStatusMeta(purchase.statusDerived, theme.dark);
+              const rechargeStatus = getRechargeStatusPresentation(purchase, theme.dark);
               const evMeta = getEvidenceMeta(purchase.evidence, purchase, theme.dark);
 
               return (
@@ -1023,17 +1137,54 @@ export default function MisComprasScreen() {
                         <Text style={styles.cardDateText}>{formatDateShort(purchase.createdAt)}</Text>
                       </View>
 
-                      <View
-                        style={[
-                          styles.cardStatusBadge,
-                          { backgroundColor: stMeta.backgroundColor, borderColor: stMeta.borderColor },
-                        ]}
-                      >
-                        <View style={[styles.statusDot, { backgroundColor: stMeta.dotColor }]} />
-                        <Text style={[styles.cardStatusText, { color: stMeta.textColor }]}>
-                          {stMeta.shortLabel}
-                        </Text>
-                      </View>
+                      {rechargeStatus ? (
+                        <View style={styles.rechargeStatusPair}>
+                          {[rechargeStatus.payment, rechargeStatus.delivery].map((part, index) => (
+                            <View
+                              key={part.label}
+                              style={[
+                                styles.rechargeStatusPart,
+                                {
+                                  backgroundColor: part.backgroundColor,
+                                  borderLeftColor:
+                                    index === 1
+                                      ? "rgba(226, 232, 240, 0.22)"
+                                      : "transparent",
+                                  borderLeftWidth:
+                                    index === 1 ? StyleSheet.hairlineWidth : 0,
+                                },
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  styles.statusDot,
+                                  { backgroundColor: part.dotColor, marginRight: 4 },
+                                ]}
+                              />
+                              <Text
+                                style={[styles.rechargeStatusText, { color: part.textColor }]}
+                              >
+                                {part.label}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      ) : (
+                        <View
+                          style={[
+                            styles.cardStatusBadge,
+                            {
+                              backgroundColor: stMeta.backgroundColor,
+                              borderColor: stMeta.borderColor,
+                            },
+                          ]}
+                        >
+                          <View style={[styles.statusDot, { backgroundColor: stMeta.dotColor }]} />
+                          <Text style={[styles.cardStatusText, { color: stMeta.textColor }]}>
+                            {stMeta.shortLabel}
+                          </Text>
+                        </View>
+                      )}
                     </View>
 
                     {/* Card Body */}
@@ -1080,6 +1231,11 @@ export default function MisComprasScreen() {
                         >
                           {evMeta.label}
                         </Chip>
+                        {purchase.refundStatus ? (
+                          <Chip compact style={styles.refundChip} textStyle={styles.refundChipText}>
+                            {purchase.refundStatus === "FULL" ? "Reembolsada" : "Reembolso parcial"}
+                          </Chip>
+                        ) : null}
                         <IconButton
                           icon="chevron-right"
                           size={20}
@@ -1387,6 +1543,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
   },
+  rechargeStatusPair: {
+    alignItems: "stretch",
+    borderRadius: 8,
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  rechargeStatusPart: {
+    alignItems: "center",
+    flexDirection: "row",
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+  rechargeStatusText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
   zeroMargin: {
     margin: 0,
     padding: 0,
@@ -1499,6 +1671,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   cardEvidenceChipText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  refundChip: {
+    backgroundColor: "rgba(251, 146, 60, 0.18)",
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  refundChipText: {
+    color: "#fdba74",
     fontSize: 10,
     fontWeight: "700",
   },

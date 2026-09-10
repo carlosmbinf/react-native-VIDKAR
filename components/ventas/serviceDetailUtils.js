@@ -99,6 +99,13 @@ export function getServiceDetail(item, sale = {}) {
       add("Cantidad", number(item.cantidad));
   }
 
+  const dtshopStatus = text(item.dtshopStatus).toUpperCase();
+  const dtshopCompleted = category === "RECARGAS" && dtshopStatus === "COMPLETED";
+  const dtshopFailed = category === "RECARGAS" && ["REJECTED", "CANCELLED", "DECLINED", "REVERSED", "REJECTED-INSUFFICIENT-BALANCE"].includes(dtshopStatus);
   return { category, title, highlight, highlightLabel, fields, price, priceLabel,
-    note: text(item.comentario), delivered: typeof item.entregado === "boolean" ? item.entregado : null };
+    note: text(item.comentario),
+    delivered: category === "RECARGAS" ? (dtshopStatus ? dtshopCompleted : null) : typeof item.entregado === "boolean" ? item.entregado : null,
+    dtshopStatus: dtshopStatus || null,
+    dtshopDeliveryState: dtshopCompleted ? "ENTREGADO" : dtshopFailed ? "NO_ENTREGADO" : dtshopStatus ? "EN_PROCESO" : null,
+  };
 }

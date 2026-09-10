@@ -27,6 +27,7 @@ import SubidaArchivos from "../archivos/SubidaArchivos.native";
 import DrawerBottom from "../drawer/DrawerBottom.native";
 import ZoomableEvidenceImage from "../shared/ZoomableEvidenceImage.native";
 import ServiceDetails from "./ServiceDetails.native";
+import RefundSaleDrawer from "./RefundSaleDrawer.native";
 import {
   CATEGORY_COLORS,
   formatDateTime,
@@ -59,6 +60,7 @@ export default function VentaDetailModal({
   const [actionProcessing, setActionProcessing] = useState(false);
   const [snackbarText, setSnackbarText] = useState("");
   const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [refundDrawerVisible, setRefundDrawerVisible] = useState(false);
 
   const categoryMeta = useMemo(
     () => CATEGORY_COLORS[sale?.category] || CATEGORY_COLORS.OTROS,
@@ -126,60 +128,6 @@ export default function VentaDetailModal({
     await Clipboard.setStringAsync(sale._id);
     setSnackbarText("ID copiado al portapapeles");
     setSnackbarVisible(true);
-  };
-
-  const handleAprobarVenta = () => {
-    if (!sale?._id) return;
-
-    Alert.alert(
-      "Aprobar compra / venta",
-      "Se aprobará el pago y se procederá con la entrega de los servicios. ¿Deseas continuar?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Aprobar",
-          style: "default",
-          onPress: () => {
-            setActionProcessing(true);
-
-            if (sale.source === "direct") {
-              Meteor.call("changeStatusVenta", sale._id, (error, result) => {
-                setActionProcessing(false);
-                if (error) {
-                  Alert.alert("Error", error.message || "No se pudo actualizar la venta.");
-                  return;
-                }
-                setSnackbarText(String(result || "Venta marcada como pagada"));
-                setSnackbarVisible(true);
-                onActionComplete?.();
-              });
-              return;
-            }
-
-            // For ventasRecharge
-            Meteor.call("ventas.aprobarVenta", sale._id, {}, (error, result) => {
-              setActionProcessing(false);
-              if (error) {
-                // Fallback to changeStatusVenta if ventas.aprobarVenta not matched
-                Meteor.call("changeStatusVenta", sale._id, (err2, res2) => {
-                  if (err2) {
-                    Alert.alert("Error", error.reason || error.message || "No se pudo aprobar la venta.");
-                    return;
-                  }
-                  setSnackbarText("Venta aprobada correctamente.");
-                  setSnackbarVisible(true);
-                  onActionComplete?.();
-                });
-                return;
-              }
-              setSnackbarText(result?.message || "Venta aprobada correctamente.");
-              setSnackbarVisible(true);
-              onActionComplete?.();
-            });
-          },
-        },
-      ],
-    );
   };
 
   const handleAprobarSoloEvidencia = () => {
@@ -255,7 +203,12 @@ export default function VentaDetailModal({
 
   const maxScrollHeight = Math.max(260, Math.floor(windowHeight * 0.72));
   const isEfectivo = String(sale.metodoPago || "").toUpperCase() === "EFECTIVO";
-  const canApprove = (isGeneralAdmin || isAdmin) && sale.statusDerived !== "ENTREGADO" && sale.statusDerived !== "CANCELADO";
+  const canRefund = isGeneralAdmin
+    && sale.source === "recharge"
+    && ["PAYPAL", "MERCADOPAGO"].includes(String(sale.metodoPago || "").toUpperCase())
+    && !sale.refundStatus
+    && Number(sale.refundedAmount || 0) <= 0
+    && !(Array.isArray(sale.refunds) && sale.refunds.some((refund) => ["COMPLETED", "APPROVED", "PROCESSED"].includes(String(refund?.status || "").toUpperCase())));
 
   return (
     <DrawerBottom
@@ -321,6 +274,17 @@ export default function VentaDetailModal({
                 </Chip>
               </View>
             </Surface>
+
+            {sale.refundStatus ? (
+              <Surface style={[styles.refundSummary, { backgroundColor: theme.dark ? "rgba(124, 45, 18, 0.28)" : "#fff7ed" }]}>
+                <Text style={styles.refundSummaryTitle}>
+                  {sale.refundStatus === "FULL" ? "Reembolso completado" : "Reembolso parcial"}
+                </Text>
+                <Text style={styles.refundSummaryText}>
+                  Devuelto: {formatMoney(sale.refundedAmount, sale.refundCurrency || sale.moneda)} · Saldo: {formatMoney(sale.refundableAmount, sale.refundCurrency || sale.moneda)}
+                </Text>
+              </Surface>
+            ) : null}
 
             {/* Participants block */}
             <View style={styles.section}>
@@ -480,23 +444,34 @@ export default function VentaDetailModal({
               )}
             </View>
 
-            {/* General Actions */}
-            {canApprove ? (
+            {/* La aprobación manual de ventas ya no se ofrece desde este detalle. */}
+            {canRefund ? (
               <View style={styles.mainActionsRow}>
                 <Button
-                  icon="check-decagram"
+                  buttonColor="#c2410c"
+                  disabled={actionProcessing || Number(sale.refundableAmount ?? sale.precio ?? sale.cobrado ?? 0) <= 0}
+                  icon="cash-refund"
                   mode="contained"
-                  loading={actionProcessing}
-                  disabled={actionProcessing}
-                  onPress={handleAprobarVenta}
+                  onPress={() => setRefundDrawerVisible(true)}
                   style={styles.mainApproveButton}
-                  contentStyle={styles.mainApproveContent}
                 >
-                  Aprobar Venta y Procesar
+                  Reembolsar dinero
                 </Button>
               </View>
             ) : null}
       </ScrollView>
+
+      <RefundSaleDrawer
+        onDismiss={() => setRefundDrawerVisible(false)}
+        onSuccess={() => {
+          setRefundDrawerVisible(false);
+          setSnackbarText("Reembolso procesado correctamente");
+          setSnackbarVisible(true);
+          onActionComplete?.();
+        }}
+        sale={sale}
+        visible={refundDrawerVisible}
+      />
 
         {/* Fullscreen Image Modal */}
         {fullScreenImage && evidenceImageUrl ? (
@@ -624,6 +599,20 @@ const styles = StyleSheet.create({
   },
   paymentMethodChip: {
     borderRadius: 8,
+  },
+  refundSummary: {
+    borderRadius: 14,
+    gap: 4,
+    padding: 14,
+  },
+  refundSummaryTitle: {
+    color: "#fdba74",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  refundSummaryText: {
+    fontSize: 12,
+    opacity: 0.78,
   },
   section: {
     gap: 10,
@@ -832,9 +821,6 @@ const styles = StyleSheet.create({
   mainApproveButton: {
     backgroundColor: "#2563eb",
     borderRadius: 12,
-  },
-  mainApproveContent: {
-    height: 48,
   },
   fullScreenImageBackdrop: {
     backgroundColor: "rgba(0,0,0,0.94)",

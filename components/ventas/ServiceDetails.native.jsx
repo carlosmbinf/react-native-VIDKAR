@@ -27,7 +27,17 @@ export default function ServiceDetails({ sale }) {
       {items.map((item, index) => {
         const detail = getServiceDetail(item, sale);
         const meta = CATEGORY_COLORS[detail.category] || CATEGORY_COLORS.OTROS;
-        const status = sale.statusDerived === "CANCELADO" ? "CANCELADO" : detail.delivered === true ? "ENTREGADO" : detail.delivered === false ? "PENDIENTE_ENTREGA" : null;
+        const status = sale.statusDerived === "CANCELADO"
+          ? "CANCELADO"
+          : detail.dtshopDeliveryState === "NO_ENTREGADO"
+            ? "CANCELADO"
+            : detail.dtshopDeliveryState === "EN_PROCESO"
+              ? "PENDIENTE_ENTREGA"
+              : detail.delivered === true
+                ? "ENTREGADO"
+                : detail.delivered === false
+                  ? "PENDIENTE_ENTREGA"
+                  : null;
         const statusMeta = getStatusMeta(status, theme.dark);
         return (
           <Surface key={`${item._id || "item"}-${index}`} elevation={0} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.outlineVariant }]}>
@@ -73,7 +83,11 @@ export default function ServiceDetails({ sale }) {
                     <View style={[styles.status, { backgroundColor: statusMeta.backgroundColor }]}>
                       <Icon source={status === "CANCELADO" ? "close-circle-outline" : detail.delivered ? "check-circle-outline" : "clock-outline"} size={16} color={statusMeta.textColor} />
                       <Text variant="labelMedium" style={{ color: statusMeta.textColor, flexShrink: 1 }}>
-                        {status === "CANCELADO" ? "Cancelado" : detail.delivered ? "Entregado" : "Pendiente de entrega"}
+                        {detail.dtshopDeliveryState === "NO_ENTREGADO"
+                          ? `${detail.dtshopStatus === "REVERSED" ? "Revertida" : "No entregada"} · ${detail.dtshopStatus}`
+                          : detail.dtshopDeliveryState === "EN_PROCESO"
+                            ? `En proceso (${detail.dtshopStatus})`
+                            : status === "CANCELADO" ? "Cancelado" : detail.delivered ? "Entregado · COMPLETED" : "Pendiente de entrega"}
                       </Text>
                     </View>
                   ) : null}

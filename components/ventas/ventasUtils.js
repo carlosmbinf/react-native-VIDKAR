@@ -94,6 +94,9 @@ export const getCartItemType = (carrito) =>
   ).toUpperCase();
 
 export const getSaleItems = (sale) => {
+  if (Array.isArray(sale?.items) && sale.items.length > 0) {
+    return sale.items;
+  }
   if (Array.isArray(sale?.producto?.carritos) && sale.producto.carritos.length > 0) {
     return sale.producto.carritos;
   }
@@ -141,6 +144,22 @@ export const deriveSaleStatus = (sale) => {
     return sale?.cobrado ? "ENTREGADO" : "PENDIENTE_PAGO";
   }
 
+  const items = getSaleItems(sale);
+  const rechargeItems = items.filter((item) => getCartItemType(item) === "RECARGA");
+  if (rechargeItems.length > 0) {
+    const isPaid = sale?.isCobrado === true || Number(sale?.cobrado || 0) > 0;
+    if (!isPaid) return "PENDIENTE_PAGO";
+
+    const rechargeStatuses = rechargeItems
+      .map((item) => String(item?.dtshopStatus || "").toUpperCase())
+      .filter(Boolean);
+    const completed = rechargeStatuses.filter((status) => status === "COMPLETED").length;
+    const failed = rechargeStatuses.some((status) => ["REJECTED", "CANCELLED", "DECLINED", "REVERSED", "REJECTED-INSUFFICIENT-BALANCE"].includes(status));
+    if (completed === rechargeItems.length) return "RECARGA_ENTREGADA";
+    if (failed) return "RECARGA_NO_ENTREGADA";
+    return "RECARGA_EN_PROCESO";
+  }
+
   const rawStatus = String(sale?.estado || sale?.status || "").toUpperCase();
 
   if (
@@ -163,7 +182,6 @@ export const deriveSaleStatus = (sale) => {
     return "ENTREGADO";
   }
 
-  const items = getSaleItems(sale);
   if (items.length > 0 && items.every((item) => item?.entregado === true)) {
     return "ENTREGADO";
   }
@@ -177,14 +195,33 @@ export const deriveSaleStatus = (sale) => {
 
 export const getStatusMeta = (status, isDark = false) => {
   switch (status) {
+    case "RECARGA_ENTREGADA":
     case "ENTREGADO":
       return {
         backgroundColor: isDark ? "rgba(34, 197, 94, 0.16)" : "rgba(220, 252, 231, 0.95)",
         borderColor: isDark ? "rgba(74, 222, 128, 0.32)" : "rgba(34, 197, 94, 0.35)",
         dotColor: "#22c55e",
-        label: "Entregado / Pagado",
-        shortLabel: "Pagado",
+        label: "Pagado / Entregado",
+        shortLabel: "Pagado / Entregado",
         textColor: isDark ? "#86efac" : "#15803d",
+      };
+    case "RECARGA_EN_PROCESO":
+      return {
+        backgroundColor: isDark ? "rgba(234, 179, 8, 0.15)" : "rgba(254, 252, 232, 0.95)",
+        borderColor: isDark ? "rgba(250, 204, 21, 0.32)" : "rgba(234, 179, 8, 0.35)",
+        dotColor: "#eab308",
+        label: "Pagado / En proceso",
+        shortLabel: "Pagado / Proceso",
+        textColor: isDark ? "#fde047" : "#a16207",
+      };
+    case "RECARGA_NO_ENTREGADA":
+      return {
+        backgroundColor: isDark ? "rgba(239, 68, 68, 0.15)" : "rgba(254, 242, 242, 0.95)",
+        borderColor: isDark ? "rgba(248, 113, 113, 0.32)" : "rgba(239, 68, 68, 0.35)",
+        dotColor: "#ef4444",
+        label: "Pagado / No entregada",
+        shortLabel: "Pagado / Error",
+        textColor: isDark ? "#fca5a5" : "#b91c1c",
       };
     case "PENDIENTE_ENTREGA":
       return {
@@ -223,6 +260,26 @@ export const getStatusMeta = (status, isDark = false) => {
         textColor: isDark ? "#cbd5e1" : "#475569",
       };
   }
+};
+
+export const getRechargeStatusPresentation = (sale, isDark = false) => {
+  const items = getSaleItems(sale).filter((item) => getCartItemType(item) === "RECARGA");
+  if (items.length === 0) return null;
+
+  const paid = sale?.isCobrado === true || Number(sale?.cobrado || 0) > 0;
+  const statuses = items.map((item) => String(item?.dtshopStatus || "").toUpperCase());
+  const hasFailure = statuses.some((status) => ["REJECTED", "CANCELLED", "DECLINED", "REVERSED", "REJECTED-INSUFFICIENT-BALANCE"].includes(status));
+  const allCompleted = statuses.length === items.length && statuses.every((status) => status === "COMPLETED");
+  const tone = (kind) => {
+    if (kind === "success") return { backgroundColor: isDark ? "rgba(34, 197, 94, 0.16)" : "#dcfce7", borderColor: isDark ? "rgba(74, 222, 128, 0.32)" : "#86efac", textColor: isDark ? "#86efac" : "#15803d", dotColor: "#22c55e" };
+    if (kind === "error") return { backgroundColor: isDark ? "rgba(239, 68, 68, 0.16)" : "#fef2f2", borderColor: isDark ? "rgba(248, 113, 113, 0.32)" : "#fca5a5", textColor: isDark ? "#fca5a5" : "#b91c1c", dotColor: "#ef4444" };
+    return { backgroundColor: isDark ? "rgba(234, 179, 8, 0.15)" : "#fefce8", borderColor: isDark ? "rgba(250, 204, 21, 0.32)" : "#fde68a", textColor: isDark ? "#fde047" : "#a16207", dotColor: "#eab308" };
+  };
+
+  return {
+    payment: { label: paid ? "Pagado" : "Pendiente pago", ...tone(paid ? "success" : "warning") },
+    delivery: { label: allCompleted ? "Entregado" : hasFailure ? "No entregada" : "En proceso", ...tone(allCompleted ? "success" : hasFailure ? "error" : "warning") },
+  };
 };
 
 export const getEvidenceMeta = (evidence, sale, isDark = false) => {
