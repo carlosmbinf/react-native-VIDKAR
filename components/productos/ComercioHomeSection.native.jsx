@@ -594,7 +594,7 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
           compact
           icon="receipt-text-outline"
           mode="outlined"
-          onPress={() => router.push("/(normal)/PedidosComerciosList")}
+          onPress={() => router.push("/(normal)/MisCompras")}
           style={styles.footerButton}
         >
           Mis compras

@@ -1,3 +1,5 @@
-import PedidosComerciosList from "../../components/comercio/pedidos/PedidosComerciosList.native";
+import { Redirect } from "expo-router";
 
-export default PedidosComerciosList;
+export default function LegacyCommercePurchasesRedirect() {
+	return <Redirect href="/(normal)/MisCompras" />;
+}

@@ -19,6 +19,7 @@ import {
   Snackbar,
   Surface,
   Text,
+  TextInput,
   useTheme,
 } from "react-native-paper";
 
@@ -41,11 +42,60 @@ const Meteor =
     MeteorBase
   );
 
+const isSaleDelivered = (sale) => {
+  const rawStatus = String(sale?.estado || sale?.status || "").toUpperCase();
+  if (["COMPLETED", "COMPLETADA", "ENTREGADA", "ENTREGADO", "PAGADA", "PAID"].includes(rawStatus)) {
+    return true;
+  }
+
+  const items = Array.isArray(sale?.items) ? sale.items : [];
+  if (items.length === 0) return false;
+
+  const dtshopItems = items.filter((item) => String(item?.type || "").toUpperCase() === "RECARGA");
+  return items.every((item) => item?.entregado === true)
+    || (dtshopItems.length > 0 && dtshopItems.every((item) => String(item?.dtshopStatus || "").toUpperCase() === "COMPLETED"));
+};
+
+const RemesaProgress = ({ sale, theme }) => {
+  const items = (sale?.items || []).filter((item) => item?.type === "REMESA");
+  if (!items.length) return null;
+
+  const isCash = String(sale?.metodoPago || "").toUpperCase() === "EFECTIVO";
+  const cancelled = sale?.isCancelada === true;
+  const delivered = !cancelled && items.every((item) => item?.entregado === true || item?.status === "COMPLETED");
+  const paid = sale?.isCobrado === true;
+  const steps = isCash
+    ? ["Evidencia de pago", "Pago confirmado", "Pendiente de entrega", "Entregado"]
+    : ["Pago confirmado", "Pendiente de entrega", "Entregado"];
+  const activeIndex = cancelled ? 0 : delivered ? steps.length : paid ? (isCash ? 2 : 1) : 0;
+
+  return (
+    <View style={styles.remesaProgressBox}>
+      <Text style={styles.sectionTitle}>Seguimiento de remesa</Text>
+      {steps.map((label, index) => {
+        const completed = delivered || index < activeIndex;
+        const active = !completed && index === activeIndex;
+        return (
+          <View key={label} style={styles.remesaStepRow}>
+            <View style={[styles.remesaStepDot, { backgroundColor: completed ? "#22c55e" : active ? "#38bdf8" : "#64748b" }]}>
+              <Text style={styles.remesaStepDotText}>{completed ? "✓" : String(index + 1)}</Text>
+            </View>
+            <Text style={[styles.remesaStepLabel, { color: completed ? "#86efac" : active ? "#bae6fd" : theme.dark ? "#94a3b8" : "#64748b" }]}>
+              {label}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+};
+
 export default function VentaDetailModal({
   visible,
   onDismiss,
   sale,
   evidence,
+  evidences = [],
   isGeneralAdmin,
   isAdmin,
   onActionComplete,
@@ -54,6 +104,11 @@ export default function VentaDetailModal({
   const { height: windowHeight } = useWindowDimensions();
   const detailScrollAtTopRef = useRef(true);
 
+  const evidenceItems = useMemo(
+    () => (evidences.length > 0 ? evidences : evidence ? [evidence] : []),
+    [evidence, evidences],
+  );
+  const [selectedEvidenceId, setSelectedEvidenceId] = useState(evidenceItems[0]?._id || null);
   const [evidenceImageUrl, setEvidenceImageUrl] = useState(null);
   const [loadingImage, setLoadingImage] = useState(false);
   const [fullScreenImage, setFullScreenImage] = useState(false);
@@ -61,6 +116,7 @@ export default function VentaDetailModal({
   const [snackbarText, setSnackbarText] = useState("");
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [refundDrawerVisible, setRefundDrawerVisible] = useState(false);
+  const [adminNote, setAdminNote] = useState(sale?.adminNote || "");
 
   const categoryMeta = useMemo(
     () => CATEGORY_COLORS[sale?.category] || CATEGORY_COLORS.OTROS,
@@ -70,16 +126,26 @@ export default function VentaDetailModal({
     () => getStatusMeta(sale?.statusDerived, theme.dark),
     [sale?.statusDerived, theme.dark],
   );
-  const evidenceMeta = useMemo(
-    () => getEvidenceMeta(evidence, sale, theme.dark),
-    [evidence, sale, theme.dark],
+  const activeEvidence = useMemo(
+    () => evidenceItems.find((item) => item?._id === selectedEvidenceId) || evidenceItems[0] || null,
+    [evidenceItems, selectedEvidenceId],
   );
+
+  const evidenceMeta = useMemo(
+    () => getEvidenceMeta(activeEvidence, sale, theme.dark),
+    [activeEvidence, sale, theme.dark],
+  );
+
+  useEffect(() => {
+    setSelectedEvidenceId(evidenceItems[0]?._id || null);
+    setAdminNote(sale?.adminNote || "");
+  }, [evidenceItems, sale?.adminNote]);
 
   // Fetch evidence image URL if evidence exists
   useEffect(() => {
     let cancelled = false;
 
-    if (!evidence?._id) {
+    if (!activeEvidence?._id) {
       setEvidenceImageUrl(null);
       setLoadingImage(false);
       return;
@@ -87,10 +153,10 @@ export default function VentaDetailModal({
 
     // If inline base64 exists
     const inlineB64 =
-      evidence.dataBase64 ||
-      evidence.base64 ||
-      evidence.dataB64 ||
-      evidence.data;
+      activeEvidence.dataBase64 ||
+      activeEvidence.base64 ||
+      activeEvidence.dataB64 ||
+      activeEvidence.data;
     if (inlineB64 && typeof inlineB64 === "string") {
       const uri = inlineB64.startsWith("data:")
         ? inlineB64
@@ -101,7 +167,7 @@ export default function VentaDetailModal({
     }
 
     setLoadingImage(true);
-    requestEvidenceImageUrl(evidence._id)
+    requestEvidenceImageUrl(activeEvidence._id)
       .then((url) => {
         if (!cancelled) {
           setEvidenceImageUrl(url || null);
@@ -121,7 +187,7 @@ export default function VentaDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [evidence]);
+  }, [activeEvidence]);
 
   const handleCopyId = async () => {
     if (!sale?._id) return;
@@ -131,7 +197,7 @@ export default function VentaDetailModal({
   };
 
   const handleAprobarSoloEvidencia = () => {
-    if (!evidence?._id) return;
+    if (!activeEvidence?._id || sale?.isCobrado === true || sale?.isCancelada === true) return;
 
     Alert.alert(
       "Aprobar comprobante",
@@ -142,7 +208,7 @@ export default function VentaDetailModal({
           text: "Aprobar comprobante",
           onPress: () => {
             setActionProcessing(true);
-            Meteor.call("archivos.aprobarEvidencia", evidence._id, {}, (error, result) => {
+            Meteor.call("archivos.aprobarEvidencia", activeEvidence._id, { force: true }, (error, result) => {
               setActionProcessing(false);
               if (error) {
                 Alert.alert("Error", error.reason || error.message || "No se pudo aprobar la evidencia.");
@@ -159,7 +225,7 @@ export default function VentaDetailModal({
   };
 
   const handleRechazarEvidencia = () => {
-    if (!evidence?._id) return;
+    if (!activeEvidence?._id || sale?.isCobrado === true || sale?.isCancelada === true) return;
 
     Alert.alert(
       "Rechazar comprobante",
@@ -187,7 +253,7 @@ export default function VentaDetailModal({
 
   const ejecutarRechazo = (razon) => {
     setActionProcessing(true);
-    Meteor.call("archivos.denegarEvidencia", evidence._id, razon, {}, (error, result) => {
+    Meteor.call("archivos.denegarEvidencia", activeEvidence._id, { force: true, motivo: razon }, (error, result) => {
       setActionProcessing(false);
       if (error) {
         Alert.alert("Error", error.reason || error.message || "No se pudo rechazar la evidencia.");
@@ -199,12 +265,43 @@ export default function VentaDetailModal({
     });
   };
 
+  const handleReevaluarConIA = () => {
+    if (!activeEvidence?._id || actionProcessing || sale?.isCobrado === true || sale?.isCancelada === true) return;
+    setActionProcessing(true);
+    Meteor.call("evidencias.analizarConIA", activeEvidence._id, { force: true }, (error, result) => {
+      setActionProcessing(false);
+      if (error) {
+        Alert.alert("Error", error.reason || error.message || "No se pudo reevaluar la evidencia.");
+        return;
+      }
+      setSnackbarText(result?.cached ? "El análisis ya estaba actualizado." : "La evidencia fue enviada nuevamente a la IA.");
+      setSnackbarVisible(true);
+      onActionComplete?.();
+    });
+  };
+
+  const handleSaveAdminNote = () => {
+    if (!sale?._id || !isAdmin || actionProcessing) return;
+    setActionProcessing(true);
+    Meteor.call("ventas.guardarNotaAdmin", sale._id, adminNote, (error, result) => {
+      setActionProcessing(false);
+      if (error) {
+        Alert.alert("Error", error.reason || error.message || "No se pudo guardar la nota.");
+        return;
+      }
+      setSnackbarText(adminNote.trim() ? "Nota administrativa guardada." : "Nota administrativa eliminada.");
+      setSnackbarVisible(true);
+      onActionComplete?.();
+    });
+  };
+
   if (!visible || !sale) return null;
 
   const maxScrollHeight = Math.max(260, Math.floor(windowHeight * 0.72));
   const isEfectivo = String(sale.metodoPago || "").toUpperCase() === "EFECTIVO";
   const canRefund = isGeneralAdmin
     && sale.source === "recharge"
+    && !isSaleDelivered(sale)
     && ["PAYPAL", "MERCADOPAGO"].includes(String(sale.metodoPago || "").toUpperCase())
     && !sale.refundStatus
     && Number(sale.refundedAmount || 0) <= 0
@@ -311,6 +408,41 @@ export default function VentaDetailModal({
             {/* Product / Service details */}
             <ServiceDetails sale={sale} />
 
+            <RemesaProgress sale={sale} theme={theme} />
+
+            {sale.linkedProxyVpnDetails?.length > 0 ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Detalle Proxy / VPN generado</Text>
+                {sale.linkedProxyVpnDetails.map((linkedSale) => (
+                  <Surface
+                    key={linkedSale._id}
+                    style={[styles.linkedSaleCard, { backgroundColor: theme.dark ? "#13213d" : "#f8fafc" }]}
+                  >
+                    <View style={styles.linkedSaleHeader}>
+                      <View style={styles.heading}>
+                        <Text style={styles.linkedSaleType}>{linkedSale.type}</Text>
+                        {linkedSale.cantidad !== undefined ? (
+                          <Text style={styles.linkedSaleMeta}>Cantidad: {linkedSale.cantidad}</Text>
+                        ) : null}
+                      </View>
+                      <Chip compact icon={linkedSale.cobradoAlAdmin ? "check-circle-outline" : "clock-outline"}>
+                        {linkedSale.cobradoAlAdmin ? "Registrado" : "Pendiente"}
+                      </Chip>
+                    </View>
+                    {isAdmin ? (
+                      <Text style={styles.linkedSaleMeta}>
+                        Importe interno: {formatMoney(linkedSale.precio, "CUP")}
+                      </Text>
+                    ) : null}
+                    {linkedSale.comentario ? (
+                      <Text selectable style={styles.linkedSaleComment}>{linkedSale.comentario}</Text>
+                    ) : null}
+                    <Text selectable style={styles.linkedSaleId}>Asiento vinculado: {linkedSale._id}</Text>
+                  </Surface>
+                ))}
+              </View>
+            ) : null}
+
             {/* EVIDENCE SECTION */}
             <View style={styles.section}>
               <View style={styles.sectionHeaderRow}>
@@ -327,7 +459,22 @@ export default function VentaDetailModal({
                 </Chip>
               </View>
 
-              {evidence ? (
+              {evidenceItems.length > 1 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {evidenceItems.map((item, index) => (
+                    <Chip
+                      key={item._id}
+                      onPress={() => setSelectedEvidenceId(item._id)}
+                      selected={item._id === activeEvidence?._id}
+                      style={styles.evidenceSelectorChip}
+                    >
+                      Evidencia {index + 1}
+                    </Chip>
+                  ))}
+                </ScrollView>
+              ) : null}
+
+              {activeEvidence ? (
                 <Surface style={[styles.evidenceCard, { backgroundColor: theme.dark ? "#13213d" : "#f8fafc" }]}>
                   {loadingImage ? (
                     <View style={styles.imageLoadingBox}>
@@ -357,51 +504,63 @@ export default function VentaDetailModal({
 
                   {/* Evidence meta details */}
                   <View style={styles.evidenceMetaGrid}>
-                    {evidence.createdAt ? (
+                    {activeEvidence.createdAt ? (
                       <View style={styles.evidenceMetaItem}>
                         <Text style={styles.evidenceMetaKey}>Fecha de subida</Text>
-                        <Text style={styles.evidenceMetaVal}>{formatDateTime(evidence.createdAt)}</Text>
+                        <Text style={styles.evidenceMetaVal}>{formatDateTime(activeEvidence.createdAt)}</Text>
                       </View>
                     ) : null}
 
-                    {evidence.size ? (
+                    {activeEvidence.size ? (
                       <View style={styles.evidenceMetaItem}>
                         <Text style={styles.evidenceMetaKey}>Tamaño</Text>
                         <Text style={styles.evidenceMetaVal}>
-                          {(Number(evidence.size) / 1024).toFixed(1)} KB
+                          {(Number(activeEvidence.size) / 1024).toFixed(1)} KB
                         </Text>
                       </View>
                     ) : null}
 
-                    {evidence.descripcion ? (
+                    {activeEvidence.descripcion ? (
                       <View style={[styles.evidenceMetaItem, { width: "100%" }]}>
                         <Text style={styles.evidenceMetaKey}>Nota del cliente</Text>
-                        <Text style={styles.evidenceMetaVal}>{evidence.descripcion}</Text>
+                        <Text style={styles.evidenceMetaVal}>{activeEvidence.descripcion}</Text>
                       </View>
                     ) : null}
                   </View>
 
                   {/* AI Fraud Analysis */}
-                  {evidence.analisisIA ? (
+                  {activeEvidence.analisisIA ? (
                     <View style={styles.aiAnalysisBox}>
                       <View style={styles.aiAnalysisHeader}>
                         <IconButton icon="shield-search" size={18} iconColor="#38bdf8" style={styles.zeroMargin} />
                         <Text style={styles.aiAnalysisTitle}>Auditoría de Comprobante (IA)</Text>
                       </View>
-                      {evidence.analisisIA.summary ? (
-                        <Text style={styles.aiAnalysisSummary}>{evidence.analisisIA.summary}</Text>
+                      {activeEvidence.analisisIA.summary ? (
+                        <Text style={styles.aiAnalysisSummary}>{activeEvidence.analisisIA.summary}</Text>
                       ) : null}
-                      {evidence.analisisIA.paymentAmount ? (
+                      {activeEvidence.analisisIA.paymentAmount ? (
                         <Text style={styles.aiAnalysisMetric}>
-                          Monto detectado: {evidence.analisisIA.paymentAmount} {evidence.analisisIA.paymentCurrency || "CUP"}
+                          Monto detectado: {activeEvidence.analisisIA.paymentAmount} {activeEvidence.analisisIA.paymentCurrency || "CUP"}
                         </Text>
                       ) : null}
                     </View>
                   ) : null}
 
                   {/* Admin buttons for evidence */}
-                  {(isGeneralAdmin || isAdmin) && !evidence.aprobado && !evidence.denegado ? (
+                  {(isGeneralAdmin || isAdmin) ? (
                     <View style={styles.evidenceActionButtons}>
+                      <Button
+                        icon="shield-refresh"
+                        mode="outlined"
+                        loading={actionProcessing}
+                        disabled={actionProcessing || sale.isCobrado === true || sale.isCancelada === true}
+                        onPress={handleReevaluarConIA}
+                        compact
+                      >
+                        Reevaluar IA
+                      </Button>
+                      {!activeEvidence.aprobado && !activeEvidence.denegado ? (
+                        <>
                       <Button
                         icon="check-circle"
                         mode="contained"
@@ -423,6 +582,8 @@ export default function VentaDetailModal({
                       >
                         Rechazar
                       </Button>
+                        </>
+                      ) : null}
                     </View>
                   ) : null}
                 </Surface>
@@ -443,6 +604,22 @@ export default function VentaDetailModal({
                 </Surface>
               )}
             </View>
+
+            {isAdmin ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Nota administrativa</Text>
+                <TextInput
+                  label="Contexto interno de la compra"
+                  mode="outlined"
+                  multiline
+                  onChangeText={setAdminNote}
+                  value={adminNote}
+                />
+                <Button disabled={actionProcessing} mode="contained-tonal" onPress={handleSaveAdminNote}>
+                  Guardar nota
+                </Button>
+              </View>
+            ) : null}
 
             {/* La aprobación manual de ventas ya no se ofrece desde este detalle. */}
             {canRefund ? (
@@ -663,6 +840,34 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginTop: 2,
   },
+  linkedSaleCard: {
+    borderRadius: 16,
+    gap: 8,
+    padding: 14,
+  },
+  linkedSaleHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "space-between",
+  },
+  linkedSaleType: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  linkedSaleMeta: {
+    fontSize: 12,
+    opacity: 0.7,
+  },
+  linkedSaleComment: {
+    fontSize: 12,
+    fontStyle: "italic",
+    opacity: 0.8,
+  },
+  linkedSaleId: {
+    fontSize: 10,
+    opacity: 0.55,
+  },
   evidenceStatusChip: {
     flexShrink: 0,
     borderRadius: 8,
@@ -780,6 +985,10 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 4,
   },
+  evidenceSelectorChip: {
+    marginBottom: 4,
+    marginRight: 8,
+  },
   approveEvidenceBtn: {
     backgroundColor: "#16a34a",
     borderRadius: 10,
@@ -841,6 +1050,33 @@ const styles = StyleSheet.create({
   fullScreenImage: {
     height: "90%",
     width: "95%",
+  },
+  remesaProgressBox: {
+    borderRadius: 16,
+    gap: 10,
+    padding: 14,
+    backgroundColor: "rgba(56, 189, 248, 0.08)",
+  },
+  remesaStepDot: {
+    alignItems: "center",
+    borderRadius: 12,
+    height: 24,
+    justifyContent: "center",
+    width: 24,
+  },
+  remesaStepDotText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  remesaStepLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  remesaStepRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
   },
   zeroMargin: {
     margin: 0,

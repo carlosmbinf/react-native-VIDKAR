@@ -616,7 +616,7 @@ const ProductosScreenNative = () => {
             icon="arrow-right"
             labelStyle={styles.pedidosBannerButtonLabel}
             mode="outlined"
-            onPress={() => router.push("/(normal)/PedidosComerciosList")}
+            onPress={() => router.push("/(normal)/MisCompras")}
             style={styles.pedidosBannerButton}
           >
             Ver listado de compras

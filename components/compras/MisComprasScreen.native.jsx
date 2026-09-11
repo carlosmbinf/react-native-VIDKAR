@@ -38,6 +38,7 @@ import {
   formatDateShort,
   formatMoney,
   getEvidenceMeta,
+  getDeliveryFilterStatus,
   getRechargeStatusPresentation,
   getSaleItems,
   getSaleSpecificDetail,
@@ -92,6 +93,9 @@ const RECARGAS_VENTA_FIELDS = {
   refundCurrency: 1,
   refundStatus: 1,
   lastRefundAt: 1,
+  adminNote: 1,
+  adminNoteAt: 1,
+  adminNoteBy: 1,
   monedaCobrado: 1,
   monedaPrecioOficial: 1,
   monto: 1,
@@ -121,15 +125,33 @@ const TRANSACCION_RECARGA_FIELDS = {
 
 const DIRECT_VENTAS_FIELDS = {
   _id: 1,
+  idVentasRecharge: 1,
   adminId: 1,
   cobrado: 1,
   cobradoAlAdmin: 1,
   comentario: 1,
   createdAt: 1,
+  cantidad: 1,
   gananciasAdmin: 1,
   precio: 1,
   type: 1,
   userId: 1,
+};
+
+const getLinkedProxyVpnDetails = (sale, linkedSalesByRechargeId) => {
+  const linkedSales = linkedSalesByRechargeId.get(String(sale?._id)) || [];
+  return linkedSales
+    .filter((linkedSale) => ["PROXY", "VPN"].includes(String(linkedSale?.type || "").toUpperCase()))
+    .map((linkedSale) => ({
+      _id: linkedSale._id,
+      type: String(linkedSale.type || "").toUpperCase(),
+      cantidad: linkedSale.cantidad,
+      comentario: linkedSale.comentario || "",
+      createdAt: linkedSale.createdAt || null,
+      precio: Number(linkedSale.precio || 0),
+      gananciasAdmin: Number(linkedSale.gananciasAdmin || 0),
+      cobradoAlAdmin: linkedSale.cobradoAlAdmin === true,
+    }));
 };
 
 // Solo metadata para el listado; la imagen se solicita al abrir el detalle.
@@ -179,6 +201,7 @@ export default function MisComprasScreen() {
   const [selectedCategory, setSelectedCategory] = useState("TODAS");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("TODOS");
+  const [selectedDeliveryStatus, setSelectedDeliveryStatus] = useState("TODOS");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("TODOS");
   const [selectedEvidenceFilter, setSelectedEvidenceFilter] = useState("TODOS");
   const [fetchLimit, setFetchLimit] = useState(FETCH_LIMIT_OPTIONS[1]); // 100
@@ -254,6 +277,12 @@ export default function MisComprasScreen() {
     };
 
     const scopeQuery = buildScopeQuery();
+    const directScopeQuery = {
+      $and: [
+        scopeQuery,
+        { idVentasRecharge: { $exists: false } },
+      ],
+    };
 
     // Subscriptions
     const rechargeSub = Meteor.subscribe("ventasRecharge", scopeQuery, {
@@ -262,7 +291,7 @@ export default function MisComprasScreen() {
       limit: fetchLimit,
     });
 
-    const directSub = Meteor.subscribe("ventas", scopeQuery, {
+    const directSub = Meteor.subscribe("ventas", directScopeQuery, {
       fields: DIRECT_VENTAS_FIELDS,
       sort: { createdAt: -1 },
       limit: fetchLimit,
@@ -280,6 +309,24 @@ export default function MisComprasScreen() {
       sort: { createdAt: -1 },
       limit: fetchLimit,
     }).fetch();
+    const rechargeIds = rechargeDocs.map((doc) => String(doc._id)).filter(Boolean);
+    const linkedSalesQuery = rechargeIds.length > 0
+      ? { idVentasRecharge: { $in: rechargeIds } }
+      : { idVentasRecharge: { $in: [] } };
+    const linkedSalesSub = Meteor.subscribe("ventas", linkedSalesQuery, {
+      fields: DIRECT_VENTAS_FIELDS,
+    });
+    const linkedSales = VentasCollection.find(linkedSalesQuery, {
+      fields: DIRECT_VENTAS_FIELDS,
+    }).fetch();
+    const linkedSalesByRechargeId = new Map();
+    for (const linkedSale of linkedSales) {
+      const key = String(linkedSale.idVentasRecharge || "");
+      if (!key) continue;
+      const current = linkedSalesByRechargeId.get(key) || [];
+      current.push(linkedSale);
+      linkedSalesByRechargeId.set(key, current);
+    }
 
     const rechargeItemIds = [...new Set(rechargeDocs.flatMap((doc) => getSaleItems(doc).filter((item) => String(item?.type || item?.producto?.type || "").toUpperCase() === "RECARGA").map((item) => item?._id).filter(Boolean).map(String)))];
     const transactionsSub = rechargeItemIds.length > 0
@@ -290,7 +337,7 @@ export default function MisComprasScreen() {
       : [];
     const transactionsByExternalId = new Map(transactions.map((transaction) => [String(transaction.externalId), transaction]));
 
-    const directDocs = VentasCollection.find(scopeQuery, {
+    const directDocs = VentasCollection.find(directScopeQuery, {
       fields: DIRECT_VENTAS_FIELDS,
       sort: { createdAt: -1 },
       limit: fetchLimit,
@@ -325,7 +372,10 @@ export default function MisComprasScreen() {
     const evidenceMap = new Map();
     for (const ev of fetchedEvidencias) {
       if (ev.ventaId) {
-        evidenceMap.set(String(ev.ventaId), ev);
+        const key = String(ev.ventaId);
+        const current = evidenceMap.get(key) || [];
+        current.push(ev);
+        evidenceMap.set(key, current);
       }
     }
 
@@ -353,15 +403,16 @@ export default function MisComprasScreen() {
       const category = detectSaleCategory(doc);
       const statusDerived = deriveSaleStatus({ ...doc, producto: { ...doc.producto, carritos: rawItems } });
 
-      let matchedEvidence = evidenceMap.get(String(doc._id)) || null;
-      if (!matchedEvidence) {
+      let matchedEvidences = evidenceMap.get(String(doc._id)) || [];
+      if (matchedEvidences.length === 0) {
         for (const it of rawItems) {
           if (it?._id && evidenceMap.has(String(it._id))) {
-            matchedEvidence = evidenceMap.get(String(it._id));
+            matchedEvidences = evidenceMap.get(String(it._id)) || [];
             break;
           }
         }
       }
+      const matchedEvidence = matchedEvidences[0] || null;
 
       const totalAmount = Number(doc.cobrado ?? doc.precioOficial ?? doc.monto ?? 0);
       const currency = normalizeCurrency(
@@ -393,9 +444,14 @@ export default function MisComprasScreen() {
         refundCurrency: doc.refundCurrency || doc.monedaCobrado || null,
         refundStatus: doc.refundStatus || null,
         lastRefundAt: doc.lastRefundAt || null,
+        adminNote: doc.adminNote || "",
+        adminNoteAt: doc.adminNoteAt || null,
+        adminNoteBy: doc.adminNoteBy || null,
         comentario: doc.comentario || "",
         items: rawItems,
         evidence: matchedEvidence,
+        evidences: matchedEvidences,
+        linkedProxyVpnDetails: getLinkedProxyVpnDetails(doc, linkedSalesByRechargeId),
         rawDoc: doc,
         specificDetail: getSaleSpecificDetail({ ...doc, category, items: rawItems }),
       });
@@ -437,7 +493,7 @@ export default function MisComprasScreen() {
       return timeB - timeA;
     });
 
-    const isAllReady = rechargeSub.ready() && directSub.ready() && usersSub.ready() && evidenceSubReady && (!transactionsSub || transactionsSub.ready());
+    const isAllReady = rechargeSub.ready() && directSub.ready() && linkedSalesSub.ready() && usersSub.ready() && evidenceSubReady && (!transactionsSub || transactionsSub.ready());
 
     return {
       currentUserId: cUserId,
@@ -490,6 +546,10 @@ export default function MisComprasScreen() {
       }
     }
 
+    if (selectedDeliveryStatus !== "TODOS") {
+      result = result.filter((purchase) => getDeliveryFilterStatus(purchase) === selectedDeliveryStatus);
+    }
+
     // 3. Payment Method Filter
     if (selectedPaymentMethod !== "TODOS") {
       result = result.filter(
@@ -533,6 +593,7 @@ export default function MisComprasScreen() {
     selectedEvidenceFilter,
     selectedPaymentMethod,
     selectedStatus,
+    selectedDeliveryStatus,
   ]);
 
   // KPI Metrics
@@ -580,11 +641,21 @@ export default function MisComprasScreen() {
 
   // Unique payment methods
   const paymentMethods = useMemo(() => {
-    const methods = new Set(
-      comprasUnificadas.map((v) => v.metodoPago).filter(Boolean),
+    const available = new Set(
+      comprasUnificadas.map((v) => String(v.metodoPago || "").toUpperCase()).filter(Boolean),
     );
-    return ["TODOS", ...methods];
+    const standard = ["EFECTIVO", "PAYPAL", "MERCADOPAGO", "DIRECTO"];
+    const extras = [...available].filter((method) => !standard.includes(method));
+    return ["TODOS", ...standard.filter((method) => available.has(method)), ...extras];
   }, [comprasUnificadas]);
+
+  const paymentMethodLabel = (method) => ({
+    EFECTIVO: "Efectivo",
+    PAYPAL: "PayPal",
+    MERCADOPAGO: "Mercado Pago",
+    DIRECTO: "Directo",
+    TODOS: "Todos",
+  }[method] || method);
 
   // Pagination
   useEffect(() => {
@@ -597,6 +668,7 @@ export default function MisComprasScreen() {
     selectedEvidenceFilter,
     selectedPaymentMethod,
     selectedStatus,
+    selectedDeliveryStatus,
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCompras.length / itemsPerPage));
@@ -611,6 +683,7 @@ export default function MisComprasScreen() {
     Boolean(searchQuery.trim()),
     selectedCategory !== "TODAS",
     selectedStatus !== "TODOS",
+    selectedDeliveryStatus !== "TODOS",
     selectedPaymentMethod !== "TODOS",
     selectedEvidenceFilter !== "TODOS",
   ].filter(Boolean).length;
@@ -619,6 +692,7 @@ export default function MisComprasScreen() {
     setSearchQuery("");
     setSelectedCategory("TODAS");
     setSelectedStatus("TODOS");
+    setSelectedDeliveryStatus("TODOS");
     setSelectedPaymentMethod("TODOS");
     setSelectedEvidenceFilter("TODOS");
     setPage(0);
@@ -827,6 +901,28 @@ export default function MisComprasScreen() {
                 </ScrollView>
               </View>
 
+              <View style={styles.filterBlock}>
+                <Text style={styles.filterBlockTitle}>Estado de entrega:</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChipGroup}>
+                  {[
+                    ["TODOS", "Todas"],
+                    ["DELIVERED", "Entregadas"],
+                    ["PENDING", "En proceso"],
+                    ["ERROR", "Con error"],
+                  ].map(([value, label]) => (
+                    <Chip
+                      key={value}
+                      selected={selectedDeliveryStatus === value}
+                      onPress={() => setSelectedDeliveryStatus(value)}
+                      style={[styles.miniChip, selectedDeliveryStatus === value ? styles.miniChipActive : null]}
+                      textStyle={selectedDeliveryStatus === value ? styles.miniChipActiveText : null}
+                    >
+                      {label}
+                    </Chip>
+                  ))}
+                </ScrollView>
+              </View>
+
               {/* Evidence filter */}
               <View style={styles.filterBlock}>
                 <Text style={styles.filterBlockTitle}>Comprobantes / Evidencias:</Text>
@@ -861,7 +957,7 @@ export default function MisComprasScreen() {
                       style={[styles.miniChip, selectedPaymentMethod === pm ? styles.miniChipActive : null]}
                       textStyle={selectedPaymentMethod === pm ? styles.miniChipActiveText : null}
                     >
-                      {pm}
+                      {paymentMethodLabel(pm)}
                     </Chip>
                   ))}
                 </ScrollView>
@@ -1272,6 +1368,7 @@ export default function MisComprasScreen() {
       {/* DETAIL & EVIDENCE MODAL (With real image, AI analysis, package breakdown and upload support) */}
       <VentaDetailModal
         evidence={selectedPurchase?.evidence}
+        evidences={selectedPurchase?.evidences}
         isAdmin={isAdmin}
         isGeneralAdmin={isGeneralAdmin}
         onActionComplete={() => setRefreshKey((k) => k + 1)}

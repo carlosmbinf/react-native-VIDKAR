@@ -262,6 +262,19 @@ export const getStatusMeta = (status, isDark = false) => {
   }
 };
 
+export const getDeliveryFilterStatus = (sale) => {
+  const items = getSaleItems(sale);
+  const rechargeItems = items.filter((item) => getCartItemType(item) === "RECARGA");
+  if (rechargeItems.length > 0) {
+    const statuses = rechargeItems.map((item) => String(item?.dtshopStatus || "").toUpperCase());
+    if (statuses.length === rechargeItems.length && statuses.every((status) => status === "COMPLETED")) return "DELIVERED";
+    if (statuses.some((status) => ["REJECTED", "CANCELLED", "DECLINED", "REVERSED", "REJECTED-INSUFFICIENT-BALANCE"].includes(status)) || rechargeItems.some((item) => item?.dtshopError)) return "ERROR";
+    return "PENDING";
+  }
+  if (sale?.isCancelada === true || ["CANCELADO", "CANCELADA", "CANCELLED"].includes(String(sale?.estado || sale?.status || "").toUpperCase())) return "ERROR";
+  return sale?.isCobrado === true || Number(sale?.cobrado || 0) > 0 ? "PENDING" : "PENDING";
+};
+
 export const getRechargeStatusPresentation = (sale, isDark = false) => {
   const items = getSaleItems(sale).filter((item) => getCartItemType(item) === "RECARGA");
   if (items.length === 0) return null;

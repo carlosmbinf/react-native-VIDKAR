@@ -85,7 +85,7 @@ const ComercioHomeOrdersSection = ({ catalogOrders = [], catalogLoading = true }
   }, []);
 
   const openAllOrders = useCallback(() => {
-    router.push("/(normal)/PedidosComerciosList");
+    router.push("/(normal)/MisCompras");
   }, [router]);
 
   if (catalogLoading || ventas.length === 0) {

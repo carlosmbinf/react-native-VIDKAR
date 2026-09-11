@@ -749,7 +749,7 @@ const ProxyPackageCard = () => {
           <Button
             mode="outlined"
             icon="history"
-            onPress={() => router.push("/(normal)/ProxyVPNHistory")}
+            onPress={() => router.push("/(normal)/MisCompras")}
             style={[
               styles.historyButton,
               isTablet && styles.historyButtonTablet,

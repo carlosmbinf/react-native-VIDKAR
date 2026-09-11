@@ -11,8 +11,6 @@ import {
 
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import FormularioRemesa from "./FormularioRemesa.native";
-import TableListRemesa from "./TableListRemesa.native";
-import VentasStepper from "./VentasStepper.native";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -73,16 +71,6 @@ const RemesasScreen = () => {
                 label: "Enviar",
                 value: "send",
               },
-              {
-                icon: "progress-clock",
-                label: "Seguimiento",
-                value: "tracking",
-              },
-              {
-                icon: "history",
-                label: "Historial",
-                value: "history",
-              },
             ]}
           />
         </View>
@@ -117,15 +105,6 @@ const RemesasScreen = () => {
           )
         ) : null}
 
-        {/* Sección Stepper de seguimiento de ventas activas e historial */}
-        {selectedTab === "all" || selectedTab === "tracking" ? (
-          <VentasStepper />
-        ) : null}
-
-        {/* Sección Historial y tabla detallada */}
-        {selectedTab === "all" || selectedTab === "history" ? (
-          <TableListRemesa />
-        ) : null}
       </ScrollView>
     </Surface>
   );

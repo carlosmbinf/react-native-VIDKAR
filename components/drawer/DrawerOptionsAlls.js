@@ -193,11 +193,6 @@ const buildServiceItems = (user) => {
       href: "/(normal)/VPNPackages",
     },
     {
-      label: "Compras PROXY/VPN",
-      icon: "history",
-      href: "/(normal)/ProxyVPNHistory",
-    },
-    {
       label: "Mis compras",
       icon: "receipt-text-outline",
       href: "/(normal)/MisCompras",

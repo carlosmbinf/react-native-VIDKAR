@@ -1090,6 +1090,32 @@ const AprobacionEvidenciasVenta = ({
     );
   };
 
+  const handleReevaluarConIA = () => {
+    if (!preview || ventaActual?.isCobrado === true || ventaActual?.isCancelada === true) {
+      return;
+    }
+
+    Alert.alert(
+      "Reevaluar evidencia",
+      "La evidencia será enviada nuevamente a la IA. ¿Deseas continuar?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Reevaluar",
+          onPress: () => {
+            Meteor.call("evidencias.analizarConIA", preview._id, { force: true }, (error, result) => {
+              if (error) {
+                Alert.alert("Error", error.reason || error.message || "No se pudo reevaluar la evidencia.");
+                return;
+              }
+              Alert.alert("Listo", result?.cached ? "El análisis ya estaba actualizado." : "La evidencia fue enviada nuevamente a la IA.");
+            });
+          },
+        },
+      ],
+    );
+  };
+
   const renderProductCard = (carrito, type) => {
     const config = PRODUCT_COLORS[type];
     if (!config) {
@@ -1988,6 +2014,16 @@ const AprobacionEvidenciasVenta = ({
 
               <View style={styles.previewActionsFooter}>
                 <View style={styles.previewActionsRow}>
+                  <Button
+                    compact
+                    mode="outlined"
+                    icon="shield-refresh"
+                    disabled={ventaActual?.isCobrado === true || ventaActual?.isCancelada === true}
+                    onPress={handleReevaluarConIA}
+                    style={styles.actionBtn}
+                  >
+                    Reevaluar IA
+                  </Button>
                   {preview.estado === ESTADOS.PENDIENTE ? (
                     <>
                       <Button

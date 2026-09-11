@@ -1,3 +1,5 @@
-import VentasList from "../../components/ventas/VentasList.native";
+import { Redirect } from "expo-router";
 
-export default VentasList;
+export default function LegacyVentasRedirect() {
+	return <Redirect href="/(normal)/MisCompras" />;
+}
