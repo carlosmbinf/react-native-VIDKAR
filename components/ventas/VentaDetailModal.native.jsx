@@ -99,6 +99,7 @@ export default function VentaDetailModal({
   evidences = [],
   isGeneralAdmin,
   isAdmin,
+  isUser = false,
   onActionComplete,
 }) {
   const theme = useTheme();
@@ -109,6 +110,10 @@ export default function VentaDetailModal({
     () => (evidences.length > 0 ? evidences : evidence ? [evidence] : []),
     [evidence, evidences],
   );
+  const totalSaleAmount =
+    sale?.source === "direct" && isUser
+      ? Number(sale?.precio || 0) + Number(sale?.gananciasAdmin || 0)
+      : Number(sale?.precio || 0);
   const [selectedEvidenceId, setSelectedEvidenceId] = useState(evidenceItems[0]?._id || null);
   const [evidenceImageUrl, setEvidenceImageUrl] = useState(null);
   const [loadingImage, setLoadingImage] = useState(false);
@@ -421,7 +426,7 @@ export default function VentaDetailModal({
               <View style={styles.amountBlock}>
                 <Text style={styles.amountLabel}>Total de la venta</Text>
                 <Text style={[styles.amountValue, { color: theme.dark ? "#38bdf8" : "#0284c7" }]}>
-                  {formatMoney(sale.precio, sale.moneda)}
+                  {formatMoney(totalSaleAmount, sale.moneda)}
                 </Text>
               </View>
 

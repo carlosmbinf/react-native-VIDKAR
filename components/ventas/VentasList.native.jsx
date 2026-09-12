@@ -175,6 +175,7 @@ export default function VentasList() {
     currentUsername,
     isAdmin,
     isGeneralAdmin,
+    isUser,
     ready,
     routeUsername,
     ventasUnificadas,
@@ -191,6 +192,7 @@ export default function VentasList() {
         currentUsername: cUsername,
         isAdmin: false,
         isGeneralAdmin: false,
+        isUser: false,
         ready: false,
         routeUsername: "",
         ventasUnificadas: [],
@@ -403,6 +405,7 @@ export default function VentasList() {
       currentUsername: cUsername,
       isAdmin: isAdm,
       isGeneralAdmin: isGenAdmin,
+      isUser: user?.profile?.role === "user",
       ready: isAllReady,
       routeUsername: routeUserDoc?.username || "",
       ventasUnificadas: unified,
@@ -1142,6 +1145,7 @@ export default function VentasList() {
         evidence={selectedVenta?.evidence}
         isAdmin={isAdmin}
         isGeneralAdmin={isGeneralAdmin}
+        isUser={isUser}
         onActionComplete={() => setRefreshKey((k) => k + 1)}
         onDismiss={handleCloseDetail}
         sale={selectedVenta}
