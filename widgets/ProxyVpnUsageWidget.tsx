@@ -77,8 +77,6 @@ const ProxyVpnUsageWidget = (
   const selectedService =
     environment.configuration?.service === "vpn" ? "vpn" : "proxy";
 
-  // iOS tinted/Liquid Glass mode replaces the widget background and recolors
-  // transparent content. Keep the detailed color treatment only in fullColor.
   const primaryText = isFullColor
     ? "#FFFFFF"
     : { type: "hierarchical" as const, style: "primary" as const };
@@ -120,14 +118,16 @@ const ProxyVpnUsageWidget = (
     return (
       <VStack
         alignment="leading"
-        spacing={compact ? 8 : 6}
+        spacing={compact ? 9 : 6}
         modifiers={[
+          // Padding comes before the background so the content gets real
+          // breathing room inside the colored surface.
+          padding({ all: compact ? 14 : 10 }),
           ...(isFullColor ? [background(data.backgroundColor)] : []),
-          clipShape("roundedRectangle", compact ? 16 : 13),
-          padding({ all: compact ? 13 : 10 }),
+          clipShape("roundedRectangle", compact ? 18 : 13),
         ]}
       >
-        <HStack spacing={6}>
+        <HStack spacing={7}>
           <Image systemName={data.icon} modifiers={imageModifiers(data.accent)} />
           <Text
             modifiers={[
@@ -139,28 +139,34 @@ const ProxyVpnUsageWidget = (
             {data.title}
           </Text>
           <Spacer />
-          <Text
-            modifiers={[
-              font({ size: compact ? 11 : 10, weight: "semibold" }),
-              foregroundStyle(data.enabled ? data.accent : secondaryText),
-              lineLimit(1),
-            ]}
-          >
-            {data.status}
-          </Text>
+          <HStack spacing={4}>
+            <Image
+              systemName="circle.fill"
+              modifiers={imageModifiers(data.enabled ? data.accent : "#7E8CA3")}
+            />
+            <Text
+              modifiers={[
+                font({ size: compact ? 10 : 9, weight: "semibold" }),
+                foregroundStyle(data.enabled ? data.accent : secondaryText),
+                lineLimit(1),
+              ]}
+            >
+              {data.status}
+            </Text>
+          </HStack>
         </HStack>
 
         <Text
           modifiers={[
-            font({ size: compact ? 24 : 12, weight: compact ? "bold" : "medium" }),
-            foregroundStyle(compact ? primaryText : secondaryText),
+            font({ size: compact ? 25 : 12, weight: compact ? "bold" : "medium" }),
+            foregroundStyle(primaryText),
             lineLimit(1),
           ]}
         >
           {data.used}
         </Text>
 
-        {compact && data.enabled && !isAccented ? (
+        {compact && !isAccented ? (
           <ProgressView
             value={Math.max(0, Math.min(1, data.progress))}
             modifiers={[progressViewStyle("linear"), tint(data.accent)]}
@@ -175,9 +181,9 @@ const ProxyVpnUsageWidget = (
       alignment="leading"
       spacing={7}
       modifiers={[
+        padding({ all: isSmall ? 12 : 14 }),
         ...(isFullColor ? [background("#142B4C")] : []),
         clipShape("roundedRectangle", 16),
-        padding({ all: isSmall ? 12 : 14 }),
       ]}
     >
       <HStack spacing={8}>
@@ -219,18 +225,18 @@ const ProxyVpnUsageWidget = (
     return (
       <VStack
         alignment="leading"
-        spacing={9}
+        spacing={10}
         modifiers={[
+          padding({ all: 14 }),
           ...(isFullColor ? [background("#0E2037")] : []),
-          clipShape("roundedRectangle", 16),
-          padding({ all: 13 }),
+          clipShape("roundedRectangle", 18),
         ]}
       >
-        <HStack spacing={6}>
+        <HStack spacing={7}>
           <VStack alignment="leading" spacing={2}>
             <Text
               modifiers={[
-                font({ size: 15, weight: "bold" }),
+                font({ size: 14, weight: "bold" }),
                 foregroundStyle(primaryText),
                 lineLimit(1),
               ]}
@@ -239,12 +245,12 @@ const ProxyVpnUsageWidget = (
             </Text>
             <Text
               modifiers={[
-                font({ size: 10, weight: "medium" }),
+                font({ size: 9, weight: "medium" }),
                 foregroundStyle(secondaryText),
                 lineLimit(1),
               ]}
             >
-              Consumo de {data.title.toLowerCase()} · últimos 7 bloques
+              {data.title} · últimos 7 bloques
             </Text>
           </VStack>
           <Spacer />
@@ -252,42 +258,43 @@ const ProxyVpnUsageWidget = (
         </HStack>
 
         {points.length > 0 ? (
-          <VStack alignment="leading" spacing={7}>
+          <VStack alignment="leading" spacing={6}>
             {points.map((point, index) => {
               const value = Math.max(0, Number(point[service]) || 0);
               const ratio = Math.max(0, Math.min(1, value / maxValue));
 
               return (
-                <VStack key={`${point.label}-${index}`} alignment="leading" spacing={3}>
-                  <HStack spacing={6}>
-                    <Text
-                      modifiers={[
-                        font({ size: 10, weight: "semibold" }),
-                        foregroundStyle(secondaryText),
-                        lineLimit(1),
-                      ]}
-                    >
-                      {point.label}
-                    </Text>
-                    <Spacer />
-                    <Text
-                      modifiers={[
-                        font({ size: 10, weight: "bold" }),
-                        foregroundStyle(primaryText),
-                        lineLimit(1),
-                      ]}
-                    >
-                      {value.toFixed(2)} MB
-                    </Text>
-                  </HStack>
-                  <ProgressView
-                    value={ratio}
+                <HStack key={`${point.label}-${index}`} spacing={7}>
+                  <Text
                     modifiers={[
-                      progressViewStyle("linear"),
-                      tint(data.accent),
+                      frame({ width: 22 }),
+                      font({ size: 9, weight: "semibold" }),
+                      foregroundStyle(secondaryText),
+                      lineLimit(1),
                     ]}
-                  />
-                </VStack>
+                  >
+                    {point.label}
+                  </Text>
+                  <VStack modifiers={[frame({ maxWidth: Infinity })]}>
+                    <ProgressView
+                      value={ratio}
+                      modifiers={[
+                        progressViewStyle("linear"),
+                        tint(data.accent),
+                      ]}
+                    />
+                  </VStack>
+                  <Text
+                    modifiers={[
+                      frame({ width: 48 }),
+                      font({ size: 9, weight: "bold" }),
+                      foregroundStyle(primaryText),
+                      lineLimit(1),
+                    ]}
+                  >
+                    {value.toFixed(2)} MB
+                  </Text>
+                </HStack>
               );
             })}
           </VStack>
@@ -306,27 +313,31 @@ const ProxyVpnUsageWidget = (
   };
 
   const renderLargeContent = () => (
-    <VStack alignment="leading" spacing={10}>
-      <VStack alignment="leading" spacing={2}>
-        <Text
-          modifiers={[
-            font({ size: 17, weight: "bold" }),
-            foregroundStyle(primaryText),
-            lineLimit(1),
-          ]}
-        >
-          Tus servicios
-        </Text>
-        <Text
-          modifiers={[
-            font({ size: 10, weight: "medium" }),
-            foregroundStyle(secondaryText),
-            lineLimit(1),
-          ]}
-        >
-          Estado y consumo actual
-        </Text>
-      </VStack>
+    <VStack alignment="leading" spacing={11}>
+      <HStack spacing={6}>
+        <VStack alignment="leading" spacing={2}>
+          <Text
+            modifiers={[
+              font({ size: 17, weight: "bold" }),
+              foregroundStyle(primaryText),
+              lineLimit(1),
+            ]}
+          >
+            Tus servicios
+          </Text>
+          <Text
+            modifiers={[
+              font({ size: 10, weight: "medium" }),
+              foregroundStyle(secondaryText),
+              lineLimit(1),
+            ]}
+          >
+            Estado y consumo actual
+          </Text>
+        </VStack>
+        <Spacer />
+        <Image systemName="chart.bar.fill" modifiers={imageModifiers("#90CAF9")} />
+      </HStack>
 
       <HStack spacing={9}>
         <VStack modifiers={[frame({ maxWidth: Infinity })]}>
