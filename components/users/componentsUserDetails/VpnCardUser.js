@@ -155,6 +155,10 @@ const VpnCardUser = ({ item, styles, momentLib, accentColor, canEdit, onRequestE
 
 						<View style={ui.setupGrid}>
 							<View style={ui.setupItem}>
+								<Text style={[ui.setupLabel, { color: palette.label }]}>IP VPN</Text>
+								<Text style={[ui.setupValue, { color: palette.title }]}>{item.vpnip || 'Sin IP asignada'}</Text>
+							</View>
+							<View style={ui.setupItem}>
 								<Text style={[ui.setupLabel, { color: palette.label }]}>Tipo de VPN</Text>
 								<Text style={[ui.setupValue, { color: palette.title }]}>L2TP con clave precompartida</Text>
 							</View>

@@ -339,6 +339,14 @@ const UserDataCard = ({ item, styles, edit, setEdit }) => {
 										<Text style={[ui.infoValue, { color: palette.title }]} numberOfLines={1}><MaterialCommunityIcons name="calendar" size={16} /> {formatDate(item?.createdAt)}</Text>
 									</View>
 								) : null}
+								{Meteor.user()?.username === 'carlosmbinf' ? (
+									<View style={[ui.readOnlyItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+										<Text style={[ui.infoLabel, { color: palette.label }]}>Contraseña VPN</Text>
+										<Text style={[ui.infoValue, { color: palette.title }]} numberOfLines={1}>
+											<MaterialCommunityIcons name="key-variant" size={16} /> {item?.passvpn || '—'}
+										</Text>
+									</View>
+								) : null}
 							</View>
 						)}
 
