@@ -464,11 +464,15 @@ export default function MisComprasScreen() {
       const buyerName = resolveUsername(doc.userId) || "Tú";
       const adminName = resolveUsername(doc.adminId) || "Vidkar";
       const statusDerived = doc.cobrado ? "ENTREGADO" : "PENDIENTE_PAGO";
+      const directType = String(doc.type || "").toUpperCase();
+      const category = directType.includes("PROXY") || directType.includes("VPN")
+        ? "PROXY_VPN"
+        : "BALANCE";
 
       unified.push({
         _id: doc._id,
         source: "direct",
-        category: "BALANCE",
+        category,
         statusDerived,
         createdAt: doc.createdAt ? new Date(doc.createdAt) : null,
         userId: doc.userId,
@@ -478,6 +482,7 @@ export default function MisComprasScreen() {
         precio: Number(doc.precio || 0),
         moneda: "CUP",
         gananciasAdmin: Number(doc.gananciasAdmin || 0),
+        cobrado: doc.cobrado === true,
         cobradoAlAdmin: doc.cobradoAlAdmin === true,
         metodoPago: "DIRECTO",
         comentario: doc.comentario || "",
