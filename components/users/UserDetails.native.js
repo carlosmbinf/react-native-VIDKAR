@@ -62,6 +62,7 @@ const USER_DETAIL_FIELDS = {
   permitirPagoEfectivoCUP: 1,
   permiteEmpresa: 1,
   permiteRemesas: 1,
+  passvpn: 1,
   picture: 1,
   profile: 1,
   saldoRecargas: 1,
@@ -76,6 +77,7 @@ const USER_DETAIL_FIELDS = {
   vpnmegas: 1,
   vpnplus: 1,
   vpnplusConnected: 1,
+  vpnip: 1,
   vpnisIlimitado: 1,
 };
 
