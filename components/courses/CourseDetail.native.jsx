@@ -428,7 +428,9 @@ export default function CourseDetail() {
 
   return (
     <View style={[styles.root, { backgroundColor: palette.background }]}>
-      <AppHeader title="Detalle del curso" subtitle={data.course.profesorNombre} showBackButton backHref="/(normal)/Cursos" overlapContent />
+      {!player?.url ? (
+        <AppHeader title="Detalle del curso" subtitle={data.course.profesorNombre} showBackButton backHref="/(normal)/Cursos" overlapContent />
+      ) : null}
       <ScrollView
         contentContainerStyle={styles.content}
         style={{ marginTop: headerInset + 12 }}
