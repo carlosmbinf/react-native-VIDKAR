@@ -25,6 +25,7 @@ import {
 
 import { requestEvidenceImageUrl } from "../../services/meteor/evidenceImages";
 import SubidaArchivos from "../archivos/SubidaArchivos.native";
+import { VentasCollection } from "../collections/collections";
 import DrawerBottom from "../drawer/DrawerBottom.native";
 import ZoomableEvidenceImage from "../shared/ZoomableEvidenceImage.native";
 import ServiceDetails from "./ServiceDetails.native";
@@ -295,6 +296,47 @@ export default function VentaDetailModal({
     });
   };
 
+  const canManageDirectProxyVpnSale =
+    isGeneralAdmin === true
+    && sale?.source === "direct"
+    && sale?.category === "PROXY_VPN"
+    && sale?._id;
+
+  const handleToggleDirectSaleCollected = () => {
+    if (!canManageDirectProxyVpnSale || actionProcessing) return;
+
+    const nextCollected = sale.cobrado !== true;
+    const nextLabel = nextCollected ? "cobrada" : "no cobrada";
+
+    Alert.alert(
+      nextCollected ? "Marcar como cobrada" : "Marcar como no cobrada",
+      `¿Deseas marcar esta venta Proxy/VPN como ${nextLabel}?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Confirmar",
+          onPress: () => {
+            setActionProcessing(true);
+            Meteor.call("changeStatusVenta", sale._id, nextCollected, (error) => {
+              if (error) {
+                setActionProcessing(false);
+                Alert.alert("Error", error.reason || error.message || "No se pudo actualizar el estado de cobro.");
+                return;
+              }
+
+              // Keep the current list responsive while the publication catches up.
+              VentasCollection.update(sale._id, { $set: { cobrado: nextCollected } });
+              setActionProcessing(false);
+              setSnackbarText(nextCollected ? "Venta marcada como cobrada." : "Venta marcada como no cobrada.");
+              setSnackbarVisible(true);
+              onActionComplete?.();
+            });
+          },
+        },
+      ],
+    );
+  };
+
   if (!visible || !sale) return null;
 
   const maxScrollHeight = Math.max(260, Math.floor(windowHeight * 0.72));
@@ -407,6 +449,21 @@ export default function VentaDetailModal({
 
             {/* Product / Service details */}
             <ServiceDetails sale={sale} />
+
+            {canManageDirectProxyVpnSale ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Estado de cobro</Text>
+                <Button
+                  disabled={actionProcessing}
+                  icon={sale.cobrado === true ? "cash-minus" : "cash-check"}
+                  loading={actionProcessing}
+                  mode={sale.cobrado === true ? "outlined" : "contained"}
+                  onPress={handleToggleDirectSaleCollected}
+                >
+                  {sale.cobrado === true ? "Marcar como no cobrada" : "Marcar como cobrada"}
+                </Button>
+              </View>
+            ) : null}
 
             <RemesaProgress sale={sale} theme={theme} />
 
