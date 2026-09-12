@@ -378,6 +378,7 @@ export default function VentasList() {
         precio: Number(doc.precio || 0),
         moneda: "CUP",
         gananciasAdmin: Number(doc.gananciasAdmin || 0),
+        cobrado: doc.cobrado === true,
         cobradoAlAdmin: doc.cobradoAlAdmin === true,
         metodoPago: "DIRECTO",
         comentario: doc.comentario || "",
