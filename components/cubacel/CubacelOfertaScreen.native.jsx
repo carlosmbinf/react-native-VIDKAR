@@ -213,7 +213,7 @@ const CubacelOfertaScreen = () => {
   const productId =
     typeof params.productId === "string" ? params.productId : "";
 
-  const { product, ready } = Meteor.useTracker(() => {
+  const { product, ready, user } = Meteor.useTracker(() => {
     if (!dataReady) {
       return { product: null, ready: false };
     }
@@ -224,6 +224,7 @@ const CubacelOfertaScreen = () => {
       product: productId
         ? DTShopProductosCollection.findOne({ _id: productId })
         : null,
+      user: Meteor.user(),
       ready: handler.ready(),
     };
   }, [dataReady, productId]);
@@ -246,6 +247,13 @@ const CubacelOfertaScreen = () => {
     : localFallback;
 
   const precioUSD = product?.prices?.retail?.amount || "---";
+  const costoOficial = product?.prices?.wholesale?.amount;
+  const unidadCostoOficial = product?.prices?.wholesale?.unit;
+  const mostrarCostoOficial =
+    user?.username === "carlosmbinf" &&
+    typeof costoOficial === "number" &&
+    Number.isFinite(costoOficial) &&
+    Boolean(unidadCostoOficial);
   const operadorNombre = product?.operator?.name || "ETECSA";
   const promoTitle = primaryPromotion?.title || product?.name || operadorNombre;
   const promoTerms =
@@ -450,6 +458,14 @@ const CubacelOfertaScreen = () => {
                       {toMoneyLabel(precioUSD, "USD")}
                     </Text>
                   </View>
+                  {mostrarCostoOficial ? (
+                    <View style={styles.heroPricePill}>
+                      <Text style={styles.heroPriceLabel}>Costo oficial</Text>
+                      <Text style={styles.heroPriceValue}>
+                        {`${costoOficial.toFixed(2)} ${unidadCostoOficial}`}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
             </ImageBackground>
@@ -689,6 +705,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   heroPriceRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
     marginTop: 15,
   },
   heroPricePill: {

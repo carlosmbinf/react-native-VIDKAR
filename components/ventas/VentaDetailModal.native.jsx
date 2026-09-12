@@ -297,7 +297,7 @@ export default function VentaDetailModal({
   };
 
   const canManageDirectProxyVpnSale =
-    isGeneralAdmin === true
+    (isGeneralAdmin === true || isAdmin === true)
     && sale?.source === "direct"
     && sale?.category === "PROXY_VPN"
     && sale?._id;
@@ -305,12 +305,19 @@ export default function VentaDetailModal({
   const handleToggleDirectSaleCollected = () => {
     if (!canManageDirectProxyVpnSale || actionProcessing) return;
 
-    const nextCollected = sale.cobrado !== true;
+    const managesPrincipalCollection = isGeneralAdmin === true;
+    const currentCollected = managesPrincipalCollection
+      ? sale.cobrado === true
+      : sale.cobradoAlAdmin === true;
+    const nextCollected = !currentCollected;
     const nextLabel = nextCollected ? "cobrada" : "no cobrada";
+    const collectionLabel = managesPrincipalCollection
+      ? "por el administrador principal"
+      : "por el administrador responsable";
 
     Alert.alert(
       nextCollected ? "Marcar como cobrada" : "Marcar como no cobrada",
-      `¿Deseas marcar esta venta Proxy/VPN como ${nextLabel}?`,
+      `¿Deseas marcar esta venta Proxy/VPN como ${nextLabel} ${collectionLabel}?`,
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -325,9 +332,21 @@ export default function VentaDetailModal({
               }
 
               // Keep the current list responsive while the publication catches up.
-              VentasCollection.update(sale._id, { $set: { cobrado: nextCollected } });
+              VentasCollection.update(sale._id, {
+                $set: managesPrincipalCollection
+                  ? { cobrado: nextCollected, cobradoAlAdmin: nextCollected }
+                  : { cobradoAlAdmin: nextCollected },
+              });
               setActionProcessing(false);
-              setSnackbarText(nextCollected ? "Venta marcada como cobrada." : "Venta marcada como no cobrada.");
+              setSnackbarText(
+                nextCollected
+                  ? managesPrincipalCollection
+                    ? "Venta cobrada por el administrador principal."
+                    : "Cobro confirmado al administrador principal."
+                  : managesPrincipalCollection
+                    ? "Cobro de la venta desmarcado."
+                    : "Confirmación de cobro desmarcada.",
+              );
               setSnackbarVisible(true);
               onActionComplete?.();
             });
@@ -453,14 +472,58 @@ export default function VentaDetailModal({
             {canManageDirectProxyVpnSale ? (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Estado de cobro</Text>
+                <View style={styles.directCollectionStatusRow}>
+                  <Chip
+                    compact
+                    icon={sale.cobradoAlAdmin === true ? "check-circle" : "clock-outline"}
+                    style={[
+                      styles.directCollectionChip,
+                      {
+                        backgroundColor: sale.cobradoAlAdmin === true ? "#dcfce7" : "#fef3c7",
+                      },
+                    ]}
+                    textStyle={{
+                      color: sale.cobradoAlAdmin === true ? "#166534" : "#92400e",
+                    }}
+                  >
+                    {sale.cobradoAlAdmin === true ? "Cobrado al admin" : "Pendiente al admin"}
+                  </Chip>
+                  <Chip
+                    compact
+                    icon={sale.cobrado === true ? "check-circle" : "clock-outline"}
+                    style={[
+                      styles.directCollectionChip,
+                      {
+                        backgroundColor: sale.cobrado === true ? "#dcfce7" : "#fef3c7",
+                      },
+                    ]}
+                    textStyle={{
+                      color: sale.cobrado === true ? "#166534" : "#92400e",
+                    }}
+                  >
+                    {sale.cobrado === true ? "Cobrado principal" : "Pendiente principal"}
+                  </Chip>
+                </View>
                 <Button
                   disabled={actionProcessing}
-                  icon={sale.cobrado === true ? "cash-minus" : "cash-check"}
+                  icon={
+                    (isGeneralAdmin ? sale.cobrado : sale.cobradoAlAdmin) === true
+                      ? "cash-minus"
+                      : "cash-check"
+                  }
                   loading={actionProcessing}
-                  mode={sale.cobrado === true ? "outlined" : "contained"}
+                  mode={
+                    (isGeneralAdmin ? sale.cobrado : sale.cobradoAlAdmin) === true
+                      ? "outlined"
+                      : "contained"
+                  }
                   onPress={handleToggleDirectSaleCollected}
                 >
-                  {sale.cobrado === true ? "Marcar como no cobrada" : "Marcar como cobrada"}
+                  {(isGeneralAdmin ? sale.cobrado : sale.cobradoAlAdmin) === true
+                    ? "Desmarcar mi cobro"
+                    : isGeneralAdmin
+                      ? "Marcar ambos cobros"
+                      : "Confirmar cobro al admin"}
                 </Button>
               </View>
             ) : null}
@@ -857,6 +920,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: "uppercase",
     opacity: 0.85,
+  },
+  directCollectionStatusRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  directCollectionChip: {
+    borderRadius: 999,
   },
   sectionHeaderRow: {
     alignItems: "center",
