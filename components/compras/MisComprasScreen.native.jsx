@@ -220,6 +220,7 @@ export default function MisComprasScreen() {
   const {
     isAdmin,
     isGeneralAdmin,
+    isUser,
     ready,
     comprasUnificadas,
   } = Meteor.useTracker(() => {
@@ -235,6 +236,7 @@ export default function MisComprasScreen() {
         currentUsername: cUsername,
         isAdmin: false,
         isGeneralAdmin: false,
+        isUser: false,
         ready: false,
         comprasUnificadas: [],
       };
@@ -500,6 +502,7 @@ export default function MisComprasScreen() {
       currentUsername: cUsername,
       isAdmin: isAdm,
       isGeneralAdmin: isGenAdmin,
+      isUser: user?.profile?.role === "user",
       ready: isAllReady,
       comprasUnificadas: unified,
     };
@@ -1371,6 +1374,7 @@ export default function MisComprasScreen() {
         evidences={selectedPurchase?.evidences}
         isAdmin={isAdmin}
         isGeneralAdmin={isGeneralAdmin}
+        isUser={isUser}
         onActionComplete={() => setRefreshKey((k) => k + 1)}
         onDismiss={handleCloseDetail}
         sale={selectedPurchase}
