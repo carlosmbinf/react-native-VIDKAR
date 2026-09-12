@@ -360,11 +360,15 @@ export default function VentasList() {
       const buyerName = resolveUsername(doc.userId) || "Usuario";
       const adminName = resolveUsername(doc.adminId) || "SERVER";
       const statusDerived = doc.cobrado ? "ENTREGADO" : "PENDIENTE_PAGO";
+      const directType = String(doc.type || "").toUpperCase();
+      const category = directType.includes("PROXY") || directType.includes("VPN")
+        ? "PROXY_VPN"
+        : "BALANCE";
 
       unified.push({
         _id: doc._id,
         source: "direct",
-        category: "BALANCE",
+        category,
         statusDerived,
         createdAt: doc.createdAt ? new Date(doc.createdAt) : null,
         userId: doc.userId,
