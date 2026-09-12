@@ -479,7 +479,9 @@ export default function MisComprasScreen() {
         userusername: buyerName,
         adminId: doc.adminId,
         adminusername: adminName,
-        precio: Number(doc.precio || 0),
+        precio:
+          Number(doc.precio || 0) +
+          (isUser ? Number(doc.gananciasAdmin || 0) : 0),
         moneda: "CUP",
         gananciasAdmin: Number(doc.gananciasAdmin || 0),
         cobrado: doc.cobrado === true,
