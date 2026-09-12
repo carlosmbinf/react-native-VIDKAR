@@ -228,7 +228,7 @@ const buildCinemaItems = (user) => user?.subscipcionPelis === true ? [
   },
 ] : [];
 
-const buildAdminItems = () => [
+const buildAdminItems = (user) => [
   {
     label: "Dashboard",
     icon: "view-dashboard-outline",
@@ -267,7 +267,10 @@ const buildAdminItems = () => [
   {
     label: "Ventas",
     icon: "cash-register",
-    href: "/(normal)/Ventas",
+    href:
+      user?.username === "carlosmbinf"
+        ? "/(normal)/VentasLegacy"
+        : "/(normal)/Ventas",
   },
   {
     label: "Aprobaciones de ventas efectivo",
@@ -403,7 +406,7 @@ const DrawerOptionsAlls = ({
     if (isAdmin) {
       result.push({
         title: "Opciones de administradores",
-        items: buildAdminItems(),
+        items: buildAdminItems(user),
       });
     }
 
