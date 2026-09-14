@@ -90,8 +90,12 @@ const DIRECT_VENTAS_FIELDS = {
   cobradoAlAdmin: 1,
   comentario: 1,
   createdAt: 1,
+  cantidad: 1,
+  esPorTiempo: 1,
   gananciasAdmin: 1,
+  megas: 1,
   precio: 1,
+  tipo: 1,
   type: 1,
   userId: 1,
 };
@@ -230,6 +234,12 @@ export default function VentasList() {
     };
 
     const scopeQuery = buildScopeQuery();
+    const directScopeQuery = {
+      $and: [
+        scopeQuery,
+        { idVentasRecharge: { $exists: false } },
+      ],
+    };
 
     // 3. Subscriptions
     const rechargeSub = Meteor.subscribe("ventasRecharge", scopeQuery, {
@@ -238,7 +248,7 @@ export default function VentasList() {
       limit: fetchLimit,
     });
 
-    const directSub = Meteor.subscribe("ventas", scopeQuery, {
+    const directSub = Meteor.subscribe("ventas", directScopeQuery, {
       fields: DIRECT_VENTAS_FIELDS,
       sort: { createdAt: -1 },
       limit: fetchLimit,
@@ -258,7 +268,7 @@ export default function VentasList() {
     }).fetch();
 
     // Fetch direct docs
-    const directDocs = VentasCollection.find(scopeQuery, {
+    const directDocs = VentasCollection.find(directScopeQuery, {
       fields: DIRECT_VENTAS_FIELDS,
       sort: { createdAt: -1 },
       limit: fetchLimit,
@@ -360,11 +370,12 @@ export default function VentasList() {
       const buyerName = resolveUsername(doc.userId) || "Usuario";
       const adminName = resolveUsername(doc.adminId) || "SERVER";
       const statusDerived = doc.cobrado ? "ENTREGADO" : "PENDIENTE_PAGO";
+      const category = detectSaleCategory({ ...doc, source: "direct" });
 
       unified.push({
         _id: doc._id,
         source: "direct",
-        category: "BALANCE",
+        category,
         statusDerived,
         createdAt: doc.createdAt ? new Date(doc.createdAt) : null,
         userId: doc.userId,
@@ -380,7 +391,7 @@ export default function VentasList() {
         items: [],
         evidence: null,
         rawDoc: doc,
-        specificDetail: doc.comentario ? "Nota: " + doc.comentario : "Venta directa " + (doc.type || ""),
+        specificDetail: getSaleSpecificDetail({ ...doc, category, source: "direct" }),
       });
     }
 

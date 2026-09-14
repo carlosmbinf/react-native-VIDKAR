@@ -900,6 +900,7 @@ const SubidaArchivos = ({ venta }) => {
       };
       const metadata = { categoria, descripcion };
       Meteor.call("archivos.upload", fileData, metadata, (error, result) => {
+        setCargando(false);
         if (error) {
           Alert.alert("Error", error.reason || "No se pudo subir el archivo");
           return;
@@ -913,9 +914,8 @@ const SubidaArchivos = ({ venta }) => {
         }
       });
     } catch (error) {
-      Alert.alert("Error", error.reason || "No se pudo subir el archivo");
-    } finally {
       setCargando(false);
+      Alert.alert("Error", error.reason || "No se pudo subir el archivo");
     }
   };
 

@@ -1,5 +1,6 @@
 const PENDING_EVIDENCE_TYPE_META = {
   COMERCIO: { icon: "storefront-outline", label: "Comercio" },
+  CURSO: { icon: "school-outline", label: "Curso" },
   PROXY: { icon: "wifi", label: "Proxy" },
   RECARGA: { icon: "cellphone-arrow-down", label: "Recarga" },
   REMESA: { icon: "cash-fast", label: "Remesa" },
