@@ -1,4 +1,4 @@
-import { formatMoney, getCartItemType, megasToGB } from "./ventasUtils";
+import { formatMoney, getCartItemType, getProxyVpnServiceType, megasToGB } from "./ventasUtils";
 
 const text = (value) => typeof value === "string" ? value.trim() : "";
 const number = (value) => {
@@ -21,7 +21,9 @@ export function getServiceDetail(item, sale = {}) {
   item = item && typeof item === "object" ? item : {};
   const product = item.producto || {};
   const type = getCartItemType(item);
-  const category = TYPES[type] || (type ? "OTROS" : sale.category) || "OTROS";
+  const category = getProxyVpnServiceType(type)
+    ? "PROXY_VPN"
+    : TYPES[type] || (type ? "OTROS" : sale.category) || "OTROS";
   const fields = [];
   const add = (label, value) => {
     const display = typeof value === "number" ? String(value) : text(value);

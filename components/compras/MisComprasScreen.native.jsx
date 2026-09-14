@@ -54,6 +54,27 @@ const Meteor =
 
 const OPTIONS_PER_PAGE = [10, 25, 50, 100];
 const FETCH_LIMIT_OPTIONS = [50, 100, 150, 200, 300];
+const TABLE_COLUMN_WIDTHS = {
+  amount: 126,
+  date: 94,
+  detail: 244,
+  method: 118,
+  status: 232,
+  type: 132,
+  user: 156,
+  view: 68,
+};
+const TABLE_MIN_WIDTH = Object.values(TABLE_COLUMN_WIDTHS).reduce(
+  (total, width) => total + width,
+  0,
+);
+
+const tableColumnStyle = (width) => ({
+  flexBasis: width,
+  flexGrow: 0,
+  flexShrink: 0,
+  width,
+});
 
 const RECARGAS_VENTA_FIELDS = {
   _id: 1,
@@ -132,8 +153,11 @@ const DIRECT_VENTAS_FIELDS = {
   comentario: 1,
   createdAt: 1,
   cantidad: 1,
+  esPorTiempo: 1,
   gananciasAdmin: 1,
+  megas: 1,
   precio: 1,
+  tipo: 1,
   type: 1,
   userId: 1,
 };
@@ -192,12 +216,14 @@ const EVIDENCIA_METADATA_FIELDS = {
 export default function MisComprasScreen() {
   const theme = useTheme();
   const headerInset = useAppHeaderContentInset();
-  const { width: windowWidth } = useWindowDimensions();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const isTablet = windowWidth >= 768;
+  const isLandscape = windowWidth > windowHeight;
+  const tableLayout = isTablet || isLandscape;
+  const viewMode = tableLayout ? "table" : "cards";
 
   // View state
   const [scope, setScope] = useState("own"); // 'own' | 'all'
-  const [viewMode, setViewMode] = useState(isTablet ? "table" : "cards"); // 'table' | 'cards'
   const [selectedCategory, setSelectedCategory] = useState("TODAS");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("TODOS");
@@ -464,10 +490,7 @@ export default function MisComprasScreen() {
       const buyerName = resolveUsername(doc.userId) || "Tú";
       const adminName = resolveUsername(doc.adminId) || "Vidkar";
       const statusDerived = doc.cobrado ? "ENTREGADO" : "PENDIENTE_PAGO";
-      const directType = String(doc.type || "").toUpperCase();
-      const category = directType.includes("PROXY") || directType.includes("VPN")
-        ? "PROXY_VPN"
-        : "BALANCE";
+      const category = detectSaleCategory({ ...doc, source: "direct" });
 
       unified.push({
         _id: doc._id,
@@ -491,7 +514,7 @@ export default function MisComprasScreen() {
         items: [],
         evidence: null,
         rawDoc: doc,
-        specificDetail: doc.comentario ? "Nota: " + doc.comentario : "Compra directa " + (doc.type || ""),
+        specificDetail: getSaleSpecificDetail({ ...doc, category, source: "direct" }),
       });
     }
 
@@ -739,11 +762,6 @@ export default function MisComprasScreen() {
               icon="refresh"
               iconColor="#ffffff"
               onPress={() => setRefreshKey((k) => k + 1)}
-            />
-            <IconButton
-              icon={viewMode === "table" ? "view-grid-outline" : "table-large"}
-              iconColor="#ffffff"
-              onPress={() => setViewMode((m) => (m === "table" ? "cards" : "table"))}
             />
             <IconButton
               icon={showFilters ? "filter-minus-outline" : "filter-variant"}
@@ -1014,25 +1032,15 @@ export default function MisComprasScreen() {
           <Text style={styles.resultsCountText}>
             {"Mostrando " + filteredCompras.length + " compra" + (filteredCompras.length !== 1 ? "s" : "")}
           </Text>
-          <View style={styles.viewModeToggle}>
-            <Button
-              compact
-              mode={viewMode === "table" ? "contained" : "text"}
-              icon="table-large"
-              onPress={() => setViewMode("table")}
-              style={styles.modeBtn}
-            >
-              Tabla
-            </Button>
-            <Button
-              compact
-              mode={viewMode === "cards" ? "contained" : "text"}
-              icon="view-grid-outline"
-              onPress={() => setViewMode("cards")}
-              style={styles.modeBtn}
-            >
-              Tarjetas
-            </Button>
+          <View style={styles.layoutModeBadge}>
+            <IconButton
+              icon={viewMode === "table" ? "table-large" : "view-grid-outline"}
+              size={16}
+              style={styles.layoutModeIcon}
+            />
+            <Text style={styles.layoutModeText}>
+              {viewMode === "table" ? (isLandscape ? "Tabla apaisada" : "Tabla") : "Tarjetas"}
+            </Text>
           </View>
         </View>
 
@@ -1055,17 +1063,21 @@ export default function MisComprasScreen() {
         ) : viewMode === "table" ? (
           /* TABLE VIEW (DataTable) */
           <Surface style={[styles.tableContainer, { backgroundColor: panelBg, borderColor: borderCol }]}>
-            <ScrollView horizontal showsHorizontalScrollIndicator>
-              <DataTable style={{ minWidth: 1000 }}>
+            <ScrollView
+              contentContainerStyle={styles.tableScrollContent}
+              horizontal
+              showsHorizontalScrollIndicator
+            >
+              <DataTable style={styles.dataTable}>
                 <DataTable.Header>
-                  <DataTable.Title style={{ width: 90 }}>Fecha</DataTable.Title>
-                  <DataTable.Title style={{ width: 130 }}>Tipo</DataTable.Title>
-                  <DataTable.Title style={{ width: 140 }}>{scope === "all" ? "Usuario / Admin" : "Responsable"}</DataTable.Title>
-                  <DataTable.Title style={{ width: 230 }}>Detalle del Servicio</DataTable.Title>
-                  <DataTable.Title numeric style={{ width: 110 }}>Monto</DataTable.Title>
-                  <DataTable.Title style={{ width: 110 }}>Método</DataTable.Title>
-                  <DataTable.Title style={{ width: 130 }}>Estado</DataTable.Title>
-                  <DataTable.Title numeric style={{ width: 60 }}>Ver</DataTable.Title>
+                  <DataTable.Title style={tableColumnStyle(TABLE_COLUMN_WIDTHS.date)}>Fecha</DataTable.Title>
+                  <DataTable.Title style={tableColumnStyle(TABLE_COLUMN_WIDTHS.type)}>Tipo</DataTable.Title>
+                  <DataTable.Title style={tableColumnStyle(TABLE_COLUMN_WIDTHS.user)}>{scope === "all" ? "Usuario / Admin" : "Responsable"}</DataTable.Title>
+                  <DataTable.Title style={tableColumnStyle(TABLE_COLUMN_WIDTHS.detail)}>Detalle del Servicio</DataTable.Title>
+                  <DataTable.Title numeric style={tableColumnStyle(TABLE_COLUMN_WIDTHS.amount)}>Monto</DataTable.Title>
+                  <DataTable.Title style={tableColumnStyle(TABLE_COLUMN_WIDTHS.method)}>Método</DataTable.Title>
+                  <DataTable.Title style={tableColumnStyle(TABLE_COLUMN_WIDTHS.status)}>Estado</DataTable.Title>
+                  <DataTable.Title numeric style={tableColumnStyle(TABLE_COLUMN_WIDTHS.view)}>Ver</DataTable.Title>
                 </DataTable.Header>
 
                 {visibleCompras.map((purchase) => {
@@ -1079,11 +1091,11 @@ export default function MisComprasScreen() {
                       onPress={() => handleOpenDetail(purchase)}
                       style={styles.tableRow}
                     >
-                      <DataTable.Cell style={{ width: 90 }}>
+                      <DataTable.Cell style={tableColumnStyle(TABLE_COLUMN_WIDTHS.date)}>
                         <Text style={styles.tableCellDate}>{formatDateShort(purchase.createdAt)}</Text>
                       </DataTable.Cell>
 
-                      <DataTable.Cell style={{ width: 130 }}>
+                      <DataTable.Cell style={tableColumnStyle(TABLE_COLUMN_WIDTHS.type)}>
                         <Chip
                           compact
                           icon={catMeta.icon}
@@ -1094,7 +1106,7 @@ export default function MisComprasScreen() {
                         </Chip>
                       </DataTable.Cell>
 
-                      <DataTable.Cell style={{ width: 140 }}>
+                      <DataTable.Cell style={tableColumnStyle(TABLE_COLUMN_WIDTHS.user)}>
                         <View style={styles.tableUserCol}>
                           {scope === "all" ? (
                             <Text numberOfLines={1} style={styles.tableUsername}>
@@ -1107,25 +1119,25 @@ export default function MisComprasScreen() {
                         </View>
                       </DataTable.Cell>
 
-                      <DataTable.Cell style={{ width: 230 }}>
+                      <DataTable.Cell style={tableColumnStyle(TABLE_COLUMN_WIDTHS.detail)}>
                         <Text numberOfLines={2} style={styles.tableDetailText}>
                           {purchase.specificDetail}
                         </Text>
                       </DataTable.Cell>
 
-                      <DataTable.Cell numeric style={{ width: 110 }}>
+                      <DataTable.Cell numeric style={tableColumnStyle(TABLE_COLUMN_WIDTHS.amount)}>
                         <Text style={styles.tableAmountText}>
                           {formatMoney(purchase.precio, purchase.moneda)}
                         </Text>
                       </DataTable.Cell>
 
-                      <DataTable.Cell style={{ width: 110 }}>
+                      <DataTable.Cell style={tableColumnStyle(TABLE_COLUMN_WIDTHS.method)}>
                         <Text numberOfLines={1} style={styles.tableMethodText}>
                           {purchase.metodoPago}
                         </Text>
                       </DataTable.Cell>
 
-                      <DataTable.Cell style={{ width: 130 }}>
+                      <DataTable.Cell style={tableColumnStyle(TABLE_COLUMN_WIDTHS.status)}>
                         {rechargeStatus ? (
                           <View style={styles.rechargeStatusPair}>
                             {[rechargeStatus.payment, rechargeStatus.delivery].map((part, index) => (
@@ -1185,7 +1197,7 @@ export default function MisComprasScreen() {
                         ) : null}
                       </DataTable.Cell>
 
-                      <DataTable.Cell numeric style={{ width: 60 }}>
+                      <DataTable.Cell numeric style={tableColumnStyle(TABLE_COLUMN_WIDTHS.view)}>
                         <IconButton
                           icon="eye-outline"
                           size={18}
@@ -1556,15 +1568,23 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     opacity: 0.75,
   },
-  viewModeToggle: {
+  layoutModeBadge: {
+    alignItems: "center",
     backgroundColor: "rgba(148, 163, 184, 0.15)",
     borderRadius: 12,
     flexDirection: "row",
-    overflow: "hidden",
-    padding: 2,
+    gap: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
-  modeBtn: {
-    borderRadius: 10,
+  layoutModeIcon: {
+    margin: 0,
+    padding: 0,
+  },
+  layoutModeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    opacity: 0.7,
   },
   emptyCard: {
     alignItems: "center",
@@ -1592,6 +1612,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     elevation: 2,
     overflow: "hidden",
+  },
+  tableScrollContent: {
+    minWidth: TABLE_MIN_WIDTH,
+  },
+  dataTable: {
+    minWidth: TABLE_MIN_WIDTH,
   },
   tableRow: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -1634,11 +1660,14 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   tableStatusBadge: {
+    alignSelf: "flex-start",
     alignItems: "center",
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: "row",
+    flexShrink: 0,
     gap: 5,
+    minHeight: 26,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
@@ -1648,6 +1677,7 @@ const styles = StyleSheet.create({
     width: 6,
   },
   tableStatusText: {
+    flexShrink: 0,
     fontSize: 11,
     fontWeight: "700",
   },
@@ -1655,15 +1685,18 @@ const styles = StyleSheet.create({
     alignItems: "stretch",
     borderRadius: 8,
     flexDirection: "row",
+    flexShrink: 0,
     overflow: "hidden",
   },
   rechargeStatusPart: {
     alignItems: "center",
     flexDirection: "row",
-    paddingHorizontal: 6,
+    flexShrink: 0,
+    paddingHorizontal: 8,
     paddingVertical: 4,
   },
   rechargeStatusText: {
+    flexShrink: 0,
     fontSize: 10,
     fontWeight: "700",
   },
@@ -1685,14 +1718,18 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   cardTopRow: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
     justifyContent: "space-between",
   },
   cardTypeWrap: {
     alignItems: "center",
     flexDirection: "row",
+    flexShrink: 1,
     gap: 8,
+    minWidth: 0,
   },
   cardCatChip: {
     borderRadius: 8,
@@ -1710,6 +1747,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     flexDirection: "row",
+    flexShrink: 0,
     gap: 5,
     paddingHorizontal: 8,
     paddingVertical: 3,

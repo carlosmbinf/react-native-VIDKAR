@@ -29,6 +29,16 @@ export const PROXY_VPN_PRODUCT_TYPES = [
   "megas",
 ];
 
+const PROXY_VPN_SERVICE_BY_TYPE = {
+  MEGAS: "PROXY",
+  PROXY: "PROXY",
+  "FECHA-PROXY": "PROXY",
+  VPN: "VPN",
+  VPNPLUS: "VPN",
+  "FECHA-VPN": "VPN",
+  VPN2MB: "VPN",
+};
+
 export const normalizeText = (value) =>
   String(value ?? "")
     .normalize("NFD")
@@ -93,6 +103,11 @@ export const getCartItemType = (carrito) =>
       "",
   ).toUpperCase();
 
+export const getProxyVpnServiceType = (value) => {
+  const normalizedType = String(value ?? "").trim().toUpperCase();
+  return PROXY_VPN_SERVICE_BY_TYPE[normalizedType] || null;
+};
+
 export const getSaleItems = (sale) => {
   if (Array.isArray(sale?.items) && sale.items.length > 0) {
     return sale.items;
@@ -116,10 +131,6 @@ export const getSaleItems = (sale) => {
 };
 
 export const detectSaleCategory = (sale) => {
-  if (sale?.source === "direct") {
-    return "BALANCE";
-  }
-
   const items = getSaleItems(sale);
   const types = new Set(items.map((item) => getCartItemType(item)).filter(Boolean));
 
@@ -127,14 +138,22 @@ export const detectSaleCategory = (sale) => {
   if (types.has("REMESA")) return "REMESAS";
   if (types.has("COMERCIO")) return "COMERCIO";
   if (types.has("CURSO")) return "CURSOS";
-  if (types.has("PROXY") || types.has("VPN")) return "PROXY_VPN";
+  if ([...types].some((type) => getProxyVpnServiceType(type))) return "PROXY_VPN";
 
-  const docType = String(sale?.producto?.type || sale?.type || "").toUpperCase();
+  const docType = String(
+    sale?.producto?.type ||
+      sale?.producto?.tipo ||
+      sale?.type ||
+      sale?.tipo ||
+      "",
+  ).toUpperCase();
   if (docType.includes("RECARGA")) return "RECARGAS";
   if (docType.includes("REMESA")) return "REMESAS";
   if (docType.includes("COMERCIO")) return "COMERCIO";
   if (docType.includes("CURSO")) return "CURSOS";
-  if (docType.includes("PROXY") || docType.includes("VPN")) return "PROXY_VPN";
+  if (getProxyVpnServiceType(docType)) return "PROXY_VPN";
+
+  if (sale?.source === "direct") return "BALANCE";
 
   return "OTROS";
 };
@@ -359,7 +378,11 @@ export const getEvidenceMeta = (evidence, sale, isDark = false) => {
 
 export const getSaleSpecificDetail = (sale) => {
   if (sale?.source === "direct") {
-    return sale?.comentario ? `Nota: ${sale.comentario}` : `Venta directa ${sale?.type || ""}`;
+    const directType = getProxyVpnServiceType(
+      sale?.type || sale?.tipo || sale?.producto?.type || sale?.producto?.tipo,
+    );
+    const directLabel = directType || sale?.type || sale?.tipo || "";
+    return sale?.comentario ? `Nota: ${sale.comentario}` : `Venta directa ${directLabel}`.trim();
   }
 
   const category = sale?.category;

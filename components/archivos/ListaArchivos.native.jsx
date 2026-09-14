@@ -1,5 +1,5 @@
 import MeteorBase from "@meteorrn/core";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FlatList, RefreshControl, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Button, Surface, Text } from "react-native-paper";
 
@@ -34,6 +34,7 @@ const EFECTIVO_LIST_FIELDS = {
 
 const ListaVentasEfectivo = () => {
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const headerInset = useAppHeaderContentInset();
 
   const isAdmin = Meteor.user()?.profile?.role === "admin" || false;
@@ -90,11 +91,17 @@ const ListaVentasEfectivo = () => {
       : [];
 
     return { cargando: !ready, ventas: ventasData };
-  }, [dataReady, isAdmin, isAdminPrincipal, listIdSubordinados, Meteor.userId()]);
+  }, [dataReady, isAdmin, isAdminPrincipal, listIdSubordinados, Meteor.userId(), refreshKey]);
+
+  useEffect(() => {
+    if (!cargando && refreshing) {
+      setRefreshing(false);
+    }
+  }, [cargando, refreshing]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 600);
+    setRefreshKey((current) => current + 1);
   };
 
   return (
@@ -125,7 +132,7 @@ const ListaVentasEfectivo = () => {
               { paddingTop: headerInset + 12 },
             ]}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              <RefreshControl refreshing={refreshing || cargando} onRefresh={onRefresh} />
             }
             ListEmptyComponent={
               <View style={styles.centrado}>
