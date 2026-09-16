@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  useWindowDimensions,
 } from "react-native";
 import {
   PanGestureHandler,
@@ -401,7 +402,7 @@ const PRODUCT_COLORS = {
   VPN: { bg: "#E8F5E9", icon: "shield-check", primary: "#4CAF50" },
 };
 
-const ZoomableImage = ({ uri, style }) => {
+const ZoomableImage = ({ containerStyle, uri, style }) => {
   const baseScale = useRef(new Animated.Value(1)).current;
   const pinchScale = useRef(new Animated.Value(1)).current;
   const panX = useRef(new Animated.Value(0)).current;
@@ -412,6 +413,7 @@ const ZoomableImage = ({ uri, style }) => {
   const currentOffsetX = useRef(0);
   const currentOffsetY = useRef(0);
   const lastTapTime = useRef(0);
+  const [isZoomed, setIsZoomed] = useState(false);
   const pinchRef = useRef(null);
   const panRef = useRef(null);
   const imageWidth = 400;
@@ -427,6 +429,7 @@ const ZoomableImage = ({ uri, style }) => {
     currentScale.current = 1;
     currentOffsetX.current = 0;
     currentOffsetY.current = 0;
+    setIsZoomed(false);
 
     pinchScale.setValue(1);
     panX.setValue(0);
@@ -465,6 +468,7 @@ const ZoomableImage = ({ uri, style }) => {
       return;
     }
 
+    setIsZoomed(true);
     baseScale.setValue(nextScale);
   };
 
@@ -520,6 +524,7 @@ const ZoomableImage = ({ uri, style }) => {
         resetTransform();
       } else {
         currentScale.current = 1.5;
+        setIsZoomed(true);
         currentOffsetX.current = 0;
         currentOffsetY.current = 0;
         pinchScale.setValue(1);
@@ -538,8 +543,12 @@ const ZoomableImage = ({ uri, style }) => {
   };
 
   return (
-    <Pressable onPress={handleDoubleTap} style={styles.imageContainer}>
+    <Pressable
+      onPress={handleDoubleTap}
+      style={[styles.imageContainer, containerStyle]}
+    >
       <PanGestureHandler
+        enabled={isZoomed}
         ref={panRef}
         simultaneousHandlers={pinchRef}
         onGestureEvent={onPanEvent}
@@ -581,6 +590,12 @@ const AprobacionEvidenciasVenta = ({
   venta,
 }) => {
   const theme = useTheme();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const isLandscape = windowWidth > windowHeight;
+  const isTablet = windowWidth >= 768;
+  const landscapePreviewHeight = isTablet
+    ? Math.min(420, windowHeight * 0.58)
+    : Math.min(270, windowHeight * 0.42);
   const previewPalette = useMemo(
     () => getEvidencePreviewPalette(theme.dark),
     [theme.dark],
@@ -589,6 +604,7 @@ const AprobacionEvidenciasVenta = ({
   const [previewId, setPreviewId] = useState(null);
   const [aprobandoVenta, setAprobandoVenta] = useState(false);
   const [rechazandoVenta, setRechazandoVenta] = useState(false);
+  const [evidenceActionLoading, setEvidenceActionLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const expandAnimation = useRef(new Animated.Value(0)).current;
   const [comisionesInfo, setComisionesInfo] = useState({
@@ -865,6 +881,45 @@ const AprobacionEvidenciasVenta = ({
     ventaActual?.estado === "RECHAZADA" || ventaActual?.isCancelada;
   const ventaFinalizada = ventaAprobada || ventaYaEntregada;
   const canApproveSale = existeAprobada && !ventaFinalizada && !ventaRechazada;
+  const currentUser = Meteor.user();
+  const canManageEvidence =
+    currentUser?.profile?.role === "admin" &&
+    String(currentUser?.username || "").toLowerCase() === "carlosmbinf";
+  const chipTextStyle = useMemo(
+    () => [styles.chipText, { color: theme.dark ? "#ffffff" : "#1e293b" }],
+    [theme.dark],
+  );
+  const analysisChipStyles = useMemo(() => {
+    if (theme.dark) {
+      return {
+        completed: { alignSelf: "flex-start", backgroundColor: "rgba(34, 197, 94, 0.18)", borderColor: "rgba(74, 222, 128, 0.38)" },
+        confidence: { backgroundColor: "rgba(96, 165, 250, 0.18)", borderColor: "rgba(147, 197, 253, 0.38)", marginRight: 6 },
+        data: { backgroundColor: "rgba(96, 165, 250, 0.18)", borderColor: "rgba(147, 197, 253, 0.38)", marginRight: 6 },
+        decision: { backgroundColor: "rgba(139, 92, 246, 0.2)", borderColor: "rgba(196, 181, 253, 0.4)", marginRight: 6 },
+        error: { alignSelf: "flex-start", backgroundColor: "rgba(239, 68, 68, 0.2)", borderColor: "rgba(252, 165, 165, 0.4)" },
+        match: { backgroundColor: "rgba(34, 197, 94, 0.18)", borderColor: "rgba(134, 239, 172, 0.38)" },
+        mismatch: { backgroundColor: "rgba(239, 68, 68, 0.2)", borderColor: "rgba(252, 165, 165, 0.4)" },
+        neutral: { backgroundColor: "rgba(148, 163, 184, 0.18)", borderColor: "rgba(203, 213, 225, 0.34)" },
+        pending: { alignSelf: "flex-start", backgroundColor: "rgba(234, 179, 8, 0.2)", borderColor: "rgba(253, 224, 71, 0.4)" },
+        processing: { alignSelf: "flex-start", backgroundColor: "rgba(59, 130, 246, 0.2)", borderColor: "rgba(147, 197, 253, 0.4)" },
+        reason: { backgroundColor: "rgba(239, 68, 68, 0.2)", borderColor: "rgba(252, 165, 165, 0.4)" },
+      };
+    }
+
+    return {
+      completed: styles.analysisCompletedChip,
+      confidence: styles.analysisConfidenceChip,
+      data: styles.analysisDataChip,
+      decision: styles.analysisDecisionChip,
+      error: styles.analysisErrorChip,
+      match: styles.analysisMatchChip,
+      mismatch: styles.analysisMismatchChip,
+      neutral: styles.analysisNeutralChip,
+      pending: styles.analysisPendingChip,
+      processing: styles.analysisProcessingChip,
+      reason: styles.analysisReasonChip,
+    };
+  }, [theme.dark]);
 
   if (!ventaActual || ventaRechazada || ventaFinalizada) {
     return null;
@@ -993,14 +1048,15 @@ const AprobacionEvidenciasVenta = ({
   };
 
   const handleAprobar = () => {
-    if (!preview || preview.aprobado || preview.rechazado) {
+    if (!preview || !canManageEvidence || evidenceActionLoading) {
       return;
     }
 
+    setEvidenceActionLoading(true);
     Meteor.call(
       "archivos.aprobarEvidencia",
       preview._id,
-      null,
+      { force: true },
       (firstArg, secondArg) => {
         const { error, success } = normalizeMeteorMethodCallback(
           firstArg,
@@ -1008,6 +1064,7 @@ const AprobacionEvidenciasVenta = ({
         );
         console.log("Resultado de aprobar evidencia:", { success, error });
         if (!success) {
+          setEvidenceActionLoading(false);
           Alert.alert(
             "Error",
             error?.reason || "No se pudo aprobar la evidencia.",
@@ -1023,6 +1080,7 @@ const AprobacionEvidenciasVenta = ({
               denegado: false,
             },
             onSuccess: () => {
+              setEvidenceActionLoading(false);
               Alert.alert("Listo", success?.message || "Evidencia aprobada.");
               onAprobar?.(preview || { _id: previewId });
             },
@@ -1035,14 +1093,15 @@ const AprobacionEvidenciasVenta = ({
   };
 
   const confirmarRechazo = () => {
-    if (!preview) {
+    if (!preview || !canManageEvidence || evidenceActionLoading) {
       return;
     }
 
+    setEvidenceActionLoading(true);
     Meteor.call(
       "archivos.denegarEvidencia",
       preview._id,
-      null,
+      { force: true },
       (firstArg, secondArg) => {
         const { error, success } = normalizeMeteorMethodCallback(
           firstArg,
@@ -1050,6 +1109,7 @@ const AprobacionEvidenciasVenta = ({
         );
         console.log("Resultado de rechazar evidencia:", { success, error });
         if (!success) {
+          setEvidenceActionLoading(false);
           Alert.alert(
             "Error",
             error?.reason || "No se pudo rechazar la evidencia.",
@@ -1064,6 +1124,7 @@ const AprobacionEvidenciasVenta = ({
               denegado: true,
             },
             onSuccess: () => {
+              setEvidenceActionLoading(false);
               onRechazar?.(preview || { _id: previewId });
               Alert.alert("Listo", "Evidencia rechazada.");
             },
@@ -1076,7 +1137,7 @@ const AprobacionEvidenciasVenta = ({
   };
 
   const handleRechazar = () => {
-    if (!preview || preview.aprobado || preview.rechazado) {
+    if (!preview || !canManageEvidence || evidenceActionLoading) {
       return;
     }
 
@@ -1427,25 +1488,25 @@ const AprobacionEvidenciasVenta = ({
         icon: "clock-outline",
         label: "Pendiente de análisis",
         message: "Aún no iniciado.",
-        style: styles.analysisPendingChip,
+        style: analysisChipStyles.pending,
       },
       [ANALISIS_IA_ESTADOS.PROCESANDO]: {
         icon: "progress-clock",
         label: "Analizando evidencia",
         message: "Análisis en curso.",
-        style: styles.analysisProcessingChip,
+        style: analysisChipStyles.processing,
       },
       [ANALISIS_IA_ESTADOS.ERROR]: {
         icon: "alert-circle-outline",
         label: "Error de análisis",
         message: "Revisar evidencia manualmente.",
-        style: styles.analysisErrorChip,
+        style: analysisChipStyles.error,
       },
       [ANALISIS_IA_ESTADOS.COMPLETADO]: {
         icon: "robot-outline",
         label: "Análisis completado",
         message: null,
-        style: styles.analysisCompletedChip,
+        style: analysisChipStyles.completed,
       },
     }[analisisIA.estado];
     const comparisonFields = [
@@ -1483,11 +1544,11 @@ const AprobacionEvidenciasVenta = ({
         <Text style={[styles.analysisTitle, { color: previewPalette.copy }]}>
           Análisis IA
         </Text>
-        <Chip
+                <Chip
           compact
           icon={stateDetails.icon}
           style={[styles.analysisStateChip, stateDetails.style]}
-          textStyle={styles.chipText}
+                  textStyle={chipTextStyle}
         >
           {stateDetails.label}
         </Chip>
@@ -1514,17 +1575,17 @@ const AprobacionEvidenciasVenta = ({
           <>
             <View style={styles.analysisDetailsRow}>
               {analisisIA.decision ? (
-                <Chip compact icon="gavel" style={styles.analysisDecisionChip} textStyle={styles.chipText}>
+                  <Chip compact icon="gavel" style={analysisChipStyles.decision} textStyle={chipTextStyle}>
                   Decisión: {analisisIA.decision}
                 </Chip>
               ) : null}
               {analisisIA.confidence !== null ? (
-                <Chip compact icon="percent" style={styles.analysisConfidenceChip} textStyle={styles.chipText}>
+                  <Chip compact icon="percent" style={analysisChipStyles.confidence} textStyle={chipTextStyle}>
                   Confianza: {Math.round(analisisIA.confidence * 100)}%
                 </Chip>
               ) : null}
               {analisisIA.imageQuality ? (
-                <Chip compact icon="image-outline" style={styles.analysisNeutralChip} textStyle={styles.chipText}>
+                  <Chip compact icon="image-outline" style={analysisChipStyles.neutral} textStyle={chipTextStyle}>
                   Imagen: {analisisIA.imageQuality}
                 </Chip>
               ) : null}
@@ -1542,8 +1603,8 @@ const AprobacionEvidenciasVenta = ({
                   <Chip
                     key={detail}
                     compact
-                    style={styles.analysisDataChip}
-                    textStyle={styles.chipText}
+                    style={analysisChipStyles.data}
+                    textStyle={chipTextStyle}
                   >
                     {detail}
                   </Chip>
@@ -1558,8 +1619,8 @@ const AprobacionEvidenciasVenta = ({
                     key={item.label}
                     compact
                     icon={item.value ? "check-circle-outline" : "close-circle-outline"}
-                    style={item.value ? styles.analysisMatchChip : styles.analysisMismatchChip}
-                    textStyle={styles.chipText}
+                    style={item.value ? analysisChipStyles.match : analysisChipStyles.mismatch}
+                    textStyle={chipTextStyle}
                   >
                     {item.label}: {item.value ? "Sí" : "No"}
                   </Chip>
@@ -1577,8 +1638,8 @@ const AprobacionEvidenciasVenta = ({
                     <Chip
                       key={reason}
                       compact
-                      style={styles.analysisReasonChip}
-                      textStyle={styles.chipText}
+                      style={analysisChipStyles.reason}
+                      textStyle={chipTextStyle}
                     >
                       {reason}
                     </Chip>
@@ -1878,44 +1939,56 @@ const AprobacionEvidenciasVenta = ({
           )}
 
           <Divider style={styles.divider} />
-          <View style={styles.actionsContainer}>
-            <Button
-              mode="outlined"
-              onPress={handleRechazarVenta}
-              disabled={
-                rechazandoVenta ||
-                ventaRechazada ||
-                ventaYaEntregada ||
-                !Meteor?.user()?.permitirAprobacionEfectivoCUP
-              }
-              icon="close-octagon"
-              style={styles.rejectButton}
-              textColor="#e53935"
-            >
-              {rechazandoVenta ? "Rechazando..." : "Rechazar Venta"}
-            </Button>
-            <Button
-              mode="contained"
-              onPress={handleAprobarVenta}
-              disabled={
-                !canApproveSale ||
-                aprobandoVenta ||
-                !Meteor?.user()?.permitirAprobacionEfectivoCUP
-              }
-              icon="check-decagram"
-              style={styles.approveButton}
-              contentStyle={styles.approveButtonContent}
-            >
-              {aprobandoVenta ? "Procesando..." : "Aprobar Venta"}
-            </Button>
-          </View>
-        </Card.Content>
-      </Animated.View>
+            <View style={styles.actionsContainer}>
+              <Button
+                mode="outlined"
+                onPress={handleRechazarVenta}
+                disabled={rechazandoVenta || ventaRechazada || ventaYaEntregada || !Meteor?.user()?.permitirAprobacionEfectivoCUP}
+                icon="close-octagon"
+                style={styles.rejectButton}
+                textColor="#e53935"
+              >
+                {rechazandoVenta ? "Rechazando..." : "Rechazar Venta"}
+              </Button>
+              <Button
+                mode="contained"
+                onPress={handleAprobarVenta}
+                disabled={!canApproveSale || aprobandoVenta || !Meteor?.user()?.permitirAprobacionEfectivoCUP}
+                icon="check-decagram"
+                style={styles.approveButton}
+                contentStyle={styles.approveButtonContent}
+              >
+                {aprobandoVenta ? "Procesando..." : "Aprobar Venta"}
+              </Button>
+            </View>
+          </Card.Content>
+        </Animated.View>
 
-      {expanded ? (
-        <DrawerBottom
+        {expanded ? (
+          <DrawerBottom
+            footer={preview ? (
+              <View style={styles.previewActionsFooter}>
+                <View style={styles.previewActionsRow}>
+                  <Button compact mode="outlined" icon="shield-refresh" disabled={ventaActual?.isCobrado === true || ventaActual?.isCancelada === true} onPress={handleReevaluarConIA} style={styles.actionBtn}>
+                    Reevaluar IA
+                  </Button>
+                  <Button mode="contained" icon="check" onPress={handleAprobar} disabled={!canManageEvidence || evidenceActionLoading} loading={evidenceActionLoading} style={styles.actionBtn}>
+                    Aprobar
+                  </Button>
+                  <Button mode="outlined" icon="close" onPress={handleRechazar} disabled={!canManageEvidence || evidenceActionLoading} style={styles.actionBtn} textColor="#c62828">
+                    Rechazar
+                  </Button>
+                </View>
+                {!canManageEvidence ? (
+                  <Text style={[styles.rechazadaInfo, { color: previewPalette.muted }]}>
+                    Solo el administrador general puede cambiar este estado.
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
           open={!!preview}
           onClose={() => setPreviewId(null)}
+          scrollable
           title={preview ? `Evidencia ${preview._idx + 1}` : ""}
           side="bottom"
           actions={[
@@ -1930,127 +2003,105 @@ const AprobacionEvidenciasVenta = ({
         >
           {preview ? (
             <View style={styles.previewWrapper}>
-              <ScrollView
-                contentContainerStyle={styles.previewScrollContent}
-                nestedScrollEnabled
-                showsVerticalScrollIndicator
-                style={styles.previewScroll}
+              <View
+                style={[
+                  styles.previewBody,
+                  isLandscape && styles.previewBodyLandscape,
+                ]}
               >
                 <ZoomableImage
+                  containerStyle={[
+                    styles.previewMedia,
+                    isLandscape && {
+                      height: landscapePreviewHeight,
+                      width: "48%",
+                    },
+                  ]}
                   uri={preview.imageUrl}
-                  style={styles.previewImage}
+                  style={[
+                    styles.previewImage,
+                    isLandscape && styles.previewImageLandscape,
+                  ]}
                 />
                 <View
                   style={[
-                    styles.metaBox,
-                    {
-                      backgroundColor: previewPalette.surface,
-                      borderColor: previewPalette.border,
-                    },
+                    isLandscape && styles.previewDetailsLandscape,
                   ]}
                 >
-                  <View style={styles.metaRow}>
-                    {preview.estado === ESTADOS.APROBADA ? (
-                      <Chip
-                        mode="outlined"
-                        compact
-                        icon="check"
-                        style={styles.chipOk}
-                        textStyle={styles.chipText}
-                      >
-                        Aprobada
-                      </Chip>
-                    ) : null}
-                    {preview.estado === ESTADOS.RECHAZADA ? (
-                      <Chip
-                        mode="outlined"
-                        compact
-                        icon="close-octagon"
-                        style={styles.chipDenied}
-                        textStyle={styles.chipText}
-                      >
-                        Rechazada
-                      </Chip>
-                    ) : null}
-                    {preview.estado === ESTADOS.PENDIENTE ? (
-                      <Chip
-                        mode="outlined"
-                        compact
-                        icon="progress-clock"
-                        style={styles.chipPending}
-                        textStyle={styles.chipText}
-                      >
-                        Pendiente
-                      </Chip>
-                    ) : null}
-                    <Text style={[styles.fechaText, { color: previewPalette.copy }]}>
-                      {preview.createdAt
-                        ? moment(preview.createdAt).format("DD/MM/YYYY HH:mm")
-                        : "Sin fecha"}
-                    </Text>
-                  </View>
-                  {preview.size ? (
-                    <Text style={[styles.sizeText, { color: previewPalette.muted }]}>
-                      Tamaño: {(preview.size / 1024 / 1024).toFixed(2)} MB
-                    </Text>
-                  ) : null}
-                  {preview.descripcion ? (
-                    <Text
-                      style={[
-                        styles.descText,
-                        {
-                          backgroundColor: previewPalette.soft,
-                          borderColor: previewPalette.border,
-                          color: previewPalette.copy,
-                        },
-                      ]}
-                    >
-                      {preview.descripcion}
-                    </Text>
-                  ) : null}
-                  {renderAnalisisIA(preview.analisisIA)}
-                </View>
-              </ScrollView>
-
-              <View style={styles.previewActionsFooter}>
-                <View style={styles.previewActionsRow}>
-                  <Button
-                    compact
-                    mode="outlined"
-                    icon="shield-refresh"
-                    disabled={ventaActual?.isCobrado === true || ventaActual?.isCancelada === true}
-                    onPress={handleReevaluarConIA}
-                    style={styles.actionBtn}
+                  <View
+                    style={[
+                      styles.metaBox,
+                      {
+                        backgroundColor: previewPalette.surface,
+                        borderColor: previewPalette.border,
+                      },
+                    ]}
                   >
-                    Reevaluar IA
-                  </Button>
-                  {preview.estado === ESTADOS.PENDIENTE ? (
-                    <>
-                      <Button
-                        mode="contained"
-                        icon="check"
-                        onPress={handleAprobar}
-                        style={styles.actionBtn}
+                    <View style={styles.metaRow}>
+                      {preview.estado === ESTADOS.APROBADA ? (
+                        <Chip
+                          mode="outlined"
+                          compact
+                          icon="check"
+                          style={styles.chipOk}
+                          textStyle={chipTextStyle}
+                        >
+                          Aprobada
+                        </Chip>
+                      ) : null}
+                      {preview.estado === ESTADOS.RECHAZADA ? (
+                        <Chip
+                          mode="outlined"
+                          compact
+                          icon="close-octagon"
+                          style={styles.chipDenied}
+                          textStyle={chipTextStyle}
+                        >
+                          Rechazada
+                        </Chip>
+                      ) : null}
+                      {preview.estado === ESTADOS.PENDIENTE ? (
+                        <Chip
+                          mode="outlined"
+                          compact
+                          icon="progress-clock"
+                          style={styles.chipPending}
+                          textStyle={chipTextStyle}
+                        >
+                          Pendiente
+                        </Chip>
+                      ) : null}
+                      <Text
+                        style={[styles.fechaText, { color: previewPalette.copy }]}
                       >
-                        Aprobar
-                      </Button>
-                      <Button
-                        mode="outlined"
-                        icon="close"
-                        onPress={handleRechazar}
-                        style={styles.actionBtn}
-                        textColor="#c62828"
+                        {preview.createdAt
+                          ? moment(preview.createdAt).format("DD/MM/YYYY HH:mm")
+                          : "Sin fecha"}
+                      </Text>
+                    </View>
+                    {preview.size ? (
+                      <Text
+                        style={[styles.sizeText, { color: previewPalette.muted }]}
                       >
-                        Rechazar
-                      </Button>
-                    </>
-                  ) : null}
-                  {preview.estado === ESTADOS.APROBADA ? (
-                    <Text style={styles.aprobadaInfo}>Ya aprobada</Text>
-                  ) : null}
-                  {preview.estado === ESTADOS.RECHAZADA ? (
-                    <Text style={styles.rechazadaInfo}>Rechazada</Text>
-                  ) : null}
+                        Tamaño: {(preview.size / 1024 / 1024).toFixed(2)} MB
+                      </Text>
+                    ) : null}
+                    {preview.descripcion ? (
+                      <Text
+                        style={[
+                          styles.descText,
+                          {
+                            backgroundColor: previewPalette.soft,
+                            borderColor: previewPalette.border,
+                            color: previewPalette.copy,
+                          },
+                        ]}
+                      >
+                        {preview.descripcion}
+                      </Text>
+                    ) : null}
+                    {renderAnalisisIA(preview.analisisIA)}
+                  </View>
                 </View>
               </View>
             </View>
@@ -2221,6 +2272,18 @@ const styles = StyleSheet.create({
   miniIcon: { margin: 0, padding: 0 },
   miniRowIcon: { margin: 0, marginRight: 4, padding: 0 },
   previewImage: { height: "100%", width: "100%" },
+  previewImageLandscape: { height: "100%", width: "100%" },
+  previewMedia: { width: "100%" },
+  previewBody: { width: "100%" },
+  previewBodyLandscape: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 12,
+  },
+  previewDetailsLandscape: {
+    flex: 1,
+    minWidth: 0,
+  },
   previewActionsFooter: {
     borderTopColor: "rgba(148, 163, 184, 0.25)",
     borderTopWidth: 1,

@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import {
+  ActivityIndicator,
   Button,
   Chip,
   DataTable,
@@ -705,12 +706,19 @@ export default function MisComprasScreen() {
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCompras.length / itemsPerPage));
-  const from = page * itemsPerPage;
-  const to = Math.min((page + 1) * itemsPerPage, filteredCompras.length);
+  const safePage = Math.min(page, totalPages - 1);
+  const from = safePage * itemsPerPage;
+  const to = Math.min((safePage + 1) * itemsPerPage, filteredCompras.length);
   const visibleCompras = useMemo(
     () => filteredCompras.slice(from, to),
     [filteredCompras, from, to],
   );
+
+  useEffect(() => {
+    if (page !== safePage) {
+      setPage(safePage);
+    }
+  }, [page, safePage]);
 
   const activeFiltersCount = [
     Boolean(searchQuery.trim()),
@@ -1045,7 +1053,15 @@ export default function MisComprasScreen() {
         </View>
 
         {/* EMPTY STATE */}
-        {filteredCompras.length === 0 ? (
+        {!ready ? (
+          <Surface style={[styles.emptyCard, { backgroundColor: panelBg, borderColor: borderCol }]}>
+            <ActivityIndicator size="small" color="#2563eb" />
+            <Text style={styles.emptyTitle}>Sincronizando compras</Text>
+            <Text style={styles.emptySubtitle}>
+              Estamos cargando ventas, evidencias y estados de entrega.
+            </Text>
+          </Surface>
+        ) : filteredCompras.length === 0 ? (
           <Surface style={[styles.emptyCard, { backgroundColor: panelBg, borderColor: borderCol }]}>
             <IconButton icon="package-variant-closed" size={44} iconColor="#94a3b8" />
             <Text style={styles.emptyTitle}>No se encontraron compras</Text>
@@ -1212,10 +1228,10 @@ export default function MisComprasScreen() {
             </ScrollView>
 
             <DataTable.Pagination
-              page={page}
+              page={safePage}
               numberOfPages={totalPages}
               onPageChange={setPage}
-              label={(from + 1) + "-" + to + " de " + filteredCompras.length}
+              label={(filteredCompras.length ? from + 1 : 0) + "-" + to + " de " + filteredCompras.length}
               numberOfItemsPerPageList={OPTIONS_PER_PAGE}
               numberOfItemsPerPage={itemsPerPage}
               onItemsPerPageChange={(val) => {
@@ -1370,10 +1386,10 @@ export default function MisComprasScreen() {
             {/* Pagination for Cards */}
             <Surface style={[styles.cardsPagination, { backgroundColor: panelBg, borderColor: borderCol }]}>
               <DataTable.Pagination
-                page={page}
+                page={safePage}
                 numberOfPages={totalPages}
                 onPageChange={setPage}
-                label={(from + 1) + "-" + to + " de " + filteredCompras.length}
+                label={(filteredCompras.length ? from + 1 : 0) + "-" + to + " de " + filteredCompras.length}
                 numberOfItemsPerPageList={OPTIONS_PER_PAGE}
                 numberOfItemsPerPage={itemsPerPage}
                 onItemsPerPageChange={(val) => {

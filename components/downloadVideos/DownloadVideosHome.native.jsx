@@ -41,7 +41,7 @@ import AppHeader, {
 } from "../Header/AppHeader";
 import { PelisCollection } from "../collections/collections";
 import { syncMovieSpotlightIndex } from "../../services/spotlight/spotlight";
-import ModernBottomDrawer from "../cinema/ModernBottomDrawer.native";
+import ModernBottomDrawer from "../cinema/ModernBottomDrawer";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (

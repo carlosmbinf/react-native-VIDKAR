@@ -1,16 +1,18 @@
 import { BlurView } from "expo-blur";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     Animated,
     Modal,
     PanResponder,
     Platform,
     Pressable,
+    ScrollView,
     StatusBar,
     StyleSheet,
     View,
     useWindowDimensions,
 } from "react-native";
+  import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
     Divider,
     IconButton,
@@ -24,22 +26,46 @@ const DrawerBottom = ({
   actions = [],
   children,
   contentAtTopRef,
+  footer,
+  headerContent,
   headerStyle,
   onClose,
   open,
   overlayOpacity = 0.45,
+  scrollable = false,
   showHeader = true,
   side = "bottom",
   surfaceStyle,
   title,
 }) => {
   const theme = useTheme();
-  const { height: screenHeight } = useWindowDimensions();
+  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isBottom = side === "bottom";
+  const isLandscape = screenWidth > screenHeight;
+  const drawerWidth = isLandscape ? Math.min(screenWidth - 48, 640) : screenWidth;
   const translateY = useRef(new Animated.Value(screenHeight)).current;
+  const internalContentAtTopRef = useRef(true);
+  const drawerContentAtTopRef = contentAtTopRef || (scrollable ? internalContentAtTopRef : null);
+  const contentGestureStartedAtTopRef = useRef(false);
   const [contentHeight, setContentHeight] = useState(0);
-  const maxSheetHeight = screenHeight * 0.85;
-  const sheetHeight = Math.min(contentHeight || maxSheetHeight, maxSheetHeight);
+  const [chromeHeight, setChromeHeight] = useState(0);
+  const [footerHeight, setFooterHeight] = useState(0);
+  const maxSheetHeight = screenHeight * (isLandscape ? 0.96 : 0.9);
+  const scrollViewportHeight = Math.max(
+    120,
+    maxSheetHeight - chromeHeight - footerHeight,
+  );
+  const measuredContentHeight = scrollable
+    ? Math.min(contentHeight, scrollViewportHeight)
+    : contentHeight;
+  const drawerHeight = chromeHeight > 0 && measuredContentHeight > 0
+    ? Math.min(
+        maxSheetHeight,
+        chromeHeight + measuredContentHeight + footerHeight,
+      )
+    : maxSheetHeight;
+  const sheetHeight = drawerHeight;
   const [mounted, setMounted] = useState(Boolean(open));
 
   useEffect(() => {
@@ -112,12 +138,14 @@ const DrawerBottom = ({
     PanResponder.create({
       onMoveShouldSetPanResponderCapture: (_, gestureState) =>
         isBottom &&
-        contentAtTopRef?.current === true &&
+        contentGestureStartedAtTopRef.current &&
+        drawerContentAtTopRef?.current === true &&
         gestureState.dy > 4 &&
         Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
       onMoveShouldSetPanResponder: (_, gestureState) =>
         isBottom &&
-        contentAtTopRef?.current === true &&
+        contentGestureStartedAtTopRef.current &&
+        drawerContentAtTopRef?.current === true &&
         gestureState.dy > 4 &&
         Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
       onPanResponderMove: (_, gestureState) => {
@@ -158,28 +186,35 @@ const DrawerBottom = ({
 
   const headerNode = showHeader ? (
     <>
-      <View style={[styles.header, headerStyle]}>
-        <View style={styles.headerTitleContainer} {...panResponder.panHandlers}>
-          <Text style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
+      {headerContent ? (
+        <View style={[styles.customHeader, headerStyle]} {...panResponder.panHandlers}>
+          {headerContent}
         </View>
-        <View style={styles.actionsRow}>
-          {actions.map((action, index) => (
-            <IconButton
-              key={`${action.icon || "action"}-${index}`}
-              icon={action.icon}
-              size={20}
-              onPress={action.onPress}
-              disabled={action.disabled}
-            />
-          ))}
-          <IconButton icon="close" size={22} onPress={onClose} />
+      ) : (
+        <View style={[styles.header, headerStyle]}>
+          <View style={styles.headerTitleContainer} {...panResponder.panHandlers}>
+            <Text style={styles.title} numberOfLines={1}>
+              {title}
+            </Text>
+          </View>
+          <View style={styles.actionsRow}>
+            {actions.map((action, index) => (
+              <IconButton
+                key={`${action.icon || "action"}-${index}`}
+                icon={action.icon}
+                size={20}
+                onPress={action.onPress}
+                disabled={action.disabled}
+              />
+            ))}
+            <IconButton icon="close" size={22} onPress={onClose} />
+          </View>
         </View>
-      </View>
+      )}
       <Divider />
     </>
   ) : null;
+  const footerNode = typeof footer === "function" ? footer() : footer;
 
   const drawerContent = (
     <View style={styles.portalContainer}>
@@ -193,7 +228,13 @@ const DrawerBottom = ({
         <Animated.View
           style={[
             styles.bottomSheetWrapper,
-            { transform: [{ translateY }], maxHeight: maxSheetHeight },
+            {
+              transform: [{ translateY }],
+              left: (screenWidth - drawerWidth) / 2,
+              height: drawerHeight,
+              maxHeight: maxSheetHeight,
+              width: drawerWidth,
+            },
           ]}
           pointerEvents="auto"
         >
@@ -203,11 +244,13 @@ const DrawerBottom = ({
               styles.bottomSurface,
               {
                 backgroundColor: "transparent",
+                height: drawerHeight,
                 maxHeight: maxSheetHeight,
               },
               surfaceStyle,
             ]}
           >
+            <View style={styles.surfaceClip}>
             <BlurView
               intensity={56}
               tint={theme.dark ? "dark" : "light"}
@@ -227,23 +270,78 @@ const DrawerBottom = ({
                 },
               ]}
             />
-            <View style={styles.handleZone} {...panResponder.panHandlers}>
+            <View
+              onLayout={(event) => setChromeHeight(event.nativeEvent.layout.height)}
+              style={styles.drawerChrome}
+            >
+              <View style={styles.handleZone} {...panResponder.panHandlers}>
+                <View
+                  style={[
+                    styles.handle,
+                    { backgroundColor: theme.colors.outlineVariant || "#ccc" },
+                  ]}
+                />
+              </View>
+              {headerNode}
+            </View>
+            {scrollable ? (
+              <ScrollView
+                bounces={false}
+                contentContainerStyle={[
+                  styles.bottomScrollContent,
+                  { paddingBottom: footerNode ? 0 : insets.bottom },
+                ]}
+                nestedScrollEnabled
+                onContentSizeChange={(_, height) => setContentHeight(height)}
+                onScroll={(event) => {
+                    if (drawerContentAtTopRef) {
+                      drawerContentAtTopRef.current = event.nativeEvent.contentOffset.y <= 0.5;
+                  }
+                }}
+                onTouchCancel={() => {
+                  contentGestureStartedAtTopRef.current = false;
+                }}
+                onTouchEnd={() => {
+                  contentGestureStartedAtTopRef.current = false;
+                }}
+                onTouchStart={() => {
+                  contentGestureStartedAtTopRef.current = drawerContentAtTopRef?.current === true;
+                }}
+                scrollEventThrottle={16}
+                showsVerticalScrollIndicator={false}
+                style={[
+                  styles.bottomScroll,
+                  { maxHeight: scrollViewportHeight },
+                ]}
+                {...(drawerContentAtTopRef ? contentPanResponder.panHandlers : {})}
+              >
+                {children}
+              </ScrollView>
+            ) : (
               <View
                 style={[
-                  styles.handle,
-                  { backgroundColor: theme.colors.outlineVariant || "#ccc" },
+                  styles.bottomContent,
+                  { paddingBottom: footerNode ? 0 : insets.bottom },
                 ]}
-              />
-            </View>
-            {headerNode}
-            <View
-              style={styles.bottomContent}
-              {...(contentAtTopRef ? contentPanResponder.panHandlers : {})}
-              onLayout={(event) => {
-                setContentHeight(event.nativeEvent.layout.height + 30);
-              }}
-            >
-              {children}
+                {...(drawerContentAtTopRef ? contentPanResponder.panHandlers : {})}
+                onLayout={(event) => {
+                  setContentHeight(event.nativeEvent.layout.height);
+                }}
+              >
+                {children}
+              </View>
+            )}
+            {footerNode ? (
+              <View
+                onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
+                style={[
+                  styles.drawerFooter,
+                  { paddingBottom: insets.bottom },
+                ]}
+              >
+                {footerNode}
+              </View>
+            ) : null}
             </View>
           </Surface>
         </Animated.View>
@@ -281,22 +379,44 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   bottomContent: {
-    paddingBottom: 20,
     paddingHorizontal: 16,
     paddingTop: 4,
   },
+  bottomScroll: {
+    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  bottomScrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+  },
+  drawerFooter: {
+    borderTopColor: "rgba(148, 163, 184, 0.2)",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexShrink: 0,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  drawerChrome: {
+    flexShrink: 0,
+  },
   bottomSheetWrapper: {
+    alignSelf: "center",
     bottom: 0,
     left: 0,
     position: "absolute",
-    width: "100%",
     zIndex: 1001,
   },
   bottomSurface: {
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
+  },
+  surfaceClip: {
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    flex: 1,
     overflow: "hidden",
-    paddingBottom: 12,
   },
   handle: {
     borderRadius: 3,
@@ -315,6 +435,9 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
     paddingHorizontal: 12,
     paddingTop: 6,
+  },
+  customHeader: {
+    width: "100%",
   },
   headerTitleContainer: {
     flex: 1,

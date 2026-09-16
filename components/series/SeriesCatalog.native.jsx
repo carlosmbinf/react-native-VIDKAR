@@ -11,7 +11,7 @@ import { SeriesCollection } from "../collections/collections";
 import { Meteor } from "../../services/meteor/client.native";
 import { useCurrentSession } from "../../services/meteor/session.native";
 import { getSeries, getSeriesSeasons } from "../../services/series/seriesPlayback.native";
-import ModernBottomDrawer from "../cinema/ModernBottomDrawer.native";
+import ModernBottomDrawer from "../cinema/ModernBottomDrawer";
 
 const ALL_GENRES = "Todos";
 const isVisible = (item) => item?.mostrar === true || item?.mostrar === "true";
@@ -196,6 +196,40 @@ export default function SeriesCatalog() {
           />
         </View>
       }
+      footer={(
+        <View style={styles.sheetActions}>
+          <Button
+            mode="contained"
+            buttonColor={palette.accent}
+            textColor="#fff"
+            icon="play-circle-outline"
+            onPress={() => goToDetail(detail || selected)}
+            style={styles.sheetPrimaryBtn}
+            contentStyle={{ height: 48 }}
+            labelStyle={{ fontSize: 15, fontWeight: "900", letterSpacing: 0.2 }}
+          >
+            {detailLoading
+              ? "Ver temporadas y episodios"
+              : `Ver ${seasons.length > 0 ? `${seasons.length} ${seasons.length === 1 ? "temporada" : "temporadas"}` : "temporadas"} y episodios`}
+          </Button>
+          {((detail || selected)?.trailer || (detail || selected)?.urlTrailer) ? (
+            <Button
+              mode="outlined"
+              textColor="#fff"
+              icon="video-vintage"
+              onPress={() => {
+                const url = (detail || selected)?.trailer || (detail || selected)?.urlTrailer;
+                if (url) Linking.openURL(url).catch(() => null);
+              }}
+              style={styles.sheetSecondaryBtn}
+              contentStyle={{ height: 44 }}
+              labelStyle={{ fontSize: 14, fontWeight: "700" }}
+            >
+              Ver Tráiler Oficial
+            </Button>
+          ) : null}
+        </View>
+      )}
     >
       <View style={styles.sheetContent}>
         {/* METADATA CHIPS ROW */}
@@ -251,40 +285,6 @@ export default function SeriesCatalog() {
           </Surface>
         ) : null}
 
-        {/* ACCIONES */}
-        <View style={styles.sheetActions}>
-          <Button
-            mode="contained"
-            buttonColor={palette.accent}
-            textColor="#fff"
-            icon="play-circle-outline"
-            onPress={() => goToDetail(detail || selected)}
-            style={styles.sheetPrimaryBtn}
-            contentStyle={{ height: 48 }}
-            labelStyle={{ fontSize: 15, fontWeight: "900", letterSpacing: 0.2 }}
-          >
-            {detailLoading
-              ? "Ver temporadas y episodios"
-              : `Ver ${seasons.length > 0 ? `${seasons.length} ${seasons.length === 1 ? "temporada" : "temporadas"}` : "temporadas"} y episodios`}
-          </Button>
-
-          {((detail || selected)?.trailer || (detail || selected)?.urlTrailer) ? (
-            <Button
-              mode="outlined"
-              textColor="#fff"
-              icon="video-vintage"
-              onPress={() => {
-                const url = (detail || selected)?.trailer || (detail || selected)?.urlTrailer;
-                if (url) Linking.openURL(url).catch(() => null);
-              }}
-              style={styles.sheetSecondaryBtn}
-              contentStyle={{ height: 44 }}
-              labelStyle={{ fontSize: 14, fontWeight: "700" }}
-            >
-              Ver Tráiler Oficial
-            </Button>
-          ) : null}
-        </View>
       </View>
     </ModernBottomDrawer>
     <Modal animationType="none" onRequestClose={closeAdminModal} transparent visible={adminModal}>

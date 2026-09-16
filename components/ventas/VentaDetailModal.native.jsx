@@ -205,9 +205,18 @@ export default function VentaDetailModal({
   const handleAprobarSoloEvidencia = () => {
     if (!activeEvidence?._id || sale?.isCobrado === true || sale?.isCancelada === true) return;
 
+    const estadoActual = activeEvidence.aprobado
+      ? "APROBADA"
+      : activeEvidence.denegado
+        ? "RECHAZADA"
+        : "PENDIENTE";
+    const cambioDeEstado = estadoActual !== "PENDIENTE";
+
     Alert.alert(
-      "Aprobar comprobante",
-      "¿Deseas marcar el comprobante de pago como aprobado?",
+      cambioDeEstado ? "Cambiar estado de evidencia" : "Aprobar comprobante",
+      cambioDeEstado
+        ? `La evidencia ya está ${estadoActual}. ¿Realmente deseas cambiarla a APROBADA?`
+        : "¿Deseas marcar el comprobante de pago como aprobado?",
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -233,9 +242,18 @@ export default function VentaDetailModal({
   const handleRechazarEvidencia = () => {
     if (!activeEvidence?._id || sale?.isCobrado === true || sale?.isCancelada === true) return;
 
+    const estadoActual = activeEvidence.aprobado
+      ? "APROBADA"
+      : activeEvidence.denegado
+        ? "RECHAZADA"
+        : "PENDIENTE";
+    const cambioDeEstado = estadoActual !== "PENDIENTE";
+
     Alert.alert(
-      "Rechazar comprobante",
-      "Selecciona el motivo del rechazo:",
+      cambioDeEstado ? "Cambiar estado de evidencia" : "Rechazar comprobante",
+      cambioDeEstado
+        ? `La evidencia ya está ${estadoActual}. ¿Realmente deseas cambiarla a RECHAZADA? Selecciona el motivo:`
+        : "¿Deseas marcar el comprobante como rechazado? Selecciona el motivo:",
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -672,7 +690,7 @@ export default function VentaDetailModal({
                   ) : null}
 
                   {/* Admin buttons for evidence */}
-                  {(isGeneralAdmin || isAdmin) ? (
+                  {isGeneralAdmin === true ? (
                     <View style={styles.evidenceActionButtons}>
                       <Button
                         icon="shield-refresh"
@@ -680,35 +698,44 @@ export default function VentaDetailModal({
                         loading={actionProcessing}
                         disabled={actionProcessing || sale.isCobrado === true || sale.isCancelada === true}
                         onPress={handleReevaluarConIA}
+                        style={styles.reevaluateEvidenceBtn}
+                        contentStyle={styles.roundedActionContent}
+                        labelStyle={styles.roundedActionLabel}
                         compact
                       >
                         Reevaluar IA
                       </Button>
-                      {!activeEvidence.aprobado && !activeEvidence.denegado ? (
-                        <>
-                      <Button
-                        icon="check-circle"
-                        mode="contained"
-                        loading={actionProcessing}
-                        disabled={actionProcessing}
-                        onPress={handleAprobarSoloEvidencia}
-                        style={styles.approveEvidenceBtn}
-                      >
-                        Aprobar comprobante
-                      </Button>
-                      <Button
-                        icon="close-circle"
-                        mode="outlined"
-                        loading={actionProcessing}
-                        disabled={actionProcessing}
-                        onPress={handleRechazarEvidencia}
-                        textColor="#ef4444"
-                        style={styles.rejectEvidenceBtn}
-                      >
-                        Rechazar
-                      </Button>
-                        </>
-                      ) : null}
+                      <View style={styles.evidenceDecisionRow}>
+                        {!activeEvidence.aprobado ? (
+                          <Button
+                            icon="check-circle"
+                            mode="contained"
+                            loading={actionProcessing}
+                            disabled={actionProcessing}
+                            onPress={handleAprobarSoloEvidencia}
+                            style={styles.approveEvidenceBtn}
+                            contentStyle={styles.roundedActionContent}
+                            labelStyle={styles.roundedActionLabel}
+                          >
+                            Aprobar
+                          </Button>
+                        ) : null}
+                        {!activeEvidence.denegado ? (
+                          <Button
+                            icon="close-circle"
+                            mode="outlined"
+                            loading={actionProcessing}
+                            disabled={actionProcessing}
+                            onPress={handleRechazarEvidencia}
+                            textColor="#ef4444"
+                            style={styles.rejectEvidenceBtn}
+                            contentStyle={styles.roundedActionContent}
+                            labelStyle={styles.roundedActionLabel}
+                          >
+                            Rechazar
+                          </Button>
+                        ) : null}
+                      </View>
                     </View>
                   ) : null}
                 </Surface>
@@ -1114,9 +1141,30 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   evidenceActionButtons: {
-    flexDirection: "row",
+    flexDirection: "column",
     gap: 10,
     marginTop: 4,
+  },
+  evidenceDecisionRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  roundedActionLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.1,
+    textTransform: "none",
+  },
+  roundedActionContent: {
+    justifyContent: "center",
+    minHeight: 44,
+  },
+  reevaluateEvidenceBtn: {
+    borderColor: "#64748b",
+    borderRadius: 999,
+    borderWidth: 1.5,
+    minHeight: 46,
+    width: "100%",
   },
   evidenceSelectorChip: {
     marginBottom: 4,
@@ -1124,12 +1172,15 @@ const styles = StyleSheet.create({
   },
   approveEvidenceBtn: {
     backgroundColor: "#16a34a",
-    borderRadius: 10,
+    borderRadius: 999,
+    minHeight: 46,
     flex: 1,
   },
   rejectEvidenceBtn: {
     borderColor: "#ef4444",
-    borderRadius: 10,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    minHeight: 46,
     flex: 1,
   },
   uploadPromptBox: {
