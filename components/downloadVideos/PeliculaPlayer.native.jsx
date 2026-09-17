@@ -5,6 +5,7 @@ import * as SecureStore from "expo-secure-store";
 import React from "react";
 import {
     Modal,
+    Platform,
     Pressable,
     StatusBar,
     StyleSheet,
@@ -26,6 +27,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { getHlsServerUrl, getMeteorUrl } from "../../services/meteor/client.native";
 import { setNativePipPlayerActive } from "../../services/pip/nativePip";
+import AirPlayVideoPlayer from "../shared/AirPlayVideoPlayer.native";
 
 const { VLCPlayer } = require("react-native-vlc-media-player");
 
@@ -589,6 +591,10 @@ const PeliculaPlayer = () => {
   const hlsDurationMs =
     serverHlsDurationMs || normalizeHlsDurationMs(hlsPlayback.durationSeconds);
   const hlsStartOffsetMs = Number(hlsPlayback.startAtSeconds || 0) * 1000;
+  const canUseAirPlay =
+    Platform.OS === "ios" &&
+    !externalSubtitleEnabled &&
+    selectedTextTrack === undefined;
 
   React.useEffect(() => {
     if (!resumeStateReady || resumePromptVisible) {
@@ -1309,7 +1315,19 @@ const PeliculaPlayer = () => {
             isFullscreenMode && styles.videoFrameFullscreen,
           ]}
         >
-          <VLCPlayer
+          {canUseAirPlay ? <AirPlayVideoPlayer
+            ref={playerRef}
+            style={styles.video}
+            source={{ uri: streamUrl, contentType: "hls" }}
+            paused={paused}
+            startAtSeconds={hlsStartOffsetMs / 1000}
+            onLoad={handleLoad}
+            onProgress={handleProgress}
+            onPlaying={handlePlaying}
+            onPaused={handlePaused}
+            onEnd={handleEnded}
+            onError={handleError}
+          /> : <VLCPlayer
             key={`${movie?._id || "movie"}:${reloadToken}:${mode}:${subtitleSizeId}`}
             ref={playerRef}
             style={styles.video}
@@ -1332,10 +1350,11 @@ const PeliculaPlayer = () => {
             onPaused={handlePaused}
             onEnd={handleEnded}
             onError={handleError}
-          />
+          />}
 
           <Pressable
             style={styles.videoTapLayer}
+            pointerEvents={canUseAirPlay ? "box-none" : "auto"}
             onPress={handleTogglePlayerChrome}
             accessibilityRole="button"
             accessibilityLabel={playerChromeVisible ? "Ocultar controles" : "Mostrar controles"}
@@ -1470,6 +1489,7 @@ const PeliculaPlayer = () => {
     },
     [
       activeTextTrackLabel,
+      canUseAirPlay,
       detectedSubtitleUri,
       durationMs,
       externalSubtitleEnabled,
@@ -1489,6 +1509,7 @@ const PeliculaPlayer = () => {
       hasRenderedFrame,
       hasSubtitle,
       hlsPlayback.status,
+      hlsStartOffsetMs,
       hlsPreparing,
       movie,
       palette.accent,

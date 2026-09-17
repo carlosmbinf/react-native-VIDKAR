@@ -4,11 +4,12 @@ import * as ScreenOrientation from "expo-screen-orientation";
 import * as SecureStore from "expo-secure-store";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { Alert, Image, Modal as NativeModal, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, UIManager, View } from "react-native";
+import { Alert, Image, Modal as NativeModal, Platform, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, UIManager, View } from "react-native";
 import { ActivityIndicator, Button, Divider, Icon, IconButton, Surface, Text, useTheme } from "react-native-paper";
 
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { SuscripcionesCursoCollection } from "../collections/collections";
+import AirPlayVideoPlayer from "../shared/AirPlayVideoPlayer.native";
 
 const { VLCPlayer } = require("react-native-vlc-media-player");
 const Meteor = MeteorBase;
@@ -162,7 +163,7 @@ const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds,
         duration: Math.floor(duration / 1000),
       });
     }
-  }, [clearInterruptionTimer, durationSeconds, lesson?._id, startAtSeconds]);
+  }, [clearInterruptionTimer, durationSeconds, lesson?._id]);
 
   const handlePlaying = React.useCallback(() => {
     clearInterruptionTimer();
@@ -184,7 +185,11 @@ const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds,
   const handleSeek = (seconds) => {
     if (!playback.duration) return;
     const nextTime = Math.max(0, Math.min(playback.duration, playback.currentTime + seconds * 1000));
-    playerRef.current?.seek?.(playback.duration > 0 ? nextTime / playback.duration : 0);
+    if (Platform.OS === "ios") {
+      playerRef.current?.seekRatio?.(playback.duration > 0 ? nextTime / playback.duration : 0);
+    } else {
+      playerRef.current?.seek?.(playback.duration > 0 ? nextTime / playback.duration : 0);
+    }
   };
 
   const source = React.useMemo(() => ({
@@ -196,7 +201,29 @@ const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds,
   const progressRatio = playback.duration > 0 ? Math.max(0, Math.min(1, playback.position)) : 0;
   const playerSurface = (isFullscreen) => (
     <View style={[styles.videoFrame, isFullscreen && styles.videoFrameFullscreen]}>
-      <VLCPlayer
+      {Platform.OS === "ios" ? <AirPlayVideoPlayer
+        ref={playerRef}
+        style={styles.video}
+        source={{ uri: sourceUrl, contentType: "hls" }}
+        paused={paused}
+        startAtSeconds={startAtSeconds}
+        onLoad={(event) => {
+          setBuffering(false);
+          const duration = Number(durationSeconds || 0) * 1000 || Number(event?.duration || 0);
+          setPlayback((current) => ({ ...current, duration }));
+        }}
+        onProgress={handleProgress}
+        onPlaying={handlePlaying}
+        onPaused={() => { setBuffering(false); setIsPlaying(false); }}
+        onEnd={() => {
+          setPaused(true);
+          setIsPlaying(false);
+          setBuffering(false);
+          persistedPlaybackSecondsRef.current = 0;
+          saveCoursePlayback(lesson?._id, { completed: true, currentTime: 0, duration: Math.floor(playback.duration / 1000) });
+        }}
+        onError={handleError}
+      /> : <VLCPlayer
         key={`${lesson?._id || "lesson"}:${sourceUrl}:${isFullscreen ? "fullscreen" : "inline"}`}
         ref={playerRef}
         style={styles.video}
@@ -226,7 +253,7 @@ const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds,
           saveCoursePlayback(lesson?._id, { completed: true, currentTime: 0, duration: Math.floor(playback.duration / 1000) });
         }}
         onError={handleError}
-      />
+      />}
       <Pressable style={styles.videoTapLayer} onPress={() => setChromeVisible((current) => !current)} accessibilityRole="button" accessibilityLabel="Mostrar u ocultar controles" />
       {!hasRenderedFrame && !playerError ? (
         <View pointerEvents="none" style={styles.playerLoadingOverlay}><ActivityIndicator color="#fff" /><Text style={styles.posterLoading}>{buffering ? "Preparando streaming" : "Preparando reproducción"}</Text></View>
