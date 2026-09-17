@@ -33,6 +33,9 @@ const AirPlayVideoPlayer = React.forwardRef(({
     seek: (seconds) => {
       player.currentTime = Math.max(0, Number(seconds) || 0);
     },
+    seekRatio: (ratio) => {
+      player.currentTime = Math.max(0, (Number(ratio) || 0) * (player.duration || 0));
+    },
     play: () => player.play(),
     pause: () => player.pause(),
     get player() {

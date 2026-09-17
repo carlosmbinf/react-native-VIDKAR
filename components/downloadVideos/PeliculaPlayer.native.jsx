@@ -5,6 +5,7 @@ import * as SecureStore from "expo-secure-store";
 import React from "react";
 import {
     Modal,
+    Platform,
     Pressable,
     StatusBar,
     StyleSheet,
@@ -26,6 +27,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { getHlsServerUrl, getMeteorUrl } from "../../services/meteor/client.native";
 import { setNativePipPlayerActive } from "../../services/pip/nativePip";
+import AirPlayVideoPlayer from "../shared/AirPlayVideoPlayer.native";
 
 const { VLCPlayer } = require("react-native-vlc-media-player");
 
@@ -1309,7 +1311,19 @@ const PeliculaPlayer = () => {
             isFullscreenMode && styles.videoFrameFullscreen,
           ]}
         >
-          <VLCPlayer
+          {Platform.OS === "ios" ? <AirPlayVideoPlayer
+            ref={playerRef}
+            style={styles.video}
+            source={{ uri: streamUrl, contentType: "hls" }}
+            paused={paused}
+            startAtSeconds={hlsStartOffsetMs / 1000}
+            onLoad={handleLoad}
+            onProgress={handleProgress}
+            onPlaying={handlePlaying}
+            onPaused={handlePaused}
+            onEnd={handleEnded}
+            onError={handleError}
+          /> : <VLCPlayer
             key={`${movie?._id || "movie"}:${reloadToken}:${mode}:${subtitleSizeId}`}
             ref={playerRef}
             style={styles.video}
@@ -1332,7 +1346,7 @@ const PeliculaPlayer = () => {
             onPaused={handlePaused}
             onEnd={handleEnded}
             onError={handleError}
-          />
+          />}
 
           <Pressable
             style={styles.videoTapLayer}
