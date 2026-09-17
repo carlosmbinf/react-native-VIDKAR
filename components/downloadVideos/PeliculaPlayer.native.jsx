@@ -591,11 +591,6 @@ const PeliculaPlayer = () => {
   const hlsDurationMs =
     serverHlsDurationMs || normalizeHlsDurationMs(hlsPlayback.durationSeconds);
   const hlsStartOffsetMs = Number(hlsPlayback.startAtSeconds || 0) * 1000;
-  const canUseAirPlay =
-    Platform.OS === "ios" &&
-    !externalSubtitleEnabled &&
-    selectedTextTrack === undefined;
-
   React.useEffect(() => {
     if (!resumeStateReady || resumePromptVisible) {
       return undefined;
@@ -775,6 +770,23 @@ const PeliculaPlayer = () => {
     () => resolveMovieSubtitleUri(movie, hlsServerOrigin),
     [hlsServerOrigin, movie]
   );
+  const airPlayTextTracks = React.useMemo(
+    () =>
+      detectedSubtitleUri
+        ? [
+            {
+              uri: detectedSubtitleUri,
+              language: "es",
+              title: "Subtítulos",
+              type: "text/vtt",
+            },
+          ]
+        : [],
+    [detectedSubtitleUri]
+  );
+  const canUseAirPlay =
+    Platform.OS === "ios" &&
+    ((Boolean(detectedSubtitleUri) && externalSubtitleEnabled) || selectedTextTrack === undefined);
   const availableTextTracks = React.useMemo(
     () =>
       Array.isArray(videoInfo?.textTracks)
@@ -1318,7 +1330,13 @@ const PeliculaPlayer = () => {
           {canUseAirPlay ? <AirPlayVideoPlayer
             ref={playerRef}
             style={styles.video}
-            source={{ uri: streamUrl, contentType: "hls" }}
+            source={{
+              uri: streamUrl,
+              contentType: "hls",
+              textTracks: airPlayTextTracks,
+            }}
+            textTracks={airPlayTextTracks}
+            subtitlesEnabled={externalSubtitleEnabled}
             paused={paused}
             startAtSeconds={hlsStartOffsetMs / 1000}
             onLoad={handleLoad}

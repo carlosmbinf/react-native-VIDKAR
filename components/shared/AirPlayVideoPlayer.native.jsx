@@ -11,6 +11,8 @@ const AirPlayVideoPlayer = React.forwardRef(({
   paused = false,
   autoplay = true,
   startAtSeconds = 0,
+  textTracks = [],
+  subtitlesEnabled = true,
   style,
   contentFit = "contain",
   onLoad,
@@ -45,9 +47,30 @@ const AirPlayVideoPlayer = React.forwardRef(({
 
   React.useEffect(() => {
     player.allowsExternalPlayback = true;
+    if (Array.isArray(textTracks) && textTracks.length > 0) {
+      const selectSubtitleTrack = () => {
+        if (!subtitlesEnabled) {
+          player.subtitleTrack = null;
+          return;
+        }
+
+        const availableTracks = Array.isArray(player.availableSubtitleTracks)
+          ? player.availableSubtitleTracks
+          : [];
+        player.subtitleTrack = availableTracks[0] || null;
+      };
+
+      selectSubtitleTrack();
+      const subscription = player.addListener("sourceLoad", selectSubtitleTrack);
+      if (paused) player.pause();
+      else if (autoplay) player.play();
+      return () => subscription.remove();
+    }
+
+    player.subtitleTrack = null;
     if (paused) player.pause();
     else if (autoplay) player.play();
-  }, [autoplay, paused, player]);
+  }, [autoplay, paused, player, subtitlesEnabled, textTracks]);
 
   React.useEffect(() => {
     const subscriptions = [
