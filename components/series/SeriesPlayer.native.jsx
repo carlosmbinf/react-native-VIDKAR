@@ -141,6 +141,9 @@ const SeriesPlayer = () => {
 
   const selectedSubtitleSize = SUBTITLE_SIZE_OPTIONS.find((item) => item.id === subtitleSizeId) || SUBTITLE_SIZE_OPTIONS[1];
   const subtitleUrl = chapterId ? joinUrl(hlsOrigin, `/getsubtitleSeries?idCapitulo=${encode(chapterId)}`) : undefined;
+  const subtitleTextTracks = subtitleUrl
+    ? [{ uri: subtitleUrl, language: "es", title: "Subtítulos", type: "text/vtt" }]
+    : [];
   const source = playlistUrl ? { uri: playlistUrl, initType: 2, initOptions: [...BUFFER_OPTIONS, `--freetype-rel-fontsize=${selectedSubtitleSize.relativeFontSize}`, `--sub-text-scale=${selectedSubtitleSize.textScale}`], acceptInvalidCertificates: false } : null;
   const progress = duration > 0 ? clamp(currentTime / duration, 0, 1) : 0;
   const retry = React.useCallback(() => { setStartAtMs(0); setPlaylistUrl(null); setStreamError(""); setHasFrame(false); setStreamReload((value) => value + 1); loadPlayback(); }, [loadPlayback]);
@@ -154,7 +157,9 @@ const SeriesPlayer = () => {
   return (<><View style={styles.screen}><StatusBar hidden /><View style={styles.videoFrame}>{source ? (Platform.OS === "ios" ? <AirPlayVideoPlayer
     ref={playerRef}
     style={styles.video}
-    source={{ uri: source, contentType: "hls" }}
+    source={{ uri: playlistUrl, contentType: "hls", textTracks: subtitleTextTracks }}
+    textTracks={subtitleTextTracks}
+    subtitlesEnabled={externalSubtitleEnabled}
     paused={paused}
     startAtSeconds={startAtMs / 1000}
     onLoad={(event) => { const nextDuration = Math.max(durationRef.current, Number(event?.duration || 0)); setDuration(nextDuration); setHasFrame(true); setStreamError(""); revealControls(); if (!viewRegisteredRef.current) { viewRegisteredRef.current = true; addChapterView(chapterId); } }}
