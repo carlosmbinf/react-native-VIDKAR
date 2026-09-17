@@ -23,7 +23,7 @@
         "CFBundleName": "Vidkar",
         "CFBundleAllowMixedLocalizations": true,
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": ["fetch", "remote-notification", "location"],
+        "UIBackgroundModes": ["audio", "fetch", "remote-notification", "location"],
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true,
           "NSAllowsLocalNetworking": true,

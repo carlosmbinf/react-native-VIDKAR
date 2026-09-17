@@ -47,29 +47,33 @@ const AirPlayVideoPlayer = React.forwardRef(({
 
   React.useEffect(() => {
     player.allowsExternalPlayback = true;
-    if (Array.isArray(textTracks) && textTracks.length > 0) {
-      const selectSubtitleTrack = () => {
-        if (!subtitlesEnabled) {
-          player.subtitleTrack = null;
-          return;
-        }
+    const requestedTrack = Array.isArray(textTracks) ? textTracks[0] : null;
+    const selectSubtitleTrack = () => {
+      if (!subtitlesEnabled || !requestedTrack) {
+        player.subtitleTrack = null;
+        return;
+      }
 
-        const availableTracks = Array.isArray(player.availableSubtitleTracks)
-          ? player.availableSubtitleTracks
-          : [];
-        player.subtitleTrack = availableTracks[0] || null;
-      };
+      const availableTracks = Array.isArray(player.availableSubtitleTracks)
+        ? player.availableSubtitleTracks
+        : [];
+      const language = String(requestedTrack.language || "").toLowerCase();
+      const title = String(requestedTrack.title || "").toLowerCase();
+      const matchingTrack =
+        availableTracks.find((track) => {
+          const trackLanguage = String(track?.language || "").toLowerCase();
+          const trackTitle = String(track?.title || "").toLowerCase();
+          return (language && trackLanguage === language) || (title && trackTitle === title);
+        }) || availableTracks[0];
 
-      selectSubtitleTrack();
-      const subscription = player.addListener("sourceLoad", selectSubtitleTrack);
-      if (paused) player.pause();
-      else if (autoplay) player.play();
-      return () => subscription.remove();
-    }
+      player.subtitleTrack = matchingTrack || null;
+    };
 
-    player.subtitleTrack = null;
+    selectSubtitleTrack();
+    const subscription = player.addListener("sourceLoad", selectSubtitleTrack);
     if (paused) player.pause();
     else if (autoplay) player.play();
+    return () => subscription.remove();
   }, [autoplay, paused, player, subtitlesEnabled, textTracks]);
 
   React.useEffect(() => {
