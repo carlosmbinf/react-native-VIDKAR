@@ -163,7 +163,7 @@ const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds,
         duration: Math.floor(duration / 1000),
       });
     }
-  }, [clearInterruptionTimer, durationSeconds, lesson?._id, startAtSeconds]);
+  }, [clearInterruptionTimer, durationSeconds, lesson?._id]);
 
   const handlePlaying = React.useCallback(() => {
     clearInterruptionTimer();

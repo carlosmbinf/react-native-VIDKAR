@@ -591,6 +591,10 @@ const PeliculaPlayer = () => {
   const hlsDurationMs =
     serverHlsDurationMs || normalizeHlsDurationMs(hlsPlayback.durationSeconds);
   const hlsStartOffsetMs = Number(hlsPlayback.startAtSeconds || 0) * 1000;
+  const canUseAirPlay =
+    Platform.OS === "ios" &&
+    !externalSubtitleEnabled &&
+    selectedTextTrack === undefined;
 
   React.useEffect(() => {
     if (!resumeStateReady || resumePromptVisible) {
@@ -1311,7 +1315,7 @@ const PeliculaPlayer = () => {
             isFullscreenMode && styles.videoFrameFullscreen,
           ]}
         >
-          {Platform.OS === "ios" ? <AirPlayVideoPlayer
+          {canUseAirPlay ? <AirPlayVideoPlayer
             ref={playerRef}
             style={styles.video}
             source={{ uri: streamUrl, contentType: "hls" }}
@@ -1350,6 +1354,7 @@ const PeliculaPlayer = () => {
 
           <Pressable
             style={styles.videoTapLayer}
+            pointerEvents={canUseAirPlay ? "box-none" : "auto"}
             onPress={handleTogglePlayerChrome}
             accessibilityRole="button"
             accessibilityLabel={playerChromeVisible ? "Ocultar controles" : "Mostrar controles"}
@@ -1484,6 +1489,7 @@ const PeliculaPlayer = () => {
     },
     [
       activeTextTrackLabel,
+      canUseAirPlay,
       detectedSubtitleUri,
       durationMs,
       externalSubtitleEnabled,
@@ -1503,6 +1509,7 @@ const PeliculaPlayer = () => {
       hasRenderedFrame,
       hasSubtitle,
       hlsPlayback.status,
+      hlsStartOffsetMs,
       hlsPreparing,
       movie,
       palette.accent,
