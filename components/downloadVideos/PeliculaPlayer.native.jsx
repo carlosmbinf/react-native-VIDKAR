@@ -662,9 +662,10 @@ const PeliculaPlayer = () => {
 
         applyHlsStatus(status);
 
-        if (!status?.playlistReady && status?.status !== "ready") {
-          hlsPollTimerRef.current = setTimeout(pollHlsStatus, HLS_STATUS_POLL_MS);
-        }
+        hlsPollTimerRef.current = setTimeout(
+          pollHlsStatus,
+          status?.playlistReady ? 10000 : HLS_STATUS_POLL_MS
+        );
       } catch (_error) {
         if (cancelled) {
           return;
@@ -719,9 +720,10 @@ const PeliculaPlayer = () => {
         }
 
         applyHlsStatus(status);
-        if (!status?.playlistReady && status?.status !== "ready") {
-          hlsPollTimerRef.current = setTimeout(pollHlsStatus, HLS_STATUS_POLL_MS);
-        }
+        hlsPollTimerRef.current = setTimeout(
+          pollHlsStatus,
+          status?.playlistReady ? 10000 : HLS_STATUS_POLL_MS
+        );
       } catch (_error) {
         if (cancelled) {
           return;
@@ -784,9 +786,8 @@ const PeliculaPlayer = () => {
         : [],
     [detectedSubtitleUri]
   );
-  const canUseAirPlay =
-    Platform.OS === "ios" &&
-    ((Boolean(detectedSubtitleUri) && externalSubtitleEnabled) || selectedTextTrack === undefined);
+  // iOS siempre usa AVPlayer/VideoView; VLC queda reservado para Android.
+  const canUseAirPlay = Platform.OS === "ios";
   const availableTextTracks = React.useMemo(
     () =>
       Array.isArray(videoInfo?.textTracks)
@@ -1280,6 +1281,29 @@ const PeliculaPlayer = () => {
       if (!streamUrl || !vlcSource) {
         const hasHlsError = hlsPlayback.status === "error";
 
+        if (Platform.OS === "ios") {
+          return (
+            <View style={styles.videoFrame}>
+              <AirPlayVideoPlayer
+                ref={playerRef}
+                style={styles.video}
+                source={null}
+                preparing={!hasHlsError}
+                onError={handleError}
+              />
+              {hasHlsError ? (
+                <View style={styles.playerOverlayCenter}>
+                  <Surface style={[styles.playerErrorBox, { backgroundColor: "rgba(9, 17, 31, 0.9)" }]} elevation={0}>
+                    <Text variant="titleMedium" style={styles.playerErrorTitle}>{PLAYER_UNAVAILABLE_TITLE}</Text>
+                    <Text variant="bodySmall" style={styles.playerErrorCopy}>{PLAYER_UNAVAILABLE_MESSAGE}</Text>
+                    <Button mode="contained" onPress={handleRetryPlayback}>Reintentar</Button>
+                  </Surface>
+                </View>
+              ) : null}
+            </View>
+          );
+        }
+
         return (
           <View style={styles.videoFrame}>
             <View style={styles.playerOverlayCenter}>
@@ -1333,12 +1357,12 @@ const PeliculaPlayer = () => {
             source={{
               uri: streamUrl,
               contentType: "hls",
-              textTracks: airPlayTextTracks,
             }}
             textTracks={airPlayTextTracks}
             subtitlesEnabled={externalSubtitleEnabled}
             paused={paused}
             startAtSeconds={hlsStartOffsetMs / 1000}
+            autoFullscreen
             onLoad={handleLoad}
             onProgress={handleProgress}
             onPlaying={handlePlaying}
@@ -1371,7 +1395,7 @@ const PeliculaPlayer = () => {
           />}
 
           <Pressable
-            style={styles.videoTapLayer}
+            style={[styles.videoTapLayer, canUseAirPlay && styles.nativeControlsOnly]}
             pointerEvents={canUseAirPlay ? "box-none" : "auto"}
             onPress={handleTogglePlayerChrome}
             accessibilityRole="button"
@@ -1412,7 +1436,7 @@ const PeliculaPlayer = () => {
             </View>
           ) : null}
 
-          {playerChromeVisible ? (
+          {playerChromeVisible && !canUseAirPlay ? (
             <View style={styles.netflixControls} pointerEvents="box-none">
               <View style={styles.progressRow}>
                 <View style={styles.progressTrack}>
@@ -1507,6 +1531,7 @@ const PeliculaPlayer = () => {
     },
     [
       activeTextTrackLabel,
+      airPlayTextTracks,
       canUseAirPlay,
       detectedSubtitleUri,
       durationMs,
@@ -1903,6 +1928,9 @@ const styles = StyleSheet.create({
   videoTapLayer: {
     ...StyleSheet.absoluteFill,
     zIndex: 1,
+  },
+  nativeControlsOnly: {
+    display: "none",
   },
   playerLoadingOverlay: {
     ...StyleSheet.absoluteFill,

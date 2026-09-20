@@ -11,6 +11,8 @@ const AirPlayVideoPlayer = React.forwardRef(({
   paused = false,
   autoplay = true,
   startAtSeconds = 0,
+  autoFullscreen = false,
+  preparing = false,
   textTracks = [],
   subtitlesEnabled = true,
   style,
@@ -24,12 +26,48 @@ const AirPlayVideoPlayer = React.forwardRef(({
 }, ref) => {
   const player = useVideoPlayer(source, (nextPlayer) => {
     nextPlayer.allowsExternalPlayback = true;
+    nextPlayer.bufferOptions = {
+      preferredForwardBufferDuration: 12,
+      waitsToMinimizeStalling: false,
+    };
     nextPlayer.timeUpdateEventInterval = 0.25;
     nextPlayer.showNowPlayingNotification = true;
     nextPlayer.staysActiveInBackground = true;
     if (startAtSeconds > 0) nextPlayer.currentTime = startAtSeconds;
     if (autoplay && !paused) nextPlayer.play();
   });
+  const videoViewRef = React.useRef(null);
+  const autoFullscreenRequestedRef = React.useRef(false);
+  const lastSourceKeyRef = React.useRef(null);
+  const sourceKey = JSON.stringify(source ?? null);
+
+  React.useEffect(() => {
+    if (!source || sourceKey === lastSourceKeyRef.current) return undefined;
+    lastSourceKeyRef.current = sourceKey;
+    let cancelled = false;
+
+    player.replaceAsync(source)
+      .then(() => {
+        if (!cancelled && autoplay && !paused) player.play();
+      })
+      .catch((error) => {
+        if (!cancelled) onError?.(error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [autoplay, onError, paused, player, source, sourceKey]);
+
+  const requestAutoFullscreen = React.useCallback(() => {
+    if (!autoFullscreen || autoFullscreenRequestedRef.current) return;
+    autoFullscreenRequestedRef.current = true;
+    setTimeout(() => {
+      videoViewRef.current?.enterFullscreen?.().catch(() => {
+        autoFullscreenRequestedRef.current = false;
+      });
+    }, 0);
+  }, [autoFullscreen]);
 
   React.useImperativeHandle(ref, () => ({
     seek: (seconds) => {
@@ -70,16 +108,21 @@ const AirPlayVideoPlayer = React.forwardRef(({
     };
 
     selectSubtitleTrack();
-    const subscription = player.addListener("sourceLoad", selectSubtitleTrack);
+    const sourceSubscription = player.addListener("sourceLoad", selectSubtitleTrack);
+    const tracksSubscription = player.addListener("availableSubtitleTracksChange", selectSubtitleTrack);
     if (paused) player.pause();
     else if (autoplay) player.play();
-    return () => subscription.remove();
+    return () => {
+      sourceSubscription.remove();
+      tracksSubscription.remove();
+    };
   }, [autoplay, paused, player, subtitlesEnabled, textTracks]);
 
   React.useEffect(() => {
     const subscriptions = [
       player.addListener("sourceLoad", () => {
         onLoad?.({ duration: player.duration * 1000 });
+        requestAutoFullscreen();
       }),
       player.addListener("timeUpdate", () => {
         onProgress?.({
@@ -90,27 +133,32 @@ const AirPlayVideoPlayer = React.forwardRef(({
       }),
       player.addListener("playingChange", ({ isPlaying }) => {
         if (isPlaying) onPlaying?.();
-        else onPaused?.();
+        else if (player.status === "readyToPlay") onPaused?.();
       }),
       player.addListener("playToEnd", () => onEnd?.()),
       player.addListener("statusChange", ({ status, error }) => {
+        if (status === "readyToPlay" && autoplay && !paused) {
+          player.play();
+        }
         if (status === "error") onError?.(error);
       }),
     ];
     return () => subscriptions.forEach((subscription) => subscription.remove());
-  }, [onEnd, onError, onLoad, onPaused, onPlaying, onProgress, player]);
+  }, [autoplay, onEnd, onError, onLoad, onPaused, onPlaying, onProgress, paused, player, requestAutoFullscreen]);
 
   return (
     <View style={[styles.container, style]}>
       <VideoView
+        ref={videoViewRef}
         player={player}
         style={StyleSheet.absoluteFill}
         contentFit={contentFit}
         nativeControls
         allowsFullscreen
+        fullscreenOptions={{ enable: true, orientation: "landscape", autoExitOnRotate: true }}
         allowsPictureInPicture
       />
-      {player.status === "loading" ? (
+      {preparing || player.status === "loading" ? (
         <View pointerEvents="none" style={styles.loading}>
           <ActivityIndicator color="#fff" />
         </View>
