@@ -50,10 +50,10 @@ const MOVIE_PLAYBACK_CACHE_KEY = "vidkar.moviePlaybackCache.v1";
 const MOVIE_RESUME_MIN_SECONDS = 15;
 const MOVIE_PROGRESS_SAVE_INTERVAL_SECONDS = 5;
 const VLC_BUFFER_OPTIONS = Object.freeze([
-  "--network-caching=1500",
-  "--live-caching=1500",
-  "--file-caching=1200",
-  "--disc-caching=1200",
+  "--network-caching=12000",
+  "--live-caching=12000",
+  "--file-caching=10000",
+  "--disc-caching=10000",
   "--http-reconnect",
   "--avcodec-fast",
 ]);
@@ -624,6 +624,13 @@ const PeliculaPlayer = () => {
     const applyHlsStatus = (status) => {
       const playlistUrl = normalizeHlsPlaylistUrl(status?.playlistUrl, hlsServerOrigin);
       const nextDurationMs = normalizeHlsDurationMs(status?.durationSeconds);
+      console.log('[HLS_MOVIE_STATUS]', {
+        durationSeconds: status?.durationSeconds || 0,
+        playlistReady: Boolean(status?.playlistReady),
+        segmentsCount: status?.segmentsCount || 0,
+        status: status?.status || 'unknown',
+        startAtSeconds: status?.startAtSeconds || 0,
+      });
       if (nextDurationMs > 0) {
         setServerHlsDurationMs(nextDurationMs);
       }
@@ -664,7 +671,7 @@ const PeliculaPlayer = () => {
 
         hlsPollTimerRef.current = setTimeout(
           pollHlsStatus,
-          status?.playlistReady ? 10000 : HLS_STATUS_POLL_MS
+          (Platform.OS !== "ios" && status?.playlistReady) || status?.status === "ready" ? 10000 : HLS_STATUS_POLL_MS
         );
       } catch (_error) {
         if (cancelled) {
@@ -722,7 +729,7 @@ const PeliculaPlayer = () => {
         applyHlsStatus(status);
         hlsPollTimerRef.current = setTimeout(
           pollHlsStatus,
-          status?.playlistReady ? 10000 : HLS_STATUS_POLL_MS
+          (Platform.OS !== "ios" && status?.playlistReady) || status?.status === "ready" ? 10000 : HLS_STATUS_POLL_MS
         );
       } catch (_error) {
         if (cancelled) {
@@ -1287,6 +1294,7 @@ const PeliculaPlayer = () => {
               <AirPlayVideoPlayer
                 ref={playerRef}
                 style={styles.video}
+                useNativeSubtitleMaster
                 source={null}
                 preparing={!hasHlsError}
                 onError={handleError}
@@ -1354,6 +1362,7 @@ const PeliculaPlayer = () => {
           {canUseAirPlay ? <AirPlayVideoPlayer
             ref={playerRef}
             style={styles.video}
+            useNativeSubtitleMaster
             source={{
               uri: streamUrl,
               contentType: "hls",

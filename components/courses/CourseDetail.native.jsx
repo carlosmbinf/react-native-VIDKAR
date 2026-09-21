@@ -4,34 +4,100 @@ import * as ScreenOrientation from "expo-screen-orientation";
 import * as SecureStore from "expo-secure-store";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { Alert, Image, Modal as NativeModal, Platform, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, UIManager, View } from "react-native";
+import { Alert, Image, Modal as NativeModal, Platform, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Button, Divider, Icon, IconButton, Surface, Text, useTheme } from "react-native-paper";
 
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { SuscripcionesCursoCollection } from "../collections/collections";
+import { getHlsServerUrl } from "../../services/meteor/client.native";
 import AirPlayVideoPlayer from "../shared/AirPlayVideoPlayer.native";
 
 const { VLCPlayer } = require("react-native-vlc-media-player");
 const Meteor = MeteorBase;
-const isVlcPlayerAvailable = Boolean(
-  UIManager.getViewManagerConfig?.("RCTVLCPlayer"),
-);
 const VLC_BUFFER_OPTIONS = Object.freeze([
-  "--network-caching=1500",
-  "--live-caching=1500",
-  "--file-caching=1200",
-  "--disc-caching=1200",
+  "--network-caching=12000",
+  "--live-caching=12000",
+  "--file-caching=10000",
+  "--disc-caching=10000",
   "--http-reconnect",
   "--avcodec-fast",
 ]);
 const COURSE_PLAYBACK_CACHE_KEY = "vidkar.coursePlaybackCache.v1";
 const COURSE_RESUME_MIN_SECONDS = 15;
 const COURSE_PROGRESS_SAVE_INTERVAL_SECONDS = 5;
+const COURSE_HLS_POLL_MS = 2500;
+const COURSE_HLS_MAX_POLLS = 600;
 const PRINCIPAL_USERNAMES = ["carlosmbinf"];
 
 const callMethod = (name, ...args) => new Promise((resolve, reject) => {
   Meteor.call(name, ...args, (error, result) => (error ? reject(error) : resolve(result)));
 });
+
+const joinHlsUrl = (baseUrl, path) => {
+  const normalizedBase = String(baseUrl || "").replace(/\/$/, "");
+  return normalizedBase ? `${normalizedBase}${path.startsWith("/") ? path : `/${path}`}` : path;
+};
+
+const normalizeHlsPlaylistUrl = (value, baseUrl) => {
+  if (typeof value !== "string" || !value.trim()) return null;
+  return /^https?:\/\//i.test(value) ? value : joinHlsUrl(baseUrl, value);
+};
+
+const createCourseHlsSessionId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`;
+
+const prepareCourseHls = async (lessonId, videoUrl, startAtSeconds = 0) => {
+  const hlsOrigin = getHlsServerUrl();
+  const sessionId = createCourseHlsSessionId();
+  const encodedLessonId = encodeURIComponent(String(lessonId));
+  const encodedSessionId = encodeURIComponent(sessionId);
+  const basePath = `/cursos/hls/${encodedLessonId}`;
+  const prepareUrl = joinHlsUrl(hlsOrigin, `${basePath}/prepare?sessionId=${encodedSessionId}&startAt=${encodeURIComponent(Math.max(0, Math.floor(Number(startAtSeconds) || 0)))}`);
+  const statusUrl = joinHlsUrl(hlsOrigin, `${basePath}/status?sessionId=${encodedSessionId}`);
+  const cancelUrl = joinHlsUrl(hlsOrigin, `${basePath}/${encodedSessionId}/cancel`);
+  const fallbackPlaylistUrl = joinHlsUrl(hlsOrigin, `${basePath}/${encodedSessionId}/index.m3u8`);
+
+  const prepareResponse = await fetch(prepareUrl, {
+    body: JSON.stringify({ videoUrl, startAt: startAtSeconds }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  const prepareStatus = await prepareResponse.json();
+  if (!prepareResponse.ok || prepareStatus?.success === false) {
+    throw new Error(prepareStatus?.error || "No se pudo preparar el streaming HLS de la lección.");
+  }
+
+  let status = prepareStatus;
+  for (let attempt = 0; attempt < COURSE_HLS_MAX_POLLS; attempt += 1) {
+    console.log("[HLS_COURSE_STATUS]", {
+      attempt,
+      durationSeconds: status?.durationSeconds || 0,
+      playlistReady: Boolean(status?.playlistReady),
+      segmentsCount: status?.segmentsCount || 0,
+      status: status?.status || "unknown",
+    });
+    if (status?.status === "error") throw new Error(status.error || "No se pudo convertir la lección.");
+    if (status?.playlistReady || status?.ready) {
+      return {
+        cancelUrl,
+        durationSeconds: Number(status.durationSeconds || 0),
+        playlistUrl: normalizeHlsPlaylistUrl(status.playlistUrl, hlsOrigin) || fallbackPlaylistUrl,
+        sessionId,
+      };
+    }
+    await new Promise((resolve) => setTimeout(resolve, COURSE_HLS_POLL_MS));
+    const statusResponse = await fetch(statusUrl);
+    status = await statusResponse.json();
+    if (!statusResponse.ok || status?.success === false) {
+      throw new Error(status?.error || "No se pudo consultar el streaming HLS de la lección.");
+    }
+  }
+  throw new Error("La conversión HLS está tardando demasiado. Inténtalo nuevamente.");
+};
+
+const cancelCourseHls = (cancelUrl) => {
+  if (!cancelUrl) return;
+  fetch(cancelUrl, { method: "POST" }).catch(() => undefined);
+};
 
 const readCoursePlaybackCache = async () => {
   try {
@@ -89,7 +155,7 @@ const formatPlaybackTime = (milliseconds) => {
     : `${minutes}:${String(seconds).padStart(2, "0")}`;
 };
 
-const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds, onClose, onRetry }) => {
+const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds, onClose, onRetry, onSeek }) => {
   const [paused, setPaused] = React.useState(false);
   const [playerError, setPlayerError] = React.useState(null);
   const [buffering, setBuffering] = React.useState(true);
@@ -143,8 +209,9 @@ const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds,
   }, [chromeVisible, isPlaying, paused, playerError]);
 
   const handleProgress = React.useCallback((event) => {
-    const duration = Number(durationSeconds || 0) * 1000 || Number(event?.duration || 0);
-    const currentTime = Number(event?.currentTime || 0);
+    const startOffset = Number(startAtSeconds || 0) * 1000;
+    const duration = Number(durationSeconds || 0) * 1000 || Number(event?.duration || 0) + startOffset;
+    const currentTime = startOffset + Number(event?.currentTime || 0);
     setPlayback({
       currentTime,
       duration,
@@ -163,7 +230,7 @@ const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds,
         duration: Math.floor(duration / 1000),
       });
     }
-  }, [clearInterruptionTimer, durationSeconds, lesson?._id]);
+  }, [clearInterruptionTimer, durationSeconds, lesson?._id, startAtSeconds]);
 
   const handlePlaying = React.useCallback(() => {
     clearInterruptionTimer();
@@ -185,11 +252,7 @@ const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds,
   const handleSeek = (seconds) => {
     if (!playback.duration) return;
     const nextTime = Math.max(0, Math.min(playback.duration, playback.currentTime + seconds * 1000));
-    if (Platform.OS === "ios") {
-      playerRef.current?.seekRatio?.(playback.duration > 0 ? nextTime / playback.duration : 0);
-    } else {
-      playerRef.current?.seek?.(playback.duration > 0 ? nextTime / playback.duration : 0);
-    }
+    onSeek?.(Math.floor(nextTime / 1000));
   };
 
   const source = React.useMemo(() => ({
@@ -207,6 +270,7 @@ const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds,
         source={{ uri: sourceUrl, contentType: "hls" }}
         paused={paused}
         startAtSeconds={startAtSeconds}
+        autoFullscreen
         onLoad={(event) => {
           setBuffering(false);
           const duration = Number(durationSeconds || 0) * 1000 || Number(event?.duration || 0);
@@ -237,9 +301,6 @@ const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds,
           setBuffering(false);
           const duration = Number(durationSeconds || 0) * 1000 || Number(event?.duration || 0);
           setPlayback((current) => ({ ...current, duration }));
-          if (startAtSeconds > 0 && duration > 0) {
-            playerRef.current?.seek?.(Math.min(1, startAtSeconds * 1000 / duration));
-          }
         }}
         onProgress={handleProgress}
         onBuffering={() => setBuffering(true)}
@@ -254,14 +315,20 @@ const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds,
         }}
         onError={handleError}
       />}
-      <Pressable style={styles.videoTapLayer} onPress={() => setChromeVisible((current) => !current)} accessibilityRole="button" accessibilityLabel="Mostrar u ocultar controles" />
+      <Pressable
+        style={styles.videoTapLayer}
+        pointerEvents={Platform.OS === "ios" ? "box-none" : "auto"}
+        onPress={() => setChromeVisible((current) => !current)}
+        accessibilityRole="button"
+        accessibilityLabel="Mostrar u ocultar controles"
+      />
       {!hasRenderedFrame && !playerError ? (
         <View pointerEvents="none" style={styles.playerLoadingOverlay}><ActivityIndicator color="#fff" /><Text style={styles.posterLoading}>{buffering ? "Preparando streaming" : "Preparando reproducción"}</Text></View>
       ) : null}
       {playerError ? (
         <View style={styles.playerOverlayCenter}><Surface style={styles.playerErrorBox} elevation={0}><IconButton icon="alert-circle-outline" size={38} iconColor="#f43f5e" /><Text style={styles.playerErrorTitle}>Servicio no disponible</Text><Text style={styles.playerErrorCopy}>{playerError}</Text><Button mode="contained" icon="refresh" onPress={onRetry}>Reintentar</Button></Surface></View>
       ) : null}
-      {chromeVisible ? (
+      {chromeVisible && Platform.OS !== "ios" ? (
         <View style={styles.netflixControls} pointerEvents="box-none">
           <View style={styles.progressRow}><View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} /><View style={[styles.progressKnob, { left: `${progressRatio * 100}%` }]} /></View><Text style={styles.progressTimeText}>{formatPlaybackTime(playback.duration)}</Text></View>
           <View style={styles.netflixControlRow}>
@@ -407,25 +474,20 @@ export default function CourseDetail() {
   };
 
   const playLesson = async (lesson) => {
-    if (!isVlcPlayerAvailable) {
-      Alert.alert(
-        "Reproductor no disponible",
-        "Esta instalación no incluye el módulo nativo de VLC. Recompila e instala el development build de VIDKAR; Expo Go no admite este reproductor.",
-      );
-      return;
-    }
-
     setWorking(true);
     try {
       const result = await callMethod("cursos.media.solicitarReproduccion", lesson._id);
       const startAtSeconds = await selectCourseStartAt(lesson._id);
+      const hls = await prepareCourseHls(lesson._id, result.url, startAtSeconds);
       setPlayer({
-        durationSeconds: Number(lesson?.video?.durationSeconds || 0),
+        cancelUrl: hls.cancelUrl,
+        durationSeconds: hls.durationSeconds || Number(lesson?.video?.durationSeconds || 0),
         lesson,
-        sourceUrl: result.url,
+        sourceVideoUrl: result.url,
+        sourceUrl: hls.playlistUrl,
         startAtSeconds,
         title: lesson.titulo,
-        url: result.url,
+        url: hls.playlistUrl,
       });
     } catch (error) {
       Alert.alert("Video no disponible", error?.reason || error?.message || "No se pudo iniciar la reproducción.");
@@ -434,7 +496,30 @@ export default function CourseDetail() {
     }
   };
 
+  const seekLesson = async (nextStartAtSeconds) => {
+    if (!player?.lesson || !player.sourceVideoUrl) return;
+    const currentPlayer = player;
+    cancelCourseHls(currentPlayer.cancelUrl);
+    setWorking(true);
+    try {
+      const hls = await prepareCourseHls(currentPlayer.lesson._id, currentPlayer.sourceVideoUrl, nextStartAtSeconds);
+      setPlayer({
+        ...currentPlayer,
+        cancelUrl: hls.cancelUrl,
+        durationSeconds: hls.durationSeconds || currentPlayer.durationSeconds,
+        sourceUrl: hls.playlistUrl,
+        startAtSeconds: nextStartAtSeconds,
+        url: hls.playlistUrl,
+      });
+    } catch (error) {
+      Alert.alert("Video no disponible", error?.reason || error?.message || "No se pudo cambiar la posición.");
+    } finally {
+      setWorking(false);
+    }
+  };
+
   const closePlayer = () => {
+    cancelCourseHls(player?.cancelUrl);
     setPlayer(null);
   };
 
@@ -531,7 +616,12 @@ export default function CourseDetail() {
           sourceUrl={player.url}
           startAtSeconds={player.startAtSeconds}
           onClose={closePlayer}
-          onRetry={() => playLesson(player.lesson)}
+          onSeek={seekLesson}
+          onRetry={() => {
+            cancelCourseHls(player.cancelUrl);
+            setPlayer(null);
+            playLesson(player.lesson);
+          }}
         />
       ) : null}
     </View>

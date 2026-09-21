@@ -15,6 +15,7 @@ const AirPlayVideoPlayer = React.forwardRef(({
   preparing = false,
   textTracks = [],
   subtitlesEnabled = true,
+  useNativeSubtitleMaster = false,
   style,
   contentFit = "contain",
   onLoad,
@@ -26,15 +27,16 @@ const AirPlayVideoPlayer = React.forwardRef(({
 }, ref) => {
   const nativeSource = React.useMemo(() => {
     if (!source || typeof source === "string" || !source.uri) return source;
+    if (!useNativeSubtitleMaster) return source;
     const separator = source.uri.includes("?") ? "&" : "?";
     return { ...source, uri: `${source.uri}${separator}nativeSubtitles=1` };
-  }, [source]);
+  }, [source, useNativeSubtitleMaster]);
 
   const player = useVideoPlayer(nativeSource, (nextPlayer) => {
     nextPlayer.allowsExternalPlayback = true;
     nextPlayer.bufferOptions = {
-      preferredForwardBufferDuration: 12,
-      waitsToMinimizeStalling: false,
+      preferredForwardBufferDuration: 60,
+      waitsToMinimizeStalling: true,
     };
     nextPlayer.timeUpdateEventInterval = 0.25;
     nextPlayer.showNowPlayingNotification = true;
@@ -111,6 +113,14 @@ const AirPlayVideoPlayer = React.forwardRef(({
         requestAutoFullscreen();
       }),
       player.addListener("timeUpdate", () => {
+        const currentTime = Number(player.currentTime || 0);
+        console.log("[HLS]", {
+          currentTime,
+          duration: player.duration,
+          bufferedPosition: player.bufferedPosition,
+          isLive: player.isLive,
+          status: player.status,
+        });
         onProgress?.({
           currentTime: player.currentTime * 1000,
           duration: player.duration * 1000,
