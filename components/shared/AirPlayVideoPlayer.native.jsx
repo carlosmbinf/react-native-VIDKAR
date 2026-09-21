@@ -24,7 +24,13 @@ const AirPlayVideoPlayer = React.forwardRef(({
   onEnd,
   onError,
 }, ref) => {
-  const player = useVideoPlayer(source, (nextPlayer) => {
+  const nativeSource = React.useMemo(() => {
+    if (!source || typeof source === "string" || !source.uri) return source;
+    const separator = source.uri.includes("?") ? "&" : "?";
+    return { ...source, uri: `${source.uri}${separator}nativeSubtitles=1` };
+  }, [source]);
+
+  const player = useVideoPlayer(nativeSource, (nextPlayer) => {
     nextPlayer.allowsExternalPlayback = true;
     nextPlayer.bufferOptions = {
       preferredForwardBufferDuration: 12,
@@ -38,26 +44,6 @@ const AirPlayVideoPlayer = React.forwardRef(({
   });
   const videoViewRef = React.useRef(null);
   const autoFullscreenRequestedRef = React.useRef(false);
-  const lastSourceKeyRef = React.useRef(null);
-  const sourceKey = JSON.stringify(source ?? null);
-
-  React.useEffect(() => {
-    if (!source || sourceKey === lastSourceKeyRef.current) return undefined;
-    lastSourceKeyRef.current = sourceKey;
-    let cancelled = false;
-
-    player.replaceAsync(source)
-      .then(() => {
-        if (!cancelled && autoplay && !paused) player.play();
-      })
-      .catch((error) => {
-        if (!cancelled) onError?.(error);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [autoplay, onError, paused, player, source, sourceKey]);
 
   const requestAutoFullscreen = React.useCallback(() => {
     if (!autoFullscreen || autoFullscreenRequestedRef.current) return;
