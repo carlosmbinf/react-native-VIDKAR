@@ -1,4 +1,5 @@
 import * as SecureStore from "expo-secure-store";
+import Constants from "expo-constants";
 import { VidkarMCP } from "../../modules/vidkar-mcp/src";
 import { Meteor } from "../meteor/client.native";
 
@@ -6,6 +7,7 @@ const TOKEN_KEY = "vidkar.mcp.bearer.v1";
 const URL_KEY = "vidkar.mcp.url.v1";
 const TOOL_CACHE_KEY = "vidkar.mcp.tools.v1";
 const TOOL_CACHE_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_MCP_URL = "https://www.vidkar.com/mcp";
 
 const requireNativeMCP = () => {
   if (!VidkarMCP) throw new Error("El módulo nativo MCP no está disponible en este binario.");
@@ -13,6 +15,17 @@ const requireNativeMCP = () => {
 };
 
 const isHttpsUrl = (value) => /^https:\/\//i.test(String(value || "").trim());
+
+const getConfiguredMCPUrl = () => {
+  const candidates = [
+    process.env.EXPO_PUBLIC_MCP_URL,
+    Constants.expoConfig?.extra?.mcpServerUrl,
+    Constants.manifest2?.extra?.expoClient?.extra?.mcpServerUrl,
+    Constants.manifest2?.extra?.mcpServerUrl,
+    DEFAULT_MCP_URL,
+  ];
+  return candidates.find(isHttpsUrl)?.trim().replace(/\/$/, "") || null;
+};
 
 const readCache = async () => {
   const raw = await SecureStore.getItemAsync(TOOL_CACHE_KEY);
@@ -27,9 +40,10 @@ const readCache = async () => {
 
 export const configureMCP = async ({ url, token }) => {
   if (!VidkarMCP) throw new Error("La integración MCP de VIDKAR requiere un binario iOS nativo.");
-  if (!isHttpsUrl(url)) throw new Error("El endpoint MCP debe usar HTTPS.");
+  const configuredUrl = isHttpsUrl(url) ? url : getConfiguredMCPUrl();
+  if (!configuredUrl) throw new Error("El endpoint MCP no está configurado.");
   if (String(token || "").length < 20) throw new Error("El token MCP no es válido.");
-  const normalizedUrl = String(url).trim().replace(/\/$/, "");
+  const normalizedUrl = String(configuredUrl).trim().replace(/\/$/, "");
   await requireNativeMCP().configure(normalizedUrl, String(token));
   await SecureStore.setItemAsync(TOKEN_KEY, String(token));
   await SecureStore.setItemAsync(URL_KEY, normalizedUrl);
@@ -41,12 +55,13 @@ export const createAndConfigureMCPToken = async (label = "VIDKAR iOS") => {
   const result = await new Promise((resolve, reject) => {
     Meteor.call("mcp.tokens.create", label, (error, value) => (error ? reject(error) : resolve(value)));
   });
-  if (!result?.token || !isHttpsUrl(result?.mcpUrl)) {
+  const mcpUrl = isHttpsUrl(result?.mcpUrl) ? result.mcpUrl : getConfiguredMCPUrl();
+  if (!result?.token || !mcpUrl) {
     if (result?.tokenId) await revokeMCPToken(result.tokenId);
     throw new Error("El backend no devolvió un endpoint HTTPS y token MCP válidos.");
   }
   try {
-    await configureMCP({ url: result.mcpUrl, token: result.token });
+    await configureMCP({ url: mcpUrl, token: result.token });
   } catch (error) {
     if (result?.tokenId) await revokeMCPToken(result.tokenId).catch(() => null);
     throw error;

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import { ActivityIndicator, Appbar, Button, Card, Divider, Text } from "react-native-paper";
+import { ActivityIndicator, Appbar, Button, Card, Divider, Text, TextInput } from "react-native-paper";
 import { router } from "expo-router";
 
 import {
   clearMCPConfiguration,
-  createAndConfigureMCPToken,
+  configureMCP,
   discoverMCPTools,
   refreshMCPTools,
 } from "../../services/mcp/mcpClient";
@@ -14,6 +14,7 @@ const MCPSettingsScreen = () => {
   const [tools, setTools] = useState([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [token, setToken] = useState("");
 
   const loadTools = useCallback(async (force = false) => {
     setBusy(true);
@@ -36,8 +37,9 @@ const MCPSettingsScreen = () => {
     setBusy(true);
     setMessage("");
     try {
-      await createAndConfigureMCPToken();
+      await configureMCP({ token: token.trim() });
       await loadTools(true);
+      setToken("");
       setMessage("Acceso MCP configurado de forma segura para este dispositivo.");
     } catch (error) {
       setMessage(error?.message || "No se pudo configurar el acceso MCP.");
@@ -61,10 +63,19 @@ const MCPSettingsScreen = () => {
       </Appbar.Header>
       <ScrollView contentContainerStyle={styles.content}>
         <Text variant="bodyMedium">
-          Activa un único puente genérico. Las herramientas y sus parámetros se descubren desde el MCP y no se copian en la aplicación.
+          Genera el token MCP desde tu perfil en la web de VIDKAR y pégalo aquí. El token es dinámico, pertenece a tu usuario y no se incluye en la aplicación.
         </Text>
-        <Button disabled={busy} mode="contained" onPress={handleConfigure} style={styles.button}>
-          Activar acceso MCP en este iPhone
+        <TextInput
+          autoCapitalize="none"
+          autoCorrect={false}
+          disabled={busy}
+          label="Token MCP generado en la web"
+          onChangeText={setToken}
+          secureTextEntry
+          value={token}
+        />
+        <Button disabled={busy || token.trim().length < 20} mode="contained" onPress={handleConfigure} style={styles.button}>
+          Guardar token y consultar MCP
         </Button>
         <Button disabled={busy} mode="outlined" onPress={() => loadTools(true)} style={styles.button}>
           Actualizar herramientas
