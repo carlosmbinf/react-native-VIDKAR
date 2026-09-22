@@ -15,7 +15,6 @@ const AirPlayVideoPlayer = React.forwardRef(({
   preparing = false,
   textTracks = [],
   subtitlesEnabled = true,
-  useNativeSubtitleMaster = false,
   style,
   contentFit = "contain",
   onLoad,
@@ -25,14 +24,7 @@ const AirPlayVideoPlayer = React.forwardRef(({
   onEnd,
   onError,
 }, ref) => {
-  const nativeSource = React.useMemo(() => {
-    if (!source || typeof source === "string" || !source.uri) return source;
-    if (!useNativeSubtitleMaster) return source;
-    const separator = source.uri.includes("?") ? "&" : "?";
-    return { ...source, uri: `${source.uri}${separator}nativeSubtitles=1` };
-  }, [source, useNativeSubtitleMaster]);
-
-  const player = useVideoPlayer(nativeSource, (nextPlayer) => {
+  const player = useVideoPlayer(source, (nextPlayer) => {
     nextPlayer.allowsExternalPlayback = true;
     nextPlayer.bufferOptions = {
       preferredForwardBufferDuration: 60,

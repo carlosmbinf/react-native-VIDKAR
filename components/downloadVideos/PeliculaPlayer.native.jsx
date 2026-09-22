@@ -1294,7 +1294,6 @@ const PeliculaPlayer = () => {
               <AirPlayVideoPlayer
                 ref={playerRef}
                 style={styles.video}
-                useNativeSubtitleMaster
                 source={null}
                 preparing={!hasHlsError}
                 onError={handleError}
@@ -1362,7 +1361,6 @@ const PeliculaPlayer = () => {
           {canUseAirPlay ? <AirPlayVideoPlayer
             ref={playerRef}
             style={styles.video}
-            useNativeSubtitleMaster
             source={{
               uri: streamUrl,
               contentType: "hls",

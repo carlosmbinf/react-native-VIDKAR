@@ -45,6 +45,13 @@ const normalizeHlsPlaylistUrl = (value, baseUrl) => {
 
 const createCourseHlsSessionId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`;
 
+const getCoursePlaybackErrorMessage = (error, fallback) => {
+  const message = String(error?.reason || error?.message || "").trim();
+  const technicalError = /(?:tcp|udp|connection|timed out|timeout|socket|fetch|http|https?:\/\/|\/cdn\/storage|CourseVideos|ffmpeg|vlc|0x[\da-f]+)/i.test(message);
+  if (!message || technicalError || message.length > 180) return fallback;
+  return message;
+};
+
 const prepareCourseHls = async (lessonId, videoUrl, startAtSeconds = 0) => {
   const hlsOrigin = getHlsServerUrl();
   const sessionId = createCourseHlsSessionId();
@@ -490,7 +497,7 @@ export default function CourseDetail() {
         url: hls.playlistUrl,
       });
     } catch (error) {
-      Alert.alert("Video no disponible", error?.reason || error?.message || "No se pudo iniciar la reproducción.");
+      Alert.alert("Video no disponible", getCoursePlaybackErrorMessage(error, "No se pudo iniciar la reproducción. Inténtalo nuevamente."));
     } finally {
       setWorking(false);
     }
@@ -512,7 +519,7 @@ export default function CourseDetail() {
         url: hls.playlistUrl,
       });
     } catch (error) {
-      Alert.alert("Video no disponible", error?.reason || error?.message || "No se pudo cambiar la posición.");
+      Alert.alert("Video no disponible", getCoursePlaybackErrorMessage(error, "No se pudo cambiar la posición. Inténtalo nuevamente."));
     } finally {
       setWorking(false);
     }
