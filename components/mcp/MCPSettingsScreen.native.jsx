@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import { ActivityIndicator, Appbar, Button, Card, Divider, Text, TextInput } from "react-native-paper";
+import { ActivityIndicator, Appbar, Button, Card, Divider, Text, TextInput, useTheme } from "react-native-paper";
 import { router } from "expo-router";
 
 import {
@@ -11,6 +11,7 @@ import {
 } from "../../services/mcp/mcpClient";
 
 const MCPSettingsScreen = () => {
+  const theme = useTheme();
   const [tools, setTools] = useState([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -65,6 +66,9 @@ const MCPSettingsScreen = () => {
         <Text variant="bodyMedium">
           Genera el token MCP desde tu perfil en la web de VIDKAR y pégalo aquí. El token es dinámico, pertenece a tu usuario y no se incluye en la aplicación.
         </Text>
+        <Text accessibilityLabel="Endpoint MCP de VIDKAR" variant="bodySmall">
+          Endpoint MCP: https://www.vidkar.com/mcp
+        </Text>
         <TextInput
           autoCapitalize="none"
           autoCorrect={false}
@@ -75,7 +79,7 @@ const MCPSettingsScreen = () => {
           value={token}
         />
         <Button disabled={busy || token.trim().length < 20} mode="contained" onPress={handleConfigure} style={styles.button}>
-          Guardar token y consultar MCP
+          Probar conexión MCP
         </Button>
         <Button disabled={busy} mode="outlined" onPress={() => loadTools(true)} style={styles.button}>
           Actualizar herramientas
@@ -84,7 +88,7 @@ const MCPSettingsScreen = () => {
           Eliminar credenciales locales
         </Button>
         {busy ? <ActivityIndicator style={styles.loading} /> : null}
-        {message ? <Text style={styles.message}>{message}</Text> : null}
+        {message ? <Text style={[styles.message, { color: theme.colors.primary }]}>{message}</Text> : null}
         <Card style={styles.card}>
           <Card.Title title={`Herramientas descubiertas (${tools.length})`} />
           <Card.Content>

@@ -2,6 +2,7 @@ import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
 import { VidkarMCP } from "../../modules/vidkar-mcp/src";
 import { Meteor } from "../meteor/client.native";
+import { formatToolCatalog, parseArgumentsJSON } from "./mcpProtocol";
 
 const TOKEN_KEY = "vidkar.mcp.bearer.v1";
 const URL_KEY = "vidkar.mcp.url.v1";
@@ -113,6 +114,10 @@ export const executeMCPTool = async (toolName, args = {}) => {
   validateMCPArguments(tool, args);
   return requireNativeMCP().executeTool(toolName, args);
 };
+
+export const parseMCPArgumentsJSON = parseArgumentsJSON;
+
+export const getMCPToolCatalog = async ({ force = false } = {}) => formatToolCatalog(await discoverMCPTools({ force }));
 
 export const MCPToolRouter = {
   discover: discoverMCPTools,

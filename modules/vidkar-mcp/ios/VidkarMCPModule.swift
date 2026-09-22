@@ -43,12 +43,16 @@ private enum JSONValue: Codable, Sendable {
 private enum MCPError: LocalizedError {
   case notConfigured
   case invalidResponse
+  case http(status: Int, body: String?)
   case server(String)
 
   var errorDescription: String? {
     switch self {
     case .notConfigured: return "Configura primero el endpoint y token MCP de VIDKAR."
     case .invalidResponse: return "El servidor MCP devolvió una respuesta inválida."
+    case .http(let status, let body):
+      if let body, !body.isEmpty { return "MCP HTTP \(status): \(body)" }
+      return "MCP HTTP \(status). Verifica el token MCP y la conexión."
     case .server(let message): return message
     }
   }
@@ -131,10 +135,31 @@ private actor MCPTransport {
 
   func execute(name: String, arguments: [String: Any]) async throws -> String {
     let result = try await request(method: "tools/call", params: ["name": name, "arguments": arguments])
-    if let isError = result["isError"] as? Bool, isError { throw MCPError.server("La herramienta MCP devolvió un error.") }
+    if let isError = result["isError"] as? Bool, isError {
+      let errorText = (result["content"] as? [[String: Any]])?
+        .compactMap { $0["text"] as? String }
+        .joined(separator: "\n")
+      throw MCPError.server(errorText?.isEmpty == false ? errorText! : "La herramienta MCP devolvió un error.")
+    }
     if let content = result["content"] as? [[String: Any]], let text = content.first(where: { $0["type"] as? String == "text" })?["text"] as? String { return text }
     let data = try JSONSerialization.data(withJSONObject: result)
     return String(data: data, encoding: .utf8) ?? "{}"
+  }
+
+  func catalog() async throws -> String {
+    let tools = try await discover(force: false)
+    let entries = try tools.map { tool -> [String: Any] in
+      let schemaData = try JSONEncoder().encode(tool.inputSchema)
+      let schema = try JSONSerialization.jsonObject(with: schemaData)
+      return [
+        "name": tool.name,
+        "description": tool.description ?? "",
+        "inputSchema": schema,
+      ]
+    }
+    let data = try JSONSerialization.data(withJSONObject: entries, options: [.prettyPrinted, .sortedKeys])
+    guard let output = String(data: data, encoding: .utf8) else { throw MCPError.invalidResponse }
+    return output
   }
 
   private func loadCache() {
@@ -146,10 +171,18 @@ private actor MCPTransport {
   private func request(method: String, params: [String: Any]) async throws -> [String: Any] {
     guard let urlString = KeychainStore.shared.get(urlKey), let token = KeychainStore.shared.get(tokenKey), let url = URL(string: urlString) else { throw MCPError.notConfigured }
     let initializeID = UUID().uuidString
-    _ = try await send(url: url, token: token, id: initializeID, method: "initialize", params: ["protocolVersion": "2025-06-18", "capabilities": [:], "clientInfo": ["name": "vidkar-ios", "version": "1.0.0"]])
+    let initializeResponse = try await send(url: url, token: token, id: initializeID, method: "initialize", params: ["protocolVersion": "2025-06-18", "capabilities": [:], "clientInfo": ["name": "vidkar-ios", "version": "1.0.0"]])
+    try throwJSONRPCError(in: initializeResponse)
     let response = try await send(url: url, token: token, id: UUID().uuidString, method: method, params: params)
-    if let error = response["error"] as? [String: Any], let message = error["message"] as? String { throw MCPError.server(message) }
+    try throwJSONRPCError(in: response)
     return (response["result"] as? [String: Any]) ?? response
+  }
+
+  private func throwJSONRPCError(in response: [String: Any]) throws {
+    guard let error = response["error"] as? [String: Any] else { return }
+    let code = error["code"].map { String(describing: $0) } ?? "MCP_JSONRPC_ERROR"
+    let message = error["message"] as? String ?? "La solicitud MCP falló."
+    throw MCPError.server("MCP JSON-RPC \(code): \(message)")
   }
 
   private func send(url: URL, token: String, id: String, method: String, params: [String: Any]) async throws -> [String: Any] {
@@ -160,8 +193,17 @@ private actor MCPTransport {
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
     request.httpBody = try JSONSerialization.data(withJSONObject: ["jsonrpc": "2.0", "id": id, "method": method, "params": params])
-    let (data, response) = try await URLSession.shared.data(for: request)
-    guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw MCPError.server("MCP HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0).") }
+    let (data, response): (Data, URLResponse)
+    do {
+      (data, response) = try await URLSession.shared.data(for: request)
+    } catch {
+      throw MCPError.server("No se pudo conectar con VIDKAR MCP: \(error.localizedDescription)")
+    }
+    guard let http = response as? HTTPURLResponse else { throw MCPError.invalidResponse }
+    guard (200..<300).contains(http.statusCode) else {
+      let body = String(data: data, encoding: .utf8)
+      throw MCPError.http(status: http.statusCode, body: body)
+    }
     if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] { return json }
     let lines = String(data: data, encoding: .utf8)?.split(separator: "\n") ?? []
     for line in lines where line.hasPrefix("data:") {
@@ -193,6 +235,9 @@ public final class VidkarMCPModule: Module {
     AsyncFunction("executeTool") { (name: String, arguments: [String: Any]) async throws -> String in
       try await MCPTransport.shared.execute(name: name, arguments: arguments)
     }
+    AsyncFunction("getToolCatalog") { () async throws -> String in
+      try await MCPTransport.shared.catalog()
+    }
   }
 }
 
@@ -216,10 +261,21 @@ struct VIDKARQueryIntent: AppIntent {
 
   static var parameterSummary: some ParameterSummary { Summary("Consulta \(\.$toolName) con \(\.$argumentsJSON)") }
 
-  func perform() async throws -> some IntentResult {
+  func perform() async throws -> some IntentResult & ReturnsValue<String> {
     guard let data = argumentsJSON.data(using: .utf8), let arguments = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw MCPError.server("Los argumentos deben ser un objeto JSON válido.") }
     let output = try await MCPTransport.shared.execute(name: toolName, arguments: arguments)
-    return .result(dialog: IntentDialog(stringLiteral: output))
+    return .result(value: output, dialog: IntentDialog(stringLiteral: output))
+  }
+}
+
+@available(iOS 16.0, *)
+struct VIDKARToolCatalogIntent: AppIntent {
+  static var title: LocalizedStringResource = "Ver herramientas de VIDKAR"
+  static var description = IntentDescription("Devuelve las herramientas MCP disponibles, sus descripciones y sus esquemas de argumentos.")
+
+  func perform() async throws -> some IntentResult & ReturnsValue<String> {
+    let output = try await MCPTransport.shared.catalog()
+    return .result(value: output, dialog: IntentDialog(stringLiteral: output))
   }
 }
 
@@ -227,5 +283,6 @@ struct VIDKARQueryIntent: AppIntent {
 struct VIDKARAppShortcuts: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
     AppShortcut(intent: VIDKARQueryIntent(), phrases: ["Consulta en \(.applicationName)"], shortTitle: "Consultar VIDKAR", systemImageName: "chart.bar")
+    AppShortcut(intent: VIDKARToolCatalogIntent(), phrases: ["Ver herramientas en \(.applicationName)"], shortTitle: "Herramientas VIDKAR", systemImageName: "list.bullet.rectangle")
   }
 }
