@@ -71,6 +71,7 @@
       "@bacons/apple-targets",
       "./plugins/with-vidkar-google-maps-key.js",
       "./plugins/with-vidkar-xcode-object-version.js",
+      "./plugins/with-vidkar-ios-scene-lifecycle.js",
       "./plugins/with-vidkar-android-pip.js",
       "./plugins/with-vidkar-vlc-media-player.js",
       "./plugins/with-vidkar-ios-pod-deployment-target.js",
