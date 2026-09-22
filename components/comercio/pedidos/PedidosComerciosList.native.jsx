@@ -11,6 +11,7 @@ import MenuIconMensajes from "../../components/MenuIconMensajes.native";
 import AppHeader, { DEFAULT_HEADER_COLOR } from "../../Header/AppHeader";
 import BlurMenuSurface, { blurMenuContentStyle } from "../../Header/BlurMenuSurface";
 import useSafeBack from "../../navigation/useSafeBack";
+import { clearMCPConfiguration } from "../../../services/mcp/mcpClient";
 import EmptyState from "./components/EmptyState";
 import LoadingState from "./components/LoadingState";
 import PedidoCard from "./components/PedidoCard";
@@ -238,8 +239,8 @@ const PedidosComerciosListNative = () => {
                   leadingIcon="logout"
                   onPress={() => {
                     setProfileMenuVisible(false);
-                    Meteor.logout(() => {
-                      router.replace("/(auth)/Loguin");
+                    clearMCPConfiguration().finally(() => {
+                      Meteor.logout(() => router.replace("/(auth)/Loguin"));
                     });
                   }}
                   title="Cerrar Sesión"

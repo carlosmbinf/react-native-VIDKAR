@@ -8,6 +8,7 @@ import AppHeader from "../../Header/AppHeader";
 import BlurMenuSurface, { blurMenuContentStyle } from "../../Header/BlurMenuSurface";
 import MenuIconMensajes from "../../components/MenuIconMensajes.native";
 import useSafeBack from "../../navigation/useSafeBack";
+import { clearMCPConfiguration } from "../../../services/mcp/mcpClient";
 import { EMPRESA_BRAND } from "../styles/empresaTheme";
 
 const Meteor =
@@ -39,8 +40,8 @@ const EmpresaTopBar = ({
       return;
     }
 
-    Meteor.logout(() => {
-      router.replace("/(auth)/Loguin");
+    clearMCPConfiguration().finally(() => {
+      Meteor.logout(() => router.replace("/(auth)/Loguin"));
     });
   };
 

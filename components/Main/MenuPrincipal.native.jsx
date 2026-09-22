@@ -14,6 +14,7 @@ import {
     getPushNotificationPermissionState,
     registerPushTokenForActiveSession,
 } from "../../services/notifications/PushMessaging.native";
+import { clearMCPConfiguration } from "../../services/mcp/mcpClient";
 import {
     buildPendingEvidenceAggregate,
 } from "../archivos/evidencePendingUtils";
@@ -878,8 +879,8 @@ const MenuPrincipalNative = () => {
       onToggleModoCadete={handleToggleModoCadete}
       onToggleModoEmpresa={handleToggleModoEmpresa}
       onLogout={() => {
-        Meteor.logout(() => {
-          router.replace("/(auth)/Loguin");
+        clearMCPConfiguration().finally(() => {
+          Meteor.logout(() => router.replace("/(auth)/Loguin"));
         });
       }}
     />

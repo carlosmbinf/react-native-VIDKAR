@@ -401,6 +401,16 @@ const DrawerOptionsAlls = ({
         title: "Servicios VidKar",
         items: buildServiceItems(user),
       },
+      {
+        title: "Automatización",
+        items: [
+          {
+            label: "Siri y MCP de VIDKAR",
+            icon: "robot-outline",
+            href: "/(normal)/MCPSettings",
+          },
+        ],
+      },
     ];
 
     if (isAdmin) {

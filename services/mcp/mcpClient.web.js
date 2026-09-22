@@ -1,0 +1,10 @@
+export const configureMCP = async () => { throw new Error("El cliente MCP de VIDKAR está disponible únicamente en un binario iOS nativo."); };
+export const createAndConfigureMCPToken = configureMCP;
+export const revokeMCPToken = async () => { throw new Error("El cliente MCP de VIDKAR está disponible únicamente en un binario iOS nativo."); };
+export const clearMCPConfiguration = async () => {};
+export const discoverMCPTools = async () => [];
+export const refreshMCPTools = discoverMCPTools;
+export const findMCPTool = async () => null;
+export const validateMCPArguments = () => true;
+export const executeMCPTool = async () => { throw new Error("El cliente MCP está disponible únicamente en iOS/Android nativo."); };
+export const MCPToolRouter = { discover: discoverMCPTools, refreshTools: refreshMCPTools, findTool: findMCPTool, validateArguments: validateMCPArguments, execute: executeMCPTool };

@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Meteor from '@meteorrn/core';
 import { router } from 'expo-router';
+import { clearMCPConfiguration } from '../../../services/mcp/mcpClient';
 import { memo, useCallback, useEffect, useState } from 'react';
 import { Alert, View } from 'react-native';
 import { Avatar, Button, Card, Chip, Divider, HelperText, Snackbar, Switch, Text, TextInput, Title, useTheme } from 'react-native-paper';
@@ -146,8 +147,8 @@ const UserDataCard = ({ item, styles, edit, setEdit }) => {
 			}
 			setFeedback({ visible: true, message: 'Datos actualizados', type: 'success' });
 			if (item._id === Meteor.userId() && (setPayload.username || setPayload.emails)) {
-				Meteor.logout(() => {
-					router.replace('/(auth)/Loguin');
+				clearMCPConfiguration().finally(() => {
+					Meteor.logout(() => router.replace('/(auth)/Loguin'));
 				});
 			}
 			setEdit(false);

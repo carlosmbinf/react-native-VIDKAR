@@ -32,6 +32,7 @@ import {
     readCachedDeviceLocation,
     requestDeviceLocationPermission,
 } from "../../services/location/deviceLocationCache.native";
+import { clearMCPConfiguration } from "../../services/mcp/mcpClient";
 import WizardConStepper from "../carritoCompras/WizardConStepper.native";
 import {
     ProductosComercioCollection,
@@ -761,8 +762,8 @@ const ProductosScreenNative = () => {
                   leadingIcon="logout"
                   onPress={() => {
                     setProfileMenuVisible(false);
-                    Meteor.logout(() => {
-                      router.replace("/(auth)/Loguin");
+                    clearMCPConfiguration().finally(() => {
+                      Meteor.logout(() => router.replace("/(auth)/Loguin"));
                     });
                   }}
                   title="Cerrar Sesión"

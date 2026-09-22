@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Meteor from '@meteorrn/core';
 import { router } from 'expo-router';
+import { clearMCPConfiguration } from '../../../services/mcp/mcpClient';
 import { useEffect, useState } from 'react';
 import { Alert, Keyboard, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, Dialog, Paragraph, Portal, Text, TextInput, useTheme } from 'react-native-paper';
@@ -63,8 +64,8 @@ const DeleteAccountCard = ({ userId, username }) => {
 					{
 						text: 'Entendido',
 						onPress: () => {
-							Meteor.logout(() => {
-								router.replace('/(auth)/Loguin');
+							clearMCPConfiguration().finally(() => {
+								Meteor.logout(() => router.replace('/(auth)/Loguin'));
 							});
 						},
 					},

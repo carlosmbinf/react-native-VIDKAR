@@ -72,6 +72,7 @@
     "react-native-vlc-media-player": "^1.0.98",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.10.1",
+    "vidkar-mcp": "file:modules/vidkar-mcp",
     "vidkar-spotlight": "file:modules/vidkar-spotlight"
   },
   "devDependencies": {
