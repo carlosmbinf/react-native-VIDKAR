@@ -57,10 +57,29 @@ test("describe errores HTTP con y sin cuerpo", () => {
 
 test("formatea catálogo con método, descripción y schema", () => {
   assert.deepEqual(JSON.parse(formatToolCatalog([
-    { name: "get_users", description: "Devuelve usuarios disponibles", inputSchema: { type: "object" } },
+    {
+      name: "get_users",
+      description: "Devuelve usuarios disponibles",
+      inputSchema: { type: "object" },
+      permissions: ["authenticated", "token-owner-scope"],
+      dataClass: "private-or-financial",
+      readOnly: true,
+      requiresConfirmation: true,
+    },
   ])), [{
     name: "get_users",
     description: "Devuelve usuarios disponibles",
     inputSchema: { type: "object" },
+    permissions: ["authenticated", "token-owner-scope"],
+    dataClass: "private-or-financial",
+    readOnly: true,
+    requiresConfirmation: true,
   }]);
+});
+
+test("clasifica herramientas antiguas sin metadatos como no ejecutables", () => {
+  const tool = JSON.parse(formatToolCatalog([{ name: "future_tool" }]))[0];
+  assert.equal(tool.readOnly, false);
+  assert.equal(tool.requiresConfirmation, true);
+  assert.equal(tool.dataClass, "unclassified");
 });

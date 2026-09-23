@@ -1,77 +1,102 @@
-# MCP de VIDKAR desde Atajos
+# Siri, App Intents y MCP de VIDKAR
 
-## Arquitectura
+## Estado y arquitectura
 
-La app iOS es únicamente cliente MCP. No usa MongoDB, credenciales de servidor ni el token de sesión Meteor para consultar datos.
+La integración usa App Intents (iOS 16.4+), el módulo Expo nativo `modules/vidkar-mcp` y el backend MCP existente. No usa SiriKit legacy, no duplica lógica de negocio Swift y no crea una extensión App Intents separada: las intents viven en el target principal de VIDKAR.
 
 ```text
-Atajos → VIDKARQueryIntent → Streamable HTTP → https://www.vidkar.com/mcp
+Siri / Apple Intelligence / Atajos
+  -> VIDKAR App Intents + AppShortcuts + AppEntity
+  -> vidkar-mcp (HTTPS, token Keychain ligado al userId Meteor)
+  -> POST https://www.vidkar.com/mcp
+  -> tools/list / tools/call
+  -> allowlist y autorización MCP backend
+  -> resultado resumido + deep link vidkar:// validado
+  -> Expo Router, después de restaurar sesión autenticada
 ```
 
-El intent genérico recibe `toolName` y `argumentsJSON`, ejecuta `tools/call` y devuelve un `String` mediante `ReturnsValue<String>`.
+El backend sigue siendo la autoridad. El catálogo MCP no constituye permisos y el cliente no acepta nombres de colección, selector Mongo ni campos arbitrarios.
 
-También existe **Ver herramientas de VIDKAR** (`VIDKARToolCatalogIntent`). Devuelve un JSON dinámico con `name`, `description` e `inputSchema` de cada tool descubierta mediante `tools/list`.
+## Intents y entidades
 
-## Token dinámico
+El módulo publica estos intents:
 
-1. En la web de VIDKAR, abre **Acceso MCP de VIDKAR**.
-2. Pulsa **Crear token MCP**. El método Meteor `mcp.tokens.create` genera un token aleatorio.
-3. El token completo se muestra una sola vez. El servidor conserva solo su hash SHA-256.
-4. En la app iOS abre **Siri y MCP de VIDKAR**.
-5. Pega el token en el campo seguro y pulsa **Probar conexión MCP**.
+- `VIDKARGeneralQueryIntent`: consulta natural, herramienta opcional, `argumentsJSON`, tipo/id, acción y confirmación adicional.
+- `VIDKARSearchIntent`: consulta texto/entidad/filtros y devuelve resultados tipados para Siri.
+- `VIDKAROpenEntityIntent`: abre un `AppEntity` en VIDKAR.
+- `VIDKARPlayContentIntent`: solo película, capítulo o lección; siempre solicita confirmación antes de añadir `play=true`.
+- `VIDKARListUserDataIntent`: compras, ventas, órdenes, usuarios o mensajes; solicita confirmación antes de consultar datos privados.
+- `VIDKARExecuteActionIntent`: llamadas MCP de solo lectura; rechaza herramientas sin `readOnlyHint`.
+- `VIDKARToolCatalogIntent`: devuelve el catálogo JSON como valor de Atajos y un diálogo de voz breve.
 
-El token se guarda en Keychain. No está en `app.json`, el bundle, el código fuente, logs ni variables públicas. Si se revoca o se expone, revócalo desde la web y crea otro.
+`AppEntity` usa un ID estable `tipo:id`, título, subtítulo, descripción, tipo, enlace seguro e imagen opcional. Se definen `MovieEntity`, `SeriesEntity`, `EpisodeEntity`, `CourseEntity`, `LessonEntity`, `UserEntity`, `PurchaseEntity`, `SaleEntity`, `ProductEntity`, `MessageEntity` y `DownloadEntity`. Las entidades privadas no se ofrecen como sugerencias silenciosas a EntityQuery; se buscan por una intent que confirma primero. `DownloadEntity` está definido, pero sus búsquedas quedan deshabilitadas hasta que exista una herramienta backend segura.
 
-## Herramientas y argumentos
+Las frases preconfiguradas usan `\(.applicationName)` para adaptarse al nombre instalado e incluyen:
 
-**Actualizar herramientas** ejecuta `tools/list` y muestra nombre, descripción y schema dinámicos. No hay un App Intent por herramienta.
+- “Buscar en VIDKAR” y “Consultar VIDKAR”.
+- “Buscar una película/serie/curso/usuario en VIDKAR”.
+- “Consultar mis compras/ventas en VIDKAR”.
+- “Consultar el estado de mi suscripción en VIDKAR”.
+- “Abrir contenido en VIDKAR” y “Reproducir contenido en VIDKAR”.
 
-En Atajos se puede encadenar **Ver herramientas de VIDKAR** con una acción de IA: se entrega el catálogo y la petición del usuario (por ejemplo, “quiero saber todos los usuarios”), y la IA puede producir el `toolName` y `argumentsJSON` para la acción **Consultar VIDKAR**. La app no inventa esa selección semántica ni contiene una lista fija de tools.
+Siri presenta diálogos concisos; las búsquedas/listados devuelven resultados `AppEntity` y los datos estructurados se conservan como valor para Shortcuts.
+Apple limita `AppShortcutsProvider` a diez shortcuts preconfigurados; el catálogo y la intent genérica avanzada siguen disponibles como acciones VIDKAR dentro de la app Atajos, sin consumir otro shortcut de voz.
 
-Ejemplo para `get_users`:
+## Descubrimiento y seguridad del catálogo
 
-```json
-{"limit":100,"offset":0,"sort":"newest"}
-```
+`tools/list` se descubre dinámicamente; no se replica la lista de tools en Swift. El catálogo muestra nombre, descripción, `inputSchema`, anotaciones MCP, permisos, clase de datos, lectura y confirmación.
 
-Ejemplo para `get_sales`:
+El servidor marca tools de consulta con `readOnlyHint`, y adjunta `_meta["vidkar/security"]` con permisos/clase/confirmación. Swift y JavaScript solo permiten ejecutar tools marcadas de solo lectura; la validación backend se repite en cada llamada.
 
-```json
-{"period":"today","paidOnly":true}
-```
+La configuración valida HTTPS, host `vidkar.com`/`www.vidkar.com`, ruta `/mcp`, ausencia de credenciales/query/fragment en la URL y el token Bearer en Keychain. Al configurar, el cliente llama `get_current_user` y exige que el ID propietario del token coincida con el `Meteor.userId()` actual antes de conservar la configuración. Cambiar usuario o cerrar sesión elimina las credenciales por los flujos logout existentes. No se registra el token.
 
-El intent valida que `argumentsJSON` sea un objeto JSON antes de llamar al servidor.
+Las intents que confirman playback revalidan el ID en `search_entities` con los guards del backend, y luego emiten un grant nativo de un solo uso, ligado a tipo/ID/owner y con vencimiento corto en Keychain. React Native lo consume al aceptar el deep link; un enlace `play=true` sin grant válido se degrada a abrir/consultar y no inicia streaming. El player de películas también exige sesión Meteor y `subscipcionPelis === true` antes de preparar HLS.
 
-## Resultado de Atajos
+Todas las tools requieren token Bearer en `/mcp`; también en modo stdio los handlers rechazan llamadas de datos sin identidad. Tools de usuarios, finanzas, órdenes, compras y mensajes requieren confirmación explícita en el cliente y `confirmed: true` en el servidor. Películas, series, cursos, niveles, suscripciones y ownership se autorizan del lado backend. No existen tools MCP de escritura; una llamada no declarada de solo lectura se rechaza con “No tienes permisos para realizar esa acción en VIDKAR.”
 
-El valor de salida es exactamente el texto del primer elemento `content` de tipo `text` devuelto por `tools/call`. Por ejemplo, si MCP entrega:
+## `search_entities`
 
-```json
-{"success":true,"users":[...]}
-```
+Herramienta creada porque no existía búsqueda MCP general. Trabaja en backend con allowlist de tipos/colecciones/proyecciones; los identificadores Mongo, campos y selectores no se aceptan desde el cliente.
 
-Atajos recibe esa misma cadena y puede encadenarla con **Vista rápida**, **Mostrar resultado** u otras acciones.
+Tipos disponibles: `all`, `movie`, `series`, `episode`, `course`, `lesson`, `user`, `purchase`, `sale`, `order`, `product`, `message` y `subscription`.
 
-Los errores HTTP, JSON-RPC, `isError`, token ausente/revocado, timeout, desconexión, herramienta inexistente y respuesta inválida se devuelven como errores legibles del intent.
+Admite query de hasta 120 caracteres, categoría/estado, período natural o `from`/`to` en ISO, orden, `limit` máximo 50 y `offset` máximo 10 000 (global `all` hasta 200). Responde entidades resumidas con paginación y deep link; no devuelve documentos Mongo completos ni URLs de stream/video. Imágenes se exponen solo si usan HTTPS bajo `vidkar.com`.
 
-## Pruebas locales
+- Las búsquedas de películas requieren que sean visibles.
+- Series/capítulos requieren usuario autenticado con `subscipcionPelis === true` y contenido visible.
+- Cursos publicados aplican el nivel de evaluación del usuario; las búsquedas de lecciones requieren confirmación, suscripción activa, curso publicado y nivel autorizado.
+- Usuarios respetan el alcance del token (self / subordinados autorizados / admin principal) y requieren confirmación.
+- Compras/ventas/órdenes se restringen al alcance MCP; mensajes se filtran siempre a `from == userId || to == userId` y requieren confirmación.
+- `subscription` consulta la suscripción de películas del usuario actual y sus suscripciones propias de cursos; requiere confirmación y nunca admite un `userId` arbitrario.
+- Productos se limitan a catálogos existentes y proyección permitida. El precio solo se presenta si el documento realmente tiene precio, sin inferir moneda.
+- No hay búsqueda de proveedores, TV, audio, descargas o precios oficiales: no se inventaron rutas ni permisos para ellos.
 
-Desde este directorio:
+## Deep links y navegación
 
-- `npm run test:mcp`: prueba `get_users`, `get_sales`, JSON inválido, preservación exacta, JSON-RPC, `isError` y HTTP.
-- `npm run lint`: lint del proyecto Expo.
+`services/navigation/universalLinks.ts` conserva Universal Links HTTPS y añade un allowlist para `vidkar://`. `app/index.native.tsx` registra la URL inicial y eventos de enlace, espera sesión y navegación autenticada; Spotlight comparte el resolver. Los destinos incluyen búsqueda, película, detalle de serie, capítulo, curso/lección, usuario, compra/venta/orden y mensajes.
 
-Las pruebas no usan tokens reales ni el servidor de producción.
+Abrir un resultado no inicia streaming. Solo los intents/acciones que recibieron confirmación agregan `play=true`; la reproducción de cursos llega a `CursoDetalle` y usa `cursos.media.solicitarReproduccion`, que vuelve a autorizar el acceso en Meteor. Las rutas de descargas y ciertos detalles (orden/venta) aún muestran la pantalla de dominio existente sin detalle por ID, dado que no existe una pantalla profunda dedicada.
 
-## Build en iPhone
+## Configuración y ejecución
 
-1. Ejecuta `npm install`.
-2. Ejecuta `npx pod-install ios` si cambió el módulo nativo.
-3. Genera un development build o build de distribución; Expo Go no incluye este módulo nativo ni App Intents.
-4. Instala la app en un iPhone con iOS compatible.
-5. Configura el token en la pantalla MCP.
-6. Abre **Atajos**, añade **Consultar VIDKAR**, selecciona una herramienta y proporciona el objeto JSON de argumentos.
+1. Inicia sesión en VIDKAR.
+2. Crea un token MCP personal en el perfil web, o configúralo en `/(normal)/MCPSettings`.
+3. Usa un development build o distribución iOS nativa. Expo Go no contiene el módulo MCP ni App Intents.
+4. En Atajos o Siri, usa las frases VIDKAR; para reproducción/consultas privadas confirma la solicitud.
 
-Para el flujo asistido, añade primero **Ver herramientas de VIDKAR**, después una acción de IA que seleccione método y argumentos, y finalmente **Consultar VIDKAR** con esos valores.
+No se añadió config plugin: los targets Apple existentes y el módulo Expo local incluyen el código Swift. No se crea un target de extensión adicional. Para compilar y probar App Intents se requiere Xcode y un iPhone real; la compilación de simulator es útil pero no sustituye esa prueba.
 
-El build completo de la app debe incluir el target `VidkarMCP` y la metadata de App Intents. La compilación aislada del pod se puede comprobar con el target `VidkarMCP` para `iphonesimulator`.
+## Validación
+
+Desde `react-download/`:
+
+- `npm run mcp:build`
+- `npm run mcp:test`
+
+Desde `react-native-VIDKAR/`:
+
+- `npm run test:mcp`
+- `npm run lint`
+- `xcodebuild -project ios/Pods/Pods.xcodeproj -scheme VidkarMCP -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`
+
+El workspace iOS completo incluye `VidkarWatch`; su asset catalog actual falla por no tener contenido aplicable para `AppIcon`. Este bloqueo es independiente del módulo MCP. El lint global puede conservar warnings preexistentes.

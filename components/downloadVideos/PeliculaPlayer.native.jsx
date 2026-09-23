@@ -592,6 +592,10 @@ const PeliculaPlayer = () => {
     serverHlsDurationMs || normalizeHlsDurationMs(hlsPlayback.durationSeconds);
   const hlsStartOffsetMs = Number(hlsPlayback.startAtSeconds || 0) * 1000;
   React.useEffect(() => {
+    if (!currentUser || !canAccessMovies) {
+      return undefined;
+    }
+
     if (!resumeStateReady || resumePromptVisible) {
       return undefined;
     }
@@ -757,6 +761,8 @@ const PeliculaPlayer = () => {
       }
     };
   }, [
+    canAccessMovies,
+    currentUser,
     hlsReloadToken,
     hlsServerOrigin,
     hlsStartAtRequest,

@@ -53,7 +53,15 @@ export const describeHTTPError = (status, body = "") => {
 };
 
 export const formatToolCatalog = (tools = []) => JSON.stringify(
-  tools.map(({ name, description = "", inputSchema = {} }) => ({ name, description, inputSchema })),
+  tools.map((tool) => ({
+    name: tool.name,
+    description: tool.description || "",
+    inputSchema: tool.inputSchema || {},
+    permissions: Array.isArray(tool.permissions) ? tool.permissions : [],
+    dataClass: tool.dataClass || "unclassified",
+    readOnly: tool.readOnly === true,
+    requiresConfirmation: tool.requiresConfirmation !== false,
+  })),
   null,
   2,
 );

@@ -6,7 +6,7 @@ import { formatToolCatalog, parseArgumentsJSON } from "./mcpProtocol";
 
 const TOKEN_KEY = "vidkar.mcp.bearer.v1";
 const URL_KEY = "vidkar.mcp.url.v1";
-const TOOL_CACHE_KEY = "vidkar.mcp.tools.v1";
+const TOOL_CACHE_KEY = "vidkar.mcp.tools.v2";
 const TOOL_CACHE_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_MCP_URL = "https://www.vidkar.com/mcp";
 
@@ -41,11 +41,22 @@ const readCache = async () => {
 
 export const configureMCP = async ({ url, token }) => {
   if (!VidkarMCP) throw new Error("La integración MCP de VIDKAR requiere un binario iOS nativo.");
+  const ownerId = Meteor.userId();
+  if (!ownerId) throw new Error("Inicia sesión en VIDKAR antes de configurar MCP.");
   const configuredUrl = isHttpsUrl(url) ? url : getConfiguredMCPUrl();
   if (!configuredUrl) throw new Error("El endpoint MCP no está configurado.");
   if (String(token || "").length < 20) throw new Error("El token MCP no es válido.");
   const normalizedUrl = String(configuredUrl).trim().replace(/\/$/, "");
-  await requireNativeMCP().configure(normalizedUrl, String(token));
+  try {
+    await requireNativeMCP().configure(normalizedUrl, String(token), String(ownerId));
+  } catch (error) {
+    await Promise.all([
+      SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => null),
+      SecureStore.deleteItemAsync(URL_KEY).catch(() => null),
+      SecureStore.deleteItemAsync(TOOL_CACHE_KEY).catch(() => null),
+    ]);
+    throw error;
+  }
   await SecureStore.setItemAsync(TOKEN_KEY, String(token));
   await SecureStore.setItemAsync(URL_KEY, normalizedUrl);
   await SecureStore.deleteItemAsync(TOOL_CACHE_KEY);
@@ -83,7 +94,54 @@ export const clearMCPConfiguration = async () => {
   if (VidkarMCP) await VidkarMCP.clearConfiguration().catch(() => null);
 };
 
+export const authorizeMCPPlayback = async (entityType, entityId) => {
+  const currentUserId = Meteor.userId();
+  if (!currentUserId) throw new Error("Inicia sesión en VIDKAR antes de reproducir contenido.");
+  if (!["movie", "episode", "lesson"].includes(String(entityType)) || !String(entityId)) {
+    throw new Error("No tienes permisos para realizar esa acción en VIDKAR.");
+  }
+  const nativeModule = requireNativeMCP();
+  const configuration = await nativeModule.getConfiguration();
+  if (!configuration.configured || configuration.ownerId !== String(currentUserId)) {
+    await clearMCPConfiguration();
+    throw new Error("El token MCP no pertenece a la sesión actual de VIDKAR.");
+  }
+  const responseText = await executeMCPTool("search_entities", {
+    entity: String(entityType),
+    id: String(entityId),
+    limit: 1,
+    offset: 0,
+    ...(String(entityType) === "lesson" ? { confirmed: true } : {}),
+  });
+  const response = typeof responseText === "string" ? JSON.parse(responseText) : responseText;
+  const matchingEntity = Array.isArray(response?.results)
+    && response.results.some((entry) => String(entry.id) === String(entityId));
+  if (response?.success !== true || !matchingEntity) {
+    throw new Error(response?.error?.message || "No tienes permisos para reproducir este contenido en VIDKAR.");
+  }
+  return nativeModule.authorizePlayback(String(entityType), String(entityId));
+};
+
+export const consumeMCPPlaybackAuthorization = async (entityType, entityId) => {
+  const currentUserId = Meteor.userId();
+  if (!currentUserId) return false;
+  const nativeModule = requireNativeMCP();
+  const configuration = await nativeModule.getConfiguration();
+  if (!configuration.configured || configuration.ownerId !== String(currentUserId)) {
+    await clearMCPConfiguration();
+    return false;
+  }
+  return nativeModule.consumePlaybackAuthorization(String(entityType), String(entityId));
+};
+
 export const discoverMCPTools = async ({ force = false } = {}) => {
+  const currentUserId = Meteor.userId();
+  const configuration = await requireNativeMCP().getConfiguration();
+  if (!currentUserId || !configuration.configured) throw new Error("Configura el acceso MCP desde la sesión actual de VIDKAR.");
+  if (configuration.ownerId !== String(currentUserId)) {
+    await clearMCPConfiguration();
+    throw new Error("El token MCP no pertenece a la sesión actual de VIDKAR; se eliminó del dispositivo.");
+  }
   const cached = await readCache();
   if (!force && cached && Date.now() - cached.updatedAt < TOOL_CACHE_TTL_MS) return cached.tools;
   const tools = await requireNativeMCP().discoverTools(force);
@@ -111,6 +169,7 @@ export const validateMCPArguments = (tool, args = {}) => {
 export const executeMCPTool = async (toolName, args = {}) => {
   const tool = await findMCPTool(toolName);
   if (!tool) throw new Error(`La herramienta MCP no está disponible: ${toolName}`);
+  if (tool.readOnly !== true) throw new Error("No tienes permisos para realizar esa acción en VIDKAR.");
   validateMCPArguments(tool, args);
   return requireNativeMCP().executeTool(toolName, args);
 };

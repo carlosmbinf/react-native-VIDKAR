@@ -10,7 +10,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test:mcp": "node --experimental-default-type=module --test tests/mcpProtocol.test.js",
+    "test:mcp": "node --experimental-default-type=module --test tests/mcpProtocol.test.js tests/universalLinks.test.js",
     "build": "node ./scripts/patch-apple-targets-watch-prebuild.js && node ./scripts/patch-vlc-media-player.js && node ./scripts/patch-react-native-paper-portals.js && expo prebuild"
   },
   "dependencies": {

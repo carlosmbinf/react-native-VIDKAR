@@ -1,3 +1,5 @@
+import { resolveUniversalLink } from "../navigation/universalLinks";
+
 export const SPOTLIGHT_DOMAINS = Object.freeze({
   courses: "com.vidkar.spotlight.courses.v1",
   users: "com.vidkar.spotlight.users.v1",
@@ -131,9 +133,9 @@ export const buildMovieSpotlightItems = (movies) => (
 export const resolveSpotlightRoute = (itemId) => {
   const normalizedItemId = normalizeValue(itemId);
   const routeDefinitions = [
-    [SPOTLIGHT_ITEM_TYPES.course, "/(normal)/CursoDetalle", "courseId"],
-    [SPOTLIGHT_ITEM_TYPES.user, "/(normal)/User", "item"],
-    [SPOTLIGHT_ITEM_TYPES.movie, "/(normal)/PeliculaPlayer", "id"],
+    [SPOTLIGHT_ITEM_TYPES.course, "course"],
+    [SPOTLIGHT_ITEM_TYPES.user, "user"],
+    [SPOTLIGHT_ITEM_TYPES.movie, "movie"],
   ];
 
   const definition = routeDefinitions.find(([type]) => (
@@ -141,12 +143,9 @@ export const resolveSpotlightRoute = (itemId) => {
   ));
   if (!definition) return null;
 
-  const [, pathname, parameter] = definition;
-  const entityId = normalizedItemId.slice(String(definition[0]).length + 1).trim();
+  const [spotlightType, entityType] = definition;
+  const entityId = normalizedItemId.slice(String(spotlightType).length + 1).trim();
   if (!entityId) return null;
 
-  return {
-    pathname,
-    params: { [parameter]: entityId },
-  };
+  return resolveUniversalLink(`vidkar://${entityType}/${encodeURIComponent(entityId)}`);
 };

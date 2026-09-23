@@ -364,7 +364,7 @@ const CourseVideoPlayer = ({ durationSeconds, lesson, sourceUrl, startAtSeconds,
 export default function CourseDetail() {
   const theme = useTheme();
   const router = useRouter();
-  const { courseId } = useLocalSearchParams();
+  const { courseId, lessonId: requestedLessonId } = useLocalSearchParams();
   const headerInset = useAppHeaderContentInset();
   const [working, setWorking] = React.useState(false);
   const [player, setPlayer] = React.useState(null);
@@ -375,6 +375,8 @@ export default function CourseDetail() {
   const [refreshing, setRefreshing] = React.useState(false);
   const normalizedCourseId = Array.isArray(courseId) ? courseId[0] : courseId;
   const currentUserId = Meteor.userId();
+  const normalizedRequestedLessonId = Array.isArray(requestedLessonId) ? requestedLessonId[0] : requestedLessonId;
+  const startedDeepLinkLessonRef = React.useRef(null);
   const palette = {
     accent: theme.dark ? "#67e8f9" : "#0e7490",
     background: theme.dark ? "#071018" : "#edf5f7",
@@ -480,7 +482,7 @@ export default function CourseDetail() {
     }
   };
 
-  const playLesson = async (lesson) => {
+  const playLesson = React.useCallback(async (lesson) => {
     setWorking(true);
     try {
       const result = await callMethod("cursos.media.solicitarReproduccion", lesson._id);
@@ -501,7 +503,16 @@ export default function CourseDetail() {
     } finally {
       setWorking(false);
     }
-  };
+  }, []);
+
+  React.useEffect(() => {
+    if (!normalizedRequestedLessonId || !hasAccess || data.loading || working || player?.url) return;
+    if (startedDeepLinkLessonRef.current === normalizedRequestedLessonId) return;
+    const lesson = data.lessons.find((entry) => String(entry._id) === String(normalizedRequestedLessonId));
+    if (!lesson) return;
+    startedDeepLinkLessonRef.current = normalizedRequestedLessonId;
+    playLesson(lesson);
+  }, [data.lessons, data.loading, hasAccess, normalizedRequestedLessonId, player?.url, playLesson, working]);
 
   const seekLesson = async (nextStartAtSeconds) => {
     if (!player?.lesson || !player.sourceVideoUrl) return;

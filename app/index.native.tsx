@@ -14,6 +14,7 @@ import { userHasEmpresaRole } from "../components/navigator/sessionRoute";
 import PushNotificationDialogHost from "../components/shared/PushNotificationDialogHost.native";
 import UpdateRequired from "../components/update/UpdateRequired";
 import { syncCadeteBackgroundLocation } from "../services/location/cadeteBackgroundLocation.native";
+import { consumeMCPPlaybackAuthorization } from "../services/mcp/mcpClient";
 import {
   APPROVE_EVIDENCE_ACTION,
   APPROVE_SALE_ACTION,
@@ -369,19 +370,56 @@ export default function IndexScreen() {
       return;
     }
 
-    const navigationTarget = resolveUniversalLink(pendingUniversalLink);
-    setPendingUniversalLink(null);
+    let cancelled = false;
+    const navigateFromLink = async () => {
+      let linkToResolve = pendingUniversalLink;
+      let navigationTarget = resolveUniversalLink(linkToResolve);
+      if (!navigationTarget) {
+        setPendingUniversalLink(null);
+        return;
+      }
 
-    if (!navigationTarget) {
-      return;
-    }
+      let parsedURL: URL | null = null;
+      try {
+        parsedURL = new URL(pendingUniversalLink);
+      } catch {
+        // The shared resolver already rejects malformed URLs.
+      }
 
-    requestAnimationFrame(() => {
-      router.replace({
-        pathname: navigationTarget.pathname as never,
-        params: navigationTarget.params,
+      if (parsedURL?.searchParams.get("play") === "true") {
+        const entityType = parsedURL.hostname.toLowerCase();
+        const entityId = parsedURL.pathname.split("/").filter(Boolean)[0] || "";
+        const playbackAuthorized = await consumeMCPPlaybackAuthorization(entityType, decodeURIComponent(entityId)).catch(() => false);
+        if (cancelled) return;
+        if (!playbackAuthorized) {
+          Alert.alert("VIDKAR", "La reproducción necesita una confirmación válida en el dispositivo. No se inició el streaming.");
+          parsedURL.searchParams.delete("play");
+          linkToResolve = parsedURL.toString();
+          navigationTarget = resolveUniversalLink(linkToResolve);
+        }
+      }
+
+      setPendingUniversalLink(null);
+      if (!navigationTarget) return;
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        router.replace({
+          pathname: navigationTarget.pathname as never,
+          params: navigationTarget.params,
+        });
       });
+    };
+
+    navigateFromLink().catch((error) => {
+      if (!cancelled) {
+        console.warn("[UniversalLinks] No se pudo validar el enlace de VIDKAR:", error);
+        setPendingUniversalLink(null);
+      }
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [pendingUniversalLink, ready, userId]);
 
   React.useEffect(() => {

@@ -96,6 +96,14 @@ const MCPSettingsScreen = () => {
               <View key={tool.name} style={styles.tool}>
                 <Text variant="titleSmall">{tool.name}</Text>
                 <Text variant="bodySmall">{tool.description || "Sin descripción"}</Text>
+                <Text variant="bodySmall">Permisos: {tool.permissions?.join(", ") || "No declarados"}</Text>
+                <Text variant="bodySmall">Datos: {tool.dataClass || "Sin clasificar"}</Text>
+                <Text variant="bodySmall">Operación: {tool.readOnly ? "solo lectura" : "bloqueada (sin garantía de solo lectura)"}</Text>
+                <Text variant="bodySmall">Confirmación: {tool.dataClass === "entity-dependent" ? "según tipo de entidad" : tool.requiresConfirmation ? "requerida" : "no requerida"}</Text>
+                {tool.security?.conditionalPermissions ? (
+                  <Text selectable variant="bodySmall">Permisos por entidad: {JSON.stringify(tool.security.conditionalPermissions)}</Text>
+                ) : null}
+                <Text selectable variant="bodySmall">Esquema: {JSON.stringify(tool.inputSchema || {})}</Text>
                 <Divider style={styles.divider} />
               </View>
             )) : <Text variant="bodySmall">Configura el acceso para consultar el catálogo actual.</Text>}

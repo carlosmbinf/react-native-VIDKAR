@@ -2,6 +2,8 @@ export const configureMCP = async () => { throw new Error("El cliente MCP de VID
 export const createAndConfigureMCPToken = configureMCP;
 export const revokeMCPToken = async () => { throw new Error("El cliente MCP de VIDKAR está disponible únicamente en un binario iOS nativo."); };
 export const clearMCPConfiguration = async () => {};
+export const authorizeMCPPlayback = async () => { throw new Error("La reproducción Siri está disponible únicamente en el binario iOS nativo."); };
+export const consumeMCPPlaybackAuthorization = async () => false;
 export const discoverMCPTools = async () => [];
 export const refreshMCPTools = discoverMCPTools;
 export const findMCPTool = async () => null;
