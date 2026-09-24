@@ -346,7 +346,9 @@ private actor MCPTransport {
     if confirmed { arguments["confirmed"] = true }
     let output = try await execute(name: "search_entities", arguments: arguments)
     let payloads = try decodeSearchPayloads(output)
-    await VIDKARSpotlightIndex.index(payloads)
+    if #available(iOS 27.0, *) {
+      await VIDKARSpotlightIndex.index(payloads)
+    }
     return payloads
   }
 

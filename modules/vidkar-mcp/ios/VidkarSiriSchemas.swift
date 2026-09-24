@@ -70,6 +70,7 @@ struct VIDKARSiriOpenIntent: OpenIntent {
 
 // MARK: - Spotlight / semantic indexing
 
+@available(iOS 27.0, *)
 extension VIDKARSearchResultEntity: IndexedEntity {
   var attributeSet: CSSearchableItemAttributeSet {
     let attributes = CSSearchableItemAttributeSet(contentType: .content)
@@ -88,6 +89,7 @@ extension VIDKARSearchResultEntity: IndexedEntity {
 
 // Only public/catalog content is indexed. Private account data must never
 // become available to Spotlight or Apple Intelligence.
+@available(iOS 27.0, *)
 enum VIDKARSpotlightIndex {
   private static let indexName = "com.vidkar.app.content"
 
