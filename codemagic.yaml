@@ -101,7 +101,7 @@ workflows:
         bundle_identifier: com.vidkar
         # Codemagic también busca perfiles com.vidkar.*; deben existir perfiles App Store para cada extensión.
       node: 22
-      xcode: 26.4.1
+      xcode: 27.0
       cocoapods: default
       vars:
         BUNDLE_ID: "com.vidkar"
@@ -276,7 +276,7 @@ workflows:
         - vidkar
       node: 22
       java: 17
-      xcode: 26.4.1
+      xcode: 27.0
       cocoapods: default
       vars:
         BUNDLE_ID: "com.vidkar"

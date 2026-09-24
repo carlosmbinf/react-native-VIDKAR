@@ -1,5 +1,3 @@
-#if VIDKAR_ENABLE_IOS27_SIRI
-
 import AppIntents
 import CoreSpotlight
 import Foundation
@@ -144,5 +142,3 @@ private enum VIDKARSiriURL {
     return url
   }
 }
-
-#endif
