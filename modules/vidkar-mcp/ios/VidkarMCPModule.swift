@@ -466,6 +466,32 @@ enum VIDKAREntityType: String, AppEnum {
   ]
 }
 
+@available(iOS 16.0, *)
+enum VIDKARPeriod: String, AppEnum {
+  case unspecified
+  case today
+  case yesterday
+  case thisWeek = "this_week"
+  case lastWeek = "last_week"
+  case thisMonth = "this_month"
+  case lastMonth = "last_month"
+  case thisYear = "this_year"
+  case lastYear = "last_year"
+
+  static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Período")
+  static var caseDisplayRepresentations: [VIDKARPeriod: DisplayRepresentation] = [
+    .unspecified: "Cualquier período",
+    .today: "Hoy",
+    .yesterday: "Ayer",
+    .thisWeek: "Esta semana",
+    .lastWeek: "La semana pasada",
+    .thisMonth: "Este mes",
+    .lastMonth: "El mes pasado",
+    .thisYear: "Este año",
+    .lastYear: "El año pasado",
+  ]
+}
+
 struct VIDKARSearchResultEntity: AppEntity, Sendable {
   static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Resultado de VIDKAR")
   static let defaultQuery = VIDKARSearchResultEntityQuery()
@@ -1126,13 +1152,14 @@ struct VIDKARListUserDataIntent: AppIntent {
 
   @Parameter(title: "Tipo de datos", default: .purchase) var entityType: VIDKAREntityType
   @Parameter(title: "Texto opcional", default: "") var query: String
-  @Parameter(title: "Período opcional", default: "") var period: String
+  @Parameter(title: "Período opcional", default: .unspecified) var period: VIDKARPeriod
 
   static var parameterSummary: some ParameterSummary { Summary("Consultar mis \(\.$entityType) en VIDKAR") }
 
   func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSearchResultEntity]> {
     guard [.user, .purchase, .sale, .order, .message, .subscription].contains(entityType) else { throw MCPError.toolNotAllowed }
-    let entities = try await listPrivateVIDKARData(entity: entityType.rawValue, query: query, period: period)
+    let periodValue = period == .unspecified ? "" : period.rawValue
+    let entities = try await listPrivateVIDKARData(entity: entityType.rawValue, query: query, period: periodValue)
     let summary = summarizeEntityResults(entities)
     return .result(value: entities, dialog: IntentDialog(stringLiteral: summary))
   }
@@ -1144,11 +1171,11 @@ struct VIDKARMyPurchasesIntent: AppIntent {
   static var description = IntentDescription("Consulta compras de tu cuenta tras confirmar el acceso a datos financieros.")
   static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
   @Parameter(title: "Texto opcional", default: "") var query: String
-  @Parameter(title: "Período opcional", default: "") var period: String
-  static var parameterSummary: some ParameterSummary { Summary("Consultar mis compras en VIDKAR") }
+  @Parameter(title: "Período", default: .unspecified) var period: VIDKARPeriod
+  static var parameterSummary: some ParameterSummary { Summary("Consultar mis compras \(\.$period) en VIDKAR") }
   func perform() async throws -> some IntentResult & ReturnsValue<[PurchaseEntity]> {
     var arguments = try makeSearchArguments(entity: "purchase", query: query)
-    if !period.isEmpty { arguments["period"] = period }
+    if period != .unspecified { arguments["period"] = period.rawValue }
     normalizeIntentPeriod(&arguments)
     let entities = try await confirmedVIDKARTypedSearch(arguments, as: PurchaseEntity.self, forceConfirmation: true)
     return .result(value: entities, dialog: IntentDialog(stringLiteral: summarizeTypedEntityResults(entities)))
@@ -1161,11 +1188,11 @@ struct VIDKARMySalesIntent: AppIntent {
   static var description = IntentDescription("Consulta ventas dentro del alcance de tu cuenta tras confirmar el acceso a datos financieros.")
   static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
   @Parameter(title: "Texto opcional", default: "") var query: String
-  @Parameter(title: "Período opcional", default: "") var period: String
-  static var parameterSummary: some ParameterSummary { Summary("Consultar mis ventas en VIDKAR") }
+  @Parameter(title: "Período", default: .unspecified) var period: VIDKARPeriod
+  static var parameterSummary: some ParameterSummary { Summary("Consultar mis ventas \(\.$period) en VIDKAR") }
   func perform() async throws -> some IntentResult & ReturnsValue<[SaleEntity]> {
     var arguments = try makeSearchArguments(entity: "sale", query: query)
-    if !period.isEmpty { arguments["period"] = period }
+    if period != .unspecified { arguments["period"] = period.rawValue }
     normalizeIntentPeriod(&arguments)
     let entities = try await confirmedVIDKARTypedSearch(arguments, as: SaleEntity.self, forceConfirmation: true)
     return .result(value: entities, dialog: IntentDialog(stringLiteral: summarizeTypedEntityResults(entities)))
@@ -1262,6 +1289,7 @@ private func normalizeIntentPeriod(_ arguments: inout [String: Any]) {
     "este mes": "this_month", "this month": "this_month",
     "mes pasado": "last_month", "last month": "last_month",
     "este ano": "this_year", "this year": "this_year",
+    "ano pasado": "last_year", "año pasado": "last_year", "last year": "last_year",
   ]
   if let period = periods[normalized] { arguments["period"] = period }
 }
