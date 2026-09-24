@@ -726,6 +726,8 @@ struct VIDKARSearchContentIntent: AppIntent {
   static var title: LocalizedStringResource = "Buscar contenido de VIDKAR"
   static var description = IntentDescription("Busca películas, series, capítulos, cursos, lecciones de tu cuenta y productos. Las lecciones requieren confirmación; los demás resultados son contenido de catálogo disponible.")
   static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  @available(iOS 26.0, *)
+  static var supportedModes: IntentModes { .background }
 
   @Parameter(title: "Qué quieres encontrar") var query: String
   @Parameter(title: "Tipo de contenido", default: .all) var entityType: VIDKAREntityType
@@ -761,6 +763,8 @@ struct VIDKARAccountQueryIntent: AppIntent {
   static var title: LocalizedStringResource = "Consultar datos de mi cuenta VIDKAR"
   static var description = IntentDescription("Consulta tus compras, ventas, órdenes, mensajes, suscripciones o perfil. VIDKAR confirma el acceso antes de buscar información privada o financiera.")
   static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  @available(iOS 26.0, *)
+  static var supportedModes: IntentModes { .background }
 
   @Parameter(title: "Qué datos de mi cuenta", requestValueDialog: "¿Qué información privada de tu cuenta quieres consultar?")
   var dataType: VIDKARAccountDataType

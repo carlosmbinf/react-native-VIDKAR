@@ -57,6 +57,7 @@ test("search y account devuelven entidades y diálogo sin navegación ni JSON ar
     assert.match(block, /ReturnsValue<\[VIDKARSearchResultEntity\]>/);
     assert.match(block, /ProvidesDialog/);
     assert.match(block, /\.result\(\s*value:/);
+    assert.match(block, /supportedModes: IntentModes \{ \.background \}/);
     assert.doesNotMatch(block, /argumentsJSON|vidkarDeepLink|openVIDKARURL|UIApplication\.shared\.open|Linking\.openURL|router\.(?:push|replace)/);
   }
   assert.match(intentBlocks.get("VIDKARAccountQueryIntent"), /requiresAuthentication/);
