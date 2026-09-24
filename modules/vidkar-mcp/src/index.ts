@@ -20,6 +20,8 @@ type NativeMCPModule = {
   executeTool: (toolName: string, args: Record<string, unknown>) => Promise<unknown>;
   authorizePlayback: (entityType: string, entityId: string) => Promise<void>;
   consumePlaybackAuthorization: (entityType: string, entityId: string) => Promise<boolean>;
+  syncCurrentUserIdentity: (userId: string, fullName: string, username: string) => Promise<void>;
+  clearCurrentUserIdentity: () => Promise<void>;
 };
 
 export const VidkarMCP = requireOptionalNativeModule<NativeMCPModule>("VidkarMCP");

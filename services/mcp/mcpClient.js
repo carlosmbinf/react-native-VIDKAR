@@ -134,6 +134,18 @@ export const consumeMCPPlaybackAuthorization = async (entityType, entityId) => {
   return nativeModule.consumePlaybackAuthorization(String(entityType), String(entityId));
 };
 
+export const syncCurrentUserIdentity = async ({ userId, fullName, username }) => {
+  if (typeof VidkarMCP?.syncCurrentUserIdentity !== "function") return false;
+  await VidkarMCP.syncCurrentUserIdentity(String(userId), String(fullName), String(username));
+  return true;
+};
+
+export const clearCurrentUserIdentity = async () => {
+  if (typeof VidkarMCP?.clearCurrentUserIdentity === "function") {
+    await VidkarMCP.clearCurrentUserIdentity();
+  }
+};
+
 export const discoverMCPTools = async ({ force = false } = {}) => {
   const currentUserId = Meteor.userId();
   const configuration = await requireNativeMCP().getConfiguration();

@@ -1,5 +1,7 @@
 # Inventario previo: Siri, App Intents y MCP VIDKAR
 
+> **Aviso de vigencia (septiembre de 2026):** este documento conserva una auditoría histórica de la integración Siri/MCP anterior y ya no representa los intents compilados. La superficie Siri vigente es únicamente `VIDKARCurrentUserIntent` + `VIDKARCurrentUserEntity`; consulta `mcp-shortcuts.md`. El backend y la pantalla MCP siguen existiendo de forma independiente.
+
 Auditoría inicial del estado del repositorio y registro de cambios posteriores. La fuente de verdad son los archivos citados, no los nombres sugeridos en el requerimiento.
 
 ## 1. Arquitectura existente

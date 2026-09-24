@@ -14,7 +14,11 @@ import { userHasEmpresaRole } from "../components/navigator/sessionRoute";
 import PushNotificationDialogHost from "../components/shared/PushNotificationDialogHost.native";
 import UpdateRequired from "../components/update/UpdateRequired";
 import { syncCadeteBackgroundLocation } from "../services/location/cadeteBackgroundLocation.native";
-import { consumeMCPPlaybackAuthorization } from "../services/mcp/mcpClient";
+import {
+  clearCurrentUserIdentity,
+  consumeMCPPlaybackAuthorization,
+  syncCurrentUserIdentity,
+} from "../services/mcp/mcpClient";
 import {
   APPROVE_EVIDENCE_ACTION,
   APPROVE_SALE_ACTION,
@@ -209,6 +213,35 @@ export default function IndexScreen() {
 
     syncUserSpotlightIndex(user ? [user] : []).catch((error) => {
       console.warn("[Spotlight] No se pudo sincronizar el usuario actual:", error);
+    });
+  }, [ready, user, userId]);
+
+  React.useEffect(() => {
+    if (userId && !ready) {
+      return;
+    }
+
+    const synchronizeIdentity = async () => {
+      const username = String(user?.username || "").trim();
+      if (!userId || !user || !username) {
+        await clearCurrentUserIdentity();
+        return;
+      }
+
+      const profile = user.profile || {};
+      const composedName = [profile.firstName, profile.lastName]
+        .filter((part) => typeof part === "string" && part.trim())
+        .join(" ")
+        .trim();
+      const fullName = String(
+        profile.name || user.name || composedName || username,
+      ).trim();
+
+      await syncCurrentUserIdentity({ userId, fullName, username });
+    };
+
+    synchronizeIdentity().catch(() => {
+      console.warn("[AppIntents] No se pudo sincronizar la identidad local.");
     });
   }, [ready, user, userId]);
 

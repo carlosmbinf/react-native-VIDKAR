@@ -1,51 +1,34 @@
 # Siri, App Intents y MCP de VIDKAR
 
-## Estado y arquitectura
+## Estado actual de Siri (septiembre de 2026)
 
-La integración usa App Intents (iOS 16.4+), el módulo Expo nativo `modules/vidkar-mcp` y el backend MCP existente. No usa SiriKit legacy, no duplica lógica de negocio Swift y no crea una extensión App Intents separada: las intents viven en el target principal de VIDKAR.
+La superficie activa de App Intents se redujo a una sola capacidad nativa:
+
+- `VIDKARCurrentUserIntent`: responde “Dime el usuario de VIDKAR” con el nombre de la cuenta sincronizada desde la sesión Meteor autenticada.
+- `VIDKARCurrentUserEntity`: devuelve una tarjeta con nombre y `@username`; la entidad solo resuelve el ID de la cuenta actual y no se ofrece como sugerencia.
+- `VIDKARCurrentUserShortcuts`: publica frases en español para Siri/Atajos. `openAppWhenRun` es `false`; la app no se abre para responder.
+- La identidad mínima se cifra con Keychain, se actualiza cuando la sesión y el perfil están listos y se borra al detectar logout. No se comparte con el indexado semántico de Spotlight.
+- La intent no depende de MCP ni de una llamada de red durante `perform()`. El valor es una instantánea del último estado autenticado sincronizado por la app; si la sesión se revoca desde otro dispositivo, se actualiza cuando este dispositivo vuelve a conectarse/abrir VIDKAR.
+- El intent exige autenticación del dispositivo. Siri/Apple Intelligence puede decidir no elegir VIDKAR para una frase libre; el App Shortcut aumenta la posibilidad de descubrimiento, pero no garantiza una interpretación concreta.
+
+Codemagic permanece sin cambios: su workflow iOS elimina `ios/` y ejecuta `expo prebuild`; el nuevo Swift está dentro del módulo local ya autolinkeado, sin targets, entitlements, perfiles ni pasos nuevos.
+
+## MCP móvil (independiente de Siri)
+
+La app conserva el módulo Expo `modules/vidkar-mcp` y el backend MCP para la pantalla de configuración/consultas dentro de VIDKAR. Esta integración no forma parte del intent simple de identidad. El MCP sigue validando tokens, permisos y datos en backend.
 
 ```text
-Siri / Apple Intelligence / Atajos
-  -> VIDKAR App Intents + AppShortcuts + AppEntity
-  -> vidkar-mcp (HTTPS, token Keychain ligado al userId Meteor)
-  -> POST https://www.vidkar.com/mcp
-  -> tools/list / tools/call
-  -> allowlist y autorización MCP backend
-  -> resultado resumido + deep link vidkar:// validado
-  -> Expo Router, después de restaurar sesión autenticada
+Pantalla MCP de VIDKAR -> módulo Expo vidkar-mcp -> backend MCP HTTPS
+Siri / Apple Intelligence -> VIDKARCurrentUserIntent -> Keychain de identidad actual
 ```
 
-El backend sigue siendo la autoridad. El catálogo MCP no constituye permisos y el cliente no acepta nombres de colección, selector Mongo ni campos arbitrarios.
+El backend sigue siendo la autoridad para las operaciones MCP. La intent de identidad solo lee la instantánea local y no acepta IDs de usuario de entrada.
 
-## Intents y entidades
+## Capacidad Siri actual
 
-El módulo publica estos intents:
+El intent produce un diálogo de voz con el nombre completo y una entidad retornable cuya representación muestra nombre y `@username`. Para datos personales no se implementa `suggestedEntities()` con resultados, no se indexa la entidad en Spotlight y no se acepta una identidad arbitraria desde Siri.
 
-- `VIDKARGeneralQueryIntent`: consulta natural avanzada, herramienta opcional, `argumentsJSON`, tipo/id, acción y confirmación adicional.
-- `VIDKARSearchContentIntent`: única intent pública de búsqueda; consulta texto, entidad y filtros, y devuelve resultados estructurados para Siri sin abrir la app.
-- `VIDKAROpenEntityIntent`: abre un `AppEntity` en VIDKAR.
-- `VIDKARPlayContentIntent`: solo película, capítulo o lección; siempre solicita confirmación antes de añadir `play=true`.
-- `VIDKARListUserDataIntent`: única intent pública para datos privados; recibe el tipo de datos (compras, ventas, órdenes, usuarios, mensajes o suscripción) y solicita confirmación antes de consultar.
-- `VIDKARExecuteActionIntent`: llamadas MCP de solo lectura; rechaza herramientas sin `readOnlyHint`.
-- `VIDKARToolCatalogIntent`: devuelve el catálogo JSON como valor de Atajos y un diálogo de voz breve.
-
-`AppEntity` usa un ID estable `tipo:id`, título, subtítulo, descripción, tipo, enlace seguro e imagen opcional. Se definen `MovieEntity`, `SeriesEntity`, `EpisodeEntity`, `CourseEntity`, `LessonEntity`, `UserEntity`, `PurchaseEntity`, `SaleEntity`, `ProductEntity`, `MessageEntity` y `DownloadEntity`. Las entidades privadas no se ofrecen como sugerencias silenciosas a EntityQuery; se buscan por una intent que confirma primero. `DownloadEntity` está definido, pero sus búsquedas quedan deshabilitadas hasta que exista una herramienta backend segura.
-
-Las frases preconfiguradas usan `\(.applicationName)` para adaptarse al nombre instalado e incluyen:
-
-- “Buscar en VIDKAR” y “Consultar VIDKAR”.
-- “Buscar una película/serie/curso/usuario en VIDKAR” se resuelve mediante `VIDKARSearchContentIntent` con el filtro correspondiente; no existen intents duplicadas por tipo.
-- “Consultar mis compras/ventas en VIDKAR”.
-- “Consultar el estado de mi suscripción en VIDKAR”.
-- “Abrir contenido en VIDKAR” y “Reproducir contenido en VIDKAR”.
-
-Las frases específicas de compras, ventas y suscripción también reutilizan
-`VIDKARListUserDataIntent` con el tipo preconfigurado en cada `AppShortcut`.
-Se eliminaron las intents especializadas equivalentes para que Siri y Atajos
-no ofrezcan varias acciones con el mismo contrato.
-
-Siri presenta diálogos concisos; las búsquedas/listados devuelven resultados `AppEntity` y los datos estructurados se conservan como valor para Shortcuts.
-Apple limita `AppShortcutsProvider` a diez shortcuts preconfigurados; el catálogo y la intent genérica avanzada siguen disponibles como acciones VIDKAR dentro de la app Atajos, sin consumir otro shortcut de voz.
+Las intents MCP anteriores y sus entidades de catálogo ya no se compilan en la app. Se conservaron detrás de la condición Swift `VIDKAR_LEGACY_INTENTS` únicamente como referencia de migración; Codemagic no define esa condición. La antigua indexación semántica MCP se eliminó.
 
 ## Descubrimiento y seguridad del catálogo
 
@@ -55,7 +38,7 @@ El servidor marca tools de consulta con `readOnlyHint`, y adjunta `_meta["vidkar
 
 La configuración valida HTTPS, host `vidkar.com`/`www.vidkar.com`, ruta `/mcp`, ausencia de credenciales/query/fragment en la URL y el token Bearer en Keychain. Al configurar, el cliente llama `get_current_user` y exige que el ID propietario del token coincida con el `Meteor.userId()` actual antes de conservar la configuración. Cambiar usuario o cerrar sesión elimina las credenciales por los flujos logout existentes. No se registra el token.
 
-Las intents que confirman playback revalidan el ID en `search_entities` con los guards del backend, y luego emiten un grant nativo de un solo uso, ligado a tipo/ID/owner y con vencimiento corto en Keychain. React Native lo consume al aceptar el deep link; un enlace `play=true` sin grant válido se degrada a abrir/consultar y no inicia streaming. El player de películas también exige sesión Meteor y `subscipcionPelis === true` antes de preparar HLS.
+Las antiguas intents de playback ya no se compilan ni están disponibles desde Siri. Independientemente de App Intents, el player de películas exige sesión Meteor y `subscipcionPelis === true` antes de preparar HLS.
 
 Todas las tools requieren token Bearer en `/mcp`; también en modo stdio los handlers rechazan llamadas de datos sin identidad. Tools de usuarios, finanzas, órdenes, compras y mensajes requieren confirmación explícita en el cliente y `confirmed: true` en el servidor. Películas, series, cursos, niveles, suscripciones y ownership se autorizan del lado backend. No existen tools MCP de escritura; una llamada no declarada de solo lectura se rechaza con “No tienes permisos para realizar esa acción en VIDKAR.”
 
@@ -76,18 +59,18 @@ Admite query de hasta 120 caracteres, categoría/estado, período natural o `fro
 - Productos se limitan a catálogos existentes y proyección permitida. El precio solo se presenta si el documento realmente tiene precio, sin inferir moneda.
 - No hay búsqueda de proveedores, TV, audio, descargas o precios oficiales: no se inventaron rutas ni permisos para ellos.
 
-## Deep links y navegación
+## Deep links y navegación (pantallas MCP/Spotlight existentes)
 
-`services/navigation/universalLinks.ts` conserva Universal Links HTTPS y añade un allowlist para `vidkar://`. `app/index.native.tsx` registra la URL inicial y eventos de enlace, espera sesión y navegación autenticada; Spotlight comparte el resolver. Los destinos incluyen búsqueda, película, detalle de serie, capítulo, curso/lección, usuario, compra/venta/orden y mensajes.
+`services/navigation/universalLinks.ts` conserva Universal Links HTTPS y el allowlist `vidkar://` para pantallas existentes. La intent simple de identidad no abre deep links ni navega a Expo Router.
 
-Abrir un resultado no inicia streaming. Solo los intents/acciones que recibieron confirmación agregan `play=true`; la reproducción de cursos llega a `CursoDetalle` y usa `cursos.media.solicitarReproduccion`, que vuelve a autorizar el acceso en Meteor. Las rutas de descargas y ciertos detalles (orden/venta) aún muestran la pantalla de dominio existente sin detalle por ID, dado que no existe una pantalla profunda dedicada.
+Los flujos de búsqueda, apertura y reproducción descritos aquí pertenecían a los intents anteriores y ya no están disponibles desde Siri. Las pantallas internas de MCP/Spotlight conservan sus propios contratos y autorizaciones; la intent actual de identidad no navega ni inicia reproducción.
 
 ## Configuración y ejecución
 
-1. Inicia sesión en VIDKAR.
-2. Crea un token MCP personal en el perfil web, o configúralo en `/(normal)/MCPSettings`.
-3. Usa un development build o distribución iOS nativa. Expo Go no contiene el módulo MCP ni App Intents.
-4. En Atajos o Siri, usa las frases VIDKAR; para reproducción/consultas privadas confirma la solicitud.
+1. Inicia sesión en VIDKAR y deja que la sesión y el perfil terminen de cargar.
+2. Usa un development build o distribución iOS nativa; Expo Go no contiene el módulo Swift ni App Intents.
+3. Prueba “Dime el usuario de VIDKAR” en Siri/Atajos. No hace falta configurar un token MCP.
+4. Cierra sesión y comprueba que Siri deja de devolver el perfil guardado.
 
 No se añadió config plugin: los targets Apple existentes y el módulo Expo local incluyen el código Swift. No se crea un target de extensión adicional. Para compilar y probar App Intents se requiere Xcode y un iPhone real; la compilación de simulator es útil pero no sustituye esa prueba.
 

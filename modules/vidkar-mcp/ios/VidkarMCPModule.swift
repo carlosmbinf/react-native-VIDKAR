@@ -1,8 +1,6 @@
-import AppIntents
 import ExpoModulesCore
 import Foundation
 import Security
-import UIKit
 
 private struct MCPToolDefinition: Codable, Sendable {
   let name: String
@@ -51,6 +49,7 @@ private enum JSONValue: Codable, Sendable {
   }
 }
 
+#if VIDKAR_LEGACY_INTENTS
 struct MCPSearchEntityPayload: Codable, Sendable {
   let id: String
   let type: String
@@ -64,6 +63,7 @@ struct MCPSearchEntityPayload: Codable, Sendable {
 private struct MCPSearchEntityEnvelope: Codable, Sendable {
   let results: [MCPSearchEntityPayload]
 }
+#endif
 
 private struct PlaybackAuthorizationRecord: Codable, Sendable {
   let entityType: String
@@ -329,6 +329,7 @@ private actor MCPTransport {
     return output
   }
 
+#if VIDKAR_LEGACY_INTENTS
   func searchEntities(entity: String, query: String, confirmed: Bool = false) async throws -> [VIDKARSearchResultEntity] {
     let payloads = try await searchEntityPayloads(entity: entity, query: query, confirmed: confirmed)
     return payloads.compactMap(VIDKARSearchResultEntity.init(payload:))
@@ -369,6 +370,7 @@ private actor MCPTransport {
           let response = try? JSONDecoder().decode(MCPSearchEntityEnvelope.self, from: data) else { throw MCPError.invalidResponse }
     return response.results
   }
+#endif
 
   private func loadCache() {
     cacheLoaded = true
@@ -435,6 +437,7 @@ private actor MCPTransport {
   }
 }
 
+#if VIDKAR_LEGACY_INTENTS
 enum VIDKAREntityType: String, AppEnum {
   case all
   case movie
@@ -806,6 +809,7 @@ private func vidkarDeepLink(type: VIDKAREntityType, id: String?, query: String? 
   if !items.isEmpty { components.queryItems = items }
   return components.url
 }
+#endif
 
 public final class VidkarMCPModule: Module {
   public func definition() -> ModuleDefinition {
@@ -860,12 +864,19 @@ public final class VidkarMCPModule: Module {
     AsyncFunction("consumePlaybackAuthorization") { (entityType: String, entityId: String) async -> Bool in
       await MCPTransport.shared.consumePlaybackAuthorization(entityType: entityType, entityId: entityId)
     }
+    AsyncFunction("syncCurrentUserIdentity") { (userId: String, fullName: String, username: String) throws in
+      try VIDKARCurrentUserStore.save(id: userId, fullName: fullName, username: username)
+    }
+    AsyncFunction("clearCurrentUserIdentity") {
+      VIDKARCurrentUserStore.clear()
+    }
     AsyncFunction("getToolCatalog") { () async throws -> String in
       try await MCPTransport.shared.catalog()
     }
   }
 }
 
+#if VIDKAR_LEGACY_INTENTS
 @available(iOS 16.0, *)
 private struct VIDKARToolNameOptionsProvider: DynamicOptionsProvider {
   func results() async throws -> [String] {
@@ -1221,3 +1232,4 @@ private func summarizeForSiri(_ output: String) -> String {
   }
   return "La consulta se completó en VIDKAR."
 }
+#endif
