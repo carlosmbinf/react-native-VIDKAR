@@ -1079,6 +1079,18 @@ struct VIDKARListUserDataIntent: AppIntent {
   static var description = IntentDescription("Consulta compras, ventas, órdenes o mensajes dentro del alcance de tu cuenta.")
   static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
+  init() {
+    self.entityType = .purchase
+    self.query = ""
+    self.period = .unspecified
+  }
+
+  init(entityType: VIDKAREntityType) {
+    self.entityType = entityType
+    self.query = ""
+    self.period = .unspecified
+  }
+
   @Parameter(title: "Tipo de datos", default: .purchase) var entityType: VIDKAREntityType
   @Parameter(title: "Texto opcional", default: "") var query: String
   @Parameter(title: "Período opcional", default: .unspecified) var period: VIDKARPeriod
@@ -1140,19 +1152,13 @@ struct VIDKARToolCatalogIntent: AppIntent {
 @available(iOS 16.0, *)
 public struct VIDKARAppShortcuts: AppShortcutsProvider {
   public static var appShortcuts: [AppShortcut] {
-    var purchases = VIDKARListUserDataIntent()
-    purchases.entityType = .purchase
-    var sales = VIDKARListUserDataIntent()
-    sales.entityType = .sale
-    var subscription = VIDKARListUserDataIntent()
-    subscription.entityType = .subscription
     return [
     AppShortcut(intent: VIDKARSearchContentIntent(), phrases: ["Buscar en \(.applicationName)", "Consultar \(.applicationName)"], shortTitle: "Buscar VIDKAR", systemImageName: "magnifyingglass"),
-    AppShortcut(intent: purchases, phrases: ["Consultar mis compras en \(.applicationName)"], shortTitle: "Mis compras", systemImageName: "creditcard"),
-    AppShortcut(intent: sales, phrases: ["Consultar mis ventas en \(.applicationName)"], shortTitle: "Mis ventas", systemImageName: "chart.bar"),
+    AppShortcut(intent: VIDKARListUserDataIntent(entityType: .purchase), phrases: ["Consultar mis compras en \(.applicationName)"], shortTitle: "Mis compras", systemImageName: "creditcard"),
+    AppShortcut(intent: VIDKARListUserDataIntent(entityType: .sale), phrases: ["Consultar mis ventas en \(.applicationName)"], shortTitle: "Mis ventas", systemImageName: "chart.bar"),
     AppShortcut(intent: VIDKAROpenEntityIntent(), phrases: ["Abrir contenido en \(.applicationName)"], shortTitle: "Abrir contenido", systemImageName: "arrow.up.forward.app"),
     AppShortcut(intent: VIDKARPlayContentIntent(), phrases: ["Reproducir contenido en \(.applicationName)"], shortTitle: "Reproducir", systemImageName: "play.fill"),
-    AppShortcut(intent: subscription, phrases: ["Consultar el estado de mi suscripción en \(.applicationName)"], shortTitle: "Mi suscripción", systemImageName: "checkmark.seal")
+    AppShortcut(intent: VIDKARListUserDataIntent(entityType: .subscription), phrases: ["Consultar el estado de mi suscripción en \(.applicationName)"], shortTitle: "Mi suscripción", systemImageName: "checkmark.seal")
     ]
   }
 }
