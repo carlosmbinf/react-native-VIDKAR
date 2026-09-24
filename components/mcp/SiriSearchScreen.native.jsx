@@ -4,7 +4,7 @@ import React from "react";
 import { Alert, FlatList, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Appbar, Button, Card, Text, useTheme } from "react-native-paper";
 
-import { authorizeMCPPlayback, consumeMCPPlaybackAuthorization, executeMCPTool } from "../../services/mcp/mcpClient";
+import { authorizeMCPPlayback, consumeMCPPlaybackAuthorization, consumeMCPSiriSearchResults, executeMCPTool } from "../../services/mcp/mcpClient";
 import { resolveUniversalLink } from "../../services/navigation/universalLinks";
 
 const Meteor = MeteorBase;
@@ -71,7 +71,10 @@ export default function SiriSearchScreen() {
         setLoading(false);
         return;
       }
-      const raw = await executeMCPTool("search_entities", {
+      const cachedSearch = !append && offset === 0 && entityType === "all" && !contentId
+        ? await consumeMCPSiriSearchResults(query)
+        : null;
+      const raw = cachedSearch || await executeMCPTool("search_entities", {
         entity: entityType,
         query,
         limit: 20,

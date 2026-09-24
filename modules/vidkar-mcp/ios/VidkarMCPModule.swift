@@ -72,6 +72,13 @@ private struct PlaybackAuthorizationRecord: Codable, Sendable {
   let expiresAt: Date
 }
 
+private struct SiriSearchCacheEntry: Sendable {
+  let query: String
+  let ownerId: String
+  let output: String
+  let expiresAt: Date
+}
+
 private extension JSONValue {
   var object: [String: JSONValue]? {
     guard case .object(let value) = self else { return nil }
@@ -141,6 +148,7 @@ private actor MCPTransport {
   private let cacheKey = "tools.v2"
   private var cachedTools: [MCPToolDefinition] = []
   private var cacheLoaded = false
+  private var siriSearchCache: SiriSearchCacheEntry?
 
   private func validatedEndpoint(_ value: String) -> URL? {
     guard let components = URLComponents(string: value),
@@ -180,6 +188,7 @@ private actor MCPTransport {
     UserDefaults.standard.removeObject(forKey: cacheKey)
     cachedTools = []
     cacheLoaded = false
+    siriSearchCache = nil
     KeychainStore.shared.clear(playbackAuthorizationKey)
   }
 
@@ -190,6 +199,7 @@ private actor MCPTransport {
     KeychainStore.shared.clear(playbackAuthorizationKey)
     cachedTools = []
     cacheLoaded = false
+    siriSearchCache = nil
     UserDefaults.standard.removeObject(forKey: cacheKey)
     UserDefaults.standard.removeObject(forKey: "\(cacheKey).updatedAt")
   }
@@ -334,9 +344,36 @@ private actor MCPTransport {
     return payloads.compactMap(VIDKARSearchResultEntity.init(payload:))
   }
 
-  func searchEntities(arguments: [String: Any]) async throws -> [VIDKARSearchResultEntity] {
+  func searchEntities(arguments: [String: Any], cacheForSiriQuery query: String? = nil) async throws -> [VIDKARSearchResultEntity] {
     let output = try await execute(name: "search_entities", arguments: arguments)
-    return try decodeSearchPayloads(output).compactMap(VIDKARSearchResultEntity.init(payload:))
+    let payloads = try decodeSearchPayloads(output)
+    if arguments["entity"] as? String == "all", let query,
+       let ownerId = KeychainStore.shared.get(ownerKey) {
+      siriSearchCache = SiriSearchCacheEntry(
+        query: normalizedSiriSearchQuery(query),
+        ownerId: ownerId,
+        output: output,
+        expiresAt: Date().addingTimeInterval(60)
+      )
+    }
+    if #available(iOS 27.0, *) {
+      await VIDKARSpotlightIndex.index(payloads)
+    }
+    return payloads.compactMap(VIDKARSearchResultEntity.init(payload:))
+  }
+
+  func consumeSiriSearchResults(query: String) -> [String: Any] {
+    guard let cached = siriSearchCache,
+          cached.expiresAt > Date(),
+          cached.ownerId == KeychainStore.shared.get(ownerKey),
+          cached.query == normalizedSiriSearchQuery(query) else {
+      if let cached = siriSearchCache, cached.expiresAt <= Date() {
+        siriSearchCache = nil
+      }
+      return ["found": false]
+    }
+    siriSearchCache = nil
+    return ["found": true, "output": cached.output]
   }
 
   func searchEntityPayloads(entity: String, query: String, id: String? = nil, confirmed: Bool = false) async throws -> [MCPSearchEntityPayload] {
@@ -860,6 +897,9 @@ public final class VidkarMCPModule: Module {
     AsyncFunction("consumePlaybackAuthorization") { (entityType: String, entityId: String) async -> Bool in
       await MCPTransport.shared.consumePlaybackAuthorization(entityType: entityType, entityId: entityId)
     }
+    AsyncFunction("consumeSiriSearchResults") { (query: String) async -> [String: Any] in
+      await MCPTransport.shared.consumeSiriSearchResults(query: query)
+    }
     AsyncFunction("getToolCatalog") { () async throws -> String in
       try await MCPTransport.shared.catalog()
     }
@@ -896,7 +936,7 @@ struct VIDKARQueryIntent: AppIntent {
     }
     let output = try await MCPTransport.shared.execute(name: toolName, arguments: arguments)
     let summary = summarizeForSiri(output)
-    return .result(value: summary, dialog: IntentDialog(stringLiteral: summary))
+    return .result(value: output, dialog: IntentDialog(stringLiteral: summary))
   }
 }
 
@@ -919,7 +959,6 @@ struct VIDKARGeneralQueryIntent: AppIntent {
   static var title: LocalizedStringResource = "Consultar VIDKAR"
   static var description = IntentDescription("Busca contenido o ejecuta una consulta MCP de solo lectura con los permisos de tu cuenta.")
   static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  static var openAppWhenRun = true
 
   @Parameter(title: "Consulta en lenguaje natural", default: "") var query: String
   @Parameter(title: "Herramienta MCP opcional", default: "") var toolName: String
@@ -974,7 +1013,7 @@ struct VIDKARGeneralQueryIntent: AppIntent {
     }
     let output = try await MCPTransport.shared.execute(name: name, arguments: arguments)
     let summary = summarizeForSiri(output)
-    return .result(value: summary, dialog: IntentDialog(stringLiteral: summary))
+    return .result(value: output, dialog: IntentDialog(stringLiteral: summary))
   }
 }
 
@@ -994,6 +1033,41 @@ struct VIDKARSearchIntent: AppIntent {
     let arguments = try makeSearchArguments(entity: entityType.rawValue, query: query, filtersJSON: filtersJSON)
     let entities = try await confirmedVIDKARSearch(arguments)
     let summary = summarizeEntityResults(entities)
+    return .result(value: entities, dialog: IntentDialog(stringLiteral: summary))
+  }
+}
+
+@available(iOS 27.0, *)
+@AppIntent(schema: .system.searchInApp)
+struct VIDKARSiriSearchIntent: ShowInAppSearchResultsIntent {
+  static var title: LocalizedStringResource = "Buscar en VIDKAR"
+  static var description = IntentDescription(
+    "Busca contenido público de VIDKAR y presenta los resultados en la app."
+  )
+  static let isAssistantOnly = true
+  static var searchScopes: [StringSearchScope] = [.general]
+
+  var criteria: StringSearchCriteria
+
+  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSearchResultEntity]> {
+    let arguments = try makeSearchArguments(entity: "all", query: criteria.term)
+    var confirmedArguments = arguments
+    let requiresConfirmation = try await MCPTransport.shared.confirmationRequired(name: "search_entities", arguments: arguments)
+    if requiresConfirmation {
+      try await requestConfirmation()
+      confirmedArguments["confirmed"] = true
+    }
+    let entities = try await MCPTransport.shared.searchEntities(
+      arguments: confirmedArguments,
+      cacheForSiriQuery: criteria.term
+    )
+    let summary = summarizeEntityResults(entities)
+
+    guard let url = vidkarDeepLink(type: .all, id: nil, query: criteria.term) else {
+      throw MCPError.invalidResponse
+    }
+    await openVIDKARURL(url)
+
     return .result(value: entities, dialog: IntentDialog(stringLiteral: summary))
   }
 }
@@ -1228,7 +1302,7 @@ struct VIDKARExecuteActionIntent: AppIntent {
     }
     let output = try await MCPTransport.shared.execute(name: toolName, arguments: arguments)
     let summary = summarizeForSiri(output)
-    return .result(value: summary, dialog: IntentDialog(stringLiteral: summary))
+    return .result(value: output, dialog: IntentDialog(stringLiteral: summary))
   }
 }
 
@@ -1250,16 +1324,16 @@ struct VIDKARToolCatalogIntent: AppIntent {
 struct VIDKARAppShortcuts: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
     return [
-    AppShortcut(intent: VIDKARSearchIntent(), phrases: ["Buscar en \(.applicationName)", "Consultar \(.applicationName)"], shortTitle: "Buscar VIDKAR", systemImageName: "magnifyingglass"),
-    AppShortcut(intent: VIDKARSearchMovieIntent(), phrases: ["Buscar una película en \(.applicationName)"], shortTitle: "Buscar películas", systemImageName: "film"),
-    AppShortcut(intent: VIDKARSearchSeriesIntent(), phrases: ["Buscar una serie en \(.applicationName)"], shortTitle: "Buscar series", systemImageName: "tv"),
-    AppShortcut(intent: VIDKARSearchCourseIntent(), phrases: ["Buscar un curso en \(.applicationName)"], shortTitle: "Buscar cursos", systemImageName: "book.closed"),
-    AppShortcut(intent: VIDKARSearchUserIntent(), phrases: ["Buscar un usuario en \(.applicationName)"], shortTitle: "Buscar usuarios", systemImageName: "person.crop.circle"),
-    AppShortcut(intent: VIDKARMyPurchasesIntent(), phrases: ["Consultar mis compras en \(.applicationName)"], shortTitle: "Mis compras", systemImageName: "creditcard"),
-    AppShortcut(intent: VIDKARMySalesIntent(), phrases: ["Consultar mis ventas en \(.applicationName)"], shortTitle: "Mis ventas", systemImageName: "chart.bar"),
-    AppShortcut(intent: VIDKAROpenEntityIntent(), phrases: ["Abrir contenido en \(.applicationName)"], shortTitle: "Abrir contenido", systemImageName: "arrow.up.forward.app"),
-    AppShortcut(intent: VIDKARPlayContentIntent(), phrases: ["Reproducir contenido en \(.applicationName)"], shortTitle: "Reproducir", systemImageName: "play.fill"),
-    AppShortcut(intent: VIDKARMySubscriptionIntent(), phrases: ["Consultar el estado de mi suscripción en \(.applicationName)"], shortTitle: "Mi suscripción", systemImageName: "checkmark.seal")
+      AppShortcut(intent: VIDKARSearchIntent(), phrases: ["Buscar \(\.$query) en \(.applicationName)", "Consultar \(\.$query) en \(.applicationName)"], shortTitle: "Buscar VIDKAR", systemImageName: "magnifyingglass"),
+      AppShortcut(intent: VIDKARSearchMovieIntent(), phrases: ["Buscar \(\.$query) en películas de \(.applicationName)"], shortTitle: "Buscar películas", systemImageName: "film"),
+      AppShortcut(intent: VIDKARSearchSeriesIntent(), phrases: ["Buscar \(\.$query) en series de \(.applicationName)"], shortTitle: "Buscar series", systemImageName: "tv"),
+      AppShortcut(intent: VIDKARSearchCourseIntent(), phrases: ["Buscar \(\.$query) en cursos de \(.applicationName)"], shortTitle: "Buscar cursos", systemImageName: "book.closed"),
+      AppShortcut(intent: VIDKARSearchUserIntent(), phrases: ["Buscar usuario \(\.$query) en \(.applicationName)"], shortTitle: "Buscar usuarios", systemImageName: "person.crop.circle"),
+      AppShortcut(intent: VIDKARMyPurchasesIntent(), phrases: ["Consultar mis compras en \(.applicationName)", "Buscar \(\.$query) entre mis compras de \(.applicationName)"], shortTitle: "Mis compras", systemImageName: "creditcard"),
+      AppShortcut(intent: VIDKARMySalesIntent(), phrases: ["Consultar mis ventas en \(.applicationName)", "Buscar \(\.$query) entre mis ventas de \(.applicationName)"], shortTitle: "Mis ventas", systemImageName: "chart.bar"),
+      AppShortcut(intent: VIDKAROpenEntityIntent(), phrases: ["Abrir \(\.$entity) en \(.applicationName)"], shortTitle: "Abrir contenido", systemImageName: "arrow.up.forward.app"),
+      AppShortcut(intent: VIDKARPlayContentIntent(), phrases: ["Reproducir \(\.$entity) en \(.applicationName)"], shortTitle: "Reproducir", systemImageName: "play.fill"),
+      AppShortcut(intent: VIDKARMySubscriptionIntent(), phrases: ["Consultar el estado de mi suscripción en \(.applicationName)", "Buscar \(\.$query) en mis suscripciones de \(.applicationName)"], shortTitle: "Mi suscripción", systemImageName: "checkmark.seal")
     ]
   }
 }
@@ -1302,6 +1376,12 @@ private func normalizeIntentPeriod(_ arguments: inout [String: Any]) {
   if let period = periods[normalized] { arguments["period"] = period }
 }
 
+private func normalizedSiriSearchQuery(_ query: String) -> String {
+  query.trimmingCharacters(in: .whitespacesAndNewlines)
+    .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "es"))
+    .lowercased()
+}
+
 private func summarizeEntityResults(_ entities: [VIDKARSearchResultEntity]) -> String {
   guard !entities.isEmpty else { return "No encontré resultados para esa búsqueda en VIDKAR." }
   let titles = entities.prefix(3).map(\.title)
@@ -1337,3 +1417,6 @@ private func summarizeForSiri(_ output: String) -> String {
   }
   return "La consulta se completó en VIDKAR."
 }
+
+@available(iOS 17.0, *)
+public struct VidkarMCPIntentsPackage: AppIntentsPackage {}

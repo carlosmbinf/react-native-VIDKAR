@@ -134,6 +134,20 @@ export const consumeMCPPlaybackAuthorization = async (entityType, entityId) => {
   return nativeModule.consumePlaybackAuthorization(String(entityType), String(entityId));
 };
 
+export const consumeMCPSiriSearchResults = async (query) => {
+  const currentUserId = Meteor.userId();
+  if (!currentUserId || !VidkarMCP) return null;
+  const nativeModule = requireNativeMCP();
+  const configuration = await nativeModule.getConfiguration();
+  if (!configuration.configured) return null;
+  if (configuration.ownerId !== String(currentUserId)) {
+    await clearMCPConfiguration();
+    throw new Error("El token MCP no pertenece a la sesión actual de VIDKAR; se eliminó del dispositivo.");
+  }
+  const cached = await nativeModule.consumeSiriSearchResults(String(query || ""));
+  return cached?.found === true && typeof cached.output === "string" ? cached.output : null;
+};
+
 export const discoverMCPTools = async ({ force = false } = {}) => {
   const currentUserId = Meteor.userId();
   const configuration = await requireNativeMCP().getConfiguration();
