@@ -94,7 +94,7 @@ La existencia de una colección no implica que sea publicable o consultable desd
 
 | Entidad solicitada | Evidencia/capacidad backend actual | Ruta móvil identificada | Estado para Siri |
 |---|---|---|---|
-| Película | `search_entities` busca solo visibles | `/(normal)/PeliculaPlayer` o catálogo explícito | consulta sin navegación; player solo tras confirmación |
+| Película | `search_entities` busca solo visibles | `/(normal)/PeliculaPlayer` o resultados `/(normal)/SiriSearch` | búsqueda disponible; player solo tras confirmación |
 | Serie/temporada/capítulo | publicaciones `series`/`temporadas`/`capitulos` usan helpers de visibilidad y exigen `subscipcionPelis`; métodos localizados en `metodos/series.js` son de importación/administración | `/(normal)/SeriesDetail`, `/(normal)/SeriesPlayer` | búsqueda nueva valida suscripción/visibilidad; reproducción confirmada |
 | Curso/lección | `search_entities` valida publicación/nivel; lección además suscripción activa | `/(normal)/Cursos`, `/(normal)/CursoDetalle?courseId=...` | cursos publicados visibles; las búsquedas de lecciones son privadas/confirmadas y playback usa método Meteor autorizado |
 | Usuario | MCP filtra con alcance token | `/(normal)/User?item=...` | búsqueda exige confirmación |

@@ -10,10 +10,10 @@ const javascript = ts.transpileModule(source, {
 }).outputText;
 const { resolveUniversalLink } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
 
-test("resuelve contenido sin activar playback automáticamente", () => {
+test("resuelve búsqueda Siri sin abrir playback automáticamente", () => {
   assert.deepEqual(resolveUniversalLink("vidkar://movie/movie-1?q=Avatar"), {
-    pathname: "/(normal)/PeliculasVideos",
-    params: { id: "movie-1" },
+    pathname: "/(normal)/SiriSearch",
+    params: { query: "Avatar", entityType: "movie", contentId: "movie-1" },
   });
 });
 

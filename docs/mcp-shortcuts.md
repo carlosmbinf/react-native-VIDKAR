@@ -11,8 +11,8 @@ Siri / Apple Intelligence / Atajos
   -> POST https://www.vidkar.com/mcp
   -> tools/list / tools/call
   -> allowlist y autorización MCP backend
-  -> resultado tipado + IntentDialog
-  -> Siri/Atajos; sin navegación para consultas
+  -> resultado resumido + deep link vidkar:// validado
+  -> Expo Router, después de restaurar sesión autenticada
 ```
 
 El backend sigue siendo la autoridad. El catálogo MCP no constituye permisos y el cliente no acepta nombres de colección, selector Mongo ni campos arbitrarios.
@@ -21,21 +21,26 @@ El backend sigue siendo la autoridad. El catálogo MCP no constituye permisos y 
 
 El módulo publica estos intents:
 
-- `VIDKARSearchContentIntent`: consulta, tipo de contenido, categoría y estado; devuelve resultados tipados sin abrir VIDKAR.
-- `VIDKARAccountQueryIntent`: tipo de dato, consulta, período y estado; confirma datos privados y devuelve resultados tipados.
+- `VIDKARGeneralQueryIntent`: consulta natural, herramienta opcional, `argumentsJSON`, tipo/id, acción y confirmación adicional.
+- `VIDKARSearchIntent`: consulta texto/entidad/filtros y devuelve resultados tipados para Siri.
 - `VIDKAROpenEntityIntent`: abre un `AppEntity` en VIDKAR.
 - `VIDKARPlayContentIntent`: solo película, capítulo o lección; siempre solicita confirmación antes de añadir `play=true`.
+- `VIDKARListUserDataIntent`: compras, ventas, órdenes, usuarios o mensajes; solicita confirmación antes de consultar datos privados.
+- `VIDKARExecuteActionIntent`: llamadas MCP de solo lectura; rechaza herramientas sin `readOnlyHint`.
+- `VIDKARToolCatalogIntent`: devuelve el catálogo JSON como valor de Atajos y un diálogo de voz breve.
 
 `AppEntity` usa un ID estable `tipo:id`, título, subtítulo, descripción, tipo, enlace seguro e imagen opcional. Se definen `MovieEntity`, `SeriesEntity`, `EpisodeEntity`, `CourseEntity`, `LessonEntity`, `UserEntity`, `PurchaseEntity`, `SaleEntity`, `ProductEntity`, `MessageEntity` y `DownloadEntity`. Las entidades privadas no se ofrecen como sugerencias silenciosas a EntityQuery; se buscan por una intent que confirma primero. `DownloadEntity` está definido, pero sus búsquedas quedan deshabilitadas hasta que exista una herramienta backend segura.
 
-Las cuatro frases preconfiguradas usan `\(.applicationName)` para adaptarse al nombre instalado e incluyen:
+Las frases preconfiguradas usan `\(.applicationName)` para adaptarse al nombre instalado e incluyen:
 
-- “Buscar [consulta] en VIDKAR”.
-- “Consultar mis datos en VIDKAR”.
+- “Buscar en VIDKAR” y “Consultar VIDKAR”.
+- “Buscar una película/serie/curso/usuario en VIDKAR”.
+- “Consultar mis compras/ventas en VIDKAR”.
+- “Consultar el estado de mi suscripción en VIDKAR”.
 - “Abrir contenido en VIDKAR” y “Reproducir contenido en VIDKAR”.
 
 Siri presenta diálogos concisos; las búsquedas/listados devuelven resultados `AppEntity` y los datos estructurados se conservan como valor para Shortcuts.
-Las consultas públicas y privadas no crean deeplinks ni navegan mediante Expo Router.
+Apple limita `AppShortcutsProvider` a diez shortcuts preconfigurados; el catálogo y la intent genérica avanzada siguen disponibles como acciones VIDKAR dentro de la app Atajos, sin consumir otro shortcut de voz.
 
 ## Descubrimiento y seguridad del catálogo
 
@@ -68,7 +73,7 @@ Admite query de hasta 120 caracteres, categoría/estado, período natural o `fro
 
 ## Deep links y navegación
 
-`services/navigation/universalLinks.ts` conserva Universal Links HTTPS y un allowlist para `vidkar://` únicamente en acciones explícitas de abrir/reproducir. Las consultas informativas no usan deeplinks ni una pantalla de resultados.
+`services/navigation/universalLinks.ts` conserva Universal Links HTTPS y añade un allowlist para `vidkar://`. `app/index.native.tsx` registra la URL inicial y eventos de enlace, espera sesión y navegación autenticada; Spotlight comparte el resolver. Los destinos incluyen búsqueda, película, detalle de serie, capítulo, curso/lección, usuario, compra/venta/orden y mensajes.
 
 Abrir un resultado no inicia streaming. Solo los intents/acciones que recibieron confirmación agregan `play=true`; la reproducción de cursos llega a `CursoDetalle` y usa `cursos.media.solicitarReproduccion`, que vuelve a autorizar el acceso en Meteor. Las rutas de descargas y ciertos detalles (orden/venta) aún muestran la pantalla de dominio existente sin detalle por ID, dado que no existe una pantalla profunda dedicada.
 
@@ -79,7 +84,7 @@ Abrir un resultado no inicia streaming. Solo los intents/acciones que recibieron
 3. Usa un development build o distribución iOS nativa. Expo Go no contiene el módulo MCP ni App Intents.
 4. En Atajos o Siri, usa las frases VIDKAR; para reproducción/consultas privadas confirma la solicitud.
 
-El config plugin Expo `with-vidkar-app-intents.js` registra el `AppIntentsPackage` del módulo local en el target host. No se crea un target de extensión adicional. No se usa `system.searchInApp`: Apple lo define para mostrar resultados dentro de la app y no representa una consulta informativa sin navegación. Para compilar y probar App Intents se requiere Xcode y un iPhone real; la compilación de simulator es útil pero no sustituye esa prueba.
+No se añadió config plugin: los targets Apple existentes y el módulo Expo local incluyen el código Swift. No se crea un target de extensión adicional. Para compilar y probar App Intents se requiere Xcode y un iPhone real; la compilación de simulator es útil pero no sustituye esa prueba.
 
 ## Validación
 

@@ -72,7 +72,6 @@
       "./plugins/with-vidkar-google-maps-key.js",
       "./plugins/with-vidkar-xcode-object-version.js",
       "./plugins/with-vidkar-ios-scene-lifecycle.js",
-      "./plugins/with-vidkar-app-intents.js",
       "./plugins/with-vidkar-android-pip.js",
       "./plugins/with-vidkar-vlc-media-player.js",
       "./plugins/with-vidkar-ios-pod-deployment-target.js",
@@ -162,8 +161,7 @@
             }
           ]
         }
-      ],
-      "./plugins/with-vidkar-watch-app-icon.js"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
