@@ -979,22 +979,26 @@ struct VIDKARGeneralQueryIntent: AppIntent {
 }
 
 @available(iOS 16.0, *)
-struct VIDKARSearchContentIntent: AppIntent {
-  static var title: LocalizedStringResource = "Buscar en VIDKAR"
-  static var description = IntentDescription("Busca películas, series, capítulos, cursos, productos y otros datos disponibles para tu cuenta.")
-  static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+public struct VIDKARSearchContentIntent: AppIntent {
+  public init() {}
+  public static var title: LocalizedStringResource = "Buscar en VIDKAR"
+  public static var description = IntentDescription("Busca películas, series, capítulos, cursos, productos y otros datos disponibles para tu cuenta.")
+  public static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
-  @Parameter(title: "Qué quieres buscar") var query: String
-  @Parameter(title: "Tipo de entidad", default: .all) var entityType: VIDKAREntityType
-  @Parameter(title: "Filtros y paginación JSON", default: "{}") var filtersJSON: String
+  @Parameter(title: "Qué quieres buscar") public var query: String
+  @Parameter(title: "Filtros y paginación JSON", default: "{}") public var filtersJSON: String
 
-  static var parameterSummary: some ParameterSummary { Summary("Buscar \(\.$query) en VIDKAR") }
+  public static var parameterSummary: some ParameterSummary { Summary("Buscar \(\.$query) en VIDKAR") }
 
-  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSearchResultEntity]> {
-    let arguments = try makeSearchArguments(entity: entityType.rawValue, query: query, filtersJSON: filtersJSON)
+  public func perform() async throws -> some IntentResult & ReturnsValue<String> {
+    let arguments = try makeSearchArguments(entity: "all", query: query, filtersJSON: filtersJSON)
     let entities = try await confirmedVIDKARSearch(arguments)
     let summary = summarizeEntityResults(entities)
-    return .result(value: entities, dialog: IntentDialog(stringLiteral: summary))
+    let structuredResults = entities.map { entity in
+      ["id": entity.id, "type": entity.entityType.rawValue, "title": entity.title, "subtitle": entity.subtitle, "description": entity.summary]
+    }
+    let jsonData = try JSONSerialization.data(withJSONObject: structuredResults, options: [.sortedKeys])
+    return .result(value: String(decoding: jsonData, as: UTF8.self), dialog: IntentDialog(stringLiteral: summary))
   }
 }
 
@@ -1247,8 +1251,8 @@ struct VIDKARToolCatalogIntent: AppIntent {
 }
 
 @available(iOS 16.0, *)
-struct VIDKARAppShortcuts: AppShortcutsProvider {
-  static var appShortcuts: [AppShortcut] {
+public struct VIDKARAppShortcuts: AppShortcutsProvider {
+  public static var appShortcuts: [AppShortcut] {
     return [
     AppShortcut(intent: VIDKARSearchContentIntent(), phrases: ["Buscar en \(.applicationName)", "Consultar \(.applicationName)"], shortTitle: "Buscar VIDKAR", systemImageName: "magnifyingglass"),
     AppShortcut(intent: VIDKARMyPurchasesIntent(), phrases: ["Consultar mis compras en \(.applicationName)"], shortTitle: "Mis compras", systemImageName: "creditcard"),
