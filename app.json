@@ -162,7 +162,8 @@
             }
           ]
         }
-      ]
+      ],
+      "./plugins/with-vidkar-watch-app-icon.js"
     ],
     "experiments": {
       "typedRoutes": true,
