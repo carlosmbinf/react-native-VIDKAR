@@ -126,3 +126,9 @@ La existencia de una colección no implica que sea publicable o consultable desd
 3. Tools no marcadas de solo lectura se rechazan en Swift y JS; el servidor es la autoridad final.
 4. Los datos privados/financieros y playback requieren confirmación; la confirmación no sustituye guards de servidor.
 5. Deep links se validan contra `vidkar` y rutas allowlisted; React Native espera la sesión autenticada antes de navegar.
+
+## 9. Parámetros semánticos y límites de Apple Intelligence
+
+Las intents privadas de compras, ventas y consultas por entidad usan `VIDKARPeriod`, un `AppEnum` con los períodos `today`, `yesterday`, `this_week`, `last_week`, `this_month`, `last_month`, `this_year` y `last_year`, además de `unspecified` para conservar la semántica anterior de período ausente. El handler convierte estos valores a los argumentos MCP internos; Siri/Atajos no necesitan construir `argumentsJSON`.
+
+La mejora es deliberadamente aditiva: `tools/list`, `tools/call`, autenticación MCP, Keychain, ownership, confirmaciones, autorización de reproducción, entidades tipadas y `VIDKARAppShortcuts` permanecen sin reemplazo. No se añadió una API pública genérica de “App Schemas” ni un target de extensión inventado: con el deployment target actual, las APIs públicas aplicables son App Intents, App Entity, Entity Query, App Enum, Parameter Summary y App Shortcuts. Apple decide finalmente qué intent selecciona para una frase libre, por lo que la integración mejora elegibilidad semántica pero no garantiza que Siri elija VIDKAR para toda formulación.
