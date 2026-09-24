@@ -45,7 +45,6 @@ export default function NormalLayout() {
       <Stack.Screen name="Servidores" />
       <Stack.Screen name="Mensajes" />
       <Stack.Screen name="Mensaje" />
-      <Stack.Screen name="SiriSearch" />
       <Stack.Screen name="Ventas" />
       <Stack.Screen name="VentasLegacy" />
       <Stack.Screen name="MisCompras" />

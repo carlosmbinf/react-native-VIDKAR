@@ -20,7 +20,6 @@ type NativeMCPModule = {
   executeTool: (toolName: string, args: Record<string, unknown>) => Promise<unknown>;
   authorizePlayback: (entityType: string, entityId: string) => Promise<void>;
   consumePlaybackAuthorization: (entityType: string, entityId: string) => Promise<boolean>;
-  consumeSiriSearchResults: (query: string) => Promise<{ found: boolean; output?: string }>;
 };
 
 export const VidkarMCP = requireOptionalNativeModule<NativeMCPModule>("VidkarMCP");

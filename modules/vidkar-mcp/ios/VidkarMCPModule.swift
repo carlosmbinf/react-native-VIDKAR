@@ -72,13 +72,6 @@ private struct PlaybackAuthorizationRecord: Codable, Sendable {
   let expiresAt: Date
 }
 
-private struct SiriSearchCacheEntry: Sendable {
-  let query: String
-  let ownerId: String
-  let output: String
-  let expiresAt: Date
-}
-
 private extension JSONValue {
   var object: [String: JSONValue]? {
     guard case .object(let value) = self else { return nil }
@@ -148,7 +141,6 @@ private actor MCPTransport {
   private let cacheKey = "tools.v2"
   private var cachedTools: [MCPToolDefinition] = []
   private var cacheLoaded = false
-  private var siriSearchCache: SiriSearchCacheEntry?
 
   private func validatedEndpoint(_ value: String) -> URL? {
     guard let components = URLComponents(string: value),
@@ -188,7 +180,6 @@ private actor MCPTransport {
     UserDefaults.standard.removeObject(forKey: cacheKey)
     cachedTools = []
     cacheLoaded = false
-    siriSearchCache = nil
     KeychainStore.shared.clear(playbackAuthorizationKey)
   }
 
@@ -199,7 +190,6 @@ private actor MCPTransport {
     KeychainStore.shared.clear(playbackAuthorizationKey)
     cachedTools = []
     cacheLoaded = false
-    siriSearchCache = nil
     UserDefaults.standard.removeObject(forKey: cacheKey)
     UserDefaults.standard.removeObject(forKey: "\(cacheKey).updatedAt")
   }
@@ -344,36 +334,13 @@ private actor MCPTransport {
     return payloads.compactMap(VIDKARSearchResultEntity.init(payload:))
   }
 
-  func searchEntities(arguments: [String: Any], cacheForSiriQuery query: String? = nil) async throws -> [VIDKARSearchResultEntity] {
+  func searchEntities(arguments: [String: Any]) async throws -> [VIDKARSearchResultEntity] {
     let output = try await execute(name: "search_entities", arguments: arguments)
     let payloads = try decodeSearchPayloads(output)
-    if arguments["entity"] as? String == "all", let query,
-       let ownerId = KeychainStore.shared.get(ownerKey) {
-      siriSearchCache = SiriSearchCacheEntry(
-        query: normalizedSiriSearchQuery(query),
-        ownerId: ownerId,
-        output: output,
-        expiresAt: Date().addingTimeInterval(60)
-      )
-    }
-    if #available(iOS 27.0, *) {
+    if #available(iOS 18.0, *) {
       await VIDKARSpotlightIndex.index(payloads)
     }
     return payloads.compactMap(VIDKARSearchResultEntity.init(payload:))
-  }
-
-  func consumeSiriSearchResults(query: String) -> [String: Any] {
-    guard let cached = siriSearchCache,
-          cached.expiresAt > Date(),
-          cached.ownerId == KeychainStore.shared.get(ownerKey),
-          cached.query == normalizedSiriSearchQuery(query) else {
-      if let cached = siriSearchCache, cached.expiresAt <= Date() {
-        siriSearchCache = nil
-      }
-      return ["found": false]
-    }
-    siriSearchCache = nil
-    return ["found": true, "output": cached.output]
   }
 
   func searchEntityPayloads(entity: String, query: String, id: String? = nil, confirmed: Bool = false) async throws -> [MCPSearchEntityPayload] {
@@ -383,7 +350,7 @@ private actor MCPTransport {
     if confirmed { arguments["confirmed"] = true }
     let output = try await execute(name: "search_entities", arguments: arguments)
     let payloads = try decodeSearchPayloads(output)
-    if #available(iOS 27.0, *) {
+    if #available(iOS 18.0, *) {
       await VIDKARSpotlightIndex.index(payloads)
     }
     return payloads
@@ -472,7 +439,8 @@ private actor MCPTransport {
   }
 }
 
-enum VIDKAREntityType: String, AppEnum {
+@available(iOS 16.0, *)
+enum VIDKAREntityKind: String, AppEnum {
   case all
   case movie
   case series
@@ -488,8 +456,8 @@ enum VIDKAREntityType: String, AppEnum {
   case download
   case subscription
 
-  static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Tipo de contenido VIDKAR")
-  static var caseDisplayRepresentations: [VIDKAREntityType: DisplayRepresentation] = [
+  static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Tipo de resultado VIDKAR")
+  static var caseDisplayRepresentations: [VIDKAREntityKind: DisplayRepresentation] = [
     .all: "Todo",
     .movie: "Película",
     .series: "Serie",
@@ -508,6 +476,48 @@ enum VIDKAREntityType: String, AppEnum {
 }
 
 @available(iOS 16.0, *)
+enum VIDKAREntityType: String, AppEnum {
+  case all
+  case movie
+  case series
+  case episode
+  case course
+  case lesson
+  case product
+
+  static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Tipo de contenido VIDKAR")
+  static var caseDisplayRepresentations: [VIDKAREntityType: DisplayRepresentation] = [
+    .all: "Todo",
+    .movie: "Película",
+    .series: "Serie",
+    .episode: "Capítulo",
+    .course: "Curso",
+    .lesson: "Lección (requiere confirmación)",
+    .product: "Producto",
+  ]
+}
+
+@available(iOS 16.0, *)
+enum VIDKARAccountDataType: String, AppEnum {
+  case purchase
+  case sale
+  case order
+  case message
+  case subscription
+  case user
+
+  static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Dato de mi cuenta VIDKAR")
+  static var caseDisplayRepresentations: [VIDKARAccountDataType: DisplayRepresentation] = [
+    .purchase: "Compras",
+    .sale: "Ventas",
+    .order: "Órdenes",
+    .message: "Mensajes",
+    .subscription: "Suscripciones",
+    .user: "Usuarios accesibles",
+  ]
+}
+
+@available(iOS 16.0, *)
 enum VIDKARPeriod: String, AppEnum {
   case unspecified
   case today
@@ -517,7 +527,6 @@ enum VIDKARPeriod: String, AppEnum {
   case thisMonth = "this_month"
   case lastMonth = "last_month"
   case thisYear = "this_year"
-  case lastYear = "last_year"
 
   static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Período")
   static var caseDisplayRepresentations: [VIDKARPeriod: DisplayRepresentation] = [
@@ -529,7 +538,18 @@ enum VIDKARPeriod: String, AppEnum {
     .thisMonth: "Este mes",
     .lastMonth: "El mes pasado",
     .thisYear: "Este año",
-    .lastYear: "El año pasado",
+  ]
+}
+
+@available(iOS 16.0, *)
+enum VIDKARSearchSort: String, AppEnum {
+  case newest
+  case oldest
+
+  static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Orden de resultados")
+  static var caseDisplayRepresentations: [VIDKARSearchSort: DisplayRepresentation] = [
+    .newest: "Más recientes primero",
+    .oldest: "Más antiguos primero",
   ]
 }
 
@@ -541,8 +561,8 @@ struct VIDKARSearchResultEntity: AppEntity, Sendable {
   @Property(title: "Título") var title: String
   @Property(title: "Subtítulo") var subtitle: String
   @Property(title: "Descripción") var summary: String
-  @Property(title: "Tipo") var entityType: VIDKAREntityType
-  @Property(title: "Enlace VIDKAR") var deepLink: String
+  @Property(title: "Tipo") var entityType: VIDKAREntityKind
+  let deepLink: String
   @Property(title: "Imagen opcional") var imageURL: String?
 
   var displayRepresentation: DisplayRepresentation {
@@ -567,7 +587,7 @@ struct VIDKARSearchResultEntity: AppEntity, Sendable {
     )
   }
 
-  init(id: String, title: String, subtitle: String, summary: String, entityType: VIDKAREntityType, deepLink: String, imageURL: String? = nil) {
+  init(id: String, title: String, subtitle: String, summary: String, entityType: VIDKAREntityKind, deepLink: String, imageURL: String? = nil) {
     self.id = id
     self.title = title
     self.subtitle = subtitle
@@ -578,7 +598,7 @@ struct VIDKARSearchResultEntity: AppEntity, Sendable {
   }
 
   init?(payload: MCPSearchEntityPayload) {
-    guard let entityType = VIDKAREntityType(rawValue: payload.type),
+    guard let entityType = VIDKAREntityKind(rawValue: payload.type),
           let url = URL(string: payload.deepLink), url.scheme?.lowercased() == "vidkar" else { return nil }
     self.init(
       id: "\(payload.type):\(payload.id)",
@@ -594,7 +614,7 @@ struct VIDKARSearchResultEntity: AppEntity, Sendable {
   init?(persistentIdentifier: String) {
     let components = persistentIdentifier.split(separator: ":", maxSplits: 1).map(String.init)
     guard components.count == 2,
-          let entityType = VIDKAREntityType(rawValue: components[0]),
+          let entityType = VIDKAREntityKind(rawValue: components[0]),
           let url = vidkarDeepLink(type: entityType, id: components[1]) else { return nil }
     self.init(id: persistentIdentifier, title: components[1], subtitle: components[0], summary: "", entityType: entityType, deepLink: url.absoluteString)
   }
@@ -606,241 +626,39 @@ struct VIDKARSearchResultEntityQuery: EntityStringQuery {
   }
 
   func entities(for identifiers: [String]) async throws -> [VIDKARSearchResultEntity] {
-    identifiers.compactMap { identifier in
-      guard let entity = VIDKARSearchResultEntity(persistentIdentifier: identifier),
-            ![.user, .purchase, .sale, .order, .message, .subscription, .lesson].contains(entity.entityType) else { return nil }
-      return entity
+    var entities: [VIDKARSearchResultEntity] = []
+    for identifier in identifiers.prefix(10) {
+      let components = identifier.split(separator: ":", maxSplits: 1).map(String.init)
+      guard components.count == 2,
+            let entityType = VIDKAREntityKind(rawValue: components[0]),
+            ![.all, .user, .purchase, .sale, .order, .message, .subscription, .lesson, .download].contains(entityType) else {
+        continue
+      }
+
+      if [.movie, .series, .episode, .course].contains(entityType) {
+        let payloads = try await MCPTransport.shared.searchEntityPayloads(
+          entity: entityType.rawValue,
+          query: "",
+          id: components[1]
+        )
+        entities.append(contentsOf: payloads.compactMap(VIDKARSearchResultEntity.init(payload:)))
+      } else if let entity = VIDKARSearchResultEntity(persistentIdentifier: identifier) {
+        entities.append(entity)
+      }
     }
+    return entities
   }
 
   func suggestedEntities() async throws -> [VIDKARSearchResultEntity] { [] }
 }
 
-protocol VIDKARTypedAppEntity: AppEntity where ID == String {
-  static var mcpType: String { get }
-  static var requiresConfirmation: Bool { get }
-  static var isSupported: Bool { get }
-  var title: String { get }
-  var subtitle: String { get }
-  var summary: String { get }
-  var deepLink: String { get }
-  var imageURL: String? { get }
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String)
-  init?(payload: MCPSearchEntityPayload)
-  init?(persistentIdentifier: String)
-}
-
-extension VIDKARTypedAppEntity {
-  static var requiresConfirmation: Bool { false }
-  static var isSupported: Bool { true }
-  var imageURL: String? { nil }
-  static var typeDisplayRepresentation: TypeDisplayRepresentation {
-    TypeDisplayRepresentation(name: LocalizedStringResource(stringLiteral: mcpType))
-  }
-  var displayRepresentation: DisplayRepresentation {
-    DisplayRepresentation(title: "\(title)", subtitle: "\(subtitle)")
-  }
-
-  init?(payload: MCPSearchEntityPayload) {
-    guard payload.type == Self.mcpType,
-          URL(string: payload.deepLink)?.scheme?.lowercased() == "vidkar" else { return nil }
-    self.init(
-      id: "\(Self.mcpType):\(payload.id)",
-      title: payload.title,
-      subtitle: payload.subtitle ?? "",
-      summary: payload.description ?? "",
-      deepLink: payload.deepLink
-    )
-  }
-
-  init?(persistentIdentifier: String) {
-    let components = persistentIdentifier.split(separator: ":", maxSplits: 1).map(String.init)
-    guard components.count == 2, components[0] == Self.mcpType,
-          let entityType = VIDKAREntityType(rawValue: Self.mcpType),
-          let url = vidkarDeepLink(type: entityType, id: components[1]) else { return nil }
-    self.init(id: persistentIdentifier, title: components[1], subtitle: Self.mcpType, summary: "", deepLink: url.absoluteString)
-  }
-}
-
-protocol VIDKARTypedEntityQuery: EntityStringQuery where Entity: VIDKARTypedAppEntity {}
-
-extension VIDKARTypedEntityQuery {
-  func entities(matching string: String) async throws -> [Entity] {
-    guard Entity.isSupported, !Entity.requiresConfirmation else { return [] }
-    let payloads = try await MCPTransport.shared.searchEntityPayloads(entity: Entity.mcpType, query: string)
-    return payloads.compactMap(Entity.init(payload:))
-  }
-
-  func entities(for identifiers: [Entity.ID]) async throws -> [Entity] {
-    guard Entity.isSupported, !Entity.requiresConfirmation else { return [] }
-    return identifiers.compactMap(Entity.init(persistentIdentifier:))
-  }
-
-  func suggestedEntities() async throws -> [Entity] { [] }
-}
-
-struct MovieEntityQuery: VIDKARTypedEntityQuery { typealias Entity = MovieEntity }
-struct MovieEntity: VIDKARTypedAppEntity {
-  static let mcpType = "movie"
-  static var defaultQuery: MovieEntityQuery { MovieEntityQuery() }
-  let id: String
-  @Property(title: "Título") var title: String
-  @Property(title: "Subtítulo") var subtitle: String
-  @Property(title: "Descripción") var summary: String
-  @Property(title: "Enlace VIDKAR") var deepLink: String
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String) { self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink }
-}
-
-struct SeriesEntityQuery: VIDKARTypedEntityQuery { typealias Entity = SeriesEntity }
-struct SeriesEntity: VIDKARTypedAppEntity {
-  static let mcpType = "series"
-  static var defaultQuery: SeriesEntityQuery { SeriesEntityQuery() }
-  let id: String
-  @Property(title: "Título") var title: String
-  @Property(title: "Subtítulo") var subtitle: String
-  @Property(title: "Descripción") var summary: String
-  @Property(title: "Enlace VIDKAR") var deepLink: String
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String) { self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink }
-}
-
-struct EpisodeEntityQuery: VIDKARTypedEntityQuery { typealias Entity = EpisodeEntity }
-struct EpisodeEntity: VIDKARTypedAppEntity {
-  static let mcpType = "episode"
-  static var defaultQuery: EpisodeEntityQuery { EpisodeEntityQuery() }
-  let id: String
-  @Property(title: "Título") var title: String
-  @Property(title: "Subtítulo") var subtitle: String
-  @Property(title: "Descripción") var summary: String
-  @Property(title: "Enlace VIDKAR") var deepLink: String
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String) { self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink }
-}
-
-struct CourseEntityQuery: VIDKARTypedEntityQuery { typealias Entity = CourseEntity }
-struct CourseEntity: VIDKARTypedAppEntity {
-  static let mcpType = "course"
-  static var defaultQuery: CourseEntityQuery { CourseEntityQuery() }
-  let id: String
-  @Property(title: "Título") var title: String
-  @Property(title: "Subtítulo") var subtitle: String
-  @Property(title: "Descripción") var summary: String
-  @Property(title: "Enlace VIDKAR") var deepLink: String
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String) { self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink }
-}
-
-struct LessonEntityQuery: VIDKARTypedEntityQuery { typealias Entity = LessonEntity }
-struct LessonEntity: VIDKARTypedAppEntity {
-  static let mcpType = "lesson"
-  static let requiresConfirmation = true
-  static var defaultQuery: LessonEntityQuery { LessonEntityQuery() }
-  let id: String
-  @Property(title: "Título") var title: String
-  @Property(title: "Subtítulo") var subtitle: String
-  @Property(title: "Descripción") var summary: String
-  @Property(title: "Enlace VIDKAR") var deepLink: String
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String) { self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink }
-}
-
-struct UserEntityQuery: VIDKARTypedEntityQuery { typealias Entity = UserEntity }
-struct UserEntity: VIDKARTypedAppEntity {
-  static let mcpType = "user"
-  static let requiresConfirmation = true
-  static var defaultQuery: UserEntityQuery { UserEntityQuery() }
-  let id: String
-  @Property(title: "Título") var title: String
-  @Property(title: "Subtítulo") var subtitle: String
-  @Property(title: "Descripción") var summary: String
-  @Property(title: "Enlace VIDKAR") var deepLink: String
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String) { self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink }
-}
-
-struct PurchaseEntityQuery: VIDKARTypedEntityQuery { typealias Entity = PurchaseEntity }
-struct PurchaseEntity: VIDKARTypedAppEntity {
-  static let mcpType = "purchase"
-  static let requiresConfirmation = true
-  static var defaultQuery: PurchaseEntityQuery { PurchaseEntityQuery() }
-  let id: String
-  @Property(title: "Título") var title: String
-  @Property(title: "Subtítulo") var subtitle: String
-  @Property(title: "Descripción") var summary: String
-  @Property(title: "Enlace VIDKAR") var deepLink: String
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String) { self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink }
-}
-
-struct SaleEntityQuery: VIDKARTypedEntityQuery { typealias Entity = SaleEntity }
-struct SaleEntity: VIDKARTypedAppEntity {
-  static let mcpType = "sale"
-  static let requiresConfirmation = true
-  static var defaultQuery: SaleEntityQuery { SaleEntityQuery() }
-  let id: String
-  @Property(title: "Título") var title: String
-  @Property(title: "Subtítulo") var subtitle: String
-  @Property(title: "Descripción") var summary: String
-  @Property(title: "Enlace VIDKAR") var deepLink: String
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String) { self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink }
-}
-
-struct ProductEntityQuery: VIDKARTypedEntityQuery { typealias Entity = ProductEntity }
-struct ProductEntity: VIDKARTypedAppEntity {
-  static let mcpType = "product"
-  static var defaultQuery: ProductEntityQuery { ProductEntityQuery() }
-  let id: String
-  @Property(title: "Título") var title: String
-  @Property(title: "Subtítulo") var subtitle: String
-  @Property(title: "Descripción") var summary: String
-  @Property(title: "Enlace VIDKAR") var deepLink: String
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String) { self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink }
-}
-
-struct MessageEntityQuery: VIDKARTypedEntityQuery { typealias Entity = MessageEntity }
-struct MessageEntity: VIDKARTypedAppEntity {
-  static let mcpType = "message"
-  static let requiresConfirmation = true
-  static var defaultQuery: MessageEntityQuery { MessageEntityQuery() }
-  let id: String
-  @Property(title: "Título") var title: String
-  @Property(title: "Subtítulo") var subtitle: String
-  @Property(title: "Descripción") var summary: String
-  @Property(title: "Enlace VIDKAR") var deepLink: String
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String) { self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink }
-}
-
-struct DownloadEntityQuery: VIDKARTypedEntityQuery { typealias Entity = DownloadEntity }
-struct DownloadEntity: VIDKARTypedAppEntity {
-  static let mcpType = "download"
-  static let isSupported = false
-  static var defaultQuery: DownloadEntityQuery { DownloadEntityQuery() }
-  let id: String
-  @Property(title: "Título") var title: String
-  @Property(title: "Subtítulo") var subtitle: String
-  @Property(title: "Descripción") var summary: String
-  @Property(title: "Enlace VIDKAR") var deepLink: String
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String) { self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink }
-}
-
-struct SubscriptionEntityQuery: VIDKARTypedEntityQuery { typealias Entity = SubscriptionEntity }
-struct SubscriptionEntity: VIDKARTypedAppEntity {
-  static let mcpType = "subscription"
-  static let requiresConfirmation = true
-  static var defaultQuery: SubscriptionEntityQuery { SubscriptionEntityQuery() }
-  let id: String
-  @Property(title: "Título") var title: String
-  @Property(title: "Subtítulo") var subtitle: String
-  @Property(title: "Descripción") var summary: String
-  @Property(title: "Enlace VIDKAR") var deepLink: String
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String) { self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink }
-}
-
-private func vidkarDeepLink(type: VIDKAREntityType, id: String?, query: String? = nil, extra: [String: String] = [:]) -> URL? {
+private func vidkarDeepLink(type: VIDKAREntityKind, id: String) -> URL? {
+  guard type != .all else { return nil }
   var components = URLComponents()
   components.scheme = "vidkar"
-  components.host = type == .all ? "search" : type.rawValue
-  if let id, type != .all {
-    let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
-    components.path = "/\(id.addingPercentEncoding(withAllowedCharacters: allowed) ?? id)"
-  }
-  var items = extra.map { URLQueryItem(name: $0.key, value: $0.value) }
-  if let query, !query.isEmpty { items.append(URLQueryItem(name: "q", value: query)) }
-  if !items.isEmpty { components.queryItems = items }
+  components.host = type.rawValue
+  let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
+  components.path = "/\(id.addingPercentEncoding(withAllowedCharacters: allowed) ?? id)"
   return components.url
 }
 
@@ -897,9 +715,6 @@ public final class VidkarMCPModule: Module {
     AsyncFunction("consumePlaybackAuthorization") { (entityType: String, entityId: String) async -> Bool in
       await MCPTransport.shared.consumePlaybackAuthorization(entityType: entityType, entityId: entityId)
     }
-    AsyncFunction("consumeSiriSearchResults") { (query: String) async -> [String: Any] in
-      await MCPTransport.shared.consumeSiriSearchResults(query: query)
-    }
     AsyncFunction("getToolCatalog") { () async throws -> String in
       try await MCPTransport.shared.catalog()
     }
@@ -907,288 +722,147 @@ public final class VidkarMCPModule: Module {
 }
 
 @available(iOS 16.0, *)
-private struct VIDKARToolNameOptionsProvider: DynamicOptionsProvider {
-  func results() async throws -> [String] {
-    try await MCPTransport.shared.discover(force: false).map(\.name)
-  }
-}
-
-@available(iOS 16.0, *)
-struct VIDKARQueryIntent: AppIntent {
-  static var title: LocalizedStringResource = "Consultar VIDKAR"
-  static var description = IntentDescription("Consulta una herramienta disponible en el servidor MCP de VIDKAR.")
-
-  @Parameter(title: "Herramienta MCP", optionsProvider: VIDKARToolNameOptionsProvider())
-  var toolName: String
-
-  @Parameter(title: "Argumentos JSON", default: "{}")
-  var argumentsJSON: String
-
+struct VIDKARSearchContentIntent: AppIntent {
+  static var title: LocalizedStringResource = "Buscar contenido de VIDKAR"
+  static var description = IntentDescription("Busca películas, series, capítulos, cursos, lecciones de tu cuenta y productos. Las lecciones requieren confirmación; los demás resultados son contenido de catálogo disponible.")
   static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
-  static var parameterSummary: some ParameterSummary { Summary("Consulta \(\.$toolName) con \(\.$argumentsJSON)") }
-
-  func perform() async throws -> some IntentResult & ReturnsValue<String> {
-    guard let data = argumentsJSON.data(using: .utf8), var arguments = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw MCPError.server("Los argumentos deben ser un objeto JSON válido.") }
-    if try await MCPTransport.shared.confirmationRequired(name: toolName, arguments: arguments) {
-      try await requestConfirmation()
-      arguments["confirmed"] = true
-    }
-    let output = try await MCPTransport.shared.execute(name: toolName, arguments: arguments)
-    let summary = summarizeForSiri(output)
-    return .result(value: output, dialog: IntentDialog(stringLiteral: summary))
-  }
-}
-
-@available(iOS 16.0, *)
-enum VIDKARIntentAction: String, AppEnum {
-  case search
-  case open
-  case play
-
-  static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Acción de VIDKAR")
-  static var caseDisplayRepresentations: [VIDKARIntentAction: DisplayRepresentation] = [
-    .search: "Buscar o consultar",
-    .open: "Abrir",
-    .play: "Reproducir",
-  ]
-}
-
-@available(iOS 16.0, *)
-struct VIDKARGeneralQueryIntent: AppIntent {
-  static var title: LocalizedStringResource = "Consultar VIDKAR"
-  static var description = IntentDescription("Busca contenido o ejecuta una consulta MCP de solo lectura con los permisos de tu cuenta.")
-  static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-
-  @Parameter(title: "Consulta en lenguaje natural", default: "") var query: String
-  @Parameter(title: "Herramienta MCP opcional", default: "") var toolName: String
-  @Parameter(title: "Argumentos JSON", default: "{}") var argumentsJSON: String
-  @Parameter(title: "Tipo de entidad", default: .all) var entityType: VIDKAREntityType
-  @Parameter(title: "Identificador opcional", default: "") var entityID: String
-  @Parameter(title: "Acción", default: .search) var action: VIDKARIntentAction
-  @Parameter(title: "Solicitar confirmación adicional", default: false) var confirmationRequired: Bool
+  @Parameter(title: "Qué quieres encontrar") var query: String
+  @Parameter(title: "Tipo de contenido", default: .all) var entityType: VIDKAREntityType
+  @Parameter(title: "Período", default: .unspecified) var period: VIDKARPeriod
+  @Parameter(title: "Orden", default: .newest) var sort: VIDKARSearchSort
+  @Parameter(title: "Categoría opcional", default: "") var category: String
 
   static var parameterSummary: some ParameterSummary {
-    Summary("\(\.$action) en VIDKAR: \(\.$query)")
+    Summary("Buscar \(\.$query) en \(\.$entityType), categoría \(\.$category), período \(\.$period), orden \(\.$sort)")
   }
 
-  func perform() async throws -> some IntentResult & ReturnsValue<String> {
-    if action == .open || action == .play {
-      if action == .play {
-        guard [.movie, .episode, .lesson].contains(entityType), !entityID.isEmpty else { throw MCPError.toolNotAllowed }
-      }
-      guard let url = vidkarDeepLink(
-        type: entityType,
-        id: entityID.isEmpty ? nil : entityID,
-        query: entityType == .all ? query : nil,
-        extra: action == .play ? ["play": "true"] : [:]
-      ) else { throw MCPError.invalidResponse }
-      if action == .play {
-        try await requestConfirmation()
-        try await MCPTransport.shared.validatePlayableEntity(entityType: entityType.rawValue, entityId: entityID)
-        try await MCPTransport.shared.authorizePlayback(entityType: entityType.rawValue, entityId: entityID)
-      } else if confirmationRequired {
-        try await requestConfirmation()
-      }
-      await openVIDKARURL(url)
-      let response = action == .play ? "Iniciando la reproducción en VIDKAR." : "Abriendo el contenido en VIDKAR."
-      return .result(value: response, dialog: IntentDialog(stringLiteral: response))
+  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSearchResultEntity]> & ProvidesDialog {
+    guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      throw MCPError.server("Dime qué contenido quieres buscar en VIDKAR.")
     }
-
-    let name = toolName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "search_entities" : toolName
-    guard let data = argumentsJSON.data(using: .utf8), var arguments = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-      throw MCPError.server("Los argumentos deben ser un objeto JSON válido.")
-    }
-    normalizeIntentPeriod(&arguments)
-    if name == "search_entities" {
-      arguments["entity"] = entityType.rawValue
-      if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { arguments["query"] = query }
-    } else if arguments["query"] == nil, !query.isEmpty {
-      arguments["query"] = query
-    }
-    let policyRequiresConfirmation = try await MCPTransport.shared.confirmationRequired(name: name, arguments: arguments)
-    if policyRequiresConfirmation || confirmationRequired {
-      try await requestConfirmation()
-      arguments["confirmed"] = true
-    }
-    let output = try await MCPTransport.shared.execute(name: name, arguments: arguments)
-    let summary = summarizeForSiri(output)
-    return .result(value: output, dialog: IntentDialog(stringLiteral: summary))
+    let arguments = makeSearchArguments(
+      entity: entityType.rawValue,
+      query: query,
+      period: period,
+      sort: sort,
+      category: category
+    )
+    let entities = try await confirmedVIDKARSearch(arguments)
+    return .result(
+      value: entities,
+      dialog: IntentDialog(stringLiteral: summarizeEntityResults(entities))
+    )
   }
 }
 
 @available(iOS 16.0, *)
-struct VIDKARSearchIntent: AppIntent {
-  static var title: LocalizedStringResource = "Buscar en VIDKAR"
-  static var description = IntentDescription("Busca películas, series, capítulos, cursos, productos y otros datos disponibles para tu cuenta.")
+struct VIDKARAccountQueryIntent: AppIntent {
+  static var title: LocalizedStringResource = "Consultar datos de mi cuenta VIDKAR"
+  static var description = IntentDescription("Consulta tus compras, ventas, órdenes, mensajes, suscripciones o perfil. VIDKAR confirma el acceso antes de buscar información privada o financiera.")
   static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
-  @Parameter(title: "Qué quieres buscar") var query: String
-  @Parameter(title: "Tipo de entidad", default: .all) var entityType: VIDKAREntityType
-  @Parameter(title: "Filtros y paginación JSON", default: "{}") var filtersJSON: String
+  @Parameter(title: "Qué datos de mi cuenta", requestValueDialog: "¿Qué información privada de tu cuenta quieres consultar?")
+  var dataType: VIDKARAccountDataType
+  @Parameter(title: "Texto opcional", default: "") var query: String
+  @Parameter(title: "Período", default: .unspecified) var period: VIDKARPeriod
 
-  static var parameterSummary: some ParameterSummary { Summary("Buscar \(\.$query) en VIDKAR") }
-
-  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSearchResultEntity]> {
-    let arguments = try makeSearchArguments(entity: entityType.rawValue, query: query, filtersJSON: filtersJSON)
-    let entities = try await confirmedVIDKARSearch(arguments)
-    let summary = summarizeEntityResults(entities)
-    return .result(value: entities, dialog: IntentDialog(stringLiteral: summary))
+  static var parameterSummary: some ParameterSummary {
+    Summary("Consultar \(\.$dataType) de mi cuenta")
   }
-}
 
-@available(iOS 27.0, *)
-@AppIntent(schema: .system.searchInApp)
-struct VIDKARSiriSearchIntent: ShowInAppSearchResultsIntent {
-  static var title: LocalizedStringResource = "Buscar en VIDKAR"
-  static var description = IntentDescription(
-    "Busca contenido público de VIDKAR y presenta los resultados en la app."
-  )
-  static let isAssistantOnly = true
-  static var searchScopes: [StringSearchScope] = [.general]
-
-  var criteria: StringSearchCriteria
-
-  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSearchResultEntity]> {
-    let arguments = try makeSearchArguments(entity: "all", query: criteria.term)
-    var confirmedArguments = arguments
-    let requiresConfirmation = try await MCPTransport.shared.confirmationRequired(name: "search_entities", arguments: arguments)
-    if requiresConfirmation {
-      try await requestConfirmation()
-      confirmedArguments["confirmed"] = true
+  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSearchResultEntity]> & ProvidesDialog {
+    let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard dataType != .user || !normalizedQuery.isEmpty else {
+      throw MCPError.server("Para buscar usuarios, indica un nombre o texto de búsqueda.")
     }
-    let entities = try await MCPTransport.shared.searchEntities(
-      arguments: confirmedArguments,
-      cacheForSiriQuery: criteria.term
+    let arguments = makeSearchArguments(
+      entity: dataType.rawValue,
+      query: normalizedQuery,
+      period: period
     )
-    let summary = summarizeEntityResults(entities)
-
-    guard let url = vidkarDeepLink(type: .all, id: nil, query: criteria.term) else {
-      throw MCPError.invalidResponse
-    }
-    await openVIDKARURL(url)
-
-    return .result(value: entities, dialog: IntentDialog(stringLiteral: summary))
+    let entities = try await confirmedVIDKARSearch(arguments, forceConfirmation: true)
+    return .result(
+      value: entities,
+      dialog: IntentDialog(stringLiteral: summarizeEntityResults(entities))
+    )
   }
 }
 
 @available(iOS 16.0, *)
-private func makeSearchArguments(entity: String, query: String, filtersJSON: String = "{}") throws -> [String: Any] {
-  guard let data = filtersJSON.data(using: .utf8), var arguments = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-    throw MCPError.server("Los filtros deben ser un objeto JSON válido.")
-  }
-  normalizeIntentPeriod(&arguments)
-  arguments["entity"] = entity
-  let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-  if !normalizedQuery.isEmpty { arguments["query"] = normalizedQuery }
+private func makeSearchArguments(
+  entity: String,
+  query: String,
+  period: VIDKARPeriod = .unspecified,
+  sort: VIDKARSearchSort = .newest,
+  category: String = ""
+) -> [String: Any] {
+  var arguments: [String: Any] = [
+    "entity": entity,
+    "limit": 20,
+    "offset": 0,
+    "sort": sort.rawValue,
+  ]
+  if !query.isEmpty { arguments["query"] = query }
+  if period != .unspecified { arguments["period"] = period.rawValue }
+  let normalizedCategory = category.trimmingCharacters(in: .whitespacesAndNewlines)
+  if !normalizedCategory.isEmpty { arguments["category"] = normalizedCategory }
   return arguments
 }
 
 @available(iOS 16.0, *)
 private extension AppIntent {
-  func confirmedVIDKARSearch(_ originalArguments: [String: Any], forceConfirmation: Bool = false) async throws -> [VIDKARSearchResultEntity] {
+  func confirmedVIDKARSearch(
+    _ originalArguments: [String: Any],
+    forceConfirmation: Bool = false
+  ) async throws -> [VIDKARSearchResultEntity] {
     var arguments = originalArguments
-    let policyRequiresConfirmation = try await MCPTransport.shared.confirmationRequired(name: "search_entities", arguments: arguments)
+    let policyRequiresConfirmation = try await MCPTransport.shared.confirmationRequired(
+      name: "search_entities",
+      arguments: arguments
+    )
     if forceConfirmation || policyRequiresConfirmation {
       try await requestConfirmation()
       arguments["confirmed"] = true
     }
     return try await MCPTransport.shared.searchEntities(arguments: arguments)
   }
-
-  func listPrivateVIDKARData(entity: String, query: String, period: String = "") async throws -> [VIDKARSearchResultEntity] {
-    var arguments = try makeSearchArguments(entity: entity, query: query)
-    if !period.isEmpty { arguments["period"] = period }
-    normalizeIntentPeriod(&arguments)
-    return try await confirmedVIDKARSearch(arguments, forceConfirmation: true)
-  }
-
-  func confirmedVIDKARTypedSearch<Entity: VIDKARTypedAppEntity>(
-    _ originalArguments: [String: Any],
-    as entityType: Entity.Type,
-    forceConfirmation: Bool = false
-  ) async throws -> [Entity] {
-    let results = try await confirmedVIDKARSearch(originalArguments, forceConfirmation: forceConfirmation)
-    return results.map { result in
-      Entity(
-        id: result.id,
-        title: result.title,
-        subtitle: result.subtitle,
-        summary: result.summary,
-        deepLink: result.deepLink
-      )
-    }
-  }
 }
 
 @available(iOS 16.0, *)
-struct VIDKARSearchMovieIntent: AppIntent {
-  static var title: LocalizedStringResource = "Buscar películas en VIDKAR"
-  static var description = IntentDescription("Busca películas visibles en tu catálogo VIDKAR.")
-  static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  @Parameter(title: "Película que quieres buscar") var query: String
-  static var parameterSummary: some ParameterSummary { Summary("Buscar \(\.$query) en VIDKAR") }
-  func perform() async throws -> some IntentResult & ReturnsValue<[MovieEntity]> {
-    let results = try await confirmedVIDKARTypedSearch(makeSearchArguments(entity: "movie", query: query), as: MovieEntity.self)
-    return .result(value: results, dialog: IntentDialog(stringLiteral: summarizeTypedEntityResults(results)))
-  }
-}
-
-@available(iOS 16.0, *)
-struct VIDKARSearchSeriesIntent: AppIntent {
-  static var title: LocalizedStringResource = "Buscar series en VIDKAR"
-  static var description = IntentDescription("Busca series visibles si tu suscripción de películas está activa.")
-  static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  @Parameter(title: "Serie que quieres buscar") var query: String
-  static var parameterSummary: some ParameterSummary { Summary("Buscar \(\.$query) en VIDKAR") }
-  func perform() async throws -> some IntentResult & ReturnsValue<[SeriesEntity]> {
-    let results = try await confirmedVIDKARTypedSearch(makeSearchArguments(entity: "series", query: query), as: SeriesEntity.self)
-    return .result(value: results, dialog: IntentDialog(stringLiteral: summarizeTypedEntityResults(results)))
-  }
-}
-
-@available(iOS 16.0, *)
-struct VIDKARSearchCourseIntent: AppIntent {
-  static var title: LocalizedStringResource = "Buscar cursos en VIDKAR"
-  static var description = IntentDescription("Busca cursos publicados y disponibles para el nivel de tu cuenta.")
-  static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  @Parameter(title: "Curso que quieres buscar") var query: String
-  static var parameterSummary: some ParameterSummary { Summary("Buscar \(\.$query) en VIDKAR") }
-  func perform() async throws -> some IntentResult & ReturnsValue<[CourseEntity]> {
-    let results = try await confirmedVIDKARTypedSearch(makeSearchArguments(entity: "course", query: query), as: CourseEntity.self)
-    return .result(value: results, dialog: IntentDialog(stringLiteral: summarizeTypedEntityResults(results)))
-  }
-}
-
-@available(iOS 16.0, *)
-struct VIDKARSearchUserIntent: AppIntent {
-  static var title: LocalizedStringResource = "Buscar usuarios en VIDKAR"
-  static var description = IntentDescription("Busca usuarios dentro del alcance de tu token MCP; solicita confirmación antes de mostrar datos personales.")
-  static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  @Parameter(title: "Usuario que quieres buscar") var query: String
-  static var parameterSummary: some ParameterSummary { Summary("Buscar \(\.$query) en VIDKAR") }
-  func perform() async throws -> some IntentResult & ReturnsValue<[UserEntity]> {
-    let results = try await confirmedVIDKARTypedSearch(makeSearchArguments(entity: "user", query: query), as: UserEntity.self)
-    return .result(value: results, dialog: IntentDialog(stringLiteral: summarizeTypedEntityResults(results)))
-  }
-}
-
-@available(iOS 16.0, *)
-struct VIDKAROpenEntityIntent: AppIntent {
+struct VIDKAROpenEntityIntent: OpenIntent {
   static var title: LocalizedStringResource = "Abrir contenido de VIDKAR"
   static var description = IntentDescription("Abre un resultado permitido de VIDKAR en la pantalla correspondiente.")
   static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  static var openAppWhenRun = true
 
-  @Parameter(title: "Contenido") var entity: VIDKARSearchResultEntity
+  @Parameter(title: "Contenido") var target: VIDKARSearchResultEntity
 
-  static var parameterSummary: some ParameterSummary { Summary("Abrir \(\.$entity) en VIDKAR") }
+  static var parameterSummary: some ParameterSummary { Summary("Abrir \(\.$target) en VIDKAR") }
 
-  func perform() async throws -> some IntentResult & ReturnsValue<String> {
-    guard let url = URL(string: entity.deepLink), url.scheme?.lowercased() == "vidkar" else { throw MCPError.invalidResponse }
+  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSearchResultEntity> & ProvidesDialog {
+    guard let url = URL(string: target.deepLink), url.scheme?.lowercased() == "vidkar" else { throw MCPError.invalidResponse }
     await openVIDKARURL(url)
-    let response = "Abriendo \(entity.title) en VIDKAR."
-    return .result(value: response, dialog: IntentDialog(stringLiteral: response))
+    let response = "Abriendo \(target.title) en VIDKAR."
+    return .result(value: target, dialog: IntentDialog(stringLiteral: response))
+  }
+}
+
+@available(iOS 27.0, *)
+@AppIntent(schema: .system.open)
+struct VIDKARAssistantOpenEntityIntent: OpenIntent {
+  static var title: LocalizedStringResource = "Abrir contenido de VIDKAR para Siri"
+  static var description = IntentDescription("Abre en VIDKAR el contenido que Apple Intelligence identificó en una conversación.")
+  static let isAssistantOnly = true
+  static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+
+  @Parameter(title: "Contenido") var target: VIDKARSearchResultEntity
+
+  func perform() async throws -> some IntentResult & ProvidesDialog {
+    guard let url = URL(string: target.deepLink), url.scheme?.lowercased() == "vidkar" else {
+      throw MCPError.invalidResponse
+    }
+    await openVIDKARURL(url)
+    return .result(dialog: IntentDialog(stringLiteral: "Abriendo \(target.title) en VIDKAR."))
   }
 }
 
@@ -1203,7 +877,7 @@ struct VIDKARPlayContentIntent: AppIntent {
 
   static var parameterSummary: some ParameterSummary { Summary("Reproducir \(\.$entity) en VIDKAR") }
 
-  func perform() async throws -> some IntentResult & ReturnsValue<String> {
+  func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
     guard [.movie, .episode, .lesson].contains(entity.entityType),
           let baseURL = URL(string: entity.deepLink), baseURL.scheme?.lowercased() == "vidkar",
           var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else { throw MCPError.toolNotAllowed }
@@ -1223,133 +897,14 @@ struct VIDKARPlayContentIntent: AppIntent {
 }
 
 @available(iOS 16.0, *)
-struct VIDKARListUserDataIntent: AppIntent {
-  static var title: LocalizedStringResource = "Consultar mis datos en VIDKAR"
-  static var description = IntentDescription("Consulta compras, ventas, órdenes o mensajes dentro del alcance de tu cuenta.")
-  static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-
-  @Parameter(title: "Tipo de datos", default: .purchase) var entityType: VIDKAREntityType
-  @Parameter(title: "Texto opcional", default: "") var query: String
-  @Parameter(title: "Período opcional", default: .unspecified) var period: VIDKARPeriod
-
-  static var parameterSummary: some ParameterSummary { Summary("Consultar mis \(\.$entityType) en VIDKAR") }
-
-  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSearchResultEntity]> {
-    guard [.user, .purchase, .sale, .order, .message, .subscription].contains(entityType) else { throw MCPError.toolNotAllowed }
-    let periodValue = period == .unspecified ? "" : period.rawValue
-    let entities = try await listPrivateVIDKARData(entity: entityType.rawValue, query: query, period: periodValue)
-    let summary = summarizeEntityResults(entities)
-    return .result(value: entities, dialog: IntentDialog(stringLiteral: summary))
-  }
-}
-
-@available(iOS 16.0, *)
-struct VIDKARMyPurchasesIntent: AppIntent {
-  static var title: LocalizedStringResource = "Consultar mis compras en VIDKAR"
-  static var description = IntentDescription("Consulta compras de tu cuenta tras confirmar el acceso a datos financieros.")
-  static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  @Parameter(title: "Texto opcional", default: "") var query: String
-  @Parameter(title: "Período", default: .unspecified) var period: VIDKARPeriod
-  static var parameterSummary: some ParameterSummary { Summary("Consultar mis compras \(\.$period) en VIDKAR") }
-  func perform() async throws -> some IntentResult & ReturnsValue<[PurchaseEntity]> {
-    var arguments = try makeSearchArguments(entity: "purchase", query: query)
-    if period != .unspecified { arguments["period"] = period.rawValue }
-    normalizeIntentPeriod(&arguments)
-    let entities = try await confirmedVIDKARTypedSearch(arguments, as: PurchaseEntity.self, forceConfirmation: true)
-    return .result(value: entities, dialog: IntentDialog(stringLiteral: summarizeTypedEntityResults(entities)))
-  }
-}
-
-@available(iOS 16.0, *)
-struct VIDKARMySalesIntent: AppIntent {
-  static var title: LocalizedStringResource = "Consultar mis ventas en VIDKAR"
-  static var description = IntentDescription("Consulta ventas dentro del alcance de tu cuenta tras confirmar el acceso a datos financieros.")
-  static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  @Parameter(title: "Texto opcional", default: "") var query: String
-  @Parameter(title: "Período", default: .unspecified) var period: VIDKARPeriod
-  static var parameterSummary: some ParameterSummary { Summary("Consultar mis ventas \(\.$period) en VIDKAR") }
-  func perform() async throws -> some IntentResult & ReturnsValue<[SaleEntity]> {
-    var arguments = try makeSearchArguments(entity: "sale", query: query)
-    if period != .unspecified { arguments["period"] = period.rawValue }
-    normalizeIntentPeriod(&arguments)
-    let entities = try await confirmedVIDKARTypedSearch(arguments, as: SaleEntity.self, forceConfirmation: true)
-    return .result(value: entities, dialog: IntentDialog(stringLiteral: summarizeTypedEntityResults(entities)))
-  }
-}
-
-@available(iOS 16.0, *)
-struct VIDKARExecuteActionIntent: AppIntent {
-  static var title: LocalizedStringResource = "Ejecutar consulta VIDKAR"
-  static var description = IntentDescription("Ejecuta una herramienta MCP permitida. Solo se aceptan herramientas de lectura y se confirma cualquier consulta sensible.")
-  static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-
-  @Parameter(title: "Herramienta MCP") var toolName: String
-  @Parameter(title: "Argumentos JSON", default: "{}") var argumentsJSON: String
-  @Parameter(title: "Acción solicitada", default: "consultar") var requestedAction: String
-  @Parameter(title: "Confirmación adicional", default: true) var confirmationRequired: Bool
-
-  static var parameterSummary: some ParameterSummary { Summary("\(\.$requestedAction) con \(\.$toolName) en VIDKAR") }
-
-  func perform() async throws -> some IntentResult & ReturnsValue<String> {
-    guard let data = argumentsJSON.data(using: .utf8), var arguments = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-      throw MCPError.server("Los argumentos deben ser un objeto JSON válido.")
-    }
-    normalizeIntentPeriod(&arguments)
-    let policyRequiresConfirmation = try await MCPTransport.shared.confirmationRequired(name: toolName, arguments: arguments)
-    if policyRequiresConfirmation || confirmationRequired {
-      try await requestConfirmation()
-      arguments["confirmed"] = true
-    }
-    let output = try await MCPTransport.shared.execute(name: toolName, arguments: arguments)
-    let summary = summarizeForSiri(output)
-    return .result(value: output, dialog: IntentDialog(stringLiteral: summary))
-  }
-}
-
-@available(iOS 16.0, *)
-struct VIDKARToolCatalogIntent: AppIntent {
-  static var title: LocalizedStringResource = "Ver herramientas de VIDKAR"
-  static var description = IntentDescription("Consulta las herramientas MCP, sus esquemas, permisos, tipo de datos y requisitos de confirmación.")
-  static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-
-  func perform() async throws -> some IntentResult & ReturnsValue<String> {
-    let output = try await MCPTransport.shared.catalog()
-    let count = (try? JSONSerialization.jsonObject(with: Data(output.utf8)) as? [[String: Any]])?.count ?? 0
-    let response = "Encontré \(count) herramientas en el catálogo de VIDKAR."
-    return .result(value: output, dialog: IntentDialog(stringLiteral: response))
-  }
-}
-
-@available(iOS 16.0, *)
 struct VIDKARAppShortcuts: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
     return [
-      AppShortcut(intent: VIDKARSearchIntent(), phrases: ["Buscar \(\.$query) en \(.applicationName)", "Consultar \(\.$query) en \(.applicationName)"], shortTitle: "Buscar VIDKAR", systemImageName: "magnifyingglass"),
-      AppShortcut(intent: VIDKARSearchMovieIntent(), phrases: ["Buscar \(\.$query) en películas de \(.applicationName)"], shortTitle: "Buscar películas", systemImageName: "film"),
-      AppShortcut(intent: VIDKARSearchSeriesIntent(), phrases: ["Buscar \(\.$query) en series de \(.applicationName)"], shortTitle: "Buscar series", systemImageName: "tv"),
-      AppShortcut(intent: VIDKARSearchCourseIntent(), phrases: ["Buscar \(\.$query) en cursos de \(.applicationName)"], shortTitle: "Buscar cursos", systemImageName: "book.closed"),
-      AppShortcut(intent: VIDKARSearchUserIntent(), phrases: ["Buscar usuario \(\.$query) en \(.applicationName)"], shortTitle: "Buscar usuarios", systemImageName: "person.crop.circle"),
-      AppShortcut(intent: VIDKARMyPurchasesIntent(), phrases: ["Consultar mis compras en \(.applicationName)", "Buscar \(\.$query) entre mis compras de \(.applicationName)"], shortTitle: "Mis compras", systemImageName: "creditcard"),
-      AppShortcut(intent: VIDKARMySalesIntent(), phrases: ["Consultar mis ventas en \(.applicationName)", "Buscar \(\.$query) entre mis ventas de \(.applicationName)"], shortTitle: "Mis ventas", systemImageName: "chart.bar"),
-      AppShortcut(intent: VIDKAROpenEntityIntent(), phrases: ["Abrir \(\.$entity) en \(.applicationName)"], shortTitle: "Abrir contenido", systemImageName: "arrow.up.forward.app"),
-      AppShortcut(intent: VIDKARPlayContentIntent(), phrases: ["Reproducir \(\.$entity) en \(.applicationName)"], shortTitle: "Reproducir", systemImageName: "play.fill"),
-      AppShortcut(intent: VIDKARMySubscriptionIntent(), phrases: ["Consultar el estado de mi suscripción en \(.applicationName)", "Buscar \(\.$query) en mis suscripciones de \(.applicationName)"], shortTitle: "Mi suscripción", systemImageName: "checkmark.seal")
+      AppShortcut(intent: VIDKARSearchContentIntent(), phrases: ["Buscar \(\.$query) en \(.applicationName)", "Buscar \(\.$query) en \(\.$entityType) de \(.applicationName)"], shortTitle: "Buscar contenido", systemImageName: "magnifyingglass"),
+      AppShortcut(intent: VIDKARAccountQueryIntent(), phrases: ["Consultar \(\.$dataType) de mi cuenta en \(.applicationName)", "Consultar \(\.$dataType) sobre \(\.$query) durante \(\.$period) en \(.applicationName)"], shortTitle: "Consultar mi cuenta", systemImageName: "person.crop.circle"),
+      AppShortcut(intent: VIDKAROpenEntityIntent(), phrases: ["Abrir \(\.$target) en \(.applicationName)"], shortTitle: "Abrir contenido", systemImageName: "arrow.up.forward.app"),
+      AppShortcut(intent: VIDKARPlayContentIntent(), phrases: ["Reproducir \(\.$entity) en \(.applicationName)"], shortTitle: "Reproducir contenido", systemImageName: "play.fill")
     ]
-  }
-}
-
-@available(iOS 16.0, *)
-struct VIDKARMySubscriptionIntent: AppIntent {
-  static var title: LocalizedStringResource = "Consultar mi suscripción VIDKAR"
-  static var description = IntentDescription("Consulta tus suscripciones propias después de confirmar el acceso a información de cuenta.")
-  static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  @Parameter(title: "Texto opcional", default: "") var query: String
-  static var parameterSummary: some ParameterSummary { Summary("Consultar mi suscripción en VIDKAR") }
-
-  func perform() async throws -> some IntentResult & ReturnsValue<[SubscriptionEntity]> {
-    let arguments = try makeSearchArguments(entity: "subscription", query: query)
-    let entities = try await confirmedVIDKARTypedSearch(arguments, as: SubscriptionEntity.self, forceConfirmation: true)
-    return .result(value: entities, dialog: IntentDialog(stringLiteral: summarizeTypedEntityResults(entities)))
   }
 }
 
@@ -1359,63 +914,11 @@ private func openVIDKARURL(_ url: URL) {
   UIApplication.shared.open(url, options: [:], completionHandler: nil)
 }
 
-private func normalizeIntentPeriod(_ arguments: inout [String: Any]) {
-  guard let value = arguments["period"] as? String else { return }
-  let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
-    .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "es"))
-    .lowercased()
-  let periods = [
-    "hoy": "today", "today": "today",
-    "ayer": "yesterday", "yesterday": "yesterday",
-    "esta semana": "this_week", "this week": "this_week",
-    "semana pasada": "last_week", "last week": "last_week",
-    "este mes": "this_month", "this month": "this_month",
-    "mes pasado": "last_month", "last month": "last_month",
-    "este ano": "this_year", "this year": "this_year",
-  ]
-  if let period = periods[normalized] { arguments["period"] = period }
-}
-
-private func normalizedSiriSearchQuery(_ query: String) -> String {
-  query.trimmingCharacters(in: .whitespacesAndNewlines)
-    .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "es"))
-    .lowercased()
-}
-
 private func summarizeEntityResults(_ entities: [VIDKARSearchResultEntity]) -> String {
   guard !entities.isEmpty else { return "No encontré resultados para esa búsqueda en VIDKAR." }
   let titles = entities.prefix(3).map(\.title)
   let lead = "Encontré \(entities.count) resultado\(entities.count == 1 ? "" : "s") en VIDKAR."
   return "\(lead) \(titles.isEmpty ? "" : "Los primeros son \(titles.joined(separator: ", ")).")"
-}
-
-private func summarizeTypedEntityResults<Entity: VIDKARTypedAppEntity>(_ entities: [Entity]) -> String {
-  guard !entities.isEmpty else { return "No encontré resultados para esa búsqueda en VIDKAR." }
-  let titles = entities.prefix(3).map(\.title)
-  let lead = "Encontré \(entities.count) resultado\(entities.count == 1 ? "" : "s") en VIDKAR."
-  return "\(lead) \(titles.isEmpty ? "" : "Los primeros son \(titles.joined(separator: ", ")).")"
-}
-
-private func summarizeForSiri(_ output: String) -> String {
-  guard let data = output.data(using: .utf8), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-    return String(output.prefix(320))
-  }
-  if let error = object["error"] as? [String: Any], let message = error["message"] as? String { return message }
-  if let success = object["success"] as? Bool, !success,
-     let error = object["error"] as? [String: Any], let message = error["message"] as? String { return message }
-  if let results = object["results"] as? [[String: Any]] {
-    let total = (object["pagination"] as? [String: Any])?["total"] as? Int ?? results.count
-    let titles = results.prefix(3).compactMap { $0["title"] as? String }
-    if total == 0 { return "No encontré resultados para esa búsqueda en VIDKAR." }
-    let lead = "Encontré \(total) resultado\(total == 1 ? "" : "s") en VIDKAR."
-    return titles.isEmpty ? lead : "\(lead) Los primeros son \(titles.joined(separator: ", "))."
-  }
-  for key in ["users", "sales", "orders", "products", "payments"] {
-    if let rows = object[key] as? [[String: Any]] {
-      return rows.isEmpty ? "No encontré resultados para esa búsqueda en VIDKAR." : "Encontré \(rows.count) resultados en VIDKAR."
-    }
-  }
-  return "La consulta se completó en VIDKAR."
 }
 
 @available(iOS 17.0, *)

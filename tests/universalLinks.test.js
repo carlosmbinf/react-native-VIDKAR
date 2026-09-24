@@ -10,14 +10,22 @@ const javascript = ts.transpileModule(source, {
 }).outputText;
 const { resolveUniversalLink } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
 
-test("resuelve búsqueda Siri sin abrir playback automáticamente", () => {
-  assert.deepEqual(resolveUniversalLink("vidkar://search?q=Avatar"), {
-    pathname: "/(normal)/SiriSearch",
-    params: { query: "Avatar", entityType: "all" },
-  });
+test("rechaza el deeplink de búsqueda y abre una película solo como contenido", () => {
+  assert.equal(resolveUniversalLink("vidkar://search?q=Avatar"), null);
   assert.deepEqual(resolveUniversalLink("vidkar://movie/movie-1?q=Avatar"), {
-    pathname: "/(normal)/SiriSearch",
-    params: { query: "Avatar", entityType: "movie", contentId: "movie-1" },
+    pathname: "/(normal)/PeliculasVideos",
+    params: { id: "movie-1" },
+  });
+});
+
+test("un episodio sin serie asociada no deriva en una búsqueda por UI", () => {
+  assert.equal(resolveUniversalLink("vidkar://episode/episode-1?q=Final"), null);
+});
+
+test("abrir producto va al catálogo explícito", () => {
+  assert.deepEqual(resolveUniversalLink("vidkar://product/product-1?q=Recarga&source=RECARGA"), {
+    pathname: "/(normal)/ProductosCubacelCards",
+    params: { productId: "product-1" },
   });
 });
 
