@@ -8,42 +8,13 @@ import UIKit
 // These types are intentionally additive. The existing AppIntents and
 // AppShortcuts continue to support iOS 16+ and Shortcuts.
 //
-// iOS 27+ Siri AI uses the explicit open schema and Spotlight's semantic index
-// to resolve VIDKAR content. Informational search is handled by the regular
-// AppIntent in VidkarMCPModule.swift.
+// iOS 27+ Spotlight semantic indexing helps Siri AI resolve VIDKAR content.
+// Opening remains handled by the iOS 16-compatible VIDKAROpenEntityIntent.
 //
 // La búsqueda informativa se expone mediante VIDKARSearchContentIntent en
 // VidkarMCPModule.swift. No se registra el schema system.searchInApp porque
 // ShowInAppSearchResultsIntent está orientado a abrir la interfaz de búsqueda,
 // no a devolver resultados estructurados sin navegación.
-
-@available(iOS 27.0, *)
-@AppIntent(schema: .system.open)
-struct VIDKARSiriOpenIntent: OpenIntent {
-  static var title: LocalizedStringResource = "Abrir contenido de VIDKAR"
-  static var description = IntentDescription(
-    "Abre un contenido específico de VIDKAR."
-  )
-
-  @Parameter(title: "Contenido")
-  var target: VIDKARSearchResultEntity
-
-  func perform() async throws -> some IntentResult {
-    guard let url = VIDKARSiriURL.deepLink(target.deepLink) else {
-      throw NSError(
-        domain: "VIDKARSiri",
-        code: 2,
-        userInfo: [NSLocalizedDescriptionKey: "El enlace del contenido de VIDKAR no es válido."]
-      )
-    }
-
-    await MainActor.run {
-      UIApplication.shared.open(url)
-    }
-
-    return .result()
-  }
-}
 
 // MARK: - Spotlight / semantic indexing
 
@@ -91,16 +62,5 @@ enum VIDKARSpotlightIndex {
     } catch {
       // Spotlight indexing must never break MCP searches or Siri actions.
     }
-  }
-}
-
-private enum VIDKARSiriURL {
-  static func deepLink(_ rawValue: String) -> URL? {
-    guard let url = URL(string: rawValue),
-          url.scheme?.lowercased() == "vidkar" else {
-      return nil
-    }
-
-    return url
   }
 }
