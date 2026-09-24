@@ -79,7 +79,7 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
       case "subscription":
         return { pathname: "/(normal)/MisCompras", params: { subscriptionId: value } };
       case "product":
-        return { pathname: "/(normal)/ProductosCubacelCards", params: { productId: value } };
+        return null;
       case "message":
         return { pathname: "/(normal)/Mensajes", params: value ? { messageId: value } : undefined };
       case "messages":

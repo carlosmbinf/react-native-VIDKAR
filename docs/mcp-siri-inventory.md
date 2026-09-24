@@ -94,7 +94,7 @@ La existencia de una colección no implica que sea publicable o consultable desd
 
 | Entidad solicitada | Evidencia/capacidad backend actual | Ruta móvil identificada | Estado para Siri |
 |---|---|---|---|
-| Película | `search_entities` busca solo visibles | `/(normal)/PeliculasVideos`; player solo desde reproducción explícita | consulta devuelve entidad; reproducción confirmada |
+| Película | `search_entities` busca solo visibles | `/(normal)/PeliculaPlayer` o catálogo explícito | consulta sin navegación; player solo tras confirmación |
 | Serie/temporada/capítulo | publicaciones `series`/`temporadas`/`capitulos` usan helpers de visibilidad y exigen `subscipcionPelis`; métodos localizados en `metodos/series.js` son de importación/administración | `/(normal)/SeriesDetail`, `/(normal)/SeriesPlayer` | búsqueda nueva valida suscripción/visibilidad; reproducción confirmada |
 | Curso/lección | `search_entities` valida publicación/nivel; lección además suscripción activa | `/(normal)/Cursos`, `/(normal)/CursoDetalle?courseId=...` | cursos publicados visibles; las búsquedas de lecciones son privadas/confirmadas y playback usa método Meteor autorizado |
 | Usuario | MCP filtra con alcance token | `/(normal)/User?item=...` | búsqueda exige confirmación |
@@ -103,7 +103,7 @@ La existencia de una colección no implica que sea publicable o consultable desd
 | Mensaje/descarga | mensajes solo entre propietario y remitente/destinatario; descargas no soportadas | `/(normal)/Mensajes`; no se encontró destino de descarga seguro | mensajes exigen confirmación; descarga sigue deshabilitada |
 | Suscripción | `search_entities` consulta solo el estado de películas del owner y `cursos_suscripciones` del usuario actual | `/(normal)/MisCompras` | privada, requiere confirmación y no acepta un `userId` de entrada |
 
-`services/spotlight/spotlightItems.js` ya conoce rutas para `course`, `user` y `movie`, pero Spotlight IDs no equivalen a un contrato universal `vidkar://...`. `services/navigation/universalLinks.ts` acepta Universal Links HTTPS y deeplinks `vidkar://` de entidades concretas; rechaza `vidkar://search`.
+`services/spotlight/spotlightItems.js` ya conoce rutas para `course`, `user` y `movie`, pero Spotlight IDs no equivalen a un contrato universal `vidkar://...`. `services/navigation/universalLinks.ts` acepta solo Universal Links HTTPS y hoy enruta portada, cursos y mensajes.
 
 ## 6. Escrituras, confirmaciones y riesgos
 
@@ -129,8 +129,6 @@ La existencia de una colección no implica que sea publicable o consultable desd
 
 ## 9. Parámetros semánticos y límites de Apple Intelligence
 
-`VIDKARSearchContentIntent` y `VIDKARAccountQueryIntent` usan enums para entidad, período, orden y tipo de dato. Los intents públicos no reciben `argumentsJSON`; el cliente arma únicamente los campos MCP permitidos. `last_year` no se ofrece porque el backend no lo admite.
+Las intents privadas de compras, ventas y consultas por entidad usan `VIDKARPeriod`, un `AppEnum` con los períodos `today`, `yesterday`, `this_week`, `last_week`, `this_month`, `last_month`, `this_year` y `last_year`, además de `unspecified` para conservar la semántica anterior de período ausente. El handler convierte estos valores a los argumentos MCP internos; Siri/Atajos no necesitan construir `argumentsJSON`.
 
-Las búsquedas y consultas devuelven `ReturnsValue<[VIDKARSearchResultEntity]>` y `ProvidesDialog`; no abren Expo Router ni crean deeplinks. `VIDKAROpenEntityIntent` y `VIDKARPlayContentIntent` son las únicas acciones públicas con navegación, y solo al invocarlas expresamente. `VIDKARAssistantOpenEntityIntent` es un adaptador iOS27 con `.system.open`, marcado `isAssistantOnly` y fuera de Atajos.
-
-No existe un App Schema de Apple para búsqueda genérica de catálogo, cursos o datos de cuenta que devuelva valores en background. `system.searchInApp` se retiró porque muestra resultados en la app. `.system.open` se usa solo para abrir, dentro de un adaptador iOS27 assistant-only; el intent normal continúa compatible con iOS16.4. `Photos` no representa el catálogo VIDKAR y `Audio` no representa cursos/películas de vídeo. Las consultas conservan App Intents normales, AppEntity, EntityQuery, enums y Spotlight; esto mejora el contrato tipado pero no garantiza selección semántica universal por Siri AI.
+La mejora es deliberadamente aditiva: `tools/list`, `tools/call`, autenticación MCP, Keychain, ownership, confirmaciones, autorización de reproducción, entidades tipadas y `VIDKARAppShortcuts` permanecen sin reemplazo. No se añadió una API pública genérica de “App Schemas” ni un target de extensión inventado: con el deployment target actual, las APIs públicas aplicables son App Intents, App Entity, Entity Query, App Enum, Parameter Summary y App Shortcuts. Apple decide finalmente qué intent selecciona para una frase libre, por lo que la integración mejora elegibilidad semántica pero no garantiza que Siri elija VIDKAR para toda formulación.

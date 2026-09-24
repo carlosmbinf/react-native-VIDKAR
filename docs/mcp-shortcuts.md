@@ -2,37 +2,40 @@
 
 ## Estado y arquitectura
 
-La integración usa App Intents (iOS 16.4+), el módulo Expo nativo `modules/vidkar-mcp` y el backend MCP existente. No usa SiriKit legacy ni una extensión App Intents separada. Expo registra el paquete del framework mediante `with-vidkar-app-intents.js`.
+La integración usa App Intents (iOS 16.4+), el módulo Expo nativo `modules/vidkar-mcp` y el backend MCP existente. No usa SiriKit legacy, no duplica lógica de negocio Swift y no crea una extensión App Intents separada: las intents viven en el target principal de VIDKAR.
 
 ```text
 Siri / Apple Intelligence / Atajos
-  -> VIDKARSearchContentIntent / VIDKARAccountQueryIntent
-  -> ReturnsValue<AppEntity[]> + ProvidesDialog
+  -> VIDKAR App Intents + AppShortcuts + AppEntity
   -> vidkar-mcp (HTTPS, token Keychain ligado al userId Meteor)
   -> POST https://www.vidkar.com/mcp
   -> tools/list / tools/call
   -> allowlist y autorización MCP backend
-  -> resultados tipados de entidad, sin abrir la app ni navegar
-
-OpenEntity y PlayContent son flujos independientes: solo ellos usan deeplinks y Expo Router ante una petición explícita de abrir o reproducir.
+  -> resultado tipado + IntentDialog
+  -> Siri/Atajos; sin navegación para consultas
 ```
 
 El backend sigue siendo la autoridad. El catálogo MCP no constituye permisos y el cliente no acepta nombres de colección, selector Mongo ni campos arbitrarios.
 
 ## Intents y entidades
 
-El paquete publica cuatro intents:
+El módulo publica estos intents:
 
-- `VIDKARSearchContentIntent`: busca contenido público con `query`, `entityType`, período, orden y categoría tipados; devuelve `VIDKARSearchResultEntity` sin navegar.
-- `VIDKARAccountQueryIntent`: consulta compras, ventas, órdenes, mensajes, suscripciones o perfil, exige autenticación y confirmación, y devuelve la misma entidad genérica.
-- `VIDKAROpenEntityIntent`: abre el contenido indicado explícitamente.
-- `VIDKARPlayContentIntent`: solo película, capítulo o lección; confirma y revalida autorización MCP antes del playback.
+- `VIDKARSearchContentIntent`: consulta, tipo de contenido, categoría y estado; devuelve resultados tipados sin abrir VIDKAR.
+- `VIDKARAccountQueryIntent`: tipo de dato, consulta, período y estado; confirma datos privados y devuelve resultados tipados.
+- `VIDKAROpenEntityIntent`: abre un `AppEntity` en VIDKAR.
+- `VIDKARPlayContentIntent`: solo película, capítulo o lección; siempre solicita confirmación antes de añadir `play=true`.
 
-En iOS 27+ `VIDKARAssistantOpenEntityIntent` adopta `.system.open` y `isAssistantOnly`; es un adaptador del schema para Apple Intelligence, no otro shortcut público. El intent normal de apertura conserva compatibilidad con iOS 16.4+.
+`AppEntity` usa un ID estable `tipo:id`, título, subtítulo, descripción, tipo, enlace seguro e imagen opcional. Se definen `MovieEntity`, `SeriesEntity`, `EpisodeEntity`, `CourseEntity`, `LessonEntity`, `UserEntity`, `PurchaseEntity`, `SaleEntity`, `ProductEntity`, `MessageEntity` y `DownloadEntity`. Las entidades privadas no se ofrecen como sugerencias silenciosas a EntityQuery; se buscan por una intent que confirma primero. `DownloadEntity` está definido, pero sus búsquedas quedan deshabilitadas hasta que exista una herramienta backend segura.
 
-`VIDKARSearchResultEntity` es la única AppEntity de resultado. Tiene ID estable `tipo:id`, título, subtítulo, descripción y representación visible. El deeplink se conserva como dato interno para OpenEntity/PlayContent, no como propiedad que instruya a Siri a navegar. Su `EntityStringQuery` resuelve resultados públicos; los identificadores privados no se sugieren ni se resuelven por búsqueda global.
+Las cuatro frases preconfiguradas usan `\(.applicationName)` para adaptarse al nombre instalado e incluyen:
 
-`VIDKARAppShortcuts` publica solo esos cuatro accesos. Las frases ayudan a Atajos a rellenar parámetros; no son un sustituto de App Schemas ni garantizan selección de un intent ante cualquier formulación de Apple Intelligence.
+- “Buscar [consulta] en VIDKAR”.
+- “Consultar mis datos en VIDKAR”.
+- “Abrir contenido en VIDKAR” y “Reproducir contenido en VIDKAR”.
+
+Siri presenta diálogos concisos; las búsquedas/listados devuelven resultados `AppEntity` y los datos estructurados se conservan como valor para Shortcuts.
+Las consultas públicas y privadas no crean deeplinks ni navegan mediante Expo Router.
 
 ## Descubrimiento y seguridad del catálogo
 
@@ -63,15 +66,9 @@ Admite query de hasta 120 caracteres, categoría/estado, período natural o `fro
 - Productos se limitan a catálogos existentes y proyección permitida. El precio solo se presenta si el documento realmente tiene precio, sin inferir moneda.
 - No hay búsqueda de proveedores, TV, audio, descargas o precios oficiales: no se inventaron rutas ni permisos para ellos.
 
-## App Schemas, Spotlight y navegación
+## Deep links y navegación
 
-No se usa `system.searchInApp`: Apple define ese schema como una acción que muestra resultados dentro de la app y requiere foreground. Tampoco hay un schema general de Apple para consultas MCP, cursos o datos privados; por eso las dos consultas son App Intents normales con parámetros tipados, `ReturnsValue`, diálogo y `AppEntity`.
-
-`.system.open` sí corresponde a la acción explícita de abrir una entidad, pero requiere iOS 27. Se aplica en el adaptador `isAssistantOnly`; el intent clásico de apertura sigue disponible desde iOS 16.4. No se aplican los schemas de `Photos` o `Audio`: el catálogo VIDKAR no es la biblioteca de fotos del usuario ni un servicio de música/audio.
-
-`VIDKARSearchResultEntity` se puede indexar en Spotlight desde iOS 18; la indexación filtra a película, serie, capítulo, curso y producto, excluyendo datos privados. No reemplaza las llamadas de búsqueda ni hace que una consulta abra la app.
-
-`services/navigation/universalLinks.ts` conserva Universal Links HTTPS y un allowlist `vidkar://` para destinos concretos. `vidkar://search` y la ruta `/(normal)/SiriSearch` no existen. `app/index.native.tsx` espera sesión autenticada antes de abrir un deeplink explícito de contenido.
+`services/navigation/universalLinks.ts` conserva Universal Links HTTPS y un allowlist para `vidkar://` únicamente en acciones explícitas de abrir/reproducir. Las consultas informativas no usan deeplinks ni una pantalla de resultados.
 
 Abrir un resultado no inicia streaming. Solo los intents/acciones que recibieron confirmación agregan `play=true`; la reproducción de cursos llega a `CursoDetalle` y usa `cursos.media.solicitarReproduccion`, que vuelve a autorizar el acceso en Meteor. Las rutas de descargas y ciertos detalles (orden/venta) aún muestran la pantalla de dominio existente sin detalle por ID, dado que no existe una pantalla profunda dedicada.
 
@@ -80,9 +77,9 @@ Abrir un resultado no inicia streaming. Solo los intents/acciones que recibieron
 1. Inicia sesión en VIDKAR.
 2. Crea un token MCP personal en el perfil web, o configúralo en `/(normal)/MCPSettings`.
 3. Usa un development build o distribución iOS nativa. Expo Go no contiene el módulo MCP ni App Intents.
-4. En Atajos/Siri, ejecuta “Buscar contenido” o “Consultar datos de mi cuenta”; para información privada confirma la solicitud. “Abrir” y “Reproducir” son acciones separadas y explícitas.
+4. En Atajos o Siri, usa las frases VIDKAR; para reproducción/consultas privadas confirma la solicitud.
 
-`with-vidkar-app-intents.js` genera el paquete host `VidkarAppIntentsPackage` durante `expo prebuild`; no se edita manualmente `ios/` ni se crea una extensión adicional. Para probar el schema `.system.open` se requiere iOS 27+; los cuatro intents públicos principales siguen disponibles desde iOS 16.4. La ejecución conversacional de Apple Intelligence debe validarse en hardware/idioma admitidos; una compilación de simulador no la sustituye.
+El config plugin Expo `with-vidkar-app-intents.js` registra el `AppIntentsPackage` del módulo local en el target host. No se crea un target de extensión adicional. No se usa `system.searchInApp`: Apple lo define para mostrar resultados dentro de la app y no representa una consulta informativa sin navegación. Para compilar y probar App Intents se requiere Xcode y un iPhone real; la compilación de simulator es útil pero no sustituye esa prueba.
 
 ## Validación
 
