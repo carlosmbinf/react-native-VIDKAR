@@ -1202,3 +1202,138 @@ struct VIDKARMySalesIntent: AppIntent {
     return .result(value: entities, dialog: IntentDialog(stringLiteral: summarizeTypedEntityResults(entities)))
   }
 }
+
+@available(iOS 16.0, *)
+struct VIDKARExecuteActionIntent: AppIntent {
+  static var title: LocalizedStringResource = "Ejecutar consulta VIDKAR"
+  static var description = IntentDescription("Ejecuta una herramienta MCP permitida. Solo se aceptan herramientas de lectura y se confirma cualquier consulta sensible.")
+  static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+
+  @Parameter(title: "Herramienta MCP") var toolName: String
+  @Parameter(title: "Argumentos JSON", default: "{}") var argumentsJSON: String
+  @Parameter(title: "Acción solicitada", default: "consultar") var requestedAction: String
+  @Parameter(title: "Confirmación adicional", default: true) var confirmationRequired: Bool
+
+  static var parameterSummary: some ParameterSummary { Summary("\(\.$requestedAction) con \(\.$toolName) en VIDKAR") }
+
+  func perform() async throws -> some IntentResult & ReturnsValue<String> {
+    guard let data = argumentsJSON.data(using: .utf8), var arguments = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+      throw MCPError.server("Los argumentos deben ser un objeto JSON válido.")
+    }
+    normalizeIntentPeriod(&arguments)
+    let policyRequiresConfirmation = try await MCPTransport.shared.confirmationRequired(name: toolName, arguments: arguments)
+    if policyRequiresConfirmation || confirmationRequired {
+      try await requestConfirmation()
+      arguments["confirmed"] = true
+    }
+    let output = try await MCPTransport.shared.execute(name: toolName, arguments: arguments)
+    let summary = summarizeForSiri(output)
+    return .result(value: summary, dialog: IntentDialog(stringLiteral: summary))
+  }
+}
+
+@available(iOS 16.0, *)
+struct VIDKARToolCatalogIntent: AppIntent {
+  static var title: LocalizedStringResource = "Ver herramientas de VIDKAR"
+  static var description = IntentDescription("Consulta las herramientas MCP, sus esquemas, permisos, tipo de datos y requisitos de confirmación.")
+  static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+
+  func perform() async throws -> some IntentResult & ReturnsValue<String> {
+    let output = try await MCPTransport.shared.catalog()
+    let count = (try? JSONSerialization.jsonObject(with: Data(output.utf8)) as? [[String: Any]])?.count ?? 0
+    let response = "Encontré \(count) herramientas en el catálogo de VIDKAR."
+    return .result(value: output, dialog: IntentDialog(stringLiteral: response))
+  }
+}
+
+@available(iOS 16.0, *)
+struct VIDKARAppShortcuts: AppShortcutsProvider {
+  static var appShortcuts: [AppShortcut] {
+    return [
+    AppShortcut(intent: VIDKARSearchIntent(), phrases: ["Buscar en \(.applicationName)", "Consultar \(.applicationName)"], shortTitle: "Buscar VIDKAR", systemImageName: "magnifyingglass"),
+    AppShortcut(intent: VIDKARSearchMovieIntent(), phrases: ["Buscar una película en \(.applicationName)"], shortTitle: "Buscar películas", systemImageName: "film"),
+    AppShortcut(intent: VIDKARSearchSeriesIntent(), phrases: ["Buscar una serie en \(.applicationName)"], shortTitle: "Buscar series", systemImageName: "tv"),
+    AppShortcut(intent: VIDKARSearchCourseIntent(), phrases: ["Buscar un curso en \(.applicationName)"], shortTitle: "Buscar cursos", systemImageName: "book.closed"),
+    AppShortcut(intent: VIDKARSearchUserIntent(), phrases: ["Buscar un usuario en \(.applicationName)"], shortTitle: "Buscar usuarios", systemImageName: "person.crop.circle"),
+    AppShortcut(intent: VIDKARMyPurchasesIntent(), phrases: ["Consultar mis compras en \(.applicationName)"], shortTitle: "Mis compras", systemImageName: "creditcard"),
+    AppShortcut(intent: VIDKARMySalesIntent(), phrases: ["Consultar mis ventas en \(.applicationName)"], shortTitle: "Mis ventas", systemImageName: "chart.bar"),
+    AppShortcut(intent: VIDKAROpenEntityIntent(), phrases: ["Abrir contenido en \(.applicationName)"], shortTitle: "Abrir contenido", systemImageName: "arrow.up.forward.app"),
+    AppShortcut(intent: VIDKARPlayContentIntent(), phrases: ["Reproducir contenido en \(.applicationName)"], shortTitle: "Reproducir", systemImageName: "play.fill"),
+    AppShortcut(intent: VIDKARMySubscriptionIntent(), phrases: ["Consultar el estado de mi suscripción en \(.applicationName)"], shortTitle: "Mi suscripción", systemImageName: "checkmark.seal")
+    ]
+  }
+}
+
+@available(iOS 16.0, *)
+struct VIDKARMySubscriptionIntent: AppIntent {
+  static var title: LocalizedStringResource = "Consultar mi suscripción VIDKAR"
+  static var description = IntentDescription("Consulta tus suscripciones propias después de confirmar el acceso a información de cuenta.")
+  static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  @Parameter(title: "Texto opcional", default: "") var query: String
+  static var parameterSummary: some ParameterSummary { Summary("Consultar mi suscripción en VIDKAR") }
+
+  func perform() async throws -> some IntentResult & ReturnsValue<[SubscriptionEntity]> {
+    let arguments = try makeSearchArguments(entity: "subscription", query: query)
+    let entities = try await confirmedVIDKARTypedSearch(arguments, as: SubscriptionEntity.self, forceConfirmation: true)
+    return .result(value: entities, dialog: IntentDialog(stringLiteral: summarizeTypedEntityResults(entities)))
+  }
+}
+
+@MainActor
+private func openVIDKARURL(_ url: URL) {
+  guard url.scheme?.lowercased() == "vidkar" else { return }
+  UIApplication.shared.open(url, options: [:], completionHandler: nil)
+}
+
+private func normalizeIntentPeriod(_ arguments: inout [String: Any]) {
+  guard let value = arguments["period"] as? String else { return }
+  let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "es"))
+    .lowercased()
+  let periods = [
+    "hoy": "today", "today": "today",
+    "ayer": "yesterday", "yesterday": "yesterday",
+    "esta semana": "this_week", "this week": "this_week",
+    "semana pasada": "last_week", "last week": "last_week",
+    "este mes": "this_month", "this month": "this_month",
+    "mes pasado": "last_month", "last month": "last_month",
+    "este ano": "this_year", "this year": "this_year",
+  ]
+  if let period = periods[normalized] { arguments["period"] = period }
+}
+
+private func summarizeEntityResults(_ entities: [VIDKARSearchResultEntity]) -> String {
+  guard !entities.isEmpty else { return "No encontré resultados para esa búsqueda en VIDKAR." }
+  let titles = entities.prefix(3).map(\.title)
+  let lead = "Encontré \(entities.count) resultado\(entities.count == 1 ? "" : "s") en VIDKAR."
+  return "\(lead) \(titles.isEmpty ? "" : "Los primeros son \(titles.joined(separator: ", ")).")"
+}
+
+private func summarizeTypedEntityResults<Entity: VIDKARTypedAppEntity>(_ entities: [Entity]) -> String {
+  guard !entities.isEmpty else { return "No encontré resultados para esa búsqueda en VIDKAR." }
+  let titles = entities.prefix(3).map(\.title)
+  let lead = "Encontré \(entities.count) resultado\(entities.count == 1 ? "" : "s") en VIDKAR."
+  return "\(lead) \(titles.isEmpty ? "" : "Los primeros son \(titles.joined(separator: ", ")).")"
+}
+
+private func summarizeForSiri(_ output: String) -> String {
+  guard let data = output.data(using: .utf8), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+    return String(output.prefix(320))
+  }
+  if let error = object["error"] as? [String: Any], let message = error["message"] as? String { return message }
+  if let success = object["success"] as? Bool, !success,
+     let error = object["error"] as? [String: Any], let message = error["message"] as? String { return message }
+  if let results = object["results"] as? [[String: Any]] {
+    let total = (object["pagination"] as? [String: Any])?["total"] as? Int ?? results.count
+    let titles = results.prefix(3).compactMap { $0["title"] as? String }
+    if total == 0 { return "No encontré resultados para esa búsqueda en VIDKAR." }
+    let lead = "Encontré \(total) resultado\(total == 1 ? "" : "s") en VIDKAR."
+    return titles.isEmpty ? lead : "\(lead) Los primeros son \(titles.joined(separator: ", "))."
+  }
+  for key in ["users", "sales", "orders", "products", "payments"] {
+    if let rows = object[key] as? [[String: Any]] {
+      return rows.isEmpty ? "No encontré resultados para esa búsqueda en VIDKAR." : "Encontré \(rows.count) resultados en VIDKAR."
+    }
+  }
+  return "La consulta se completó en VIDKAR."
+}
