@@ -979,7 +979,7 @@ struct VIDKARGeneralQueryIntent: AppIntent {
 }
 
 @available(iOS 16.0, *)
-struct VIDKARSearchIntent: AppIntent {
+struct VIDKARSearchContentIntent: AppIntent {
   static var title: LocalizedStringResource = "Buscar en VIDKAR"
   static var description = IntentDescription("Busca películas, series, capítulos, cursos, productos y otros datos disponibles para tu cuenta.")
   static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
@@ -1250,11 +1250,7 @@ struct VIDKARToolCatalogIntent: AppIntent {
 struct VIDKARAppShortcuts: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
     return [
-    AppShortcut(intent: VIDKARSearchIntent(), phrases: ["Buscar en \(.applicationName)", "Consultar \(.applicationName)"], shortTitle: "Buscar VIDKAR", systemImageName: "magnifyingglass"),
-    AppShortcut(intent: VIDKARSearchMovieIntent(), phrases: ["Buscar una película en \(.applicationName)"], shortTitle: "Buscar películas", systemImageName: "film"),
-    AppShortcut(intent: VIDKARSearchSeriesIntent(), phrases: ["Buscar una serie en \(.applicationName)"], shortTitle: "Buscar series", systemImageName: "tv"),
-    AppShortcut(intent: VIDKARSearchCourseIntent(), phrases: ["Buscar un curso en \(.applicationName)"], shortTitle: "Buscar cursos", systemImageName: "book.closed"),
-    AppShortcut(intent: VIDKARSearchUserIntent(), phrases: ["Buscar un usuario en \(.applicationName)"], shortTitle: "Buscar usuarios", systemImageName: "person.crop.circle"),
+    AppShortcut(intent: VIDKARSearchContentIntent(), phrases: ["Buscar en \(.applicationName)", "Consultar \(.applicationName)"], shortTitle: "Buscar VIDKAR", systemImageName: "magnifyingglass"),
     AppShortcut(intent: VIDKARMyPurchasesIntent(), phrases: ["Consultar mis compras en \(.applicationName)"], shortTitle: "Mis compras", systemImageName: "creditcard"),
     AppShortcut(intent: VIDKARMySalesIntent(), phrases: ["Consultar mis ventas en \(.applicationName)"], shortTitle: "Mis ventas", systemImageName: "chart.bar"),
     AppShortcut(intent: VIDKAROpenEntityIntent(), phrases: ["Abrir contenido en \(.applicationName)"], shortTitle: "Abrir contenido", systemImageName: "arrow.up.forward.app"),

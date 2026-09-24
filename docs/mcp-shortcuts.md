@@ -22,7 +22,7 @@ El backend sigue siendo la autoridad. El catálogo MCP no constituye permisos y 
 El módulo publica estos intents:
 
 - `VIDKARGeneralQueryIntent`: consulta natural, herramienta opcional, `argumentsJSON`, tipo/id, acción y confirmación adicional.
-- `VIDKARSearchIntent`: consulta texto/entidad/filtros y devuelve resultados tipados para Siri.
+- `VIDKARSearchContentIntent`: consulta texto/entidad/filtros y devuelve resultados tipados para Siri sin abrir la app.
 - `VIDKAROpenEntityIntent`: abre un `AppEntity` en VIDKAR.
 - `VIDKARPlayContentIntent`: solo película, capítulo o lección; siempre solicita confirmación antes de añadir `play=true`.
 - `VIDKARListUserDataIntent`: compras, ventas, órdenes, usuarios o mensajes; solicita confirmación antes de consultar datos privados.
