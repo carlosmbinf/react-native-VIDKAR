@@ -21,11 +21,11 @@ El backend sigue siendo la autoridad. El catálogo MCP no constituye permisos y 
 
 El módulo publica estos intents:
 
-- `VIDKARGeneralQueryIntent`: consulta natural, herramienta opcional, `argumentsJSON`, tipo/id, acción y confirmación adicional.
-- `VIDKARSearchContentIntent`: consulta texto/entidad/filtros y devuelve resultados tipados para Siri sin abrir la app.
+- `VIDKARGeneralQueryIntent`: consulta natural avanzada, herramienta opcional, `argumentsJSON`, tipo/id, acción y confirmación adicional.
+- `VIDKARSearchContentIntent`: única intent pública de búsqueda; consulta texto, entidad y filtros, y devuelve resultados estructurados para Siri sin abrir la app.
 - `VIDKAROpenEntityIntent`: abre un `AppEntity` en VIDKAR.
 - `VIDKARPlayContentIntent`: solo película, capítulo o lección; siempre solicita confirmación antes de añadir `play=true`.
-- `VIDKARListUserDataIntent`: compras, ventas, órdenes, usuarios o mensajes; solicita confirmación antes de consultar datos privados.
+- `VIDKARListUserDataIntent`: única intent pública para datos privados; recibe el tipo de datos (compras, ventas, órdenes, usuarios, mensajes o suscripción) y solicita confirmación antes de consultar.
 - `VIDKARExecuteActionIntent`: llamadas MCP de solo lectura; rechaza herramientas sin `readOnlyHint`.
 - `VIDKARToolCatalogIntent`: devuelve el catálogo JSON como valor de Atajos y un diálogo de voz breve.
 
@@ -34,10 +34,15 @@ El módulo publica estos intents:
 Las frases preconfiguradas usan `\(.applicationName)` para adaptarse al nombre instalado e incluyen:
 
 - “Buscar en VIDKAR” y “Consultar VIDKAR”.
-- “Buscar una película/serie/curso/usuario en VIDKAR”.
+- “Buscar una película/serie/curso/usuario en VIDKAR” se resuelve mediante `VIDKARSearchContentIntent` con el filtro correspondiente; no existen intents duplicadas por tipo.
 - “Consultar mis compras/ventas en VIDKAR”.
 - “Consultar el estado de mi suscripción en VIDKAR”.
 - “Abrir contenido en VIDKAR” y “Reproducir contenido en VIDKAR”.
+
+Las frases específicas de compras, ventas y suscripción también reutilizan
+`VIDKARListUserDataIntent` con el tipo preconfigurado en cada `AppShortcut`.
+Se eliminaron las intents especializadas equivalentes para que Siri y Atajos
+no ofrezcan varias acciones con el mismo contrato.
 
 Siri presenta diálogos concisos; las búsquedas/listados devuelven resultados `AppEntity` y los datos estructurados se conservan como valor para Shortcuts.
 Apple limita `AppShortcutsProvider` a diez shortcuts preconfigurados; el catálogo y la intent genérica avanzada siguen disponibles como acciones VIDKAR dentro de la app Atajos, sin consumir otro shortcut de voz.

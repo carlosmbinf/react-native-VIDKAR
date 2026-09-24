@@ -132,3 +132,25 @@ La existencia de una colección no implica que sea publicable o consultable desd
 Las intents privadas de compras, ventas y consultas por entidad usan `VIDKARPeriod`, un `AppEnum` con los períodos `today`, `yesterday`, `this_week`, `last_week`, `this_month`, `last_month`, `this_year` y `last_year`, además de `unspecified` para conservar la semántica anterior de período ausente. El handler convierte estos valores a los argumentos MCP internos; Siri/Atajos no necesitan construir `argumentsJSON`.
 
 La mejora es deliberadamente aditiva: `tools/list`, `tools/call`, autenticación MCP, Keychain, ownership, confirmaciones, autorización de reproducción, entidades tipadas y `VIDKARAppShortcuts` permanecen sin reemplazo. No se añadió una API pública genérica de “App Schemas” ni un target de extensión inventado: con el deployment target actual, las APIs públicas aplicables son App Intents, App Entity, Entity Query, App Enum, Parameter Summary y App Shortcuts. Apple decide finalmente qué intent selecciona para una frase libre, por lo que la integración mejora elegibilidad semántica pero no garantiza que Siri elija VIDKAR para toda formulación.
+## Catálogo canónico de intents
+
+El módulo publica una sola intent por capacidad pública:
+
+- `VIDKARSearchContentIntent`: búsqueda de contenido y datos permitidos.
+- `VIDKARGeneralQueryIntent`: consultas MCP avanzadas y navegación/acción con
+  parámetros explícitos.
+- `VIDKAROpenEntityIntent`: apertura de entidades mediante deep link compatible
+  con iOS 16.4.
+- `VIDKARPlayContentIntent`: reproducción autorizada con confirmación.
+- `VIDKARListUserDataIntent`: consultas privadas tipadas, con confirmación.
+- `VIDKARExecuteActionIntent`: ejecución MCP de lectura con política de
+  confirmación.
+- `VIDKARToolCatalogIntent`: catálogo de herramientas para Atajos.
+
+Las antiguas variantes de búsqueda por película, serie, curso y usuario, las
+variantes de compras/ventas/suscripción y `VIDKARQueryIntent` se eliminaron por
+duplicar contratos ya cubiertos por las intents canónicas. `VIDKARSiriOpenIntent`
+también se eliminó: su esquema de apertura para iOS 27 duplicaba la ruta
+`VIDKAROpenEntityIntent`, que conserva compatibilidad desde iOS 16.4. El
+indexado Spotlight/Apple Intelligence permanece aislado detrás de
+`@available(iOS 27.0, *)`.
