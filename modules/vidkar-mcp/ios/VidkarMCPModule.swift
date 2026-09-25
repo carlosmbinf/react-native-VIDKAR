@@ -1025,7 +1025,8 @@ struct VIDKARCommerceProductAppEntity: VIDKARCatalogAppEntity {
 }
 
 @available(iOS 16.0, *)
-struct VIDKARSearchMoviesIntent: AppIntent {
+public struct VIDKARSearchMoviesIntent: AppIntent {
+  public init() {}
   static let title: LocalizedStringResource = "Busca películas"
   static let description = IntentDescription("Busca películas visibles en el catálogo de VIDKAR y devuelve resultados tipados.")
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
@@ -1033,7 +1034,7 @@ struct VIDKARSearchMoviesIntent: AppIntent {
   @Parameter(title: "Título o búsqueda", default: "") var query: String
   static var parameterSummary: some ParameterSummary { Summary("Busca películas: \(\.$query)") }
 
-  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARMovieAppEntity]> {
+  public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARMovieAppEntity]> {
     do {
       let entities = try await searchVIDKARCatalog(VIDKARMovieAppEntity.self, query: query)
       return .result(value: entities, dialog: IntentDialog(stringLiteral: "Encontré \(entities.count) película\(entities.count == 1 ? "" : "s") en VIDKAR."))
@@ -1044,7 +1045,8 @@ struct VIDKARSearchMoviesIntent: AppIntent {
 }
 
 @available(iOS 16.0, *)
-struct VIDKARSearchSeriesIntent: AppIntent {
+public struct VIDKARSearchSeriesIntent: AppIntent {
+  public init() {}
   static let title: LocalizedStringResource = "Busca series"
   static let description = IntentDescription("Busca series visibles del catálogo VIDKAR con autorización actual.")
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
@@ -1052,7 +1054,7 @@ struct VIDKARSearchSeriesIntent: AppIntent {
   @Parameter(title: "Título o búsqueda", default: "") var query: String
   static var parameterSummary: some ParameterSummary { Summary("Busca series: \(\.$query)") }
 
-  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSeriesAppEntity]> {
+  public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSeriesAppEntity]> {
     do {
       let entities = try await searchVIDKARCatalog(VIDKARSeriesAppEntity.self, query: query)
       return .result(value: entities, dialog: IntentDialog(stringLiteral: "Encontré \(entities.count) serie\(entities.count == 1 ? "" : "s") en VIDKAR."))
@@ -1063,7 +1065,8 @@ struct VIDKARSearchSeriesIntent: AppIntent {
 }
 
 @available(iOS 16.0, *)
-struct VIDKARSearchCoursesIntent: AppIntent {
+public struct VIDKARSearchCoursesIntent: AppIntent {
+  public init() {}
   static let title: LocalizedStringResource = "Busca cursos"
   static let description = IntentDescription("Busca cursos publicados y autorizados para el usuario en VIDKAR.")
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
@@ -1071,7 +1074,7 @@ struct VIDKARSearchCoursesIntent: AppIntent {
   @Parameter(title: "Nombre o búsqueda", default: "") var query: String
   static var parameterSummary: some ParameterSummary { Summary("Busca cursos: \(\.$query)") }
 
-  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARCourseAppEntity]> {
+  public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARCourseAppEntity]> {
     do {
       let entities = try await searchVIDKARCatalog(VIDKARCourseAppEntity.self, query: query)
       return .result(value: entities, dialog: IntentDialog(stringLiteral: "Encontré \(entities.count) curso\(entities.count == 1 ? "" : "s") en VIDKAR."))
@@ -1082,7 +1085,8 @@ struct VIDKARSearchCoursesIntent: AppIntent {
 }
 
 @available(iOS 16.0, *)
-struct VIDKARSearchCommerceProductsIntent: AppIntent {
+public struct VIDKARSearchCommerceProductsIntent: AppIntent {
+  public init() {}
   static let title: LocalizedStringResource = "Busca productos de Comercio"
   static let description = IntentDescription("Busca productos únicamente en el catálogo COMERCIO de VIDKAR.")
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
@@ -1090,7 +1094,7 @@ struct VIDKARSearchCommerceProductsIntent: AppIntent {
   @Parameter(title: "Producto o búsqueda", default: "") var query: String
   static var parameterSummary: some ParameterSummary { Summary("Busca en Comercio: \(\.$query)") }
 
-  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARCommerceProductAppEntity]> {
+  public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARCommerceProductAppEntity]> {
     do {
       let entities = try await searchVIDKARCatalog(VIDKARCommerceProductAppEntity.self, query: query)
       return .result(value: entities, dialog: IntentDialog(stringLiteral: "Encontré \(entities.count) producto\(entities.count == 1 ? "" : "s") en Comercio VIDKAR."))
@@ -1165,7 +1169,8 @@ struct VIDKARServiceUsageEntityQuery: EntityQuery {
 }
 
 @available(iOS 16.0, *)
-struct VIDKARGetServiceUsageIntent: AppIntent {
+public struct VIDKARGetServiceUsageIntent: AppIntent {
+  public init() {}
   static let title: LocalizedStringResource = "Consulta mi Proxy o VPN"
   static let description = IntentDescription("Consulta el uso del servicio seleccionado. Requiere confirmación y solo devuelve estado y consumo, nunca credenciales ni servidores.")
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
@@ -1173,7 +1178,7 @@ struct VIDKARGetServiceUsageIntent: AppIntent {
   @Parameter(title: "Servicio", default: .proxy) var service: VIDKARAccountService
   static var parameterSummary: some ParameterSummary { Summary("Consulta mi \(\.$service) en VIDKAR") }
 
-  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARServiceUsageAppEntity> {
+  public func perform() async throws -> some IntentResult & ReturnsValue<VIDKARServiceUsageAppEntity> {
     let configuration = await MCPTransport.shared.configuration()
     guard let ownerId = configuration.ownerId, configuration.configured else { throw MCPError.notConfigured }
     let arguments: [String: Any] = ["userId": ownerId]
@@ -1286,7 +1291,8 @@ private struct VIDKARMCPToolNameOptionsProvider: DynamicOptionsProvider {
 }
 
 @available(iOS 16.0, *)
-struct VIDKARQueryMCPIntent: AppIntent {
+public struct VIDKARQueryMCPIntent: AppIntent {
+  public init() {}
   static let title: LocalizedStringResource = "Consulta MCP"
   static let description = IntentDescription("Descubre las herramientas MCP disponibles de VIDKAR y devuelve su nombre, descripción, datos de entrada y permisos en JSON.")
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
@@ -1298,7 +1304,7 @@ struct VIDKARQueryMCPIntent: AppIntent {
     Summary("Consulta MCP: \(\.$toolName)")
   }
 
-  func perform() async throws -> some IntentResult & ReturnsValue<String> {
+  public func perform() async throws -> some IntentResult & ReturnsValue<String> {
     do {
       let rawCatalog = try await MCPTransport.shared.catalog(forceRefresh: true)
       let catalogData = Data(rawCatalog.utf8)
@@ -1334,7 +1340,8 @@ struct VIDKARQueryMCPIntent: AppIntent {
 }
 
 @available(iOS 16.0, *)
-struct VIDKARExecuteMCPIntent: AppIntent {
+public struct VIDKARExecuteMCPIntent: AppIntent {
+  public init() {}
   static let title: LocalizedStringResource = "Ejecuta MCP"
   static let description = IntentDescription("Ejecuta una herramienta MCP de solo lectura con los parámetros JSON indicados y devuelve el resultado estructurado en JSON.")
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
@@ -1347,7 +1354,7 @@ struct VIDKARExecuteMCPIntent: AppIntent {
     Summary("Ejecuta MCP: \(\.$toolName) con \(\.$argumentsJSON)")
   }
 
-  func perform() async throws -> some IntentResult & ReturnsValue<String> {
+  public func perform() async throws -> some IntentResult & ReturnsValue<String> {
     let name = toolName.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !name.isEmpty else {
       let output = VIDKARMCPIntentJSON.failure(
@@ -1394,58 +1401,74 @@ struct VIDKARExecuteMCPIntent: AppIntent {
 }
 
 @available(iOS 16.0, *)
-struct VIDKARMCPSiriShortcuts: AppShortcutsProvider {
-  static var appShortcuts: [AppShortcut] {
-    return [
-      AppShortcut(
-        intent: VIDKARQueryMCPIntent(),
-        phrases: [
-          "Consulta MCP en \(.applicationName)",
-          "Consulta herramientas MCP en \(.applicationName)",
-        ],
-        shortTitle: "Consulta MCP",
-        systemImageName: "list.bullet.rectangle"
-      ),
-      AppShortcut(
-        intent: VIDKARExecuteMCPIntent(),
-        phrases: [
-          "Ejecuta MCP en \(.applicationName)",
-          "Ejecuta una herramienta MCP en \(.applicationName)",
-        ],
-        shortTitle: "Ejecuta MCP",
-        systemImageName: "play.fill"
-      ),
-      AppShortcut(
-        intent: VIDKARSearchMoviesIntent(),
-        phrases: ["Busca películas en \(.applicationName)"],
-        shortTitle: "Busca película",
-        systemImageName: "film"
-      ),
-      AppShortcut(
-        intent: VIDKARSearchSeriesIntent(),
-        phrases: ["Busca series en \(.applicationName)"],
-        shortTitle: "Busca serie",
-        systemImageName: "tv"
-      ),
-      AppShortcut(
-        intent: VIDKARSearchCoursesIntent(),
-        phrases: ["Busca cursos en \(.applicationName)"],
-        shortTitle: "Busca curso",
-        systemImageName: "book.closed"
-      ),
-      AppShortcut(
-        intent: VIDKARSearchCommerceProductsIntent(),
-        phrases: ["Busca productos en \(.applicationName)"],
-        shortTitle: "Busca en Comercio",
-        systemImageName: "shippingbox"
-      ),
-      AppShortcut(
-        intent: VIDKARGetServiceUsageIntent(),
-        phrases: ["Consulta mi \(\.$service) en \(.applicationName)"],
-        shortTitle: "Uso de Proxy o VPN",
-        systemImageName: "shield.lefthalf.filled"
-      ),
-    ]
+public enum VIDKARMCPSiriShortcutDefinitions {
+  public static var queryMCP: AppShortcut {
+    AppShortcut(
+      intent: VIDKARQueryMCPIntent(),
+      phrases: [
+        "Consulta MCP en \\(.applicationName)",
+        "Consulta herramientas MCP en \\(.applicationName)",
+      ],
+      shortTitle: "Consulta MCP",
+      systemImageName: "list.bullet.rectangle"
+    )
+  }
+
+  public static var executeMCP: AppShortcut {
+    AppShortcut(
+      intent: VIDKARExecuteMCPIntent(),
+      phrases: [
+        "Ejecuta MCP en \\(.applicationName)",
+        "Ejecuta una herramienta MCP en \\(.applicationName)",
+      ],
+      shortTitle: "Ejecuta MCP",
+      systemImageName: "play.fill"
+    )
+  }
+
+  public static var searchMovies: AppShortcut {
+    AppShortcut(
+      intent: VIDKARSearchMoviesIntent(),
+      phrases: ["Busca películas en \\(.applicationName)"],
+      shortTitle: "Busca película",
+      systemImageName: "film"
+    )
+  }
+
+  public static var searchSeries: AppShortcut {
+    AppShortcut(
+      intent: VIDKARSearchSeriesIntent(),
+      phrases: ["Busca series en \\(.applicationName)"],
+      shortTitle: "Busca serie",
+      systemImageName: "tv"
+    )
+  }
+
+  public static var searchCourses: AppShortcut {
+    AppShortcut(
+      intent: VIDKARSearchCoursesIntent(),
+      phrases: ["Busca cursos en \\(.applicationName)"],
+      shortTitle: "Busca curso",
+      systemImageName: "book.closed"
+    )
+  }
+
+  public static var searchCommerceProducts: AppShortcut {
+    AppShortcut(
+      intent: VIDKARSearchCommerceProductsIntent(),
+      phrases: ["Busca productos en \\(.applicationName)"],
+      shortTitle: "Busca en Comercio",
+      systemImageName: "shippingbox"
+    )
+  }
+
+  public static var getServiceUsage: AppShortcut {
+    AppShortcut(
+      intent: VIDKARGetServiceUsageIntent(),
+      phrases: ["Consulta mi \\(\\.$service) en \\(.applicationName)"],
+      shortTitle: "Uso de Proxy o VPN",
+      systemImageName: "shield.lefthalf.filled"
+    )
   }
 }
 
