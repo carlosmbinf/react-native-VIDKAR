@@ -24,7 +24,7 @@ const withVidkarAppIntents = (config) => withDangerousMod(config, ["ios", (confi
   }
 
   let source = fs.readFileSync(appDelegatePath, "utf8");
-  for (const importLine of ["import AppIntents", "import VidkarMCP"]) {
+  for (const importLine of ["import AppIntents", "internal import VidkarMCP"]) {
     if (!source.includes(importLine)) source = `${importLine}\n${source}`;
   }
   if (!source.includes("VIDKAR_APP_INTENTS_PACKAGE")) {
