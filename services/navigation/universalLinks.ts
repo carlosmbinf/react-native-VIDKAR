@@ -3,6 +3,14 @@ export type UniversalLinkTarget = {
   params?: Record<string, string>;
 };
 
+export function canConsumeUniversalLink(
+  pendingUrl: string | null,
+  ready: boolean,
+  userId: string | null,
+): boolean {
+  return Boolean(pendingUrl && ready && userId);
+}
+
 const SUPPORTED_HOSTS = new Set(["www.vidkar.com", "vidkar.com"]);
 const SUPPORTED_ENTITY_LINKS = new Set([
   "search", "movie", "series", "episode", "course", "lesson", "user",

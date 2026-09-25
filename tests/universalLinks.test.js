@@ -8,7 +8,7 @@ const source = await fs.readFile(new URL("../services/navigation/universalLinks.
 const javascript = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const { resolveUniversalLink } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
+const { canConsumeUniversalLink, resolveUniversalLink } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
 
 test("resuelve búsqueda Siri sin abrir playback automáticamente", () => {
   assert.deepEqual(resolveUniversalLink("vidkar://movie/movie-1?q=Avatar"), {
@@ -54,4 +54,28 @@ test("resuelve la suscripción hacia el área de compras", () => {
     pathname: "/(normal)/MisCompras",
     params: { subscriptionId: "course-subscription-1" },
   });
+});
+
+test("resuelve el deep link de usuario a una ruta existente con el parámetro esperado", async () => {
+  const target = resolveUniversalLink("vidkar://user/user-123");
+  const route = await fs.readFile(new URL("../app/(normal)/User.tsx", import.meta.url), "utf8");
+  const layout = await fs.readFile(new URL("../app/(normal)/_layout.tsx", import.meta.url), "utf8");
+  const appConfig = JSON.parse(await fs.readFile(new URL("../app.json", import.meta.url), "utf8"));
+
+  assert.deepEqual(target, {
+    pathname: "/(normal)/User",
+    params: { item: "user-123" },
+  });
+  assert.match(route, /UserDetails/);
+  assert.match(layout, /name="User"/);
+  assert.equal(appConfig.expo.scheme, "vidkar");
+});
+
+test("retiene el destino de usuario hasta que la sesión y las suscripciones estén listas", () => {
+  const url = "vidkar://user/user-123";
+
+  assert.equal(canConsumeUniversalLink(url, false, null), false);
+  assert.equal(canConsumeUniversalLink(url, true, null), false);
+  assert.equal(canConsumeUniversalLink(url, false, "signed-in-user"), false);
+  assert.equal(canConsumeUniversalLink(url, true, "signed-in-user"), true);
 });

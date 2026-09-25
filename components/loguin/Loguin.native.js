@@ -236,7 +236,7 @@ const LoginBlurCard = ({ children, palette }) => {
   );
 };
 
-const Loguin = () => {
+const Loguin = ({ deferSessionRedirect = false } = {}) => {
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const [ipserver, setIpserver] = useState(() => {
     const meteorUrl = getMeteorUrl() || "ws://www.vidkar.com:3000/websocket";
@@ -431,9 +431,9 @@ const Loguin = () => {
   }, []);
 
   useEffect(() => {
-    if (!userId || !loginRouteReady) return;
+    if (deferSessionRedirect || !userId || !loginRouteReady) return;
     router.replace(resolveSessionRoute(userId, user));
-  }, [loginRouteReady, user, userId]);
+  }, [deferSessionRedirect, loginRouteReady, user, userId]);
 
   const handleUsernameChange = (text) => {
     setUsername(text);

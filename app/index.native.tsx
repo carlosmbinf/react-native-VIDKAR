@@ -14,11 +14,7 @@ import { userHasEmpresaRole } from "../components/navigator/sessionRoute";
 import PushNotificationDialogHost from "../components/shared/PushNotificationDialogHost.native";
 import UpdateRequired from "../components/update/UpdateRequired";
 import { syncCadeteBackgroundLocation } from "../services/location/cadeteBackgroundLocation.native";
-import {
-  clearCurrentUserIdentity,
-  consumeMCPPlaybackAuthorization,
-  syncCurrentUserIdentity,
-} from "../services/mcp/mcpClient";
+import { consumeMCPPlaybackAuthorization } from "../services/mcp/mcpClient";
 import {
   APPROVE_EVIDENCE_ACTION,
   APPROVE_SALE_ACTION,
@@ -34,6 +30,7 @@ import {
 } from "../services/watch/watchDashboard";
 import { syncUserSpotlightIndex } from "../services/spotlight/spotlight";
 import {
+  canConsumeUniversalLink,
   getUniversalLinkKey,
   resolveUniversalLink,
 } from "../services/navigation/universalLinks";
@@ -217,35 +214,6 @@ export default function IndexScreen() {
   }, [ready, user, userId]);
 
   React.useEffect(() => {
-    if (userId && !ready) {
-      return;
-    }
-
-    const synchronizeIdentity = async () => {
-      const username = String(user?.username || "").trim();
-      if (!userId || !user || !username) {
-        await clearCurrentUserIdentity();
-        return;
-      }
-
-      const profile = user.profile || {};
-      const composedName = [profile.firstName, profile.lastName]
-        .filter((part) => typeof part === "string" && part.trim())
-        .join(" ")
-        .trim();
-      const fullName = String(
-        profile.name || user.name || composedName || username,
-      ).trim();
-
-      await syncCurrentUserIdentity({ userId, fullName, username });
-    };
-
-    synchronizeIdentity().catch(() => {
-      console.warn("[AppIntents] No se pudo sincronizar la identidad local.");
-    });
-  }, [ready, user, userId]);
-
-  React.useEffect(() => {
     let cancelled = false;
 
     const setSafeVersionGate = (
@@ -399,7 +367,7 @@ export default function IndexScreen() {
   }, []);
 
   React.useEffect(() => {
-    if (!pendingUniversalLink || !ready || !userId) {
+    if (!canConsumeUniversalLink(pendingUniversalLink, ready, userId)) {
       return;
     }
 
@@ -797,7 +765,7 @@ export default function IndexScreen() {
         backgroundColor="transparent"
         barStyle={statusBarStyle}
       />
-      <Loguin />
+      <Loguin deferSessionRedirect />
     </>
   );
 }
