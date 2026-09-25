@@ -16,6 +16,7 @@ const SUPPORTED_ENTITY_LINKS = new Set([
   "search", "movie", "series", "episode", "course", "lesson", "user",
   "purchase", "sale", "order", "product", "message", "messages", "subscription",
 ]);
+const NATURAL_RESULT_LINK = /^vidkar:\/\/search\?resultId=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
 export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
   let parsedUrl: URL;
@@ -50,7 +51,15 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
     return null;
   }
 
+  if (parsedUrl.searchParams.has("resultId") && section !== "search") return null;
+
   if (section === "search") {
+    if (parsedUrl.searchParams.has("resultId")) {
+      // Validate the original URL too: URL parsing can normalize empty credentials/ports.
+      const match = NATURAL_RESULT_LINK.exec(url);
+      if (!isVIDKARScheme || parsedUrl.pathname !== "" || !match || match[0] !== url) return null;
+      return { pathname: "/(normal)/SiriSearch", params: { resultId: match[1] } };
+    }
     return {
       pathname: "/(normal)/SiriSearch",
       params: {

@@ -1,5 +1,7 @@
 # Siri, App Intents y MCP de VIDKAR
 
+> Investigación Siri AI iOS 27 y prototipo no habilitado: [siri-ai-integration.md](./siri-ai-integration.md). El planificador local aún falla en 3 de 8 casos evaluados; las nuevas intents permanecen detrás de `VIDKAR_EXPERIMENTAL_NATURAL_LANGUAGE`, no definido en producción. Las siete acciones actuales se conservan.
+
 ## Estado actual de Siri (septiembre de 2026)
 
 La superficie activa ofrece siete App Intents nativos:
@@ -53,6 +55,8 @@ Herramienta creada porque no existía búsqueda MCP general. Trabaja en backend 
 Tipos disponibles: `all`, `movie`, `series`, `episode`, `course`, `lesson`, `user`, `purchase`, `sale`, `order`, `product`, `message` y `subscription`.
 
 Admite query de hasta 120 caracteres, categoría/estado, período natural o `from`/`to` en ISO, orden, `limit` máximo 50 y `offset` máximo 10 000 (global `all` hasta 200). Responde entidades resumidas con paginación y deep link; no devuelve documentos Mongo completos ni URLs de stream/video. Las imágenes requieren HTTPS y un host allowlisted de VIDKAR o de proveedores de avatar conocidos.
+
+`entity=course` admite listado sin query ni ID y conserva publicación, nivel y permisos. `all`, `movie` y `user` siguen requiriendo texto o los identificadores admitidos por su contrato.
 
 Las búsquedas Siri tipadas resuelven el ID persistente consultando de nuevo al backend. Para `product`, una búsqueda exacta por ID solo se acepta con `category=COMERCIO` y selecciona exclusivamente `COMERCIO_productos`; el ID Mongo de entrada se mantiene separado del ID de entity compuesto que incluye su fuente.
 

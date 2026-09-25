@@ -25,6 +25,8 @@ test("los App Intents y el provider compilan en módulos separados", {
     .replace("import ExpoModulesCore\n", "");
   const modulePath = path.join(directory, "VidkarMCP.swift");
   fs.writeFileSync(modulePath, source);
+  const helpers = ["MCPQueryPolicy.swift", "MCPNaturalLanguagePlanner.swift"]
+    .map((name) => path.join(__dirname, "../modules/vidkar-mcp/ios", name));
 
   const appDirectory = path.join(directory, "Vidkar");
   fs.mkdirSync(appDirectory);
@@ -44,8 +46,9 @@ test("los App Intents y el provider compilan en módulos separados", {
       const sdk = run(["--sdk", sdkName, "--show-sdk-path"]);
       const outputDirectory = path.join(directory, sdkName);
       fs.mkdirSync(outputDirectory);
-      const flags = ["-sdk", sdk, "-target", target, "-swift-version", "5", "-O"];
-      run(["swiftc", ...flags, "-emit-module", "-emit-object", "-module-name", "VidkarMCP", modulePath,
+      // Compilar el prototipo explícitamente sin activarlo en el binario de producción.
+      const flags = ["-sdk", sdk, "-target", target, "-swift-version", "5", "-O", "-D", "VIDKAR_EXPERIMENTAL_NATURAL_LANGUAGE"];
+      run(["swiftc", ...flags, "-whole-module-optimization", "-emit-module", "-emit-object", "-module-name", "VidkarMCP", modulePath, ...helpers,
         "-emit-module-path", path.join(outputDirectory, "VidkarMCP.swiftmodule"),
         "-o", path.join(outputDirectory, "VidkarMCP.o")]);
       run(["swiftc", ...flags, "-typecheck", "-module-name", "VidkarApp", "-I", outputDirectory, appDelegatePath]);

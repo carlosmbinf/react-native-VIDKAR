@@ -1,10 +1,11 @@
 import MeteorBase from "@meteorrn/core";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useIsFocused } from "expo-router/react-navigation";
 import React from "react";
-import { Alert, FlatList, Pressable, StyleSheet, View } from "react-native";
+import { Alert, AppState, FlatList, Pressable, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Appbar, Avatar, Button, Card, Chip, ProgressBar, Text, useTheme } from "react-native-paper";
 
-import { authorizeMCPPlayback, consumeMCPPlaybackAuthorization, executeMCPTool } from "../../services/mcp/mcpClient";
+import { authorizeMCPPlayback, consumeMCPPlaybackAuthorization, executeMCPTool, getMCPNaturalLanguageResult } from "../../services/mcp/mcpClient";
 import { resolveUniversalLink } from "../../services/navigation/universalLinks";
 
 const Meteor = MeteorBase;
@@ -13,6 +14,9 @@ const PLAYBACK_ENTITY_TYPES = new Set(["movie", "episode", "lesson"]);
 const asString = (value) => Array.isArray(value) ? value[0] || "" : String(value || "");
 const BYTES_PER_GB = 1024 * 1024 * 1024;
 const BYTES_PER_MB = 1024 * 1024;
+const MAX_SNAPSHOT_TEXT = 20000;
+const SNAPSHOT_CHECK_INTERVAL_MS = 5000;
+const SNAPSHOT_UNAVAILABLE = "El resultado de Siri venció o ya no está autorizado. Vuelve a consultar a Siri.";
 
 const getInitials = (value) => String(value || "U").trim().split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase() || "U";
 const formatGB = (bytes) => (Math.max(0, Number(bytes) || 0) / BYTES_PER_GB).toFixed(1);
@@ -135,30 +139,50 @@ export default function SiriSearchScreen() {
   const router = useRouter();
   const theme = useTheme();
   const params = useLocalSearchParams();
-  const query = asString(params.query);
-  const entityType = asString(params.entityType) || "all";
-  const contentId = asString(params.contentId || params.productId);
+  const userId = Meteor.useTracker(() => Meteor.userId());
+  const isFocused = useIsFocused();
+  const [appState, setAppState] = React.useState(AppState.currentState);
+  const isSnapshot = params.resultId !== undefined;
+  const resultId = asString(params.resultId);
+  const query = isSnapshot ? "" : asString(params.query);
+  const entityType = isSnapshot ? "all" : asString(params.entityType) || "all";
+  const contentId = isSnapshot ? "" : asString(params.contentId || params.productId);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [results, setResults] = React.useState([]);
   const [pagination, setPagination] = React.useState(null);
+  const [snapshot, setSnapshot] = React.useState(null);
   const privateConfirmedRef = React.useRef(false);
+  const requestRef = React.useRef(0);
+  const mountedRef = React.useRef(false);
+  const snapshotReaderRef = React.useRef(null);
+  const snapshotText = React.useMemo(() => {
+    if (!snapshot || Array.isArray(snapshot.data?.results)) return null;
+    const text = JSON.stringify(snapshot.data, null, 2);
+    return { text: text.slice(0, MAX_SNAPSHOT_TEXT), truncated: text.length > MAX_SNAPSHOT_TEXT };
+  }, [snapshot]);
 
   const loadResults = React.useCallback(async ({ offset = 0, append = false } = {}) => {
+    if (!mountedRef.current) return;
+    if (isSnapshot) return snapshotReaderRef.current?.();
+    const requestId = ++requestRef.current;
+    const isCurrent = () => mountedRef.current && requestId === requestRef.current && Meteor.userId() === userId;
     setLoading(true);
     setError("");
-    if (!append) {
+    if (!append || isSnapshot) {
       setResults([]);
       setPagination(null);
+      setSnapshot(null);
     }
     try {
-      if (!Meteor.userId()) throw new Error("Inicia sesión en VIDKAR para continuar.");
-      if (!query.trim() && !PRIVATE_ENTITY_TYPES.has(entityType)) {
+      if (!userId || Meteor.userId() !== userId) throw new Error("Inicia sesión en VIDKAR para continuar.");
+      if (!query.trim() && entityType !== "course" && !PRIVATE_ENTITY_TYPES.has(entityType)) {
         throw new Error("No se recibió un texto de búsqueda válido.");
       }
       let confirmed = PRIVATE_ENTITY_TYPES.has(entityType) && privateConfirmedRef.current;
       if (PRIVATE_ENTITY_TYPES.has(entityType) && !confirmed) {
         confirmed = await requestPrivateConfirmation();
+        if (!isCurrent()) return;
         if (confirmed) privateConfirmedRef.current = true;
       }
       if (PRIVATE_ENTITY_TYPES.has(entityType) && !confirmed) {
@@ -173,6 +197,7 @@ export default function SiriSearchScreen() {
         offset,
         confirmed,
       });
+      if (!isCurrent()) return;
       const response = typeof raw === "string" ? JSON.parse(raw) : raw;
       if (!response?.success) {
         throw new Error(response?.error?.message || "No se pudo completar la búsqueda en VIDKAR.");
@@ -188,19 +213,101 @@ export default function SiriSearchScreen() {
         : nextResults);
       setPagination(response.pagination || null);
     } catch (searchError) {
-      setError(searchError?.reason || searchError?.message || "No se pudo completar la búsqueda en VIDKAR.");
+      if (isCurrent()) setError(searchError?.reason || searchError?.message || "No se pudo completar la búsqueda en VIDKAR.");
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  }, [contentId, entityType, query]);
+  }, [contentId, entityType, isSnapshot, query, userId]);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
+    mountedRef.current = true;
     privateConfirmedRef.current = false;
     loadResults({ offset: 0, append: false });
+    return () => {
+      mountedRef.current = false;
+      requestRef.current += 1;
+    };
   }, [loadResults]);
 
+  React.useLayoutEffect(() => {
+    setAppState(AppState.currentState);
+    const subscription = AppState.addEventListener("change", setAppState);
+    return () => subscription.remove();
+  }, [isSnapshot, resultId, userId]);
+
+  React.useLayoutEffect(() => {
+    if (!isSnapshot) return;
+    const requestId = ++requestRef.current;
+    let disposed = false;
+    let revoked = false;
+    let checking = false;
+    let expiresAt = null;
+    let expiryTimer;
+    let pollTimer;
+    const isCurrent = () => !disposed && !revoked && mountedRef.current
+      && requestId === requestRef.current && Meteor.userId() === userId;
+    const clearData = () => {
+      setSnapshot(null);
+      setResults([]);
+      setPagination(null);
+      setLoading(false);
+    };
+    const invalidate = (message = SNAPSHOT_UNAVAILABLE) => {
+      if (disposed || revoked) return;
+      revoked = true;
+      requestRef.current += 1;
+      clearTimeout(expiryTimer);
+      clearInterval(pollTimer);
+      clearData();
+      setError(message);
+    };
+    const scheduleExpiry = () => {
+      clearTimeout(expiryTimer);
+      const remaining = expiresAt - Date.now();
+      if (remaining <= 0) return invalidate();
+      expiryTimer = setTimeout(scheduleExpiry, Math.min(remaining, 2147483647));
+    };
+    const checkSnapshot = async () => {
+      if (!isCurrent() || AppState.currentState !== "active" || checking) return;
+      if (expiresAt !== null && expiresAt <= Date.now()) return invalidate();
+      checking = true;
+      try {
+        // Lectura de memoria nativa: no tools, backend, inferencia ni renovación del TTL.
+        const envelope = await getMCPNaturalLanguageResult(resultId);
+        if (!isCurrent() || AppState.currentState !== "active") return;
+        expiresAt = expiresAt === null ? envelope.expiresAt : Math.min(expiresAt, envelope.expiresAt);
+        if (expiresAt <= Date.now()) return invalidate();
+        scheduleExpiry();
+        setSnapshot(envelope);
+        setResults(Array.isArray(envelope.data?.results) ? envelope.data.results : []);
+        setError("");
+        setLoading(false);
+      } catch (snapshotError) {
+        if (isCurrent()) invalidate(snapshotError?.message || SNAPSHOT_UNAVAILABLE);
+      } finally {
+        checking = false;
+      }
+    };
+
+    clearData();
+    setError(userId ? "" : "Inicia sesión en VIDKAR para continuar.");
+    if (userId && isFocused && appState === "active" && AppState.currentState === "active") {
+      snapshotReaderRef.current = checkSnapshot;
+      setLoading(true);
+      checkSnapshot();
+      pollTimer = setInterval(checkSnapshot, SNAPSHOT_CHECK_INTERVAL_MS);
+    }
+    return () => {
+      disposed = true;
+      requestRef.current += 1;
+      snapshotReaderRef.current = null;
+      clearTimeout(expiryTimer);
+      clearInterval(pollTimer);
+    };
+  }, [appState, isFocused, isSnapshot, resultId, userId]);
+
   const loadMore = () => {
-    if (loading || !pagination?.hasMore) return;
+    if (isSnapshot || loading || !pagination?.hasMore) return;
     loadResults({ offset: pagination.offset + pagination.limit, append: true });
   };
 
@@ -238,7 +345,7 @@ export default function SiriSearchScreen() {
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <Appbar.Header>
         <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="Buscar en VIDKAR" subtitle={query || entityType} />
+        <Appbar.Content title="Buscar en VIDKAR" subtitle={isSnapshot ? snapshot?.query || "Resultado de Siri" : query || entityType} />
         <Appbar.Action icon="refresh" onPress={() => loadResults({ offset: 0, append: false })} disabled={loading} accessibilityLabel="Actualizar búsqueda" />
       </Appbar.Header>
       <FlatList
@@ -254,19 +361,28 @@ export default function SiriSearchScreen() {
         ListEmptyComponent={loading ? (
           <View style={styles.state}>
             <ActivityIndicator animating />
-            <Text selectable>Buscando en VIDKAR…</Text>
+            <Text selectable>{isSnapshot ? "Cargando resultado de Siri…" : "Buscando en VIDKAR…"}</Text>
           </View>
         ) : error ? (
           <View style={styles.state}>
             <Text selectable variant="bodyMedium">{error}</Text>
             <Button mode="outlined" onPress={loadResults}>Reintentar</Button>
           </View>
+        ) : snapshotText ? (
+          <Card mode="outlined" style={styles.card}>
+            <Card.Content style={styles.cardContent}>
+              <Text selectable variant="labelSmall">{snapshot.tool}</Text>
+              <Text selectable variant="bodyMedium">{snapshot.summary}</Text>
+              <Text selectable variant="bodySmall">{snapshotText.text}</Text>
+              {snapshotText.truncated ? <Text selectable variant="labelSmall">Contenido truncado a {MAX_SNAPSHOT_TEXT} caracteres.</Text> : null}
+            </Card.Content>
+          </Card>
         ) : (
           <View style={styles.state}>
             <Text selectable variant="bodyMedium">No encontré resultados para esa búsqueda en VIDKAR.</Text>
           </View>
         )}
-        ListFooterComponent={pagination?.hasMore ? (
+        ListFooterComponent={!isSnapshot && pagination?.hasMore ? (
           <Button mode="outlined" onPress={loadMore} disabled={loading} style={styles.moreButton}>
             {loading ? "Cargando…" : "Cargar más resultados"}
           </Button>

@@ -94,6 +94,51 @@ export const clearMCPConfiguration = async () => {
   if (VidkarMCP) await VidkarMCP.clearConfiguration().catch(() => null);
 };
 
+export const getMCPNaturalLanguageResult = async (id) => {
+  const currentUserId = Meteor.userId();
+  if (!currentUserId) throw new Error("Inicia sesión en VIDKAR para ver el resultado de Siri.");
+  if (typeof id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) || id.length !== 36) {
+    throw new Error("El identificador del resultado de Siri no es válido.");
+  }
+  const nativeModule = requireNativeMCP();
+  const validateOwner = async () => {
+    const configuration = await nativeModule.getConfiguration();
+    if (Meteor.userId() !== currentUserId || !configuration?.configured || configuration.ownerId !== String(currentUserId)) {
+      throw new Error("El resultado de Siri no pertenece a la sesión actual. Inicia sesión y vuelve a consultar a Siri.");
+    }
+  };
+  await validateOwner();
+  if (typeof nativeModule.getNaturalLanguageResult !== "function") {
+    throw new Error("Este binario no admite resultados de Siri natural. Actualiza la aplicación.");
+  }
+  let raw;
+  try {
+    // Only reads the native, session-bound snapshot; never executes a tool or renews its TTL.
+    raw = await nativeModule.getNaturalLanguageResult(id, String(currentUserId));
+  } catch (error) {
+    if (/auth|session|sesión|owner|permiso/i.test(`${error?.code || ""} ${error?.message || ""}`)) {
+      throw new Error("La sesión del resultado de Siri ya no está autorizada. Inicia sesión y vuelve a consultar a Siri.");
+    }
+    throw new Error("El resultado de Siri venció o ya no está disponible. Se conserva durante 120 segundos; vuelve a consultar a Siri.");
+  }
+  await validateOwner();
+  let envelope;
+  try {
+    envelope = JSON.parse(raw);
+  } catch {
+    throw new Error("El resultado de Siri no tiene un formato válido.");
+  }
+  if (!envelope || typeof envelope.query !== "string" || typeof envelope.tool !== "string" || !envelope.tool.trim()
+    || typeof envelope.summary !== "string" || !Object.prototype.hasOwnProperty.call(envelope, "data")
+    || typeof envelope.expiresAt !== "number" || !Number.isFinite(envelope.expiresAt)) {
+    throw new Error("El resultado de Siri no tiene un formato válido.");
+  }
+  if (envelope.expiresAt <= Date.now()) {
+    throw new Error("El resultado de Siri venció. Vuelve a consultar a Siri.");
+  }
+  return envelope;
+};
+
 export const authorizeMCPPlayback = async (entityType, entityId) => {
   const currentUserId = Meteor.userId();
   if (!currentUserId) throw new Error("Inicia sesión en VIDKAR antes de reproducir contenido.");

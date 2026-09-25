@@ -160,6 +160,8 @@ private actor MCPTransport {
   private let cacheKey = "tools.v2"
   private var cachedTools: [MCPToolDefinition] = []
   private var cacheLoaded = false
+  private var queryRevision = UUID()
+  private var naturalLanguageResults = MCPQueryResultStore()
 
   private func validatedEndpoint(_ value: String) -> URL? {
     guard let components = URLComponents(string: value),
@@ -199,10 +201,14 @@ private actor MCPTransport {
     UserDefaults.standard.removeObject(forKey: cacheKey)
     cachedTools = []
     cacheLoaded = false
+    queryRevision = UUID()
+    naturalLanguageResults = MCPQueryResultStore()
     KeychainStore.shared.clear(playbackAuthorizationKey)
   }
 
   func clearConfiguration() {
+    queryRevision = UUID()
+    naturalLanguageResults = MCPQueryResultStore()
     KeychainStore.shared.clear(urlKey)
     KeychainStore.shared.clear(tokenKey)
     KeychainStore.shared.clear(ownerKey)
@@ -273,8 +279,10 @@ private actor MCPTransport {
     return cachedTools
   }
 
-  func execute(name: String, arguments: [String: Any]) async throws -> String {
+  func execute(name: String, arguments: [String: Any], expectedRevision: UUID? = nil) async throws -> String {
+    try assertQueryRevision(expectedRevision)
     let tool = try await validatedTool(name: name, arguments: arguments, forceRefresh: true)
+    try assertQueryRevision(expectedRevision)
     let requiresConfirmation = confirmationRequired(name: name, arguments: arguments, tool: tool)
     if requiresConfirmation && arguments["confirmed"] as? Bool != true {
       throw MCPError.confirmationRequired
@@ -283,6 +291,7 @@ private actor MCPTransport {
     var safeArguments = arguments
     if requiresConfirmation { safeArguments["confirmed"] = true }
     let result = try await request(method: "tools/call", params: ["name": name, "arguments": safeArguments])
+    try assertQueryRevision(expectedRevision)
     if let isError = result["isError"] as? Bool, isError {
       let errorText = (result["content"] as? [[String: Any]])?
         .compactMap { $0["text"] as? String }
@@ -412,6 +421,36 @@ private actor MCPTransport {
     return response.results
   }
 #endif
+
+  func querySession() throws -> (revision: UUID, ownerId: String) {
+    let current = configuration()
+    guard current.configured, let ownerId = current.ownerId else { throw MCPError.notConfigured }
+    return (queryRevision, ownerId)
+  }
+
+  func assertQueryRevision(_ expected: UUID?) throws {
+    if let expected, expected != queryRevision { throw MCPQueryError.expired }
+  }
+
+  func saveNaturalLanguageResult(query: String, tool: String, output: String, summary: String, revision: UUID) throws -> String {
+    let session = try querySession()
+    try assertQueryRevision(revision)
+    let payload: [String: Any] = [
+      "query": query,
+      "tool": tool,
+      "data": (try? JSONSerialization.jsonObject(with: Data(output.utf8), options: [.fragmentsAllowed])) ?? output,
+      "summary": summary,
+      "expiresAt": Date().addingTimeInterval(120).timeIntervalSince1970 * 1000,
+    ]
+    let json = String(decoding: try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]), as: UTF8.self)
+    return try naturalLanguageResults.save(json, ownerId: session.ownerId, revision: revision)
+  }
+
+  func getNaturalLanguageResult(resultId: String, ownerId: String) throws -> String {
+    let session = try querySession()
+    guard session.ownerId == ownerId else { throw MCPQueryError.expired }
+    return try naturalLanguageResults.read(resultId, ownerId: ownerId, revision: session.revision)
+  }
 
   private func loadCache() {
     cacheLoaded = true
@@ -1282,11 +1321,76 @@ public final class VidkarMCPModule: Module {
     AsyncFunction("getToolCatalog") { () async throws -> String in
       try await MCPTransport.shared.catalog()
     }
+    AsyncFunction("getNaturalLanguageResult") { (resultId: String, ownerId: String) async throws -> String in
+      try await MCPTransport.shared.getNaturalLanguageResult(resultId: resultId, ownerId: ownerId)
+    }
   }
 }
 
 @available(iOS 17.0, *)
 public struct VidkarMCPAppIntentsPackage: AppIntentsPackage {}
+
+#if VIDKAR_EXPERIMENTAL_NATURAL_LANGUAGE
+// No habilitar en producción: la evaluación local todavía falla en consultas básicas.
+@available(iOS 26.0, *)
+private extension AppIntent {
+  func queryVIDKARNaturally(_ query: String) async throws -> (output: String, summary: String, resultId: String) {
+    let session = try await MCPTransport.shared.querySession()
+    let catalog = try await MCPTransport.shared.catalog(forceRefresh: true)
+    let plan = try await MCPNaturalLanguagePlanner.plan(query: query, catalog: catalog)
+    var arguments = try MCPQueryPolicy.arguments(json: plan.argumentsJSON, schema: plan.schema, ownerId: session.ownerId)
+    try await MCPTransport.shared.assertQueryRevision(session.revision)
+    let requiresConfirmation = try await MCPTransport.shared.confirmationRequired(name: plan.toolName, arguments: arguments, forceRefresh: true)
+    try await MCPTransport.shared.assertQueryRevision(session.revision)
+    if requiresConfirmation {
+      try await requestConfirmation(dialog: IntentDialog(stringLiteral: "Para responder «\(String(query.prefix(200)))», VIDKAR consultará información privada mediante \(plan.toolName). ¿Quieres continuar?"))
+      arguments["confirmed"] = true
+    }
+    try Task.checkCancellation()
+    let output = try await MCPTransport.shared.execute(name: plan.toolName, arguments: arguments, expectedRevision: session.revision)
+    let summary = try MCPQueryPolicy.summary(output: output)
+    let resultId = try await MCPTransport.shared.saveNaturalLanguageResult(query: query, tool: plan.toolName, output: output, summary: summary, revision: session.revision)
+    return (output, summary, resultId)
+  }
+}
+
+// Entrada libre para Atajos. Siri decide si puede descubrirla; no es un schema genérico de MCP.
+@available(iOS 26.0, *)
+public struct VIDKARAskQuestionIntent: AppIntent {
+  public init() {}
+  public static let title: LocalizedStringResource = "Consultar información en VIDKAR"
+  public static let description = IntentDescription("Interpreta una pregunta con el modelo local de Apple y consulta una herramienta de lectura del catálogo MCP actual. Pide confirmación para datos privados.")
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  public static let openAppWhenRun = false
+  @Parameter(title: "Qué quieres consultar") public var question: String
+  public static var parameterSummary: some ParameterSummary { Summary("Consulta \(\.$question) en VIDKAR") }
+
+  public func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+    let result = try await queryVIDKARNaturally(question)
+    return .result(value: result.output, dialog: IntentDialog(stringLiteral: result.summary))
+  }
+}
+
+// Contrato oficial de búsqueda general de Siri AI en iOS 27; no restringido a películas.
+@available(iOS 27.0, *)
+@AppIntent(schema: .system.searchInApp)
+public struct VIDKARSearchInAppIntent: ShowInAppSearchResultsIntent {
+  public init() {}
+  public static let searchScopes: [StringSearchScope] = [.general]
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  public var criteria: StringSearchCriteria
+
+  public func perform() async throws -> some IntentResult & OpensIntent & ProvidesDialog {
+    let result = try await queryVIDKARNaturally(criteria.term)
+    var components = URLComponents()
+    components.scheme = "vidkar"
+    components.host = "search"
+    components.queryItems = [URLQueryItem(name: "resultId", value: result.resultId)]
+    guard let url = components.url else { throw MCPQueryError.invalidPlan }
+    return .result(opensIntent: OpenURLIntent(url), dialog: IntentDialog(stringLiteral: result.summary))
+  }
+}
+#endif
 
 @available(iOS 16.0, *)
 private struct VIDKARMCPToolNameOptionsProvider: DynamicOptionsProvider {

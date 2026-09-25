@@ -10,6 +10,70 @@ const javascript = ts.transpileModule(source, {
 }).outputText;
 const { canConsumeUniversalLink, resolveUniversalLink } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
 
+const RESULT_ID = "7cebedbd-865d-4e3a-9136-08e663bf5f34";
+
+test("resuelve snapshots Siri con UUID sin transportar consulta ni datos", () => {
+  for (const resultId of [RESULT_ID, RESULT_ID.toUpperCase()]) {
+    assert.deepEqual(resolveUniversalLink(`vidkar://search?resultId=${resultId}`), {
+      pathname: "/(normal)/SiriSearch",
+      params: { resultId },
+    });
+  }
+});
+
+test("rechaza identificadores de snapshot vacíos, malformados o repetidos", () => {
+  for (const resultId of ["", "not-a-uuid", "null", "{}", RESULT_ID.replaceAll("-", ""), `${RESULT_ID}0`, `g${RESULT_ID.slice(1)}`, `%20${RESULT_ID}`, `${RESULT_ID}%0A`]) {
+    assert.equal(resolveUniversalLink(`vidkar://search?resultId=${resultId}`), null, resultId);
+  }
+  assert.equal(resolveUniversalLink(`vidkar://search?resultId=${RESULT_ID}&resultId=${RESULT_ID}`), null);
+});
+
+test("rechaza snapshots desde web, con rutas, credenciales, puerto o parámetros extra", () => {
+  const urls = [
+    `https://www.vidkar.com/search?resultId=${RESULT_ID}`,
+    `https://vidkar.com/search?resultId=${RESULT_ID}`,
+    `https://vidkar.com/cursos?resultId=${RESULT_ID}`,
+    `https://untrusted.example/search?resultId=${RESULT_ID}`,
+    `http://vidkar.com/search?resultId=${RESULT_ID}`,
+    `vidkar://search/?resultId=${RESULT_ID}`,
+    `vidkar://search/path?resultId=${RESULT_ID}`,
+    `vidkar://search/../?resultId=${RESULT_ID}`,
+    `vidkar://user@search?resultId=${RESULT_ID}`,
+    `vidkar://user:password@search?resultId=${RESULT_ID}`,
+    `vidkar://:password@search?resultId=${RESULT_ID}`,
+    `vidkar://@search?resultId=${RESULT_ID}`,
+    `vidkar://search:443?resultId=${RESULT_ID}`,
+    `vidkar://search:?resultId=${RESULT_ID}`,
+    `vidkar://search?resultId=${RESULT_ID}&q=consulta`,
+    `vidkar://search?resultId=${RESULT_ID}&entity=user`,
+    `vidkar://search?resultId=${RESULT_ID}&play=true`,
+    `vidkar://search?resultId=${RESULT_ID}&token=fixture`,
+    `vidkar://search?resultId=${RESULT_ID}&data=%7B%7D`,
+    `vidkar://search?resultId=${RESULT_ID}&`,
+    `vidkar://search?resultId=${RESULT_ID}#fragment`,
+    `vidkar://search?resultId=${RESULT_ID}#`,
+    `vidkar://movie/movie-1?resultId=${RESULT_ID}`,
+  ];
+  for (const url of urls) assert.equal(resolveUniversalLink(url), null, url);
+});
+
+test("preserva búsquedas antiguas nativas y web, incluido listado de cursos", () => {
+  for (const url of ["vidkar://search?q=Avatar&entity=movie", "https://www.vidkar.com/search?q=Avatar&entity=movie"]) {
+    assert.deepEqual(resolveUniversalLink(url), {
+      pathname: "/(normal)/SiriSearch",
+      params: { query: "Avatar", entityType: "movie" },
+    });
+  }
+  assert.deepEqual(resolveUniversalLink("vidkar://search?entity=course"), {
+    pathname: "/(normal)/SiriSearch",
+    params: { query: "", entityType: "course" },
+  });
+  assert.deepEqual(resolveUniversalLink("vidkar://search"), {
+    pathname: "/(normal)/SiriSearch",
+    params: { query: "", entityType: "all" },
+  });
+});
+
 test("resuelve búsqueda Siri sin abrir playback automáticamente", () => {
   assert.deepEqual(resolveUniversalLink("vidkar://movie/movie-1?q=Avatar"), {
     pathname: "/(normal)/SiriSearch",

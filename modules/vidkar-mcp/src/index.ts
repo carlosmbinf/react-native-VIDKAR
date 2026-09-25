@@ -16,6 +16,7 @@ type NativeMCPModule = {
   configure: (url: string, token: string, ownerId: string) => Promise<void>;
   clearConfiguration: () => Promise<void>;
   getConfiguration: () => Promise<{ url: string | null; ownerId: string | null; configured: boolean }>;
+  getNaturalLanguageResult: (resultId: string, ownerId: string) => Promise<string>;
   discoverTools: (forceRefresh?: boolean) => Promise<MCPTool[]>;
   executeTool: (toolName: string, args: Record<string, unknown>) => Promise<unknown>;
   authorizePlayback: (entityType: string, entityId: string) => Promise<void>;
