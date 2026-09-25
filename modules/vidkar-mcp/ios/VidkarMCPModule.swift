@@ -867,11 +867,11 @@ protocol VIDKARCatalogAppEntity: AppEntity where ID == String {
 
 extension VIDKARCatalogAppEntity {
   static var mcpCategory: String? { nil }
-  static var typeDisplayRepresentation: TypeDisplayRepresentation {
+  public static var typeDisplayRepresentation: TypeDisplayRepresentation {
     TypeDisplayRepresentation(name: LocalizedStringResource(stringLiteral: "VIDKAR \(mcpType)"))
   }
 
-  var displayRepresentation: DisplayRepresentation {
+  public var displayRepresentation: DisplayRepresentation {
     DisplayRepresentation(
       title: "\(title)",
       subtitle: "\(subtitle)",
@@ -939,18 +939,19 @@ private func resolveVIDKARCatalog<Entity: VIDKARCatalogAppEntity>(_ type: Entity
   return resolved
 }
 
-struct VIDKARMovieEntityQuery: EntityStringQuery {
-  typealias Entity = VIDKARMovieAppEntity
-  func entities(matching string: String) async throws -> [Entity] { try await searchVIDKARCatalog(Entity.self, query: string) }
-  func entities(for identifiers: [Entity.ID]) async throws -> [Entity] { try await resolveVIDKARCatalog(Entity.self, identifiers: identifiers) }
-  func suggestedEntities() async throws -> [Entity] { [] }
+public struct VIDKARMovieEntityQuery: EntityStringQuery {
+  public init() {}
+  public typealias Entity = VIDKARMovieAppEntity
+  public func entities(matching string: String) async throws -> [Entity] { try await searchVIDKARCatalog(Entity.self, query: string) }
+  public func entities(for identifiers: [Entity.ID]) async throws -> [Entity] { try await resolveVIDKARCatalog(Entity.self, identifiers: identifiers) }
+  public func suggestedEntities() async throws -> [Entity] { [] }
 }
 
-struct VIDKARMovieAppEntity: VIDKARCatalogAppEntity {
+public struct VIDKARMovieAppEntity: VIDKARCatalogAppEntity {
   static let mcpType = "movie"
   static let symbolName = "film"
-  static var defaultQuery: VIDKARMovieEntityQuery { VIDKARMovieEntityQuery() }
-  let id: String
+  public static var defaultQuery: VIDKARMovieEntityQuery { VIDKARMovieEntityQuery() }
+  public let id: String
   @Property(title: "Título") var title: String
   @Property(title: "Subtítulo") var subtitle: String
   @Property(title: "Descripción") var summary: String
@@ -960,18 +961,19 @@ struct VIDKARMovieAppEntity: VIDKARCatalogAppEntity {
   }
 }
 
-struct VIDKARSeriesEntityQuery: EntityStringQuery {
-  typealias Entity = VIDKARSeriesAppEntity
-  func entities(matching string: String) async throws -> [Entity] { try await searchVIDKARCatalog(Entity.self, query: string) }
-  func entities(for identifiers: [Entity.ID]) async throws -> [Entity] { try await resolveVIDKARCatalog(Entity.self, identifiers: identifiers) }
-  func suggestedEntities() async throws -> [Entity] { [] }
+public struct VIDKARSeriesEntityQuery: EntityStringQuery {
+  public init() {}
+  public typealias Entity = VIDKARSeriesAppEntity
+  public func entities(matching string: String) async throws -> [Entity] { try await searchVIDKARCatalog(Entity.self, query: string) }
+  public func entities(for identifiers: [Entity.ID]) async throws -> [Entity] { try await resolveVIDKARCatalog(Entity.self, identifiers: identifiers) }
+  public func suggestedEntities() async throws -> [Entity] { [] }
 }
 
-struct VIDKARSeriesAppEntity: VIDKARCatalogAppEntity {
+public struct VIDKARSeriesAppEntity: VIDKARCatalogAppEntity {
   static let mcpType = "series"
   static let symbolName = "tv"
-  static var defaultQuery: VIDKARSeriesEntityQuery { VIDKARSeriesEntityQuery() }
-  let id: String
+  public static var defaultQuery: VIDKARSeriesEntityQuery { VIDKARSeriesEntityQuery() }
+  public let id: String
   @Property(title: "Título") var title: String
   @Property(title: "Subtítulo") var subtitle: String
   @Property(title: "Descripción") var summary: String
@@ -981,18 +983,19 @@ struct VIDKARSeriesAppEntity: VIDKARCatalogAppEntity {
   }
 }
 
-struct VIDKARCourseEntityQuery: EntityStringQuery {
-  typealias Entity = VIDKARCourseAppEntity
-  func entities(matching string: String) async throws -> [Entity] { try await searchVIDKARCatalog(Entity.self, query: string) }
-  func entities(for identifiers: [Entity.ID]) async throws -> [Entity] { try await resolveVIDKARCatalog(Entity.self, identifiers: identifiers) }
-  func suggestedEntities() async throws -> [Entity] { [] }
+public struct VIDKARCourseEntityQuery: EntityStringQuery {
+  public init() {}
+  public typealias Entity = VIDKARCourseAppEntity
+  public func entities(matching string: String) async throws -> [Entity] { try await searchVIDKARCatalog(Entity.self, query: string) }
+  public func entities(for identifiers: [Entity.ID]) async throws -> [Entity] { try await resolveVIDKARCatalog(Entity.self, identifiers: identifiers) }
+  public func suggestedEntities() async throws -> [Entity] { [] }
 }
 
-struct VIDKARCourseAppEntity: VIDKARCatalogAppEntity {
+public struct VIDKARCourseAppEntity: VIDKARCatalogAppEntity {
   static let mcpType = "course"
   static let symbolName = "book.closed"
-  static var defaultQuery: VIDKARCourseEntityQuery { VIDKARCourseEntityQuery() }
-  let id: String
+  public static var defaultQuery: VIDKARCourseEntityQuery { VIDKARCourseEntityQuery() }
+  public let id: String
   @Property(title: "Título") var title: String
   @Property(title: "Subtítulo") var subtitle: String
   @Property(title: "Descripción") var summary: String
@@ -1002,19 +1005,20 @@ struct VIDKARCourseAppEntity: VIDKARCatalogAppEntity {
   }
 }
 
-struct VIDKARCommerceProductEntityQuery: EntityStringQuery {
-  typealias Entity = VIDKARCommerceProductAppEntity
-  func entities(matching string: String) async throws -> [Entity] { try await searchVIDKARCatalog(Entity.self, query: string) }
-  func entities(for identifiers: [Entity.ID]) async throws -> [Entity] { try await resolveVIDKARCatalog(Entity.self, identifiers: identifiers) }
-  func suggestedEntities() async throws -> [Entity] { [] }
+public struct VIDKARCommerceProductEntityQuery: EntityStringQuery {
+  public init() {}
+  public typealias Entity = VIDKARCommerceProductAppEntity
+  public func entities(matching string: String) async throws -> [Entity] { try await searchVIDKARCatalog(Entity.self, query: string) }
+  public func entities(for identifiers: [Entity.ID]) async throws -> [Entity] { try await resolveVIDKARCatalog(Entity.self, identifiers: identifiers) }
+  public func suggestedEntities() async throws -> [Entity] { [] }
 }
 
-struct VIDKARCommerceProductAppEntity: VIDKARCatalogAppEntity {
+public struct VIDKARCommerceProductAppEntity: VIDKARCatalogAppEntity {
   static let mcpType = "product"
   static let mcpCategory = "COMERCIO"
   static let symbolName = "shippingbox"
-  static var defaultQuery: VIDKARCommerceProductEntityQuery { VIDKARCommerceProductEntityQuery() }
-  let id: String
+  public static var defaultQuery: VIDKARCommerceProductEntityQuery { VIDKARCommerceProductEntityQuery() }
+  public let id: String
   @Property(title: "Título") var title: String
   @Property(title: "Subtítulo") var subtitle: String
   @Property(title: "Descripción y precio") var summary: String
@@ -1027,12 +1031,12 @@ struct VIDKARCommerceProductAppEntity: VIDKARCatalogAppEntity {
 @available(iOS 16.0, *)
 public struct VIDKARSearchMoviesIntent: AppIntent {
   public init() {}
-  static let title: LocalizedStringResource = "Busca películas"
-  static let description = IntentDescription("Busca películas visibles en el catálogo de VIDKAR y devuelve resultados tipados.")
-  static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  static let openAppWhenRun = false
-  @Parameter(title: "Título o búsqueda", default: "") var query: String
-  static var parameterSummary: some ParameterSummary { Summary("Busca películas: \(\.$query)") }
+  public static let title: LocalizedStringResource = "Busca películas"
+  public static let description = IntentDescription("Busca películas visibles en el catálogo de VIDKAR y devuelve resultados tipados.")
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  public static let openAppWhenRun = false
+  @Parameter(title: "Título o búsqueda", default: "") public var query: String
+  public static var parameterSummary: some ParameterSummary { Summary("Busca películas: \(\.$query)") }
 
   public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARMovieAppEntity]> {
     do {
@@ -1047,12 +1051,12 @@ public struct VIDKARSearchMoviesIntent: AppIntent {
 @available(iOS 16.0, *)
 public struct VIDKARSearchSeriesIntent: AppIntent {
   public init() {}
-  static let title: LocalizedStringResource = "Busca series"
-  static let description = IntentDescription("Busca series visibles del catálogo VIDKAR con autorización actual.")
-  static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  static let openAppWhenRun = false
-  @Parameter(title: "Título o búsqueda", default: "") var query: String
-  static var parameterSummary: some ParameterSummary { Summary("Busca series: \(\.$query)") }
+  public static let title: LocalizedStringResource = "Busca series"
+  public static let description = IntentDescription("Busca series visibles del catálogo VIDKAR con autorización actual.")
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  public static let openAppWhenRun = false
+  @Parameter(title: "Título o búsqueda", default: "") public var query: String
+  public static var parameterSummary: some ParameterSummary { Summary("Busca series: \(\.$query)") }
 
   public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSeriesAppEntity]> {
     do {
@@ -1067,12 +1071,12 @@ public struct VIDKARSearchSeriesIntent: AppIntent {
 @available(iOS 16.0, *)
 public struct VIDKARSearchCoursesIntent: AppIntent {
   public init() {}
-  static let title: LocalizedStringResource = "Busca cursos"
-  static let description = IntentDescription("Busca cursos publicados y autorizados para el usuario en VIDKAR.")
-  static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  static let openAppWhenRun = false
-  @Parameter(title: "Nombre o búsqueda", default: "") var query: String
-  static var parameterSummary: some ParameterSummary { Summary("Busca cursos: \(\.$query)") }
+  public static let title: LocalizedStringResource = "Busca cursos"
+  public static let description = IntentDescription("Busca cursos publicados y autorizados para el usuario en VIDKAR.")
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  public static let openAppWhenRun = false
+  @Parameter(title: "Nombre o búsqueda", default: "") public var query: String
+  public static var parameterSummary: some ParameterSummary { Summary("Busca cursos: \(\.$query)") }
 
   public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARCourseAppEntity]> {
     do {
@@ -1087,12 +1091,12 @@ public struct VIDKARSearchCoursesIntent: AppIntent {
 @available(iOS 16.0, *)
 public struct VIDKARSearchCommerceProductsIntent: AppIntent {
   public init() {}
-  static let title: LocalizedStringResource = "Busca productos de Comercio"
-  static let description = IntentDescription("Busca productos únicamente en el catálogo COMERCIO de VIDKAR.")
-  static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  static let openAppWhenRun = false
-  @Parameter(title: "Producto o búsqueda", default: "") var query: String
-  static var parameterSummary: some ParameterSummary { Summary("Busca en Comercio: \(\.$query)") }
+  public static let title: LocalizedStringResource = "Busca productos de Comercio"
+  public static let description = IntentDescription("Busca productos únicamente en el catálogo COMERCIO de VIDKAR.")
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  public static let openAppWhenRun = false
+  @Parameter(title: "Producto o búsqueda", default: "") public var query: String
+  public static var parameterSummary: some ParameterSummary { Summary("Busca en Comercio: \(\.$query)") }
 
   public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARCommerceProductAppEntity]> {
     do {
@@ -1105,21 +1109,21 @@ public struct VIDKARSearchCommerceProductsIntent: AppIntent {
 }
 
 @available(iOS 16.0, *)
-enum VIDKARAccountService: String, AppEnum {
+public enum VIDKARAccountService: String, AppEnum {
   case proxy
   case vpn
 
-  static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Servicio de cuenta")
-  static let caseDisplayRepresentations: [VIDKARAccountService: DisplayRepresentation] = [
+  public static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Servicio de cuenta")
+  public static let caseDisplayRepresentations: [VIDKARAccountService: DisplayRepresentation] = [
     .proxy: "Proxy",
     .vpn: "VPN",
   ]
 }
 
-struct VIDKARServiceUsageAppEntity: TransientAppEntity {
-  static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Uso de Proxy o VPN")
-  static let defaultQuery = VIDKARServiceUsageEntityQuery()
-  var id: String
+public struct VIDKARServiceUsageAppEntity: TransientAppEntity {
+  public static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Uso de Proxy o VPN")
+  public static let defaultQuery = VIDKARServiceUsageEntityQuery()
+  public var id: String
   @Property(title: "Servicio") var service: VIDKARAccountService
   @Property(title: "Activo") var active: Bool
   @Property(title: "Conectado") var connected: Bool?
@@ -1129,7 +1133,7 @@ struct VIDKARServiceUsageAppEntity: TransientAppEntity {
   @Property(title: "Vencimiento") var expiresAt: Date?
   @Property(title: "Estado") var summary: String
 
-  var displayRepresentation: DisplayRepresentation {
+  public var displayRepresentation: DisplayRepresentation {
     DisplayRepresentation(
       title: "Uso de \(service.rawValue.uppercased()) VIDKAR",
       subtitle: "\(summary)",
@@ -1137,7 +1141,7 @@ struct VIDKARServiceUsageAppEntity: TransientAppEntity {
     )
   }
 
-  init() {
+  public init() {
     id = ""
     service = .proxy
     active = false
@@ -1163,20 +1167,21 @@ struct VIDKARServiceUsageAppEntity: TransientAppEntity {
 }
 
 @available(iOS 16.0, *)
-struct VIDKARServiceUsageEntityQuery: EntityQuery {
-  func entities(for identifiers: [VIDKARServiceUsageAppEntity.ID]) async throws -> [VIDKARServiceUsageAppEntity] { [] }
-  func suggestedEntities() async throws -> [VIDKARServiceUsageAppEntity] { [] }
+public struct VIDKARServiceUsageEntityQuery: EntityQuery {
+  public init() {}
+  public func entities(for identifiers: [VIDKARServiceUsageAppEntity.ID]) async throws -> [VIDKARServiceUsageAppEntity] { [] }
+  public func suggestedEntities() async throws -> [VIDKARServiceUsageAppEntity] { [] }
 }
 
 @available(iOS 16.0, *)
 public struct VIDKARGetServiceUsageIntent: AppIntent {
   public init() {}
-  static let title: LocalizedStringResource = "Consulta mi Proxy o VPN"
-  static let description = IntentDescription("Consulta el uso del servicio seleccionado. Requiere confirmación y solo devuelve estado y consumo, nunca credenciales ni servidores.")
-  static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  static let openAppWhenRun = false
-  @Parameter(title: "Servicio", default: .proxy) var service: VIDKARAccountService
-  static var parameterSummary: some ParameterSummary { Summary("Consulta mi \(\.$service) en VIDKAR") }
+  public static let title: LocalizedStringResource = "Consulta mi Proxy o VPN"
+  public static let description = IntentDescription("Consulta el uso del servicio seleccionado. Requiere confirmación y solo devuelve estado y consumo, nunca credenciales ni servidores.")
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  public static let openAppWhenRun = false
+  @Parameter(title: "Servicio", default: .proxy) public var service: VIDKARAccountService
+  public static var parameterSummary: some ParameterSummary { Summary("Consulta mi \(\.$service) en VIDKAR") }
 
   public func perform() async throws -> some IntentResult & ReturnsValue<VIDKARServiceUsageAppEntity> {
     let configuration = await MCPTransport.shared.configuration()
@@ -1293,14 +1298,14 @@ private struct VIDKARMCPToolNameOptionsProvider: DynamicOptionsProvider {
 @available(iOS 16.0, *)
 public struct VIDKARQueryMCPIntent: AppIntent {
   public init() {}
-  static let title: LocalizedStringResource = "Consulta MCP"
-  static let description = IntentDescription("Descubre las herramientas MCP disponibles de VIDKAR y devuelve su nombre, descripción, datos de entrada y permisos en JSON.")
-  static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  static let openAppWhenRun = false
+  public static let title: LocalizedStringResource = "Consulta MCP"
+  public static let description = IntentDescription("Descubre las herramientas MCP disponibles de VIDKAR y devuelve su nombre, descripción, datos de entrada y permisos en JSON.")
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  public static let openAppWhenRun = false
 
-  @Parameter(title: "Nombre de herramienta (opcional)", default: "") var toolName: String
+  @Parameter(title: "Nombre de herramienta (opcional)", default: "") public var toolName: String
 
-  static var parameterSummary: some ParameterSummary {
+  public static var parameterSummary: some ParameterSummary {
     Summary("Consulta MCP: \(\.$toolName)")
   }
 
@@ -1342,15 +1347,15 @@ public struct VIDKARQueryMCPIntent: AppIntent {
 @available(iOS 16.0, *)
 public struct VIDKARExecuteMCPIntent: AppIntent {
   public init() {}
-  static let title: LocalizedStringResource = "Ejecuta MCP"
-  static let description = IntentDescription("Ejecuta una herramienta MCP de solo lectura con los parámetros JSON indicados y devuelve el resultado estructurado en JSON.")
-  static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  static let openAppWhenRun = false
+  public static let title: LocalizedStringResource = "Ejecuta MCP"
+  public static let description = IntentDescription("Ejecuta una herramienta MCP de solo lectura con los parámetros JSON indicados y devuelve el resultado estructurado en JSON.")
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  public static let openAppWhenRun = false
 
-  @Parameter(title: "Herramienta MCP", optionsProvider: VIDKARMCPToolNameOptionsProvider()) var toolName: String
-  @Parameter(title: "Datos de entrada (JSON)", default: "{}") var argumentsJSON: String
+  @Parameter(title: "Herramienta MCP", optionsProvider: VIDKARMCPToolNameOptionsProvider()) public var toolName: String
+  @Parameter(title: "Datos de entrada (JSON)", default: "{}") public var argumentsJSON: String
 
-  static var parameterSummary: some ParameterSummary {
+  public static var parameterSummary: some ParameterSummary {
     Summary("Ejecuta MCP: \(\.$toolName) con \(\.$argumentsJSON)")
   }
 
