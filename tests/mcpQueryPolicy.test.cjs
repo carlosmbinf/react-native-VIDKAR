@@ -73,7 +73,8 @@ test("consulta de catálogo: perform y entidades reales con I/O aislado", { skip
     .replace("import ExpoModulesCore\n", "").replace("import Security\n", "")
     .replaceAll("UserDefaults.standard", "transportTestDefaults")
     .replace("URLSession.shared.data(for: request)", "FixtureNetwork.shared.data(for: request)");
-  assert.ok(!source.includes("URLSession.shared") && !source.includes("SecItem") && !source.includes("OpenURLIntent"));
+  assert.ok(!source.includes("URLSession.shared") && !source.includes("SecItem"));
+  assert.match(source, /await openVIDKARURL\(url\)/, "solo la consulta de perfil abre su resultado efímero validado");
   const fixtures = fs.readFileSync(path.join(__dirname, "MCPTransportSessionTests.swift"), "utf8").split("@main")[0];
   const file = path.join(directory, "Catalog.swift");
   fs.writeFileSync(file, source + fixtures + fs.readFileSync(path.join(__dirname, "MCPCatalogIntentTests.swift"), "utf8"));

@@ -385,7 +385,7 @@ export default function SiriSearchScreen() {
   };
 
   // El login existente conserva esta ruta y sus criterios; no crea tokens silenciosamente.
-  if (sessionReady && !userId && showLogin && !isSnapshot) return <Loguin deferSessionRedirect />;
+  if (sessionReady && !userId && showLogin) return <Loguin deferSessionRedirect />;
 
   return (
     <SafeAreaView edges={["bottom", "left", "right"]} style={[styles.screen, { backgroundColor: theme.colors.background }]}>
@@ -419,8 +419,8 @@ export default function SiriSearchScreen() {
                 <Button mode="outlined" onPress={() => search("course", "")}>Ver todos los cursos</Button>
               </View>
               <Button mode="text" onPress={() => router.push("/(normal)/MCPSettings")}>Configurar o consultar MCP</Button>
-              {sessionReady && !userId ? <Button mode="contained" onPress={() => setShowLogin(true)}>Iniciar sesión</Button> : null}
             </> : null}
+            {sessionReady && !userId ? <Button mode="contained" onPress={() => setShowLogin(true)}>Iniciar sesión</Button> : null}
             {pagination?.total > 0 ? <Text selectable variant="bodySmall" style={styles.count}>
               {`Encontré ${pagination.total} resultado${pagination.total === 1 ? "" : "s"}. Elige el resultado que buscabas.`}
             </Text> : null}

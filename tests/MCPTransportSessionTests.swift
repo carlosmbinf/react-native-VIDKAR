@@ -25,9 +25,19 @@ private actor FixtureNetwork {
   private var readOnly = true
   private var responseStatus = 200
   private var offline = false
+  private var supportsUsername = true
+  private var pages: [String] = []
+  private var profileOutput: String?
+  private var lastUserSearchOutput: String?
+  private(set) var lastProfileArguments: [String: Any] = [:]
+
+  func usernameSchema(_ supported: Bool) { supportsUsername = supported }
+  func paginatedResponses(_ values: [String]) { pages = values }
+  func profileResponse(_ value: String?) { profileOutput = value }
 
   func response(_ output: String = "{\"success\":true,\"results\":[]}", readOnly: Bool = true, status: Int = 200, offline: Bool = false) {
     self.output = output; self.readOnly = readOnly; responseStatus = status; self.offline = offline
+    pages = []; profileOutput = nil; lastUserSearchOutput = nil; lastProfileArguments = [:]
     calls = 0; lastArguments = [:]
   }
 
@@ -60,7 +70,9 @@ private actor FixtureNetwork {
     if method == "initialize" { initializations += 1 }
     if method == "tools/list" { discoveries += 1 }
     let isQuery = name == "search_entities" || name == "get_service_usage"
+    let isUserProfile = name == "get_user"
     if isQuery { lastArguments = params["arguments"] as? [String: Any] ?? [:] }
+    if isUserProfile { lastProfileArguments = params["arguments"] as? [String: Any] ?? [:] }
     if offline { throw URLError(.notConnectedToInternet) }
     let phase = method == "initialize" && initializations == 2 ? "call-initialize"
       : method == "tools/list" ? "discover" : isQuery ? "result" : "other"
@@ -68,20 +80,50 @@ private actor FixtureNetwork {
     await checkpoint([phase, method == "initialize" ? "initialize-\(initializations)" : "", method == "tools/list" ? "discover-\(discoveries)" : ""])
     let result: [String: Any]
     if method == "tools/list" {
-      result = ["tools": ["search_entities", "get_service_usage"].map { name in
-        ["name": name, "inputSchema": ["properties": ["entity": [:], "confirmed": [:], "userId": [:], "limit": [:], "offset": [:], "query": [:], "category": [:], "id": [:]]], "annotations": ["readOnlyHint": readOnly]] as [String: Any]
-      }]
+      var searchProperties: [String: Any] = ["entity": [:], "confirmed": [:], "userId": [:], "limit": [:], "offset": [:], "query": [:], "category": [:], "id": [:]]
+      if supportsUsername { searchProperties["username"] = [:] }
+      result = ["tools": [
+        ["name": "search_entities", "inputSchema": ["properties": searchProperties], "annotations": ["readOnlyHint": readOnly]],
+        ["name": "get_user", "inputSchema": ["properties": ["userId": [:], "confirmed": [:]]], "annotations": ["readOnlyHint": readOnly],
+          "_meta": ["vidkar/security": ["requiresConfirmation": true]]],
+        ["name": "get_service_usage", "inputSchema": ["properties": ["userId": [:], "confirmed": [:]]], "annotations": ["readOnlyHint": readOnly]],
+      ]]
     } else if name == "get_current_user" {
       let owner = request.value(forHTTPHeaderField: "Authorization")!.contains("other-owner") ? "other-owner" : "fixture-owner"
       result = ["content": [["type": "text", "text": "{\"success\":true,\"userId\":\"\(owner)\"}"]]]
+    } else if isUserProfile {
+      let profileText = profileOutput ?? defaultProfileOutput()
+      result = ["content": [["type": "text", "text": profileText]]]
     } else if isQuery {
-      result = ["content": [["type": "text", "text": output]]]
+      let queryOutput = pages.isEmpty ? output : pages.removeFirst()
+      if name == "search_entities" { lastUserSearchOutput = queryOutput }
+      result = ["content": [["type": "text", "text": queryOutput]]]
     } else {
       precondition(method == "initialize", "No se permite otra operación")
       result = [:]
     }
     return (try JSONSerialization.data(withJSONObject: ["result": result]),
       HTTPURLResponse(url: request.url!, statusCode: responseStatus, httpVersion: nil, headerFields: nil)!)
+  }
+
+  private func defaultProfileOutput() -> String {
+    guard let data = (lastUserSearchOutput ?? output).data(using: .utf8),
+          let envelope = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let user = (envelope["results"] as? [[String: Any]])?.first,
+          let id = user["id"] as? String else { return "{\"success\":false}" }
+    let rawUsername = user["subtitle"] as? String ?? ""
+    let profile: [String: Any] = [
+      "success": true, "id": id,
+      "username": rawUsername.hasPrefix("@") ? String(rawUsername.dropFirst()) : rawUsername,
+      "name": user["title"] as? String ?? "",
+      "role": user["description"] as? String ?? "Usuario",
+      "emailCount": 0,
+      "serviceState": ["vpn": false, "proxyMegas": 0, "vpnMegas": 0, "vpnServerDomains": [String]()],
+      "serviceUsage": ["proxy": ["active": false, "usedBytes": 0], "vpn": ["active": false, "usedBytes": 0]],
+      "banned": false,
+    ]
+    let encoded = try? JSONSerialization.data(withJSONObject: profile, options: [.sortedKeys])
+    return encoded.flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
   }
 }
 

@@ -62,7 +62,7 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
       // Validate the original URL too: URL parsing can normalize empty credentials/ports.
       const match = NATURAL_RESULT_LINK.exec(url);
       if (!isVIDKARScheme || parsedUrl.pathname !== "" || !match || match[0] !== url) return null;
-      return { pathname: "/(normal)/SiriSearch", params: { resultId: match[1] } };
+      return { pathname: "/siri-search", params: { resultId: match[1] } };
     }
     // Ningún enlace concede consentimiento ni puede pasar tools, tokens o playback.
     if (parsedUrl.username || parsedUrl.password || parsedUrl.port || url.includes("#") ||
@@ -73,7 +73,7 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
     const entityType = parsedUrl.searchParams.get("entity") || "all";
     if (query.length > 120 || /[\u0000-\u001f\u007f]/.test(query) || !SEARCH_ENTITY_TYPES.has(entityType)) return null;
     return {
-      pathname: "/(normal)/SiriSearch",
+      pathname: "/siri-search",
       params: { query, entityType },
     };
   }
@@ -86,7 +86,7 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
         return shouldPlay
           ? { pathname: "/(normal)/PeliculaPlayer", params: { id: value } }
           : parsedUrl.searchParams.get("q")
-            ? { pathname: "/(normal)/SiriSearch", params: { query: parsedUrl.searchParams.get("q") || "", entityType: "movie", contentId: value } }
+            ? { pathname: "/siri-search", params: { query: parsedUrl.searchParams.get("q") || "", entityType: "movie", contentId: value } }
             : { pathname: "/(normal)/PeliculasVideos", params: { id: value } };
       case "series":
         return { pathname: "/(normal)/SeriesDetail", params: { id: value } };
@@ -95,7 +95,7 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
           ? { pathname: "/(normal)/SeriesPlayer", params: { id: value } }
           : parsedUrl.searchParams.get("seriesId")
             ? { pathname: "/(normal)/SeriesDetail", params: { id: parsedUrl.searchParams.get("seriesId") || "" } }
-            : { pathname: "/(normal)/SiriSearch", params: { query: parsedUrl.searchParams.get("q") || "", entityType: "episode", contentId: value } };
+            : { pathname: "/siri-search", params: { query: parsedUrl.searchParams.get("q") || "", entityType: "episode", contentId: value } };
       case "course":
         return { pathname: "/(normal)/CursoDetalle", params: { courseId: value } };
       case "lesson": {
@@ -118,7 +118,7 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
         return { pathname: "/(normal)/MisCompras", params: { subscriptionId: value } };
       case "product":
         return {
-          pathname: "/(normal)/SiriSearch",
+          pathname: "/siri-search",
           params: { query: parsedUrl.searchParams.get("q") || "", entityType: "product", productId: value },
         };
       case "message":

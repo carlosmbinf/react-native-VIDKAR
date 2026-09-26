@@ -1,5 +1,6 @@
 import MeteorBase from "@meteorrn/core";
 import { router } from "expo-router";
+import { useIsFocused } from "expo-router/react-navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState, Linking } from "react-native";
 
@@ -314,6 +315,7 @@ const prepareCadeteRealtimeLocation = async (userId) => {
 };
 
 const MenuPrincipalNative = () => {
+  const isFocused = useIsFocused();
   const renderStartedAtRef = useRef(
     typeof performance?.now === "function" ? performance.now() : Date.now(),
   );
@@ -355,10 +357,10 @@ const MenuPrincipalNative = () => {
   }, [user?._id, user?.username]);
 
   useEffect(() => {
-    if (user?.modoEmpresa && userHasEmpresaRole(user)) {
+    if (isFocused && user?.modoEmpresa && userHasEmpresaRole(user)) {
       router.replace("/(empresa)/EmpresaNavigator");
     }
-  }, [user]);
+  }, [isFocused, user]);
 
   const refreshNormalHomeCatalogs = useCallback(() => {
     if (!dataReady || !currentUserId) {

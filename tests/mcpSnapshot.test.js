@@ -5,6 +5,7 @@ import vm from "node:vm";
 import ts from "typescript";
 import * as inAppSearch from "../services/mcp/inAppSearch.js";
 import "./meteorSession.test.js";
+import { loginHarness } from "./helpers/loginHarness.js";
 
 const RESULT_ID = "7cebedbd-865d-4e3a-9136-08e663bf5f34";
 const sources = await Promise.all([
@@ -277,6 +278,34 @@ test("snapshot helper rechaza logout, owner incorrecto y cambio de sesión duran
   assert.equal(f.state.network, 0);
 });
 
+test("UI muestra todos los campos sanitizados del perfil MCP sin volver a consultar la red", async () => {
+  const f = fixture();
+  f.state.envelope = {
+    query: "Perfil de usuario @fixture-user",
+    tool: "get_user",
+    data: {
+      success: true, id: "fixture-user-id", username: "fixture-user", name: "Usuario de prueba",
+      role: "admin", createdAt: "2024-01-02T03:04:05.000Z", picture: null, emailCount: 1,
+      serviceState: { vpn: true, proxyMegas: 1024, vpnMegas: 2048, proxyUnlimited: false,
+        vpnUnlimited: true, vpnServerDomains: ["fixture.example"] },
+      serviceUsage: { proxy: { active: true, usedBytes: 512, limitMB: 1024 },
+        vpn: { active: true, connected: true, usedBytes: 256, unlimited: true } },
+      banned: false,
+    },
+    summary: "Perfil completo autorizado de @fixture-user",
+    expiresAt: 1120000,
+  };
+  await f.mount();
+  const rendered = f.text();
+  for (const field of ["username", "role", "createdAt", "emailCount", "serviceState", "vpnServerDomains", "serviceUsage", "banned"]) {
+    assert.match(rendered, new RegExp(field));
+  }
+  assert.match(rendered, /fixture\.example/);
+  assert.doesNotMatch(rendered, /password|token|correo@ejemplo/);
+  assert.equal(f.state.network, 0, "el detalle lee únicamente el snapshot privado en memoria");
+  f.unmount();
+});
+
 test("UI elimina resultados, consulta y resumen exactamente al vencimiento absoluto", async () => {
   const f = fixture();
   f.state.envelope.expiresAt = f.state.now + 1001;
@@ -423,7 +452,7 @@ test("búsqueda estable usa el término literal y nunca ejecuta un planner o pla
   const card = f.list().renderItem({ item: f.list().data[1] });
   const open = card.props.children[1].props.children.find((node) => node?.props?.children?.includes("Abrir en VIDKAR"));
   await open.props.onPress();
-  assert.equal(f.state.navigations[0].pathname, "/(normal)/SiriSearch");
+  assert.equal(f.state.navigations[0].pathname, "/siri-search");
   assert.equal(f.state.navigations[0].params.contentId, "movie-2");
   assert.equal(f.state.navigations[0].params.play, undefined);
   assert.equal(f.state.confirmations.length, 0);
@@ -640,7 +669,7 @@ test("abrir la coincidencia 21 usa resolver real e ID exacto, no primera página
   const open = card.props.children[1].props.children.find((node) => node?.props?.children?.includes("Abrir en VIDKAR"));
   await open.props.onPress();
   const target = f.state.navigations.at(-1);
-  assert.equal(target.pathname, "/(normal)/SiriSearch");
+  assert.equal(target.pathname, "/siri-search");
   movies[20].nombrePeli = "Título actualizado";
   await f.update({ params: target.params });
   assert.equal(f.state.calls.at(-1).args.id, "movie-21");
@@ -654,4 +683,59 @@ test("abrir la coincidencia 21 usa resolver real e ID exacto, no primera página
   assert.equal(f.list().data.length, 0, "la consulta exacta conserva visibilidad backend");
   assert.equal(f.state.confirmations.length, 0);
   f.unmount();
+});
+
+test("Siri fría/caliente: login real, restore tardío y logout nunca reemplazan por menú", async () => {
+  for (const initial of [true, false]) {
+    for (const snapshot of [false, true]) {
+      const f = fixture({ search: !snapshot });
+      const url = snapshot ? `vidkar://search?resultId=${RESULT_ID}` : "vidkar://search?q=Terminator&entity=movie";
+      const destination = new URL(f.redirectSystemPath({ path: url, initial }), "https://fixture.invalid");
+      assert.equal(destination.pathname, "/siri-search");
+      const params = Object.fromEntries(destination.searchParams);
+      Object.assign(f.state, { userId: null, connected: false, restoring: true, params });
+      // En caliente puede seguir montado el login de una ruta anterior.
+      const previousLogin = loginHarness(f.state);
+      previousLogin.render({ isFocused: false });
+      await f.mount();
+      await f.update({ connected: true });
+      assert.equal(f.state.calls.length, 0);
+      assert.equal(f.state.reads, 0);
+      await f.update({ restoring: false });
+      await f.press("Iniciar sesión");
+      assert.match(f.text(), /deferSessionRedirect/);
+      const inlineLogin = loginHarness(f.state);
+      inlineLogin.render({ deferSessionRedirect: true });
+      await inlineLogin.submit();
+      previousLogin.render({ isFocused: false });
+      inlineLogin.render({ deferSessionRedirect: true });
+      await f.update({ userId: f.state.userId });
+      await f.update({ loginReady: true });
+      previousLogin.render({ isFocused: false });
+      inlineLogin.render({ deferSessionRedirect: true });
+      assert.deepEqual(f.state.params, params);
+      assert.equal(snapshot ? f.state.reads : f.state.calls.length, 1);
+      await f.update({ userId: null });
+      previousLogin.render({ isFocused: false });
+      assert.deepEqual(f.state.params, params);
+      assert.deepEqual(f.state.navigations, []);
+      assert.doesNotMatch(f.text(), /Resumen privado/);
+      previousLogin.unmount();
+      inlineLogin.unmount();
+      f.unmount();
+    }
+  }
+});
+
+test("login normal solo resuelve sesión al recuperar foco y completar suscripción", () => {
+  const state = { userId: "fixture-owner", loginReady: false, navigations: [] };
+  const login = loginHarness(state);
+  login.render();
+  assert.deepEqual(state.navigations, []);
+  state.loginReady = true;
+  login.render({ isFocused: false });
+  assert.deepEqual(state.navigations, []);
+  login.render();
+  assert.deepEqual(state.navigations, ["/(normal)/Main"]);
+  login.unmount();
 });

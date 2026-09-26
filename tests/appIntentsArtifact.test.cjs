@@ -23,23 +23,34 @@ const fixture = () => ({
       parameters: [{ name: "criteria", valueType: { searchCriteria: {} } }],
       systemProtocolMetadataV2: [{ showInAppStringSearchResults: { searchScopes: ["general", "movies", "tv"] } }],
     },
+    VIDKARSearchUserByUsernameIntent: {
+      isDiscoverable: true, openAppWhenRun: true, authenticationPolicy: 1, assistantDefinedSchemas: [],
+      parameters: [{ name: "username", isOptional: false, valueType: { primitive: { wrapper: { typeIdentifier: 0 } } }, typeSpecificMetadata: [] }],
+      outputType: { entity: { wrapper: { typeName: "VIDKARUserSearchAppEntity" } } },
+    },
   },
-  entities: { VIDKARCatalogResultEntity: { transient: true, properties: ["type", "sourceId", "title", "subtitle", "description"].map((identifier) => ({ identifier })) } },
-  autoShortcuts: shortcutIntents.map((actionIdentifier) => ({ actionIdentifier, phraseTemplates: [{ key: "Consulta en ${applicationName}" }] })),
+  entities: {
+    VIDKARCatalogResultEntity: { transient: true, properties: ["type", "sourceId", "title", "subtitle", "description"].map((identifier) => ({ identifier })) },
+    VIDKARUserSearchAppEntity: { transient: true, properties: ["fullName", "username"].map((identifier) => ({ identifier })) },
+  },
+  autoShortcuts: shortcutIntents.map((actionIdentifier) => ({ actionIdentifier, phraseTemplates: [{ key: "Busca un usuario en ${applicationName}" }] })),
 });
 
 const writeSpanishResources = (app, locale = "es") => {
   const directory = path.join(app, `${locale}.lproj`);
   fs.mkdirSync(directory, { recursive: true });
-  fs.writeFileSync(path.join(directory, "AppShortcuts.strings"), JSON.stringify({ "Consulta en ${applicationName}": "Consulta en ${applicationName}" }));
+  fs.writeFileSync(path.join(directory, "AppShortcuts.strings"), JSON.stringify({ "Busca un usuario en ${applicationName}": "Busca un usuario en ${applicationName}" }));
   const catalog = JSON.parse(fs.readFileSync(path.join(__dirname, "../plugins/resources/vidkar-app-intents/Localizable.xcstrings"), "utf8"));
   fs.writeFileSync(path.join(directory, "Localizable.strings"), JSON.stringify(Object.fromEntries(
     Object.entries(catalog.strings).map(([key, entry]) => [key, entry.localizations.es.stringUnit.value])
   )));
 };
 
-test("acepta nueve acciones descubribles y ocho shortcuts conservando los siete anteriores", () => {
-  assert.equal(validateMetadata(fixture()).actions, 9);
+test("acepta diez acciones descubribles y solo el shortcut de username", () => {
+  const summary = validateMetadata(fixture());
+  assert.equal(summary.actions, 10);
+  assert.equal(summary.shortcuts, 1);
+  assert.deepEqual(shortcutIntents, ["VIDKARSearchUserByUsernameIntent"]);
 });
 
 test("rechaza referencias a shortcuts sin acciones y cada acción ausente", () => {
@@ -55,7 +66,10 @@ test("rechaza acciones ocultas, shortcuts ausentes y experimentales", () => {
   const hidden = fixture();
   hidden.actions[expectedIntents[0]].isDiscoverable = false;
   assert.throws(() => validateMetadata(hidden), /no es descubrible/);
-  assert.throws(() => validateMetadata({ ...fixture(), autoShortcuts: [] }), /Falta el App Shortcut/);
+  assert.throws(() => validateMetadata({ ...fixture(), autoShortcuts: [] }), /único App Shortcut/);
+  const extraShortcut = fixture();
+  extraShortcut.autoShortcuts.push({ actionIdentifier: "VIDKARSearchMoviesIntent", phraseTemplates: [{ key: "Busca películas en ${applicationName}" }] });
+  assert.throws(() => validateMetadata(extraShortcut), /único App Shortcut/);
   for (const id of ["VIDKARAskQuestionIntent"]) {
     const metadata = fixture();
     metadata.actions[id] = { isDiscoverable: true };
@@ -77,7 +91,7 @@ test("exige metadata del bundle principal, no solo la de un framework", (t) => {
   fs.writeFileSync(path.join(root, "extract.actionsdata"), JSON.stringify(fixture()));
   assert.throws(() => validateAppBundle(app), /evidencia española/);
   writeSpanishResources(app);
-  assert.equal(validateAppBundle(app).shortcuts, 8);
+  assert.equal(validateAppBundle(app).shortcuts, 1);
   fs.writeFileSync(path.join(root, "extract.actionsdata"), "not JSON");
   assert.throws(() => validateAppBundle(app), SyntaxError);
 });
@@ -96,7 +110,7 @@ test("exige español real, claves y placeholders sin exigir xcstrings ni CFBundl
   const phrases = path.join(app, "es-MX.lproj/AppShortcuts.strings");
   fs.writeFileSync(phrases, "{}");
   assert.throws(() => validateAppBundle(app), /Falta traducción/);
-  fs.writeFileSync(phrases, JSON.stringify({ "Consulta en ${applicationName}": "Consulta en VIDKAR" }));
+  fs.writeFileSync(phrases, JSON.stringify({ "Busca un usuario en ${applicationName}": "Busca un usuario en VIDKAR" }));
   assert.throws(() => validateAppBundle(app), /Placeholders/);
   writeSpanishResources(app, "es-MX");
   fs.unlinkSync(path.join(app, "es-MX.lproj/Localizable.strings"));

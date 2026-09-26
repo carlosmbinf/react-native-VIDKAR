@@ -4,7 +4,8 @@
 
 La implementación actual conserva `VIDKARSearchInAppIntent` iOS 27 sin planner
 y añade `VIDKARQueryCatalogIntent` informativo background.
-La extracción dirigida confirma **9 acciones VIDKAR y 8 shortcuts**. El validador del
+La extracción dirigida confirma **10 acciones VIDKAR y un solo App Shortcut**, dedicado a
+buscar un username exacto. El validador del
 bundle exige además schema `SystemSearchInAppIntent`, `criteria`, scopes
 `general/movies/tv`, foreground y autenticación local. Solo
 `VIDKARAskQuestionIntent` debe permanecer ausente. Véase [alcance y límites](./siri-ai-integration.md).

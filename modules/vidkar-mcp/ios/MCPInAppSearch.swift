@@ -16,8 +16,9 @@ enum MCPInAppSearch {
       throw InvalidCriteria.invalidTerm
     }
     var components = URLComponents()
-    components.scheme = "vidkar"
-    components.host = "search"
+    components.scheme = "https"
+    components.host = "www.vidkar.com"
+    components.path = "/search"
     components.queryItems = [URLQueryItem(name: "q", value: query), URLQueryItem(name: "entity", value: "all")]
     // URLSearchParams de JS interpreta '+' como espacio: preservarlo literalmente.
     components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")

@@ -56,7 +56,8 @@ test("plugin real: template instalado, proyecto existente e idempotencia sin bor
     assert.equal(fs.readFileSync(appPath, "utf8"), firstApp);
     assert.equal(fs.readFileSync(scenePath, "utf8"), firstScene);
     assert.ok(firstApp.includes(orientation));
-    assert.match(firstApp, /VIDKARQueryCatalogIntent\(\)/);
+    assert.match(firstApp, /VIDKARSearchUserByUsernameIntent\(\)/);
+    assert.equal((firstApp.match(/    AppShortcut\(/g) || []).length, 1);
     assert.equal((firstApp.match(/vidkarSceneLaunchOptions = launchOptions/g) || []).length, 1);
     assert.equal((firstApp.match(/return super\.application\(application, didFinishLaunchingWithOptions: launchOptions\)/g) || []).length, 1);
     assert.doesNotMatch(firstApp, /startReactNative\(/);
@@ -283,7 +284,7 @@ test("SceneDelegate generado: UIKit iPhone/simulador y ejecución fría/caliente
     if (snapshot.name === "invalid-search") assert.equal(destination, "/");
     if (snapshot.name === "search" || snapshot.name === "universal") {
       const resolved = new URL(destination, "https://fixture.example");
-      assert.equal(resolved.pathname, "/(normal)/SiriSearch");
+      assert.equal(resolved.pathname, "/siri-search");
       assert.equal(resolved.searchParams.get("query"), "C++ & Swift");
     }
   }

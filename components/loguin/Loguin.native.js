@@ -4,6 +4,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { BlurView } from "expo-blur";
 import * as WebBrowser from "expo-web-browser";
 import { router } from "expo-router";
+import { useIsFocused } from "expo-router/react-navigation";
 import React, { useEffect, useState } from "react";
 import {
     Alert,
@@ -237,6 +238,7 @@ const LoginBlurCard = ({ children, palette }) => {
 };
 
 const Loguin = ({ deferSessionRedirect = false } = {}) => {
+  const isFocused = useIsFocused();
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const [ipserver, setIpserver] = useState(() => {
     const meteorUrl = getMeteorUrl() || "ws://www.vidkar.com:3000/websocket";
@@ -431,9 +433,9 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
   }, []);
 
   useEffect(() => {
-    if (deferSessionRedirect || !userId || !loginRouteReady) return;
+    if (!isFocused || deferSessionRedirect || !userId || !loginRouteReady) return;
     router.replace(resolveSessionRoute(userId, user));
-  }, [deferSessionRedirect, loginRouteReady, user, userId]);
+  }, [isFocused, deferSessionRedirect, loginRouteReady, user, userId]);
 
   const handleUsernameChange = (text) => {
     setUsername(text);

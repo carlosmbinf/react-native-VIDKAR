@@ -6,7 +6,7 @@ struct MCPInAppSearchTests {
     for term in ["Terminator", "cursos", "Carlos", "fotografía", "C++ & Swift? #1", "", "  dos palabras  ", "búscame los cursos"] {
       let url = try MCPInAppSearch.url(term: term)
       let components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
-      precondition(components.scheme == "vidkar" && components.host == "search" && components.path.isEmpty)
+      precondition(components.scheme == "https" && components.host == "www.vidkar.com" && components.path == "/search")
       precondition(components.queryItems == [URLQueryItem(name: "q", value: term.trimmingCharacters(in: .whitespacesAndNewlines)), URLQueryItem(name: "entity", value: "all")])
       precondition(components.user == nil && components.password == nil && components.fragment == nil)
       precondition(!url.absoluteString.contains("+"))
@@ -18,6 +18,6 @@ struct MCPInAppSearchTests {
         preconditionFailure("Debe rechazar criterios inválidos")
       } catch MCPInAppSearch.InvalidCriteria.invalidTerm { }
     }
-    print("Criterios literales, límites UTF-16 y enlace sin tool/consentimiento/playback: OK")
+    print("Criterios literales, Universal Link https y límites UTF-16: OK")
   }
 }

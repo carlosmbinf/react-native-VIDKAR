@@ -1,5 +1,6 @@
 import MeteorBase from "@meteorrn/core";
 import { useRouter } from "expo-router";
+import { useIsFocused } from "expo-router/react-navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -29,6 +30,7 @@ const PORTRAIT_DRAWER_WIDTH = 316;
 const LANDSCAPE_DRAWER_MAX_WIDTH = 380;
 
 const EmpresaNavigator = () => {
+  const isFocused = useIsFocused();
   const router = useRouter();
   const theme = useTheme();
   const palette = createEmpresaPalette(theme);
@@ -51,7 +53,7 @@ const EmpresaNavigator = () => {
   }, [drawerWidth]);
 
   useEffect(() => {
-    if (!userId || !user) {
+    if (!isFocused || !userId || !user) {
       return;
     }
 
@@ -60,7 +62,7 @@ const EmpresaNavigator = () => {
     if (targetRoute !== "/(empresa)/EmpresaNavigator") {
       router.replace(targetRoute);
     }
-  }, [router, user, userId]);
+  }, [isFocused, router, user, userId]);
 
   useEffect(() => {
     if (!drawerMounted) {

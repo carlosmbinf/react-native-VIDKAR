@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import fs from "node:fs/promises";
 import test from "node:test";
+import vm from "node:vm";
 import ts from "typescript";
 
 const source = await fs.readFile(new URL("../services/navigation/universalLinks.ts", import.meta.url), "utf8");
@@ -15,12 +16,11 @@ const RESULT_ID = "7cebedbd-865d-4e3a-9136-08e663bf5f34";
 test("resuelve snapshots Siri con UUID sin transportar consulta ni datos", () => {
   for (const resultId of [RESULT_ID, RESULT_ID.toUpperCase()]) {
     assert.deepEqual(resolveUniversalLink(`vidkar://search?resultId=${resultId}`), {
-      pathname: "/(normal)/SiriSearch",
+      pathname: "/siri-search",
       params: { resultId },
     });
   }
 });
-
 test("rechaza identificadores de snapshot vacíos, malformados o repetidos", () => {
   for (const resultId of ["", "not-a-uuid", "null", "{}", RESULT_ID.replaceAll("-", ""), `${RESULT_ID}0`, `g${RESULT_ID.slice(1)}`, `%20${RESULT_ID}`, `${RESULT_ID}%0A`]) {
     assert.equal(resolveUniversalLink(`vidkar://search?resultId=${resultId}`), null, resultId);
@@ -60,23 +60,23 @@ test("rechaza snapshots desde web, con rutas, credenciales, puerto o parámetros
 test("preserva búsquedas antiguas nativas y web, incluido listado de cursos", () => {
   for (const url of ["vidkar://search?q=Avatar&entity=movie", "https://www.vidkar.com/search?q=Avatar&entity=movie"]) {
     assert.deepEqual(resolveUniversalLink(url), {
-      pathname: "/(normal)/SiriSearch",
+      pathname: "/siri-search",
       params: { query: "Avatar", entityType: "movie" },
     });
   }
   assert.deepEqual(resolveUniversalLink("vidkar://search?entity=course"), {
-    pathname: "/(normal)/SiriSearch",
+    pathname: "/siri-search",
     params: { query: "", entityType: "course" },
   });
   assert.deepEqual(resolveUniversalLink("vidkar://search"), {
-    pathname: "/(normal)/SiriSearch",
+    pathname: "/siri-search",
     params: { query: "", entityType: "all" },
   });
 });
 
 test("resuelve búsqueda Siri sin abrir playback automáticamente", () => {
   assert.deepEqual(resolveUniversalLink("vidkar://movie/movie-1?q=Avatar"), {
-    pathname: "/(normal)/SiriSearch",
+    pathname: "/siri-search",
     params: { query: "Avatar", entityType: "movie", contentId: "movie-1" },
   });
 });
@@ -144,6 +144,23 @@ test("retiene el destino de usuario hasta que la sesión y las suscripciones est
   assert.equal(canConsumeUniversalLink(url, true, "signed-in-user"), true);
 });
 
+test("OpenURLIntent devuelve el Universal Link asociado para que Expo Router reciba la búsqueda", async () => {
+  const url = "https://www.vidkar.com/search?q=pel%C3%ADcula%20Transformer&entity=all";
+  const index = await fs.readFile(new URL("../app/index.native.tsx", import.meta.url), "utf8");
+  const swift = await fs.readFile(new URL("../modules/vidkar-mcp/ios/VidkarMCPModule.swift", import.meta.url), "utf8");
+  const searchURL = await fs.readFile(new URL("../modules/vidkar-mcp/ios/MCPInAppSearch.swift", import.meta.url), "utf8");
+  const appConfig = JSON.parse(await fs.readFile(new URL("../app.json", import.meta.url), "utf8"));
+  assert.deepEqual(resolveUniversalLink(url), {
+    pathname: "/siri-search",
+    params: { query: "película Transformer", entityType: "all" },
+  });
+  assert.match(searchURL, /components\.scheme = "https"[\s\S]*?components\.host = "www\.vidkar\.com"[\s\S]*?components\.path = "\/search"/);
+  assert.match(swift, /return \.result\(opensIntent: OpenURLIntent\(url\)\)/);
+  assert.doesNotMatch(swift, /MCPInAppSearchHandoff|consumePendingSiriSearchURL/);
+  assert.ok(appConfig.expo.ios.associatedDomains.includes("applinks:www.vidkar.com"));
+  assert.match(index, /if \(!target \|\| \/\^vidkar:/);
+});
+
 test("búsquedas rechazan ámbitos inventados, consentimiento, tools y enlaces ambiguos", () => {
   for (const url of [
     "vidkar://search?q=a&entity=users", "vidkar://search?q=a&entity=unknown",
@@ -164,19 +181,67 @@ test("entrada nativa Expo entrega la misma búsqueda en frío y caliente sin dep
   for (const initial of [true, false]) {
     for (const path of ["vidkar://search?q=C%2B%2B%20%26%20Swift&entity=all", "/search?q=C%2B%2B%20%26%20Swift&entity=all", "https://www.vidkar.com/search?q=C%2B%2B%20%26%20Swift&entity=all"]) {
       const target = redirectSystemPath({ path, initial });
-      assert.match(target, /^\/\(normal\)\/SiriSearch\?/);
+      assert.match(target, /^\/siri-search\?/);
       assert.equal(new URL(target, "https://fixture.example").searchParams.get("query"), "C++ & Swift");
       assert.equal(new URL(target, "https://fixture.example").searchParams.get("entityType"), "all");
       // El destino ya resuelto no debe convertirse en inicio en una segunda entrega.
       assert.equal(redirectSystemPath({ path: target, initial }), target);
     }
-    assert.equal(redirectSystemPath({ path: `vidkar://search?resultId=${RESULT_ID}`, initial }), `/(normal)/SiriSearch?resultId=${RESULT_ID}`);
+    assert.equal(redirectSystemPath({ path: `vidkar://search?resultId=${RESULT_ID}`, initial }), `/siri-search?resultId=${RESULT_ID}`);
     assert.equal(redirectSystemPath({ path: "vidkar://search?q=a&confirmed=true", initial }), "/");
     assert.equal(redirectSystemPath({ path: "vidkar://@search?q=a", initial }), "/");
     assert.equal(redirectSystemPath({ path: "vidkar://movie/fixture?q=Title", initial }), "vidkar://movie/fixture?q=Title");
     for (const term of ["Título con acentos", "", "x".repeat(120), "😀".repeat(60)]) {
       const target = redirectSystemPath({ path: `vidkar://search?q=${encodeURIComponent(term)}&entity=all`, initial });
-      assert.equal(target, `/(normal)/SiriSearch?${new URLSearchParams({ query: term, entityType: "all" })}`);
+      assert.equal(target, `/siri-search?${new URLSearchParams({ query: term, entityType: "all" })}`);
     }
   }
 });
+
+test("ruta raíz reutiliza pantalla por plataforma y alias legacy conserva query e IDs", async () => {
+  const load = async (file, dependencies, React = {}) => {
+    const exports = {};
+    const code = ts.transpileModule(await fs.readFile(new URL(file, import.meta.url), "utf8"), {
+      fileName: "route.tsx",
+      compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React },
+    }).outputText;
+    vm.runInNewContext(code, { exports, React, require: (name) => {
+      assert.ok(name in dependencies, name);
+      return dependencies[name];
+    } });
+    return exports.default;
+  };
+  const screen = () => null;
+  assert.equal(await load("../app/siri-search.tsx", {
+    "../components/mcp/SiriSearchScreen": { __esModule: true, default: screen },
+  }), screen);
+  for (const params of [
+    { query: "C++ & Swift", entityType: "movie", contentId: "movie-21" },
+    { resultId: RESULT_ID }, { query: "", entityType: "product", productId: "product-1" },
+  ]) {
+    const redirect = {};
+    const Legacy = await load("../app/(normal)/SiriSearch.tsx", {
+      "expo-router": { Redirect: redirect, useLocalSearchParams: () => params },
+    }, { createElement: (type, props) => ({ type, props }) });
+    const element = Legacy();
+    assert.equal(element.type, redirect);
+    assert.equal(element.props.href.pathname, "/siri-search");
+    assert.equal(element.props.href.params, params);
+  }
+  for (const url of ["vidkar://episode/episode-1", "vidkar://product/product-1?q=Producto"]) {
+    assert.equal(resolveUniversalLink(url).pathname, "/siri-search");
+  }
+});
+
+test("Universal Link Siri usa el host AASA asociado en iOS", async () => {
+  const config = JSON.parse(await fs.readFile(new URL("../app.json", import.meta.url), "utf8"));
+  const url = "https://www.vidkar.com/search?q=Transformer&entity=all";
+  assert.ok(config.expo.ios.associatedDomains.includes("applinks:www.vidkar.com"));
+  assert.deepEqual(resolveUniversalLink(url), {
+    pathname: "/siri-search",
+    params: { query: "Transformer", entityType: "all" },
+  });
+});
+// Siri usa el host www porque es el que publica el AASA de VIDKAR.
+// Mantener la ruta web cubierta aunque Siri active VIDKAR directamente.
+

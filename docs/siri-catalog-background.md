@@ -4,9 +4,10 @@
 
 `VIDKARQueryCatalogIntent` es una acción personalizada background, no un schema
 Apple genérico. `openAppWhenRun=false`, autenticación requerida y parámetro
-`query: String` requerido **sin default**. Frase publicada:
-**«Consulta el catálogo en VIDKAR»** (`\(.applicationName)` en el provider).
-Al resolver la acción, el sistema puede solicitar «Qué quieres consultar».
+`query: String` requerido **sin default**. Ya no tiene una frase preconfigurada
+en `VidkarAppShortcutsProvider`; la frase única publicada es la búsqueda de
+usuarios por username. Al añadirla a un atajo manual, el sistema puede solicitar
+«Qué quieres consultar».
 El texto recibido se busca literalmente; no se extrae un tema de cualquier oración.
 
 La ejecución directa de la acción llama nativamente a `search_entities` con
@@ -95,7 +96,7 @@ sin escribir ante formato no reconocido y pasa doble ejecución idempotente.
 Conserva regiones, recursos del main bundle y el workaround iOS 16.4:
 `AppShortcuts.xcstrings` fuente → `.strings` en/es, sin elevar el mínimo.
 
-Extracción aislada verificada: **9 acciones VIDKAR / 8 shortcuts / 10 frases**.
+Extracción aislada verificada: **10 acciones VIDKAR / 1 App Shortcut**.
 En una app completa con las tres acciones de widgets anteriores se esperan
 **12 acciones totales**; ese nuevo artefacto completo no se ha construido.
 El validador admite acciones ajenas y exige la nueva acción, query sin default,

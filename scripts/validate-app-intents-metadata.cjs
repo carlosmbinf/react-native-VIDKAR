@@ -3,6 +3,10 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const shortcutIntents = [
+  "VIDKARSearchUserByUsernameIntent",
+];
+// El schema se descubre por su metadata nativa; no necesita otro App Shortcut.
+const expectedIntents = [
   "VIDKARQueryMCPIntent",
   "VIDKARExecuteMCPIntent",
   "VIDKARSearchMoviesIntent",
@@ -11,15 +15,25 @@ const shortcutIntents = [
   "VIDKARSearchCommerceProductsIntent",
   "VIDKARGetServiceUsageIntent",
   "VIDKARQueryCatalogIntent",
+  "VIDKARSearchUserByUsernameIntent",
+  "VIDKARSearchInAppIntent",
 ];
-// El schema se descubre por su metadata nativa; no necesita otro App Shortcut.
-const expectedIntents = [...shortcutIntents, "VIDKARSearchInAppIntent"];
 
 function validateMetadata(metadata) {
   const actions = metadata?.actions;
   const shortcuts = metadata?.autoShortcuts;
   if (!actions || Array.isArray(actions) || !Array.isArray(shortcuts)) {
     throw new Error("Formato App Intents inesperado: se requieren actions y autoShortcuts.");
+  }
+  for (const identifier of ["VIDKARAskQuestionIntent"]) {
+    if (Object.hasOwn(actions, identifier) || shortcuts.some((shortcut) => shortcut.actionIdentifier === identifier)) {
+      throw new Error(`Intent experimental habilitado: ${identifier}.`);
+    }
+  }
+  if (shortcuts.length !== 1 || shortcuts[0]?.actionIdentifier !== "VIDKARSearchUserByUsernameIntent" ||
+      shortcuts[0]?.phraseTemplates?.length !== 1 ||
+      shortcuts[0].phraseTemplates[0]?.key !== "Busca un usuario en ${applicationName}") {
+    throw new Error("Debe existir un único App Shortcut: búsqueda exacta por username en VIDKAR.");
   }
   for (const identifier of expectedIntents) {
     // Una referencia en autoShortcuts NO demuestra que la acción esté empaquetada.
@@ -30,11 +44,6 @@ function validateMetadata(metadata) {
     }
     if (shortcutIntents.includes(identifier) && !shortcuts.some((shortcut) => shortcut.actionIdentifier === identifier && shortcut.phraseTemplates?.length > 0)) {
       throw new Error(`Falta el App Shortcut con frases de ${identifier}.`);
-    }
-  }
-  for (const identifier of ["VIDKARAskQuestionIntent"]) {
-    if (Object.hasOwn(actions, identifier) || shortcuts.some((shortcut) => shortcut.actionIdentifier === identifier)) {
-      throw new Error(`Intent experimental habilitado: ${identifier}.`);
     }
   }
   const query = actions.VIDKARQueryCatalogIntent;
@@ -54,6 +63,22 @@ function validateMetadata(metadata) {
   if (entity?.transient !== true || JSON.stringify(entity.properties?.map((property) => property.identifier).sort()) !==
       JSON.stringify(["description", "sourceId", "subtitle", "title", "type"])) {
     throw new Error("QueryCatalog requiere entidad transitoria con proyección mínima.");
+  }
+  const userSearch = actions.VIDKARSearchUserByUsernameIntent;
+  if (userSearch.openAppWhenRun !== true || userSearch.authenticationPolicy !== 1 || userSearch.assistantDefinedSchemas?.length) {
+    throw new Error("La búsqueda de username requiere sesión, apertura para mostrar el perfil y no usa schemas externos.");
+  }
+  const username = userSearch.parameters?.[0];
+  if (userSearch.parameters?.length !== 1 || username.name !== "username" || username.isOptional !== false ||
+      username.valueType?.primitive?.wrapper?.typeIdentifier !== 0 ||
+      username.typeSpecificMetadata?.includes("LNValueTypeSpecificMetadataKeyDefaultValue") ||
+      userSearch.outputType?.entity?.wrapper?.typeName !== "VIDKARUserSearchAppEntity") {
+    throw new Error("La intent debe recibir un username String requerido y devolver la AppEntity de usuario.");
+  }
+  const userEntity = metadata.entities?.VIDKARUserSearchAppEntity;
+  if (userEntity?.transient !== true || JSON.stringify(userEntity.properties?.map((property) => property.identifier).sort()) !==
+      JSON.stringify(["fullName", "username"])) {
+    throw new Error("La búsqueda de username requiere una AppEntity transitoria con nombre, username y avatar.");
   }
   const search = actions.VIDKARSearchInAppIntent;
   if (!search.assistantDefinedSchemas?.some((schema) => schema.domain === "system" && schema.name === "SystemSearchInAppIntent")) {
@@ -115,6 +140,9 @@ function validateSpanishResources(appPath, metadata) {
         "No encontré coincidencias en el catálogo autorizado de VIDKAR.",
         "No se pudo conectar con VIDKAR. Comprueba la conexión e inténtalo de nuevo.",
         "¿Quieres consultar el estado y consumo de tu servicio en VIDKAR?",
+        "¿Quieres buscar el username dentro de tu alcance autorizado de VIDKAR?",
+        "Encontré una coincidencia. ¿Quieres consultar su perfil completo autorizado y abrirlo en VIDKAR?",
+        "Encontré el usuario en VIDKAR. Abre la app para ver su perfil completo.",
         "Esta consulta accede a información privada de tu cuenta. ¿Quieres continuar?"]) {
         if (typeof actions[key] !== "string" || !actions[key].trim()) throw new Error(`Falta texto español de acción: ${key}`);
       }

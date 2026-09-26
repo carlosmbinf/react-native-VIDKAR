@@ -6,7 +6,7 @@ enum MCPCatalogQuery {
   static let allowedTypes: Set<String> = ["movie", "series", "episode", "course", "product"]
 
   enum Failure: LocalizedError {
-    case invalidQuery, notConfigured, authentication, forbidden, network, expired, invalidResponse, unavailable
+    case invalidQuery, notConfigured, authentication, forbidden, confirmationRequired, incompatibleSchema, network, expired, invalidResponse, unavailable
 
     var errorDescription: String? {
       switch self {
@@ -14,6 +14,8 @@ enum MCPCatalogQuery {
       case .notConfigured: return String(localized: "Configura primero MCP en VIDKAR para consultar el catálogo con Siri.")
       case .authentication: return String(localized: "La sesión MCP no es válida. Revisa tu sesión y token en VIDKAR.")
       case .forbidden: return String(localized: "No tienes permiso para consultar este catálogo en VIDKAR.")
+      case .confirmationRequired: return String(localized: "Esta consulta requiere confirmación explícita en VIDKAR.")
+      case .incompatibleSchema: return String(localized: "El servidor MCP no admite esta consulta. Actualiza el servidor o consulta desde VIDKAR.")
       case .network: return String(localized: "No se pudo conectar con VIDKAR. Comprueba la conexión e inténtalo de nuevo.")
       case .expired: return String(localized: "La sesión de VIDKAR cambió durante la consulta. Vuelve a intentarlo.")
       case .invalidResponse: return String(localized: "VIDKAR devolvió una respuesta de catálogo no válida. Inténtalo de nuevo.")
@@ -50,7 +52,8 @@ enum MCPCatalogQuery {
   static func failure(code: String?) -> Failure {
     switch code {
     case "MCP_UNAUTHORIZED": return .authentication
-    case "MCP_FORBIDDEN", "MCP_CONFIRMATION_REQUIRED": return .forbidden
+    case "MCP_FORBIDDEN": return .forbidden
+    case "MCP_CONFIRMATION_REQUIRED": return .confirmationRequired
     default: return .unavailable
     }
   }

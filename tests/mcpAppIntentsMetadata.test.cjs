@@ -78,7 +78,10 @@ test("App Intents de producción: extracción del pod y de la app", {
   const appMetadata = extract("VidkarApp", [appPath], podMetadata);
   const metadata = JSON.parse(fs.readFileSync(path.join(appMetadata, "extract.actionsdata"), "utf8"));
   assert.deepEqual(Object.keys(metadata.actions).sort(), [...expectedIntents].sort());
-  assert.equal(metadata.autoShortcuts.length, 8);
+  assert.equal(metadata.autoShortcuts.length, 1);
+  assert.deepEqual(metadata.autoShortcuts.map((shortcut) => shortcut.actionIdentifier), [
+    "VIDKARSearchUserByUsernameIntent",
+  ]);
   // Contratos publicados en build 1169: IDs, parámetros, defaults, entidades y JSON.
   const previous = {
     VIDKARQueryMCPIntent: [["toolName"], [""], null],
@@ -88,11 +91,12 @@ test("App Intents de producción: extracción del pod y de la app", {
     VIDKARSearchCoursesIntent: [["query"], [""], "VIDKARCourseAppEntity"],
     VIDKARSearchCommerceProductsIntent: [["query"], [""], "VIDKARCommerceProductAppEntity"],
     VIDKARGetServiceUsageIntent: [["service"], ["proxy"], "VIDKARServiceUsageAppEntity"],
+    VIDKARSearchUserByUsernameIntent: [["username"], [undefined], "VIDKARUserSearchAppEntity"],
   };
   for (const [id, [names, defaults, entity]] of Object.entries(previous)) {
     const action = metadata.actions[id];
     assert.deepEqual(action.parameters.map((parameter) => parameter.name), names, id);
-    assert.equal(action.openAppWhenRun, false, id);
+      assert.equal(action.openAppWhenRun, id === "VIDKARSearchUserByUsernameIntent", id);
     assert.equal(action.authenticationPolicy, 1, id);
     assert.deepEqual(action.assistantDefinedSchemas, [], id);
     for (const [index, parameter] of action.parameters.entries()) {
@@ -105,12 +109,18 @@ test("App Intents de producción: extracción del pod y de la app", {
     }
     if (!entity) assert.equal(action.outputType.primitive.wrapper.typeIdentifier, 0, `${id}: JSON String`);
     else if (id === "VIDKARGetServiceUsageIntent") assert.equal(action.outputType.entity.wrapper.typeName, entity);
+    else if (id === "VIDKARSearchUserByUsernameIntent") {
+      assert.equal(action.outputType.entity.wrapper.typeName, entity);
+      assert.deepEqual(metadata.entities[entity].properties.map((property) => property.identifier).sort(), ["fullName", "username"]);
+    }
     else {
       assert.equal(action.outputType.array.wrapper.memberValueType.entity.wrapper.typeName, entity);
       assert.deepEqual(metadata.entities[entity].properties.map((property) => property.identifier).sort(), ["deepLink", "subtitle", "summary", "title"]);
     }
   }
   const summary = validateMetadata(metadata);
+  assert.equal(summary.actions, 10);
+  assert.equal(summary.shortcuts, 1);
   const appBundle = path.join(directory, "Vidkar.app");
   fs.mkdirSync(appBundle);
   fs.cpSync(appMetadata, path.join(appBundle, "Metadata.appintents"), { recursive: true });
@@ -150,7 +160,7 @@ test("App Intents de producción: extracción del pod y de la app", {
     "--product-path", appBundle, "--extracted-metadata-path", path.join(appBundle, "Metadata.appintents"),
     "--source-file", path.join(appBundle, "es.lproj/AppShortcuts.strings"), "--archive-ssu-assets"]);
   const nluPath = path.join(appBundle, "es.lproj/nlu.appintents");
-  assert.ok(fs.existsSync(nluPath) && fs.readdirSync(nluPath).length > 0, "Xcode debe producir NLU español, no solo frases fuente");
+  assert.ok(fs.existsSync(nluPath) && fs.readdirSync(nluPath).length > 0, `Xcode debe producir NLU español para la frase publicada, no solo frases fuente. Salida: ${training}`);
   t.diagnostic(`Procesador nativo de frases: ${training.includes("archived 2 locales") ? "en/es archivados" : "exit 0"}; es.lproj/nlu.appintents verificado.`);
   const localizationTest = path.join(directory, "localization-test");
   run(["swiftc", path.join(__dirname, "MCPSpanishLocalizationTests.swift"), "-o", localizationTest]);

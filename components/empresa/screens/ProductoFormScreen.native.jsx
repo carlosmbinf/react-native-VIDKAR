@@ -58,6 +58,14 @@ const PRODUCT_FORM_PROPERTY_FIELDS = {
   valor: 1,
 };
 
+const PRODUCT_FORM_PROPERTY_SELECTOR = {
+  active: true,
+  clave: "monedasPreciosProductosComercios",
+  type: "CONFIG",
+};
+
+const SUPPORTED_PRODUCT_CURRENCIES = ["USD", "CUP", "UYU"];
+
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
 const getFirstParam = (value) => {
@@ -99,25 +107,25 @@ const getMethodResultMessage = (error, result) => {
 };
 
 const normalizeCurrencyOptions = (propertyValue) => {
-  if (Array.isArray(propertyValue)) {
-    return propertyValue.filter((item) => typeof item === "string" && item.trim());
-  }
+  let values = [];
 
-  if (typeof propertyValue === "string") {
+  if (Array.isArray(propertyValue)) {
+    values = propertyValue;
+  } else if (typeof propertyValue === "string") {
     try {
       const parsed = JSON.parse(propertyValue);
-
-      if (Array.isArray(parsed)) {
-        return parsed.filter((item) => typeof item === "string" && item.trim());
-      }
+      values = Array.isArray(parsed) ? parsed : typeof parsed === "string" ? [parsed] : [];
     } catch {
-      if (propertyValue.trim()) {
-        return [propertyValue.trim()];
-      }
+      values = [propertyValue];
     }
   }
 
-  return [];
+  return [...new Set(
+    values
+      .filter((item) => typeof item === "string")
+      .map((item) => item.trim().toUpperCase())
+      // .filter((currency) => SUPPORTED_PRODUCT_CURRENCIES.includes(currency)),
+  )];
 };
 
 const buildFileData = async (asset) => {
@@ -137,40 +145,8 @@ const buildFileData = async (asset) => {
   };
 };
 
-const ProductoFormScreen = () => {
-  const router = useRouter();
-  const theme = useTheme();
-  const { width } = useWindowDimensions();
-  const palette = useMemo(() => createEmpresaPalette(theme), [theme]);
-  const { contentMaxWidth, horizontalPadding } = useMemo(() => getEmpresaScreenMetrics(width), [width]);
-  const isCompactLayout = width < 720;
-  const params = useLocalSearchParams();
-  const routeProductId = getFirstParam(params.productoId);
-  const routeStoreId = getFirstParam(params.tiendaId);
-  const parsedProduct = parseJsonParam(params.producto);
-  const parsedStore = parseJsonParam(params.tienda);
-
-  const [currencyMenuVisible, setCurrencyMenuVisible] = useState(false);
-  const [existingImageUrl, setExistingImageUrl] = useState("");
-  const [loadingImage, setLoadingImage] = useState(Boolean(routeProductId));
-  const [pendingImage, setPendingImage] = useState(null);
-  const [removeExistingImage, setRemoveExistingImage] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [storeMenuVisible, setStoreMenuVisible] = useState(false);
-  const [formState, setFormState] = useState({
-    comentario: "",
-    count: "0",
-    descripcion: "",
-    monedaPrecio: "CUP",
-    name: "",
-    precio: "",
-    productoDeElaboracion: false,
-  });
-  const [selectedStoreId, setSelectedStoreId] = useState(routeStoreId || parsedProduct?.idTienda || "");
-  const hydratedProductId = useRef("");
-  const dataReady = useDeferredScreenData();
-
-  const { currencyOptions, product, stores } = Meteor.useTracker(() => {
+const useProductoFormData = ({ dataReady, parsedProduct, routeProductId }) =>
+  Meteor.useTracker(() => {
     const userId = Meteor.userId();
 
     if (!dataReady) {
@@ -191,26 +167,23 @@ const ProductoFormScreen = () => {
           fields: PRODUCT_FORM_PRODUCT_FIELDS,
         })
       : null;
-    const propertyHandle = Meteor.subscribe("propertys", {
-      active: true,
-      clave: "monedasPreciosProductosComercios",
-      type: "CONFIG",
-    }, {
+    const propertyHandle = Meteor.subscribe("propertys", PRODUCT_FORM_PROPERTY_SELECTOR, {
       fields: PRODUCT_FORM_PROPERTY_FIELDS,
     });
 
-    const property = propertyHandle.ready()
-      ? ConfigCollection.findOne({
-          active: true,
-          clave: "monedasPreciosProductosComercios",
-          type: "CONFIG",
-        }, {
+    // ready() registra una dependencia reactiva; Tracker vuelve a ejecutar al llegar el "ready" de DDP.
+    const propertyReady = propertyHandle.ready();
+    const properties = propertyReady
+      ? ConfigCollection.find(PRODUCT_FORM_PROPERTY_SELECTOR, {
           fields: PRODUCT_FORM_PROPERTY_FIELDS,
-        })
-      : null;
+        }).fetch()
+      : [];
+    const configuredCurrencies = new Set(
+      properties.flatMap((property) => normalizeCurrencyOptions(property?.valor)),
+    );
 
     return {
-      currencyOptions: normalizeCurrencyOptions(property?.valor),
+      currencyOptions: SUPPORTED_PRODUCT_CURRENCIES.filter((currency) => configuredCurrencies.has(currency)),
       product:
         routeProductId && productHandle?.ready()
           ? ProductosComercioCollection.findOne(
@@ -227,6 +200,46 @@ const ProductoFormScreen = () => {
           : [],
     };
   }, [dataReady, parsedProduct, routeProductId]);
+
+const ProductoFormScreen = () => {
+  const router = useRouter();
+  const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const palette = useMemo(() => createEmpresaPalette(theme), [theme]);
+  const { contentMaxWidth, horizontalPadding } = useMemo(() => getEmpresaScreenMetrics(width), [width]);
+  const isCompactLayout = width < 720;
+  const params = useLocalSearchParams();
+  const routeProductId = getFirstParam(params.productoId);
+  const routeStoreId = getFirstParam(params.tiendaId);
+  const productParam = getFirstParam(params.producto);
+  const storeParam = getFirstParam(params.tienda);
+  const parsedProduct = useMemo(() => parseJsonParam(productParam), [productParam]);
+  const parsedStore = useMemo(() => parseJsonParam(storeParam), [storeParam]);
+
+  const [currencyMenuVisible, setCurrencyMenuVisible] = useState(false);
+  const [existingImageUrl, setExistingImageUrl] = useState("");
+  const [loadingImage, setLoadingImage] = useState(Boolean(routeProductId));
+  const [pendingImage, setPendingImage] = useState(null);
+  const [removeExistingImage, setRemoveExistingImage] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [storeMenuVisible, setStoreMenuVisible] = useState(false);
+  const [formState, setFormState] = useState({
+    comentario: "",
+    count: "0",
+    descripcion: "",
+    monedaPrecio: "USD",
+    name: "",
+    precio: "",
+    productoDeElaboracion: false,
+  });
+  const [selectedStoreId, setSelectedStoreId] = useState(routeStoreId || parsedProduct?.idTienda || "");
+  const hydratedProductId = useRef("");
+  const dataReady = useDeferredScreenData();
+  const { currencyOptions, product, stores } = useProductoFormData({
+    dataReady,
+    parsedProduct,
+    routeProductId,
+  });
 
   useEffect(() => {
     if (!selectedStoreId && routeStoreId) {
@@ -288,7 +301,11 @@ const ProductoFormScreen = () => {
     };
   }, [routeProductId]);
 
-  const availableCurrencies = currencyOptions.length ? currencyOptions : ["CUP"];
+  const availableCurrencies = currencyOptions.length ? currencyOptions : SUPPORTED_PRODUCT_CURRENCIES;
+  const isEditMode = Boolean(routeProductId);
+  const selectedCurrency = !isEditMode && !availableCurrencies.includes(formState.monedaPrecio)
+    ? availableCurrencies[0] || SUPPORTED_PRODUCT_CURRENCIES[0]
+    : formState.monedaPrecio;
   const selectedStore = useMemo(
     () => stores.find((store) => store._id === selectedStoreId) || parsedStore || null,
     [parsedStore, selectedStoreId, stores],
@@ -298,7 +315,6 @@ const ProductoFormScreen = () => {
     [contentMaxWidth],
   );
   const imagePreview = pendingImage?.uri || (removeExistingImage ? "" : existingImageUrl);
-  const isEditMode = Boolean(routeProductId);
   const storeLocked = Boolean(routeStoreId || product?.idTienda);
 
   const handlePickImage = async () => {
@@ -390,7 +406,7 @@ const ProductoFormScreen = () => {
       count: formState.productoDeElaboracion ? 0 : count,
       descripcion,
       idTienda: selectedStoreId,
-      monedaPrecio: formState.monedaPrecio,
+      monedaPrecio: selectedCurrency,
       name,
       precio,
       productoDeElaboracion: Boolean(formState.productoDeElaboracion),
@@ -659,7 +675,7 @@ const ProductoFormScreen = () => {
                         style={[styles.selectorButton, { borderColor: palette.borderStrong }]}
                         textColor={palette.title}
                       >
-                        {formState.monedaPrecio}
+                        {selectedCurrency}
                       </Button>
                     }
                     contentStyle={[styles.menuContent, { backgroundColor: palette.menu, borderColor: palette.border }]}

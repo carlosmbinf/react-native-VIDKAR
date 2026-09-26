@@ -12,6 +12,8 @@
     "Configura primero MCP en VIDKAR para consultar el catálogo con Siri.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Configura primero MCP en VIDKAR para consultar el catálogo con Siri." } } } },
     "La sesión MCP no es válida. Revisa tu sesión y token en VIDKAR.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "La sesión MCP no es válida. Revisa tu sesión y token en VIDKAR." } } } },
     "No tienes permiso para consultar este catálogo en VIDKAR.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "No tienes permiso para consultar este catálogo en VIDKAR." } } } },
+    "Esta consulta requiere confirmación explícita en VIDKAR.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Esta consulta requiere confirmación explícita en VIDKAR." } } } },
+    "El servidor MCP no admite esta consulta. Actualiza el servidor o consulta desde VIDKAR.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "El servidor MCP no admite esta consulta. Actualiza el servidor o consulta desde VIDKAR." } } } },
     "No se pudo conectar con VIDKAR. Comprueba la conexión e inténtalo de nuevo.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "No se pudo conectar con VIDKAR. Comprueba la conexión e inténtalo de nuevo." } } } },
     "La sesión de VIDKAR cambió durante la consulta. Vuelve a intentarlo.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "La sesión de VIDKAR cambió durante la consulta. Vuelve a intentarlo." } } } },
     "VIDKAR devolvió una respuesta de catálogo no válida. Inténtalo de nuevo.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "VIDKAR devolvió una respuesta de catálogo no válida. Inténtalo de nuevo." } } } },
@@ -94,7 +96,23 @@
     "Los datos de entrada no son un objeto JSON válido.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Los datos de entrada no son un objeto JSON válido." } } } },
     "La herramienta MCP se ejecutó correctamente. El resultado JSON está disponible.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "La herramienta MCP se ejecutó correctamente. El resultado JSON está disponible." } } } },
     "La herramienta MCP devolvió un error. El detalle está disponible en JSON.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "La herramienta MCP devolvió un error. El detalle está disponible en JSON." } } } },
-    "No se pudo ejecutar la herramienta MCP. El detalle está disponible en JSON.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "No se pudo ejecutar la herramienta MCP. El detalle está disponible en JSON." } } } }
+    "No se pudo ejecutar la herramienta MCP. El detalle está disponible en JSON.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "No se pudo ejecutar la herramienta MCP. El detalle está disponible en JSON." } } } },
+    "Busca usuario por username": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Busca usuario por username" } } } },
+    "Busca un username exacto dentro del alcance autorizado, pide confirmación para consultar el perfil sanitizado y abre VIDKAR para mostrarlo sin verbalizar datos privados.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Busca un username exacto dentro del alcance autorizado, pide confirmación para consultar el perfil sanitizado y abre VIDKAR para mostrarlo sin verbalizar datos privados." } } } },
+    "Nombre de usuario": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Nombre de usuario" } } } },
+    "Nombre y apellido": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Nombre y apellido" } } } },
+    "Username": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Username" } } } },
+    "@%@": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "@%@" } } } },
+    "Usuario VIDKAR": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Usuario VIDKAR" } } } },
+    "Busca el usuario ${username} en VIDKAR": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Busca el usuario ${username} en VIDKAR" } } } },
+    "Busca el usuario %@ en VIDKAR": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Busca el usuario %@ en VIDKAR" } } } },
+    "Buscar usuario": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Buscar usuario" } } } },
+    "¿Quieres buscar el username dentro de tu alcance autorizado de VIDKAR?": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "¿Quieres buscar el username dentro de tu alcance autorizado de VIDKAR?" } } } },
+    "Encontré una coincidencia. ¿Quieres consultar su perfil completo autorizado y abrirlo en VIDKAR?": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Encontré una coincidencia. ¿Quieres consultar su perfil completo autorizado y abrirlo en VIDKAR?" } } } },
+    "No encontré el username dentro de tu alcance autorizado de VIDKAR.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "No encontré el username dentro de tu alcance autorizado de VIDKAR." } } } },
+    "Encontré más de un usuario con ese username. No seleccioné ninguno.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Encontré más de un usuario con ese username. No seleccioné ninguno." } } } },
+    "Encontré el usuario %@ en VIDKAR.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Encontré el usuario %@ en VIDKAR." } } } },
+    "Encontré el usuario en VIDKAR. Abre la app para ver su perfil completo.": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Encontré el usuario en VIDKAR. Abre la app para ver su perfil completo." } } } }
   },
   "version": "1.0"
 }

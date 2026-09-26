@@ -1,8 +1,8 @@
 # Siri AI: búsqueda nativa estable y MCP experimental
 
 > Actualización 26/09: [consulta informativa background](./siri-catalog-background.md)
-> implementada separadamente del schema visual. Superficie actual: **9 acciones
-> VIDKAR, 8 shortcuts, 10 frases**; `AskQuestion` sigue desactivado. El reporte
+> implementada separadamente del schema visual. Superficie actual: **10 acciones
+> VIDKAR, 1 App Shortcut y 1 frase preconfigurada**; `AskQuestion` sigue desactivado. El reporte
 > «abre inicio» de build 1169/OS 27.2 no tiene causa demostrada ni traza de entrega
 > OS; el resolver actual pasa pruebas, pero el recorrido en dispositivo sigue pendiente.
 
@@ -24,7 +24,7 @@ No se cambian Codemagic, backend, firma, capacidades SiriKit ni dependencias.
 - Scopes oficiales declarados: `.general`, `.movies`, `.tv`. `.freeformVideo` existe, pero no describe este catálogo. No existen `.courses`, `.products` o `.users`.
 - El extractor exige `.requiresLocalDeviceAuthentication`: desbloqueo del dispositivo, adicional al login y autorización MCP. La simple compilación no comprobaba este requisito.
 - Se conserva deployment target **16.4**; los siete shortcuts anteriores siguen desde **17** por el paquete. En iOS anteriores a 27 no se anuncia el schema; se usa la app/acciones existentes. No se añade otro intent duplicado para 17.2.
-- Tras la ampliación informativa, la metadata dirigida tiene **9 acciones y 8 shortcuts** (sin contar widgets). El provider migra su bloque propio idempotentemente, conservando los siete shortcuts previos.
+- La metadata dirigida tiene **10 acciones y 1 shortcut** (sin contar widgets). El provider migra su bloque propio idempotentemente y publica solo la búsqueda exacta por username; las demás acciones no tienen frases preconfiguradas.
 
 ### Experiencia y límites deliberados
 
@@ -69,6 +69,7 @@ resolución vigente y validación de todas sus rutas; no es necesario para mostr
 - [System and in-app search](https://developer.apple.com/documentation/appintents/app-schema-domain-system-and-in-app-search): búsqueda general aplicable a diferentes tipos de apps.
 - [`.system.searchInApp`](https://developer.apple.com/documentation/appintents/appschema/systemintent/searchinapp): schema iOS 27; sustituye `.system.search`, deprecado en iOS 27. Recibe `StringSearchCriteria` y su objetivo es navegar a resultados en la app, no ser un agente MCP headless.
 - [ShowInAppSearchResultsIntent](https://developer.apple.com/documentation/appintents/showinappsearchresultsintent): ejecución en la app, foreground.
+- [OpenURLIntent](https://developer.apple.com/documentation/appintents/openurlintent): su contrato abre Universal Links; VIDKAR debe devolver el enlace HTTPS asociado `https://www.vidkar.com/search`, no asumir que un `vidkar://` devuelto por el intent equivale a ese callback.
 - [StringSearchCriteria](https://developer.apple.com/documentation/appintents/stringsearchcriteria) y [StringSearchScope](https://developer.apple.com/documentation/appintents/stringsearchscope): término del sistema y capacidades estáticas.
 - [Autenticación local](https://developer.apple.com/documentation/appintents/intentauthenticationpolicy/requireslocaldeviceauthentication): desbloqueo local, no sustituto de sesión VIDKAR.
 - [Schema open](https://developer.apple.com/documentation/appintents/appschema/systemintent/open): evaluado, no adoptado en este alcance.
@@ -82,7 +83,7 @@ Los tipos de intent/schema se compilan; las instancias de contenido y las consul
 
 ## Arquitectura estable
 
-Siri → schema → término literal → Expo Router → sesión y categorías explícitas → `search_entities` vía router MCP → autorización backend → resultados seleccionables.
+Siri → schema → término literal → OpenURLIntent con Universal Link AASA de `www.vidkar.com` → Expo Router → sesión y categorías explícitas → `search_entities` vía router MCP → autorización backend → resultados seleccionables.
 
 Dos responsabilidades distintas:
 

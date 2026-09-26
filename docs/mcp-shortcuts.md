@@ -4,15 +4,19 @@
 
 ## Estado actual de Siri (septiembre de 2026)
 
-La superficie activa ofrece nueve App Intents nativos (siete contratos anteriores conservados):
+La app conserva sus App Intents nativos, pero el `VidkarAppShortcutsProvider` ahora publica **un solo App Shortcut**:
 
-- `VIDKARQueryCatalogIntent`: consulta informativa background con `query` requerido, cinco resultados transitorios como máximo y diálogo con datos reales. Frase «Consulta el catálogo en VIDKAR». No abre la app, no usa modelos ni consulta datos privados. Véase [contrato, pruebas y límites](./siri-catalog-background.md).
+- `VIDKARSearchUserByUsernameIntent`: recibe un username obligatorio, busca coincidencia exacta dentro del alcance autorizado del token y pide confirmación separada para consultar el perfil. Obtiene `get_user` usando únicamente el ID devuelto por esa búsqueda; backend vuelve a validar el alcance. Siri recibe una `VIDKARUserSearchAppEntity` transitoria con nombre, username y avatar HTTPS allowlisted, y abre VIDKAR para mostrar la respuesta completa sanitizada en un snapshot en memoria, ligado al owner/revisión y con TTL de 120 segundos. No verbaliza el perfil ni devuelve direcciones de email o credenciales. La única frase preconfigurada es «Busca un usuario en VIDKAR»; Siri puede pedir el username si no lo extrae de la frase.
+
+Las demás intents siguen siendo acciones de la app para compatibilidad; no tienen frases preconfiguradas en el provider.
+
+- `VIDKARQueryCatalogIntent`: consulta informativa background con `query` requerido y hasta cinco resultados transitorios. No tiene App Shortcut preconfigurado ni abre la app. Véase [contrato, pruebas y límites](./siri-catalog-background.md).
 
 - `VIDKARQueryMCPIntent` (“Consulta MCP”) y `VIDKARExecuteMCPIntent` (“Ejecuta MCP”): mantienen la interfaz JSON para descubrir herramientas y ejecutar herramientas de solo lectura, con confirmación nativa cuando corresponde.
 - `VIDKARSearchMoviesIntent`, `VIDKARSearchSeriesIntent`, `VIDKARSearchCoursesIntent` y `VIDKARSearchCommerceProductsIntent`: devuelven entidades App Intents tipadas, con título, subtítulo, descripción, enlace VIDKAR e icono de dominio. El servidor vuelve a comprobar visibilidad, suscripción/nivel y alcance antes de entregar cada resultado; los productos se consultan solo en `COMERCIO`.
 - `VIDKARGetServiceUsageIntent`: devuelve una entity transitoria de Proxy o VPN después de solicitar confirmación. Solo incluye estado y consumo del titular del token; no ofrece sugerencias ni lookup posterior por ID.
 - `VIDKARSearchInAppIntent` (iOS 27): schema `.system.searchInApp`; abre `SiriSearch` con `criteria.term`, sin ejecutar red/inferencia ni reproducir. Requiere desbloqueo local. Declara scopes Apple `.general`, `.movies`, `.tv`; las categorías de la app se eligen en pantalla, no son parámetros ni scopes inventados de Siri.
-- `VidkarAppShortcutsProvider`, generado por el plugin en `AppDelegate.swift`, publica estas acciones en español. Las búsquedas devuelven resultados tipados para las superficies compatibles; Siri/Shortcuts decide cómo presenta cada entity y no se garantiza una tarjeta idéntica en todas las versiones de iOS.
+- `VidkarAppShortcutsProvider`, generado por el plugin en `AppDelegate.swift`, publica únicamente la búsqueda exacta de usuarios. Siri decide si selecciona la frase ante formulaciones distintas; la extracción de metadata no garantiza que entienda cualquier oración.
 
 `Consulta MCP` devuelve `{ success, count, tools }`. `Ejecuta MCP` devuelve `{ success, tool, data }` o `{ success: false, tool?, error: { code, message } }`. La respuesta MCP original se conserva dentro de `data` para poder encadenarla o analizarla como JSON en Atajos/otras herramientas. Los errores también mantienen la misma envoltura JSON. Las cuatro acciones de catálogo entregan colecciones de su tipo concreto, no JSON genérico.
 
@@ -65,7 +69,7 @@ Admite query de hasta 120 caracteres, categoría/estado, período natural o `fro
 
 Las búsquedas Siri tipadas resuelven el ID persistente consultando de nuevo al backend. Para `product`, una búsqueda exacta por ID solo se acepta con `category=COMERCIO` y selecciona exclusivamente `COMERCIO_productos`; el ID Mongo de entrada se mantiene separado del ID de entity compuesto que incluye su fuente.
 
-Los resultados de tipo `user` incluyen foto, rol y `serviceUsage` separado para Proxy/VPN: estado activo, bytes consumidos, límite en MB, condición ilimitada y vencimiento; VPN también indica conexión. La tarjeta muestra estos datos y al tocar cualquier parte abre `/(normal)/User` mediante el deep link validado. El resumen no expone email, contraseña VPN, IP ni credenciales.
+Los resultados de tipo `user` en `search_entities` incluyen foto, rol y `serviceUsage` separado para Proxy/VPN: estado activo, bytes consumidos, límite en MB, condición ilimitada y vencimiento; VPN también indica conexión. `get_user` agrega únicamente su proyección sanitizada: ID, username, nombre, rol, fecha de alta, foto, cantidad de correos (no las direcciones), estado y límites de servicios, dominios de VPN devueltos por el contrato y marca de cuenta bloqueada. El perfil se presenta en la ficha temporal de resultado de Siri; no se envían contraseñas, tokens ni direcciones de correo. La pantalla no vuelve a consultar el backend para representar el snapshot y borra el contenido al vencer, cerrar sesión o cambiar la revisión MCP.
 
 - Las búsquedas de películas requieren que sean visibles.
 - Series/capítulos requieren usuario autenticado con `subscipcionPelis === true` y contenido visible.
@@ -88,8 +92,8 @@ Las entidades de usuario, compra, ventas, mensajes y lecciones siguen sin expone
 
 1. Inicia sesión y configura el token MCP desde la pantalla de configuración MCP de VIDKAR.
 2. Usa un development build o distribución iOS nativa; Expo Go no contiene el módulo Swift ni App Intents.
-3. Para información sin abrir la app, selecciona **Consulta el catálogo** e indica el título/tema, o prueba «Consulta el catálogo en VIDKAR» y responde al parámetro solicitado. Las cuatro acciones de búsqueda anteriores conservan tipos y ahora ofrecen diálogos informativos. Siri decide la selección ante frases libres; no se promete extraer automáticamente el tema de cualquier oración.
-4. Para estado de cuenta, usa “Consulta mi Proxy/VPN en VIDKAR” y confirma la consulta. Prueba también “Consulta MCP”/“Ejecuta MCP” si necesitas inspeccionar o encadenar el JSON de herramientas.
+3. Para buscar una persona, usa «Busca usuario en VIDKAR» y proporciona el username exacto. La intent confirma la búsqueda y, tras una coincidencia única, confirma aparte la lectura del perfil; al aprobarla abre VIDKAR y muestra todos los campos que devuelve `get_user` dentro del alcance permitido. La tarjeta/voz de Siri solo recibe nombre y username; no se pronuncian los datos privados.
+4. Las otras acciones MCP continúan disponibles como intents explícitas en Atajos, pero ya no tienen frases preconfiguradas en el provider.
 
 El config plugin `plugins/with-vidkar-app-intents.js` registra el paquete del pod MCP en el `AppDelegate` generado; no se crea un target de extensión adicional. Para compilar y probar App Intents se requiere Xcode y un iPhone real; la compilación de simulator es útil pero no sustituye esa prueba.
 

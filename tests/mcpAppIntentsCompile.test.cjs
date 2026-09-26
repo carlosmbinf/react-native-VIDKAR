@@ -54,7 +54,9 @@ test("plugin: recursos solo en el target principal, idempotencia y regiones cons
   }
   const catalog = JSON.parse(fs.readFileSync(path.join(directory, "Vidkar/AppIntents/AppShortcuts.xcstrings"), "utf8"));
   const phrases = [...swift.matchAll(/"([^"\n]*\\\(\.applicationName\)[^"\n]*)"/g)].map((match) =>
-    match[1].replaceAll("\\(.applicationName)", "${applicationName}").replaceAll("\\(\\.$service)", "${service}"));
+    match[1].replaceAll("\\(.applicationName)", "${applicationName}")
+      .replaceAll("\\(\\.$service)", "${service}")
+      .replaceAll("\\(\\.$username)", "${username}"));
   assert.deepEqual(Object.keys(catalog.strings).sort(), phrases.sort());
   for (const [key, value] of Object.entries(catalog.strings)) assert.equal(value.localizations.es.stringUnit.value, key);
   for (const locale of ["en", "es"]) {
@@ -73,16 +75,16 @@ test("plugin migra provider histórico conservando código anterior/posterior", 
   fs.writeFileSync(file, "import Foundation\n// cambio ajeno previo\n");
   await apply();
   const fresh = fs.readFileSync(file, "utf8");
-  // Formato sin marcador final de 1.1.1 / build 1169.
-  const old = fresh.replace(/    AppShortcut\(\n      intent: VIDKARQueryCatalogIntent\(\),[\s\S]*?    \)\n/, "")
-    .replace("// VIDKAR_APP_SHORTCUTS_PROVIDER_END\n", "");
-  assert.equal((old.match(/    AppShortcut\(/g) || []).length, 7);
+  const shortcut = /    AppShortcut\([\s\S]*?\n    \)\n/.exec(fresh)?.[0];
+  assert.ok(shortcut);
+  const old = fresh.replace(shortcut, shortcut.repeat(8)).replace("// VIDKAR_APP_SHORTCUTS_PROVIDER_END\n", "");
+  assert.equal((old.match(/    AppShortcut\(/g) || []).length, 8);
   const suffix = '\n// cambio ajeno posterior\nstruct Other { let braces = "{}" }\n';
   fs.writeFileSync(file, old + suffix);
   await apply();
   const migrated = fs.readFileSync(file, "utf8");
   assert.equal(migrated, fresh + suffix);
-  assert.equal((migrated.match(/    AppShortcut\(/g) || []).length, 8);
+  assert.equal((migrated.match(/    AppShortcut\(/g) || []).length, 1);
   await apply();
   assert.equal(fs.readFileSync(file, "utf8"), migrated);
   const unknown = old.replace("  static var appShortcuts", "  // formato no reconocido\n  static var appShortcuts") + suffix;
