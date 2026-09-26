@@ -2,12 +2,18 @@
 
 ## Actualización: búsqueda estable
 
-La implementación actual añade `VIDKARSearchInAppIntent` iOS 27 sin planner.
-La extracción dirigida confirma **8 acciones y 7 shortcuts**. El validador del
+La implementación actual conserva `VIDKARSearchInAppIntent` iOS 27 sin planner
+y añade `VIDKARQueryCatalogIntent` informativo background.
+La extracción dirigida confirma **9 acciones VIDKAR y 8 shortcuts**. El validador del
 bundle exige además schema `SystemSearchInAppIntent`, `criteria`, scopes
 `general/movies/tv`, foreground y autenticación local. Solo
 `VIDKARAskQuestionIntent` debe permanecer ausente. Véase [alcance y límites](./siri-ai-integration.md).
 El diagnóstico histórico siguiente no certifica la IPA del dispositivo.
+
+El usuario confirma build 1169/OS 27.2 y atajos visibles, pero una petición libre
+abre inicio. No es ausencia de registro ni demuestra que el deep link llegara.
+Véase [evidencia actual, navegación pendiente y consulta directa](./siri-catalog-background.md).
+El plugin 1.2.0 ya migra el bloque del provider histórico sin clean.
 
 ## IPA inspeccionadas — 25 de septiembre de 2026
 
@@ -85,9 +91,9 @@ build publicado. No se cambiaron targets, firma, permisos ni contratos MCP.
   externos. La prueba antigua standalone sigue siendo útil, pero no valida
   metadatos por sí sola.
 - `scripts/validate-app-intents-metadata.cjs` recibe la ruta del `.app` principal.
-  Exige `Metadata.appintents/extract.actionsdata`, las ocho acciones descubribles,
-  los siete shortcuts/frases anteriores, el contrato del schema estable y la
-  ausencia del intent de preguntas experimental. Comprueba además las nueve
+  Exige `Metadata.appintents/extract.actionsdata`, las nueve acciones descubribles,
+  los ocho shortcuts (siete conservados), el contrato del schema estable y la
+  ausencia del intent de preguntas experimental. Comprueba además las diez
   frases españolas compiladas, sus placeholders y textos de las acciones.
   El formato comprobado corresponde al Xcode 27 fijado en Codemagic; si Apple lo
   cambia, fallar y revisar, no saltarse el control.

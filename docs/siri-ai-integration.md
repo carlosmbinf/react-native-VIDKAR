@@ -1,5 +1,11 @@
 # Siri AI: búsqueda nativa estable y MCP experimental
 
+> Actualización 26/09: [consulta informativa background](./siri-catalog-background.md)
+> implementada separadamente del schema visual. Superficie actual: **9 acciones
+> VIDKAR, 8 shortcuts, 10 frases**; `AskQuestion` sigue desactivado. El reporte
+> «abre inicio» de build 1169/OS 27.2 no tiene causa demostrada ni traza de entrega
+> OS; el resolver actual pasa pruebas, pero el recorrido en dispositivo sigue pendiente.
+
 ## Estado implementado — 25 de septiembre de 2026
 
 `VIDKARSearchInAppIntent` es estable y aditiva a los siete intents existentes.
@@ -18,7 +24,7 @@ No se cambian Codemagic, backend, firma, capacidades SiriKit ni dependencias.
 - Scopes oficiales declarados: `.general`, `.movies`, `.tv`. `.freeformVideo` existe, pero no describe este catálogo. No existen `.courses`, `.products` o `.users`.
 - El extractor exige `.requiresLocalDeviceAuthentication`: desbloqueo del dispositivo, adicional al login y autorización MCP. La simple compilación no comprobaba este requisito.
 - Se conserva deployment target **16.4**; los siete shortcuts anteriores siguen desde **17** por el paquete. En iOS anteriores a 27 no se anuncia el schema; se usa la app/acciones existentes. No se añade otro intent duplicado para 17.2.
-- La metadata del bundle debe tener **8 acciones y 7 shortcuts**; el provider no cambia y el test verifica su generación idempotente.
+- Tras la ampliación informativa, la metadata dirigida tiene **9 acciones y 8 shortcuts** (sin contar widgets). El provider migra su bloque propio idempotentemente, conservando los siete shortcuts previos.
 
 ### Experiencia y límites deliberados
 
@@ -47,7 +53,7 @@ en `plugins/resources/vidkar-app-intents/` al target principal. Conserva las fra
 publicadas y sus placeholders, añade `es` a regiones conocidas y mantiene `en/Base`
 y el idioma de desarrollo. Los recursos nativos se resuelven en el bundle principal.
 
-La prueba compila catálogos con Xcode y verifica las nueve frases, títulos,
+La prueba compila catálogos con Xcode y verifica las diez frases, títulos,
 parámetros, summaries y diálogos; Foundation resuelve textos en español sin fallback.
 El entrenamiento local genera `es.lproj/nlu.appintents`. El validador de IPA exige
 `AppShortcuts.strings` y `Localizable.strings` compilados; no exige el `.xcstrings`
@@ -111,7 +117,7 @@ La salida verbal de herramientas no tabulares sigue siendo una confirmación bre
 - Pendiente en iPhone: registro en Atajos, selección real por Siri, idioma/región/disponibilidad Apple Intelligence, bloqueo/desbloqueo, inicio frío/caliente, login, configuración MCP y revocación de permisos. Compilar/extraer no garantiza que Siri resuelva una frase concreta.
 - Android no adquiere Siri; conserva el fallback del módulo ausente. Web mantiene `SiriSearchScreen.web.jsx` sin imports nativos.
 
-Resultado final dirigido: **46 pruebas JS y 14 nativas aprobadas**, además de las
+Resultado histórico de la búsqueda visual: **46 pruebas JS y 14 nativas aprobadas**, además de las
 comprobaciones internas Swift de política y 32 carreras de sesión nativas. Lint global: 0 errores y 85
 advertencias ajenas; lint dirigido de los archivos afectados: limpio.
 
@@ -130,7 +136,7 @@ Rutas relativas a `react-native-VIDKAR/`:
 | Documentación | `docs/siri-ai-integration.md`, `docs/mcp-shortcuts.md`, `docs/app-intents-discovery-diagnostics.md` |
 
 El paquete incluye la nueva acción por extracción de metadata del módulo. El
-generador mantiene el provider existente y añade recursos localizados; el test
+generador migra el bloque propio del provider y añade recursos localizados; el test
 ejecuta el plugin dos veces y comprueba idempotencia. Los cambios fuente viven
 fuera de carpetas nativas generadas. No se revierten cambios previos en Codemagic,
 package.json o archivos Gradle.

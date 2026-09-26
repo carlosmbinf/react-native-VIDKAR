@@ -10,6 +10,7 @@ const shortcutIntents = [
   "VIDKARSearchCoursesIntent",
   "VIDKARSearchCommerceProductsIntent",
   "VIDKARGetServiceUsageIntent",
+  "VIDKARQueryCatalogIntent",
 ];
 // El schema se descubre por su metadata nativa; no necesita otro App Shortcut.
 const expectedIntents = [...shortcutIntents, "VIDKARSearchInAppIntent"];
@@ -35,6 +36,24 @@ function validateMetadata(metadata) {
     if (Object.hasOwn(actions, identifier) || shortcuts.some((shortcut) => shortcut.actionIdentifier === identifier)) {
       throw new Error(`Intent experimental habilitado: ${identifier}.`);
     }
+  }
+  const query = actions.VIDKARQueryCatalogIntent;
+  if (query.openAppWhenRun !== false || query.authenticationPolicy !== 1 || query.assistantDefinedSchemas?.length) {
+    throw new Error("QueryCatalog requiere background autenticado sin schema Apple de apertura.");
+  }
+  const parameter = query.parameters?.[0];
+  if (query.parameters?.length !== 1 || parameter.name !== "query" || parameter.isOptional !== false ||
+      parameter.valueType?.primitive?.wrapper?.typeIdentifier !== 0 ||
+      parameter.typeSpecificMetadata?.includes("LNValueTypeSpecificMetadataKeyDefaultValue")) {
+    throw new Error("QueryCatalog requiere query String sin default vacío.");
+  }
+  if (query.outputType?.array?.wrapper?.memberValueType?.entity?.wrapper?.typeName !== "VIDKARCatalogResultEntity") {
+    throw new Error("QueryCatalog debe devolver entidades de catálogo tipadas.");
+  }
+  const entity = metadata.entities?.VIDKARCatalogResultEntity;
+  if (entity?.transient !== true || JSON.stringify(entity.properties?.map((property) => property.identifier).sort()) !==
+      JSON.stringify(["description", "sourceId", "subtitle", "title", "type"])) {
+    throw new Error("QueryCatalog requiere entidad transitoria con proyección mínima.");
   }
   const search = actions.VIDKARSearchInAppIntent;
   if (!search.assistantDefinedSchemas?.some((schema) => schema.domain === "system" && schema.name === "SystemSearchInAppIntent")) {
@@ -92,6 +111,9 @@ function validateSpanishResources(appPath, metadata) {
       }
       const actions = readStrings(path.join(appPath, locale, "Localizable.strings"));
       for (const key of ["Consulta MCP", "Ejecuta MCP", "Consulta mi Proxy o VPN", "Servicio", "Herramienta MCP",
+        "Consulta el catálogo", "Qué quieres consultar", "Coincidencia del catálogo",
+        "No encontré coincidencias en el catálogo autorizado de VIDKAR.",
+        "No se pudo conectar con VIDKAR. Comprueba la conexión e inténtalo de nuevo.",
         "¿Quieres consultar el estado y consumo de tu servicio en VIDKAR?",
         "Esta consulta accede a información privada de tu cuenta. ¿Quieres continuar?"]) {
         if (typeof actions[key] !== "string" || !actions[key].trim()) throw new Error(`Falta texto español de acción: ${key}`);

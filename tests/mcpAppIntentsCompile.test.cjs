@@ -63,6 +63,34 @@ test("plugin: recursos solo en el target principal, idempotencia y regiones cons
   }
 });
 
+test("plugin migra provider histórico conservando código anterior/posterior", async (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "vidkar-provider-migration-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(directory, "Vidkar"));
+  const file = path.join(directory, "Vidkar/AppDelegate.swift");
+  const config = withVidkarAppIntents({ name: "Vidkar", slug: "vidkar" });
+  const apply = () => config.mods.ios.dangerous({ ...config, modRequest: { platformProjectRoot: directory }, modResults: {} });
+  fs.writeFileSync(file, "import Foundation\n// cambio ajeno previo\n");
+  await apply();
+  const fresh = fs.readFileSync(file, "utf8");
+  // Formato sin marcador final de 1.1.1 / build 1169.
+  const old = fresh.replace(/    AppShortcut\(\n      intent: VIDKARQueryCatalogIntent\(\),[\s\S]*?    \)\n/, "")
+    .replace("// VIDKAR_APP_SHORTCUTS_PROVIDER_END\n", "");
+  assert.equal((old.match(/    AppShortcut\(/g) || []).length, 7);
+  const suffix = '\n// cambio ajeno posterior\nstruct Other { let braces = "{}" }\n';
+  fs.writeFileSync(file, old + suffix);
+  await apply();
+  const migrated = fs.readFileSync(file, "utf8");
+  assert.equal(migrated, fresh + suffix);
+  assert.equal((migrated.match(/    AppShortcut\(/g) || []).length, 8);
+  await apply();
+  assert.equal(fs.readFileSync(file, "utf8"), migrated);
+  const unknown = old.replace("  static var appShortcuts", "  // formato no reconocido\n  static var appShortcuts") + suffix;
+  fs.writeFileSync(file, unknown);
+  await assert.rejects(apply, /no reconocido/);
+  assert.equal(fs.readFileSync(file, "utf8"), unknown);
+});
+
 test("los App Intents y el provider compilan en módulos separados", {
   skip: process.platform !== "darwin" && "Requiere Xcode y el SDK iOS",
 }, async (t) => {
@@ -82,7 +110,7 @@ test("los App Intents y el provider compilan en módulos separados", {
     .replace("import ExpoModulesCore\n", "");
   const modulePath = path.join(directory, "VidkarMCP.swift");
   fs.writeFileSync(modulePath, source);
-  const helpers = ["MCPQueryPolicy.swift", "MCPNaturalLanguagePlanner.swift", "MCPInAppSearch.swift"]
+  const helpers = ["MCPQueryPolicy.swift", "MCPNaturalLanguagePlanner.swift", "MCPInAppSearch.swift", "MCPCatalogQuery.swift"]
     .map((name) => path.join(__dirname, "../modules/vidkar-mcp/ios", name));
 
   const appDirectory = path.join(directory, "Vidkar");

@@ -5,7 +5,7 @@ const { createRunOncePlugin, withDangerousMod, withXcodeProject } = require("@ex
 
 const pkg = {
   name: "with-vidkar-app-intents",
-  version: "1.1.1",
+  version: "1.2.0",
 };
 
 const packageDeclaration = `
@@ -71,9 +71,32 @@ struct VidkarAppShortcutsProvider: AppShortcutsProvider {
       shortTitle: "Uso de Proxy o VPN",
       systemImageName: "shield.lefthalf.filled"
     )
+    AppShortcut(
+      intent: VIDKARQueryCatalogIntent(),
+      phrases: ["Consulta el catálogo en \\(.applicationName)"],
+      shortTitle: "Consulta el catálogo",
+      systemImageName: "magnifyingglass"
+    )
   }
 }
+// VIDKAR_APP_SHORTCUTS_PROVIDER_END
 `;
+
+function migrateShortcutsProvider(source) {
+  const marker = "// VIDKAR_APP_SHORTCUTS_PROVIDER";
+  const start = source.indexOf(marker);
+  if (start < 0) {
+    if (/struct\s+VidkarAppShortcutsProvider\b/.test(source)) {
+      throw new Error("Provider sin marcador de propiedad; no se sobrescribe AppDelegate.");
+    }
+    return `${source.trimEnd()}\n${shortcutsProviderDeclaration}`;
+  }
+  // El bloque histórico no tenía marcador final. Exigir su forma conocida,
+  // terminando en las dos llaves de nivel superior, no en el final del archivo.
+  const block = /^\/\/ VIDKAR_APP_SHORTCUTS_PROVIDER\r?\n@available\(iOS 17\.0, \*\)\r?\nstruct VidkarAppShortcutsProvider: AppShortcutsProvider \{\r?\n  static var appShortcuts: \[AppShortcut\] \{\r?\n[\s\S]*?\r?\n  \}\r?\n\}(?:\r?\n\/\/ VIDKAR_APP_SHORTCUTS_PROVIDER_END)?/.exec(source.slice(start));
+  if (!block) throw new Error("Bloque App Shortcuts no reconocido; se conserva AppDelegate sin sobrescribirlo.");
+  return source.slice(0, start) + shortcutsProviderDeclaration.trim() + source.slice(start + block[0].length);
+}
 
 const resourceNames = ["AppShortcuts.xcstrings", "Localizable.xcstrings"];
 
@@ -118,9 +141,7 @@ const withVidkarAppIntents = (config) => {
   if (!source.includes("VIDKAR_APP_INTENTS_PACKAGE")) {
     source = `${source.trimEnd()}\n${packageDeclaration}`;
   }
-  if (!source.includes("VIDKAR_APP_SHORTCUTS_PROVIDER")) {
-    source = `${source.trimEnd()}\n${shortcutsProviderDeclaration}`;
-  }
+  source = migrateShortcutsProvider(source);
   fs.writeFileSync(appDelegatePath, source);
   const resourcesPath = path.join(path.dirname(appDelegatePath), "AppIntents");
   fs.mkdirSync(resourcesPath, { recursive: true });

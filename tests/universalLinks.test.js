@@ -162,14 +162,21 @@ test("entrada nativa Expo entrega la misma búsqueda en frío y caliente sin dep
   }).outputText;
   const { redirectSystemPath } = await import(`data:text/javascript;base64,${Buffer.from(`${javascript}\n${nativeJS}`).toString("base64")}`);
   for (const initial of [true, false]) {
-    for (const path of ["vidkar://search?q=C%2B%2B%20%26%20Swift&entity=all", "/search?q=C%2B%2B%20%26%20Swift&entity=all"]) {
+    for (const path of ["vidkar://search?q=C%2B%2B%20%26%20Swift&entity=all", "/search?q=C%2B%2B%20%26%20Swift&entity=all", "https://www.vidkar.com/search?q=C%2B%2B%20%26%20Swift&entity=all"]) {
       const target = redirectSystemPath({ path, initial });
       assert.match(target, /^\/\(normal\)\/SiriSearch\?/);
       assert.equal(new URL(target, "https://fixture.example").searchParams.get("query"), "C++ & Swift");
+      assert.equal(new URL(target, "https://fixture.example").searchParams.get("entityType"), "all");
+      // El destino ya resuelto no debe convertirse en inicio en una segunda entrega.
+      assert.equal(redirectSystemPath({ path: target, initial }), target);
     }
     assert.equal(redirectSystemPath({ path: `vidkar://search?resultId=${RESULT_ID}`, initial }), `/(normal)/SiriSearch?resultId=${RESULT_ID}`);
     assert.equal(redirectSystemPath({ path: "vidkar://search?q=a&confirmed=true", initial }), "/");
     assert.equal(redirectSystemPath({ path: "vidkar://@search?q=a", initial }), "/");
     assert.equal(redirectSystemPath({ path: "vidkar://movie/fixture?q=Title", initial }), "vidkar://movie/fixture?q=Title");
+    for (const term of ["Título con acentos", "", "x".repeat(120), "😀".repeat(60)]) {
+      const target = redirectSystemPath({ path: `vidkar://search?q=${encodeURIComponent(term)}&entity=all`, initial });
+      assert.equal(target, `/(normal)/SiriSearch?${new URLSearchParams({ query: term, entityType: "all" })}`);
+    }
   }
 });

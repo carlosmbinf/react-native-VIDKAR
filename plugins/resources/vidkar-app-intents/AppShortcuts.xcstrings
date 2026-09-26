@@ -1,6 +1,7 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Consulta el catálogo en ${applicationName}": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Consulta el catálogo en ${applicationName}" } } } },
     "Consulta MCP en ${applicationName}": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Consulta MCP en ${applicationName}" } } } },
     "Consulta herramientas MCP en ${applicationName}": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Consulta herramientas MCP en ${applicationName}" } } } },
     "Ejecuta MCP en ${applicationName}": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Ejecuta MCP en ${applicationName}" } } } },

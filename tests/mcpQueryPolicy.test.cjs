@@ -51,7 +51,36 @@ test("transporte Swift real rechaza rotación same-owner antes y durante ejecuci
   fs.writeFileSync(sourcePath, source + fs.readFileSync(path.join(__dirname, "MCPTransportSessionTests.swift"), "utf8"));
   const executable = path.join(directory, "transport-tests");
   const build = spawnSync("xcrun", ["swiftc", "-swift-version", "5", "-parse-as-library", "-o", executable,
-    path.join(__dirname, "../modules/vidkar-mcp/ios/MCPQueryPolicy.swift"), sourcePath], { encoding: "utf8" });
+    path.join(__dirname, "../modules/vidkar-mcp/ios/MCPQueryPolicy.swift"),
+    path.join(__dirname, "../modules/vidkar-mcp/ios/MCPCatalogQuery.swift"), sourcePath], { encoding: "utf8" });
+  assert.equal(build.status, 0, build.stderr);
+  const result = spawnSync(executable, [], { encoding: "utf8", timeout: 20000 });
+  assert.equal(result.status, 0, result.error?.message || result.stderr);
+  t.diagnostic(result.stdout.trim());
+});
+
+test("consulta de catálogo: perform y entidades reales con I/O aislado", { skip: process.platform !== "darwin" }, (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "vidkar-catalog-intent-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const original = fs.readFileSync(path.join(__dirname, "../modules/vidkar-mcp/ios/VidkarMCPModule.swift"), "utf8");
+  const keychainStart = original.indexOf("private final class KeychainStore");
+  const transportStart = original.indexOf("private actor MCPTransport");
+  const legacyStart = original.indexOf("#if VIDKAR_LEGACY_INTENTS\nenum VIDKAREntityType");
+  const catalogStart = original.indexOf("protocol VIDKARCatalogAppEntity:");
+  const bridgeStart = original.indexOf("public final class VidkarMCPModule: Module");
+  assert.ok(keychainStart > 0 && transportStart > keychainStart && legacyStart > transportStart && catalogStart > legacyStart && bridgeStart > catalogStart);
+  const source = (original.slice(0, keychainStart) + original.slice(transportStart, legacyStart) + original.slice(catalogStart, bridgeStart))
+    .replace("import ExpoModulesCore\n", "").replace("import Security\n", "")
+    .replaceAll("UserDefaults.standard", "transportTestDefaults")
+    .replace("URLSession.shared.data(for: request)", "FixtureNetwork.shared.data(for: request)");
+  assert.ok(!source.includes("URLSession.shared") && !source.includes("SecItem") && !source.includes("OpenURLIntent"));
+  const fixtures = fs.readFileSync(path.join(__dirname, "MCPTransportSessionTests.swift"), "utf8").split("@main")[0];
+  const file = path.join(directory, "Catalog.swift");
+  fs.writeFileSync(file, source + fixtures + fs.readFileSync(path.join(__dirname, "MCPCatalogIntentTests.swift"), "utf8"));
+  const executable = path.join(directory, "catalog-tests");
+  const build = spawnSync("xcrun", ["swiftc", "-swift-version", "5", "-parse-as-library", "-o", executable,
+    path.join(__dirname, "../modules/vidkar-mcp/ios/MCPQueryPolicy.swift"),
+    path.join(__dirname, "../modules/vidkar-mcp/ios/MCPCatalogQuery.swift"), file], { encoding: "utf8" });
   assert.equal(build.status, 0, build.stderr);
   const result = spawnSync(executable, [], { encoding: "utf8", timeout: 20000 });
   assert.equal(result.status, 0, result.error?.message || result.stderr);

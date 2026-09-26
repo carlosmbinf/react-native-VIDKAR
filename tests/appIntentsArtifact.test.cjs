@@ -9,6 +9,11 @@ const { expectedIntents, shortcutIntents, validateMetadata, validateAppBundle } 
 const fixture = () => ({
   actions: {
     ...Object.fromEntries(expectedIntents.map((id) => [id, { isDiscoverable: true }])),
+    VIDKARQueryCatalogIntent: {
+      isDiscoverable: true, openAppWhenRun: false, authenticationPolicy: 1, assistantDefinedSchemas: [],
+      parameters: [{ name: "query", isOptional: false, valueType: { primitive: { wrapper: { typeIdentifier: 0 } } }, typeSpecificMetadata: [] }],
+      outputType: { array: { wrapper: { memberValueType: { entity: { wrapper: { typeName: "VIDKARCatalogResultEntity" } } } } } },
+    },
     VIDKARSearchInAppIntent: {
       isDiscoverable: true,
       assistantDefinedSchemas: [{ domain: "system", name: "SystemSearchInAppIntent" }],
@@ -19,6 +24,7 @@ const fixture = () => ({
       systemProtocolMetadataV2: [{ showInAppStringSearchResults: { searchScopes: ["general", "movies", "tv"] } }],
     },
   },
+  entities: { VIDKARCatalogResultEntity: { transient: true, properties: ["type", "sourceId", "title", "subtitle", "description"].map((identifier) => ({ identifier })) } },
   autoShortcuts: shortcutIntents.map((actionIdentifier) => ({ actionIdentifier, phraseTemplates: [{ key: "Consulta en ${applicationName}" }] })),
 });
 
@@ -32,8 +38,8 @@ const writeSpanishResources = (app, locale = "es") => {
   )));
 };
 
-test("acepta ocho acciones descubribles y los siete shortcuts conservados", () => {
-  assert.equal(validateMetadata(fixture()).actions, 8);
+test("acepta nueve acciones descubribles y ocho shortcuts conservando los siete anteriores", () => {
+  assert.equal(validateMetadata(fixture()).actions, 9);
 });
 
 test("rechaza referencias a shortcuts sin acciones y cada acción ausente", () => {
@@ -71,7 +77,7 @@ test("exige metadata del bundle principal, no solo la de un framework", (t) => {
   fs.writeFileSync(path.join(root, "extract.actionsdata"), JSON.stringify(fixture()));
   assert.throws(() => validateAppBundle(app), /evidencia española/);
   writeSpanishResources(app);
-  assert.equal(validateAppBundle(app).shortcuts, 7);
+  assert.equal(validateAppBundle(app).shortcuts, 8);
   fs.writeFileSync(path.join(root, "extract.actionsdata"), "not JSON");
   assert.throws(() => validateAppBundle(app), SyntaxError);
 });
@@ -113,4 +119,19 @@ test("rechaza schema sin contrato, scopes inventados o políticas menos restrict
   const metadata = fixture();
   metadata.autoShortcuts.push({ actionIdentifier: "VIDKARAskQuestionIntent" });
   assert.throws(() => validateMetadata(metadata), /experimental/);
+});
+
+test("rechaza consulta informativa foreground, opcional, con default, salida falsa o datos adicionales", () => {
+  for (const mutate of [
+    (m) => { m.actions.VIDKARQueryCatalogIntent.openAppWhenRun = true; },
+    (m) => { m.actions.VIDKARQueryCatalogIntent.assistantDefinedSchemas = [{}]; },
+    (m) => { m.actions.VIDKARQueryCatalogIntent.parameters[0].isOptional = true; },
+    (m) => { m.actions.VIDKARQueryCatalogIntent.parameters[0].typeSpecificMetadata = ["LNValueTypeSpecificMetadataKeyDefaultValue", { string: { wrapper: "" } }]; },
+    (m) => { delete m.actions.VIDKARQueryCatalogIntent.outputType; },
+    (m) => { m.entities.VIDKARCatalogResultEntity.transient = false; },
+    (m) => { m.entities.VIDKARCatalogResultEntity.properties.push({ identifier: "token" }); },
+  ]) {
+    const metadata = fixture(); mutate(metadata);
+    assert.throws(() => validateMetadata(metadata), /QueryCatalog/);
+  }
 });

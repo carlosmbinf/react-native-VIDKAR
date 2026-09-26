@@ -32,7 +32,7 @@ test("App Intents de producción: extracción del pod y de la app", {
   assert.ok(bridgeStart > 0 && bridgeEnd > bridgeStart);
   const modulePath = path.join(directory, "VidkarMCP.swift");
   fs.writeFileSync(modulePath, (original.slice(0, bridgeStart) + original.slice(bridgeEnd)).replace("import ExpoModulesCore\n", ""));
-  const helpers = ["MCPQueryPolicy.swift", "MCPNaturalLanguagePlanner.swift", "MCPInAppSearch.swift"]
+  const helpers = ["MCPQueryPolicy.swift", "MCPNaturalLanguagePlanner.swift", "MCPInAppSearch.swift", "MCPCatalogQuery.swift"]
     .map((name) => path.join(__dirname, "../modules/vidkar-mcp/ios", name));
   fs.mkdirSync(path.join(directory, "Vidkar"));
   const appPath = path.join(directory, "Vidkar/AppDelegate.swift");
@@ -78,7 +78,38 @@ test("App Intents de producción: extracción del pod y de la app", {
   const appMetadata = extract("VidkarApp", [appPath], podMetadata);
   const metadata = JSON.parse(fs.readFileSync(path.join(appMetadata, "extract.actionsdata"), "utf8"));
   assert.deepEqual(Object.keys(metadata.actions).sort(), [...expectedIntents].sort());
-  assert.equal(metadata.autoShortcuts.length, 7);
+  assert.equal(metadata.autoShortcuts.length, 8);
+  // Contratos publicados en build 1169: IDs, parámetros, defaults, entidades y JSON.
+  const previous = {
+    VIDKARQueryMCPIntent: [["toolName"], [""], null],
+    VIDKARExecuteMCPIntent: [["toolName", "argumentsJSON"], [undefined, "{}"], null],
+    VIDKARSearchMoviesIntent: [["query"], [""], "VIDKARMovieAppEntity"],
+    VIDKARSearchSeriesIntent: [["query"], [""], "VIDKARSeriesAppEntity"],
+    VIDKARSearchCoursesIntent: [["query"], [""], "VIDKARCourseAppEntity"],
+    VIDKARSearchCommerceProductsIntent: [["query"], [""], "VIDKARCommerceProductAppEntity"],
+    VIDKARGetServiceUsageIntent: [["service"], ["proxy"], "VIDKARServiceUsageAppEntity"],
+  };
+  for (const [id, [names, defaults, entity]] of Object.entries(previous)) {
+    const action = metadata.actions[id];
+    assert.deepEqual(action.parameters.map((parameter) => parameter.name), names, id);
+    assert.equal(action.openAppWhenRun, false, id);
+    assert.equal(action.authenticationPolicy, 1, id);
+    assert.deepEqual(action.assistantDefinedSchemas, [], id);
+    for (const [index, parameter] of action.parameters.entries()) {
+      const data = parameter.typeSpecificMetadata;
+      const at = data.indexOf("LNValueTypeSpecificMetadataKeyDefaultValue");
+      if (defaults[index] === undefined) assert.equal(at, -1, id);
+      else assert.ok(JSON.stringify(data[at + 1]).includes(JSON.stringify(defaults[index])), `${id}: default preservado`);
+      assert.equal(parameter.isOptional, false, id);
+      if (parameter.name !== "service") assert.equal(parameter.valueType.primitive.wrapper.typeIdentifier, 0, id);
+    }
+    if (!entity) assert.equal(action.outputType.primitive.wrapper.typeIdentifier, 0, `${id}: JSON String`);
+    else if (id === "VIDKARGetServiceUsageIntent") assert.equal(action.outputType.entity.wrapper.typeName, entity);
+    else {
+      assert.equal(action.outputType.array.wrapper.memberValueType.entity.wrapper.typeName, entity);
+      assert.deepEqual(metadata.entities[entity].properties.map((property) => property.identifier).sort(), ["deepLink", "subtitle", "summary", "title"]);
+    }
+  }
   const summary = validateMetadata(metadata);
   const appBundle = path.join(directory, "Vidkar.app");
   fs.mkdirSync(appBundle);

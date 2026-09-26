@@ -20,6 +20,16 @@ private actor FixtureNetwork {
   private var discoveries = 0
   private(set) var calls = 0
   private(set) var confirmations = 0
+  private(set) var lastArguments: [String: Any] = [:]
+  private var output = "{\"success\":true,\"results\":[]}"
+  private var readOnly = true
+  private var responseStatus = 200
+  private var offline = false
+
+  func response(_ output: String = "{\"success\":true,\"results\":[]}", readOnly: Bool = true, status: Int = 200, offline: Bool = false) {
+    self.output = output; self.readOnly = readOnly; responseStatus = status; self.offline = offline
+    calls = 0; lastArguments = [:]
+  }
 
   func pause(at phase: String) { pauseAt = phase; calls = 0; confirmations = 0; initializations = 0; discoveries = 0 }
   func waitUntilBlocked() async {
@@ -50,6 +60,8 @@ private actor FixtureNetwork {
     if method == "initialize" { initializations += 1 }
     if method == "tools/list" { discoveries += 1 }
     let isQuery = name == "search_entities" || name == "get_service_usage"
+    if isQuery { lastArguments = params["arguments"] as? [String: Any] ?? [:] }
+    if offline { throw URLError(.notConnectedToInternet) }
     let phase = method == "initialize" && initializations == 2 ? "call-initialize"
       : method == "tools/list" ? "discover" : isQuery ? "result" : "other"
     if isQuery { calls += 1 }
@@ -57,19 +69,19 @@ private actor FixtureNetwork {
     let result: [String: Any]
     if method == "tools/list" {
       result = ["tools": ["search_entities", "get_service_usage"].map { name in
-        ["name": name, "inputSchema": ["properties": ["entity": [:], "confirmed": [:], "userId": [:], "limit": [:], "offset": [:], "query": [:], "category": [:], "id": [:]]], "annotations": ["readOnlyHint": true]] as [String: Any]
+        ["name": name, "inputSchema": ["properties": ["entity": [:], "confirmed": [:], "userId": [:], "limit": [:], "offset": [:], "query": [:], "category": [:], "id": [:]]], "annotations": ["readOnlyHint": readOnly]] as [String: Any]
       }]
     } else if name == "get_current_user" {
       let owner = request.value(forHTTPHeaderField: "Authorization")!.contains("other-owner") ? "other-owner" : "fixture-owner"
       result = ["content": [["type": "text", "text": "{\"success\":true,\"userId\":\"\(owner)\"}"]]]
     } else if isQuery {
-      result = ["content": [["type": "text", "text": "{\"success\":true,\"results\":[]}"]]]
+      result = ["content": [["type": "text", "text": output]]]
     } else {
       precondition(method == "initialize", "No se permite otra operación")
       result = [:]
     }
     return (try JSONSerialization.data(withJSONObject: ["result": result]),
-      HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+      HTTPURLResponse(url: request.url!, statusCode: responseStatus, httpVersion: nil, headerFields: nil)!)
   }
 }
 

@@ -4,7 +4,9 @@
 
 ## Estado actual de Siri (septiembre de 2026)
 
-La superficie activa ofrece ocho App Intents nativos (siete contratos anteriores conservados):
+La superficie activa ofrece nueve App Intents nativos (siete contratos anteriores conservados):
+
+- `VIDKARQueryCatalogIntent`: consulta informativa background con `query` requerido, cinco resultados transitorios como máximo y diálogo con datos reales. Frase «Consulta el catálogo en VIDKAR». No abre la app, no usa modelos ni consulta datos privados. Véase [contrato, pruebas y límites](./siri-catalog-background.md).
 
 - `VIDKARQueryMCPIntent` (“Consulta MCP”) y `VIDKARExecuteMCPIntent` (“Ejecuta MCP”): mantienen la interfaz JSON para descubrir herramientas y ejecutar herramientas de solo lectura, con confirmación nativa cuando corresponde.
 - `VIDKARSearchMoviesIntent`, `VIDKARSearchSeriesIntent`, `VIDKARSearchCoursesIntent` y `VIDKARSearchCommerceProductsIntent`: devuelven entidades App Intents tipadas, con título, subtítulo, descripción, enlace VIDKAR e icono de dominio. El servidor vuelve a comprobar visibilidad, suscripción/nivel y alcance antes de entregar cada resultado; los productos se consultan solo en `COMERCIO`.
@@ -16,7 +18,7 @@ La superficie activa ofrece ocho App Intents nativos (siete contratos anteriores
 
 Las intents usan el endpoint HTTPS/token ya configurados desde la pantalla MCP. El token permanece en Keychain, ligado al propietario validado por `get_current_user`; nunca se recibe en los parámetros de Siri. El backend vuelve a comprobar autorización y confirmación. Una herramienta que no sea de solo lectura no se ejecuta desde Siri.
 
-Codemagic elimina `ios/` y ejecuta `expo prebuild`; el módulo local aporta las intents y el plugin Expo registra el paquete en `AppDelegate` de forma reproducible. Ambos workflows iOS verifican los metadatos del `.app` archivado y de la IPA exportada antes de publicar. `AppIntentsPackage` requiere iOS 17; se conserva el mínimo global 16.4, los siete shortcuts desde iOS 17 y el schema desde iOS 27, sin targets, entitlements ni perfiles nuevos. El provider permanece igual e idempotente: la octava acción se descubre por el schema, no necesita un octavo shortcut.
+El módulo local aporta las intents y el plugin Expo registra el paquete en `AppDelegate` de forma reproducible. Ambos workflows iOS verifican los metadatos del `.app` archivado y de la IPA exportada antes de publicar. `AppIntentsPackage` requiere iOS 17; se conserva el mínimo global 16.4, ocho shortcuts desde iOS 17 y el schema desde iOS 27, sin targets, entitlements ni perfiles nuevos. El plugin migra idempotentemente el bloque propio del provider histórico sin clean ni borrar código ajeno. La acción visual se descubre por el schema; la consulta informativa tiene el nuevo shortcut. En esta fase no se ejecutó prebuild ni build de la app.
 
 Si no aparece ninguna acción en Atajos, consulta el [diagnóstico de descubrimiento y verificación del binario](./app-intents-discovery-diagnostics.md). La ausencia total de acciones no equivale a la búsqueda integrada experimental desactivada.
 
@@ -86,7 +88,7 @@ Las entidades de usuario, compra, ventas, mensajes y lecciones siguen sin expone
 
 1. Inicia sesión y configura el token MCP desde la pantalla de configuración MCP de VIDKAR.
 2. Usa un development build o distribución iOS nativa; Expo Go no contiene el módulo Swift ni App Intents.
-3. En Siri/Atajos prueba “Busca la película … en VIDKAR”, “Busca la serie …”, “Busca el curso …” o “Busca el producto …”; cada acción devuelve resultados tipados del catálogo.
+3. Para información sin abrir la app, selecciona **Consulta el catálogo** e indica el título/tema, o prueba «Consulta el catálogo en VIDKAR» y responde al parámetro solicitado. Las cuatro acciones de búsqueda anteriores conservan tipos y ahora ofrecen diálogos informativos. Siri decide la selección ante frases libres; no se promete extraer automáticamente el tema de cualquier oración.
 4. Para estado de cuenta, usa “Consulta mi Proxy/VPN en VIDKAR” y confirma la consulta. Prueba también “Consulta MCP”/“Ejecuta MCP” si necesitas inspeccionar o encadenar el JSON de herramientas.
 
 El config plugin `plugins/with-vidkar-app-intents.js` registra el paquete del pod MCP en el `AppDelegate` generado; no se crea un target de extensión adicional. Para compilar y probar App Intents se requiere Xcode y un iPhone real; la compilación de simulator es útil pero no sustituye esa prueba.
