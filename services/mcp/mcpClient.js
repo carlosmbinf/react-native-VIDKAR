@@ -139,7 +139,7 @@ export const getMCPNaturalLanguageResult = async (id) => {
   return envelope;
 };
 
-export const authorizeMCPPlayback = async (entityType, entityId) => {
+export const authorizeMCPPlayback = async (entityType, entityId, querySession) => {
   const currentUserId = Meteor.userId();
   if (!currentUserId) throw new Error("Inicia sesión en VIDKAR antes de reproducir contenido.");
   if (!["movie", "episode", "lesson"].includes(String(entityType)) || !String(entityId)) {
@@ -157,7 +157,7 @@ export const authorizeMCPPlayback = async (entityType, entityId) => {
     limit: 1,
     offset: 0,
     ...(String(entityType) === "lesson" ? { confirmed: true } : {}),
-  });
+  }, querySession);
   const response = typeof responseText === "string" ? JSON.parse(responseText) : responseText;
   const matchingEntity = Array.isArray(response?.results)
     && response.results.some((entry) => String(entry.id) === String(entityId));
@@ -211,12 +211,43 @@ export const validateMCPArguments = (tool, args = {}) => {
   return true;
 };
 
-export const executeMCPTool = async (toolName, args = {}) => {
+export const getMCPQuerySession = async () => {
+  const ownerId = Meteor.userId();
+  if (!ownerId) throw new Error("Inicia sesión en VIDKAR para continuar.");
+  const nativeModule = requireNativeMCP();
+  const configuration = await nativeModule.getConfiguration();
+  if (Meteor.userId() !== ownerId || !configuration?.configured || configuration.ownerId !== String(ownerId)) {
+    throw new Error("La sesión MCP cambió. Vuelve a confirmar la consulta en tu cuenta actual.");
+  }
+  if (typeof configuration.revision !== "string" || !configuration.revision
+    || typeof nativeModule.executeToolForSession !== "function") {
+    throw new Error("Actualiza el binario de VIDKAR para usar la búsqueda segura desde Siri.");
+  }
+  return Object.freeze({ ownerId: String(ownerId), revision: configuration.revision });
+};
+
+export const assertMCPQuerySession = async (session) => {
+  const current = await getMCPQuerySession();
+  if (current.ownerId !== session?.ownerId || current.revision !== session?.revision) {
+    throw new Error("La sesión MCP cambió. Vuelve a confirmar la consulta en tu cuenta actual.");
+  }
+};
+
+export const executeMCPTool = async (toolName, args = {}, querySession = null) => {
+  // Un booleano no permite reconstruir a posteriori la sesión consentida.
+  if (args.confirmed === true && !querySession) {
+    throw new Error("La sesión MCP cambió. Vuelve a confirmar la consulta en tu cuenta actual.");
+  }
+  const session = querySession || await getMCPQuerySession();
+  await assertMCPQuerySession(session);
   const tool = await findMCPTool(toolName);
   if (!tool) throw new Error(`La herramienta MCP no está disponible: ${toolName}`);
   if (tool.readOnly !== true) throw new Error("No tienes permisos para realizar esa acción en VIDKAR.");
   validateMCPArguments(tool, args);
-  return requireNativeMCP().executeTool(toolName, args);
+  await assertMCPQuerySession(session);
+  const result = await requireNativeMCP().executeToolForSession(toolName, args, session.ownerId, session.revision);
+  await assertMCPQuerySession(session);
+  return result;
 };
 
 export const parseMCPArgumentsJSON = parseArgumentsJSON;

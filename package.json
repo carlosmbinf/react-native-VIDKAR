@@ -11,7 +11,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test:mcp": "node --experimental-default-type=module --test tests/mcpProtocol.test.js tests/universalLinks.test.js",
-    "test:mcp:ios": "node --test tests/mcpAppIntentsCompile.test.cjs tests/mcpQueryPolicy.test.cjs",
+    "test:mcp:ios": "node --test tests/mcpAppIntentsCompile.test.cjs tests/mcpAppIntentsMetadata.test.cjs tests/appIntentsArtifact.test.cjs tests/mcpQueryPolicy.test.cjs",
     "eval:mcp:ai": "node tests/mcpNaturalLanguage.eval.cjs",
     "build": "node ./scripts/patch-apple-targets-watch-prebuild.js && node ./scripts/patch-vlc-media-player.js && node ./scripts/patch-react-native-paper-portals.js && expo prebuild"
   },

@@ -1,13 +1,60 @@
-# Siri AI y MCP dinámico — investigación y prototipo
+# Siri AI: búsqueda nativa estable y MCP experimental
 
-## Estado: no habilitado para producción
+## Estado implementado — 25 de septiembre de 2026
 
-Revisión del 25 de septiembre de 2026 con documentación Apple y SDK Xcode 27.
-El prototipo compila, pero la evaluación del modelo local no alcanza el mínimo funcional:
-**5/8 casos**, incluidos errores en búsquedas generales y temas de cursos.
-Las nuevas intents están detrás de `VIDKAR_EXPERIMENTAL_NATURAL_LANGUAGE`.
-La configuración de la app y Codemagic **no definen** esa bandera; las siete intents anteriores permanecen activas.
-No se debe activar el prototipo simplemente porque compile.
+`VIDKARSearchInAppIntent` es estable y aditiva a los siete intents existentes.
+Adopta `.system.searchInApp` (iOS 27), recibe `criteria.term` del sistema y abre
+la pantalla existente `SiriSearch`. No llama a FoundationModels, no selecciona
+tools mediante IA y no consulta MCP desde `perform()`.
+
+Solo `VIDKARAskQuestionIntent` sigue detrás de `VIDKAR_EXPERIMENTAL_NATURAL_LANGUAGE`.
+El planner conserva su evaluación **5/8**; no se activa ni se rebajan sus pruebas.
+No se cambian Codemagic, backend, firma, capacidades SiriKit ni dependencias.
+
+### Contrato verificado contra Apple y Xcode 27.0 (27A5237l)
+
+- `ShowInAppSearchResultsIntent`, `StringSearchCriteria` y `StringSearchScope` existen desde **iOS 17.2**; el schema nuevo requiere **iOS 27**, no 17.2.
+- `StringSearchCriteria` solo contiene `term`. `searchScopes` es una propiedad **estática** de capacidades; no hay scope por invocación que permita saber que Siri eligió cursos/usuarios.
+- Scopes oficiales declarados: `.general`, `.movies`, `.tv`. `.freeformVideo` existe, pero no describe este catálogo. No existen `.courses`, `.products` o `.users`.
+- El extractor exige `.requiresLocalDeviceAuthentication`: desbloqueo del dispositivo, adicional al login y autorización MCP. La simple compilación no comprobaba este requisito.
+- Se conserva deployment target **16.4**; los siete shortcuts anteriores siguen desde **17** por el paquete. En iOS anteriores a 27 no se anuncia el schema; se usa la app/acciones existentes. No se añade otro intent duplicado para 17.2.
+- La metadata del bundle debe tener **8 acciones y 7 shortcuts**; el provider no cambia y el test verifica su generación idempotente.
+
+### Experiencia y límites deliberados
+
+1. Siri puede entregar `Terminator`: se busca literalmente en el catálogo autorizado y se muestran coincidencias, sin elegir ni reproducir la primera.
+2. Para «búscame los cursos», el sistema puede entregar `cursos` u otro texto. No se finge que es una categoría: la pantalla ofrece **Ver todos los cursos** (query vacía) y categoría **Cursos** para conservar un tema como `fotografía`.
+3. Para usuarios, la persona elige **Usuarios**, revisa/corrige el nombre y confirma. `all` nunca consulta usuarios. Login, token del owner y alcance backend siguen siendo obligatorios; no hay sugerencias ni indexación nueva de usuarios.
+4. Otros tools MCP se consultan mediante **Configurar o consultar MCP** y los dos intents JSON existentes. No hay interpretación arbitraria automática de todos los tools.
+5. `app/+native-intent.tsx` mapea búsquedas en frío/caliente sin depender de `index.native`; el login inline conserva la ruta. Las URLs de búsqueda solo admiten texto acotado y tipo permitido (o el contrato histórico `resultId`), nunca consentimiento, token, tool ni reproducción.
+6. “Abrir” muestra el destino existente y “Reproducir…” es una acción separada, confirmada y autorizada. Para películas/productos el destino de detalle disponible es la búsqueda filtrada existente, no se inventa una pantalla.
+
+El término se transporta por el deep link interno, sin resultados, credenciales ni owner;
+no se añade almacenamiento de consultas. La app invalida resultados tardíos al cambiar
+sesión, criterios o foco. El bridge nuevo liga la ejecución MCP a owner/revisión y falla
+cerrado en binarios antiguos para `search_entities` hasta actualizar el binario.
+
+La búsqueda espera conexión y restauración de la sesión Meteor también en arranque
+frío, sin depender de que se monte la pantalla de inicio. Una película seleccionada
+se resuelve por `id`, no filtrando la primera página de coincidencias por título.
+Las confirmaciones de UI y de los intents nativos quedan ligadas a owner/revisión
+antes del diálogo; cambios de cuenta o configuración invalidan consultas y respuestas.
+
+### Localización española reproducible
+
+El plugin incorpora `AppShortcuts.xcstrings` y `Localizable.xcstrings` versionados
+en `plugins/resources/vidkar-app-intents/` al target principal. Conserva las frases
+publicadas y sus placeholders, añade `es` a regiones conocidas y mantiene `en/Base`
+y el idioma de desarrollo. Los recursos nativos se resuelven en el bundle principal.
+
+La prueba compila catálogos con Xcode y verifica las nueve frases, títulos,
+parámetros, summaries y diálogos; Foundation resuelve textos en español sin fallback.
+El entrenamiento local genera `es.lproj/nlu.appintents`. El validador de IPA exige
+`AppShortcuts.strings` y `Localizable.strings` compilados; no exige el `.xcstrings`
+fuente ni un formato privado fijo para NLU.
+
+No se añade `.system.open`: requeriría un contrato de entidad/apertura independiente,
+resolución vigente y validación de todas sus rutas; no es necesario para mostrar resultados.
 
 ## Qué documenta Apple
 
@@ -15,7 +62,10 @@ No se debe activar el prototipo simplemente porque compile.
 - [Dominios de schemas](https://developer.apple.com/documentation/appintents/app-schema-domains): distinguir dominios para Siri AI de los que solo funcionan en Atajos. No inventar schemas de películas, cursos, usuarios o MCP.
 - [System and in-app search](https://developer.apple.com/documentation/appintents/app-schema-domain-system-and-in-app-search): búsqueda general aplicable a diferentes tipos de apps.
 - [`.system.searchInApp`](https://developer.apple.com/documentation/appintents/appschema/systemintent/searchinapp): schema iOS 27; sustituye `.system.search`, deprecado en iOS 27. Recibe `StringSearchCriteria` y su objetivo es navegar a resultados en la app, no ser un agente MCP headless.
-- [ShowInAppSearchResultsIntent](https://developer.apple.com/documentation/appintents/showinappsearchresultsintent): ejecución en la app, foreground, ámbito de búsqueda `.general`.
+- [ShowInAppSearchResultsIntent](https://developer.apple.com/documentation/appintents/showinappsearchresultsintent): ejecución en la app, foreground.
+- [StringSearchCriteria](https://developer.apple.com/documentation/appintents/stringsearchcriteria) y [StringSearchScope](https://developer.apple.com/documentation/appintents/stringsearchscope): término del sistema y capacidades estáticas.
+- [Autenticación local](https://developer.apple.com/documentation/appintents/intentauthenticationpolicy/requireslocaldeviceauthentication): desbloqueo local, no sustituto de sesión VIDKAR.
+- [Schema open](https://developer.apple.com/documentation/appintents/appschema/systemintent/open): evaluado, no adoptado en este alcance.
 - [Contexto en pantalla](https://developer.apple.com/documentation/appintents/providing-contextual-cues-to-apple-intelligence-and-siri): asociar entidades realmente visibles; React Native no entrega ese contexto automáticamente.
 - [Entidades en Spotlight](https://developer.apple.com/documentation/appintents/making-app-entities-available-in-spotlight): `IndexedEntity`, índice con nombre, reindexación y apertura. No indexar todos los datos privados por conveniencia.
 
@@ -24,9 +74,9 @@ No se encontró en estas APIs una operación para registrar `tools/list` como he
 Devolver un JSON con herramientas desde una intent tampoco garantiza que Siri elija otra intent y construya sus argumentos.
 Los tipos de intent/schema se compilan; las instancias de contenido y las consultas pueden ser dinámicas.
 
-## Arquitectura propuesta
+## Arquitectura estable
 
-Siri AI → schema de búsqueda general → interpretación en la app → catálogo MCP → validación → confirmación → llamada autorizada → resultados.
+Siri → schema → término literal → Expo Router → sesión y categorías explícitas → `search_entities` vía router MCP → autorización backend → resultados seleccionables.
 
 Dos responsabilidades distintas:
 
@@ -37,21 +87,55 @@ El prototipo usa [Foundation Models](https://developer.apple.com/documentation/f
 La [generación guiada dinámica](https://developer.apple.com/documentation/foundationmodels/generating-swift-data-structures-with-guided-generation) restringe nombres/tipos, pero no garantiza que los valores correspondan a lo pedido.
 Apple también documenta [tool calling](https://developer.apple.com/documentation/foundationmodels/expanding-generation-with-tool-calling); no debe confundirse con publicar herramientas al sistema Siri.
 
-## Piezas del prototipo
+## Piezas del prototipo restante (no habilitado)
 
 - `MCPNaturalLanguagePlanner.swift`: descubre el catálogo actual, selecciona herramienta/campos y genera argumentos con schemas Apple construidos en runtime; sin tabla fija de herramientas.
 - `MCPQueryPolicy.swift`: validación de tipos/enums/límites y rechazo de schemas no soportados, eliminación de `confirmed` generado, marcador de propietario resuelto por código, resultados temporales acotados.
-- `VIDKARSearchInAppIntent`: schema oficial iOS 27; muestra resultados en la app.
+- `VIDKARSearchInAppIntent` ya NO forma parte del prototipo: su ruta estable está descrita arriba.
 - `VIDKARAskQuestionIntent`: texto libre para Atajos desde iOS 26, con JSON y diálogo. No garantiza invocación libre por Siri.
 - `MCPTransport`: revision de sesión comprobada antes/después de las llamadas; rechazo si cambia la cuenta o configuración; confirmación nativa para datos privados.
 - Resultados en memoria durante 120 segundos, máximo tres, ligados al propietario y revisión; sin contenido sensible en deep links ni persistencia en disco. Si cambia el proceso, el resultado deja de estar disponible.
 - `vidkar://search?resultId=<UUID>` abre la pantalla existente y lee el resultado, sin volver a ejecutar la consulta ni renovar el vencimiento.
-- El MCP conserva sus contratos. Solo se amplía el listado de `course` sin texto y se aclaran metadatos de consentimiento/Proxy/VPN.
+- Antecedente del prototipo: se amplió el listado de `course` sin texto y se aclararon metadatos de consentimiento/Proxy/VPN. Esta implementación estable consume ese contrato ya existente; no modifica el backend.
 
 No se implementó indexación masiva, historial conversacional, contexto visual ni un modelo externo. No se añadieron compras ni mutaciones.
 La salida verbal de herramientas no tabulares sigue siendo una confirmación breve con resultado estructurado, no un resumen financiero inventado.
 
-## Pruebas y resultado observado
+## Validación de la implementación estable
+
+- `npm run test:mcp`: pantalla real con hooks/bridge aislados; términos literales, categorías, listado de cursos, consentimiento/cancelación, login, errores, selección sin autoplay, respuestas tardías y regresiones de snapshots. Router en frío/caliente y rechazo de enlaces inválidos. Sin red real.
+- `npm run test:mcp:ios`: compilación optimizada para iPhone y simulador con mínimo 16.4, prueba standalone Swift del enlace y extracción real pod/app. Valida schema, availability 27, criterios del sistema, scopes oficiales y autenticación local. El intent experimental restante debe estar ausente de metadata.
+- `npm run lint`: sin errores; advertencias preexistentes fuera del alcance.
+- `npx tsc --noEmit`: queda bloqueado por el símbolo SF ajeno en `widgets/ProxyVpnUsageWidget.tsx:191`; los archivos de esta integración no presentan errores de tipos.
+- No se construyó una nueva archive/IPA ni se ejecutó Codemagic. Se inspeccionaron dos IPA anteriores: build 1143 sin acciones VIDKAR y build 1168 con siete, sin el nuevo schema ni localización española explícita. Véase [evidencia de los artefactos](./app-intents-discovery-diagnostics.md). Ninguna incluye estos cambios nuevos.
+- Pendiente en iPhone: registro en Atajos, selección real por Siri, idioma/región/disponibilidad Apple Intelligence, bloqueo/desbloqueo, inicio frío/caliente, login, configuración MCP y revocación de permisos. Compilar/extraer no garantiza que Siri resuelva una frase concreta.
+- Android no adquiere Siri; conserva el fallback del módulo ausente. Web mantiene `SiriSearchScreen.web.jsx` sin imports nativos.
+
+Resultado final dirigido: **46 pruebas JS y 14 nativas aprobadas**, además de las
+comprobaciones internas Swift de política y 32 carreras de sesión nativas. Lint global: 0 errores y 85
+advertencias ajenas; lint dirigido de los archivos afectados: limpio.
+
+### Archivos de esta implementación
+
+Rutas relativas a `react-native-VIDKAR/`:
+
+| Área | Archivos |
+| --- | --- |
+| Swift y bridge | `modules/vidkar-mcp/ios/VidkarMCPModule.swift`, `modules/vidkar-mcp/ios/MCPInAppSearch.swift` (nuevo), `modules/vidkar-mcp/src/index.ts` |
+| Cliente y política | `services/mcp/mcpClient.js`, `services/mcp/inAppSearch.js` (nuevo), `services/meteor/client.native.js` |
+| Navegación y pantalla | `app/+native-intent.tsx` (nuevo), `app/index.native.tsx`, `services/navigation/universalLinks.ts`, `components/mcp/SiriSearchScreen.native.jsx` |
+| Metadata/IPA | `scripts/validate-app-intents-metadata.cjs` (ampliación del trabajo previo) |
+| Localización reproducible | `plugins/with-vidkar-app-intents.js`, `plugins/resources/vidkar-app-intents/AppShortcuts.xcstrings`, `plugins/resources/vidkar-app-intents/Localizable.xcstrings` |
+| Pruebas | `tests/mcpAppIntentsCompile.test.cjs`, `tests/mcpAppIntentsMetadata.test.cjs`, `tests/appIntentsArtifact.test.cjs`, `tests/mcpQueryPolicy.test.cjs`, `tests/MCPInAppSearchTests.swift` (nuevo), `tests/mcpSnapshot.test.js`, `tests/universalLinks.test.js` |
+| Documentación | `docs/siri-ai-integration.md`, `docs/mcp-shortcuts.md`, `docs/app-intents-discovery-diagnostics.md` |
+
+El paquete incluye la nueva acción por extracción de metadata del módulo. El
+generador mantiene el provider existente y añade recursos localizados; el test
+ejecuta el plugin dos veces y comprueba idempotencia. Los cambios fuente viven
+fuera de carpetas nativas generadas. No se revierten cambios previos en Codemagic,
+package.json o archivos Gradle.
+
+## Evaluación histórica del planner (sin habilitar)
 
 - `npm run test:mcp:ios`: compilación optimizada del prototipo en iPhone y simulador, consumo del módulo desde el provider y pruebas deterministas de política/aislamiento.
 - `npm run test:mcp`: contratos JSON y rutas.
@@ -74,11 +158,11 @@ La salida verbal de herramientas no tabulares sigue siendo una confirmación bre
 El comando de evaluación devuelve fallo mientras existan estos errores: no rebajar expectativas ni ocultar el resultado.
 Una evaluación local exitosa tampoco sustituiría pruebas de extracción de metadata, archive firmado, Siri en iPhone, idioma/región y app fría/caliente.
 
-## Decisión pendiente
+## Decisión adoptada
 
-Elegir entre:
+Se implementó la alternativa **nativa acotada**, sin intérprete en el camino estable:
 
-1. **Integración nativa acotada:** schema general + entidades/queries, manteniendo MCP como fuente de datos, sin prometer interpretación de cualquier herramienta. Menos flexible pero no depende del planificador local experimental.
-2. **Intérprete más capaz:** evaluar otro modelo Apple o un modelo servidor explícitamente aprobado con catálogo dinámico. Requiere definir privacidad, coste, disponibilidad, latencia y pruebas antes de activar.
+1. Schema general + resultados existentes, manteniendo MCP como fuente de datos y categorías explícitas. No depende del planificador local.
+2. Un intérprete más capaz continúa fuera de alcance: necesita aprobación, política de privacidad/coste y evaluación antes de activarse.
 
 No hay base para prometer «100 % con Siri AI». La mejora debe medirse con frases de prueba y datos autorizados, y no habilitarse si falla los casos básicos.

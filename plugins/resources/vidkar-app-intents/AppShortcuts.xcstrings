@@ -1,0 +1,15 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Consulta MCP en ${applicationName}": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Consulta MCP en ${applicationName}" } } } },
+    "Consulta herramientas MCP en ${applicationName}": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Consulta herramientas MCP en ${applicationName}" } } } },
+    "Ejecuta MCP en ${applicationName}": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Ejecuta MCP en ${applicationName}" } } } },
+    "Ejecuta una herramienta MCP en ${applicationName}": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Ejecuta una herramienta MCP en ${applicationName}" } } } },
+    "Busca películas en ${applicationName}": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Busca películas en ${applicationName}" } } } },
+    "Busca series en ${applicationName}": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Busca series en ${applicationName}" } } } },
+    "Busca cursos en ${applicationName}": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Busca cursos en ${applicationName}" } } } },
+    "Busca productos en ${applicationName}": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Busca productos en ${applicationName}" } } } },
+    "Consulta mi ${service} en ${applicationName}": { "localizations": { "es": { "stringUnit": { "state": "translated", "value": "Consulta mi ${service} en ${applicationName}" } } } }
+  },
+  "version": "1.0"
+}

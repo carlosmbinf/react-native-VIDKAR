@@ -342,7 +342,9 @@ export default function IndexScreen() {
         return;
       }
 
-      if (!resolveUniversalLink(url)) {
+      const target = resolveUniversalLink(url);
+      // +native-intent entrega búsquedas directamente en frío/caliente, sin doble navegación.
+      if (!target || /^vidkar:\/\/search(?:\?|$)|^https:\/\/(?:www\.)?vidkar\.com\/search(?:\?|$)/i.test(url)) {
         return;
       }
 
@@ -367,13 +369,14 @@ export default function IndexScreen() {
   }, []);
 
   React.useEffect(() => {
-    if (!canConsumeUniversalLink(pendingUniversalLink, ready, userId)) {
+    const pendingLink = pendingUniversalLink;
+    if (!pendingLink || !canConsumeUniversalLink(pendingLink, ready, userId)) {
       return;
     }
 
     let cancelled = false;
     const navigateFromLink = async () => {
-      let linkToResolve = pendingUniversalLink;
+      let linkToResolve = pendingLink;
       let navigationTarget = resolveUniversalLink(linkToResolve);
       if (!navigationTarget) {
         setPendingUniversalLink(null);
@@ -382,7 +385,7 @@ export default function IndexScreen() {
 
       let parsedURL: URL | null = null;
       try {
-        parsedURL = new URL(pendingUniversalLink);
+        parsedURL = new URL(pendingLink);
       } catch {
         // The shared resolver already rejects malformed URLs.
       }

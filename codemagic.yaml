@@ -209,7 +209,7 @@ workflows:
 
       - name: Build IPA
         script: |
-          set -o pipefail
+          set -eo pipefail
           ARCHIVE_PATH="$CM_BUILD_DIR/build/ios/xcarchive/Vidkar.xcarchive"
           EXPORT_PATH="$CM_BUILD_DIR/build/ios/ipa"
 
@@ -226,11 +226,22 @@ workflows:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution"
 
+          node ./scripts/validate-app-intents-metadata.cjs \
+            "$ARCHIVE_PATH/Products/Applications/Vidkar.app"
+
           xcodebuild \
             -exportArchive \
             -archivePath "$ARCHIVE_PATH" \
             -exportOptionsPlist "$HOME/export_options.plist" \
             -exportPath "$EXPORT_PATH"
+
+          IPA_CHECK_DIR=$(mktemp -d)
+          trap 'rm -rf "$IPA_CHECK_DIR"' EXIT
+          set -- "$EXPORT_PATH"/*.ipa
+          test "$#" -eq 1 && test -f "$1"
+          ditto -x -k "$1" "$IPA_CHECK_DIR"
+          node ./scripts/validate-app-intents-metadata.cjs \
+            "$IPA_CHECK_DIR/Payload/Vidkar.app"
 
     artifacts:
       - build/ios/ipa/*.ipa
@@ -416,7 +427,7 @@ workflows:
 
       - name: Build IPA
         script: |
-          set -o pipefail
+          set -eo pipefail
           ARCHIVE_PATH="$CM_BUILD_DIR/build/ios/xcarchive/Vidkar.xcarchive"
           EXPORT_PATH="$CM_BUILD_DIR/build/ios/ipa"
 
@@ -433,11 +444,22 @@ workflows:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution"
 
+          node ./scripts/validate-app-intents-metadata.cjs \
+            "$ARCHIVE_PATH/Products/Applications/Vidkar.app"
+
           xcodebuild \
             -exportArchive \
             -archivePath "$ARCHIVE_PATH" \
             -exportOptionsPlist "$HOME/export_options.plist" \
             -exportPath "$EXPORT_PATH"
+
+          IPA_CHECK_DIR=$(mktemp -d)
+          trap 'rm -rf "$IPA_CHECK_DIR"' EXIT
+          set -- "$EXPORT_PATH"/*.ipa
+          test "$#" -eq 1 && test -f "$1"
+          ditto -x -k "$1" "$IPA_CHECK_DIR"
+          node ./scripts/validate-app-intents-metadata.cjs \
+            "$IPA_CHECK_DIR/Payload/Vidkar.app"
 
     artifacts:
       - android/app/build/outputs/**/*.aab

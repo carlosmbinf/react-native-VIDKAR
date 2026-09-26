@@ -1,21 +1,24 @@
 # Siri, App Intents y MCP de VIDKAR
 
-> Investigación Siri AI iOS 27 y prototipo no habilitado: [siri-ai-integration.md](./siri-ai-integration.md). El planificador local aún falla en 3 de 8 casos evaluados; las nuevas intents permanecen detrás de `VIDKAR_EXPERIMENTAL_NATURAL_LANGUAGE`, no definido en producción. Las siete acciones actuales se conservan.
+> Búsqueda nativa estable iOS 27: [siri-ai-integration.md](./siri-ai-integration.md). `VIDKARSearchInAppIntent` usa los criterios del sistema sin FoundationModels. Solo `VIDKARAskQuestionIntent` permanece detrás de `VIDKAR_EXPERIMENTAL_NATURAL_LANGUAGE`; el planner sigue fallando 3/8 casos y no se habilita.
 
 ## Estado actual de Siri (septiembre de 2026)
 
-La superficie activa ofrece siete App Intents nativos:
+La superficie activa ofrece ocho App Intents nativos (siete contratos anteriores conservados):
 
 - `VIDKARQueryMCPIntent` (“Consulta MCP”) y `VIDKARExecuteMCPIntent` (“Ejecuta MCP”): mantienen la interfaz JSON para descubrir herramientas y ejecutar herramientas de solo lectura, con confirmación nativa cuando corresponde.
 - `VIDKARSearchMoviesIntent`, `VIDKARSearchSeriesIntent`, `VIDKARSearchCoursesIntent` y `VIDKARSearchCommerceProductsIntent`: devuelven entidades App Intents tipadas, con título, subtítulo, descripción, enlace VIDKAR e icono de dominio. El servidor vuelve a comprobar visibilidad, suscripción/nivel y alcance antes de entregar cada resultado; los productos se consultan solo en `COMERCIO`.
 - `VIDKARGetServiceUsageIntent`: devuelve una entity transitoria de Proxy o VPN después de solicitar confirmación. Solo incluye estado y consumo del titular del token; no ofrece sugerencias ni lookup posterior por ID.
-- `VIDKARMCPSiriShortcuts` publica estas acciones en español. Las búsquedas devuelven resultados tipados para las superficies compatibles; Siri/Shortcuts decide cómo presenta cada entity y no se garantiza una tarjeta idéntica en todas las versiones de iOS.
+- `VIDKARSearchInAppIntent` (iOS 27): schema `.system.searchInApp`; abre `SiriSearch` con `criteria.term`, sin ejecutar red/inferencia ni reproducir. Requiere desbloqueo local. Declara scopes Apple `.general`, `.movies`, `.tv`; las categorías de la app se eligen en pantalla, no son parámetros ni scopes inventados de Siri.
+- `VidkarAppShortcutsProvider`, generado por el plugin en `AppDelegate.swift`, publica estas acciones en español. Las búsquedas devuelven resultados tipados para las superficies compatibles; Siri/Shortcuts decide cómo presenta cada entity y no se garantiza una tarjeta idéntica en todas las versiones de iOS.
 
 `Consulta MCP` devuelve `{ success, count, tools }`. `Ejecuta MCP` devuelve `{ success, tool, data }` o `{ success: false, tool?, error: { code, message } }`. La respuesta MCP original se conserva dentro de `data` para poder encadenarla o analizarla como JSON en Atajos/otras herramientas. Los errores también mantienen la misma envoltura JSON. Las cuatro acciones de catálogo entregan colecciones de su tipo concreto, no JSON genérico.
 
 Las intents usan el endpoint HTTPS/token ya configurados desde la pantalla MCP. El token permanece en Keychain, ligado al propietario validado por `get_current_user`; nunca se recibe en los parámetros de Siri. El backend vuelve a comprobar autorización y confirmación. Una herramienta que no sea de solo lectura no se ejecuta desde Siri.
 
-Codemagic permanece sin cambios: su workflow iOS elimina `ios/` y ejecuta `expo prebuild`; el módulo local aporta las intents y el plugin Expo registra el paquete en `AppDelegate` de forma reproducible. `AppIntentsPackage` requiere iOS 17; la app conserva su mínimo global 16.4 y las acciones Siri MCP quedan disponibles desde iOS 17, sin targets, entitlements, perfiles ni pasos nuevos.
+Codemagic elimina `ios/` y ejecuta `expo prebuild`; el módulo local aporta las intents y el plugin Expo registra el paquete en `AppDelegate` de forma reproducible. Ambos workflows iOS verifican los metadatos del `.app` archivado y de la IPA exportada antes de publicar. `AppIntentsPackage` requiere iOS 17; se conserva el mínimo global 16.4, los siete shortcuts desde iOS 17 y el schema desde iOS 27, sin targets, entitlements ni perfiles nuevos. El provider permanece igual e idempotente: la octava acción se descubre por el schema, no necesita un octavo shortcut.
+
+Si no aparece ninguna acción en Atajos, consulta el [diagnóstico de descubrimiento y verificación del binario](./app-intents-discovery-diagnostics.md). La ausencia total de acciones no equivale a la búsqueda integrada experimental desactivada.
 
 ## MCP móvil (independiente de Siri)
 
@@ -73,7 +76,9 @@ Los resultados de tipo `user` incluyen foto, rol y `serviceUsage` separado para 
 
 ## Deep links y navegación (pantallas MCP/Spotlight existentes)
 
-`services/navigation/universalLinks.ts` conserva Universal Links HTTPS y el allowlist `vidkar://` para pantallas existentes. Las acciones Siri no inician reproducción, compra ni navegación automática. Las entities de catálogo incluyen un deep link validado como propiedad para que otro flujo explícito pueda abrir el contenido.
+`services/navigation/universalLinks.ts` conserva Universal Links HTTPS y el allowlist `vidkar://`. `app/+native-intent.tsx` entrega búsquedas en frío/caliente directamente a `SiriSearch`, también cuando la pantalla inicial no está montada. La octava acción sí navega a resultados; no reproduce ni compra. La pantalla permite editar el término, elegir categoría, listar cursos sin texto y seleccionar una coincidencia. “Abrir” no reproduce; “Reproducir…” es otra acción con confirmación y autorización vigente.
+
+Sin sesión, el login existente se presenta dentro de esa ruta y conserva los criterios. MCP debe estar configurado explícitamente; se ofrece acceso a su pantalla y reintento. Usuarios requieren confirmación nueva al cambiar consulta/cuenta/foco; ni `confirmed`, ni herramientas, tokens o playback pueden entrar por el enlace de búsqueda. El bridge `executeToolForOwner` ata cada consulta de la app al owner y revisión nativa; los binarios antiguos sin ese guard rechazan nuevas búsquedas hasta actualizarse. No se crean tokens automáticamente.
 
 Las entidades de usuario, compra, ventas, mensajes y lecciones siguen sin exponerse como resultados Siri generales. Proxy/VPN no se indexa ni se sugiere: se obtiene solo con la intent confirmada y su entity transitoria contiene estado, bytes usados, límite, condición ilimitada y vencimiento; nunca servidor, IP, contraseña ni token.
 
@@ -96,6 +101,7 @@ Desde `react-download/`:
 Desde `react-native-VIDKAR/`:
 
 - `npm run test:mcp`
+- `npm run test:mcp:ios` (incluye extracción real de metadatos con Xcode)
 - `npm run lint`
 - `xcodebuild -project ios/Pods/Pods.xcodeproj -scheme VidkarMCP -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`
 

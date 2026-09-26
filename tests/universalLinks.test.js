@@ -143,3 +143,33 @@ test("retiene el destino de usuario hasta que la sesión y las suscripciones est
   assert.equal(canConsumeUniversalLink(url, false, "signed-in-user"), false);
   assert.equal(canConsumeUniversalLink(url, true, "signed-in-user"), true);
 });
+
+test("búsquedas rechazan ámbitos inventados, consentimiento, tools y enlaces ambiguos", () => {
+  for (const url of [
+    "vidkar://search?q=a&entity=users", "vidkar://search?q=a&entity=unknown",
+    "vidkar://search?q=a&confirmed=true", "vidkar://search?q=a&play=true",
+    "vidkar://search?q=a&tool=get_users", "vidkar://search?q=a&token=fixture",
+    "vidkar://search?q=a&q=b", "vidkar://search?entity=user&entity=all",
+    "vidkar://@search?q=a", "vidkar://search:?q=a", "vidkar://search/path?q=a",
+    "vidkar://search?q=a#", "vidkar://search?q=a%00b", `vidkar://search?q=${"x".repeat(121)}`,
+  ]) assert.equal(resolveUniversalLink(url), null, url);
+});
+
+test("entrada nativa Expo entrega la misma búsqueda en frío y caliente sin depender de index", async () => {
+  const nativeSource = await fs.readFile(new URL("../app/+native-intent.tsx", import.meta.url), "utf8");
+  const nativeJS = ts.transpileModule(nativeSource.replace(/^import .*;\n/m, ""), {
+    compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const { redirectSystemPath } = await import(`data:text/javascript;base64,${Buffer.from(`${javascript}\n${nativeJS}`).toString("base64")}`);
+  for (const initial of [true, false]) {
+    for (const path of ["vidkar://search?q=C%2B%2B%20%26%20Swift&entity=all", "/search?q=C%2B%2B%20%26%20Swift&entity=all"]) {
+      const target = redirectSystemPath({ path, initial });
+      assert.match(target, /^\/\(normal\)\/SiriSearch\?/);
+      assert.equal(new URL(target, "https://fixture.example").searchParams.get("query"), "C++ & Swift");
+    }
+    assert.equal(redirectSystemPath({ path: `vidkar://search?resultId=${RESULT_ID}`, initial }), `/(normal)/SiriSearch?resultId=${RESULT_ID}`);
+    assert.equal(redirectSystemPath({ path: "vidkar://search?q=a&confirmed=true", initial }), "/");
+    assert.equal(redirectSystemPath({ path: "vidkar://@search?q=a", initial }), "/");
+    assert.equal(redirectSystemPath({ path: "vidkar://movie/fixture?q=Title", initial }), "vidkar://movie/fixture?q=Title");
+  }
+});

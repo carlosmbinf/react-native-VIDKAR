@@ -17,6 +17,10 @@ const SUPPORTED_ENTITY_LINKS = new Set([
   "purchase", "sale", "order", "product", "message", "messages", "subscription",
 ]);
 const NATURAL_RESULT_LINK = /^vidkar:\/\/search\?resultId=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+const SEARCH_ENTITY_TYPES = new Set([
+  "all", "movie", "series", "episode", "course", "lesson", "user",
+  "purchase", "sale", "order", "product", "message", "subscription",
+]);
 
 export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
   let parsedUrl: URL;
@@ -60,12 +64,17 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
       if (!isVIDKARScheme || parsedUrl.pathname !== "" || !match || match[0] !== url) return null;
       return { pathname: "/(normal)/SiriSearch", params: { resultId: match[1] } };
     }
+    // Ningún enlace concede consentimiento ni puede pasar tools, tokens o playback.
+    if (parsedUrl.username || parsedUrl.password || parsedUrl.port || url.includes("#") ||
+        (isVIDKARScheme ? !/^vidkar:\/\/search(?:\?|$)/i.test(url) : segments.length !== 1)) return null;
+    const keys = [...parsedUrl.searchParams.keys()];
+    if (keys.some((key) => !["q", "entity"].includes(key)) || new Set(keys).size !== keys.length) return null;
+    const query = parsedUrl.searchParams.get("q") || "";
+    const entityType = parsedUrl.searchParams.get("entity") || "all";
+    if (query.length > 120 || /[\u0000-\u001f\u007f]/.test(query) || !SEARCH_ENTITY_TYPES.has(entityType)) return null;
     return {
       pathname: "/(normal)/SiriSearch",
-      params: {
-        query: parsedUrl.searchParams.get("q") || "",
-        entityType: parsedUrl.searchParams.get("entity") || "all",
-      },
+      params: { query, entityType },
     };
   }
 

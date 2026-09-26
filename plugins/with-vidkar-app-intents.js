@@ -1,10 +1,11 @@
+/* global __dirname */
 const fs = require("fs");
 const path = require("path");
-const { createRunOncePlugin, withDangerousMod } = require("@expo/config-plugins");
+const { createRunOncePlugin, withDangerousMod, withXcodeProject } = require("@expo/config-plugins");
 
 const pkg = {
   name: "with-vidkar-app-intents",
-  version: "1.0.0",
+  version: "1.1.1",
 };
 
 const packageDeclaration = `
@@ -74,7 +75,37 @@ struct VidkarAppShortcutsProvider: AppShortcutsProvider {
 }
 `;
 
-const withVidkarAppIntents = (config) => withDangerousMod(config, ["ios", (config) => {
+const resourceNames = ["AppShortcuts.xcstrings", "Localizable.xcstrings"];
+
+const withVidkarAppIntents = (config) => {
+  config = withXcodeProject(config, (config) => {
+    const project = config.modResults;
+    const unquote = (value) => String(value).replace(/^"|"$/g, "");
+    const target = Object.entries(project.pbxNativeTargetSection()).find(([key, value]) =>
+      !key.endsWith("_comment") && unquote(value.name) === "Vidkar"
+      && unquote(value.productType) === "com.apple.product-type.application");
+    if (!target) throw new Error("No se encontró el target principal Vidkar para localizar App Intents.");
+    const root = project.getFirstProject().firstProject;
+    root.knownRegions = [...new Set([...(root.knownRegions || []).map(unquote), "en", "Base", "es"])];
+    if (!project.pbxGroupByName("Resources")) {
+      const group = project.addPbxGroup([], "Resources");
+      project.getPBXGroupByKey(root.mainGroup).children.push({ value: group.uuid, comment: "Resources" });
+    }
+    // LocalizedStringResource usa .main por defecto, también desde el pod estático
+    // VidkarMCP (sin resource_bundles). No cambiar developmentRegion ni usar #bundle.
+    // Xcode exige iOS 17 para AppShortcuts.xcstrings. Mantener iOS 16.4 usando
+    // .strings generados del catálogo, también al actualizar un proyecto existente.
+    const oldShortcuts = "Vidkar/AppIntents/AppShortcuts.xcstrings";
+    if (project.hasFile(oldShortcuts)) {
+      project.removeResourceFile(oldShortcuts, { target: target[0] }, root.mainGroup);
+    }
+    project.addResourceFile("Vidkar/AppIntents/Localizable.xcstrings", { target: target[0], lastKnownFileType: "text.json.xcstrings" }, root.mainGroup);
+    for (const locale of ["en", "es"]) {
+      project.addResourceFile(`Vidkar/AppIntents/${locale}.lproj/AppShortcuts.strings`, { target: target[0], lastKnownFileType: "text.plist.strings" }, root.mainGroup);
+    }
+    return config;
+  });
+  return withDangerousMod(config, ["ios", (config) => {
   const appDelegatePath = path.join(config.modRequest.platformProjectRoot, "Vidkar", "AppDelegate.swift");
   if (!fs.existsSync(appDelegatePath)) {
     throw new Error("No se encontró Vidkar/AppDelegate.swift para registrar App Intents.");
@@ -91,8 +122,25 @@ const withVidkarAppIntents = (config) => withDangerousMod(config, ["ios", (confi
     source = `${source.trimEnd()}\n${shortcutsProviderDeclaration}`;
   }
   fs.writeFileSync(appDelegatePath, source);
+  const resourcesPath = path.join(path.dirname(appDelegatePath), "AppIntents");
+  fs.mkdirSync(resourcesPath, { recursive: true });
+  for (const name of resourceNames) {
+    fs.copyFileSync(path.join(__dirname, "resources", "vidkar-app-intents", name), path.join(resourcesPath, name));
+  }
+  const shortcuts = JSON.parse(fs.readFileSync(path.join(resourcesPath, "AppShortcuts.xcstrings"), "utf8"));
+  for (const locale of ["en", "es"]) {
+    const lines = Object.entries(shortcuts.strings).map(([key, entry]) => {
+      const value = locale === shortcuts.sourceLanguage ? key : entry.localizations?.[locale]?.stringUnit?.value;
+      if (typeof value !== "string" || !value.trim()) throw new Error(`Falta frase ${locale}: ${key}`);
+      return `${JSON.stringify(key)} = ${JSON.stringify(value)};`;
+    });
+    const localePath = path.join(resourcesPath, `${locale}.lproj`);
+    fs.mkdirSync(localePath, { recursive: true });
+    fs.writeFileSync(path.join(localePath, "AppShortcuts.strings"), `${lines.join("\n")}\n`);
+  }
   return config;
-}]);
+  }]);
+};
 
 module.exports = createRunOncePlugin(
   withVidkarAppIntents,

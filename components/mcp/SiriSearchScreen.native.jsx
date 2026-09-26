@@ -2,14 +2,17 @@ import MeteorBase from "@meteorrn/core";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useIsFocused } from "expo-router/react-navigation";
 import React from "react";
-import { Alert, AppState, FlatList, Pressable, StyleSheet, View } from "react-native";
-import { ActivityIndicator, Appbar, Avatar, Button, Card, Chip, ProgressBar, Text, useTheme } from "react-native-paper";
+import { Alert, AppState, FlatList, Keyboard, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Appbar, Avatar, Button, Card, Chip, ProgressBar, Text, TextInput, useTheme } from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { authorizeMCPPlayback, consumeMCPPlaybackAuthorization, executeMCPTool, getMCPNaturalLanguageResult } from "../../services/mcp/mcpClient";
+import { assertMCPQuerySession, authorizeMCPPlayback, consumeMCPPlaybackAuthorization, executeMCPTool, getMCPNaturalLanguageResult, getMCPQuerySession } from "../../services/mcp/mcpClient";
+import { IN_APP_SEARCH_CATEGORIES, makeInAppSearchArguments, PRIVATE_SEARCH_TYPES } from "../../services/mcp/inAppSearch";
+import { ensureMeteorSession } from "../../services/meteor/client.native";
 import { resolveUniversalLink } from "../../services/navigation/universalLinks";
+import Loguin from "../loguin/Loguin.native";
 
 const Meteor = MeteorBase;
-const PRIVATE_ENTITY_TYPES = new Set(["user", "purchase", "sale", "order", "message", "subscription", "lesson"]);
 const PLAYBACK_ENTITY_TYPES = new Set(["movie", "episode", "lesson"]);
 const asString = (value) => Array.isArray(value) ? value[0] || "" : String(value || "");
 const BYTES_PER_GB = 1024 * 1024 * 1024;
@@ -147,12 +150,15 @@ export default function SiriSearchScreen() {
   const query = isSnapshot ? "" : asString(params.query);
   const entityType = isSnapshot ? "all" : asString(params.entityType) || "all";
   const contentId = isSnapshot ? "" : asString(params.contentId || params.productId);
+  const [draftQuery, setDraftQuery] = React.useState(query);
+  const [showLogin, setShowLogin] = React.useState(false);
+  const [sessionReady, setSessionReady] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [results, setResults] = React.useState([]);
   const [pagination, setPagination] = React.useState(null);
   const [snapshot, setSnapshot] = React.useState(null);
-  const privateConfirmedRef = React.useRef(false);
+  const privateConfirmedRef = React.useRef(null);
   const requestRef = React.useRef(0);
   const mountedRef = React.useRef(false);
   const snapshotReaderRef = React.useRef(null);
@@ -164,9 +170,10 @@ export default function SiriSearchScreen() {
 
   const loadResults = React.useCallback(async ({ offset = 0, append = false } = {}) => {
     if (!mountedRef.current) return;
-    if (isSnapshot) return snapshotReaderRef.current?.();
+    if (isSnapshot && snapshotReaderRef.current) return snapshotReaderRef.current();
     const requestId = ++requestRef.current;
-    const isCurrent = () => mountedRef.current && requestId === requestRef.current && Meteor.userId() === userId;
+    const isCurrent = () => mountedRef.current && requestId === requestRef.current && Meteor.userId() === userId
+      && isFocused && AppState.currentState === "active";
     setLoading(true);
     setError("");
     if (!append || isSnapshot) {
@@ -174,29 +181,39 @@ export default function SiriSearchScreen() {
       setPagination(null);
       setSnapshot(null);
     }
+    if (!isFocused || appState !== "active") {
+      setResults([]);
+      setPagination(null);
+      setLoading(false);
+      return;
+    }
     try {
+      await ensureMeteorSession();
+      if (!mountedRef.current) return;
+      setSessionReady(true);
+      if (!isCurrent() || isSnapshot) return;
       if (!userId || Meteor.userId() !== userId) throw new Error("Inicia sesión en VIDKAR para continuar.");
-      if (!query.trim() && entityType !== "course" && !PRIVATE_ENTITY_TYPES.has(entityType)) {
-        throw new Error("No se recibió un texto de búsqueda válido.");
-      }
-      let confirmed = PRIVATE_ENTITY_TYPES.has(entityType) && privateConfirmedRef.current;
-      if (PRIVATE_ENTITY_TYPES.has(entityType) && !confirmed) {
+      const args = makeInAppSearchArguments({ query, entityType, contentId, offset });
+      const session = privateConfirmedRef.current || await getMCPQuerySession();
+      await assertMCPQuerySession(session);
+      if (!isCurrent()) return;
+      let confirmed = PRIVATE_SEARCH_TYPES.has(entityType) && Boolean(privateConfirmedRef.current);
+      if (PRIVATE_SEARCH_TYPES.has(entityType) && !confirmed) {
         confirmed = await requestPrivateConfirmation();
         if (!isCurrent()) return;
-        if (confirmed) privateConfirmedRef.current = true;
+        if (confirmed) {
+          await assertMCPQuerySession(session);
+          if (!isCurrent()) return;
+          privateConfirmedRef.current = session;
+        }
       }
-      if (PRIVATE_ENTITY_TYPES.has(entityType) && !confirmed) {
+      if (PRIVATE_SEARCH_TYPES.has(entityType) && !confirmed) {
         setError("Consulta cancelada; no se accedió a tus datos privados.");
         setLoading(false);
         return;
       }
-      const raw = await executeMCPTool("search_entities", {
-        entity: entityType,
-        query,
-        limit: 20,
-        offset,
-        confirmed,
-      });
+      if (!isCurrent()) return;
+      const raw = await executeMCPTool("search_entities", { ...args, confirmed }, session);
       if (!isCurrent()) return;
       const response = typeof raw === "string" ? JSON.parse(raw) : raw;
       if (!response?.success) {
@@ -213,15 +230,18 @@ export default function SiriSearchScreen() {
         : nextResults);
       setPagination(response.pagination || null);
     } catch (searchError) {
+      privateConfirmedRef.current = null;
       if (isCurrent()) setError(searchError?.reason || searchError?.message || "No se pudo completar la búsqueda en VIDKAR.");
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [contentId, entityType, isSnapshot, query, userId]);
+  }, [appState, contentId, entityType, isFocused, isSnapshot, query, userId]);
+
+  React.useLayoutEffect(() => { setDraftQuery(query); }, [query]);
 
   React.useLayoutEffect(() => {
     mountedRef.current = true;
-    privateConfirmedRef.current = false;
+    privateConfirmedRef.current = null;
     loadResults({ offset: 0, append: false });
     return () => {
       mountedRef.current = false;
@@ -236,7 +256,7 @@ export default function SiriSearchScreen() {
   }, [isSnapshot, resultId, userId]);
 
   React.useLayoutEffect(() => {
-    if (!isSnapshot) return;
+    if (!isSnapshot || !sessionReady) return;
     const requestId = ++requestRef.current;
     let disposed = false;
     let revoked = false;
@@ -304,21 +324,38 @@ export default function SiriSearchScreen() {
       clearTimeout(expiryTimer);
       clearInterval(pollTimer);
     };
-  }, [appState, isFocused, isSnapshot, resultId, userId]);
+  }, [appState, isFocused, isSnapshot, resultId, sessionReady, userId]);
 
   const loadMore = () => {
     if (isSnapshot || loading || !pagination?.hasMore) return;
     loadResults({ offset: pagination.offset + pagination.limit, append: true });
   };
 
-  const openResult = async (item) => {
+  const openResult = async (item, play = false) => {
+    const requestId = requestRef.current;
+    const isCurrent = () => mountedRef.current && requestId === requestRef.current && userId
+      && Meteor.userId() === userId && isFocused && AppState.currentState === "active";
+    if (!isCurrent()) return;
     let deepLink = item?.deepLink || "";
-    if (PLAYBACK_ENTITY_TYPES.has(item?.type)) {
-      const confirmed = await requestPlaybackConfirmation(item?.title || "este contenido");
-      if (!confirmed) return;
+    try {
+      const url = new URL(deepLink);
+      url.searchParams.delete("play");
+      deepLink = url.toString();
+    } catch {
+      Alert.alert("VIDKAR", "El enlace del resultado no es válido.");
+      return;
+    }
+    if (play && PLAYBACK_ENTITY_TYPES.has(item?.type)) {
       try {
-        await authorizeMCPPlayback(item.type, String(item.id));
+        const session = await getMCPQuerySession();
+        if (!isCurrent()) return;
+        const confirmed = await requestPlaybackConfirmation(item?.title || "este contenido");
+        if (!confirmed || !isCurrent()) return;
+        await assertMCPQuerySession(session);
+        await authorizeMCPPlayback(item.type, String(item.id), session);
+        if (!isCurrent()) return;
         const playbackAuthorized = await consumeMCPPlaybackAuthorization(item.type, String(item.id));
+        if (!isCurrent()) return;
         if (!playbackAuthorized) throw new Error("La autorización de reproducción venció. Vuelve a confirmar.");
       } catch (authorizationError) {
         Alert.alert("VIDKAR", authorizationError?.message || "No se pudo autorizar la reproducción.");
@@ -341,27 +378,59 @@ export default function SiriSearchScreen() {
     router.push({ pathname: target.pathname, params: target.params });
   };
 
+  const search = (nextEntity = entityType, nextQuery = draftQuery) => {
+    Keyboard.dismiss();
+    router.setParams({ query: nextQuery, entityType: nextEntity, contentId: "", productId: "" });
+    if (nextQuery === query && nextEntity === entityType && !contentId) loadResults();
+  };
+
+  // El login existente conserva esta ruta y sus criterios; no crea tokens silenciosamente.
+  if (sessionReady && !userId && showLogin && !isSnapshot) return <Loguin deferSessionRedirect />;
+
   return (
-    <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView edges={["bottom", "left", "right"]} style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
+        <Appbar.BackAction onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />
         <Appbar.Content title="Buscar en VIDKAR" subtitle={isSnapshot ? snapshot?.query || "Resultado de Siri" : query || entityType} />
         <Appbar.Action icon="refresh" onPress={() => loadResults({ offset: 0, append: false })} disabled={loading} accessibilityLabel="Actualizar búsqueda" />
       </Appbar.Header>
       <FlatList
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}
         data={results}
         keyExtractor={(item) => `${item.type}:${item.id}`}
-        ListHeaderComponent={pagination?.total > 0 ? (
-          <Text selectable variant="bodySmall" style={styles.count}>
-            {`Encontré ${pagination.total} resultado${pagination.total === 1 ? "" : "s"}.`}
-          </Text>
-        ) : null}
+        ListHeaderComponent={(
+          <View style={styles.searchHeader}>
+            {!isSnapshot ? <>
+              <TextInput mode="outlined" label="Texto de búsqueda" accessibilityLabel="Texto de búsqueda"
+                value={draftQuery} onChangeText={setDraftQuery} maxLength={120}
+                returnKeyType="search" onSubmitEditing={() => search()} />
+              <View style={styles.categories}>
+                {IN_APP_SEARCH_CATEGORIES.map(({ value, label }) => (
+                  <Chip key={value} selected={entityType === value} accessibilityRole="button"
+                    accessibilityState={{ selected: entityType === value }} onPress={() => search(value)}>{label}</Chip>
+                ))}
+              </View>
+              <Text variant="bodySmall">Elige dónde buscar. El catálogo no incluye usuarios; esa consulta requiere confirmación.</Text>
+              <View style={styles.categories}>
+                <Button mode="contained" onPress={() => search()} disabled={loading}>Buscar</Button>
+                <Button mode="outlined" onPress={() => search("course", "")}>Ver todos los cursos</Button>
+              </View>
+              <Button mode="text" onPress={() => router.push("/(normal)/MCPSettings")}>Configurar o consultar MCP</Button>
+              {sessionReady && !userId ? <Button mode="contained" onPress={() => setShowLogin(true)}>Iniciar sesión</Button> : null}
+            </> : null}
+            {pagination?.total > 0 ? <Text selectable variant="bodySmall" style={styles.count}>
+              {`Encontré ${pagination.total} resultado${pagination.total === 1 ? "" : "s"}. Elige el resultado que buscabas.`}
+            </Text> : null}
+            {error && results.length > 0 ? <Text accessibilityRole="alert" selectable>{error}</Text> : null}
+          </View>
+        )}
         ListEmptyComponent={loading ? (
           <View style={styles.state}>
             <ActivityIndicator animating />
-            <Text selectable>{isSnapshot ? "Cargando resultado de Siri…" : "Buscando en VIDKAR…"}</Text>
+            <Text selectable>{!sessionReady ? "Restaurando sesión…" : isSnapshot ? "Cargando resultado de Siri…" : "Buscando en VIDKAR…"}</Text>
           </View>
         ) : error ? (
           <View style={styles.state}>
@@ -402,16 +471,21 @@ export default function SiriSearchScreen() {
               <Button compact mode="text" onPress={() => openResult(item)} contentStyle={styles.openButton}>
                 Abrir en VIDKAR
               </Button>
+              {PLAYBACK_ENTITY_TYPES.has(item.type) ? <Button compact mode="text" onPress={() => openResult(item, true)}>
+                Reproducir…
+              </Button> : null}
             </Card.Content>
           </Card>
         )}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  searchHeader: { gap: 10, paddingBottom: 12 },
+  categories: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   content: { flexGrow: 1, gap: 10, padding: 16 },
   count: { opacity: 0.72, paddingBottom: 4 },
   state: { alignItems: "center", gap: 14, justifyContent: "center", minHeight: 220, padding: 24 },

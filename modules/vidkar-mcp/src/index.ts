@@ -15,10 +15,12 @@ export type MCPTool = {
 type NativeMCPModule = {
   configure: (url: string, token: string, ownerId: string) => Promise<void>;
   clearConfiguration: () => Promise<void>;
-  getConfiguration: () => Promise<{ url: string | null; ownerId: string | null; configured: boolean }>;
+  getConfiguration: () => Promise<{ url: string | null; ownerId: string | null; configured: boolean; revision?: string }>;
   getNaturalLanguageResult: (resultId: string, ownerId: string) => Promise<string>;
   discoverTools: (forceRefresh?: boolean) => Promise<MCPTool[]>;
   executeTool: (toolName: string, args: Record<string, unknown>) => Promise<unknown>;
+  executeToolForOwner?: (toolName: string, args: Record<string, unknown>, ownerId: string) => Promise<unknown>;
+  executeToolForSession?: (toolName: string, args: Record<string, unknown>, ownerId: string, revision: string) => Promise<unknown>;
   authorizePlayback: (entityType: string, entityId: string) => Promise<void>;
   consumePlaybackAuthorization: (entityType: string, entityId: string) => Promise<boolean>;
 };
