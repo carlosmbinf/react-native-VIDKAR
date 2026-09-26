@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StyleSheet, View } from "react-native";
-import { Text } from "react-native-paper";
+import { Text, useTheme } from "react-native-paper";
 
 const steps = [
   { key: 1, label: "Preparando", icon: "chef-hat" },
@@ -10,7 +10,9 @@ const steps = [
   { key: 5, label: "Entregado", icon: "check-circle" },
 ];
 
-const PedidoStepperNative = ({ currentStep }) => {
+const PedidoStepperNative = ({ currentStep, tone }) => {
+  const theme = useTheme();
+  const isDarkTone = tone ? tone === "dark" : theme.dark;
   const resolvedCurrentStep = Number.isFinite(Number(currentStep))
     ? Number(currentStep)
     : 1;
@@ -54,8 +56,13 @@ const PedidoStepperNative = ({ currentStep }) => {
               numberOfLines={2}
               style={[
                 styles.stepLabel,
+                isDarkTone ? styles.stepLabelDark : null,
                 isActive ? styles.stepLabelActive : null,
+                isDarkTone && isActive ? styles.stepLabelActiveDark : null,
                 resolvedCurrentStep >= step.key ? styles.stepLabelCurrent : null,
+                isDarkTone && resolvedCurrentStep >= step.key
+                  ? styles.stepLabelCurrentDark
+                  : null,
               ]}
               variant="bodySmall"
             >
@@ -107,17 +114,28 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF6F00",
   },
   stepLabel: {
-    // color: "#9E9E9E",
-    fontSize: 7,
-    // paddingHorizontal: 4,
+    color: "#64748b",
+    fontSize: 9,
+    lineHeight: 12,
+    paddingHorizontal: 2,
     textAlign: "center",
   },
   stepLabelActive: {
+    color: "#475569",
     fontWeight: "600",
   },
   stepLabelCurrent: {
-    color: "#FF6F00",
-    fontWeight: "bold",
+    color: "#c2410c",
+    fontWeight: "800",
+  },
+  stepLabelDark: {
+    color: "#8290a5",
+  },
+  stepLabelActiveDark: {
+    color: "#cbd5e1",
+  },
+  stepLabelCurrentDark: {
+    color: "#fb923c",
   },
   stepWrapper: {
     alignItems: "center",
@@ -126,8 +144,10 @@ const styles = StyleSheet.create({
   stepperContainer: {
     alignItems: "flex-start",
     flexDirection: "row",
+    gap: 2,
     justifyContent: "space-between",
-    paddingVertical: 16,
+    paddingHorizontal: 4,
+    paddingVertical: 18,
   },
 });
 

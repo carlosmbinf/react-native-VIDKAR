@@ -2,13 +2,22 @@ import React from "react";
 import { StyleSheet, View } from "react-native";
 import { Icon, Surface, Text, useTheme } from "react-native-paper";
 
+import PedidoStepper from "../comercio/pedidos/components/PedidoStepper";
 import { getServiceDetail } from "./serviceDetailUtils";
-import { CATEGORY_COLORS, getStatusMeta } from "./ventasUtils";
+import {
+  CATEGORY_COLORS,
+  getCommerceOrderStep,
+  getStatusMeta,
+  hasCommerceItems,
+} from "./ventasUtils";
 
 export default function ServiceDetails({ sale }) {
   const theme = useTheme();
   const colors = theme.colors;
   const items = Array.isArray(sale.items) ? sale.items.filter((item) => item && typeof item === "object") : [];
+  const commerceCurrentStep = hasCommerceItems(sale)
+    ? getCommerceOrderStep(sale)
+    : null;
 
   return (
     <View style={styles.section}>
@@ -23,6 +32,28 @@ export default function ServiceDetails({ sale }) {
           </View>
         ) : null}
       </View>
+
+      {commerceCurrentStep !== null ? (
+        <Surface
+          elevation={0}
+          style={[
+            styles.commerceTrackingCard,
+            {
+              backgroundColor: colors.surfaceVariant,
+              borderColor: colors.outlineVariant,
+            },
+          ]}
+        >
+          <Text variant="titleSmall" style={styles.commerceTrackingTitle}>
+            Seguimiento del pedido
+          </Text>
+          <PedidoStepper
+            currentStep={commerceCurrentStep}
+            isCanceled={commerceCurrentStep === -1}
+            tone={theme.dark ? "dark" : "light"}
+          />
+        </Surface>
+      ) : null}
 
       {items.map((item, index) => {
         const detail = getServiceDetail(item, sale);
@@ -124,6 +155,17 @@ export default function ServiceDetails({ sale }) {
 const styles = StyleSheet.create({
   section: { gap: 12 },
   sectionHeader: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10 },
+  commerceTrackingCard: {
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: 2,
+    overflow: "hidden",
+  },
+  commerceTrackingTitle: {
+    fontWeight: "700",
+    paddingHorizontal: 16,
+    paddingTop: 14,
+  },
   heading: { flex: 1, minWidth: 0, gap: 3 },
   bold: { fontWeight: "700" },
   count: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 },

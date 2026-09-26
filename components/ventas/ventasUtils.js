@@ -130,6 +130,35 @@ export const getSaleItems = (sale) => {
   return [];
 };
 
+export const hasCommerceItems = (sale) => {
+  const isCommerceItem = (item) => getCartItemType(item) === "COMERCIO";
+  const saleItems = getSaleItems(sale);
+
+  if (saleItems.some(isCommerceItem)) {
+    return true;
+  }
+
+  return Boolean(sale?.rawDoc && getSaleItems(sale.rawDoc).some(isCommerceItem));
+};
+
+export const getCommerceOrderStep = (sale) => {
+  const sourceSale = sale?.rawDoc || sale;
+
+  if (sourceSale?.isCancelada === true) {
+    return -1;
+  }
+
+  const steps = {
+    PREPARANDO: 1,
+    CADETEENLOCAL: 2,
+    ENCAMINO: 3,
+    CADETEENDESTINO: 4,
+    ENTREGADO: 5,
+  };
+
+  return steps[sourceSale?.estado] || 1;
+};
+
 export const detectSaleCategory = (sale) => {
   const items = getSaleItems(sale);
   const types = new Set(items.map((item) => getCartItemType(item)).filter(Boolean));

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState, Linking } from "react-native";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
+import { useCurrentSession } from "../../services/meteor/session.native";
 import { getAppVersionInfo } from "../../services/app/appVersion";
 import {
     ensureCadeteLocationPermissions,
@@ -319,8 +320,7 @@ const MenuPrincipalNative = () => {
   const renderStartedAtRef = useRef(
     typeof performance?.now === "function" ? performance.now() : Date.now(),
   );
-  const user = Meteor.useTracker(() => Meteor.user());
-  const currentUserId = user?._id;
+  const { user, userId: currentUserId } = useCurrentSession();
   const isAdmin = isAdminUser(user);
   const isAdminPrincipal = isPrincipalAdmin(user);
   const dataReady = useDeferredScreenData();
@@ -750,6 +750,10 @@ const MenuPrincipalNative = () => {
               }
               cadeteModeActivated = nextState;
 
+              if (nextState) {
+                router.replace("/(cadete)/CadeteNavigator");
+              }
+
               const trackingResult = await syncCadeteBackgroundLocation({
                 enabled: nextState,
                 userId: nextState ? currentUserId : undefined,
@@ -762,9 +766,9 @@ const MenuPrincipalNative = () => {
                 throw new Error(trackingErrorMessage);
               }
 
-              router.replace(
-                nextState ? "/(cadete)/CadeteNavigator" : "/",
-              );
+              if (!nextState) {
+                router.replace("/");
+              }
 
               Alert.alert(
                 "Éxito",
@@ -776,12 +780,17 @@ const MenuPrincipalNative = () => {
               if (nextState && cadeteModeActivated) {
                 try {
                   await callMeteorMethod("users.toggleModoCadete", false);
+                  cadeteModeActivated = false;
                   await syncCadeteBackgroundLocation({ enabled: false });
                 } catch (rollbackError) {
                   console.warn(
                     "[CadeteLocation] No se pudo revertir el modo cadete tras fallar el tracking:",
                     rollbackError,
                   );
+                }
+
+                if (!cadeteModeActivated) {
+                  router.replace("/(normal)/Main");
                 }
               }
 

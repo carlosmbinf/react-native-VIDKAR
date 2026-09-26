@@ -3,7 +3,7 @@ import MeteorBase from "@meteorrn/core";
 import { LinearGradient } from "expo-linear-gradient";
 import { memo } from "react";
 import { StyleSheet, View } from "react-native";
-import { ActivityIndicator, Card, Divider, IconButton, Surface, Text } from "react-native-paper";
+import { ActivityIndicator, Card, Divider, IconButton, Surface, Text, useTheme } from "react-native-paper";
 
 import SubidaArchivos from "../../../archivos/SubidaArchivos.native";
 import { VentasRechargeCollection } from "../../../collections/collections";
@@ -76,6 +76,8 @@ const PedidoCardExpandedContent = ({
   venta,
 }) => {
   const isDarkTone = tone === "dark";
+  const isLightTone = tone === "light";
+  const stepperTone = isLightTone ? "light" : "dark";
   const { cadete, detailReady, isAdmin, ventaDetalle } = Meteor.useTracker(() => {
     const ventaId = venta?._id;
     const assignedCadeteId = venta?.cadeteid;
@@ -148,7 +150,13 @@ const PedidoCardExpandedContent = ({
     coordenadas;
 
   return (
-    <View style={styles.expandedContent}>
+    <View
+      style={[
+        styles.expandedContent,
+        isDarkTone ? styles.expandedContentDark : null,
+        isLightTone ? styles.expandedContentLight : null,
+      ]}
+    >
       {mostrarMapa ? (
         <View style={styles.mapWrapper}>
           <MapaPedidoConCadete
@@ -169,19 +177,24 @@ const PedidoCardExpandedContent = ({
           />
 
           <View pointerEvents="none" style={styles.mapStepperHeader}>
-            <PedidoStepper currentStep={currentStep} isCanceled={isCanceled} />
+            <PedidoStepper currentStep={currentStep} isCanceled={isCanceled} tone="dark" />
           </View>
         </View>
       ) : null}
 
       {!mostrarMapa ? (
-        <PedidoStepper currentStep={currentStep} isCanceled={isCanceled} />
+        <PedidoStepper
+          currentStep={currentStep}
+          isCanceled={isCanceled}
+          tone={stepperTone}
+        />
       ) : null}
 
       <View
         style={[
           styles.assignedCadeteCard,
           isDarkTone ? styles.assignedCadeteCardDark : null,
+          isLightTone ? styles.assignedCadeteCardLight : null,
         ]}
       >
         <View
@@ -229,6 +242,8 @@ const PedidoCardExpandedContent = ({
             style={[
               styles.assignedCadeteStatusText,
               cadeteId ? styles.assignedCadeteStatusTextReady : styles.assignedCadeteStatusTextPending,
+              isLightTone && cadeteId ? styles.assignedCadeteStatusTextReadyLight : null,
+              isLightTone && !cadeteId ? styles.assignedCadeteStatusTextPendingLight : null,
             ]}
           >
             {cadeteId ? "Asignado" : "Pendiente"}
@@ -335,7 +350,13 @@ const PedidoCardExpandedContent = ({
             style={[styles.divider, isDarkTone ? styles.dividerDark : null]}
           />
 
-          <View style={styles.productosSection}>
+          <View
+            style={[
+              styles.productosSection,
+              isDarkTone ? styles.productosSectionDark : null,
+              isLightTone ? styles.productosSectionLight : null,
+            ]}
+          >
             <Text
               style={[
                 styles.sectionTitle,
@@ -352,6 +373,7 @@ const PedidoCardExpandedContent = ({
                 style={[
                   styles.productoRow,
                   isDarkTone ? styles.productoRowDark : null,
+                  isLightTone ? styles.productoRowLight : null,
                 ]}
               >
                 <View style={styles.productoInfo}>
@@ -388,7 +410,13 @@ const PedidoCardExpandedContent = ({
                 >
                   x{item.cantidad || 1}
                 </Text>
-                <Text style={styles.productoPrecio} variant="bodyMedium">
+                <Text
+                  style={[
+                    styles.productoPrecio,
+                    isLightTone ? styles.productoPrecioLight : null,
+                  ]}
+                  variant="bodyMedium"
+                >
                   {parseFloat(item.cobrarUSD || item.producto?.precio || 0).toFixed(2)}{" "}
                   {item.monedaACobrar}
                 </Text>
@@ -406,6 +434,7 @@ const PedidoCardExpandedContent = ({
                 style={[
                   styles.comentarioSection,
                   isDarkTone ? styles.comentarioSectionDark : null,
+                  isLightTone ? styles.comentarioSectionLight : null,
                 ]}
               >
                 <MaterialCommunityIcons
@@ -436,6 +465,7 @@ const PedidoCardExpandedContent = ({
                 style={[
                   styles.comentarioSection,
                   isDarkTone ? styles.comentarioSectionDark : null,
+                  isLightTone ? styles.comentarioSectionLight : null,
                 ]}
               >
                 <MaterialCommunityIcons
@@ -468,7 +498,16 @@ const PedidoCardNative = ({
   tone = "default",
   venta,
 }) => {
-  const isDarkTone = tone === "dark";
+  const theme = useTheme();
+  const resolvedTone =
+    tone === "dark" || tone === "light"
+      ? tone
+      : theme.dark
+        ? "dark"
+        : "light";
+  const isDarkTone = resolvedTone === "dark";
+  const isLightTone = resolvedTone === "light";
+  const stepperTone = resolvedTone;
   const isCanceled = venta?.isCancelada === true;
   const isPendientePago = venta?.isCobrado === false;
   const necesitaEvidencia =
@@ -477,7 +516,17 @@ const PedidoCardNative = ({
   return (
     <Surface
       elevation={8}
-      style={[styles.card, isDarkTone ? styles.cardDark : null]}
+      style={[
+        styles.card,
+        isDarkTone ? styles.cardDark : null,
+        isLightTone ? styles.cardLight : null,
+        isLightTone
+          ? {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.outlineVariant,
+            }
+          : null,
+      ]}
     >
       {isCanceled ? (
         <View style={styles.ribbonContainer}>
@@ -506,7 +555,11 @@ const PedidoCardNative = ({
 
       <View>
         {!isExpanded ? (
-          <PedidoStepper currentStep={currentStep} isCanceled={isCanceled} />
+          <PedidoStepper
+            currentStep={currentStep}
+            isCanceled={isCanceled}
+            tone={stepperTone}
+          />
         ) : null}
 
         {isExpanded ? (
@@ -515,7 +568,7 @@ const PedidoCardNative = ({
             isCanceled={isCanceled}
             isPendientePago={isPendientePago}
             necesitaEvidencia={necesitaEvidencia}
-            tone={tone}
+            tone={resolvedTone}
             venta={venta}
           />
         ) : null}
@@ -650,6 +703,12 @@ const styles = StyleSheet.create({
   assignedCadeteCardDark: {
     backgroundColor: "rgba(251, 146, 60, 0.1)",
     borderColor: "rgba(251, 146, 60, 0.18)",
+    marginHorizontal: 12,
+  },
+  assignedCadeteCardLight: {
+    backgroundColor: "rgba(34, 197, 94, 0.06)",
+    borderColor: "rgba(22, 163, 74, 0.14)",
+    marginHorizontal: 12,
   },
   assignedCadeteCopy: {
     flex: 1,
@@ -703,6 +762,12 @@ const styles = StyleSheet.create({
   assignedCadeteStatusTextReady: {
     color: "#16a34a",
   },
+  assignedCadeteStatusTextPendingLight: {
+    color: "#92400e",
+  },
+  assignedCadeteStatusTextReadyLight: {
+    color: "#166534",
+  },
   card: {
     borderRadius: 12,
     elevation: 8,
@@ -714,6 +779,13 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(15, 23, 42, 0.94)",
     borderColor: "rgba(251, 146, 60, 0.22)",
     borderWidth: 1,
+    borderRadius: 18,
+    marginBottom: 0,
+  },
+  cardLight: {
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 0,
   },
   cardSubtitleDark: {
     color: "rgba(255, 237, 213, 0.72)",
@@ -734,6 +806,13 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(251, 146, 60, 0.08)",
     borderColor: "rgba(251, 146, 60, 0.16)",
     borderWidth: 1,
+    marginHorizontal: 12,
+  },
+  comentarioSectionLight: {
+    backgroundColor: "rgba(15, 23, 42, 0.025)",
+    borderColor: "rgba(15, 23, 42, 0.08)",
+    borderWidth: 1,
+    marginHorizontal: 12,
   },
   comentarioText: {
     color: "#616161",
@@ -774,6 +853,12 @@ const styles = StyleSheet.create({
   },
   expandedContent: {
     marginTop: 12,
+  },
+  expandedContentDark: {
+    paddingBottom: 12,
+  },
+  expandedContentLight: {
+    paddingBottom: 12,
   },
   evidenciaCard: {
     backgroundColor: "#FFF3E0",
@@ -860,6 +945,9 @@ const styles = StyleSheet.create({
     minWidth: 80,
     textAlign: "right",
   },
+  productoPrecioLight: {
+    color: "#c2410c",
+  },
   productoRow: {
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.02)",
@@ -874,8 +962,19 @@ const styles = StyleSheet.create({
     borderColor: "rgba(251, 146, 60, 0.12)",
     borderWidth: 1,
   },
+  productoRowLight: {
+    backgroundColor: "rgba(15, 23, 42, 0.025)",
+    borderColor: "rgba(15, 23, 42, 0.08)",
+    borderWidth: 1,
+  },
   productosSection: {
     marginTop: 8,
+  },
+  productosSectionDark: {
+    paddingHorizontal: 12,
+  },
+  productosSectionLight: {
+    paddingHorizontal: 12,
   },
   ribbon: {
     backgroundColor: "#D32F2F",

@@ -1,4 +1,3 @@
-import MeteorBase from "@meteorrn/core";
 import { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -14,19 +13,16 @@ import {
 import { Appbar, Portal, Surface } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useCurrentSession } from "../../services/meteor/session.native";
 import HomePedidosComercio from "../comercio/pedidos/HomePedidosComercio";
 import AppHeader, { CADETE_HEADER_COLOR } from "../Header/AppHeader";
 import CadeteDrawerContent from "./CadeteDrawerContent";
-
-const Meteor = /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
-  MeteorBase
-);
 
 const PORTRAIT_DRAWER_WIDTH = 316;
 const LANDSCAPE_DRAWER_MAX_WIDTH = 380;
 
 const CadeteNavigator = () => {
-  const user = Meteor.useTracker(() => Meteor.user());
+  const { user } = useCurrentSession();
   const { height, width } = useWindowDimensions();
   const drawerWidth = width > height
     ? Math.min(LANDSCAPE_DRAWER_MAX_WIDTH, Math.max(340, width * 0.42))
