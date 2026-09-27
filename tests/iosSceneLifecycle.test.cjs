@@ -279,7 +279,14 @@ test("SceneDelegate generado: UIKit iPhone/simulador y ejecución fría/caliente
     const native = { exports: {} };
     vm.runInNewContext(ts.transpileModule(read("app/+native-intent.tsx"), {
       compilerOptions: { module: ts.ModuleKind.CommonJS },
-    }).outputText, { exports: native.exports, URL, URLSearchParams, require: () => resolver.exports });
+    }).outputText, {
+      exports: native.exports,
+      URL,
+      URLSearchParams,
+      require: (name) => name === "../services/appUrls"
+        ? { getVidkarBaseUrl: () => "https://www.vidkar.com" }
+        : resolver.exports,
+    });
     const destination = native.exports.redirectSystemPath({ path: initialURL, initial: true });
     if (snapshot.name === "invalid-search") assert.equal(destination, "/");
     if (snapshot.name === "search" || snapshot.name === "universal") {

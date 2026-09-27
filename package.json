@@ -10,7 +10,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test:mcp": "node --experimental-default-type=module --test tests/mcpProtocol.test.js tests/universalLinks.test.js",
+    "test:mcp": "node --experimental-default-type=module --test tests/mcpAccess.test.js tests/homeServices.test.js tests/commerceHomeSection.test.js tests/publicUrls.test.js tests/mcpProtocol.test.js tests/universalLinks.test.js",
     "test:mcp:ios": "node --test tests/mcpAppIntentsCompile.test.cjs tests/mcpAppIntentsMetadata.test.cjs tests/appIntentsArtifact.test.cjs tests/mcpQueryPolicy.test.cjs tests/iosSceneLifecycle.test.cjs",
     "test:ios-scene": "node --test tests/iosSceneLifecycle.test.cjs",
     "eval:mcp:ai": "node tests/mcpNaturalLanguage.eval.cjs",

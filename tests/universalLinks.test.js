@@ -113,6 +113,21 @@ test("mantiene las rutas históricas de Universal Links", () => {
   });
 });
 
+test("acepta el host HTTPS configurado para esta instalación", () => {
+  const previousBaseUrl = process.env.EXPO_PUBLIC_VIDKAR_BASE_URL;
+  process.env.EXPO_PUBLIC_VIDKAR_BASE_URL = "https://preview.example.test";
+  try {
+    assert.deepEqual(resolveUniversalLink("https://preview.example.test/search?q=VIDKAR&entity=all"), {
+      pathname: "/siri-search",
+      params: { query: "VIDKAR", entityType: "all" },
+    });
+    assert.equal(resolveUniversalLink("https://untrusted.example/search?q=VIDKAR"), null);
+  } finally {
+    if (previousBaseUrl === undefined) delete process.env.EXPO_PUBLIC_VIDKAR_BASE_URL;
+    else process.env.EXPO_PUBLIC_VIDKAR_BASE_URL = previousBaseUrl;
+  }
+});
+
 test("resuelve la suscripción hacia el área de compras", () => {
   assert.deepEqual(resolveUniversalLink("vidkar://subscription/course-subscription-1"), {
     pathname: "/(normal)/MisCompras",
@@ -154,7 +169,8 @@ test("OpenURLIntent devuelve el Universal Link asociado para que Expo Router rec
     pathname: "/siri-search",
     params: { query: "película Transformer", entityType: "all" },
   });
-  assert.match(searchURL, /components\.scheme = "https"[\s\S]*?components\.host = "www\.vidkar\.com"[\s\S]*?components\.path = "\/search"/);
+  assert.match(searchURL, /Bundle\.main\.object\(forInfoDictionaryKey: "VIDKAR_BASE_URL"\)/);
+  assert.match(searchURL, /components\.scheme = "https"[\s\S]*?components\.host = configuredHost \?\? "www\.vidkar\.com"[\s\S]*?components\.path = "\/search"/);
   assert.match(swift, /return \.result\(opensIntent: OpenURLIntent\(url\)\)/);
   assert.doesNotMatch(swift, /MCPInAppSearchHandoff|consumePendingSiriSearchURL/);
   assert.ok(appConfig.expo.ios.associatedDomains.includes("applinks:www.vidkar.com"));
@@ -173,7 +189,11 @@ test("búsquedas rechazan ámbitos inventados, consentimiento, tools y enlaces a
 });
 
 test("entrada nativa Expo entrega la misma búsqueda en frío y caliente sin depender de index", async () => {
-  const nativeSource = await fs.readFile(new URL("../app/+native-intent.tsx", import.meta.url), "utf8");
+  const nativeSource = (await fs.readFile(new URL("../app/+native-intent.tsx", import.meta.url), "utf8"))
+    .replace(
+      'import { getVidkarBaseUrl } from "../services/appUrls";',
+      'const getVidkarBaseUrl = () => process.env.EXPO_PUBLIC_VIDKAR_BASE_URL || "https://www.vidkar.com";',
+    );
   const nativeJS = ts.transpileModule(nativeSource.replace(/^import .*;\n/m, ""), {
     compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
   }).outputText;
@@ -241,6 +261,26 @@ test("Universal Link Siri usa el host AASA asociado en iOS", async () => {
     pathname: "/siri-search",
     params: { query: "Transformer", entityType: "all" },
   });
+});
+
+test("la entrada nativa y el parser aceptan el origen base configurado", async () => {
+  const previousBaseUrl = process.env.EXPO_PUBLIC_VIDKAR_BASE_URL;
+  process.env.EXPO_PUBLIC_VIDKAR_BASE_URL = "https://preview.example.test";
+  try {
+    const nativeSource = (await fs.readFile(new URL("../app/+native-intent.tsx", import.meta.url), "utf8"))
+      .replace(
+        'import { getVidkarBaseUrl } from "../services/appUrls";',
+        'const getVidkarBaseUrl = () => process.env.EXPO_PUBLIC_VIDKAR_BASE_URL || "https://www.vidkar.com";',
+      );
+    const nativeJS = ts.transpileModule(nativeSource.replace(/^import .*;\n/m, ""), {
+      compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    const { redirectSystemPath } = await import(`data:text/javascript;base64,${Buffer.from(`${javascript}\n${nativeJS}`).toString("base64")}`);
+    assert.equal(redirectSystemPath({ path: "/search?q=VIDKAR&entity=all", initial: true }), "/siri-search?query=VIDKAR&entityType=all");
+  } finally {
+    if (previousBaseUrl === undefined) delete process.env.EXPO_PUBLIC_VIDKAR_BASE_URL;
+    else process.env.EXPO_PUBLIC_VIDKAR_BASE_URL = previousBaseUrl;
+  }
 });
 // Siri usa el host www porque es el que publica el AASA de VIDKAR.
 // Mantener la ruta web cubierta aunque Siri active VIDKAR directamente.

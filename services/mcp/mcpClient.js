@@ -1,15 +1,15 @@
 import * as SecureStore from "expo-secure-store";
-import Constants from "expo-constants";
 import { VidkarMCP } from "../../modules/vidkar-mcp/src";
+import { getMCPUrl } from "../appUrls";
 import { Meteor } from "../meteor/client.native";
 import { formatToolCatalog, parseArgumentsJSON } from "./mcpProtocol";
 
 const TOKEN_KEY = "vidkar.mcp.bearer.v1";
+const TOKEN_ID_KEY = "vidkar.mcp.tokenId.v1";
+const PENDING_TOKEN_KEY = "vidkar.mcp.pendingBearer.v1";
 const URL_KEY = "vidkar.mcp.url.v1";
 const TOOL_CACHE_KEY = "vidkar.mcp.tools.v2";
 const TOOL_CACHE_TTL_MS = 5 * 60 * 1000;
-const DEFAULT_MCP_URL = "https://www.vidkar.com/mcp";
-
 const requireNativeMCP = () => {
   if (!VidkarMCP) throw new Error("El módulo nativo MCP no está disponible en este binario.");
   return VidkarMCP;
@@ -17,16 +17,7 @@ const requireNativeMCP = () => {
 
 const isHttpsUrl = (value) => /^https:\/\//i.test(String(value || "").trim());
 
-const getConfiguredMCPUrl = () => {
-  const candidates = [
-    process.env.EXPO_PUBLIC_MCP_URL,
-    Constants.expoConfig?.extra?.mcpServerUrl,
-    Constants.manifest2?.extra?.expoClient?.extra?.mcpServerUrl,
-    Constants.manifest2?.extra?.mcpServerUrl,
-    DEFAULT_MCP_URL,
-  ];
-  return candidates.find(isHttpsUrl)?.trim().replace(/\/$/, "") || null;
-};
+const getConfiguredMCPUrl = () => getMCPUrl();
 
 const readCache = async () => {
   const raw = await SecureStore.getItemAsync(TOOL_CACHE_KEY);
@@ -39,7 +30,11 @@ const readCache = async () => {
   }
 };
 
-export const configureMCP = async ({ url, token }) => {
+const callMeteorMethod = (methodName, ...args) => new Promise((resolve, reject) => {
+  Meteor.call(methodName, ...args, (error, result) => (error ? reject(error) : resolve(result)));
+});
+
+export const configureMCP = async ({ url, token, tokenId }) => {
   if (!VidkarMCP) throw new Error("La integración MCP de VIDKAR requiere un binario iOS nativo.");
   const ownerId = Meteor.userId();
   if (!ownerId) throw new Error("Inicia sesión en VIDKAR antes de configurar MCP.");
@@ -52,42 +47,126 @@ export const configureMCP = async ({ url, token }) => {
   } catch (error) {
     await Promise.all([
       SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => null),
+      SecureStore.deleteItemAsync(TOKEN_ID_KEY).catch(() => null),
       SecureStore.deleteItemAsync(URL_KEY).catch(() => null),
       SecureStore.deleteItemAsync(TOOL_CACHE_KEY).catch(() => null),
     ]);
     throw error;
   }
   await SecureStore.setItemAsync(TOKEN_KEY, String(token));
+  if (typeof tokenId === "string" && tokenId) await SecureStore.setItemAsync(TOKEN_ID_KEY, tokenId);
+  else await SecureStore.deleteItemAsync(TOKEN_ID_KEY);
   await SecureStore.setItemAsync(URL_KEY, normalizedUrl);
   await SecureStore.deleteItemAsync(TOOL_CACHE_KEY);
+  await SecureStore.deleteItemAsync(PENDING_TOKEN_KEY);
 };
 
 export const createAndConfigureMCPToken = async (label = "VIDKAR iOS") => {
   if (!VidkarMCP) throw new Error("La integración MCP de VIDKAR requiere un binario iOS nativo.");
-  const result = await new Promise((resolve, reject) => {
-    Meteor.call("mcp.tokens.create", label, (error, value) => (error ? reject(error) : resolve(value)));
-  });
-  const mcpUrl = isHttpsUrl(result?.mcpUrl) ? result.mcpUrl : getConfiguredMCPUrl();
+  const result = await callMeteorMethod("mcp.tokens.create", label);
+  const mcpUrl = getConfiguredMCPUrl() || (isHttpsUrl(result?.mcpUrl) ? result.mcpUrl : null);
   if (!result?.token || !mcpUrl) {
     if (result?.tokenId) await revokeMCPToken(result.tokenId);
     throw new Error("El backend no devolvió un endpoint HTTPS y token MCP válidos.");
   }
   try {
-    await configureMCP({ url: mcpUrl, token: result.token });
+    await SecureStore.setItemAsync(PENDING_TOKEN_KEY, result.token);
+    await configureMCP({ url: mcpUrl, token: result.token, tokenId: result.tokenId });
   } catch (error) {
     if (result?.tokenId) await revokeMCPToken(result.tokenId).catch(() => null);
+    await clearMCPConfiguration().catch(() => null);
     throw error;
   }
   return result;
 };
 
-export const revokeMCPToken = (tokenId) => new Promise((resolve, reject) => {
-  Meteor.call("mcp.tokens.revoke", tokenId, (error, value) => (error ? reject(error) : resolve(value)));
-});
+export const rotateAndConfigureMCPToken = async (tokenId, label = "VIDKAR iOS") => {
+  if (!VidkarMCP) throw new Error("La integración MCP de VIDKAR requiere un binario iOS nativo.");
+  const result = await callMeteorMethod("mcp.tokens.rotate", tokenId, label);
+  const mcpUrl = getConfiguredMCPUrl() || (isHttpsUrl(result?.mcpUrl) ? result.mcpUrl : null);
+  if (!result?.token || !result?.tokenId || !mcpUrl) {
+    if (result?.tokenId) await revokeMCPToken(result.tokenId).catch(() => null);
+    throw new Error("El backend no devolvió un endpoint HTTPS y token MCP válidos.");
+  }
+  try {
+    await SecureStore.setItemAsync(PENDING_TOKEN_KEY, result.token);
+    await configureMCP({ url: mcpUrl, token: result.token, tokenId: result.tokenId });
+  } catch (error) {
+    await requireNativeMCP().clearConfiguration().catch(() => null);
+    await Promise.all([
+      SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => null),
+      SecureStore.deleteItemAsync(URL_KEY).catch(() => null),
+      SecureStore.deleteItemAsync(TOOL_CACHE_KEY).catch(() => null),
+      SecureStore.setItemAsync(TOKEN_ID_KEY, result.tokenId).catch(() => null),
+    ]);
+    throw error;
+  }
+  return result;
+};
+
+export const getMCPAccessStatus = async () => {
+  const ownerId = Meteor.userId();
+  if (!ownerId) throw new Error("Inicia sesión en VIDKAR para consultar el acceso MCP.");
+  const nativeModule = requireNativeMCP();
+  let configuration;
+  const [initialConfiguration, tokenIdValue, storedBearer, pendingBearer, serverResult] = await Promise.all([
+    nativeModule.getConfiguration(),
+    SecureStore.getItemAsync(TOKEN_ID_KEY),
+    SecureStore.getItemAsync(TOKEN_KEY),
+    SecureStore.getItemAsync(PENDING_TOKEN_KEY),
+    callMeteorMethod("mcp.tokens.list"),
+  ]);
+  configuration = initialConfiguration;
+  const savedBearer = pendingBearer || storedBearer;
+  const tokens = Array.isArray(serverResult?.tokens) ? serverResult.tokens : [];
+  let tokenId = tokenIdValue;
+  if (!tokenId && savedBearer) {
+    const prefix = `${String(savedBearer).slice(0, 18)}…`;
+    const legacyToken = tokens.find((item) => item?.tokenPreview === prefix && !item?.revokedAt);
+    if (legacyToken?.tokenId) {
+      tokenId = legacyToken.tokenId;
+      await SecureStore.setItemAsync(TOKEN_ID_KEY, tokenId);
+    }
+  }
+  const loadedToken = tokenId ? tokens.find((item) => String(item?.tokenId) === String(tokenId)) : null;
+  const ownerMatches = configuration?.configured === true
+    && String(configuration.ownerId) === String(ownerId);
+  let configured = ownerMatches && Boolean(loadedToken) && !loadedToken.revokedAt;
+
+  if (!configured && !configuration?.configured && loadedToken && !loadedToken.revokedAt && savedBearer) {
+    await configureMCP({
+      url: getConfiguredMCPUrl() || serverResult?.mcpUrl,
+      token: savedBearer,
+      tokenId: loadedToken.tokenId,
+    });
+    configuration = await nativeModule.getConfiguration();
+    configured = configuration?.configured === true
+      && String(configuration.ownerId) === String(ownerId);
+  }
+
+  if (configuration?.configured && !configured) await clearMCPConfiguration();
+  else if (configured && pendingBearer) await SecureStore.deleteItemAsync(PENDING_TOKEN_KEY);
+
+  return {
+    configured,
+    token: configured ? loadedToken : null,
+    tokens,
+    mcpUrl: getConfiguredMCPUrl() || serverResult?.mcpUrl || null,
+  };
+};
+
+export const revokeMCPToken = async (tokenId) => {
+  const result = await callMeteorMethod("mcp.tokens.revoke", tokenId);
+  const loadedTokenId = await SecureStore.getItemAsync(TOKEN_ID_KEY);
+  if (String(loadedTokenId || "") === String(tokenId)) await clearMCPConfiguration();
+  return result;
+};
 
 export const clearMCPConfiguration = async () => {
   await Promise.all([
     SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => null),
+    SecureStore.deleteItemAsync(TOKEN_ID_KEY).catch(() => null),
+    SecureStore.deleteItemAsync(PENDING_TOKEN_KEY).catch(() => null),
     SecureStore.deleteItemAsync(URL_KEY).catch(() => null),
     SecureStore.deleteItemAsync(TOOL_CACHE_KEY).catch(() => null),
   ]);

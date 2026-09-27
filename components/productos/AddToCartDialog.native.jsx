@@ -1,18 +1,18 @@
 import MeteorBase from "@meteorrn/core";
-import { BlurView } from "expo-blur";
-import { useEffect, useState } from "react";
-import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Alert, StyleSheet, View } from "react-native";
+import { useReducedMotion } from "react-native-reanimated";
 import {
   Button,
-  Dialog,
   Divider,
   HelperText,
   IconButton,
-  Portal,
   Text,
   TextInput,
   useTheme,
 } from "react-native-paper";
+
+import DrawerBottom from "../drawer/DrawerBottom.native";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -23,11 +23,9 @@ const AddToCartDialogNative = ({ onDismiss, producto, tienda, visible }) => {
   const [cantidad, setCantidad] = useState("1");
   const [comentario, setComentario] = useState("");
   const [loading, setLoading] = useState(false);
+  const contentAtTopRef = useRef(true);
+  const reducedMotion = useReducedMotion();
   const theme = useTheme();
-  const blurTint = theme.dark ? "dark" : "light";
-  const dialogOverlayColor = theme.dark
-    ? "rgba(15, 23, 42, 0.76)"
-    : "rgba(255, 255, 255, 0.72)";
   const user = Meteor.useTracker(() => Meteor.user());
 
   useEffect(() => {
@@ -104,178 +102,10 @@ const AddToCartDialogNative = ({ onDismiss, producto, tienda, visible }) => {
   };
 
   return (
-    <Portal>
-      <Dialog onDismiss={onDismiss} style={styles.dialog} visible={visible}>
-        {blurTint === "dark" ? (
-          <BlurView
-            experimentalBlurMethod={
-              Platform.OS === "android" ? "dimezisBlurView" : undefined
-            }
-            intensity={42}
-            renderToHardwareTextureAndroid
-            style={StyleSheet.absoluteFill}
-            tint="dark"
-          />
-        ) : (
-          <BlurView
-            experimentalBlurMethod={
-              Platform.OS === "android" ? "dimezisBlurView" : undefined
-            }
-            intensity={36}
-            renderToHardwareTextureAndroid
-            style={StyleSheet.absoluteFill}
-            tint="light"
-          />
-        )}
-        <View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            styles.dialogBlurOverlay,
-            { backgroundColor: dialogOverlayColor },
-          ]}
-        />
-        <Dialog.Title style={styles.dialogTitle}>
-          Agregar al carrito
-        </Dialog.Title>
-
-        <Dialog.ScrollArea style={styles.scrollArea}>
-          <ScrollView contentContainerStyle={styles.scrollContent}>
-            <View style={styles.productoInfo}>
-              <Text style={styles.productoNombre} variant="titleMedium">
-                {producto.name}
-              </Text>
-              <Text style={styles.tiendaNombre} variant="bodySmall">
-                📍 {tienda.title}
-              </Text>
-            </View>
-
-            <Divider style={styles.sectionDivider} />
-
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel} variant="labelLarge">
-                Cantidad
-              </Text>
-
-              <View style={styles.cantidadRow}>
-                <IconButton
-                  disabled={cantidadNum <= 1 || loading}
-                  icon="minus"
-                  mode="contained-tonal"
-                  onPress={() => {
-                    const nueva = cantidadNum - 1;
-                    if (nueva > 0) {
-                      setCantidad(String(nueva));
-                    }
-                  }}
-                  size={20}
-                  style={styles.cantidadButton}
-                />
-
-                <TextInput
-                  dense
-                  disabled={loading}
-                  error={!cantidadValida && cantidad !== ""}
-                  keyboardType="number-pad"
-                  mode="outlined"
-                  onChangeText={setCantidad}
-                  style={styles.cantidadInput}
-                  value={cantidad}
-                />
-
-                <IconButton
-                  disabled={cantidadNum >= stockDisponible || loading}
-                  icon="plus"
-                  mode="contained-tonal"
-                  onPress={() => {
-                    const nueva = cantidadNum + 1;
-                    if (nueva <= stockDisponible) {
-                      setCantidad(String(nueva));
-                    }
-                  }}
-                  size={20}
-                  style={styles.cantidadButton}
-                />
-              </View>
-
-              {!producto.productoDeElaboracion ? (
-                <HelperText type={cantidadValida ? "info" : "error"}>
-                  {cantidadValida
-                    ? `Stock disponible: ${stockDisponible}`
-                    : `Cantidad debe ser entre 1 y ${stockDisponible}`}
-                </HelperText>
-              ) : (
-                <HelperText type="info">
-                  ⏱️ Producto de elaboración bajo pedido
-                </HelperText>
-              )}
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel} variant="labelLarge">
-                Comentarios (opcional)
-              </Text>
-
-              <TextInput
-                disabled={loading}
-                maxLength={200}
-                mode="outlined"
-                multiline
-                numberOfLines={3}
-                onChangeText={setComentario}
-                placeholder="Ej: Sin cebolla, extra queso..."
-                style={styles.comentarioInput}
-                value={comentario}
-              />
-
-              <HelperText type="info">
-                {comentario.length}/200 caracteres
-              </HelperText>
-            </View>
-
-            <Divider style={styles.sectionDivider} />
-
-            <View
-              style={[
-                styles.precioResumen,
-                // { backgroundColor: theme.colors.surfaceVariant },
-              ]}
-            >
-              <View style={styles.precioRow}>
-                <Text variant="bodyMedium">Precio unitario:</Text>
-                <Text style={styles.precioValue} variant="bodyMedium">
-                  {precioUnitario.toFixed(2)} {producto.monedaPrecio || "USD"}
-                </Text>
-              </View>
-
-              <View style={styles.precioRow}>
-                <Text variant="bodyMedium">Cantidad:</Text>
-                <Text style={styles.precioValue} variant="bodyMedium">
-                  × {cantidadNum}
-                </Text>
-              </View>
-
-              <Divider style={styles.totalDivider} />
-
-              <View style={styles.precioRow}>
-                <Text style={styles.precioTotalLabel} variant="titleMedium">
-                  Total:
-                </Text>
-                <Text
-                  style={[
-                    styles.precioTotalValue,
-                    { color: theme.colors.primary },
-                  ]}
-                  variant="titleLarge"
-                >
-                  {precioTotal} {producto.monedaPrecio || "USD"}
-                </Text>
-              </View>
-            </View>
-          </ScrollView>
-        </Dialog.ScrollArea>
-
-        <Dialog.Actions style={styles.dialogActions}>
+    <DrawerBottom
+      contentAtTopRef={contentAtTopRef}
+      footer={(
+        <View style={styles.drawerActions}>
           <Button disabled={loading} onPress={onDismiss}>
             Cancelar
           </Button>
@@ -287,9 +117,142 @@ const AddToCartDialogNative = ({ onDismiss, producto, tienda, visible }) => {
           >
             {loading ? "Agregando..." : "Agregar"}
           </Button>
-        </Dialog.Actions>
-      </Dialog>
-    </Portal>
+        </View>
+      )}
+      onClose={onDismiss}
+      open={visible}
+      reducedMotion={reducedMotion}
+      scrollable
+      surfaceStyle={styles.drawerSurface}
+      title="Agregar al carrito"
+    >
+      <View style={styles.productoInfo}>
+        <Text style={styles.productoNombre} variant="titleMedium">
+          {producto?.name || "Producto de comercio"}
+        </Text>
+        <Text style={styles.tiendaNombre} variant="bodySmall">
+          📍 {tienda?.title || "Tienda"}
+        </Text>
+      </View>
+
+      <Divider style={styles.sectionDivider} />
+
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel} variant="labelLarge">
+          Cantidad
+        </Text>
+
+        <View style={styles.cantidadRow}>
+          <IconButton
+            disabled={cantidadNum <= 1 || loading}
+            icon="minus"
+            mode="contained-tonal"
+            onPress={() => {
+              const nueva = cantidadNum - 1;
+              if (nueva > 0) {
+                setCantidad(String(nueva));
+              }
+            }}
+            size={20}
+            style={styles.cantidadButton}
+          />
+
+          <TextInput
+            dense
+            disabled={loading}
+            error={!cantidadValida && cantidad !== ""}
+            keyboardType="number-pad"
+            mode="outlined"
+            onChangeText={setCantidad}
+            style={styles.cantidadInput}
+            value={cantidad}
+          />
+
+          <IconButton
+            disabled={cantidadNum >= stockDisponible || loading}
+            icon="plus"
+            mode="contained-tonal"
+            onPress={() => {
+              const nueva = cantidadNum + 1;
+              if (nueva <= stockDisponible) {
+                setCantidad(String(nueva));
+              }
+            }}
+            size={20}
+            style={styles.cantidadButton}
+          />
+        </View>
+
+        {!producto?.productoDeElaboracion ? (
+          <HelperText type={cantidadValida ? "info" : "error"}>
+            {cantidadValida
+              ? `Stock disponible: ${stockDisponible}`
+              : `Cantidad debe ser entre 1 y ${stockDisponible}`}
+          </HelperText>
+        ) : (
+          <HelperText type="info">
+            ⏱️ Producto de elaboración bajo pedido
+          </HelperText>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel} variant="labelLarge">
+          Comentarios (opcional)
+        </Text>
+
+        <TextInput
+          disabled={loading}
+          maxLength={200}
+          mode="outlined"
+          multiline
+          numberOfLines={3}
+          onChangeText={setComentario}
+          placeholder="Ej: Sin cebolla, extra queso..."
+          style={styles.comentarioInput}
+          value={comentario}
+        />
+
+        <HelperText type="info">
+          {comentario.length}/200 caracteres
+        </HelperText>
+      </View>
+
+      <Divider style={styles.sectionDivider} />
+
+      <View style={styles.precioResumen}>
+        <View style={styles.precioRow}>
+          <Text variant="bodyMedium">Precio unitario:</Text>
+          <Text style={styles.precioValue} variant="bodyMedium">
+            {precioUnitario.toFixed(2)} {producto?.monedaPrecio || "USD"}
+          </Text>
+        </View>
+
+        <View style={styles.precioRow}>
+          <Text variant="bodyMedium">Cantidad:</Text>
+          <Text style={styles.precioValue} variant="bodyMedium">
+            × {cantidadNum}
+          </Text>
+        </View>
+
+        <Divider style={styles.totalDivider} />
+
+        <View style={styles.precioRow}>
+          <Text style={styles.precioTotalLabel} variant="titleMedium">
+            Total:
+          </Text>
+          <Text
+            style={[
+              styles.precioTotalValue,
+              { color: theme.colors.primary },
+            ]}
+            variant="titleLarge"
+          >
+            {precioTotal} {producto?.monedaPrecio || "USD"}
+          </Text>
+        </View>
+      </View>
+    </DrawerBottom>
   );
 };
 
@@ -312,21 +275,14 @@ const styles = StyleSheet.create({
   comentarioInput: {
     fontSize: 14,
   },
-  dialog: {
+  drawerActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "flex-end",
+  },
+  drawerSurface: {
     backgroundColor: "transparent",
-    borderRadius: 28,
-    overflow: "hidden",
-  },
-  dialogBlurOverlay: {
-    borderRadius: 28,
-  },
-  dialogActions: {
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-  },
-  dialogTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
   },
   precioResumen: {
     borderRadius: 12,
@@ -355,13 +311,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 4,
     textAlign: "center",
-  },
-  scrollArea: {
-    paddingHorizontal: 0,
-  },
-  scrollContent: {
-    paddingBottom: 16,
-    paddingHorizontal: 24,
   },
   section: {
     marginBottom: 16,

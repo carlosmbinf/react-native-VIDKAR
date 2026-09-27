@@ -6,9 +6,12 @@ import { Alert, AppState, FlatList, Keyboard, Pressable, StyleSheet, View } from
 import { ActivityIndicator, Appbar, Avatar, Button, Card, Chip, ProgressBar, Text, TextInput, useTheme } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import AppHeader, { MENU_PRINCIPAL_HEADER_COLOR, useAppHeaderContentInset } from "../Header/AppHeader";
 import { assertMCPQuerySession, authorizeMCPPlayback, consumeMCPPlaybackAuthorization, executeMCPTool, getMCPNaturalLanguageResult, getMCPQuerySession } from "../../services/mcp/mcpClient";
 import { IN_APP_SEARCH_CATEGORIES, makeInAppSearchArguments, PRIVATE_SEARCH_TYPES } from "../../services/mcp/inAppSearch";
 import { ensureMeteorSession } from "../../services/meteor/client.native";
+import { useCurrentSession } from "../../services/meteor/session.native";
+import { isMCPAdmin } from "../../services/mcp/mcpAccess";
 import { resolveUniversalLink } from "../../services/navigation/universalLinks";
 import Loguin from "../loguin/Loguin.native";
 
@@ -141,8 +144,10 @@ const requestPlaybackConfirmation = (title) => new Promise((resolve) => {
 export default function SiriSearchScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const headerInset = useAppHeaderContentInset();
   const params = useLocalSearchParams();
-  const userId = Meteor.useTracker(() => Meteor.userId());
+  const { user, userId, userReady } = useCurrentSession();
+  const userIsMCPAdmin = isMCPAdmin(user);
   const isFocused = useIsFocused();
   const [appState, setAppState] = React.useState(AppState.currentState);
   const isSnapshot = params.resultId !== undefined;
@@ -173,13 +178,19 @@ export default function SiriSearchScreen() {
     if (isSnapshot && snapshotReaderRef.current) return snapshotReaderRef.current();
     const requestId = ++requestRef.current;
     const isCurrent = () => mountedRef.current && requestId === requestRef.current && Meteor.userId() === userId
-      && isFocused && AppState.currentState === "active";
+      && isFocused && AppState.currentState === "active" && userIsMCPAdmin;
     setLoading(true);
     setError("");
     if (!append || isSnapshot) {
       setResults([]);
       setPagination(null);
       setSnapshot(null);
+    }
+    if (!userReady) return;
+    if (userId && !userIsMCPAdmin) {
+      setError("La búsqueda Siri y MCP está disponible solo para administradores.");
+      setLoading(false);
+      return;
     }
     if (!isFocused || appState !== "active") {
       setResults([]);
@@ -193,6 +204,7 @@ export default function SiriSearchScreen() {
       setSessionReady(true);
       if (!isCurrent() || isSnapshot) return;
       if (!userId || Meteor.userId() !== userId) throw new Error("Inicia sesión en VIDKAR para continuar.");
+      if (!userIsMCPAdmin) throw new Error("La búsqueda Siri y MCP está disponible solo para administradores.");
       const args = makeInAppSearchArguments({ query, entityType, contentId, offset });
       const session = privateConfirmedRef.current || await getMCPQuerySession();
       await assertMCPQuerySession(session);
@@ -235,7 +247,7 @@ export default function SiriSearchScreen() {
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [appState, contentId, entityType, isFocused, isSnapshot, query, userId]);
+  }, [appState, contentId, entityType, isFocused, isSnapshot, query, userId, userIsMCPAdmin, userReady]);
 
   React.useLayoutEffect(() => { setDraftQuery(query); }, [query]);
 
@@ -257,6 +269,16 @@ export default function SiriSearchScreen() {
 
   React.useLayoutEffect(() => {
     if (!isSnapshot || !sessionReady) return;
+    if (userId && !userIsMCPAdmin) {
+      requestRef.current += 1;
+      snapshotReaderRef.current = null;
+      setSnapshot(null);
+      setResults([]);
+      setPagination(null);
+      setError("La búsqueda Siri y MCP está disponible solo para administradores.");
+      setLoading(false);
+      return;
+    }
     const requestId = ++requestRef.current;
     let disposed = false;
     let revoked = false;
@@ -324,7 +346,7 @@ export default function SiriSearchScreen() {
       clearTimeout(expiryTimer);
       clearInterval(pollTimer);
     };
-  }, [appState, isFocused, isSnapshot, resultId, sessionReady, userId]);
+  }, [appState, isFocused, isSnapshot, resultId, sessionReady, userId, userIsMCPAdmin]);
 
   const loadMore = () => {
     if (isSnapshot || loading || !pagination?.hasMore) return;
@@ -384,21 +406,51 @@ export default function SiriSearchScreen() {
     if (nextQuery === query && nextEntity === entityType && !contentId) loadResults();
   };
 
+  if (userReady && userId && !userIsMCPAdmin) {
+    return (
+      <SafeAreaView edges={["bottom", "left", "right"]} style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+        <AppHeader
+          backgroundColor={MENU_PRINCIPAL_HEADER_COLOR}
+          backHref="/(normal)/Main"
+          showBackButton
+          subtitle="VIDKAR · ACCESO ADMINISTRATIVO"
+          title="Acceso restringido"
+        />
+        <View style={styles.state}>
+          <Avatar.Icon icon="shield-lock-outline" size={64} />
+          <Text selectable variant="titleMedium">Siri y MCP están disponibles solo para administradores.</Text>
+          <Button mode="contained" onPress={() => router.replace("/(normal)/Main")}>Volver a VIDKAR</Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   // El login existente conserva esta ruta y sus criterios; no crea tokens silenciosamente.
   if (sessionReady && !userId && showLogin) return <Loguin deferSessionRedirect />;
 
   return (
     <SafeAreaView edges={["bottom", "left", "right"]} style={[styles.screen, { backgroundColor: theme.colors.background }]}>
-      <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />
-        <Appbar.Content title="Buscar en VIDKAR" subtitle={isSnapshot ? snapshot?.query || "Resultado de Siri" : query || entityType} />
-        <Appbar.Action icon="refresh" onPress={() => loadResults({ offset: 0, append: false })} disabled={loading} accessibilityLabel="Actualizar búsqueda" />
-      </Appbar.Header>
+      <AppHeader
+        actions={(
+          <Appbar.Action
+            accessibilityLabel="Actualizar búsqueda"
+            disabled={loading}
+            icon="refresh"
+            iconColor="#ffffff"
+            onPress={() => loadResults({ offset: 0, append: false })}
+          />
+        )}
+        backgroundColor={MENU_PRINCIPAL_HEADER_COLOR}
+        backHref="/(normal)/Main"
+        overlapContent
+        showBackButton
+        subtitle={isSnapshot ? snapshot?.query || "Resultado de Siri" : query || entityType}
+        title="Buscar en VIDKAR"
+      />
       <FlatList
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: headerInset + 16 }]}
         data={results}
         keyExtractor={(item) => `${item.type}:${item.id}`}
         ListHeaderComponent={(
@@ -418,7 +470,9 @@ export default function SiriSearchScreen() {
                 <Button mode="contained" onPress={() => search()} disabled={loading}>Buscar</Button>
                 <Button mode="outlined" onPress={() => search("course", "")}>Ver todos los cursos</Button>
               </View>
-              <Button mode="text" onPress={() => router.push("/(normal)/MCPSettings")}>Configurar o consultar MCP</Button>
+              {userIsMCPAdmin ? (
+                <Button mode="text" onPress={() => router.push("/(normal)/MCPSettings")}>Configurar o consultar MCP</Button>
+              ) : null}
             </> : null}
             {sessionReady && !userId ? <Button mode="contained" onPress={() => setShowLogin(true)}>Iniciar sesión</Button> : null}
             {pagination?.total > 0 ? <Text selectable variant="bodySmall" style={styles.count}>

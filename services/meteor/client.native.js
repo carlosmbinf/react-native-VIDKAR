@@ -1,77 +1,14 @@
 import Meteor from "@meteorrn/core";
-import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
+import { getHlsServerUrl, getMeteorUrl, normalizeMeteorUrl } from "../appUrls";
 
-const DEFAULT_METEOR_URL = "ws://www.vidkar.com:3000/websocket";
-const DEFAULT_HLS_SERVER_URL = "https://hls.vidkar.com";
+export { getHlsServerUrl, getMeteorUrl };
 
 const meteorAsyncStorage = {
   getItem: (key) => SecureStore.getItemAsync(key),
   setItem: (key, value) => SecureStore.setItemAsync(key, value),
   removeItem: (key) => SecureStore.deleteItemAsync(key),
 };
-
-function normalizeMeteorUrl(value) {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmedValue = value.trim();
-  return /^wss?:\/\//i.test(trimmedValue) ? trimmedValue : null;
-}
-
-function normalizeHttpBaseUrl(value) {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmedValue = value.trim().replace(/\/$/, "");
-  if (!trimmedValue || !/^https?:\/\//i.test(trimmedValue)) {
-    return null;
-  }
-
-  return trimmedValue;
-}
-
-export function getMeteorUrl() {
-  const meteorUrlCandidates = [
-    process.env.EXPO_PUBLIC_METEOR_URL,
-    Constants.expoConfig?.extra?.meteorUrl,
-    Constants.manifest2?.extra?.expoClient?.extra?.meteorUrl,
-    Constants.manifest2?.extra?.meteorUrl,
-    Constants.manifest?.extra?.meteorUrl,
-    DEFAULT_METEOR_URL,
-  ];
-
-  for (const candidate of meteorUrlCandidates) {
-    const normalizedMeteorUrl = normalizeMeteorUrl(candidate);
-    if (normalizedMeteorUrl) {
-      return normalizedMeteorUrl;
-    }
-  }
-
-  return null;
-}
-
-export function getHlsServerUrl() {
-  const hlsUrlCandidates = [
-    process.env.EXPO_PUBLIC_HLS_SERVER_URL,
-    Constants.expoConfig?.extra?.hlsServerUrl,
-    Constants.manifest2?.extra?.expoClient?.extra?.hlsServerUrl,
-    Constants.manifest2?.extra?.hlsServerUrl,
-    Constants.manifest?.extra?.hlsServerUrl,
-    DEFAULT_HLS_SERVER_URL,
-  ];
-
-  for (const candidate of hlsUrlCandidates) {
-    const normalizedHlsUrl = normalizeHttpBaseUrl(candidate);
-    if (normalizedHlsUrl) {
-      return normalizedHlsUrl;
-    }
-  }
-
-  return null;
-}
 
 export async function connectToMeteor(endpoint) {
   const resolvedEndpoint = normalizeMeteorUrl(endpoint) || getMeteorUrl();

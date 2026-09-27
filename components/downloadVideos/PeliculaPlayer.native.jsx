@@ -25,7 +25,8 @@ import {
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { getHlsServerUrl, getMeteorUrl } from "../../services/meteor/client.native";
+import { getMeteorHttpOriginUrl } from "../../services/appUrls";
+import { getHlsServerUrl } from "../../services/meteor/client.native";
 import { setNativePipPlayerActive } from "../../services/pip/nativePip";
 import AirPlayVideoPlayer from "../shared/AirPlayVideoPlayer.native";
 
@@ -36,7 +37,6 @@ const Meteor =
     MeteorBase
   );
 
-const DEFAULT_MEDIA_ORIGIN = "https://www.vidkar.com";
 const SUBTITLE_DISABLE_TRACK_ID = -1;
 const PLAYER_MODE_INLINE = "inline";
 const PLAYER_MODE_FULLSCREEN = "fullscreen";
@@ -78,25 +78,6 @@ const SUBTITLE_FIELD_CANDIDATES = [
   "subtitleTracks",
 ];
 const MEDIA_URL_KEYS = ["uri", "url", "src", "path", "file", "location", "link"];
-
-const getHttpOriginFromMeteorUrl = (value) => {
-  if (typeof value !== "string" || !value.trim()) {
-    return DEFAULT_MEDIA_ORIGIN;
-  }
-
-  try {
-    const parsedUrl = new URL(value.trim());
-
-    if (parsedUrl.hostname === "www.vidkar.com") {
-      return DEFAULT_MEDIA_ORIGIN;
-    }
-
-    const protocol = parsedUrl.protocol === "wss:" ? "https:" : "http:";
-    return `${protocol}//${parsedUrl.host}`;
-  } catch (_error) {
-    return DEFAULT_MEDIA_ORIGIN;
-  }
-};
 
 const normalizeMeteorCallback = (args) => {
   const [first, second] = args;
@@ -386,7 +367,7 @@ const PeliculaPlayer = () => {
   const params = useLocalSearchParams();
   const movieId = React.useMemo(() => getMovieId(params.id), [params.id]);
   const mediaOrigin = React.useMemo(
-    () => getHttpOriginFromMeteorUrl(getMeteorUrl()),
+    () => getMeteorHttpOriginUrl(),
     []
   );
   const hlsServerOrigin = React.useMemo(() => getHlsServerUrl() || mediaOrigin, [mediaOrigin]);

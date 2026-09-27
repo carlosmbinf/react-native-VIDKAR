@@ -20,6 +20,7 @@ import {
   import { Chip, Portal, ProgressBar, Surface, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { getVisibleHomeServices } from "../../services/homeServices";
 import ComercioHomeOrdersSection from "../comercio/pedidos/ComercioHomeOrdersSection.native";
 import Productos from "../cubacel/Productos";
 import DrawerOptionsAlls from "../drawer/DrawerOptionsAlls";
@@ -311,6 +312,7 @@ const MenuPrincipalScreen = ({
   const heroGlowPrimaryProgress = useRef(new Animated.Value(0)).current;
   const heroGlowSecondaryProgress = useRef(new Animated.Value(0)).current;
   const headerInset = useAppHeaderContentInset();
+  const visibleHomeServices = getVisibleHomeServices(user?.serviciosInicio);
   const initialPathnameRef = useRef(pathname);
 
   useEffect(() => {
@@ -1534,39 +1536,68 @@ const MenuPrincipalScreen = ({
 
           {heavyContentReady ? (
             <>
-              <RenderTraceBlock
-                name="ComercioHomeOrdersSection"
-                payload={{ position: "before-cubacel" }}
-              >
-                <ComercioHomeOrdersSection
-                  catalogLoading={normalHomeCatalogsLoading}
-                  catalogOrders={normalHomeCatalogs?.commerceOrders}
-                />
-              </RenderTraceBlock>
+              {visibleHomeServices.map((service, index) => {
+                if (service.id === "COMERCIOS") {
+                  return (
+                    <React.Fragment key={service.id}>
+                      <RenderTraceBlock
+                        name="ComercioHomeOrdersSection"
+                        payload={{ position: index }}
+                      >
+                        <ComercioHomeOrdersSection
+                          catalogLoading={normalHomeCatalogsLoading}
+                          catalogOrders={normalHomeCatalogs?.commerceOrders}
+                        />
+                      </RenderTraceBlock>
+                      <RenderTraceBlock
+                        name="ComercioHomeSection"
+                        payload={{ position: index }}
+                      >
+                        <ComercioHomeSection />
+                      </RenderTraceBlock>
+                    </React.Fragment>
+                  );
+                }
 
-              <RenderTraceBlock
-                name="Productos"
-                payload={{ deferDelay: 0, isDegradado: false }}
-              >
-                <Productos
-                  catalogProducts={normalHomeCatalogs?.dtshopProducts}
-                  catalogLoading={normalHomeCatalogsLoading}
-                  deferData={false}
-                  deferDelay={0}
-                  isDegradado={false}
-                />
-              </RenderTraceBlock>
+                if (service.id === "CUBACEL") {
+                  return (
+                    <RenderTraceBlock
+                      key={service.id}
+                      name="Productos"
+                      payload={{
+                        deferDelay: 0,
+                        isDegradado: false,
+                        position: index,
+                      }}
+                    >
+                      <Productos
+                        catalogProducts={normalHomeCatalogs?.dtshopProducts}
+                        catalogLoading={normalHomeCatalogsLoading}
+                        deferData={false}
+                        deferDelay={0}
+                        isDegradado={false}
+                      />
+                    </RenderTraceBlock>
+                  );
+                }
 
-              <RenderTraceBlock name="ProxyVPNPackagesHorizontal">
-                <ProxyVPNPackagesHorizontal
-                  catalogPackages={normalHomeCatalogs}
-                  catalogLoading={normalHomeCatalogsLoading}
-                />
-              </RenderTraceBlock>
+                if (service.id === "PROXY_VPN") {
+                  return (
+                    <RenderTraceBlock
+                      key={service.id}
+                      name="ProxyVPNPackagesHorizontal"
+                      payload={{ position: index }}
+                    >
+                      <ProxyVPNPackagesHorizontal
+                        catalogPackages={normalHomeCatalogs}
+                        catalogLoading={normalHomeCatalogsLoading}
+                      />
+                    </RenderTraceBlock>
+                  );
+                }
 
-              <RenderTraceBlock name="ComercioHomeSection">
-                <ComercioHomeSection />
-              </RenderTraceBlock>
+                return null;
+              })}
             </>
           ) : (
             <View style={styles.deferredContentPlaceholder}>

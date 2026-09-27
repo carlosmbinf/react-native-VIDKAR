@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import {
     ActivityIndicator,
     RefreshControl,
-    ScrollView,
     StyleSheet,
     View,
     useWindowDimensions,
@@ -25,6 +24,8 @@ import {
 } from "../collections/collections";
 import { EMPRESA_BRAND } from "../empresa/styles/empresaTheme";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
+import McpSettingsLinkCard from "./componentsUserDetails/McpSettingsLinkCard.native";
+import WelcomeServicesLinkCard from "./componentsUserDetails/WelcomeServicesLinkCard.native";
 import AdminAssignmentCard from "./componentsUserDetails/AdminAssignmentCard";
 import DeleteAccountCard from "./componentsUserDetails/DeleteAccountCard";
 import DevicesCard from "./componentsUserDetails/DevicesCard";
@@ -37,6 +38,7 @@ import UserDataCard from "./componentsUserDetails/UserDataCard";
 import VentasCard from "./componentsUserDetails/VentasCard";
 import VpnCard from "./componentsUserDetails/VpnCard";
 import { canAccessPushTokenDashboards } from "./pushTokens/utils";
+import { NestableScrollContainer } from "react-native-draggable-flatlist";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
@@ -102,6 +104,9 @@ const UserDetails = () => {
   const routeItemId = Array.isArray(params.item) ? params.item[0] : params.item;
   const currentUserId = Meteor.useTracker(() => Meteor.userId());
   const currentUser = Meteor.useTracker(() => Meteor.user());
+  const isAdminUser =
+    currentUser?.profile?.role === "admin" ||
+    String(currentUser?.username || "").toLowerCase() === "carlosmbinf";
   const canViewPushDashboard = Meteor.useTracker(
     () => canAccessPushTokenDashboards(Meteor.user()),
     [],
@@ -453,6 +458,21 @@ const UserDetails = () => {
     });
   };
 
+  const handleOpenWelcomeServices = () => {
+    if (!item?._id) return;
+    const servicesRoute = pathname?.startsWith("/(empresa)")
+      ? "/(empresa)/UserServices"
+      : "/(normal)/UserServices";
+    router.push({ pathname: servicesRoute, params: { item: item._id } });
+  };
+
+  const handleOpenMcpSettings = () => {
+    const mcpRoute = pathname?.startsWith("/(empresa)")
+      ? "/(empresa)/MCPSettings"
+      : "/(normal)/MCPSettings";
+    router.push(mcpRoute);
+  };
+
   if (!itemId) {
     return (
       <Surface style={styles.emptyState}>
@@ -476,7 +496,7 @@ const UserDetails = () => {
         subtitleStyle={styles.headerSubtitle}
         overlapContent
       />
-      <ScrollView
+      <NestableScrollContainer
         contentContainerStyle={{
           paddingTop: headerInset + 12,
           paddingBottom: 24,
@@ -525,6 +545,25 @@ const UserDetails = () => {
                 accentColor={accentColor}
               />
             </View>
+            {isAdminUser ? (
+              <View style={[styles.cardItem, computedCardWidth]}>
+                <WelcomeServicesLinkCard
+                  accentColor={accentColor}
+                  item={item}
+                  onPress={handleOpenWelcomeServices}
+                  styles={profileStyles}
+                />
+              </View>
+            ) : null}
+            {isAdminUser && item?._id === currentUserId ? (
+              <View style={[styles.cardItem, computedCardWidth]}>
+                <McpSettingsLinkCard
+                  accentColor={accentColor}
+                  onPress={handleOpenMcpSettings}
+                  styles={profileStyles}
+                />
+              </View>
+            ) : null}
             <View style={[styles.cardItem, computedCardWidth]}>
               <Surface
                 elevation={5}
@@ -690,7 +729,7 @@ const UserDetails = () => {
             </Text>
           </View>
         )}
-      </ScrollView>
+      </NestableScrollContainer>
     </Surface>
   );
 };

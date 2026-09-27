@@ -1,10 +1,11 @@
 import { resolveUniversalLink } from "../services/navigation/universalLinks";
+import { getVidkarBaseUrl } from "../services/appUrls";
 
 // Expo Router procesa búsquedas incluso cuando index.native no está montado.
 // No sustituir los flujos históricos de otros enlaces/autenticación.
 export function redirectSystemPath({ path }: { path: string; initial: boolean }): string {
   try {
-    const url = new URL(path, "https://vidkar.com");
+    const url = new URL(path, getVidkarBaseUrl());
     const isSearch = url.protocol === "vidkar:" ? url.hostname.toLowerCase() === "search" : url.pathname === "/search";
     if (!isSearch) return path;
     const target = resolveUniversalLink(url.toString());

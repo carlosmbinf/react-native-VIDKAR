@@ -32,6 +32,7 @@ const DrawerBottom = ({
   onClose,
   open,
   overlayOpacity = 0.45,
+  reducedMotion = false,
   scrollable = false,
   showHeader = true,
   side = "bottom",
@@ -45,6 +46,8 @@ const DrawerBottom = ({
   const isLandscape = screenWidth > screenHeight;
   const drawerWidth = isLandscape ? Math.min(screenWidth - 48, 640) : screenWidth;
   const translateY = useRef(new Animated.Value(screenHeight)).current;
+  const reducedMotionRef = useRef(Boolean(reducedMotion));
+  reducedMotionRef.current = Boolean(reducedMotion);
   const internalContentAtTopRef = useRef(true);
   const drawerContentAtTopRef = contentAtTopRef || (scrollable ? internalContentAtTopRef : null);
   const contentGestureStartedAtTopRef = useRef(false);
@@ -80,13 +83,13 @@ const DrawerBottom = ({
       translateY.setValue(screenHeight);
       Animated.timing(translateY, {
         toValue: 0,
-        duration: 260,
+        duration: reducedMotion ? 0 : 260,
         useNativeDriver: true,
       }).start();
     } else {
       Animated.timing(translateY, {
         toValue: screenHeight,
-        duration: 220,
+        duration: reducedMotion ? 0 : 220,
         useNativeDriver: true,
       }).start(({ finished }) => {
         if (finished) {
@@ -96,7 +99,7 @@ const DrawerBottom = ({
     }
 
     return () => translateY.stopAnimation();
-  }, [isBottom, open, screenHeight, translateY]);
+  }, [isBottom, open, reducedMotion, screenHeight, translateY]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -117,7 +120,7 @@ const DrawerBottom = ({
         if (gestureState.dy > sheetHeight * 0.25 || gestureState.vy > 1.1) {
           Animated.timing(translateY, {
             toValue: screenHeight,
-            duration: 180,
+            duration: reducedMotionRef.current ? 0 : 180,
             useNativeDriver: true,
           }).start(() => {
             onClose?.();
@@ -127,7 +130,7 @@ const DrawerBottom = ({
 
         Animated.timing(translateY, {
           toValue: 0,
-          duration: 180,
+          duration: reducedMotionRef.current ? 0 : 180,
           useNativeDriver: true,
         }).start();
       },
@@ -163,7 +166,7 @@ const DrawerBottom = ({
         if (gestureState.dy > sheetHeight * 0.25 || gestureState.vy > 1.1) {
           Animated.timing(translateY, {
             toValue: screenHeight,
-            duration: 180,
+            duration: reducedMotionRef.current ? 0 : 180,
             useNativeDriver: true,
           }).start(() => {
             onClose?.();
@@ -173,7 +176,7 @@ const DrawerBottom = ({
 
         Animated.timing(translateY, {
           toValue: 0,
-          duration: 180,
+          duration: reducedMotionRef.current ? 0 : 180,
           useNativeDriver: true,
         }).start();
       },

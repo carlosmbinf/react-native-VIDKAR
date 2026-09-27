@@ -28,7 +28,7 @@ Si no aparece ninguna acción en Atajos, consulta el [diagnóstico de descubrimi
 
 ## MCP móvil (independiente de Siri)
 
-La app conserva el módulo Expo `modules/vidkar-mcp` y el backend MCP para la pantalla de configuración/consultas dentro de VIDKAR. Las dos acciones Siri reutilizan ese transporte y contrato; el MCP sigue validando tokens, permisos y datos en backend.
+La app conserva el módulo Expo `modules/vidkar-mcp` y el backend MCP para la pantalla de configuración/consultas dentro de VIDKAR. La pantalla, la emisión/gestión de tokens y el endpoint MCP están reservados a usuarios con rol administrador (incluido el administrador principal). El servidor vuelve a validar el rol del propietario en cada conexión, por lo que ocultar la ruta no es la única barrera y tokens antiguos de cuentas normales dejan de funcionar. Las dos acciones Siri reutilizan ese transporte y contrato; el MCP sigue validando tokens, permisos y datos en backend.
 
 ```text
 Pantalla MCP de VIDKAR -> módulo Expo vidkar-mcp -> backend MCP HTTPS
@@ -90,7 +90,7 @@ Las entidades de usuario, compra, ventas, mensajes y lecciones siguen sin expone
 
 ## Configuración y ejecución
 
-1. Inicia sesión y configura el token MCP desde la pantalla de configuración MCP de VIDKAR.
+1. Inicia sesión con una cuenta administradora y configura el token MCP desde la pantalla «Siri y MCP de VIDKAR».
 2. Usa un development build o distribución iOS nativa; Expo Go no contiene el módulo Swift ni App Intents.
 3. Para buscar una persona, usa «Busca usuario en VIDKAR» y proporciona el username exacto. La intent confirma la búsqueda y, tras una coincidencia única, confirma aparte la lectura del perfil; al aprobarla abre VIDKAR y muestra todos los campos que devuelve `get_user` dentro del alcance permitido. La tarjeta/voz de Siri solo recibe nombre y username; no se pronuncian los datos privados.
 4. Las otras acciones MCP continúan disponibles como intents explícitas en Atajos, pero ya no tienen frases preconfiguradas en el provider.

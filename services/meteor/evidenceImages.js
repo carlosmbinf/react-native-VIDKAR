@@ -1,11 +1,11 @@
 import MeteorBase from "@meteorrn/core";
+import { getMeteorHttpOriginUrl } from "../appUrls";
 
-const EVIDENCE_IMAGE_BASE_URL = "https://www.vidkar.com";
 const EVIDENCE_IMAGE_URL_CACHE = new Map();
 const TOKEN_REFRESH_MARGIN_MS = 30 * 1000;
 
 export const buildMeteorHttpBaseUrl = () => {
-  return EVIDENCE_IMAGE_BASE_URL;
+  return getMeteorHttpOriginUrl();
 };
 
 export const buildEvidenceImageUrl = (evidenceId, token) => {

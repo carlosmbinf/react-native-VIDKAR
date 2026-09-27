@@ -93,8 +93,7 @@ const normalizeChatAssetUrl = (value) => {
 
   // `images.upload` ya devuelve la URL pública configurada en ROOT_URL.
   // No la reemplazamos por el origen del WebSocket, porque en producción
-  // ese origen incluye el puerto interno de Meteor y no es descargable por
-  // Expo/APNs/FCM (por ejemplo, https://www.vidkar.com -> :3000).
+  // ese origen puede ser distinto del origen HTTP público de VIDKAR.
   if (/^(data:|blob:|https?:\/\/)/i.test(trimmedValue)) {
     return trimmedValue;
   }

@@ -1,7 +1,7 @@
 import Meteor from "@meteorrn/core";
+import { getHlsServerUrl, getMeteorUrl, normalizeMeteorUrl } from "../appUrls";
 
-const DEFAULT_METEOR_URL = "ws://www.vidkar.com:3000/websocket";
-const DEFAULT_HLS_SERVER_URL = "https://hls.vidkar.com";
+export { getHlsServerUrl, getMeteorUrl };
 
 const webAsyncStorage = {
   async getItem(key) {
@@ -17,60 +17,6 @@ const webAsyncStorage = {
     localStorage.removeItem(key);
   },
 };
-
-function normalizeMeteorUrl(value) {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmedValue = value.trim();
-  return /^wss?:\/\//i.test(trimmedValue) ? trimmedValue : null;
-}
-
-function normalizeHttpBaseUrl(value) {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmedValue = value.trim().replace(/\/$/, "");
-  if (!trimmedValue || !/^https?:\/\//i.test(trimmedValue)) {
-    return null;
-  }
-
-  return trimmedValue;
-}
-
-export function getMeteorUrl() {
-  const meteorUrlCandidates = [
-    process.env.EXPO_PUBLIC_METEOR_URL,
-    DEFAULT_METEOR_URL,
-  ];
-
-  for (const candidate of meteorUrlCandidates) {
-    const normalizedMeteorUrl = normalizeMeteorUrl(candidate);
-    if (normalizedMeteorUrl) {
-      return normalizedMeteorUrl;
-    }
-  }
-
-  return null;
-}
-
-export function getHlsServerUrl() {
-  const hlsUrlCandidates = [
-    process.env.EXPO_PUBLIC_HLS_SERVER_URL,
-    DEFAULT_HLS_SERVER_URL,
-  ];
-
-  for (const candidate of hlsUrlCandidates) {
-    const normalizedHlsUrl = normalizeHttpBaseUrl(candidate);
-    if (normalizedHlsUrl) {
-      return normalizedHlsUrl;
-    }
-  }
-
-  return null;
-}
 
 export async function connectToMeteor(endpoint) {
   const resolvedEndpoint = normalizeMeteorUrl(endpoint) || getMeteorUrl();

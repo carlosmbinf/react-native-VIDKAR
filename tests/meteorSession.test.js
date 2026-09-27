@@ -55,6 +55,11 @@ function sessionFixture() {
     "../../lib/utils": { hashPassword: () => { throw new Error("No se permite login con credenciales"); } },
     "@react-native-community/netinfo": { addEventListener() {} },
     "expo-constants": { expoConfig: { extra: { meteorUrl: "wss://fixture.invalid/websocket" } } },
+    "../appUrls": {
+      getMeteorUrl: () => "wss://fixture.invalid/websocket",
+      getHlsServerUrl: () => "https://hls.fixture.invalid",
+      normalizeMeteorUrl: (value) => typeof value === "string" && /^wss?:\/\//i.test(value) ? value : null,
+    },
     "expo-secure-store": { getItemAsync: () => storageRead, setItemAsync: async () => {}, deleteItemAsync: async () => {} },
   };
   const execute = (source) => {

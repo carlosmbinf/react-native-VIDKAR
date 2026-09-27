@@ -28,6 +28,7 @@ import {
     ensureMeteorConnection,
     getMeteorUrl,
 } from "../../services/meteor/client";
+import { buildManualMeteorUrl, getMeteorHost, getPrivacyPolicyUrl } from "../../services/appUrls";
 import { registerPushTokenForActiveSession } from "../../services/notifications/PushMessaging.native";
 import { WATCH_ROOT_USER_FIELDS } from "../../services/watch/watchDashboard";
 import { ConfigCollection } from "../collections/collections";
@@ -51,8 +52,6 @@ const LOGIN_CONFIG_FIELDS = {
 };
 const IOS_LOGIN_KEYBOARD_OFFSET = 120;
 const ANDROID_LOGIN_KEYBOARD_OFFSET = 96;
-const PRIVACY_POLICY_URL = "https://www.vidkar.com/politica-privacidad";
-
 let cachedGoogleSignInModulePromise = null;
 
 const loadGoogleSignInModule = async () => {
@@ -240,13 +239,7 @@ const LoginBlurCard = ({ children, palette }) => {
 const Loguin = ({ deferSessionRedirect = false } = {}) => {
   const isFocused = useIsFocused();
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
-  const [ipserver, setIpserver] = useState(() => {
-    const meteorUrl = getMeteorUrl() || "ws://www.vidkar.com:3000/websocket";
-    return meteorUrl
-      .replace("ws://", "")
-      .replace(":3000/websocket", "")
-      .replace("/websocket", "");
-  });
+  const [ipserver, setIpserver] = useState(() => getMeteorHost() || "");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const isLandscape = screenWidth > screenHeight;
@@ -260,7 +253,7 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
   const scrollContentRef = React.useRef(null);
   const passwordInputRef = React.useRef(null);
   const loginButtonAnchorRef = React.useRef(null);
-  const openPrivacyPolicy = () => WebBrowser.openBrowserAsync(PRIVACY_POLICY_URL);
+  const openPrivacyPolicy = () => WebBrowser.openBrowserAsync(getPrivacyPolicyUrl());
 
   const theme = useTheme();
   const isDarkMode = theme.dark;
@@ -351,7 +344,7 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
   useEffect(() => {
     (async () => {
       const configuredServer =
-        getMeteorUrl() || "ws://www.vidkar.com:3000/websocket";
+        getMeteorUrl();
 
       try {
         const status = Meteor.status?.();
@@ -449,7 +442,9 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
       setConnectingToServer(true);
       await Meteor.disconnect();
       await new Promise((resolve) => setTimeout(resolve, 500));
-      await connectToMeteor(`ws://${ipserver}:3000/websocket`);
+      const manualEndpoint = buildManualMeteorUrl(ipserver);
+      if (!manualEndpoint) throw new Error("Escribe un host o una URL Meteor válida.");
+      await connectToMeteor(manualEndpoint);
       Alert.alert("Conexión Exitosa", `Conectado exitosamente a: ${ipserver}`);
     } catch (error) {
       Alert.alert(
@@ -1078,7 +1073,7 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
                           value={ipserver}
                           onChangeText={setIpserver}
                           onFocus={handleFieldFocus}
-                          label="IP del Servidor"
+                          label="Host, IP o URL del servidor"
                           returnKeyType="done"
                           dense
                           style={[

@@ -2,6 +2,14 @@
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
+## URLs de conexión VIDKAR
+
+La app principal toma sus endpoints públicos desde `react-native-VIDKAR/.env`. Cambia `EXPO_PUBLIC_VIDKAR_BASE_URL` para apuntar el login/DDP, las rutas HTTP del backend y MCP a otro host. El DDP se deriva como `wss://<host>/websocket` cuando la base es HTTPS y `ws://<host>/websocket` cuando es HTTP; MCP se deriva como `<base>/mcp` y solo queda disponible con HTTPS.
+
+HLS es un servicio separado y usa `EXPO_PUBLIC_HLS_SERVER_URL`. Los overrides `EXPO_PUBLIC_METEOR_URL` y `EXPO_PUBLIC_MCP_URL` son opcionales para instalaciones con rutas o hosts no convencionales. El archivo `.env.example` documenta las variables.
+
+Las variables `EXPO_PUBLIC_*` son públicas y se incluyen en el bundle: aquí solo deben ir URLs, nunca tokens, contraseñas ni claves privadas. Expo las sustituye al iniciar Metro/compilar; después de editar `.env`, reinicia Metro. Para builds EAS/Codemagic configura las mismas variables en el entorno de build, porque el `.env` local está ignorado por Git. El dominio de Universal Links/AASA también debe estar configurado en Apple para el host publicado.
+
 ## Get started
 
 1. Install dependencies

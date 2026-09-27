@@ -63,6 +63,11 @@ export function loginHarness(state) {
     },
     "react-native-safe-area-context": { SafeAreaView: "SafeAreaView" },
     "../../services/meteor/client": { getMeteorUrl: () => "ws://fixture.invalid/websocket" },
+    "../../services/appUrls": {
+      buildManualMeteorUrl: (host) => `ws://${host}:3000/websocket`,
+      getMeteorHost: () => "fixture.invalid",
+      getPrivacyPolicyUrl: () => "https://fixture.invalid/politica-privacidad",
+    },
     "../../services/notifications/PushMessaging.native": { registerPushTokenForActiveSession: async () => {} },
     "../../services/watch/watchDashboard": { WATCH_ROOT_USER_FIELDS: {} },
     "../collections/collections": { ConfigCollection: { findOne: () => null } },

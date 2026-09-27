@@ -22,6 +22,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import DrawerBlurShell from "./DrawerBlurShell";
+import { isMCPAdmin } from "../../services/mcp/mcpAccess";
 
 const CARD_PRESS_IN_DURATION_MS = 140;
 const CARD_PRESS_OUT_DURATION_MS = 220;
@@ -353,6 +354,7 @@ const DrawerOptionsAlls = ({
   const isLandscapeDrawer = width > height;
   const isAdmin =
     user?.profile?.role === "admin" || user?.username === "carlosmbinf";
+  const canAccessMCP = isMCPAdmin(user);
   const isProfessor = user?.profile?.role === "profesor";
   const isSuperAdmin = user?.username === "carlosmbinf";
   const canToggleCadete = typeof onToggleModoCadete === "function";
@@ -403,13 +405,13 @@ const DrawerOptionsAlls = ({
       },
       {
         title: "Automatización",
-        items: [
+        items: canAccessMCP ? [
           {
             label: "Siri y MCP de VIDKAR",
             icon: "robot-outline",
             href: "/(normal)/MCPSettings",
           },
-        ],
+        ] : [],
       },
     ];
 
@@ -435,7 +437,7 @@ const DrawerOptionsAlls = ({
     }
 
     return result.filter((section) => section.items.length > 0);
-  }, [isAdmin, isProfessor, isSuperAdmin, user]);
+  }, [canAccessMCP, isAdmin, isProfessor, isSuperAdmin, user]);
 
   const headerNode = (
     <ImageBackground

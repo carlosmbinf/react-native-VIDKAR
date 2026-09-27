@@ -15,6 +15,7 @@ import {
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
+import { shouldHideCommerceHomeSection } from "../../services/commerceHomeVisibility";
 import {
   getCachedDeviceLocationSync,
   getCurrentDeviceLocation,
@@ -107,6 +108,7 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
   const [locationPermissionLoading, setLocationPermissionLoading] = useState(false);
   const [tiendasCercanas, setTiendasCercanas] = useState([]);
   const [loadingTiendas, setLoadingTiendas] = useState(false);
+  const [storeSearchStatus, setStoreSearchStatus] = useState("idle");
   const [radioKm, setRadioKm] = useState(5);
 
   const refreshLocationPermissionState = React.useCallback(
@@ -173,6 +175,7 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
     }
 
     lastSearchSignatureRef.current = searchSignature;
+    setStoreSearchStatus("loading");
     setLoadingTiendas(true);
 
     try {
@@ -185,7 +188,14 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
         resolvedRadio,
       );
 
-      setTiendasCercanas(resultado?.success ? resultado.tiendas || [] : []);
+      if (resultado?.success) {
+        setTiendasCercanas(Array.isArray(resultado.tiendas) ? resultado.tiendas : []);
+        setStoreSearchStatus("success");
+      } else {
+        lastSearchSignatureRef.current = null;
+        setTiendasCercanas([]);
+        setStoreSearchStatus("error");
+      }
     } catch (error) {
       console.warn(
         "[ComercioHomeSection] No se pudieron cargar tiendas cercanas:",
@@ -193,6 +203,7 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
       );
       lastSearchSignatureRef.current = null;
       setTiendasCercanas([]);
+      setStoreSearchStatus("error");
     } finally {
       setLoadingTiendas(false);
     }
@@ -432,7 +443,7 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
   }, [searchQuery, tiendasConProductos]);
 
   const visibleTiendas = tiendasFiltradas.slice(0, 4);
-  const isLoading = loading || loadingTiendas;
+  const isLoading = loading || loadingTiendas || (Boolean(userLocation) && storeSearchStatus === "idle");
   const locationPermissionBlocked =
     locationPermissionState?.granted === false &&
     locationPermissionState?.canAskAgain === false;
@@ -446,6 +457,19 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
     (!userLocation && locationPermissionState?.granted === false);
   const shouldShowLocationEmptyState =
     showLocationAccessCard && !isLoading && visibleTiendas.length === 0;
+  const shouldHideEmptyStoreSection = shouldHideCommerceHomeSection({
+    hasLocation: Boolean(userLocation),
+    isLoading,
+    locationError,
+    locationUnavailable,
+    query: searchQuery,
+    searchStatus: storeSearchStatus,
+    storeCount: tiendasFiltradas.length,
+  });
+
+  if (shouldHideEmptyStoreSection) {
+    return null;
+  }
 
   return (
     <Surface elevation={0} style={styles.section}>
@@ -570,14 +594,22 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
       ) : (
         <View style={styles.emptyState}>
           <Text variant="titleSmall" style={[styles.emptyTitle, { color: palette.title }]}>
-            {locationUnavailable
+            {searchQuery.trim()
+              ? "No se encontraron resultados"
+              : storeSearchStatus === "error"
+                ? "No pudimos cargar las tiendas"
+                : locationUnavailable
               ? "Ubicación apagada"
               : userLocation
                 ? "No hay comercios cerca"
                 : "Ubicación pendiente"}
           </Text>
           <Text variant="bodySmall" style={[styles.emptyCopy, { color: palette.copy }]}> 
-            {locationUnavailable
+            {searchQuery.trim()
+              ? "Prueba con otro nombre de tienda o producto."
+              : storeSearchStatus === "error"
+                ? "Comprueba tu conexión e intenta buscar las tiendas nuevamente."
+                : locationUnavailable
               ? "Activa la ubicación para Vidkar desde los ajustes del dispositivo para poder buscar comercios cercanos."
                 : userLocation
                   ? "Prueba ampliando el radio o abre el listado completo para actualizar la búsqueda."

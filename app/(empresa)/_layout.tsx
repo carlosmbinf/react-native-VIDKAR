@@ -11,6 +11,8 @@ export default function EmpresaLayout() {
       <Stack.Screen name="ProductoForm" />
       <Stack.Screen name="Mensaje" />
       <Stack.Screen name="User" />
+      <Stack.Screen name="UserServices" options={{ animation: "slide_from_right" }} />
+      <Stack.Screen name="MCPSettings" options={{ animation: "slide_from_right" }} />
     </Stack>
   );
 }

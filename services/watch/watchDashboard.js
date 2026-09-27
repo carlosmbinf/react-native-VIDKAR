@@ -31,6 +31,7 @@ export const WATCH_ROOT_USER_FIELDS = {
   "profile.roleComercio": 1,
   saldoRecargas: 1,
   subscipcionPelis: 1,
+  serviciosInicio: 1,
   telefono: 1,
   username: 1,
   vpn: 1,

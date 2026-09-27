@@ -4,6 +4,7 @@ import * as SecureStore from "expo-secure-store";
 import * as TaskManager from "expo-task-manager";
 import { Platform } from "react-native";
 
+import { getMeteorHttpOriginForUrl } from "../appUrls";
 import { getMeteorUrl } from "../meteor/client.native";
 import {
   saveCachedDeviceLocation,
@@ -199,19 +200,7 @@ const writeCadeteLocationConfig = async (config) => {
   return nextConfig;
 };
 
-const resolveHttpOriginFromMeteorUrl = (meteorUrl) => {
-  if (typeof meteorUrl !== "string" || !meteorUrl.trim()) {
-    return null;
-  }
-
-  try {
-    const parsedUrl = new URL(meteorUrl.trim());
-    const protocol = parsedUrl.protocol === "wss:" ? "https:" : "http:";
-    return `${protocol}//${parsedUrl.host}`;
-  } catch (_error) {
-    return null;
-  }
-};
+const resolveHttpOriginFromMeteorUrl = getMeteorHttpOriginForUrl;
 
 const getDistanceMeters = (origin, destination) => {
   if (!origin || !destination) {

@@ -4,6 +4,7 @@ import test from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
 import * as inAppSearch from "../services/mcp/inAppSearch.js";
+import { isMCPAdmin } from "../services/mcp/mcpAccess.js";
 import "./meteorSession.test.js";
 import { loginHarness } from "./helpers/loginHarness.js";
 
@@ -26,10 +27,14 @@ const sources = await Promise.all([
 }).outputText));
 
 // Ejecuta el código real con bridge, hooks y reloj aislados; no requiere un binario ni red.
-function fixture({ search = false } = {}) {
+function fixture({ admin = true, search = false } = {}) {
   const state = {
     now: 1000000,
     userId: "fixture-owner",
+    user: admin
+      ? { _id: "fixture-owner", username: "carlosmbinf", profile: { role: "admin" } }
+      : { _id: "fixture-owner", username: "cliente", profile: { role: "user" } },
+    userReady: true,
     ownerId: "fixture-owner",
     revision: "7cebedbd-865d-4e3a-9136-08e663bf5f34",
     connected: true,
@@ -44,10 +49,23 @@ function fixture({ search = false } = {}) {
     calls: [],
     confirmations: [],
     navigations: [],
+    serverTokens: [],
+    serverCalls: [],
+    secureStore: new Map(),
+    nextToken: 0,
     response: { success: true, results: [], pagination: { limit: 20, offset: 0, total: 0, hasMore: false } },
     envelope: { query: "Consulta privada", tool: "get_users", data: { results: [{ id: "fixture", type: "user", title: "Privado" }] }, summary: "Resumen privado", expiresAt: 1120000 },
   };
   if (search) state.params = { query: "Terminator", entityType: "all" };
+  const issueToken = (label, tokenId = `token-${state.nextToken + 1}`) => {
+    const token = `vidkar_mcp_fixture_${++state.nextToken}`;
+    const createdAt = new Date(state.now);
+    const metadata = { tokenId, label, createdAt, tokenPreview: `${token.slice(0, 18)}…` };
+    const existingIndex = state.serverTokens.findIndex((entry) => entry.tokenId === tokenId);
+    if (existingIndex >= 0) state.serverTokens[existingIndex] = metadata;
+    else state.serverTokens.push(metadata);
+    return { token, tokenId, label, createdAt, mcpUrl: "https://www.vidkar.com/mcp" };
+  };
   const timers = new Map();
   let timerId = 0;
   const addTimer = (fn, delay, repeat = false) => {
@@ -58,7 +76,25 @@ function fixture({ search = false } = {}) {
   const network = () => { state.network += 1; throw new Error("La prueba prohíbe red e inferencia"); };
   const sessionListeners = new Set();
   const Meteor = {
-    userId: () => state.userId, useTracker: (fn) => fn(), call: network,
+    userId: () => state.userId,
+    useTracker: (fn) => fn(),
+    call: (methodName, ...args) => {
+      const callback = args.pop();
+      state.serverCalls.push({ args, methodName });
+      if (methodName === "mcp.tokens.list") {
+        callback(null, { tokens: state.serverTokens, mcpUrl: "https://www.vidkar.com/mcp" });
+      } else if (methodName === "mcp.tokens.create") {
+        callback(null, issueToken(args[0] || "VIDKAR iOS"));
+      } else if (methodName === "mcp.tokens.rotate") {
+        callback(null, issueToken(args[1] || "VIDKAR iOS", args[0]));
+      } else if (methodName === "mcp.tokens.revoke") {
+        const token = state.serverTokens.find((entry) => entry.tokenId === args[0]);
+        if (token) token.revokedAt = new Date(state.now);
+        callback(null, { success: Boolean(token), tokenId: args[0] });
+      } else {
+        network();
+      }
+    },
     status: () => ({ connected: state.connected, hasDdp: state.connections > 0 || state.connected }),
     loggingIn: () => state.restoring, loggingOut: () => false,
     getAuthToken: () => state.restoring ? "fixture-resume" : null,
@@ -68,6 +104,18 @@ function fixture({ search = false } = {}) {
   };
   const native = {
     getConfiguration: async () => ({ configured: state.configured, ownerId: state.ownerId, revision: state.revision }),
+    configure: async (url, token, ownerId) => {
+      state.configured = true;
+      state.ownerId = String(ownerId);
+      state.nativeToken = token;
+      state.nativeUrl = url;
+    },
+    clearConfiguration: async () => {
+      state.configured = false;
+      state.ownerId = null;
+      state.nativeToken = null;
+      state.nativeUrl = null;
+    },
     getNaturalLanguageResult: async () => {
       state.reads += 1;
       if (state.revoked) throw new Error("snapshot expired by revision");
@@ -135,8 +183,18 @@ function fixture({ search = false } = {}) {
     useEffect: effect,
   };
   const dependencies = {
-    "expo-secure-store": { getItemAsync: async () => null, setItemAsync: async () => {}, deleteItemAsync: async () => {} },
+    "expo-secure-store": {
+      getItemAsync: async (key) => state.secureStore.get(key) || null,
+      setItemAsync: async (key, value) => { state.secureStore.set(key, value); },
+      deleteItemAsync: async (key) => { state.secureStore.delete(key); },
+    },
     "expo-constants": {},
+    "../appUrls": {
+      getMCPUrl: () => "https://www.vidkar.com/mcp",
+      getHlsServerUrl: () => "https://hls.vidkar.com",
+      getMeteorUrl: () => "wss://www.vidkar.com/websocket",
+      normalizeMeteorUrl: (value) => typeof value === "string" && /^wss?:\/\//i.test(value) ? value : null,
+    },
     "../../modules/vidkar-mcp/src": { VidkarMCP: native },
     "../meteor/client.native": { Meteor },
     "./mcpProtocol": {},
@@ -147,6 +205,11 @@ function fixture({ search = false } = {}) {
       setParams: (params) => { state.params = { ...state.params, ...params }; dirty = true; },
     }) },
     "expo-router/react-navigation": { useIsFocused: () => state.focused },
+    "../Header/AppHeader": {
+      default: "AppHeader",
+      MENU_PRINCIPAL_HEADER_COLOR: "#1e3a8a",
+      useAppHeaderContentInset: () => 112,
+    },
     react: React,
     "react-native": { AppState, Keyboard: { dismiss() {} }, Alert: { alert: search ? (...args) => state.confirmations.push(args) : network }, FlatList: "FlatList", View: "View", Pressable: "Pressable", StyleSheet: { create: (s) => s } },
     "react-native-paper": {
@@ -155,6 +218,11 @@ function fixture({ search = false } = {}) {
       Card: { Content: "CardContent" }, Avatar: {}, Text: "Text", TextInput: "TextInput", Chip: "Chip", Button: "Button", ActivityIndicator: "ActivityIndicator",
     },
     "../../services/mcp/inAppSearch": inAppSearch,
+    "../../services/mcp/mcpAccess": { isMCPAdmin },
+    "../services/appUrls": { getVidkarBaseUrl: () => "https://www.vidkar.com" },
+    "../../services/meteor/session.native": {
+      useCurrentSession: () => ({ user: state.user, userId: state.userId, userReady: state.userReady }),
+    },
     "../loguin/Loguin.native": "Loguin",
     "react-native-safe-area-context": { SafeAreaView: "SafeAreaView" },
   };
@@ -201,11 +269,19 @@ function fixture({ search = false } = {}) {
   };
   return {
     state, client, native, timers, listeners, sessionListeners, links, redirectSystemPath,
+    get tree() { return tree; },
     async mount() { render(); await flush(); },
     async update(values) { Object.assign(state, values); sessionListeners.forEach((fn) => fn()); dirty = true; render(); await flush(); },
     async app(value) { AppState.currentState = value; listeners.forEach((fn) => fn(value)); render(); await flush(); },
     async refresh() {
-      await tree.props.children[0].props.children.find((node) => node?.type === "Refresh").props.onPress();
+      const findRefreshAction = (node) => {
+        if (!node || typeof node !== "object") return null;
+        if (node.props?.accessibilityLabel === "Actualizar búsqueda" && typeof node.props.onPress === "function") return node;
+        return Object.values(node).flat().map(findRefreshAction).find(Boolean);
+      };
+      const refreshAction = findRefreshAction(tree);
+      assert.ok(refreshAction, "acción de actualizar búsqueda visible");
+      await refreshAction.props.onPress();
       await flush();
     },
     async advance(ms) {
@@ -247,6 +323,41 @@ function fixture({ search = false } = {}) {
     unmount() { mounted = false; slots.forEach((slot) => slot.cleanup?.()); },
   };
 }
+
+test("crea un token desde mobile y registra cuál quedó cargado en este dispositivo", async () => {
+  const f = fixture();
+  const created = await f.client.createAndConfigureMCPToken();
+
+  assert.equal(f.state.configured, true);
+  assert.equal(f.state.nativeToken, created.token);
+  assert.equal(f.state.secureStore.get("vidkar.mcp.tokenId.v1"), created.tokenId);
+  assert.equal(f.state.secureStore.has("vidkar.mcp.pendingBearer.v1"), false);
+
+  const access = await f.client.getMCPAccessStatus();
+  assert.equal(access.configured, true);
+  assert.equal(access.token.tokenId, created.tokenId);
+  assert.equal(access.tokens.length, 1);
+  assert.equal(access.bearer, undefined);
+});
+
+test("renovar reemplaza el secreto conservando el tokenId y revoca invalida el dispositivo", async () => {
+  const f = fixture();
+  const created = await f.client.createAndConfigureMCPToken();
+  const previousToken = f.state.nativeToken;
+  const rotated = await f.client.rotateAndConfigureMCPToken(created.tokenId);
+
+  assert.equal(rotated.tokenId, created.tokenId);
+  assert.notEqual(rotated.token, previousToken);
+  assert.equal(f.state.nativeToken, rotated.token);
+  assert.equal(f.state.serverTokens.length, 1);
+  assert.equal(f.state.serverTokens[0].tokenId, created.tokenId);
+
+  await f.client.revokeMCPToken(created.tokenId);
+  assert.equal(f.state.serverTokens[0].revokedAt instanceof Date, true);
+  assert.equal(f.state.configured, false);
+  assert.equal(f.state.secureStore.has("vidkar.mcp.tokenId.v1"), false);
+  assert.equal(f.state.secureStore.has("vidkar.mcp.bearer.v1"), false);
+});
 
 test("snapshot helper exige expiresAt finito, numérico y futuro, sin renovar TTL", async () => {
   const f = fixture();
@@ -339,6 +450,16 @@ test("UI revalida solo en memoria al volver a active o recuperar foco", async ()
   await f.update({ focused: true });
   assert.equal(f.list().data.length, 0);
   assert.match(f.text(), /venció/);
+  f.unmount();
+});
+
+test("una cuenta normal no puede leer snapshots ni ejecutar MCP desde Siri", async () => {
+  const f = fixture({ admin: false });
+  await f.mount();
+  assert.equal(f.state.reads, 0);
+  assert.equal(f.state.calls.length, 0);
+  assert.equal(f.state.network, 0);
+  assert.match(f.text(), /solo para administradores/);
   f.unmount();
 });
 

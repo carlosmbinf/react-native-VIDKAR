@@ -1,19 +1,8 @@
 import * as FileSystem from "expo-file-system/legacy";
 
-import { getMeteorUrl } from "../meteor/client.native";
+import { getMeteorHttpOriginUrl } from "../appUrls";
 
-export const getMeteorHttpOrigin = () => {
-  const endpoint = getMeteorUrl();
-  if (!endpoint) return "https://www.vidkar.com";
-
-  try {
-    const parsed = new URL(endpoint);
-    const protocol = parsed.protocol === "wss:" ? "https:" : "http:";
-    return `${protocol}//${parsed.host}`;
-  } catch {
-    return "https://www.vidkar.com";
-  }
-};
+export const getMeteorHttpOrigin = getMeteorHttpOriginUrl;
 
 export const resolveCourseMediaUrl = (path) => {
   if (!path) return null;

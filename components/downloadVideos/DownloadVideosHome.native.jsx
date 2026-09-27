@@ -34,7 +34,7 @@ import {
 } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { getMeteorUrl } from "../../services/meteor/client.native";
+import { getMeteorHttpOriginUrl } from "../../services/appUrls";
 import AppHeader, {
     DEFAULT_HEADER_COLOR,
     useAppHeaderContentInset,
@@ -107,25 +107,6 @@ const summarizeMovieForDebug = (movie) => ({
   urlPeli: Boolean(movie?.urlPeli),
   urlPeliHTTPS: Boolean(movie?.urlPeliHTTPS),
 });
-
-const getHttpOriginFromMeteorUrl = (value) => {
-  if (typeof value !== "string" || !value.trim()) {
-    return "https://www.vidkar.com";
-  }
-
-  try {
-    const parsedUrl = new URL(value.trim());
-
-    if (parsedUrl.hostname === "www.vidkar.com") {
-      return "https://www.vidkar.com";
-    }
-
-    const protocol = parsedUrl.protocol === "wss:" ? "https:" : "http:";
-    return `${protocol}//${parsedUrl.host}`;
-  } catch (_error) {
-    return "https://www.vidkar.com";
-  }
-};
 
 const normalizeGenres = (value) => {
   if (Array.isArray(value)) {
@@ -366,7 +347,7 @@ const getMovieImageUrl = (movieId, quality = "low") => {
     return null;
   }
 
-  const mediaOrigin = getHttpOriginFromMeteorUrl(getMeteorUrl());
+  const mediaOrigin = getMeteorHttpOriginUrl();
   return `${mediaOrigin}/imagenesPeliculas?calidad=${quality}&idPeli=${encodeURIComponent(movieId)}`;
 };
 

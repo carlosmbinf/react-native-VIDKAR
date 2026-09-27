@@ -12,6 +12,18 @@ export function canConsumeUniversalLink(
 }
 
 const SUPPORTED_HOSTS = new Set(["www.vidkar.com", "vidkar.com"]);
+const getConfiguredWebHost = () => {
+  const configuredBaseUrl = typeof process !== "undefined"
+    ? process.env.EXPO_PUBLIC_VIDKAR_BASE_URL
+    : undefined;
+  if (typeof configuredBaseUrl !== "string" || !configuredBaseUrl.trim()) return null;
+  try {
+    const url = new URL(configuredBaseUrl.trim());
+    return url.protocol === "https:" ? url.hostname.toLowerCase() : null;
+  } catch {
+    return null;
+  }
+};
 const SUPPORTED_ENTITY_LINKS = new Set([
   "search", "movie", "series", "episode", "course", "lesson", "user",
   "purchase", "sale", "order", "product", "message", "messages", "subscription",
@@ -33,7 +45,8 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
 
   const isVIDKARScheme = parsedUrl.protocol === "vidkar:";
   const isVIDKARWebLink = parsedUrl.protocol === "https:" &&
-    SUPPORTED_HOSTS.has(parsedUrl.hostname.toLowerCase());
+    (SUPPORTED_HOSTS.has(parsedUrl.hostname.toLowerCase())
+      || parsedUrl.hostname.toLowerCase() === getConfiguredWebHost());
   if (!isVIDKARScheme && !isVIDKARWebLink) {
     return null;
   }

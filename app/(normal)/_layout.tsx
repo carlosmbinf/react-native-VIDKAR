@@ -5,6 +5,7 @@ export default function NormalLayout() {
     <Stack initialRouteName="Main" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Main" />
       <Stack.Screen name="User" />
+      <Stack.Screen name="UserServices" options={{ animation: "slide_from_right" }} />
       <Stack.Screen name="MCPSettings" />
       <Stack.Screen name="UserLogsTimeline" />
       <Stack.Screen name="UserPushTokens" />

@@ -169,10 +169,17 @@ private actor MCPTransport {
   private var queryRevision = UUID()
   private var naturalLanguageResults = MCPQueryResultStore()
 
+  private var configuredVIDKARHost: String {
+    let baseURL = Bundle.main.object(forInfoDictionaryKey: "VIDKAR_BASE_URL") as? String
+      ?? "https://www.vidkar.com"
+    return URLComponents(string: baseURL)?.host?.lowercased() ?? "www.vidkar.com"
+  }
+
   private func validatedEndpoint(_ value: String) -> URL? {
+    let allowedHosts: Set<String> = ["www.vidkar.com", "vidkar.com", configuredVIDKARHost]
     guard let components = URLComponents(string: value),
           components.scheme?.lowercased() == "https",
-          ["www.vidkar.com", "vidkar.com"].contains(components.host?.lowercased() ?? ""),
+          allowedHosts.contains(components.host?.lowercased() ?? ""),
           components.port == nil || components.port == 443,
           components.path == "/mcp",
           components.query == nil,
