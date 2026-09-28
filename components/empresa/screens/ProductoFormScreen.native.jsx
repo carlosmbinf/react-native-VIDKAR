@@ -36,6 +36,7 @@ import {
 } from "../../collections/collections";
 import CategoryTreeSelect from "../components/CategoryTreeSelect.native";
 import EmpresaTopBar from "../components/EmpresaTopBar.native";
+import ProductImageCarousel from "../../productos/ProductImageCarousel";
 import { createEmpresaPalette, getEmpresaScreenMetrics } from "../styles/empresaTheme";
 import {
   buildCategoryTree,
@@ -91,6 +92,12 @@ const SUPPORTED_PRODUCT_CURRENCIES = ["USD", "CUP", "UYU"];
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
+const getBase64ByteLength = (value) => {
+  const payload = String(value || "").split(",").pop() || "";
+  const padding = payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor((payload.length * 3) / 4) - padding);
+};
+
 const getFirstParam = (value) => {
   if (Array.isArray(value)) {
     return value[0] || "";
@@ -129,6 +136,18 @@ const getMethodResultMessage = (error, result) => {
   return result.reason || result.message || (typeof result.error === "string" ? result.error : "");
 };
 
+const callMethodAsync = (methodName, ...args) =>
+  new Promise((resolve, reject) => {
+    Meteor.call(methodName, ...args, (error, result) => {
+      const message = getMethodResultMessage(error, result);
+      if (message) {
+        reject(new Error(message));
+      } else {
+        resolve(result);
+      }
+    });
+  });
+
 const normalizeCurrencyOptions = (propertyValue) => {
   let values = [];
 
@@ -156,6 +175,10 @@ const buildFileData = async (asset) => {
   const base64 = await FileSystem.readAsStringAsync(asset.uri, {
     encoding: FileSystem.EncodingType.Base64,
   });
+  const size = Number(asset?.fileSize) || getBase64ByteLength(base64);
+  if (size > MAX_IMAGE_SIZE) {
+    throw new Error("La imagen debe pesar menos de 10 MB.");
+  }
   const extension = mimeType.includes("png") ? "png" : "jpg";
 
   return {
@@ -163,7 +186,7 @@ const buildFileData = async (asset) => {
     name:
       asset?.fileName ||
       `producto-${Date.now()}.${extension}`,
-    size: Number(asset?.fileSize || 0),
+    size,
     type: mimeType,
   };
 };
@@ -255,10 +278,11 @@ const ProductoFormScreen = () => {
 
   const [currencyMenuVisible, setCurrencyMenuVisible] = useState(false);
   const [categorySelectorOpen, setCategorySelectorOpen] = useState(false);
-  const [existingImageUrl, setExistingImageUrl] = useState("");
+  const [existingImages, setExistingImages] = useState([]);
   const [loadingImage, setLoadingImage] = useState(Boolean(routeProductId));
-  const [pendingImage, setPendingImage] = useState(null);
-  const [removeExistingImage, setRemoveExistingImage] = useState(false);
+  const [pendingImages, setPendingImages] = useState([]);
+  const [removedImageIds, setRemovedImageIds] = useState([]);
+  const [removeAllImages, setRemoveAllImages] = useState(false);
   const [saving, setSaving] = useState(false);
   const [storeMenuVisible, setStoreMenuVisible] = useState(false);
   const [formState, setFormState] = useState({
@@ -322,25 +346,36 @@ const ProductoFormScreen = () => {
     let mounted = true;
 
     if (!routeProductId) {
+      setExistingImages([]);
+      setPendingImages([]);
+      setRemovedImageIds([]);
+      setRemoveAllImages(false);
       setLoadingImage(false);
       return () => {
         mounted = false;
       };
     }
 
+    setExistingImages([]);
+    setPendingImages([]);
+    setRemovedImageIds([]);
+    setRemoveAllImages(false);
     setLoadingImage(true);
-    Meteor.call("findImgbyProduct", routeProductId, (error, result) => {
-      if (!mounted) {
+    Meteor.call("comercio.getProductImages", routeProductId, (error, result) => {
+      if (!mounted) return;
+      if (!error && Array.isArray(result)) {
+        setExistingImages(result);
+        setLoadingImage(false);
         return;
       }
 
-      if (!error && typeof result === "string") {
-        setExistingImageUrl(result);
-      } else {
-        setExistingImageUrl("");
-      }
-
-      setLoadingImage(false);
+      Meteor.call("findImgbyProduct", routeProductId, (legacyError, legacyUrl) => {
+        if (!mounted) return;
+        setExistingImages(!legacyError && typeof legacyUrl === "string" && legacyUrl
+          ? [{ id: `legacy-${routeProductId}`, url: legacyUrl, legacy: true }]
+          : []);
+        setLoadingImage(false);
+      });
     });
 
     return () => {
@@ -373,7 +408,12 @@ const ProductoFormScreen = () => {
     () => [styles.formShell, contentMaxWidth ? { maxWidth: Math.min(contentMaxWidth, 880) } : null],
     [contentMaxWidth],
   );
-  const imagePreview = pendingImage?.uri || (removeExistingImage ? "" : existingImageUrl);
+  const previewImages = useMemo(() => [
+    ...existingImages
+      .filter((image) => !removedImageIds.includes(image.id))
+      .map((image) => ({ ...image, isPending: false })),
+    ...pendingImages.map((image) => ({ id: image.localId, url: image.uri, isPending: true })),
+  ], [existingImages, pendingImages, removedImageIds]);
   const storeLocked = Boolean(routeStoreId || product?.idTienda);
 
   const handlePickImage = async () => {
@@ -385,45 +425,63 @@ const ProductoFormScreen = () => {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
+      allowsEditing: false,
+      allowsMultipleSelection: true,
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.9,
+      selectionLimit: 0,
     });
 
     if (result.canceled) {
       return;
     }
 
-    const asset = result.assets?.[0];
-
-    if (!asset) {
+    const assets = Array.isArray(result.assets) ? result.assets : [];
+    if (!assets.length) {
       return;
     }
 
-    if (asset.mimeType && !asset.mimeType.startsWith("image/")) {
-      Alert.alert("Archivo no permitido", "Solo puedes subir imágenes para este producto.");
-      return;
-    }
+    const acceptedAssets = [];
+    const rejectedAssets = [];
+    assets.forEach((asset, index) => {
+      if (asset.mimeType && !["image/jpeg", "image/jpg", "image/png"].includes(asset.mimeType.toLowerCase())) {
+        rejectedAssets.push(`${asset.fileName || `Imagen ${index + 1}`}: formato no permitido`);
+        return;
+      }
+      if (Number(asset.fileSize || 0) > MAX_IMAGE_SIZE) {
+        rejectedAssets.push(`${asset.fileName || `Imagen ${index + 1}`}: supera 10 MB`);
+        return;
+      }
+      acceptedAssets.push({
+        ...asset,
+        localId: `${asset.assetId || asset.uri}-${Date.now()}-${index}`,
+      });
+    });
 
-    if (Number(asset.fileSize || 0) > MAX_IMAGE_SIZE) {
-      Alert.alert("Imagen demasiado grande", "La imagen debe pesar menos de 10 MB.");
-      return;
+    if (acceptedAssets.length) {
+      setPendingImages((current) => [...current, ...acceptedAssets]);
     }
-
-    setPendingImage(asset);
-    setRemoveExistingImage(false);
+    if (rejectedAssets.length) {
+      Alert.alert(
+        "Algunas imágenes no se agregaron",
+        `${rejectedAssets.length} archivo(s): ${rejectedAssets.join("; ")}`,
+      );
+    }
   };
 
-  const handleRemoveImage = () => {
-    if (pendingImage) {
-      setPendingImage(null);
+  const handleRemoveImage = (image) => {
+    if (image?.isPending) {
+      setPendingImages((current) => current.filter((pending) => pending.localId !== image.id));
       return;
     }
 
-    if (existingImageUrl) {
-      setRemoveExistingImage(true);
-      setExistingImageUrl("");
+    if (image?.legacy) {
+      setRemoveAllImages(true);
+      setExistingImages([]);
+      return;
     }
+
+    if (image?.id) setRemovedImageIds((current) => current.includes(image.id) ? current : [...current, image.id]);
   };
 
   const handleSubmit = async () => {
@@ -493,60 +551,52 @@ const ProductoFormScreen = () => {
     };
 
     const afterSave = async (savedProductId) => {
-      try {
-        if (removeExistingImage && savedProductId && !pendingImage) {
-          await new Promise((resolve, reject) => {
-            Meteor.call("comercio.deleteProductImage", savedProductId, (error, result) => {
-              const message = getMethodResultMessage(error, result);
+      const imageErrors = [];
 
-              if (message) {
-                reject(new Error(message));
-                return;
-              }
-
-              resolve(true);
-            });
-          });
+      if (removeAllImages) {
+        try {
+          await callMethodAsync("comercio.deleteProductImage", savedProductId);
+        } catch (imageError) {
+          imageErrors.push(imageError?.message || "No se pudieron quitar las imágenes anteriores.");
         }
-
-        if (pendingImage && savedProductId) {
-          const fileData = await buildFileData(pendingImage);
-
-          await new Promise((resolve, reject) => {
-            Meteor.call("comercio.uploadProductImage", savedProductId, fileData, (error, result) => {
-              const message = getMethodResultMessage(error, result);
-
-              if (message) {
-                reject(new Error(message));
-                return;
-              }
-
-              resolve(true);
-            });
-          });
+      } else {
+        for (const imageId of removedImageIds) {
+          try {
+            await callMethodAsync("comercio.deleteProductImageById", savedProductId, imageId);
+          } catch (imageError) {
+            imageErrors.push(imageError?.message || "No se pudo quitar una imagen anterior.");
+          }
         }
-
-        setSaving(false);
-        Alert.alert(
-          isEditMode ? "Producto actualizado" : "Producto creado",
-          isEditMode
-            ? "El producto quedó actualizado dentro del catálogo de la tienda."
-            : "El producto ya forma parte del catálogo de la tienda.",
-          [
-            {
-              text: "Aceptar",
-              onPress: () => {
-                router.replace({
-                  pathname: "/(empresa)/TiendaDetail",
-                  params: { tiendaId: selectedStoreId },
-                });
-              },
-            },
-          ],
-        );
-      } catch (imageError) {
-        finishWithError(imageError?.message || "La imagen no pudo guardarse correctamente.");
       }
+
+      for (const asset of pendingImages) {
+        try {
+          await callMethodAsync("comercio.uploadProductImage", savedProductId, await buildFileData(asset));
+        } catch (imageError) {
+          imageErrors.push(imageError?.message || `No se pudo subir ${asset?.fileName || "una imagen"}.`);
+        }
+      }
+
+      setSaving(false);
+      const baseMessage = isEditMode
+        ? "El producto quedó actualizado dentro del catálogo de la tienda."
+        : "El producto ya forma parte del catálogo de la tienda.";
+      const message = imageErrors.length
+        ? `${baseMessage}\n\n${imageErrors.length} imagen(es) necesitan atención: ${imageErrors[0]}`
+        : baseMessage;
+      Alert.alert(
+        isEditMode ? "Producto actualizado" : "Producto creado",
+        message,
+        [{
+          text: "Aceptar",
+          onPress: () => {
+            router.replace({
+              pathname: "/(empresa)/TiendaDetail",
+              params: { tiendaId: selectedStoreId },
+            });
+          },
+        }],
+      );
     };
 
     if (isEditMode) {
@@ -894,32 +944,58 @@ const ProductoFormScreen = () => {
               <View style={[styles.imagePanel, { borderColor: palette.border }]}> 
                 {loadingImage ? (
                   <View style={[styles.imagePlaceholder, { backgroundColor: palette.cardSoft }]}> 
-                    <Text style={{ color: palette.copy }} variant="bodySmall">
-                      Cargando imagen...
-                    </Text>
+                    <Text style={{ color: palette.copy }} variant="bodySmall">Cargando galería…</Text>
                   </View>
-                ) : imagePreview ? (
-                  <Image source={{ uri: imagePreview }} style={styles.imagePreview} />
                 ) : (
-                  <View style={[styles.imagePlaceholder, { backgroundColor: palette.cardSoft }]}> 
-                    <MaterialCommunityIcons color={palette.brandStrong} name="image-outline" size={42} />
-                    <Text style={{ color: palette.copy }} variant="bodySmall">
-                      Aún no hay imagen seleccionada
-                    </Text>
-                  </View>
+                  <ProductImageCarousel
+                    images={previewImages}
+                    resizeMode="contain"
+                    size={240}
+                    style={styles.imagePreview}
+                  />
                 )}
               </View>
 
+              {previewImages.length ? (
+                <ScrollView
+                  contentContainerStyle={styles.imageThumbnailList}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                >
+                  {previewImages.map((image, index) => (
+                    <View key={image.id} style={[styles.imageThumbnailItem, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
+                      <Image resizeMode="cover" source={{ uri: image.url }} style={styles.imageThumbnail} />
+                      <Text style={{ color: palette.muted }} variant="labelSmall">{index + 1}</Text>
+                      <Button compact icon="delete-outline" onPress={() => handleRemoveImage(image)} textColor={theme.colors.error}>
+                        Quitar
+                      </Button>
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : null}
+
               <View style={[styles.imageActions, isCompactLayout ? styles.imageActionsStacked : null]}>
                 <Button buttonColor={palette.brandSoft} mode="contained-tonal" onPress={handlePickImage} textColor={palette.brandStrong}>
-                  {imagePreview ? "Cambiar imagen" : "Seleccionar imagen"}
+                  Agregar imágenes
                 </Button>
-                {imagePreview ? (
-                  <Button mode="outlined" onPress={handleRemoveImage} textColor={palette.title}>
-                    Quitar
+                {previewImages.length ? (
+                  <Button
+                    mode="outlined"
+                    onPress={() => {
+                      setPendingImages([]);
+                      setRemovedImageIds(existingImages.filter((image) => !image.legacy).map((image) => image.id));
+                      setRemoveAllImages(true);
+                      setExistingImages([]);
+                    }}
+                    textColor={palette.title}
+                  >
+                    Quitar todas
                   </Button>
                 ) : null}
               </View>
+              <Text style={{ color: palette.muted }} variant="bodySmall">
+                {previewImages.length} imagen{previewImages.length === 1 ? "" : "es"} · máximo 10 MB por archivo, sin límite de cantidad.
+              </Text>
             </Surface>
 
             <Button
@@ -997,6 +1073,23 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     overflow: "hidden",
+  },
+  imageThumbnailList: {
+    gap: 10,
+    paddingVertical: 2,
+  },
+  imageThumbnailItem: {
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 4,
+    padding: 6,
+    width: 104,
+  },
+  imageThumbnail: {
+    borderRadius: 9,
+    height: 76,
+    width: 90,
   },
   imagePlaceholder: {
     alignItems: "center",

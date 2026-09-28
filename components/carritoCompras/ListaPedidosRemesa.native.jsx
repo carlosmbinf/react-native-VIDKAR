@@ -4,7 +4,6 @@ import React, { useMemo, useState } from "react";
 import {
     Animated,
     Easing,
-    Image,
     LayoutAnimation,
     Platform,
     ScrollView,
@@ -28,6 +27,7 @@ import {
     CarritoCollection,
     TiendasComercioCollection,
 } from "../collections/collections";
+import ProductImageCarousel from "../productos/ProductImageCarousel";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -524,7 +524,6 @@ const ComercioCard = ({
   item,
 }) => {
   const { expanded, rotate, toggleExpanded } = useExpandableCardState();
-  const [imageUrl, setImageUrl] = useState(null);
 
   const color = "#FF5722";
   const cardGradientColors = isDarkMode
@@ -538,27 +537,6 @@ const ComercioCard = ({
   const nombreCalle = String(item.nombreCalle || "").trim();
   const numeroCasa = String(item.numeroCasa || "").trim();
   const direccionEntrega = [nombreCalle, numeroCasa].filter(Boolean).join(" ");
-
-  React.useEffect(() => {
-    let cancelled = false;
-
-    if (!producto?._id) {
-      setImageUrl(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    Meteor.call("findImgbyProduct", producto._id, (error, url) => {
-      if (!cancelled) {
-        setImageUrl(!error && url ? url : null);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [producto?._id]);
 
   return (
     <Surface
@@ -596,28 +574,13 @@ const ComercioCard = ({
           <Card.Content style={styles.comercioMainContent}>
             <View style={styles.comercioHeroRow}>
               <View style={styles.comercioImageFrame}>
-                {imageUrl ? (
-                  <Image
-                    resizeMode="cover"
-                    source={{ uri: imageUrl }}
-                    style={styles.comercioImage}
-                  />
-                ) : (
-                  <View
-                    style={[
-                      styles.comercioImage,
-                      styles.comercioImageFallback,
-                      isDarkMode && styles.comercioImageFallbackDark,
-                    ]}
-                  >
-                    <IconButton
-                      icon="image-off-outline"
-                      iconColor={color}
-                      size={20}
-                      style={styles.compactHeaderIcon}
-                    />
-                  </View>
-                )}
+                <ProductImageCarousel
+                  productId={producto?._id}
+                  resizeMode="cover"
+                  showControls={false}
+                  size={68}
+                  style={styles.comercioImage}
+                />
               </View>
 
               <View style={styles.comercioHeroContent}>

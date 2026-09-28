@@ -33,6 +33,7 @@ const DrawerBottom = ({
   footer,
   headerContent,
   headerStyle,
+  maxHeightRatio = 0.9,
   keyboardShouldPersistTaps = "never",
   onBackdropPress,
   onClose,
@@ -78,7 +79,8 @@ const DrawerBottom = ({
     120,
     (containerFrame?.height || screenHeight) - keyboardOverlap,
   );
-  const maxSheetHeight = availableHeight * (isLandscape ? 0.96 : 0.9);
+  const portraitMaxHeightRatio = Math.max(0.82, Math.min(0.97, Number(maxHeightRatio) || 0.9));
+  const maxSheetHeight = availableHeight * (isLandscape ? 0.96 : portraitMaxHeightRatio);
   const bottomSafeInset = keyboardFrame ? 0 : insets.bottom;
   const scrollViewportHeight = Math.max(
     120,

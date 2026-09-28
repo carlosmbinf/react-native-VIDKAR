@@ -13,6 +13,7 @@ import {
 } from "react-native-paper";
 
 import DrawerBottom from "../drawer/DrawerBottom.native";
+import ProductImageCarousel from "./ProductImageCarousel";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -120,12 +121,22 @@ const AddToCartDialogNative = ({ onDismiss, producto, tienda, visible }) => {
         </View>
       )}
       onClose={onDismiss}
+      maxHeightRatio={0.95}
       open={visible}
       reducedMotion={reducedMotion}
       scrollable
       surfaceStyle={styles.drawerSurface}
       title="Agregar al carrito"
     >
+      {visible ? (
+        <ProductImageCarousel
+          productId={producto?._id}
+          resizeMode="contain"
+          size={230}
+          style={styles.productGallery}
+        />
+      ) : null}
+
       <View style={styles.productoInfo}>
         <Text style={styles.productoNombre} variant="titleMedium">
           {producto?.name || "Producto de comercio"}
@@ -283,6 +294,12 @@ const styles = StyleSheet.create({
   },
   drawerSurface: {
     backgroundColor: "transparent",
+  },
+  productGallery: {
+    height: 230,
+    width: "100%",
+    borderRadius: 18,
+    overflow: "hidden",
   },
   precioResumen: {
     borderRadius: 12,

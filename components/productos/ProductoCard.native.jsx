@@ -1,26 +1,12 @@
-import MeteorBase from "@meteorrn/core";
 import React, { useState } from "react";
-import { Image, Platform, Pressable, StyleSheet, View } from "react-native";
-import { IconButton, Surface, Text } from "react-native-paper";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
+import { Surface, Text } from "react-native-paper";
 
 import AddToCartDialog from "./AddToCartDialog";
-
-const Meteor =
-  /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
-    MeteorBase
-  );
+import ProductImageCarousel from "./ProductImageCarousel";
 
 const ProductoCardNative = ({ producto, searchQuery, tienda }) => {
   const [dialogVisible, setDialogVisible] = useState(false);
-  const [imageUrl, setImageUrl] = useState(null);
-
-  React.useEffect(() => {
-    Meteor.call("findImgbyProduct", producto._id, (error, url) => {
-      if (!error && url) {
-        setImageUrl(url);
-      }
-    });
-  }, [producto._id]);
 
   const estaDisponible = producto.productoDeElaboracion || producto.count > 0;
   const precioFormateado = `${Number(producto.precio || 0).toFixed(2)} ${producto.monedaPrecio || "USD"}`;
@@ -67,17 +53,11 @@ const ProductoCardNative = ({ producto, searchQuery, tienda }) => {
             ) : null}
 
             <View style={styles.imageContainer}>
-              {imageUrl ? (
-                <Image
-                  resizeMode="cover"
-                  source={{ uri: imageUrl }}
-                  style={styles.image}
-                />
-              ) : (
-                <View style={[styles.image, styles.placeholderImage]}>
-                  <IconButton icon="image-off" iconColor="#ccc" size={32} />
-                </View>
-              )}
+              <ProductImageCarousel
+                productId={producto._id}
+                size={160}
+                style={styles.imageCarousel}
+              />
 
               {!producto.productoDeElaboracion && producto.count <= 5 ? (
                 <View style={styles.stockBadge}>
@@ -181,6 +161,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   image: {
+    height: "100%",
+    width: "100%",
+  },
+  imageCarousel: {
     height: "100%",
     width: "100%",
   },
