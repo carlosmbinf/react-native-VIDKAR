@@ -153,7 +153,11 @@ const ProductImageCarousel = ({
                     accessibilityLabel="Imagen anterior"
                     disabled={!pageWidth}
                     icon="chevron-left"
-                    onPress={() => moveTo(activeIndex - 1)}
+                    iconColor="#ffffff"
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      moveTo(activeIndex - 1);
+                    }}
                     size={18}
                     style={[styles.arrow, styles.arrowLeft]}
                   />
@@ -161,7 +165,11 @@ const ProductImageCarousel = ({
                     accessibilityLabel="Imagen siguiente"
                     disabled={!pageWidth}
                     icon="chevron-right"
-                    onPress={() => moveTo(activeIndex + 1)}
+                    iconColor="#ffffff"
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      moveTo(activeIndex + 1);
+                    }}
                     size={18}
                     style={[styles.arrow, styles.arrowRight]}
                   />
