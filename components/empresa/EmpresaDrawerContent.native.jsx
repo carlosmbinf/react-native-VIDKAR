@@ -251,6 +251,14 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
           onPress={() => navigateTo("/(empresa)/MisTiendas")}
           palette={palette}
         />
+        <DrawerAction
+          compact={isCompactDrawer}
+          description="Crea categorías y subcategorías para organizar los productos de tus tiendas."
+          icon="shape-outline"
+          label="Categorías"
+          onPress={() => navigateTo("/(empresa)/Categorias")}
+          palette={palette}
+        />
       </View>
 
       <Text style={[styles.sectionLabel, { color: palette.muted }]} variant="labelMedium">

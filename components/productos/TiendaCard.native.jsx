@@ -9,7 +9,7 @@ import {
     UIManager,
     View,
 } from "react-native";
-import { Card, Chip, Divider, IconButton, Text } from "react-native-paper";
+import { Button, Card, Chip, Divider, IconButton, Text } from "react-native-paper";
 
 import ProductoCard from "./ProductoCard";
 
@@ -25,8 +25,9 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const TiendaCardNative = ({ tienda, searchQuery, userLocation }) => {
+const TiendaCardNative = ({ tienda, searchQuery, userLocation, onSeeAll }) => {
   const [expanded, setExpanded] = useState(true);
+  const [showAll, setShowAll] = useState(false);
   const [distanciaKm, setDistanciaKm] = useState(
     typeof tienda?.distancia === "number" ? tienda.distancia : null,
   );
@@ -232,7 +233,7 @@ const TiendaCardNative = ({ tienda, searchQuery, userLocation }) => {
               </View>
             }
             contentContainerStyle={styles.productosListContent}
-            data={tienda.productos}
+            data={showAll ? tienda.productos : tienda.productos.slice(0, 8)}
             decelerationRate="fast"
             horizontal
             keyExtractor={(item) => item._id}
@@ -248,6 +249,12 @@ const TiendaCardNative = ({ tienda, searchQuery, userLocation }) => {
             snapToInterval={192}
             windowSize={5}
           />
+
+          {tienda.productos.length > 8 && !showAll ? (
+            <Button onPress={onSeeAll || (() => setShowAll(true))} style={styles.moreButton}>
+              Ver todos los productos ({tienda.productos.length})
+            </Button>
+          ) : null}
 
           <View style={styles.footerSpace} />
         </>
@@ -313,6 +320,7 @@ const styles = StyleSheet.create({
   footerSpace: {
     height: 12,
   },
+  moreButton: { alignSelf: "flex-start", marginHorizontal: 12 },
   headerInfo: {
     flex: 1,
   },

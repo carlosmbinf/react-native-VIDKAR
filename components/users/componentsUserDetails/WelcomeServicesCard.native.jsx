@@ -3,7 +3,7 @@ import { Host, Switch as NativeSwitch } from "@expo/ui";
 import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { NestableDraggableFlatList } from "react-native-draggable-flatlist";
-import { Card, Chip, Divider, Surface, Text, useTheme } from "react-native-paper";
+import { Button, Card, Chip, Divider, Surface, Text, useTheme } from "react-native-paper";
 
 import { normalizeHomeServices, serializeHomeServices } from "../../../services/homeServices";
 import { Meteor } from "../../../services/meteor/client.native";
@@ -12,7 +12,7 @@ const callMeteor = (name, ...args) => new Promise((resolve, reject) => {
   Meteor.call(name, ...args, (error, result) => (error ? reject(error) : resolve(result)));
 });
 
-const WelcomeServicesCard = ({ item, styles: profileStyles, accentColor }) => {
+const WelcomeServicesCard = ({ item, styles: profileStyles, accentColor, onOpenCommerceCategories }) => {
   const theme = useTheme();
   const [services, setServices] = useState(() => normalizeHomeServices(item?.serviciosInicio));
   const [saving, setSaving] = useState(false);
@@ -74,6 +74,7 @@ const WelcomeServicesCard = ({ item, styles: profileStyles, accentColor }) => {
           delayLongPress={180}
           disabled={saving}
           onLongPress={drag}
+          onPress={service.id === "COMERCIOS" ? onOpenCommerceCategories : undefined}
           style={({ pressed }) => [ui.dragHandle, pressed ? ui.dragHandlePressed : null]}
         >
           <MaterialCommunityIcons
@@ -90,12 +91,24 @@ const WelcomeServicesCard = ({ item, styles: profileStyles, accentColor }) => {
           />
         </View>
         <View style={ui.copy}>
-          <Text style={{ color: theme.colors.onSurface, fontWeight: "800" }} variant="titleSmall">
-            {service.label}
-          </Text>
-          <Text style={{ color: theme.colors.onSurfaceVariant, lineHeight: 17 }} variant="bodySmall">
-            {service.description}
-          </Text>
+          {service.id === "COMERCIOS" && onOpenCommerceCategories ? (
+            <View style={ui.categoryLink}>
+              <Text style={{ color: theme.colors.onSurface, fontWeight: "800" }} variant="titleSmall">{service.label}</Text>
+              <Button
+                accessibilityLabel="Organizar categorías de Comercios"
+                compact
+                icon="arrow-right"
+                onPress={onOpenCommerceCategories}
+              >
+                Organizar categorías
+              </Button>
+            </View>
+          ) : (
+            <>
+              <Text style={{ color: theme.colors.onSurface, fontWeight: "800" }} variant="titleSmall">{service.label}</Text>
+              <Text style={{ color: theme.colors.onSurfaceVariant, lineHeight: 17 }} variant="bodySmall">{service.description}</Text>
+            </>
+          )}
         </View>
         <View style={ui.visibility}>
           <Text
@@ -181,6 +194,7 @@ const ui = StyleSheet.create({
   dragHandlePressed: { opacity: 0.68 },
   serviceIcon: { alignItems: "center", borderRadius: 12, height: 38, justifyContent: "center", width: 38 },
   copy: { flex: 1, gap: 3, minWidth: 0 },
+  categoryLink: { justifyContent: "center", minHeight: 48 },
   visibility: { alignItems: "center", gap: 2, justifyContent: "center", minWidth: 60 },
   footer: { alignItems: "center", flexDirection: "row", gap: 8, minHeight: 28 },
 });

@@ -28,6 +28,12 @@ const EmpresaNavigator = () => {
           icon: 'tag-outline',
           href: '/(empresa)/ProductoForm',
         },
+        {
+          label: 'Categorías',
+          description: 'Organiza los productos con categorías y subcategorías heredadas.',
+          icon: 'shape-outline',
+          href: '/(empresa)/Categorias',
+        },
       ]}
     />
   );

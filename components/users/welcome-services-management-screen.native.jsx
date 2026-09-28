@@ -1,5 +1,5 @@
 import MeteorBase from "@meteorrn/core";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityIndicator, StyleSheet } from "react-native";
 import { NestableScrollContainer } from "react-native-draggable-flatlist";
 import { Surface, Text, useTheme } from "react-native-paper";
@@ -12,6 +12,7 @@ const SERVICE_USER_FIELDS = { _id: 1, username: 1, serviciosInicio: 1 };
 
 const WelcomeServicesManagementScreen = ({ profileRoute, headerBackgroundColor }) => {
   const theme = useTheme();
+  const router = useRouter();
   const headerInset = useAppHeaderContentInset();
   const params = useLocalSearchParams();
   const rawItemId = Array.isArray(params.item) ? params.item[0] : params.item;
@@ -75,7 +76,14 @@ const WelcomeServicesManagementScreen = ({ profileRoute, headerBackgroundColor }
                 Cambia el orden arrastrando cada fila y decide qué secciones aparecen en la bienvenida de @{item.username || "este usuario"}.
               </Text>
             </Surface>
-            <WelcomeServicesCard accentColor={theme.colors.primary} item={item} />
+            <WelcomeServicesCard
+              accentColor={theme.colors.primary}
+              item={item}
+              onOpenCommerceCategories={() => router.push({
+                pathname: profileRoute.replace(/\/User$/, "/UserCommerceCategories"),
+                params: { item: itemId },
+              })}
+            />
           </>
         ) : (
           <Surface elevation={0} style={[ui.stateCard, { backgroundColor: theme.colors.surface }]}>

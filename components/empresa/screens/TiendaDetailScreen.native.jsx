@@ -73,6 +73,7 @@ const TIENDA_DETAIL_PRODUCT_FIELDS = {
   count: 1,
   createdAt: 1,
   descripcion: 1,
+  idCategoria: 1,
   idTienda: 1,
   monedaPrecio: 1,
   name: 1,

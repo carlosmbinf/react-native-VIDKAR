@@ -2,6 +2,7 @@ import { BlurView } from "expo-blur";
 import React, { useEffect, useRef, useState } from "react";
 import {
     Animated,
+    Keyboard,
     Modal,
     PanResponder,
     Platform,
@@ -23,13 +24,19 @@ import {
 } from "react-native-paper";
 
 const DrawerBottom = ({
+  allowContentSwipeToClose = true,
   actions = [],
   children,
+  closeOnBackdropPress = true,
   contentAtTopRef,
+  debugLabel = "",
   footer,
   headerContent,
   headerStyle,
+  keyboardShouldPersistTaps = "never",
+  onBackdropPress,
   onClose,
+  onCloseReason,
   open,
   overlayOpacity = 0.45,
   reducedMotion = false,
@@ -45,16 +52,34 @@ const DrawerBottom = ({
   const isBottom = side === "bottom";
   const isLandscape = screenWidth > screenHeight;
   const drawerWidth = isLandscape ? Math.min(screenWidth - 48, 640) : screenWidth;
+  const screenHeightRef = useRef(screenHeight);
+  screenHeightRef.current = screenHeight;
   const translateY = useRef(new Animated.Value(screenHeight)).current;
   const reducedMotionRef = useRef(Boolean(reducedMotion));
   reducedMotionRef.current = Boolean(reducedMotion);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const onCloseReasonRef = useRef(onCloseReason);
+  onCloseReasonRef.current = onCloseReason;
   const internalContentAtTopRef = useRef(true);
-  const drawerContentAtTopRef = contentAtTopRef || (scrollable ? internalContentAtTopRef : null);
+  const drawerContentAtTopRef = allowContentSwipeToClose
+    ? contentAtTopRef || (scrollable ? internalContentAtTopRef : null)
+    : null;
   const contentGestureStartedAtTopRef = useRef(false);
   const [contentHeight, setContentHeight] = useState(0);
   const [chromeHeight, setChromeHeight] = useState(0);
   const [footerHeight, setFooterHeight] = useState(0);
-  const maxSheetHeight = screenHeight * (isLandscape ? 0.96 : 0.9);
+  const [keyboardFrame, setKeyboardFrame] = useState(() => Keyboard.metrics() || null);
+  const [containerFrame, setContainerFrame] = useState(null);
+  const keyboardOverlap = keyboardFrame?.screenY > 0 && containerFrame
+    ? Math.max(0, containerFrame.y + containerFrame.height - keyboardFrame.screenY)
+    : 0;
+  const availableHeight = Math.max(
+    120,
+    (containerFrame?.height || screenHeight) - keyboardOverlap,
+  );
+  const maxSheetHeight = availableHeight * (isLandscape ? 0.96 : 0.9);
+  const bottomSafeInset = keyboardFrame ? 0 : insets.bottom;
   const scrollViewportHeight = Math.max(
     120,
     maxSheetHeight - chromeHeight - footerHeight,
@@ -68,8 +93,38 @@ const DrawerBottom = ({
         chromeHeight + measuredContentHeight + footerHeight,
       )
     : maxSheetHeight;
-  const sheetHeight = drawerHeight;
+  const sheetHeightRef = useRef(drawerHeight);
+  sheetHeightRef.current = drawerHeight;
   const [mounted, setMounted] = useState(Boolean(open));
+
+  useEffect(() => {
+    if (debugLabel && process.env.NODE_ENV !== "production") {
+      console.info(
+        `[DrawerBottom:${debugLabel}] state open=${Boolean(open)} mounted=${mounted} height=${Math.round(drawerHeight)} keyboardOverlap=${Math.round(keyboardOverlap)}`,
+      );
+    }
+  }, [debugLabel, drawerHeight, keyboardOverlap, mounted, open]);
+
+  useEffect(() => {
+    if (!mounted) return undefined;
+
+    setKeyboardFrame(Keyboard.metrics() || null);
+    const showEvent = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSubscription = Keyboard.addListener(showEvent, (event) => {
+      Keyboard.scheduleLayoutAnimation(event);
+      setKeyboardFrame(event.endCoordinates);
+    });
+    const hideSubscription = Keyboard.addListener(hideEvent, (event) => {
+      Keyboard.scheduleLayoutAnimation(event);
+      setKeyboardFrame(null);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, [mounted]);
 
   useEffect(() => {
     if (!isBottom) {
@@ -79,19 +134,32 @@ const DrawerBottom = ({
     translateY.stopAnimation();
 
     if (open) {
+      if (debugLabel && process.env.NODE_ENV !== "production") {
+        console.info(`[DrawerBottom:${debugLabel}] animation-open:start`);
+      }
       setMounted(true);
-      translateY.setValue(screenHeight);
+      translateY.setValue(screenHeightRef.current);
       Animated.timing(translateY, {
         toValue: 0,
         duration: reducedMotion ? 0 : 260,
         useNativeDriver: true,
-      }).start();
+      }).start(({ finished }) => {
+        if (debugLabel && process.env.NODE_ENV !== "production") {
+          console.info(`[DrawerBottom:${debugLabel}] animation-open:end finished=${finished}`);
+        }
+      });
     } else {
+      if (debugLabel && process.env.NODE_ENV !== "production") {
+        console.info(`[DrawerBottom:${debugLabel}] animation-close:start`);
+      }
       Animated.timing(translateY, {
-        toValue: screenHeight,
+        toValue: screenHeightRef.current,
         duration: reducedMotion ? 0 : 220,
         useNativeDriver: true,
       }).start(({ finished }) => {
+        if (debugLabel && process.env.NODE_ENV !== "production") {
+          console.info(`[DrawerBottom:${debugLabel}] animation-close:end finished=${finished}`);
+        }
         if (finished) {
           setMounted(false);
         }
@@ -99,7 +167,23 @@ const DrawerBottom = ({
     }
 
     return () => translateY.stopAnimation();
-  }, [isBottom, open, reducedMotion, screenHeight, translateY]);
+  }, [debugLabel, isBottom, open, reducedMotion, translateY]);
+
+  const animateCloseFromGesture = () => {
+    Animated.timing(translateY, {
+      toValue: screenHeightRef.current,
+      duration: reducedMotionRef.current ? 0 : 180,
+      useNativeDriver: true,
+    }).start(() => {
+      onCloseReasonRef.current?.("gesture");
+      onCloseRef.current?.();
+    });
+  };
+
+  const requestClose = (reason) => {
+    onCloseReasonRef.current?.(reason);
+    onCloseRef.current?.();
+  };
 
   const panResponder = useRef(
     PanResponder.create({
@@ -117,14 +201,8 @@ const DrawerBottom = ({
           return;
         }
 
-        if (gestureState.dy > sheetHeight * 0.25 || gestureState.vy > 1.1) {
-          Animated.timing(translateY, {
-            toValue: screenHeight,
-            duration: reducedMotionRef.current ? 0 : 180,
-            useNativeDriver: true,
-          }).start(() => {
-            onClose?.();
-          });
+        if (gestureState.dy > sheetHeightRef.current * 0.25 || gestureState.vy > 1.1) {
+          animateCloseFromGesture();
           return;
         }
 
@@ -163,14 +241,8 @@ const DrawerBottom = ({
           return;
         }
 
-        if (gestureState.dy > sheetHeight * 0.25 || gestureState.vy > 1.1) {
-          Animated.timing(translateY, {
-            toValue: screenHeight,
-            duration: reducedMotionRef.current ? 0 : 180,
-            useNativeDriver: true,
-          }).start(() => {
-            onClose?.();
-          });
+        if (gestureState.dy > sheetHeightRef.current * 0.25 || gestureState.vy > 1.1) {
+          animateCloseFromGesture();
           return;
         }
 
@@ -210,7 +282,7 @@ const DrawerBottom = ({
                 disabled={action.disabled}
               />
             ))}
-            <IconButton icon="close" size={22} onPress={onClose} />
+            <IconButton icon="close" size={22} onPress={() => requestClose("header")} />
           </View>
         </View>
       )}
@@ -220,13 +292,24 @@ const DrawerBottom = ({
   const footerNode = typeof footer === "function" ? footer() : footer;
 
   const drawerContent = (
-    <View style={styles.portalContainer}>
+    <View
+      onLayout={(event) => {
+        const { height, y } = event.nativeEvent.layout;
+        setContainerFrame((current) => (
+          current?.height === height && current?.y === y ? current : { height, y }
+        ));
+      }}
+      style={styles.portalContainer}
+    >
       <Pressable
         style={[
           styles.backdropPressable,
             { backgroundColor: `rgba(0,0,0,${overlayOpacity})` },
           ]}
-          onPress={() => onClose?.()}
+          onPress={() => {
+            onBackdropPress?.();
+            if (closeOnBackdropPress) requestClose("backdrop");
+          }}
         />
         <Animated.View
           style={[
@@ -234,6 +317,7 @@ const DrawerBottom = ({
             {
               transform: [{ translateY }],
               left: (screenWidth - drawerWidth) / 2,
+              bottom: keyboardOverlap,
               height: drawerHeight,
               maxHeight: maxSheetHeight,
               width: drawerWidth,
@@ -292,8 +376,9 @@ const DrawerBottom = ({
                 bounces={false}
                 contentContainerStyle={[
                   styles.bottomScrollContent,
-                  { paddingBottom: footerNode ? 0 : insets.bottom },
+                  { paddingBottom: footerNode ? 0 : bottomSafeInset },
                 ]}
+                keyboardShouldPersistTaps={keyboardShouldPersistTaps}
                 nestedScrollEnabled
                 onContentSizeChange={(_, height) => setContentHeight(height)}
                 onScroll={(event) => {
@@ -324,7 +409,7 @@ const DrawerBottom = ({
               <View
                 style={[
                   styles.bottomContent,
-                  { paddingBottom: footerNode ? 0 : insets.bottom },
+                  { paddingBottom: footerNode ? 0 : bottomSafeInset },
                 ]}
                 {...(drawerContentAtTopRef ? contentPanResponder.panHandlers : {})}
                 onLayout={(event) => {
@@ -339,7 +424,7 @@ const DrawerBottom = ({
                 onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
                 style={[
                   styles.drawerFooter,
-                  { paddingBottom: insets.bottom },
+                  { paddingBottom: bottomSafeInset },
                 ]}
               >
                 {footerNode}
@@ -356,7 +441,7 @@ const DrawerBottom = ({
   ) : (
     <Modal
       animationType="none"
-      onRequestClose={onClose}
+      onRequestClose={() => requestClose("system")}
       presentationStyle="overFullScreen"
       statusBarTranslucent
       transparent

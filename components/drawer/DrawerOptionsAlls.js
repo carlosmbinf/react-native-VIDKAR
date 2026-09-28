@@ -310,6 +310,11 @@ const buildProfessorItems = () => [
 
 const buildPrivateItems = () => [
   {
+    label: "Categorías de comercios",
+    icon: "shape-outline",
+    href: "/(normal)/GlobalCommerceCategories",
+  },
+  {
     label: "Campañas y ofertas",
     icon: "bullhorn-variant-outline",
     href: "/(normal)/CampanasOfertas",

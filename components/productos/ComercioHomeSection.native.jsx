@@ -3,7 +3,7 @@ import MeteorBase from "@meteorrn/core";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import React, { useMemo, useRef, useState } from "react";
-import { AppState, Linking, Pressable, StyleSheet, View } from "react-native";
+import { AppState, FlatList, Linking, Pressable, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Button,
@@ -15,7 +15,7 @@ import {
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
-import { shouldHideCommerceHomeSection } from "../../services/commerceHomeVisibility";
+import { filterVisibleCommerceStores, getPopulatedCommerceCategoryRows, normalizeCommerceHomeCategories } from "../../services/commerceCategories";
 import {
   getCachedDeviceLocationSync,
   getCurrentDeviceLocation,
@@ -24,11 +24,13 @@ import {
   requestDeviceLocationPermission,
 } from "../../services/location/deviceLocationCache.native";
 import {
+  CategoriasComercioCollection,
   ProductosComercioCollection,
   TiendasComercioCollection,
 } from "../collections/collections";
 import CommerceLocationAccessCard from "./CommerceLocationAccessCard";
 import TiendaCard from "./TiendaCard";
+import ProductoCard from "./ProductoCard";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -42,6 +44,7 @@ const PRODUCTOS_COMERCIO_FIELDS = {
   createdAt: 1,
   descripcion: 1,
   idTienda: 1,
+  idCategoria: 1,
   monedaPrecio: 1,
   name: 1,
   precio: 1,
@@ -110,6 +113,18 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
   const [loadingTiendas, setLoadingTiendas] = useState(false);
   const [storeSearchStatus, setStoreSearchStatus] = useState("idle");
   const [radioKm, setRadioKm] = useState(5);
+  const { categories, categoriesReady, preferences } = Meteor.useTracker(() => {
+    if (!dataReady) return { categories: [], categoriesReady: false, preferences: [] };
+    const categoriesHandle = Meteor.subscribe("categoriasComercioCatalogo");
+    const userId = Meteor.userId();
+    if (userId) Meteor.subscribe("user", { _id: userId }, { fields: { _id: 1, categoriasComercioInicio: 1 } });
+    return {
+      categories: CategoriasComercioCollection.find({ activa: { $ne: false } }, { fields: { _id: 1, nombre: 1, idCategoriaHeredada: 1, visibleEnInicio: 1, ordenInicio: 1 } }).fetch(),
+      categoriesReady: categoriesHandle.ready(),
+      preferences: Meteor.user()?.categoriasComercioInicio,
+    };
+  }, [dataReady]);
+  const visibleCategories = useMemo(() => normalizeCommerceHomeCategories(categories, preferences).filter((category) => category.visible), [categories, preferences]);
 
   const refreshLocationPermissionState = React.useCallback(
     async ({ showLoading = false } = {}) => {
@@ -414,7 +429,7 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
   }, [dataReady, loadingTiendas, tiendasCercanas]);
 
   const tiendasFiltradas = useMemo(() => {
-    const tiendas = Array.isArray(tiendasConProductos) ? tiendasConProductos : [];
+    const tiendas = categoriesReady ? filterVisibleCommerceStores(tiendasConProductos, categories) : [];
     const orderedTiendas = tiendas.some((tienda) => tienda.distancia !== undefined)
       ? [...tiendas].sort((a, b) => {
           if (a.distancia === undefined) return 1;
@@ -440,10 +455,14 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
 
       return matchTienda || matchProducto;
     });
-  }, [searchQuery, tiendasConProductos]);
+  }, [categories, categoriesReady, searchQuery, tiendasConProductos]);
 
   const visibleTiendas = tiendasFiltradas.slice(0, 4);
-  const isLoading = loading || loadingTiendas || (Boolean(userLocation) && storeSearchStatus === "idle");
+  const categoryRows = useMemo(
+    () => getPopulatedCommerceCategoryRows(categories, visibleCategories, tiendasFiltradas),
+    [categories, tiendasFiltradas, visibleCategories],
+  );
+  const isLoading = loading || loadingTiendas || !categoriesReady || (Boolean(userLocation) && storeSearchStatus === "idle");
   const locationPermissionBlocked =
     locationPermissionState?.granted === false &&
     locationPermissionState?.canAskAgain === false;
@@ -457,20 +476,6 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
     (!userLocation && locationPermissionState?.granted === false);
   const shouldShowLocationEmptyState =
     showLocationAccessCard && !isLoading && visibleTiendas.length === 0;
-  const shouldHideEmptyStoreSection = shouldHideCommerceHomeSection({
-    hasLocation: Boolean(userLocation),
-    isLoading,
-    locationError,
-    locationUnavailable,
-    query: searchQuery,
-    searchStatus: storeSearchStatus,
-    storeCount: tiendasFiltradas.length,
-  });
-
-  if (shouldHideEmptyStoreSection) {
-    return null;
-  }
-
   return (
     <Surface elevation={0} style={styles.section}>
       <View style={styles.headerRow}>
@@ -546,6 +551,43 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
         </Chip>
       </View>
 
+      {categoryRows.length ? (
+        <View style={styles.categoryShortcuts}>
+          <Text style={[styles.categoryShortcutsTitle, { color: palette.title }]} variant="titleSmall">
+            Explorar por categorías
+          </Text>
+          <FlatList
+            accessibilityLabel="Categorías de comercios"
+            data={categoryRows}
+            horizontal
+            keyExtractor={(category) => category.id}
+            renderItem={({ item: category }) => (
+              <Chip
+                accessibilityLabel={`Ver ${category.label}`}
+                compact
+                mode="outlined"
+                onPress={() => router.push({ pathname: "/(normal)/ComerciosList", params: { category: category.id } })}
+                style={[styles.categoryShortcut, { backgroundColor: palette.chip }]}
+              >
+                {category.label}
+              </Chip>
+            )}
+            showsHorizontalScrollIndicator={false}
+          />
+        </View>
+      ) : (
+        <View style={styles.categoryShortcuts}>
+          <Text style={[styles.categoryShortcutsTitle, { color: palette.title }]} variant="titleSmall">Explorar por categorías</Text>
+          <Text style={{ color: palette.subtitle }} variant="bodySmall">
+            {!categoriesReady || loading || loadingTiendas
+              ? "Cargando categorías y productos del catálogo…"
+              : categories.length
+                ? "No hay productos en las categorías visibles. Puedes seguir explorando por tiendas."
+                : "Todavía no hay categorías activas. Los productos siguen disponibles por tienda."}
+          </Text>
+        </View>
+      )}
+
       {showLocationAccessCard ? (
         <CommerceLocationAccessCard
           blocked={locationPermissionBlocked}
@@ -577,12 +619,14 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
         </View>
       ) : visibleTiendas.length > 0 ? (
         <View style={styles.tiendasList}>
+          <Text style={[styles.listHeading, { color: palette.title }]} variant="titleMedium">Por tiendas</Text>
           {visibleTiendas.map((tienda) => (
             <TiendaCard
               key={tienda._id}
               searchQuery={searchQuery}
               tienda={tienda}
               userLocation={userLocation}
+              onSeeAll={() => router.push({ pathname: "/(normal)/ComerciosList", params: { store: tienda._id } })}
             />
           ))}
         </View>
@@ -621,6 +665,30 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
         </View>
       )}
 
+      {categoryRows.length ? (
+        <View style={styles.categoryRows}>
+          <Text style={[styles.listHeading, { color: palette.title }]} variant="titleMedium">Por categorías</Text>
+          {categoryRows.map((category) => (
+            <View key={category.id} style={styles.categorySection}>
+              <View style={styles.categoryHeader}>
+                <Text style={{ color: palette.title, flex: 1, fontWeight: "800" }} variant="titleMedium">{category.label}</Text>
+                <Button compact onPress={() => router.push({ pathname: "/(normal)/ComerciosList", params: { category: category.id } })}>
+                  Ver todos ({category.matches.length})
+                </Button>
+              </View>
+              <FlatList
+                contentContainerStyle={styles.categoryProductsListContent}
+                data={category.matches.slice(0, 8)}
+                horizontal
+                keyExtractor={({ producto }) => producto._id}
+                renderItem={({ item }) => <ProductoCard producto={item.producto} searchQuery={searchQuery} tienda={item.tienda} />}
+                showsHorizontalScrollIndicator={false}
+              />
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       <View style={styles.footerRow}>
         <Button
           compact
@@ -650,6 +718,13 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingHorizontal: 16,
   },
+  categoryRows: { marginTop: 20 },
+  categorySection: { marginTop: 14 },
+  categoryHeader: { alignItems: "center", flexDirection: "row", gap: 8, paddingLeft: 16, paddingRight: 12 },
+  categoryProductsListContent: { paddingHorizontal: 16 },
+  categoryShortcuts: { gap: 8, marginTop: 16, paddingLeft: 16 },
+  categoryShortcutsTitle: { fontWeight: "800" },
+  categoryShortcut: { marginRight: 8 },
   countChip: {
     alignSelf: "flex-start",
   },
@@ -710,6 +785,7 @@ const styles = StyleSheet.create({
   loadingText: {
     textAlign: "center",
   },
+  listHeading: { fontWeight: "900", paddingHorizontal: 16 },
   locationAccessCard: {
     marginHorizontal: 16,
     marginTop: 12,

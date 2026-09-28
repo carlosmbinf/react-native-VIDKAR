@@ -6,6 +6,8 @@ export default function NormalLayout() {
       <Stack.Screen name="Main" />
       <Stack.Screen name="User" />
       <Stack.Screen name="UserServices" options={{ animation: "slide_from_right" }} />
+      <Stack.Screen name="UserCommerceCategories" options={{ animation: "slide_from_right" }} />
+      <Stack.Screen name="GlobalCommerceCategories" options={{ animation: "slide_from_right" }} />
       <Stack.Screen name="MCPSettings" />
       <Stack.Screen name="UserLogsTimeline" />
       <Stack.Screen name="UserPushTokens" />

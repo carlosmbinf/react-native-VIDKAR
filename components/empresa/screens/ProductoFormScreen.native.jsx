@@ -28,9 +28,22 @@ import {
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
-import { ConfigCollection, ProductosComercioCollection, TiendasComercioCollection } from "../../collections/collections";
+import {
+    CategoriasComercioCollection,
+    ConfigCollection,
+    ProductosComercioCollection,
+    TiendasComercioCollection,
+} from "../../collections/collections";
+import CategoryTreeSelect from "../components/CategoryTreeSelect.native";
 import EmpresaTopBar from "../components/EmpresaTopBar.native";
 import { createEmpresaPalette, getEmpresaScreenMetrics } from "../styles/empresaTheme";
+import {
+  buildCategoryTree,
+  filterActiveCategoryTree,
+  getCategoryPath,
+  getSelectableCategoryIds,
+  isProductCategorySaveConfirmed,
+} from "../../../services/commerceCategories";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
@@ -47,6 +60,7 @@ const PRODUCT_FORM_PRODUCT_FIELDS = {
   comentario: 1,
   count: 1,
   descripcion: 1,
+  idCategoria: 1,
   idTienda: 1,
   monedaPrecio: 1,
   name: 1,
@@ -56,6 +70,15 @@ const PRODUCT_FORM_PRODUCT_FIELDS = {
 
 const PRODUCT_FORM_PROPERTY_FIELDS = {
   valor: 1,
+};
+
+const PRODUCT_FORM_CATEGORY_FIELDS = {
+  _id: 1,
+  activa: 1,
+  createAt: 1,
+  creadaPor: 1,
+  idCategoriaHeredada: 1,
+  nombre: 1,
 };
 
 const PRODUCT_FORM_PROPERTY_SELECTOR = {
@@ -151,8 +174,11 @@ const useProductoFormData = ({ dataReady, parsedProduct, routeProductId }) =>
 
     if (!dataReady) {
       return {
+        categories: [],
+        categoriesReady: false,
         currencyOptions: [],
         product: parsedProduct || null,
+        productReady: !routeProductId,
         stores: [],
       };
     }
@@ -170,6 +196,7 @@ const useProductoFormData = ({ dataReady, parsedProduct, routeProductId }) =>
     const propertyHandle = Meteor.subscribe("propertys", PRODUCT_FORM_PROPERTY_SELECTOR, {
       fields: PRODUCT_FORM_PROPERTY_FIELDS,
     });
+    const categoriesHandle = userId ? Meteor.subscribe("categoriasComercio") : null;
 
     // ready() registra una dependencia reactiva; Tracker vuelve a ejecutar al llegar el "ready" de DDP.
     const propertyReady = propertyHandle.ready();
@@ -181,8 +208,17 @@ const useProductoFormData = ({ dataReady, parsedProduct, routeProductId }) =>
     const configuredCurrencies = new Set(
       properties.flatMap((property) => normalizeCurrencyOptions(property?.valor)),
     );
+    const categoriesReady = Boolean(categoriesHandle?.ready());
 
     return {
+      categories:
+        categoriesReady && userId
+          ? CategoriasComercioCollection.find(
+              {},
+              { fields: PRODUCT_FORM_CATEGORY_FIELDS, sort: { createAt: 1, nombre: 1 } },
+            ).fetch()
+          : [],
+      categoriesReady,
       currencyOptions: SUPPORTED_PRODUCT_CURRENCIES.filter((currency) => configuredCurrencies.has(currency)),
       product:
         routeProductId && productHandle?.ready()
@@ -191,6 +227,7 @@ const useProductoFormData = ({ dataReady, parsedProduct, routeProductId }) =>
               { fields: PRODUCT_FORM_PRODUCT_FIELDS },
             ) || parsedProduct || null
           : parsedProduct || null,
+          productReady: !routeProductId || Boolean(productHandle?.ready()),
       stores:
         storesHandle?.ready() && userId
           ? TiendasComercioCollection.find(
@@ -217,6 +254,7 @@ const ProductoFormScreen = () => {
   const parsedStore = useMemo(() => parseJsonParam(storeParam), [storeParam]);
 
   const [currencyMenuVisible, setCurrencyMenuVisible] = useState(false);
+  const [categorySelectorOpen, setCategorySelectorOpen] = useState(false);
   const [existingImageUrl, setExistingImageUrl] = useState("");
   const [loadingImage, setLoadingImage] = useState(Boolean(routeProductId));
   const [pendingImage, setPendingImage] = useState(null);
@@ -233,9 +271,17 @@ const ProductoFormScreen = () => {
     productoDeElaboracion: false,
   });
   const [selectedStoreId, setSelectedStoreId] = useState(routeStoreId || parsedProduct?.idTienda || "");
+  const [selectedCategoryId, setSelectedCategoryId] = useState(parsedProduct?.idCategoria || "");
   const hydratedProductId = useRef("");
   const dataReady = useDeferredScreenData();
-  const { currencyOptions, product, stores } = useProductoFormData({
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      console.info(`[ProductoForm] category-selector-open:${categorySelectorOpen}`);
+    }
+  }, [categorySelectorOpen]);
+
+  const { categories, categoriesReady, currencyOptions, product, productReady, stores } = useProductoFormData({
     dataReady,
     parsedProduct,
     routeProductId,
@@ -269,6 +315,7 @@ const ProductoFormScreen = () => {
       productoDeElaboracion: Boolean(product?.productoDeElaboracion),
     });
     setSelectedStoreId(product?.idTienda || routeStoreId || "");
+    setSelectedCategoryId(product?.idCategoria || "");
   }, [product, routeStoreId]);
 
   useEffect(() => {
@@ -310,6 +357,18 @@ const ProductoFormScreen = () => {
     () => stores.find((store) => store._id === selectedStoreId) || parsedStore || null,
     [parsedStore, selectedStoreId, stores],
   );
+  const categoryTree = useMemo(() => buildCategoryTree(categories), [categories]);
+  const selectedCategory = selectedCategoryId
+    ? categoryTree.byId.get(String(selectedCategoryId)) || null
+    : null;
+  const selectedCategoryPath = selectedCategory
+    ? getCategoryPath(categoryTree, selectedCategory._id).map((category) => category.nombre).join(" › ")
+    : "";
+  const selectableCategoryIds = useMemo(
+    () => getSelectableCategoryIds(filterActiveCategoryTree(categoryTree.roots)),
+    [categoryTree.roots],
+  );
+  const selectedCategoryIsAvailable = selectableCategoryIds.has(String(selectedCategoryId || ""));
   const formShellStyle = useMemo(
     () => [styles.formShell, contentMaxWidth ? { maxWidth: Math.min(contentMaxWidth, 880) } : null],
     [contentMaxWidth],
@@ -379,6 +438,21 @@ const ProductoFormScreen = () => {
       return;
     }
 
+    if (!categoriesReady) {
+      Alert.alert("Cargando categorías", "Espera a que se carguen las categorías antes de guardar el producto.");
+      return;
+    }
+
+    if (isEditMode && !productReady) {
+      Alert.alert("Cargando producto", "Espera a que se cargue el producto antes de guardar los cambios.");
+      return;
+    }
+
+    if (selectableCategoryIds.size && !selectedCategoryIsAvailable && (!isEditMode || !selectedCategoryId)) {
+      Alert.alert("Selecciona una categoría", "Elige una categoría activa para que el producto aparezca en el catálogo por categorías.");
+      return;
+    }
+
     if (name.length < 2) {
       Alert.alert("Nombre incompleto", "Escribe un nombre más claro para el producto.");
       return;
@@ -410,6 +484,7 @@ const ProductoFormScreen = () => {
       name,
       precio,
       productoDeElaboracion: Boolean(formState.productoDeElaboracion),
+      ...(isEditMode || selectedCategoryId ? { idCategoria: selectedCategoryId } : {}),
     };
 
     const finishWithError = (message) => {
@@ -480,6 +555,11 @@ const ProductoFormScreen = () => {
 
         if (message) {
           finishWithError(message);
+          return;
+        }
+
+        if (!isProductCategorySaveConfirmed(result, selectedCategoryId)) {
+          finishWithError("El servidor no confirmó la categoría. No se puede dar por guardada; actualiza el servidor e inténtalo de nuevo.");
           return;
         }
 
@@ -755,6 +835,59 @@ const ProductoFormScreen = () => {
               ]}
             >
               <Text style={{ color: palette.title }} variant="titleMedium">
+                Categoría del producto
+              </Text>
+              <Text style={{ color: palette.copy }} variant="bodySmall">
+                {selectableCategoryIds.size
+                  ? "Elige una categoría activa para que el producto aparezca en el catálogo por categorías."
+                  : "Crea una categoría activa para organizar el catálogo; mientras tanto podrás guardar el producto sin categoría."}
+              </Text>
+              <Button
+                disabled={!categoriesReady || !productReady}
+                icon={selectedCategory ? "shape" : "shape-outline"}
+                mode="outlined"
+                onPress={() => setCategorySelectorOpen(true)}
+                style={[styles.categorySelector, { borderColor: palette.borderStrong }]}
+                textColor={selectedCategory ? palette.title : palette.muted}
+              >
+                {!categoriesReady
+                  ? "Cargando categorías…"
+                  : selectedCategoryPath || (selectedCategoryId ? "Categoría no disponible" : "Sin categoría")}
+              </Button>
+              {selectedCategoryId && categoriesReady && !selectedCategoryIsAvailable ? (
+                <View style={[styles.categoryWarning, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
+                  <MaterialCommunityIcons color={theme.colors.error} name="alert-circle-outline" size={19} />
+                  <Text style={{ color: palette.copy, flex: 1 }} variant="bodySmall">
+                    Esta categoría o uno de sus niveles superiores está inactivo. No se puede asignar a otros productos hasta reactivar la rama.
+                  </Text>
+                </View>
+              ) : null}
+              {categoriesReady && categories.length === 0 ? (
+                <Button
+                  buttonColor={palette.brandSoft}
+                  mode="contained-tonal"
+                  onPress={() => {
+                    setCategorySelectorOpen(false);
+                    router.push("/(empresa)/Categorias");
+                  }}
+                  textColor={palette.brandStrong}
+                >
+                  Crear la primera categoría
+                </Button>
+              ) : null}
+            </Surface>
+
+            <Surface
+              style={[
+                styles.sectionCard,
+                {
+                  backgroundColor: palette.card,
+                  borderColor: palette.border,
+                  shadowColor: palette.shadowColor,
+                },
+              ]}
+            >
+              <Text style={{ color: palette.title }} variant="titleMedium">
                 Imagen del producto
               </Text>
 
@@ -789,7 +922,15 @@ const ProductoFormScreen = () => {
               </View>
             </Surface>
 
-            <Button loading={saving} mode="contained" onPress={handleSubmit} style={styles.submitButton}>
+            <Button
+              contentStyle={styles.submitButtonContent}
+              disabled={!categoriesReady || !productReady || saving}
+              loading={saving}
+              mode="contained"
+              onPress={handleSubmit}
+              style={styles.submitButton}
+              textColor="#FFFFFF"
+            >
               {isEditMode ? "Guardar cambios" : "Crear producto"}
             </Button>
           </View>
@@ -804,6 +945,18 @@ const ProductoFormScreen = () => {
           </Dialog.Content>
         </Dialog>
       </Portal>
+
+      <CategoryTreeSelect
+        categories={categories}
+        onClose={() => setCategorySelectorOpen(false)}
+        onManage={() => {
+          setCategorySelectorOpen(false);
+          router.push("/(empresa)/Categorias");
+        }}
+        onSelect={setSelectedCategoryId}
+        open={categorySelectorOpen}
+        selectedCategoryId={selectedCategoryId}
+      />
     </View>
   );
 };
@@ -916,6 +1069,18 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
   },
+  categorySelector: {
+    minHeight: 50,
+  },
+  categoryWarning: {
+    alignItems: "flex-start",
+    borderRadius: 15,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
   selectorButton: {
     justifyContent: "flex-start",
   },
@@ -929,6 +1094,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   submitButton: {
+    minHeight: 52,
+  },
+  submitButtonContent: {
+    alignItems: "center",
+    justifyContent: "center",
     minHeight: 52,
   },
   switchCopy: {

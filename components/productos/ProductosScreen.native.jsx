@@ -1,6 +1,6 @@
 import MeteorBase from "@meteorrn/core";
 import * as Location from "expo-location";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
     Alert,
@@ -25,6 +25,7 @@ import {
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
+import { filterVisibleCommerceStores, getPopulatedCommerceCategoryRows, matchesCommerceProductCategory, normalizeCommerceHomeCategories, UNCATEGORIZED_COMMERCE_CATEGORY_ID } from "../../services/commerceCategories";
 import {
     getCachedDeviceLocationSync,
     getCurrentDeviceLocation,
@@ -35,6 +36,7 @@ import {
 import { clearMCPConfiguration } from "../../services/mcp/mcpClient";
 import WizardConStepper from "../carritoCompras/WizardConStepper.native";
 import {
+  CategoriasComercioCollection,
     ProductosComercioCollection,
     TiendasComercioCollection,
 } from "../collections/collections";
@@ -60,6 +62,7 @@ const PRODUCTOS_COMERCIO_FIELDS = {
   createdAt: 1,
   descripcion: 1,
   idTienda: 1,
+  idCategoria: 1,
   monedaPrecio: 1,
   name: 1,
   precio: 1,
@@ -97,6 +100,11 @@ const meteorCallAsync = (methodName, ...args) =>
 
 const ProductosScreenNative = () => {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const routeCategory = Array.isArray(params.category) ? params.category[0] : params.category;
+  const routeStore = Array.isArray(params.store) ? params.store[0] : params.store;
+  const [selectedCategory, setSelectedCategory] = useState(routeCategory || "all");
+  const [selectedStore, setSelectedStore] = useState(routeStore || "all");
   const canNavigateBack = useCanNavigateBack();
   const safeBack = useSafeBack("/(normal)/Main");
   const headerInset = useAppHeaderContentInset();
@@ -120,6 +128,23 @@ const ProductosScreenNative = () => {
   const locationPermissionRequestIdRef = React.useRef(0);
   const lastSearchSignatureRef = React.useRef(null);
   const dataReady = useDeferredScreenData();
+  const { categories, categoriesReady, preferences } = Meteor.useTracker(() => {
+    if (!dataReady) return { categories: [], categoriesReady: false, preferences: [] };
+    const categoriesHandle = Meteor.subscribe("categoriasComercioCatalogo");
+    const userId = Meteor.userId();
+    if (userId) Meteor.subscribe("user", { _id: userId }, { fields: { _id: 1, categoriasComercioInicio: 1 } });
+    return {
+      categories: CategoriasComercioCollection.find({ activa: { $ne: false } }, { fields: { _id: 1, nombre: 1, idCategoriaHeredada: 1, visibleEnInicio: 1, ordenInicio: 1 } }).fetch(),
+      categoriesReady: categoriesHandle.ready(),
+      preferences: Meteor.user()?.categoriasComercioInicio,
+    };
+  }, [dataReady]);
+  const visibleCategories = useMemo(() => normalizeCommerceHomeCategories(categories, preferences).filter((category) => category.visible), [categories, preferences]);
+
+  React.useEffect(() => {
+    setSelectedCategory(routeCategory || "all");
+    setSelectedStore(routeStore || "all");
+  }, [routeCategory, routeStore]);
 
   const refreshLocationPermissionState = React.useCallback(
     async ({ showLoading = false } = {}) => {
@@ -445,14 +470,11 @@ const ProductosScreenNative = () => {
     [buscarTiendasCercanas, locationPermissionState, obtenerUbicacion, userLocation],
   );
 
-  const { tiendasConProductos } = Meteor.useTracker(() => {
+  const { loading: loadingProducts, tiendasConProductos } = Meteor.useTracker(() => {
     if (!dataReady) {
       return { loading: true, tiendasConProductos: [] };
     }
 
-    const subProductos = Meteor.subscribe("productosComercio", {}, {
-      fields: PRODUCTOS_COMERCIO_FIELDS,
-    });
     const tiendasIds =
       tiendasCercanas.length > 0
         ? tiendasCercanas.map((tienda) => tienda._id)
@@ -463,6 +485,9 @@ const ProductosScreenNative = () => {
     }
 
     const query = { _id: { $in: tiendasIds } };
+    const subProductos = Meteor.subscribe("productosComercio", { idTienda: { $in: tiendasIds } }, {
+      fields: PRODUCTOS_COMERCIO_FIELDS,
+    });
     const subTiendas = Meteor.subscribe("tiendas", query, {
       fields: TIENDAS_CLIENT_FIELDS,
     });
@@ -508,7 +533,20 @@ const ProductosScreenNative = () => {
     };
   }, [dataReady, tiendasCercanas]);
 
-  const tiendasDisponibles = tiendasConProductos;
+  const tiendasDisponibles = useMemo(() => categoriesReady
+    ? filterVisibleCommerceStores(tiendasConProductos, categories) : [],
+  [categories, categoriesReady, tiendasConProductos]);
+  const populatedCategories = useMemo(
+    () => getPopulatedCommerceCategoryRows(categories, visibleCategories, tiendasDisponibles),
+    [categories, tiendasDisponibles, visibleCategories],
+  );
+  React.useEffect(() => {
+    if (categoriesReady && selectedCategory !== "all" &&
+      selectedCategory !== UNCATEGORIZED_COMMERCE_CATEGORY_ID &&
+      !visibleCategories.some((category) => category.id === selectedCategory)) {
+      setSelectedCategory("all");
+    }
+  }, [categoriesReady, selectedCategory, visibleCategories]);
   const locationPermissionBlocked =
     locationPermissionState?.granted === false &&
     locationPermissionState?.canAskAgain === false;
@@ -521,20 +559,30 @@ const ProductosScreenNative = () => {
     (!userLocation && locationPermissionState?.granted === false);
 
   const tiendasFiltradas = useMemo(() => {
+    const selected = tiendasDisponibles
+      .filter((tienda) => selectedStore === "all" || tienda._id === selectedStore)
+      .map((tienda) => {
+        if (selectedCategory === "all") return tienda;
+        const productos = tienda.productos.filter((producto) =>
+          matchesCommerceProductCategory(producto, selectedCategory),
+        );
+        return { ...tienda, productos, totalProductos: productos.length, productosDisponibles: productos.filter((producto) => producto.productoDeElaboracion || Number(producto.count || 0) > 0).length };
+      })
+      .filter((tienda) => selectedCategory === "all" || tienda.productos.length);
     if (!searchQuery.trim()) {
-      if (tiendasDisponibles.some((tienda) => tienda.distancia !== undefined)) {
-        return [...tiendasDisponibles].sort((a, b) => {
+      if (selected.some((tienda) => tienda.distancia !== undefined)) {
+        return [...selected].sort((a, b) => {
           if (a.distancia === undefined) return 1;
           if (b.distancia === undefined) return -1;
           return a.distancia - b.distancia;
         });
       }
 
-      return tiendasDisponibles;
+      return selected;
     }
 
     const query = searchQuery.toLowerCase();
-    const filtradas = tiendasDisponibles.filter((tienda) => {
+    const filtradas = selected.filter((tienda) => {
       const matchTienda =
         tienda.title?.toLowerCase().includes(query) ||
         tienda.descripcion?.toLowerCase().includes(query);
@@ -556,7 +604,7 @@ const ProductosScreenNative = () => {
     }
 
     return filtradas;
-  }, [searchQuery, tiendasDisponibles]);
+  }, [searchQuery, selectedCategory, selectedStore, tiendasDisponibles]);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -568,6 +616,47 @@ const ProductosScreenNative = () => {
   const listHeaderComponent = useMemo(
     () => (
       <>
+        <View style={styles.categoryFilters}>
+          <Text variant="titleSmall">Explorar por tiendas</Text>
+          <FlatList
+            data={[{ _id: "all", title: "Todas las tiendas" }, ...tiendasDisponibles]}
+            horizontal
+            keyExtractor={(tienda) => tienda._id}
+            renderItem={({ item }) => (
+              <Chip
+                accessibilityRole="button"
+                selected={selectedStore === item._id}
+                onPress={() => setSelectedStore(item._id)}
+                style={styles.categoryChip}
+              >{item.title || "Tienda"}</Chip>
+            )}
+            showsHorizontalScrollIndicator={false}
+          />
+          <Text variant="titleSmall">Explorar por categorías</Text>
+          <FlatList
+            data={[{ id: "all", label: "Todas" }, ...populatedCategories]}
+            horizontal
+            keyExtractor={(category) => category.id}
+            renderItem={({ item }) => (
+              <Chip
+                accessibilityRole="button"
+                selected={selectedCategory === item.id}
+                onPress={() => setSelectedCategory(item.id)}
+                style={styles.categoryChip}
+              >{item.label}</Chip>
+            )}
+            showsHorizontalScrollIndicator={false}
+          />
+          {!populatedCategories.length ? (
+            <Text variant="bodySmall">
+              {!categoriesReady || loadingProducts
+                ? "Cargando categorías y productos del catálogo…"
+                : categories.length
+                  ? "No hay productos en las categorías visibles."
+                  : "Todavía no hay categorías activas; explora los productos por tienda."}
+            </Text>
+          ) : null}
+        </View>
         {showLocationAccessCard ? (
           <CommerceLocationAccessCard
             blocked={locationPermissionBlocked}
@@ -627,15 +716,21 @@ const ProductosScreenNative = () => {
     ),
     [
       loadingTiendas,
+      loadingProducts,
       locationPermissionBlocked,
       locationPermissionLoading,
       locationUnavailable,
       obtenerUbicacion,
+      categories.length,
+      categoriesReady,
       radioKm,
       router,
+      selectedCategory,
+      selectedStore,
       showLocationAccessCard,
-      tiendasDisponibles.length,
+      tiendasDisponibles,
       userLocation,
+      populatedCategories,
     ],
   );
 
@@ -803,7 +898,9 @@ const ProductosScreenNative = () => {
       ) : null}
 
       <FlatList
-        ListEmptyComponent={listEmptyComponent}
+        ListEmptyComponent={!categoriesReady || loadingProducts
+          ? <ActivityIndicator style={{ marginTop: 28 }} />
+          : listEmptyComponent}
         ListFooterComponent={<View style={styles.listFooter} />}
         ListHeaderComponent={listHeaderComponent}
         contentContainerStyle={[
@@ -869,6 +966,8 @@ const styles = StyleSheet.create({
   countChip: {
     borderColor: "#3f51b5",
   },
+  categoryFilters: { gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
+  categoryChip: { marginRight: 8 },
   emptyIcon: {
     fontSize: 64,
     marginBottom: 16,
