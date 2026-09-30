@@ -3,7 +3,7 @@ import Meteor from "@meteorrn/core";
 import { BlurView } from "expo-blur";
 import { useState } from "react";
 import { Alert, Platform, StyleSheet, View } from "react-native";
-import { Card, IconButton, Menu, Text, useTheme } from "react-native-paper";
+import { Card, IconButton, Menu, Text, Tooltip, useTheme } from "react-native-paper";
 
 import { createEmpresaPalette } from "../styles/empresaTheme";
 import ProductoImage from "./ProductoImage";
@@ -89,7 +89,7 @@ const getAvailabilityMeta = ({ count, isDark, isElaboracion }) => {
   };
 };
 
-const ProductoCard = ({ compact = false, producto, onEdit }) => {
+const ProductoCard = ({ closingMercadoLibre = false, compact = false, mercadoLibreEnabled = false, onCloseMercadoLibre, onEdit, onMercadoLibre, producto, syncingMercadoLibre = false }) => {
   const theme = useTheme();
   const palette = createEmpresaPalette(theme);
   const [deleting, setDeleting] = useState(false);
@@ -102,13 +102,28 @@ const ProductoCard = ({ compact = false, producto, onEdit }) => {
   const precioFormateado = `${Number(producto?.precio || 0).toFixed(2)} ${producto?.monedaPrecio || "USD"}`;
   const isDark = Boolean(theme.dark);
   const availabilityMeta = getAvailabilityMeta({ count, isDark, isElaboracion });
+  const mercadoLibreWarnings = [
+    producto?.mercadoLibre?.stockSyncSupported === false
+      ? "Stock de Mercado Libre no sincronizable para esta variante/depósito. Revisa el inventario remoto."
+      : producto?.mercadoLibre?.stockLocationRequired === true
+        ? "Asocia esta tienda con un depósito de Mercado Libre en Integraciones antes de sincronizar stock."
+        : "",
+    producto?.mercadoLibre?.priceSyncWarning ? "El precio requiere revisión en Mercado Libre." : "",
+    producto?.mercadoLibre?.picturesSyncWarning ? "Las imágenes requieren revisión en Mercado Libre." : "",
+    producto?.mercadoLibre?.descriptionSynced === false ? "La descripción requiere revisión en Mercado Libre." : "",
+    producto?.mercadoLibre?.titleSyncWarning ? "El título requiere revisión en Mercado Libre." : "",
+  ].filter(Boolean);
   const overlayTextColor = "#ffffff";
   const overlaySecondaryTextColor = isDark ? "rgba(248, 250, 252, 0.86)" : "rgba(255, 255, 255, 0.84)";
 
   const handleDelete = () => {
+    const closesRemoteListing = producto?.mercadoLibre?.itemId &&
+      String(producto?.mercadoLibre?.status || "").toLowerCase() !== "closed";
     Alert.alert(
       "Eliminar producto",
-      "El producto y su imagen dejaran de estar disponibles en esta tienda.",
+      closesRemoteListing
+        ? "La publicación de Mercado Libre se cerrará primero. El producto y su imagen dejarán de estar disponibles en esta tienda."
+        : "El producto y su imagen dejarán de estar disponibles en esta tienda.",
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -117,22 +132,20 @@ const ProductoCard = ({ compact = false, producto, onEdit }) => {
           onPress: () => {
             setDeleting(true);
 
-            Meteor.call("comercio.deleteProductImage", producto._id, () => {
-              Meteor.call("removeProducto", producto._id, (error, result) => {
-                setDeleting(false);
+            Meteor.call("removeProducto", producto._id, (error, result) => {
+              setDeleting(false);
 
-                const embeddedMessage = getEmbeddedMethodMessage(result);
+              const embeddedMessage = getEmbeddedMethodMessage(result);
 
-                if (error || embeddedMessage) {
-                  Alert.alert(
-                    "No se pudo eliminar el producto",
-                    error?.reason || embeddedMessage || "Intentalo nuevamente.",
-                  );
-                  return;
-                }
+              if (error || embeddedMessage) {
+                Alert.alert(
+                  "No se pudo eliminar el producto",
+                  error?.reason || embeddedMessage || "Intentalo nuevamente.",
+                );
+                return;
+              }
 
-                Alert.alert("Producto eliminado", "El producto se elimino correctamente.");
-              });
+              Alert.alert("Producto eliminado", "El producto se elimino correctamente.");
             });
           },
         },
@@ -202,7 +215,7 @@ const ProductoCard = ({ compact = false, producto, onEdit }) => {
             <Menu
               anchor={
                 <IconButton
-                  disabled={deleting}
+                  disabled={deleting || syncingMercadoLibre || closingMercadoLibre}
                   icon="dots-vertical"
                   iconColor={theme.dark ? "#ffffff" : palette.brandStrong}
                   onPress={() => setMenuVisible(true)}
@@ -225,6 +238,43 @@ const ProductoCard = ({ compact = false, producto, onEdit }) => {
               onDismiss={() => setMenuVisible(false)}
               visible={menuVisible}
             >
+              {mercadoLibreEnabled ? (
+                <Tooltip title={producto?.mercadoLibre?.itemId
+                  ? "Sincroniza los cambios compatibles del producto."
+                  : "Publica el producto en Mercado Libre y VIDKAR."}>
+                  <Menu.Item
+                    disabled={syncingMercadoLibre || closingMercadoLibre}
+                    leadingIcon={syncingMercadoLibre || closingMercadoLibre ? "loading" : producto?.mercadoLibre?.itemId ? "cloud-sync-outline" : "cloud-upload-outline"}
+                    onPress={() => {
+                      setMenuVisible(false);
+                      onMercadoLibre?.(producto);
+                    }}
+                    title={syncingMercadoLibre ? "Sincronizando…" : closingMercadoLibre ? "Cerrando publicación…" : producto?.mercadoLibre?.itemId ? "Sincronizar Mercado Libre" : "Publicar en Mercado Libre"}
+                  />
+                </Tooltip>
+              ) : null}
+              {mercadoLibreEnabled && producto?.mercadoLibre?.itemId && String(producto?.mercadoLibre?.status || "").toLowerCase() !== "closed" ? (
+                <Tooltip title={producto?.mercadoLibre?.variationId != null
+                  ? "Retira la variante; conserva el producto local."
+                  : "Cierra el anuncio; conserva el producto local."}>
+                  <Menu.Item
+                    disabled={syncingMercadoLibre || closingMercadoLibre}
+                    leadingIcon={closingMercadoLibre ? "loading" : "close-circle-outline"}
+                    onPress={() => {
+                      setMenuVisible(false);
+                      onCloseMercadoLibre?.(producto);
+                    }}
+                    title={closingMercadoLibre ? "Cerrando publicación…" : "Cerrar publicación"}
+                  />
+                </Tooltip>
+              ) : null}
+              {mercadoLibreEnabled && producto?.mercadoLibre?.itemId && producto?.mercadoLibre?.stockSyncSupported === false ? (
+                <Menu.Item
+                  disabled
+                  leadingIcon="alert-outline"
+                  title="Stock remoto requiere revisión manual"
+                />
+              ) : null}
               <Menu.Item
                 leadingIcon="pencil-outline"
                 onPress={() => {
@@ -335,6 +385,23 @@ const ProductoCard = ({ compact = false, producto, onEdit }) => {
                 </Text>
               </View>
             </View>
+
+            {mercadoLibreEnabled && producto?.mercadoLibre?.itemId && mercadoLibreWarnings.length ? (
+              <View
+                style={[
+                  styles.notePanel,
+                  {
+                    backgroundColor: isDark ? "rgba(120, 53, 15, 0.42)" : "rgba(255, 251, 235, 0.94)",
+                    borderColor: isDark ? "rgba(251, 191, 36, 0.28)" : "#fcd34d",
+                  },
+                ]}
+              >
+                <MaterialCommunityIcons color={isDark ? "#fde68a" : "#92400e"} name="alert-outline" size={15} />
+                <Text numberOfLines={3} style={{ color: isDark ? "#fde68a" : "#92400e", flex: 1 }} variant="bodySmall">
+                  {mercadoLibreWarnings.join(" ")}
+                </Text>
+              </View>
+            ) : null}
 
             {nota ? (
               <View

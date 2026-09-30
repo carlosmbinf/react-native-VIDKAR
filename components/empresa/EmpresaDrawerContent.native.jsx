@@ -259,6 +259,14 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
           onPress={() => navigateTo("/(empresa)/Categorias")}
           palette={palette}
         />
+        <DrawerAction
+          compact={isCompactDrawer}
+          description="Vincula tu propia cuenta y sincroniza su catálogo de Mercado Libre Uruguay."
+          icon="store-sync-outline"
+          label="Mercado Libre"
+          onPress={() => navigateTo("/(empresa)/MercadoLibre")}
+          palette={palette}
+        />
       </View>
 
       <Text style={[styles.sectionLabel, { color: palette.muted }]} variant="labelMedium">

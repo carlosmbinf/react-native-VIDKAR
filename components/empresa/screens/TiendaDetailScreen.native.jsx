@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
+    Alert,
     FlatList,
     RefreshControl,
     StyleSheet,
@@ -76,6 +77,7 @@ const TIENDA_DETAIL_PRODUCT_FIELDS = {
   idCategoria: 1,
   idTienda: 1,
   monedaPrecio: 1,
+  mercadoLibre: 1,
   name: 1,
   precio: 1,
   productoDeElaboracion: 1,
@@ -101,6 +103,9 @@ const TiendaDetailScreen = () => {
 
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [mercadoLibreEnabled, setMercadoLibreEnabled] = useState(false);
+  const [syncingMercadoLibreProductId, setSyncingMercadoLibreProductId] = useState("");
+  const [closingMercadoLibreProductId, setClosingMercadoLibreProductId] = useState("");
   const dataReady = useDeferredScreenData();
 
   const { cadetesQueueCount, productos, ready, tienda } = Meteor.useTracker(() => {
@@ -112,14 +117,19 @@ const TiendaDetailScreen = () => {
       return { cadetesQueueCount: 0, productos: [], ready: true, tienda: parsedTienda || null };
     }
 
-    const tiendasHandle = Meteor.subscribe("tiendas", { _id: tiendaId }, {
-      fields: TIENDA_DETAIL_STORE_FIELDS,
-    });
-    const productosHandle = Meteor.subscribe(
-      "productosComercio",
-      { idTienda: tiendaId },
-      { fields: TIENDA_DETAIL_PRODUCT_FIELDS },
-    );
+    const userId = Meteor.userId();
+    if (!userId) return { cadetesQueueCount: 0, productos: [], ready: true, tienda: null };
+    const tiendasHandle = Meteor.subscribe("comercio.tiendasEmpresa");
+    const ownedStores = tiendasHandle.ready()
+      ? TiendasComercioCollection.find(
+          { _id: tiendaId, idUser: userId },
+          { fields: TIENDA_DETAIL_STORE_FIELDS },
+        ).fetch()
+      : [];
+    const ownedStoreIds = ownedStores.map((entry) => String(entry._id));
+    const productosHandle = tiendasHandle.ready() && ownedStoreIds.length
+      ? Meteor.subscribe("comercio.productosEmpresa", ownedStoreIds)
+      : null;
     const cadetesQueueHandle = Meteor.subscribe(
       "colacadetesxtiendas",
       { idTienda: tiendaId },
@@ -129,26 +139,28 @@ const TiendaDetailScreen = () => {
       { idTienda: tiendaId },
       { fields: TIENDA_DETAIL_CADETE_QUEUE_FIELDS },
     ).fetch();
-    const ready = tiendasHandle.ready() && productosHandle.ready() && cadetesQueueHandle.ready();
+    const ready = tiendasHandle.ready() && (!productosHandle || productosHandle.ready()) && cadetesQueueHandle.ready();
 
     return {
       cadetesQueueCount: ready
         ? new Set(queueEntries.map((entry) => entry?.cadeteId).filter(Boolean)).size
         : 0,
-      productos: ProductosComercioCollection.find(
+      productos: ownedStoreIds.length ? ProductosComercioCollection.find(
         { idTienda: tiendaId },
         { fields: TIENDA_DETAIL_PRODUCT_FIELDS, sort: { createdAt: -1, name: 1 } },
-      ).fetch(),
+      ).fetch() : [],
       ready,
-      tienda:
-        TiendasComercioCollection.findOne(
-          { _id: tiendaId },
-          { fields: TIENDA_DETAIL_STORE_FIELDS },
-        ) ||
-        parsedTienda ||
-        null,
+      tienda: ownedStores[0] || null,
     };
   }, [dataReady, parsedTienda, tiendaId]);
+
+  useEffect(() => {
+    let active = true;
+    Meteor.call("comercio.mercadoLibre.getEstado", (error, result) => {
+      if (active) setMercadoLibreEnabled(!error && result?.enabled === true);
+    });
+    return () => { active = false; };
+  }, []);
 
   const visibleProductos = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -185,6 +197,58 @@ const TiendaDetailScreen = () => {
         tiendaId,
       },
     });
+  };
+
+  const handleMercadoLibreProduct = (producto) => {
+    if (!mercadoLibreEnabled || !producto?._id || syncingMercadoLibreProductId || closingMercadoLibreProductId) return;
+    if (!producto.mercadoLibre?.itemId) {
+      router.push({
+        pathname: "/(empresa)/ProductoForm",
+        params: { productoId: producto._id, tiendaId, publicarMercadoLibre: "true" },
+      });
+      return;
+    }
+    setSyncingMercadoLibreProductId(producto._id);
+    Meteor.call("comercio.mercadoLibre.sincronizarProducto", producto._id, (error, result) => {
+      setSyncingMercadoLibreProductId("");
+      if (error) {
+        Alert.alert("No se pudo sincronizar", error.reason || "Inténtalo nuevamente.");
+        return;
+      }
+      Alert.alert("Sincronización en curso", result?.queued
+        ? "El producto quedó en la cola de Mercado Libre."
+        : "No se realizaron cambios en Mercado Libre.");
+    });
+  };
+
+  const handleCloseMercadoLibreProduct = (producto) => {
+    if (!mercadoLibreEnabled || !producto?._id || syncingMercadoLibreProductId || closingMercadoLibreProductId) return;
+    Alert.alert(
+      "Cerrar publicación",
+      `Se cerrará el anuncio de “${producto.name || "este producto"}” en Mercado Libre. El producto y su stock local seguirán disponibles en VIDKAR.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Cerrar publicación",
+          style: "destructive",
+          onPress: () => {
+            setClosingMercadoLibreProductId(producto._id);
+            Meteor.call("comercio.mercadoLibre.cerrarPublicacion", producto._id, (error, result) => {
+              setClosingMercadoLibreProductId("");
+              if (error) {
+                Alert.alert("No se pudo cerrar la publicación", error.reason || "Inténtalo nuevamente.");
+                return;
+              }
+              if (result?.success !== true) {
+                Alert.alert("No se pudo cerrar la publicación", "Mercado Libre no confirmó el cierre. El producto local se conservó.");
+                return;
+              }
+              Alert.alert("Publicación cerrada", "El producto local y su stock siguen disponibles en VIDKAR.");
+            });
+          },
+        },
+      ],
+    );
   };
 
   const handleOpenCadetesQueue = useCallback(() => {
@@ -334,7 +398,16 @@ const TiendaDetailScreen = () => {
               singleColumnCardStyle,
             ]}
           >
-            <ProductoCard compact={compactCards} onEdit={handleEditProduct} producto={item} />
+            <ProductoCard
+              closingMercadoLibre={closingMercadoLibreProductId === item._id}
+              compact={compactCards}
+              mercadoLibreEnabled={mercadoLibreEnabled}
+              onCloseMercadoLibre={handleCloseMercadoLibreProduct}
+              onEdit={handleEditProduct}
+              onMercadoLibre={handleMercadoLibreProduct}
+              producto={item}
+              syncingMercadoLibre={syncingMercadoLibreProductId === item._id}
+            />
           </View>
         )}
         style={listShellStyle}

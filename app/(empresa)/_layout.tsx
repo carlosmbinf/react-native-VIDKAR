@@ -10,6 +10,7 @@ export default function EmpresaLayout() {
       <Stack.Screen name="CadetesEnCola" />
       <Stack.Screen name="Categorias" />
       <Stack.Screen name="ProductoForm" />
+      <Stack.Screen name="MercadoLibre" />
       <Stack.Screen name="Mensaje" />
       <Stack.Screen name="User" />
       <Stack.Screen name="UserServices" options={{ animation: "slide_from_right" }} />

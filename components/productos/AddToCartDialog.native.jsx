@@ -24,6 +24,8 @@ const AddToCartDialogNative = ({ onDismiss, producto, tienda, visible }) => {
   const [cantidad, setCantidad] = useState("1");
   const [comentario, setComentario] = useState("");
   const [loading, setLoading] = useState(false);
+  const [specifications, setSpecifications] = useState([]);
+  const [loadingSpecifications, setLoadingSpecifications] = useState(false);
   const contentAtTopRef = useRef(true);
   const reducedMotion = useReducedMotion();
   const theme = useTheme();
@@ -37,6 +39,20 @@ const AddToCartDialogNative = ({ onDismiss, producto, tienda, visible }) => {
     setCantidad("1");
     setComentario("");
   }, [user, visible]);
+
+  useEffect(() => {
+    let active = true;
+    setSpecifications([]);
+    setLoadingSpecifications(Boolean(visible && producto?._id));
+    if (visible && producto?._id) {
+      Meteor.call("comercio.getProductSpecifications", producto._id, (error, result) => {
+        if (!active) return;
+        setSpecifications(!error && Array.isArray(result) ? result : []);
+        setLoadingSpecifications(false);
+      });
+    }
+    return () => { active = false; };
+  }, [visible, producto?._id]);
 
   const cantidadNum = parseInt(cantidad, 10) || 0;
   const precioUnitario = Number(producto?.precio || 0);
@@ -145,6 +161,20 @@ const AddToCartDialogNative = ({ onDismiss, producto, tienda, visible }) => {
           📍 {tienda?.title || "Tienda"}
         </Text>
       </View>
+
+      {loadingSpecifications || specifications.length > 0 ? (
+        <View style={styles.section} accessibilityLiveRegion="polite">
+          <Text style={styles.sectionLabel} variant="titleSmall">Características del producto</Text>
+          {loadingSpecifications ? (
+            <Text variant="bodySmall">Cargando características…</Text>
+          ) : specifications.map(({ label, value }) => (
+            <View key={label} style={styles.specificationRow}>
+              <Text style={styles.specificationLabel} variant="bodySmall">{label}</Text>
+              <Text selectable style={styles.specificationValue} variant="bodySmall">{value}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       <Divider style={styles.sectionDivider} />
 
@@ -338,6 +368,20 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontWeight: "600",
     marginBottom: 8,
+  },
+  specificationRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingVertical: 5,
+  },
+  specificationLabel: {
+    flex: 1,
+    opacity: 0.7,
+  },
+  specificationValue: {
+    flex: 2,
+    textAlign: "right",
   },
   tiendaNombre: {
     opacity: 0.7,

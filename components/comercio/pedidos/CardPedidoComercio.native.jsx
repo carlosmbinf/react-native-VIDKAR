@@ -5,9 +5,7 @@ import { Alert, Linking, Platform, StyleSheet, useWindowDimensions, View } from 
 import { Button, Chip, Divider, Surface, Text, useTheme } from "react-native-paper";
 
 import {
-    PedidosAsignadosComercioCollection,
     TiendasComercioCollection,
-    VentasRechargeCollection,
 } from "../../collections/collections";
 import SlideToConfirm from "../../empresa/screens/pedidos/components/SlideToConfirm.native";
 import MapaPedidos from "../maps/MapaPedidos";
@@ -260,11 +258,6 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
           }
 
           if (nextStatus === "ENTREGADO") {
-            VentasRechargeCollection.update(venta._id, { $set: { estado: "ENTREGADO" } });
-            if (pedido?._id) {
-              PedidosAsignadosComercioCollection.update(pedido._id, { $set: { entregado: true } });
-            }
-
             Alert.alert(
               "Pedido entregado",
               "La entrega quedó cerrada correctamente para este pedido.",
@@ -293,7 +286,7 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
     }
 
     executeAdvance();
-  }, [cadeteId, nextStatus, pedido?._id, venta?._id]);
+  }, [cadeteId, nextStatus, venta?._id]);
 
   if (!venta || !comprasEnCarrito.length) {
     return null;

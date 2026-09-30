@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
+import { Host, Picker, Switch as NativeSwitch } from "@expo/ui";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -24,6 +25,7 @@ import {
     Switch,
     Text,
     TextInput,
+    Tooltip,
     useTheme,
 } from "react-native-paper";
 
@@ -37,7 +39,7 @@ import {
 import CategoryTreeSelect from "../components/CategoryTreeSelect.native";
 import EmpresaTopBar from "../components/EmpresaTopBar.native";
 import ProductImageCarousel from "../../productos/ProductImageCarousel";
-import { createEmpresaPalette, getEmpresaScreenMetrics } from "../styles/empresaTheme";
+import { createEmpresaPalette, EMPRESA_BRAND, getEmpresaScreenMetrics } from "../styles/empresaTheme";
 import {
   buildCategoryTree,
   filterActiveCategoryTree,
@@ -58,6 +60,7 @@ const PRODUCT_FORM_STORE_FIELDS = {
 
 const PRODUCT_FORM_PRODUCT_FIELDS = {
   _id: 1,
+  mercadoLibre: 1,
   comentario: 1,
   count: 1,
   descripcion: 1,
@@ -136,6 +139,9 @@ const getMethodResultMessage = (error, result) => {
   return result.reason || result.message || (typeof result.error === "string" ? result.error : "");
 };
 
+const errorMessage = (error, fallback) =>
+  error?.reason || error?.message || fallback;
+
 const callMethodAsync = (methodName, ...args) =>
   new Promise((resolve, reject) => {
     Meteor.call(methodName, ...args, (error, result) => {
@@ -206,15 +212,16 @@ const useProductoFormData = ({ dataReady, parsedProduct, routeProductId }) =>
       };
     }
 
-    const storesHandle = userId
-      ? Meteor.subscribe("tiendas", { idUser: userId }, {
-          fields: PRODUCT_FORM_STORE_FIELDS,
-        })
-      : null;
-    const productHandle = routeProductId
-      ? Meteor.subscribe("productosComercio", { _id: routeProductId }, {
-          fields: PRODUCT_FORM_PRODUCT_FIELDS,
-        })
+    const storesHandle = userId ? Meteor.subscribe("comercio.tiendasEmpresa") : null;
+    const stores = storesHandle?.ready() && userId
+      ? TiendasComercioCollection.find(
+          { idUser: userId },
+          { fields: PRODUCT_FORM_STORE_FIELDS, sort: { title: 1 } },
+        ).fetch()
+      : [];
+    const storeIds = stores.map((store) => String(store._id));
+    const productHandle = routeProductId && storeIds.length
+      ? Meteor.subscribe("comercio.productosEmpresa", storeIds)
       : null;
     const propertyHandle = Meteor.subscribe("propertys", PRODUCT_FORM_PROPERTY_SELECTOR, {
       fields: PRODUCT_FORM_PROPERTY_FIELDS,
@@ -250,14 +257,8 @@ const useProductoFormData = ({ dataReady, parsedProduct, routeProductId }) =>
               { fields: PRODUCT_FORM_PRODUCT_FIELDS },
             ) || parsedProduct || null
           : parsedProduct || null,
-          productReady: !routeProductId || Boolean(productHandle?.ready()),
-      stores:
-        storesHandle?.ready() && userId
-          ? TiendasComercioCollection.find(
-              { idUser: userId },
-              { fields: PRODUCT_FORM_STORE_FIELDS, sort: { title: 1 } },
-            ).fetch()
-          : [],
+      productReady: !routeProductId || Boolean(storeIds.length && productHandle?.ready()),
+      stores,
     };
   }, [dataReady, parsedProduct, routeProductId]);
 
@@ -271,6 +272,7 @@ const ProductoFormScreen = () => {
   const params = useLocalSearchParams();
   const routeProductId = getFirstParam(params.productoId);
   const routeStoreId = getFirstParam(params.tiendaId);
+  const publishMercadoLibreOnOpen = getFirstParam(params.publicarMercadoLibre) === "true";
   const productParam = getFirstParam(params.producto);
   const storeParam = getFirstParam(params.tienda);
   const parsedProduct = useMemo(() => parseJsonParam(productParam), [productParam]);
@@ -285,6 +287,24 @@ const ProductoFormScreen = () => {
   const [removeAllImages, setRemoveAllImages] = useState(false);
   const [saving, setSaving] = useState(false);
   const [storeMenuVisible, setStoreMenuVisible] = useState(false);
+  const [mercadoLibreEnabled, setMercadoLibreEnabled] = useState(false);
+  const [mercadoLibreForm, setMercadoLibreForm] = useState({
+    publish: false,
+    categoryId: "",
+    condition: "new",
+    familyName: "",
+    title: "",
+    listingTypeId: "gold_special",
+    userProductId: "",
+    manufacturingDays: "",
+  });
+  const [mercadoLibreQuery, setMercadoLibreQuery] = useState("");
+  const [mercadoLibreSuggestions, setMercadoLibreSuggestions] = useState([]);
+  const [mercadoLibreAttributes, setMercadoLibreAttributes] = useState([]);
+  const [mercadoLibreAttributeValues, setMercadoLibreAttributeValues] = useState({});
+  const [mercadoLibreMaxTitleLength, setMercadoLibreMaxTitleLength] = useState(60);
+  const [mercadoLibreListingTypes, setMercadoLibreListingTypes] = useState([]);
+  const [mercadoLibreLoading, setMercadoLibreLoading] = useState(false);
   const [formState, setFormState] = useState({
     comentario: "",
     count: "0",
@@ -310,6 +330,19 @@ const ProductoFormScreen = () => {
     parsedProduct,
     routeProductId,
   });
+
+  useEffect(() => {
+    let active = true;
+    Meteor.call("comercio.mercadoLibre.getEstado", (error, result) => {
+      if (!active) return;
+      const enabled = !error && result?.enabled === true;
+      setMercadoLibreEnabled(enabled);
+      if (enabled && publishMercadoLibreOnOpen) {
+        setMercadoLibreForm((current) => ({ ...current, publish: true }));
+      }
+    });
+    return () => { active = false; };
+  }, [publishMercadoLibreOnOpen]);
 
   useEffect(() => {
     if (!selectedStoreId && routeStoreId) {
@@ -338,6 +371,11 @@ const ProductoFormScreen = () => {
       precio: product?.precio != null ? `${product.precio}` : "",
       productoDeElaboracion: Boolean(product?.productoDeElaboracion),
     });
+    setMercadoLibreForm((current) => ({
+      ...current,
+      familyName: product?.mercadoLibre?.familyName || product?.name || current.familyName,
+      categoryId: product?.mercadoLibre?.categoryId || current.categoryId,
+    }));
     setSelectedStoreId(product?.idTienda || routeStoreId || "");
     setSelectedCategoryId(product?.idCategoria || "");
   }, [product, routeStoreId]);
@@ -416,6 +454,55 @@ const ProductoFormScreen = () => {
   ], [existingImages, pendingImages, removedImageIds]);
   const storeLocked = Boolean(routeStoreId || product?.idTienda);
 
+  const searchMercadoLibreCategories = async () => {
+    const query = mercadoLibreQuery.replace(/\s+/g, " ").trim();
+    if (query.length < 3) {
+      Alert.alert("Búsqueda incompleta", "Escribe al menos 3 caracteres para buscar categorías de Mercado Libre.");
+      return;
+    }
+    setMercadoLibreLoading(true);
+    try {
+      const suggestions = await callMethodAsync("comercio.mercadoLibre.sugerirCategorias", query);
+      setMercadoLibreSuggestions(Array.isArray(suggestions) ? suggestions : []);
+      if (!suggestions?.length) Alert.alert("Sin resultados", "Mercado Libre no encontró categorías para ese nombre.");
+    } catch (categoryError) {
+      Alert.alert("No se pudieron buscar categorías", errorMessage(categoryError, "Inténtalo nuevamente."));
+    } finally {
+      setMercadoLibreLoading(false);
+    }
+  };
+
+  const selectMercadoLibreCategory = async (categoryId) => {
+    setMercadoLibreForm((current) => ({ ...current, categoryId }));
+    setMercadoLibreAttributeValues({});
+    setMercadoLibreAttributes([]);
+    setMercadoLibreMaxTitleLength(60);
+    if (!categoryId) return;
+    setMercadoLibreLoading(true);
+    try {
+      const category = await callMethodAsync("comercio.mercadoLibre.atributosCategoria", categoryId);
+      setMercadoLibreAttributes(Array.isArray(category?.attributes) ? category.attributes : []);
+      setMercadoLibreMaxTitleLength(category?.maxTitleLength || 60);
+      const listingTypes = await callMethodAsync("comercio.mercadoLibre.tiposPublicacion", Number(formState.precio) || 1).catch(() => []);
+      setMercadoLibreListingTypes(Array.isArray(listingTypes) ? listingTypes : []);
+    } catch (categoryError) {
+      Alert.alert("No se pudieron cargar atributos", errorMessage(categoryError, "Revisa la categoría e inténtalo de nuevo."));
+    } finally {
+      setMercadoLibreLoading(false);
+    }
+  };
+
+  const setMercadoLibreAttribute = (attributeId, value) => {
+    const attribute = mercadoLibreAttributes.find((entry) => entry.id === attributeId);
+    const selected = attribute?.values?.find((entry) => String(entry.id || entry.name) === String(value));
+    setMercadoLibreAttributeValues((current) => ({
+      ...current,
+      [attributeId]: selected
+        ? { valueId: selected.id || "", valueName: selected.name || "" }
+        : { valueId: "", valueName: String(value || "").trim() },
+    }));
+  };
+
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -484,6 +571,56 @@ const ProductoFormScreen = () => {
     if (image?.id) setRemovedImageIds((current) => current.includes(image.id) ? current : [...current, image.id]);
   };
 
+  const validateMercadoLibrePublication = () => {
+    if (!mercadoLibreForm.publish) {
+      return "";
+    }
+
+    if (!mercadoLibreEnabled) {
+      return "La publicación en Mercado Libre no está habilitada para esta cuenta.";
+    }
+
+    if (!mercadoLibreForm.categoryId) {
+      return "Selecciona una categoría de Mercado Libre.";
+    }
+
+    if (!(mercadoLibreForm.familyName.trim() || formState.name.trim())) {
+      return "Indica el nombre de familia del producto para Mercado Libre.";
+    }
+    if (mercadoLibreForm.title.trim().length > mercadoLibreMaxTitleLength) {
+      return `El título de Mercado Libre no puede superar ${mercadoLibreMaxTitleLength} caracteres.`;
+    }
+
+    if (!mercadoLibreForm.listingTypeId) {
+      return "Selecciona el tipo de publicación de Mercado Libre.";
+    }
+    if (selectedCurrency !== "UYU") {
+      return "Mercado Libre Uruguay requiere precio en UYU. El producto local se puede guardar sin publicar.";
+    }
+    if (previewImages.length === 0) {
+      return "Agrega al menos una imagen antes de publicar en Mercado Libre.";
+    }
+
+    const missingAttribute = mercadoLibreAttributes.find(
+      (attribute) =>
+        (attribute.required || (mercadoLibreForm.condition === "new" && attribute.newRequired)) &&
+        !mercadoLibreAttributeValues[attribute.id]?.valueId &&
+        !mercadoLibreAttributeValues[attribute.id]?.valueName,
+    );
+
+    if (missingAttribute) {
+      return `Completa el atributo requerido: ${missingAttribute.name || missingAttribute.id}.`;
+    }
+
+    const manufacturingDays = mercadoLibreForm.manufacturingDays.trim();
+    if (formState.productoDeElaboracion &&
+        (!Number.isInteger(Number(manufacturingDays)) || Number(manufacturingDays) < 1 || Number(manufacturingDays) > 60)) {
+      return "Indica entre 1 y 60 días de elaboración para Mercado Libre.";
+    }
+
+    return "";
+  };
+
   const handleSubmit = async () => {
     const name = formState.name.trim();
     const descripcion = formState.descripcion.trim();
@@ -531,6 +668,12 @@ const ProductoFormScreen = () => {
       return;
     }
 
+    const mercadoLibreValidationError = validateMercadoLibrePublication();
+    if (mercadoLibreValidationError) {
+      Alert.alert("Publicación en Mercado Libre", mercadoLibreValidationError);
+      return;
+    }
+
     setSaving(true);
 
     const payload = {
@@ -552,6 +695,8 @@ const ProductoFormScreen = () => {
 
     const afterSave = async (savedProductId) => {
       const imageErrors = [];
+      const mercadoLibreErrors = [];
+      let mercadoLibreSuccessMessage = "";
 
       if (removeAllImages) {
         try {
@@ -577,13 +722,58 @@ const ProductoFormScreen = () => {
         }
       }
 
+      if (mercadoLibreForm.publish) {
+        try {
+          const publication = await callMethodAsync("comercio.mercadoLibre.publicarProducto", savedProductId, {
+            categoryId: mercadoLibreForm.categoryId,
+            condition: mercadoLibreForm.condition,
+            familyName: mercadoLibreForm.familyName.trim() || name,
+            title: mercadoLibreForm.title.trim(),
+            listingTypeId: mercadoLibreForm.listingTypeId,
+            userProductId: mercadoLibreForm.userProductId.trim(),
+            manufacturingDays: mercadoLibreForm.manufacturingDays.trim()
+              ? Number(mercadoLibreForm.manufacturingDays)
+              : 0,
+            attributes: Object.entries(mercadoLibreAttributeValues)
+              .map(([id, value]) => ({
+                id,
+                ...(value.valueId ? { valueId: value.valueId } : {}),
+                ...(value.valueName ? { valueName: value.valueName } : {}),
+              }))
+              .filter((attribute) => attribute.valueId || attribute.valueName),
+          });
+          if (publication?.success !== true) throw new Error("Mercado Libre no confirmó la publicación.");
+          mercadoLibreSuccessMessage = ` Publicado en Mercado Libre (${publication?.itemId || "producto vinculado"}).`;
+          if (publication?.stockSynced === false) {
+            mercadoLibreErrors.push("La publicación se creó, pero el stock no pudo sincronizarse. Vuelve a sincronizar el producto desde la tienda.");
+          }
+          if (publication?.descriptionSynced === false) {
+            mercadoLibreErrors.push("La publicación se creó, pero la descripción requiere una sincronización adicional.");
+          }
+        } catch (mercadoLibreError) {
+          mercadoLibreErrors.push(
+            errorMessage(mercadoLibreError, "No se pudo publicar el producto en Mercado Libre."),
+          );
+        }
+      } else if (isEditMode && product?.mercadoLibre?.itemId && mercadoLibreEnabled) {
+        mercadoLibreSuccessMessage = " Los cambios de Mercado Libre quedaron en cola.";
+      }
+
       setSaving(false);
       const baseMessage = isEditMode
         ? "El producto quedó actualizado dentro del catálogo de la tienda."
         : "El producto ya forma parte del catálogo de la tienda.";
-      const message = imageErrors.length
-        ? `${baseMessage}\n\n${imageErrors.length} imagen(es) necesitan atención: ${imageErrors[0]}`
-        : baseMessage;
+      const warnings = [
+        imageErrors.length
+          ? `${imageErrors.length} imagen(es) necesitan atención: ${imageErrors[0]}`
+          : "",
+        mercadoLibreErrors.length
+          ? `Mercado Libre necesita atención: ${mercadoLibreErrors[0]}`
+          : "",
+      ].filter(Boolean);
+      const message = warnings.length
+        ? `${baseMessage}${mercadoLibreSuccessMessage}\n\n${warnings.join("\n\n")}`
+        : `${baseMessage}${mercadoLibreSuccessMessage}`;
       Alert.alert(
         isEditMode ? "Producto actualizado" : "Producto creado",
         message,
@@ -707,6 +897,238 @@ const ProductoFormScreen = () => {
                 </View>
               ) : null}
             </Surface>
+
+            {mercadoLibreEnabled ? (
+              <Surface
+                style={[
+                  styles.sectionCard,
+                  {
+                    backgroundColor: palette.card,
+                    borderColor: palette.border,
+                    shadowColor: palette.shadowColor,
+                  },
+                ]}
+              >
+                <View style={styles.mercadoLibreHeading}>
+                  <MaterialCommunityIcons color={palette.brandStrong} name="store-sync-outline" size={22} />
+                  <View style={styles.heroCopy}>
+                    <Text style={{ color: palette.title }} variant="titleMedium">
+                      Mercado Libre Uruguay
+                    </Text>
+                    <Text style={{ color: palette.copy }} variant="bodySmall">
+                      {product?.mercadoLibre?.itemId
+                        ? `Vinculado a ${product.mercadoLibre.itemId}. Los cambios locales se sincronizan al guardar.`
+                        : "La publicación es opcional. Si no la activas, el producto queda solo en VIDKAR."}
+                    </Text>
+                  </View>
+                </View>
+
+                {!product?.mercadoLibre?.itemId ? (
+                  <>
+                    <View style={{ alignItems: "flex-end", marginBottom: -8 }}>
+                      <Tooltip title="Al guardar, intenta publicar con los datos seleccionados.">
+                        <MaterialCommunityIcons accessibilityLabel="Ayuda sobre publicación Mercado Libre" color={palette.muted} name="information-outline" size={19} />
+                      </Tooltip>
+                    </View>
+                    <Host matchContents={{ vertical: true }} seedColor={EMPRESA_BRAND} style={styles.mercadoLibreNativeHost}>
+                      <NativeSwitch
+                        label="Publicar también en Mercado Libre"
+                        onValueChange={(publish) => setMercadoLibreForm((current) => ({ ...current, publish }))}
+                        value={mercadoLibreForm.publish}
+                      />
+                    </Host>
+
+                    {mercadoLibreForm.publish ? (
+                      <View style={styles.mercadoLibreFields}>
+                        {selectedCurrency !== "UYU" ? (
+                          <Surface style={[styles.mercadoLibreWarning, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}>
+                            <Text style={{ color: palette.copy }} variant="bodySmall">
+                              Para publicar en Mercado Libre Uruguay, selecciona UYU en el producto. El guardado local sigue disponible.
+                            </Text>
+                          </Surface>
+                        ) : null}
+
+                        <TextInput
+                          activeOutlineColor={palette.brand}
+                          label="Buscar categoría en Mercado Libre"
+                          mode="outlined"
+                          onChangeText={setMercadoLibreQuery}
+                          outlineColor={palette.borderStrong}
+                          style={[styles.textInput, { backgroundColor: palette.input }]}
+                          textColor={palette.title}
+                          theme={{ colors: { onSurfaceVariant: palette.muted } }}
+                          value={mercadoLibreQuery}
+                        />
+                        <Tooltip title="La categoría define los atributos requeridos.">
+                          <Button
+                            disabled={mercadoLibreLoading}
+                            icon={mercadoLibreLoading ? "loading" : "magnify"}
+                            mode="outlined"
+                            onPress={searchMercadoLibreCategories}
+                            textColor={palette.brandStrong}
+                          >
+                            Buscar categorías
+                          </Button>
+                        </Tooltip>
+
+                        {mercadoLibreSuggestions.length ? (
+                          <View style={styles.fieldGroup}>
+                            <Text style={{ color: palette.muted }} variant="labelLarge">Categoría MLU</Text>
+                            <Host matchContents={{ vertical: true }} seedColor={EMPRESA_BRAND} style={styles.mercadoLibreNativeHost}>
+                              <Picker selectedValue={mercadoLibreForm.categoryId} onValueChange={selectMercadoLibreCategory}>
+                                <Picker.Item label="Selecciona una categoría" value="" />
+                                {mercadoLibreSuggestions.map((suggestion) => (
+                                  <Picker.Item
+                                    key={suggestion.categoryId}
+                                    label={`${suggestion.categoryName} · ${suggestion.categoryId}`}
+                                    value={suggestion.categoryId}
+                                  />
+                                ))}
+                              </Picker>
+                            </Host>
+                          </View>
+                        ) : null}
+
+                        {mercadoLibreForm.categoryId ? (
+                          <>
+                            {!mercadoLibreAttributes.length ? (
+                              <Tooltip title="Carga los requisitos de esta categoría.">
+                                <Button disabled={mercadoLibreLoading} mode="outlined" onPress={() => selectMercadoLibreCategory(mercadoLibreForm.categoryId)} textColor={palette.brandStrong}>
+                                  Cargar atributos de la categoría
+                                </Button>
+                              </Tooltip>
+                            ) : null}
+                            <TextInput
+                              activeOutlineColor={palette.brand}
+                              label="Nombre de familia"
+                              mode="outlined"
+                              onChangeText={(familyName) => setMercadoLibreForm((current) => ({ ...current, familyName }))}
+                              outlineColor={palette.borderStrong}
+                              style={[styles.textInput, { backgroundColor: palette.input }]}
+                              textColor={palette.title}
+                              theme={{ colors: { onSurfaceVariant: palette.muted } }}
+                              value={mercadoLibreForm.familyName || formState.name}
+                            />
+                            <TextInput
+                              activeOutlineColor={palette.brand}
+                              label="Título en Mercado Libre (opcional)"
+                              mode="outlined"
+                              onChangeText={(title) => setMercadoLibreForm((current) => ({ ...current, title }))}
+                              outlineColor={palette.borderStrong}
+                              style={[styles.textInput, { backgroundColor: palette.input }]}
+                              textColor={palette.title}
+                              theme={{ colors: { onSurfaceVariant: palette.muted } }}
+                              value={mercadoLibreForm.title}
+                            />
+                            <Text style={{ color: palette.muted }} variant="bodySmall">
+                              Si lo dejas vacío se usa el nombre local. Máximo {mercadoLibreMaxTitleLength} caracteres. En cuentas User Product se usa el nombre de familia.
+                            </Text>
+
+                            <View style={styles.fieldGroup}>
+                              <Text style={{ color: palette.muted }} variant="labelLarge">Condición</Text>
+                              <Host matchContents={{ vertical: true }} seedColor={EMPRESA_BRAND} style={styles.mercadoLibreNativeHost}>
+                                <Picker selectedValue={mercadoLibreForm.condition} onValueChange={(condition) => setMercadoLibreForm((current) => ({ ...current, condition }))}>
+                                  <Picker.Item label="Nuevo" value="new" />
+                                  <Picker.Item label="Usado" value="used" />
+                                </Picker>
+                              </Host>
+                            </View>
+
+                            <View style={styles.fieldGroup}>
+                              <Text style={{ color: palette.muted }} variant="labelLarge">Tipo de publicación</Text>
+                              <Host matchContents={{ vertical: true }} seedColor={EMPRESA_BRAND} style={styles.mercadoLibreNativeHost}>
+                                <Picker selectedValue={mercadoLibreForm.listingTypeId} onValueChange={(listingTypeId) => setMercadoLibreForm((current) => ({ ...current, listingTypeId }))}>
+                                  {(mercadoLibreListingTypes.length ? mercadoLibreListingTypes : [{ id: "gold_special", name: "Clásica" }]).map((listingType) => (
+                                    <Picker.Item key={listingType.id} label={listingType.name} value={listingType.id} />
+                                  ))}
+                                </Picker>
+                              </Host>
+                            </View>
+
+                            <TextInput
+                              activeOutlineColor={palette.brand}
+                              autoCapitalize="characters"
+                              label="User Product existente (opcional)"
+                              mode="outlined"
+                              onChangeText={(userProductId) => setMercadoLibreForm((current) => ({ ...current, userProductId }))}
+                              outlineColor={palette.borderStrong}
+                              placeholder="MLUU…"
+                              style={[styles.textInput, { backgroundColor: palette.input }]}
+                              textColor={palette.title}
+                              theme={{ colors: { onSurfaceVariant: palette.muted } }}
+                              value={mercadoLibreForm.userProductId}
+                            />
+
+                            {formState.productoDeElaboracion ? (
+                              <TextInput
+                                activeOutlineColor={palette.brand}
+                                keyboardType="number-pad"
+                                label="Días de elaboración (1–60)"
+                                mode="outlined"
+                                onChangeText={(manufacturingDays) => setMercadoLibreForm((current) => ({ ...current, manufacturingDays }))}
+                                outlineColor={palette.borderStrong}
+                                style={[styles.textInput, { backgroundColor: palette.input }]}
+                                textColor={palette.title}
+                                theme={{ colors: { onSurfaceVariant: palette.muted } }}
+                                value={mercadoLibreForm.manufacturingDays}
+                              />
+                            ) : null}
+
+                            {mercadoLibreAttributes
+                              .filter((attribute) => attribute.required || attribute.newRequired || attribute.conditionalRequired || ["BRAND", "MODEL", "GTIN", "SELLER_SKU"].includes(attribute.id))
+                              .map((attribute) => {
+                                const selected = mercadoLibreAttributeValues[attribute.id] || { valueId: "", valueName: "" };
+                                const required = attribute.required || (mercadoLibreForm.condition === "new" && attribute.newRequired);
+                                const label = `${attribute.name || attribute.id}${required ? " *" : ""}`;
+                                const gtinHint = attribute.id === "GTIN" ? "Usa solo el código real del envase: 8, 12, 13 o 14 dígitos con verificador. No uses el SKU ni inventes un código. Si no tiene, elige «sin código» solo si la categoría lo ofrece." : "";
+                                if (attribute.values?.length) {
+                                  return (
+                                    <View key={attribute.id} style={styles.fieldGroup}>
+                                      <Text style={{ color: palette.muted }} variant="labelLarge">{label}</Text>
+                                      {gtinHint ? <Text style={{ color: palette.muted }} variant="bodySmall">{gtinHint}</Text> : null}
+                                      {attribute.conditionalRequired && !required ? <Text style={{ color: palette.muted }} variant="bodySmall">Condicional · {attribute.id}</Text> : null}
+                                      <Host matchContents={{ vertical: true }} seedColor={EMPRESA_BRAND} style={styles.mercadoLibreNativeHost}>
+                                        <Picker
+                                          selectedValue={selected.valueId || selected.valueName}
+                                          onValueChange={(value) => setMercadoLibreAttribute(attribute.id, value)}
+                                        >
+                                          <Picker.Item label={`Selecciona ${attribute.name || attribute.id}`} value="" />
+                                          {attribute.values.map((value) => (
+                                            <Picker.Item key={value.id || value.name} label={value.name} value={value.id || value.name} />
+                                          ))}
+                                        </Picker>
+                                      </Host>
+                                    </View>
+                                  );
+                                }
+                                return (
+                                  <View key={attribute.id} style={styles.fieldGroup}>
+                                    <TextInput
+                                      activeOutlineColor={palette.brand}
+                                      keyboardType={attribute.id === "GTIN" ? "number-pad" : "default"}
+                                      label={label}
+                                      mode="outlined"
+                                      onChangeText={(value) => setMercadoLibreAttribute(attribute.id, value)}
+                                      outlineColor={palette.borderStrong}
+                                      style={[styles.textInput, { backgroundColor: palette.input }]}
+                                      textColor={palette.title}
+                                      theme={{ colors: { onSurfaceVariant: palette.muted } }}
+                                      value={selected.valueName}
+                                    />
+                                    {gtinHint ? <Text style={{ color: palette.muted }} variant="bodySmall">{gtinHint}</Text> : null}
+                                    {attribute.conditionalRequired && !required ? <Text style={{ color: palette.muted }} variant="bodySmall">Condicional · {attribute.id}</Text> : null}
+                                  </View>
+                                );
+                              })}
+                            {mercadoLibreAttributes.length ? <Text style={{ color: palette.muted }} variant="bodySmall">Los atributos con * son obligatorios. Los condicionales se exigen solo en ciertos casos; completa los que correspondan al producto.</Text> : null}
+                          </>
+                        ) : null}
+                      </View>
+                    ) : null}
+                  </>
+                ) : null}
+              </Surface>
+            ) : null}
 
             <Surface
               style={[
@@ -966,31 +1388,43 @@ const ProductoFormScreen = () => {
                     <View key={image.id} style={[styles.imageThumbnailItem, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
                       <Image resizeMode="cover" source={{ uri: image.url }} style={styles.imageThumbnail} />
                       <Text style={{ color: palette.muted }} variant="labelSmall">{index + 1}</Text>
-                      <Button compact icon="delete-outline" onPress={() => handleRemoveImage(image)} textColor={theme.colors.error}>
-                        Quitar
-                      </Button>
+                      <Tooltip title={product?.mercadoLibre?.itemId
+                        ? "Quita la foto y actualiza el anuncio vinculado."
+                        : "Quita esta foto del producto antes de guardar."}>
+                        <Button compact icon="delete-outline" onPress={() => handleRemoveImage(image)} textColor={theme.colors.error}>
+                          Quitar
+                        </Button>
+                      </Tooltip>
                     </View>
                   ))}
                 </ScrollView>
               ) : null}
 
               <View style={[styles.imageActions, isCompactLayout ? styles.imageActionsStacked : null]}>
-                <Button buttonColor={palette.brandSoft} mode="contained-tonal" onPress={handlePickImage} textColor={palette.brandStrong}>
-                  Agregar imágenes
-                </Button>
-                {previewImages.length ? (
-                  <Button
-                    mode="outlined"
-                    onPress={() => {
-                      setPendingImages([]);
-                      setRemovedImageIds(existingImages.filter((image) => !image.legacy).map((image) => image.id));
-                      setRemoveAllImages(true);
-                      setExistingImages([]);
-                    }}
-                    textColor={palette.title}
-                  >
-                    Quitar todas
+                <Tooltip title={product?.mercadoLibre?.itemId
+                  ? "Sube fotos y encola su sincronización."
+                  : mercadoLibreForm.publish
+                    ? "Las fotos se envían al publicar el producto."
+                    : "Las fotos quedan en VIDKAR; puedes publicarlas después."}>
+                  <Button buttonColor={palette.brandSoft} mode="contained-tonal" onPress={handlePickImage} textColor={palette.brandStrong}>
+                    Agregar imágenes
                   </Button>
+                </Tooltip>
+                {previewImages.length ? (
+                  <Tooltip title="Quita las fotos locales y sincroniza la galería.">
+                    <Button
+                      mode="outlined"
+                      onPress={() => {
+                        setPendingImages([]);
+                        setRemovedImageIds(existingImages.filter((image) => !image.legacy).map((image) => image.id));
+                        setRemoveAllImages(true);
+                        setExistingImages([]);
+                      }}
+                      textColor={palette.title}
+                    >
+                      Quitar todas
+                    </Button>
+                  </Tooltip>
                 ) : null}
               </View>
               <Text style={{ color: palette.muted }} variant="bodySmall">
@@ -998,17 +1432,23 @@ const ProductoFormScreen = () => {
               </Text>
             </Surface>
 
-            <Button
-              contentStyle={styles.submitButtonContent}
-              disabled={!categoriesReady || !productReady || saving}
-              loading={saving}
-              mode="contained"
-              onPress={handleSubmit}
-              style={styles.submitButton}
-              textColor="#FFFFFF"
-            >
-              {isEditMode ? "Guardar cambios" : "Crear producto"}
-            </Button>
+            <Tooltip title={mercadoLibreForm.publish
+              ? "Guarda en VIDKAR e intenta publicar en Mercado Libre."
+              : product?.mercadoLibre?.itemId
+                ? "Guarda localmente y sincroniza cambios compatibles."
+                : "Guarda el producto solo en el catálogo de VIDKAR."}>
+              <Button
+                contentStyle={styles.submitButtonContent}
+                disabled={!categoriesReady || !productReady || saving}
+                loading={saving}
+                mode="contained"
+                onPress={handleSubmit}
+                style={styles.submitButton}
+                textColor="#FFFFFF"
+              >
+                {isEditMode ? "Guardar cambios" : "Crear producto"}
+              </Button>
+            </Tooltip>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -1061,6 +1501,22 @@ const styles = StyleSheet.create({
   },
   heroCopy: {
     gap: 8,
+  },
+  mercadoLibreHeading: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+  },
+  mercadoLibreFields: {
+    gap: 12,
+  },
+  mercadoLibreNativeHost: {
+    width: "100%",
+  },
+  mercadoLibreWarning: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
   },
   imageActions: {
     flexDirection: "row",

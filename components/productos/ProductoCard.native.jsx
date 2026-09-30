@@ -31,12 +31,9 @@ const ProductoCardNative = ({ producto, searchQuery, tienda }) => {
   return (
     <>
       <Pressable
+        accessibilityLabel={`Ver detalles de ${producto.name || "producto"}`}
         android_ripple={{ color: "rgba(0, 0, 0, 0.1)" }}
-        onPress={() => {
-          if (estaDisponible) {
-            setDialogVisible(true);
-          }
-        }}
+        onPress={() => setDialogVisible(true)}
         style={styles.cardContainer}
       >
         <View style={styles.cardInner}>
