@@ -1,3 +1,1 @@
-import CourseEarnings from "../../components/courses/CourseEarnings.native";
-
-export default CourseEarnings;
+export { default } from "../../components/courses/CourseEarnings";

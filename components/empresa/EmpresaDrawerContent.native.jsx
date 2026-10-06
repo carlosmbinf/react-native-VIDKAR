@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProductosComercioCollection, TiendasComercioCollection } from "../collections/collections";
 import DrawerBlurShell from "../drawer/DrawerBlurShell";
 import { createEmpresaPalette } from "./styles/empresaTheme";
+import { hasEmpresaWebsiteAccess } from "../../services/commerceProvisioning";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
@@ -251,6 +252,16 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
           onPress={() => navigateTo("/(empresa)/MisTiendas")}
           palette={palette}
         />
+        {hasEmpresaWebsiteAccess(user) ? (
+          <DrawerAction
+            compact={isCompactDrawer}
+            description="Crea páginas web y sigue su instalación, cierre y reintentos."
+            icon="web"
+            label="Páginas web"
+            onPress={() => navigateTo("/(empresa)/PaginasWeb")}
+            palette={palette}
+          />
+        ) : null}
         <DrawerAction
           compact={isCompactDrawer}
           description="Crea categorías y subcategorías para organizar los productos de tus tiendas."

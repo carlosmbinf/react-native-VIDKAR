@@ -1,3 +1,1 @@
-import VPNPurchaseScreen from "../../components/vpn/VPNPurchaseScreen.native";
-
-export default VPNPurchaseScreen;
+export { default } from "../../components/vpn/VPNPurchaseScreen";

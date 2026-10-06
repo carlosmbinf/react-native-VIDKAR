@@ -1,1 +1,1 @@
-export { default } from "../../components/users/PushOffersScreen.native";
+export { default } from "../../components/users/PushOffersScreen";

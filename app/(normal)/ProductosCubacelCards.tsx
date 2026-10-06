@@ -1,3 +1,1 @@
-import ProductosScreen from "../../components/cubacel/ProductosScreen.native";
-
-export default ProductosScreen;
+export { default } from "../../components/cubacel/ProductosScreen";

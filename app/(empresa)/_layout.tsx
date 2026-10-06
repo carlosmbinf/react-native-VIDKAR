@@ -6,6 +6,7 @@ export default function EmpresaLayout() {
       <Stack.Screen name="EmpresaNavigator" />
       <Stack.Screen name="PedidosPreparacion" />
       <Stack.Screen name="MisTiendas" />
+      <Stack.Screen name="PaginasWeb" />
       <Stack.Screen name="TiendaDetail" />
       <Stack.Screen name="CadetesEnCola" />
       <Stack.Screen name="Categorias" />

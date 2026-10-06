@@ -1,1 +1,1 @@
-export { default } from "../../components/precios/PreciosScreen.native";
+export { default } from "../../components/precios/PreciosScreen";

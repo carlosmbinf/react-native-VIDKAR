@@ -1,3 +1,1 @@
-import ServerList from "../../components/servers/ServerList.native";
-
-export default ServerList;
+export { default } from "../../components/servers/ServerList";

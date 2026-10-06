@@ -2,8 +2,8 @@ import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Appbar, Menu } from "react-native-paper";
 
-import WizardConStepper from "../carritoCompras/WizardConStepper.native";
-import MenuIconMensajes from "../components/MenuIconMensajes.native";
+import WizardConStepper from "../carritoCompras/WizardConStepper";
+import MenuIconMensajes from "../components/MenuIconMensajes";
 import AppHeader, { MENU_PRINCIPAL_HEADER_COLOR } from "./AppHeader";
 import BlurMenuSurface, { blurMenuContentStyle } from "./BlurMenuSurface";
 

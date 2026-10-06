@@ -1,3 +1,1 @@
-import EmpresaWelcomeScreen from "../../components/empresa/EmpresaWelcomeScreen.native";
-
-export default EmpresaWelcomeScreen;
+export { default } from "../../components/empresa/EmpresaWelcomeScreen";

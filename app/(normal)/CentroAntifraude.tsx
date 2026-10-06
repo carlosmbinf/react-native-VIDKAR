@@ -1,1 +1,1 @@
-export { default } from "../../components/evidencias/AntifraudCenter.native";
+export { default } from "../../components/evidencias/AntifraudCenter";

@@ -1,3 +1,1 @@
-import EvaluacionesIAScreen from "../../components/evaluacionesIA/EvaluacionesIAScreen.native";
-
-export default EvaluacionesIAScreen;
+export { default } from "../../components/evaluacionesIA/EvaluacionesIAScreen";

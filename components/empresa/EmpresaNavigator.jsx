@@ -23,6 +23,12 @@ const EmpresaNavigator = () => {
           href: '/(empresa)/MisTiendas',
         },
         {
+          label: 'Páginas web',
+          description: 'Crea páginas web y sigue su instalación, cierre y reintentos.',
+          icon: 'web',
+          href: '/(empresa)/PaginasWeb',
+        },
+        {
           label: 'Productos',
           description: 'Punto de acceso futuro para crear, editar y administrar productos del comercio.',
           icon: 'tag-outline',

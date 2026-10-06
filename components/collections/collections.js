@@ -79,6 +79,9 @@ export const PedidosAsignadosComercioCollection = new Mongo.Collection(
 export const ColaCadetesPorTiendasComercioCollection = new Mongo.Collection(
   "COMERCIO_colacadetesxtiendas",
 );
+export const ComercioProvisioningRequestsCollection = new Mongo.Collection(
+  "COMERCIO_provisioning_requests",
+);
 export const Online = new Mongo.Collection("online");
 export const PushTokens = new Mongo.Collection("push_tokens");
 export const NotificacionUsersConectadosVPNCollection = new Mongo.Collection(
@@ -127,6 +130,7 @@ export const collections = {
   VentasComercioCollection,
   PedidosAsignadosComercioCollection,
   ColaCadetesPorTiendasComercioCollection,
+  ComercioProvisioningRequestsCollection,
   Online,
   PushTokens,
   NotificacionUsersConectadosVPNCollection,

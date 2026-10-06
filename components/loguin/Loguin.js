@@ -1,10 +1,10 @@
 import FontAwesome5Icon from "@expo/vector-icons/FontAwesome5";
-import React, { useState } from "react";
+import React from "react";
 import {
-    Dimensions,
     ImageBackground,
     ScrollView,
     StyleSheet,
+    useWindowDimensions,
     View,
 } from "react-native";
 import { Button, Text, TextInput, useTheme } from "react-native-paper";
@@ -12,13 +12,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { getLoginPalette, loginScreenStyles as styles } from "./Loguin.styles";
 
-const { width: screenWidth } = Dimensions.get("window");
-const { height: screenHeight } = Dimensions.get("window");
-
 const Loguin = () => {
   const theme = useTheme();
   const isDarkMode = theme.dark;
-  const [isLandscape] = useState(screenWidth > screenHeight);
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const isLandscape = screenWidth > screenHeight;
   const isLargeScreen = screenWidth >= 980;
   const shouldUseSplitLayout = isLandscape || isLargeScreen;
   const palette = getLoginPalette(isDarkMode);
@@ -45,7 +43,7 @@ const Loguin = () => {
     <View style={styles.screen}>
       <ImageBackground
         source={require("../files/space-bg-shadowcodex.jpg")}
-        style={styles.backgroundImage}
+        style={[styles.backgroundImage, { width: "100%", height: "100%" }]}
         resizeMode="cover"
       />
 

@@ -1,1 +1,1 @@
-export { default } from "../../components/archivos/PendingEvidenceCenter.native";
+export { default } from "../../components/archivos/PendingEvidenceCenter";

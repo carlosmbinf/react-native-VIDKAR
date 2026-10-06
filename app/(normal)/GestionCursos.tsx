@@ -1,3 +1,1 @@
-import CoursesManagement from "../../components/courses/CoursesManagement.native";
-
-export default CoursesManagement;
+export { default } from "../../components/courses/CoursesManagement";

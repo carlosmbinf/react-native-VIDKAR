@@ -1,16 +1,10 @@
-import { NativeTabs } from "expo-router/unstable-native-tabs";
+import { Tabs } from "expo-router";
 
-export default function CinemaLayout() {
+export default function CinemaWebLayout() {
   return (
-    <NativeTabs disableTransparentOnScrollEdge sidebarAdaptable={false}>
-      <NativeTabs.Trigger name="Peliculas">
-        <NativeTabs.Trigger.Label>Películas</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="film" md="movie" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="Series">
-        <NativeTabs.Trigger.Label>Series</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="tv" md="tv" />
-      </NativeTabs.Trigger>
-    </NativeTabs>
+    <Tabs screenOptions={{ headerShown: false }}>
+      <Tabs.Screen name="Peliculas" options={{ title: "Películas" }} />
+      <Tabs.Screen name="Series" options={{ title: "Series" }} />
+    </Tabs>
   );
 }

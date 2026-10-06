@@ -1,3 +1,1 @@
-import MapaUsuariosScreen from "../../components/comercio/maps/MapaUsuariosScreen.native";
-
-export default MapaUsuariosScreen;
+export { default } from "../../components/comercio/maps/MapaUsuariosScreen";

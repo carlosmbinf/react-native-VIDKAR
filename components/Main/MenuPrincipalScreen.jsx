@@ -29,7 +29,7 @@ import {
   useAppHeaderContentInset,
 } from "../Header/AppHeader";
 import MenuHeader from "../Header/MenuHeader";
-import ComercioHomeSection from "../productos/ComercioHomeSection.native";
+import ComercioHomeSection from "../productos/ComercioHomeSection";
 import ProxyVPNPackagesHorizontal from "../proxyVPN/ProxyVPNPackagesHorizontal";
 
 const DRAWER_WIDTH = 316;

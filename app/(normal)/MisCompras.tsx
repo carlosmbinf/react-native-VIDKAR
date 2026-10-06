@@ -1,3 +1,1 @@
-import MisComprasScreen from "../../components/compras/MisComprasScreen.native";
-
-export default MisComprasScreen;
+export { default } from "../../components/compras/MisComprasScreen";
