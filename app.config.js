@@ -1,5 +1,21 @@
+const fs = require("node:fs");
+const path = require("node:path");
 const staticAppConfig = require("./app.json").expo;
 const { resolvePublicUrls } = require("./config/publicUrls");
+
+function getGooglePlacesApiKey() {
+  const configuredKey = String(process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyB6ceUfSkrOwGJvvOlnrLbfP5sT81XwmTg").trim();
+  if (configuredKey) return configuredKey;
+
+  try {
+    const commerceEnvPath = path.resolve(__dirname, "../comercio-web/.env");
+    const commerceEnv = fs.readFileSync(commerceEnvPath, "utf8");
+    const match = commerceEnv.match(/^VITE_GOOGLE_MAPS_API_KEY=(.*)$/m);
+    return match?.[1]?.trim().replace(/^(['"])(.*)\1$/, "$2") || "";
+  } catch (_error) {
+    return "";
+  }
+}
 
 function getVersionBase(version) {
   const [major = "1", minor = "0"] = String(version || "1.0.0").split(".");
@@ -51,6 +67,7 @@ module.exports = ({ config } = {}) => {
     extra: {
       ...appConfig.extra,
       ...publicUrls,
+      googlePlacesApiKey: getGooglePlacesApiKey(),
     },
     ios: {
       ...appConfig.ios,

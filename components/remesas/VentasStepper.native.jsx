@@ -50,6 +50,7 @@ const REMESA_STEPPER_FIELDS = {
   estado: 1,
   isCancelada: 1,
   isCobrado: 1,
+  liquidacionRequestId: 1,
   metodoPago: 1,
   monedaCobrado: 1,
   precioOficial: 1,
@@ -95,7 +96,14 @@ const getItemsArray = (venta) =>
     []
   ).filter((carrito) => carrito?.type === "REMESA" || !carrito?.type);
 
-const obtenerEstados = (metodoPago) => {
+const obtenerEstados = (metodoPago, financiadaPorLiquidacion = false) => {
+  if (financiadaPorLiquidacion) {
+    return [
+      metodoPago === "FONDO" ? "Débito FONDO CUP" : "Saldo liquidado",
+      "Pendiente de entrega",
+      "Entregada",
+    ];
+  }
   if (metodoPago === "EFECTIVO") {
     return [
       "Evidencia de Pago",
@@ -108,6 +116,13 @@ const obtenerEstados = (metodoPago) => {
 };
 
 const obtenerPasoDesdeEstado = (venta) => {
+  const financiadaPorLiquidacion =
+    venta?.metodoPago === "FONDO" || Boolean(venta?.liquidacionRequestId);
+  if (financiadaPorLiquidacion) {
+    const itemsPendientes =
+      venta?.producto?.carritos?.some((carrito) => !carrito.entregado) || false;
+    return itemsPendientes ? 1 : 2;
+  }
   const esEfectivo = venta.metodoPago === "EFECTIVO";
   const offset = esEfectivo ? 1 : 0;
   if (esEfectivo && venta.isCobrado === false) return 0;
@@ -132,6 +147,9 @@ const VentasStepper = () => {
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const userId = Meteor.userId();
   const idAdmin = Meteor.useTracker(() => Meteor.userId());
+  const isPrincipalAdmin = Meteor.useTracker(
+    () => Meteor.user()?.username === "carlosmbinf",
+  );
   const dataReady = useDeferredScreenData();
 
   const colors = useMemo(
@@ -315,8 +333,8 @@ const VentasStepper = () => {
     });
   };
 
-  const renderStepper = (pasoActual, metodoPago) => {
-    const estados = obtenerEstados(metodoPago);
+  const renderStepper = (pasoActual, metodoPago, financiadaPorLiquidacion = false) => {
+    const estados = obtenerEstados(metodoPago, financiadaPorLiquidacion);
     const totalSteps = estados.length;
     const progress =
       totalSteps > 1
@@ -419,6 +437,9 @@ const VentasStepper = () => {
   };
 
   const renderVentaCard = (venta, index, sectionTitle) => {
+    const isFondoSale = venta?.metodoPago === "FONDO";
+    const isSettlementFundSale =
+      isFondoSale || Boolean(venta?.liquidacionRequestId);
     const pasoActual = obtenerPasoDesdeEstado(venta);
     const isPendientePago = venta.isCobrado === false;
     const isCancelada = venta.isCancelada === true;
@@ -427,7 +448,9 @@ const VentasStepper = () => {
     const itemsEntregados =
       items.filter((item) => item.entregado)?.length || 0;
     const itemsPendientes = totalItems - itemsEntregados;
-    const isEntregada = pasoActual === obtenerEstados(venta.metodoPago).length - 1;
+    const isEntregada =
+      pasoActual ===
+      obtenerEstados(venta.metodoPago, isSettlementFundSale).length - 1;
     const destinatarios = items
       .map((item) => item?.nombre)
       .filter(Boolean)
@@ -511,7 +534,20 @@ const VentasStepper = () => {
 
         {/* Contenido del Stepper */}
         <View style={styles.cardBody}>
-          {renderStepper(pasoActual, venta.metodoPago)}
+          {isFondoSale ? (
+            <Chip
+              compact
+              icon="wallet-outline"
+              style={{ alignSelf: "flex-start", marginBottom: 8 }}
+            >
+              FONDO · Débito CUP
+            </Chip>
+          ) : null}
+          {renderStepper(
+            pasoActual,
+            venta.metodoPago,
+            isSettlementFundSale,
+          )}
 
           <Button
             mode="contained-tonal"
@@ -675,6 +711,9 @@ const VentasStepper = () => {
           keyboardShouldPersistTaps="handled"
         >
           {selectedVenta ? (() => {
+            const isFondoSale = selectedVenta?.metodoPago === "FONDO";
+            const isSettlementFundSale =
+              isFondoSale || Boolean(selectedVenta?.liquidacionRequestId);
             const pasoActual = obtenerPasoDesdeEstado(selectedVenta);
             const esEfectivo = selectedVenta.metodoPago === "EFECTIVO";
             const isPendientePago = selectedVenta.isCobrado === false;
@@ -686,7 +725,14 @@ const VentasStepper = () => {
               items.filter((item) => item.entregado)?.length || 0;
             const itemsPendientes = totalItems - itemsEntregados;
             const isEntregada =
-              pasoActual === obtenerEstados(selectedVenta.metodoPago).length - 1;
+              pasoActual ===
+              obtenerEstados(
+                selectedVenta.metodoPago,
+                isSettlementFundSale,
+              ).length - 1;
+            const canManageDelivery = isSettlementFundSale
+              ? isPrincipalAdmin
+              : Meteor.user()?.profile?.role === "admin";
             const destinatarios = items
               .map((item) => item?.nombre)
               .filter(Boolean)
@@ -711,11 +757,18 @@ const VentasStepper = () => {
               statusText = "Entregada";
             }
 
-            const valorRemesaUSD =
+            const valorRemesaFuente =
               items.reduce(
                 (acc, curr) => acc + Number(curr?.cobrarUSD || 0),
                 0,
-              ) || Number(selectedVenta.precioOficial || 0);
+              ) ||
+              Number(
+                selectedVenta.cobrado || selectedVenta.precioOficial || 0,
+              );
+            const monedaRemesaFuente =
+              items[0]?.monedaACobrar ||
+              selectedVenta.monedaCobrado ||
+              "USD";
 
             return (
               <View style={styles.dialogContent}>
@@ -764,7 +817,9 @@ const VentasStepper = () => {
                         💳 Método:
                       </Text>
                       <Text style={[styles.drawerMetaVal, { color: colors.text }]}>
-                        {selectedVenta.metodoPago || "No especificado"}
+                        {isFondoSale
+                          ? "FONDO · Débito interno CUP"
+                          : selectedVenta.metodoPago || "No especificado"}
                       </Text>
                     </View>
                     <View style={styles.drawerMetaItem}>
@@ -777,10 +832,10 @@ const VentasStepper = () => {
                     </View>
                     <View style={styles.drawerMetaItem}>
                       <Text style={[styles.drawerMetaKey, { color: colors.muted }]}>
-                        💵 Valor remesa:
+                        💵 Valor de la remesa:
                       </Text>
                       <Text style={[styles.drawerMetaValBold, { color: colors.primary }]}>
-                        {formatMoney(valorRemesaUSD)} USD
+                        {formatMoney(valorRemesaFuente)} {monedaRemesaFuente}
                       </Text>
                     </View>
                     <View style={styles.drawerMetaItemFull}>
@@ -1099,9 +1154,9 @@ const VentasStepper = () => {
                             </View>
                           ) : null}
 
-                          {Meteor.user()?.profile?.role === "admin" ? (
+                          {canManageDelivery ? (
                             <View style={styles.adminActionRow}>
-                              {isDelivered ? (
+                              {isDelivered && !isSettlementFundSale ? (
                                 <Button
                                   mode="outlined"
                                   icon="undo-variant"
@@ -1112,7 +1167,7 @@ const VentasStepper = () => {
                                 >
                                   Revertir Entrega
                                 </Button>
-                              ) : (
+                              ) : isDelivered ? null : (
                                 <Button
                                   mode="contained"
                                   icon="check-bold"
@@ -1122,7 +1177,9 @@ const VentasStepper = () => {
                                   style={styles.adminBtn}
                                   compact
                                 >
-                                  Marcar Entregado
+                                  {isSettlementFundSale
+                                    ? "Confirmar entrega y liquidar"
+                                    : "Marcar Entregado"}
                                 </Button>
                               )}
                             </View>

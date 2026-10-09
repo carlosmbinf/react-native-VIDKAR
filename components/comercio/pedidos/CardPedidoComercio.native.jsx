@@ -75,6 +75,13 @@ const getNavigationTarget = (estado, tienda, destinationCoordinates) => {
   return resolveCoordinatePair(destinationCoordinates);
 };
 
+const formatDeliveryMoney = (amount, currency) =>
+  `${(Number(amount) || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 6,
+    useGrouping: false,
+  })} ${currency}`;
+
 const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange }) => {
   const theme = useTheme();
   const { width } = useWindowDimensions();
@@ -97,6 +104,10 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
   const costoPorKmBase = Number(
     venta?.producto?.comisiones?.desglosePorTienda?.[0]?.costoPorKm,
   ) || 0;
+  const monedaCostoPorKmBase =
+    venta?.producto?.comisiones?.desglosePorTienda?.[0]?.moneda ||
+    venta?.producto?.comisiones?.moneda ||
+    "CUP";
   const monedaCostoEntrega = venta?.producto?.comisiones?.monedaCostoEntrega || "USD";
   const [costoEntrega, setCostoEntrega] = useState(costoEntregaBase);
   const [costoPorKm, setCostoPorKm] = useState(costoPorKmBase);
@@ -180,8 +191,8 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
     const resolveMonetaryValues = async () => {
       try {
         const [deliveryValue, deliveryPerKmValue] = await Promise.all([
-          convertMoney(costoEntregaBase, monedaCostoEntrega, monedaCostoEntrega),
-          convertMoney(costoPorKmBase, "CUP", monedaCostoEntrega),
+          convertMoney(costoEntregaBase, monedaCostoEntregaBase, monedaCostoEntrega),
+          convertMoney(costoPorKmBase, monedaCostoPorKmBase, monedaCostoEntrega),
         ]);
 
         if (!cancelled) {
@@ -206,7 +217,7 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
     return () => {
       cancelled = true;
     };
-  }, [costoEntregaBase, costoPorKmBase, monedaCostoEntrega]);
+  }, [costoEntregaBase, costoPorKmBase, monedaCostoEntregaBase, monedaCostoPorKmBase, monedaCostoEntrega]);
 
   const openMaps = useCallback(async () => {
     const coordinates = getNavigationTarget(estado, tienda, primerItem?.coordenadas);
@@ -364,7 +375,7 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
             Ganancias por la entrega
           </Text>
           <Text style={[styles.metricValue, { color: palette.primaryText }]} variant="titleMedium">
-            {formatMoney(costoEntrega, monedaCostoEntregaBase)}
+            {formatDeliveryMoney(costoEntrega, monedaCostoEntrega)}
           </Text>
         </View>
       </View>
@@ -385,7 +396,7 @@ const CardPedidoComercio = ({ pedido, venta, cadeteId, onSliderInteractionChange
             Costo por KM
           </Text>
           <Text style={[styles.metricValue, { color: palette.primaryText }]} variant="titleMedium">
-            {costoPorKmBase ? formatMoney(costoPorKm, monedaCostoEntrega) : "N/A"}
+            {costoPorKmBase ? formatDeliveryMoney(costoPorKm, monedaCostoEntrega) : "N/A"}
           </Text>
         </View>
 

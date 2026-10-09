@@ -24,6 +24,7 @@ export default function NormalLayout() {
       <Stack.Screen name="GestionCursos" />
       <Stack.Screen name="EvaluacionesIA" />
       <Stack.Screen name="GananciasCursos" />
+      <Stack.Screen name="LiquidacionesAdmin" options={{ animation: "slide_from_right" }} />
       <Stack.Screen name="EmpresaWelcome" />
       <Stack.Screen name="ProductosCubacelCards" />
       <Stack.Screen name="CubacelOferta" />

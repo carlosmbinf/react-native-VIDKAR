@@ -281,6 +281,21 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
       </View>
 
       <Text style={[styles.sectionLabel, { color: palette.muted }]} variant="labelMedium">
+        Finanzas
+      </Text>
+
+      <View style={[styles.actionGroup, isCompactDrawer ? styles.actionGroupCompact : null]}>
+        <DrawerAction
+          compact={isCompactDrawer}
+          description="Consulta tus saldos, configura destinos de cobro y revisa solicitudes procesadas por administración."
+          icon="wallet-outline"
+          label="Fondos y cobros"
+          onPress={() => navigateTo("/(empresa)/FondosCobros")}
+          palette={palette}
+        />
+      </View>
+
+      <Text style={[styles.sectionLabel, { color: palette.muted }]} variant="labelMedium">
         Cuenta
       </Text>
 

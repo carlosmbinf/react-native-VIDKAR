@@ -22,7 +22,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import DrawerBlurShell from "./DrawerBlurShell";
-import { isMCPAdmin } from "../../services/mcp/mcpAccess";
+import { isMCPAdmin, isPrincipalAdmin } from "../../services/mcp/mcpAccess";
 
 const CARD_PRESS_IN_DURATION_MS = 140;
 const CARD_PRESS_OUT_DURATION_MS = 220;
@@ -230,6 +230,11 @@ const buildCinemaItems = (user) => user?.subscipcionPelis === true ? [
 ] : [];
 
 const buildAdminItems = (user) => [
+  ...(isPrincipalAdmin(user) ? [{
+    label: "Saldos y pagos",
+    icon: "cash-multiple",
+    href: "/(normal)/LiquidacionesAdmin",
+  }] : []),
   {
     label: "Dashboard",
     icon: "view-dashboard-outline",
@@ -357,11 +362,10 @@ const DrawerOptionsAlls = ({
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
   const isLandscapeDrawer = width > height;
-  const isAdmin =
-    user?.profile?.role === "admin" || user?.username === "carlosmbinf";
+  const isAdmin = user?.profile?.role === "admin" || isPrincipalAdmin(user);
   const canAccessMCP = isMCPAdmin(user);
   const isProfessor = user?.profile?.role === "profesor";
-  const isSuperAdmin = user?.username === "carlosmbinf";
+  const isSuperAdmin = isPrincipalAdmin(user);
   const canToggleCadete = typeof onToggleModoCadete === "function";
   const canToggleEmpresa =
     typeof onToggleModoEmpresa === "function" &&

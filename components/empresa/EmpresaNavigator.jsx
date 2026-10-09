@@ -23,6 +23,12 @@ const EmpresaNavigator = () => {
           href: '/(empresa)/MisTiendas',
         },
         {
+          label: 'Fondos y cobros',
+          description: 'Consulta tus saldos y configura el destino donde recibir liquidaciones.',
+          icon: 'wallet-outline',
+          href: '/(empresa)/FondosCobros',
+        },
+        {
           label: 'Páginas web',
           description: 'Crea páginas web y sigue su instalación, cierre y reintentos.',
           icon: 'web',

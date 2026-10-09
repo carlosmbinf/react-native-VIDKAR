@@ -1,6 +1,7 @@
 import * as Location from "expo-location";
+import * as Crypto from "expo-crypto";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import MapView, {
   Marker,
   PROVIDER_DEFAULT,
@@ -10,16 +11,18 @@ import {
   ActivityIndicator,
   Button,
   Card,
-  Chip,
   Text,
   TextInput,
 } from "react-native-paper";
 import {
   getCachedDeviceLocationSync,
   getCurrentDeviceLocation,
-  readCachedDeviceLocation,
   requestDeviceLocationPermission,
 } from "../../services/location/deviceLocationCache.native";
+import {
+  getGoogleAddressDetails,
+  searchGoogleAddresses,
+} from "../../services/location/googlePlaces.native";
 
 const DEFAULT_REGION = {
   latitude: 23.1136,
@@ -38,39 +41,40 @@ const MapLocationPicker = ({
 }) => {
   const immediateCachedLocation = getCachedDeviceLocationSync();
   const mapRef = useRef(null);
-  const hasManualSelectionRef = useRef(false);
+  const sessionTokenRef = useRef(null);
+  const selectedAddressRef = useRef("");
   const [loading, setLoading] = useState(false);
-  const [initializing, setInitializing] = useState(
-    currentLocation == null && immediateCachedLocation == null,
-  );
   const [selectedLocation, setSelectedLocation] = useState(
     currentLocation || immediateCachedLocation || null,
   );
+  const [addressQuery, setAddressQuery] = useState(
+    [nombreCalle, numeroCasa].filter(Boolean).join(", "),
+  );
+  const [suggestions, setSuggestions] = useState([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [addressError, setAddressError] = useState("");
+  const [selectingAddress, setSelectingAddress] = useState(false);
 
   const region = useMemo(
     () => ({
-      latitude: currentLocation?.latitude || DEFAULT_REGION.latitude,
-      longitude: currentLocation?.longitude || DEFAULT_REGION.longitude,
+      latitude: selectedLocation?.latitude ?? DEFAULT_REGION.latitude,
+      longitude: selectedLocation?.longitude ?? DEFAULT_REGION.longitude,
       latitudeDelta: DEFAULT_REGION.latitudeDelta,
       longitudeDelta: DEFAULT_REGION.longitudeDelta,
     }),
-    [currentLocation?.latitude, currentLocation?.longitude],
+    [selectedLocation?.latitude, selectedLocation?.longitude],
   );
 
   useEffect(() => {
-    if (!currentLocation) {
-      return;
-    }
-
-    const nextLocation = {
-      latitude: Number(currentLocation.latitude),
-      longitude: Number(currentLocation.longitude),
-    };
-
+    const nextLocation = currentLocation
+      ? {
+          latitude: Number(currentLocation.latitude),
+          longitude: Number(currentLocation.longitude),
+        }
+      : null;
     setSelectedLocation(nextLocation);
-    setInitializing(false);
 
-    if (mapRef.current) {
+    if (nextLocation && mapRef.current) {
       mapRef.current.animateToRegion(
         {
           ...DEFAULT_REGION,
@@ -83,87 +87,96 @@ const MapLocationPicker = ({
   }, [currentLocation]);
 
   useEffect(() => {
-    if (currentLocation) {
-      return;
+    const query = addressQuery.trim();
+    if (
+      query.length < 3 ||
+      (query && query === selectedAddressRef.current)
+    ) {
+      setSuggestions([]);
+      setLoadingSuggestions(false);
+      return undefined;
     }
 
-    let mounted = true;
-
-    const bootstrapLocation = async () => {
-      let cachedLocation = null;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(async () => {
+      setLoadingSuggestions(true);
+      setAddressError("");
 
       try {
-        cachedLocation = await readCachedDeviceLocation();
-        if (!mounted) {
-          return;
+        if (!sessionTokenRef.current) {
+          sessionTokenRef.current = Crypto.randomUUID();
         }
-
-        if (cachedLocation && !hasManualSelectionRef.current) {
-          setSelectedLocation(cachedLocation);
-          setInitializing(false);
-          onLocationSelect?.(cachedLocation);
-
-          setTimeout(() => {
-            mapRef.current?.animateToRegion(
-              {
-                ...DEFAULT_REGION,
-                latitude: cachedLocation.latitude,
-                longitude: cachedLocation.longitude,
-              },
-              250,
-            );
-          }, 80);
+        const results = await searchGoogleAddresses(
+          query,
+          sessionTokenRef.current,
+          controller.signal,
+        );
+        setSuggestions(results);
+      } catch (_error) {
+        if (!controller.signal.aborted) {
+          setSuggestions([]);
+          setAddressError(
+            "No se pudieron buscar direcciones. Puedes marcar el punto en el mapa.",
+          );
         }
-
-        const permission = await requestDeviceLocationPermission();
-        if (!mounted) {
-          return;
-        }
-
-        if (permission.status !== "granted") {
-          setInitializing(false);
-          return;
-        }
-
-        const nextLocation = await getCurrentDeviceLocation({
-          accuracy: Location.Accuracy.High,
-        });
-        if (!mounted) {
-          return;
-        }
-
-        if (!hasManualSelectionRef.current) {
-          setSelectedLocation(nextLocation);
-          onLocationSelect?.(nextLocation);
-        }
-
-        setTimeout(() => {
-          if (!hasManualSelectionRef.current) {
-            mapRef.current?.animateToRegion(
-              {
-                ...DEFAULT_REGION,
-                latitude: nextLocation.latitude,
-                longitude: nextLocation.longitude,
-              },
-              350,
-            );
-          }
-        }, 120);
-      } catch (error) {
-        console.error("No se pudo inicializar la ubicación:", error);
       } finally {
-        if (mounted) {
-          setInitializing(false);
-        }
+        if (!controller.signal.aborted) setLoadingSuggestions(false);
       }
-    };
-
-    bootstrapLocation();
+    }, 300);
 
     return () => {
-      mounted = false;
+      clearTimeout(timeoutId);
+      controller.abort();
     };
-  }, [currentLocation, onLocationSelect]);
+  }, [addressQuery]);
+
+  const handleAddressChange = (value) => {
+    setAddressQuery(value);
+    setAddressError("");
+    if (selectedAddressRef.current && value !== selectedAddressRef.current) {
+      selectedAddressRef.current = "";
+      setSelectedLocation(null);
+      onLocationSelect?.(null);
+      onNombreCalleChange?.("");
+      onNumeroCasaChange?.("");
+    }
+  };
+
+  const handleAddressSelect = async (suggestion) => {
+    if (!sessionTokenRef.current || selectingAddress) return;
+
+    setSelectingAddress(true);
+    setAddressError("");
+    try {
+      const selected = await getGoogleAddressDetails(
+        suggestion.placeId,
+        sessionTokenRef.current,
+      );
+      const address = selected.address || suggestion.text;
+      selectedAddressRef.current = address;
+      sessionTokenRef.current = null;
+      setAddressQuery(address);
+      setSuggestions([]);
+      setSelectedLocation(selected.point);
+      onNombreCalleChange?.(selected.street);
+      onNumeroCasaChange?.(selected.houseNumber);
+      onLocationSelect?.(selected.point);
+      mapRef.current?.animateToRegion(
+        {
+          ...DEFAULT_REGION,
+          latitude: selected.point.latitude,
+          longitude: selected.point.longitude,
+        },
+        350,
+      );
+    } catch (_error) {
+      setAddressError(
+        "No se pudo ubicar esa dirección. Prueba otra sugerencia o marca el punto en el mapa.",
+      );
+    } finally {
+      setSelectingAddress(false);
+    }
+  };
 
   const handleUseCurrentLocation = async () => {
     setLoading(true);
@@ -174,7 +187,11 @@ const MapLocationPicker = ({
         return;
       }
 
-      hasManualSelectionRef.current = false;
+      selectedAddressRef.current = "";
+      sessionTokenRef.current = null;
+      setAddressQuery("");
+      onNombreCalleChange?.("");
+      onNumeroCasaChange?.("");
 
       const next = await getCurrentDeviceLocation({
         accuracy: Location.Accuracy.High,
@@ -199,8 +216,6 @@ const MapLocationPicker = ({
   };
 
   const handleMapPress = (event) => {
-    hasManualSelectionRef.current = true;
-
     const next = {
       latitude: Number(event.nativeEvent.coordinate.latitude),
       longitude: Number(event.nativeEvent.coordinate.longitude),
@@ -210,15 +225,6 @@ const MapLocationPicker = ({
     onLocationSelect?.(next);
   };
 
-  if (initializing) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6200ee" />
-        <Text style={styles.loadingText}>Obteniendo tu ubicación...</Text>
-      </View>
-    );
-  }
-
   return (
     <Card style={styles.card} mode="outlined">
       <Card.Content>
@@ -226,16 +232,82 @@ const MapLocationPicker = ({
           Ubicación de entrega
         </Text>
         <Text style={styles.description}>
-          Toca el mapa para marcar el punto exacto de entrega o usa tu ubicación
-          actual para centrar y seleccionar más rápido.
+          Busca la dirección para ubicarla en el mapa, o marca el punto exacto
+          manualmente. También puedes usar tu ubicación actual.
         </Text>
+
+        <View style={styles.addressSearch}>
+          <TextInput
+            label="Buscar dirección"
+            mode="outlined"
+            value={addressQuery}
+            onChangeText={handleAddressChange}
+            autoCapitalize="words"
+            autoCorrect={false}
+            placeholder="Escribe calle, número o lugar"
+            style={styles.searchInput}
+            left={<TextInput.Icon icon="magnify" />}
+            right={
+              loadingSuggestions || selectingAddress ? (
+                <TextInput.Icon
+                  icon={() => <ActivityIndicator size={18} />}
+                  disabled
+                />
+              ) : null
+            }
+            dense
+          />
+          {suggestions.length > 0 ? (
+            <View style={styles.suggestionsContainer}>
+              {suggestions.map((suggestion) => (
+                <Pressable
+                  accessibilityRole="button"
+                  key={suggestion.placeId}
+                  onPress={() => handleAddressSelect(suggestion)}
+                  style={({ pressed }) => [
+                    styles.suggestionItem,
+                    pressed && styles.suggestionPressed,
+                  ]}
+                >
+                  <Text numberOfLines={1} style={styles.suggestionMainText}>
+                    {suggestion.mainText}
+                  </Text>
+                  {suggestion.secondaryText ? (
+                    <Text
+                      numberOfLines={1}
+                      style={styles.suggestionSecondaryText}
+                    >
+                      {suggestion.secondaryText}
+                    </Text>
+                  ) : null}
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+          {addressError ? (
+            <Text accessibilityLiveRegion="polite" style={styles.errorText}>
+              {addressError}
+            </Text>
+          ) : addressQuery.trim().length > 0 &&
+            addressQuery.trim().length < 3 ? (
+            <Text style={styles.helperText}>Escribe al menos 3 caracteres.</Text>
+          ) : null}
+        </View>
 
         <View style={styles.addressForm}>
           <TextInput
             label="Nombre de la calle"
             mode="outlined"
             value={nombreCalle || ""}
-            onChangeText={onNombreCalleChange}
+            onChangeText={(value) => {
+              if (value !== (nombreCalle || "")) {
+                selectedAddressRef.current = "";
+                setAddressQuery("");
+                setSelectedLocation(null);
+                onLocationSelect?.(null);
+              }
+              onNombreCalleChange?.(value);
+            }}
             autoCapitalize="words"
             style={styles.streetInput}
             dense
@@ -244,7 +316,15 @@ const MapLocationPicker = ({
             label="Número de la casa"
             mode="outlined"
             value={numeroCasa || ""}
-            onChangeText={onNumeroCasaChange}
+            onChangeText={(value) => {
+              if (value !== (numeroCasa || "")) {
+                selectedAddressRef.current = "";
+                setAddressQuery("");
+                setSelectedLocation(null);
+                onLocationSelect?.(null);
+              }
+              onNumeroCasaChange?.(value);
+            }}
             keyboardType="default"
             style={styles.houseInput}
             dense
@@ -260,8 +340,8 @@ const MapLocationPicker = ({
             style={styles.map}
             initialRegion={region}
             onPress={handleMapPress}
-            showsMyLocationButton
-            showsUserLocation={Boolean(selectedLocation)}
+            showsMyLocationButton={false}
+            showsUserLocation={false}
           >
             {selectedLocation ? (
               <Marker
@@ -279,6 +359,7 @@ const MapLocationPicker = ({
             mode="outlined"
             onPress={handleUseCurrentLocation}
             disabled={loading}
+            icon="crosshairs-gps"
           >
             Usar mi ubicación
           </Button>
@@ -286,11 +367,6 @@ const MapLocationPicker = ({
 
         {loading ? <ActivityIndicator style={styles.loader} /> : null}
 
-        {selectedLocation ? (
-          <Chip icon="map-marker" style={styles.chip}>
-            {`${Number(selectedLocation.latitude).toFixed(5)}, ${Number(selectedLocation.longitude).toFixed(5)}`}
-          </Chip>
-        ) : null}
       </Card.Content>
     </Card>
   );
@@ -308,16 +384,27 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 14,
   },
+  addressSearch: {
+    gap: 6,
+    marginBottom: 12,
+    zIndex: 2,
+  },
   card: {
     borderRadius: 20,
-  },
-  chip: {
-    marginTop: 12,
   },
   description: {
     lineHeight: 20,
     marginBottom: 12,
     opacity: 0.7,
+  },
+  errorText: {
+    color: "#dc2626",
+    fontSize: 12,
+  },
+  helperText: {
+    color: "#64748b",
+    fontSize: 12,
+    paddingHorizontal: 4,
   },
   houseInput: {
     flex: 1,
@@ -326,16 +413,6 @@ const styles = StyleSheet.create({
   loader: {
     marginTop: 12,
   },
-  loadingContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 220,
-    padding: 20,
-  },
-  loadingText: {
-    marginTop: 16,
-    opacity: 0.7,
-  },
   map: {
     flex: 1,
   },
@@ -343,6 +420,35 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     height: 320,
     overflow: "hidden",
+  },
+  searchInput: {
+    backgroundColor: "transparent",
+  },
+  suggestionItem: {
+    borderBottomColor: "rgba(100, 116, 139, 0.18)",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  suggestionMainText: {
+    fontWeight: "600",
+  },
+  suggestionPressed: {
+    backgroundColor: "rgba(109, 40, 217, 0.1)",
+  },
+  suggestionSecondaryText: {
+    color: "#64748b",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  suggestionsContainer: {
+    backgroundColor: "white",
+    borderColor: "rgba(100, 116, 139, 0.24)",
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    elevation: 4,
+    overflow: "hidden",
+    zIndex: 3,
   },
   streetInput: {
     flex: 2,
