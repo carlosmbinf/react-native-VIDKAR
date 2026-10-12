@@ -25,6 +25,7 @@ import {
 
 const DrawerBottom = ({
   allowContentSwipeToClose = true,
+  allowSwipeToClose = true,
   actions = [],
   children,
   closeOnBackdropPress = true,
@@ -62,8 +63,10 @@ const DrawerBottom = ({
   onCloseRef.current = onClose;
   const onCloseReasonRef = useRef(onCloseReason);
   onCloseReasonRef.current = onCloseReason;
+  const allowSwipeToCloseRef = useRef(Boolean(allowSwipeToClose));
+  allowSwipeToCloseRef.current = Boolean(allowSwipeToClose);
   const internalContentAtTopRef = useRef(true);
-  const drawerContentAtTopRef = allowContentSwipeToClose
+  const drawerContentAtTopRef = allowContentSwipeToClose && allowSwipeToClose
     ? contentAtTopRef || (scrollable ? internalContentAtTopRef : null)
     : null;
   const contentGestureStartedAtTopRef = useRef(false);
@@ -190,16 +193,16 @@ const DrawerBottom = ({
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) =>
-        isBottom && gestureState.dy > 4,
+        isBottom && allowSwipeToCloseRef.current && gestureState.dy > 4,
       onPanResponderMove: (_, gestureState) => {
-        if (!isBottom || gestureState.dy <= 0) {
+        if (!isBottom || !allowSwipeToCloseRef.current || gestureState.dy <= 0) {
           return;
         }
 
         translateY.setValue(gestureState.dy);
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (!isBottom) {
+        if (!isBottom || !allowSwipeToCloseRef.current) {
           return;
         }
 
@@ -221,25 +224,27 @@ const DrawerBottom = ({
     PanResponder.create({
       onMoveShouldSetPanResponderCapture: (_, gestureState) =>
         isBottom &&
+        allowSwipeToCloseRef.current &&
         contentGestureStartedAtTopRef.current &&
         drawerContentAtTopRef?.current === true &&
         gestureState.dy > 4 &&
         Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
       onMoveShouldSetPanResponder: (_, gestureState) =>
         isBottom &&
+        allowSwipeToCloseRef.current &&
         contentGestureStartedAtTopRef.current &&
         drawerContentAtTopRef?.current === true &&
         gestureState.dy > 4 &&
         Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
       onPanResponderMove: (_, gestureState) => {
-        if (!isBottom || gestureState.dy <= 0) {
+        if (!isBottom || !allowSwipeToCloseRef.current || gestureState.dy <= 0) {
           return;
         }
 
         translateY.setValue(gestureState.dy);
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (!isBottom) {
+        if (!isBottom || !allowSwipeToCloseRef.current) {
           return;
         }
 

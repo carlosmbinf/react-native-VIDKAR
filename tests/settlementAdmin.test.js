@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildSettlementHistoryFilters,
+  buildSettlementSummaryOptions,
   EMPTY_SETTLEMENT_DESTINATION,
   getRemesaCurrenciesForBalance,
   parseSettlementRemesaOptions,
@@ -13,6 +14,25 @@ const remesaOptions = {
   currencies: ["CUP", "USD"],
   deliveryMethods: ["EFECTIVO", "TRANSFERENCIA"],
 };
+
+test("opening settlements uses the original summary contract without inactive filter fields", () => {
+  assert.deepEqual(buildSettlementSummaryOptions({}), { page: 0, historyPage: 0 });
+  assert.deepEqual(buildSettlementSummaryOptions({
+    historyFilters: { kind: "ALL", domain: "", status: "" },
+    manualHistoryPage: 0, historicalPage: 0,
+  }), { page: 0, historyPage: 0 });
+});
+
+test("summary options preserve active filters and pagination instead of silently dropping them", () => {
+  const historyFilters = { kind: "REQUESTS", status: "RESERVED" };
+  assert.deepEqual(buildSettlementSummaryOptions({
+    page: 2, historyPage: 1, manualHistoryPage: 3, historicalPage: 4,
+    domain: "COMERCIO", currency: "USD", historyFilters,
+  }), {
+    page: 2, historyPage: 1, manualHistoryPage: 3, historicalPage: 4,
+    domain: "COMERCIO", currency: "USD", historyFilters,
+  });
+});
 
 test("parses configured remittance currencies and methods without unknown values", () => {
   const options = parseSettlementRemesaOptions([

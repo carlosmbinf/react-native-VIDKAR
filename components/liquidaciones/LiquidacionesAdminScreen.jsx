@@ -16,10 +16,8 @@ import {
   Button,
   Checkbox,
   Chip,
-  Dialog,
   Divider,
   IconButton,
-  Portal,
   Searchbar,
   SegmentedButtons,
   Snackbar,
@@ -30,10 +28,12 @@ import {
 } from "react-native-paper";
 
 import AppHeader, { DEFAULT_HEADER_COLOR, useAppHeaderContentInset } from "../Header/AppHeader";
+import SettlementDrawer from "./SettlementDrawer";
 import { isPrincipalAdmin } from "../../services/mcp/mcpAccess";
 import {
   buildSettlementDestinationPayload,
   buildSettlementHistoryFilters,
+  buildSettlementSummaryOptions,
   EMPTY_SETTLEMENT_DESTINATION,
   formatSettlementDate,
   formatSettlementMoney,
@@ -134,7 +134,9 @@ const callMeteorMethod = (method, ...args) => new Promise((resolve, reject) => {
 });
 
 const getErrorMessage = (error, fallback) =>
-  error?.reason || error?.message || fallback;
+  /Match failed/i.test(error?.reason || error?.message || "")
+    ? "El servidor no reconoce los filtros de esta versión. Actualiza el backend VIDKAR y vuelve a intentar."
+    : error?.reason || error?.message || fallback;
 
 const parseAmountMinor = (value) => {
   const normalized = String(value ?? "").trim().replace(",", ".");
@@ -234,6 +236,7 @@ const BalanceCard = ({
   destination,
   isWide,
   canRegister,
+  canRequestPayment,
   isOwnBeneficiary,
   working,
   manualWorking,
@@ -250,11 +253,21 @@ const BalanceCard = ({
     && !manualWorking
     && destination?.status === "BENEFICIARY_CONFIRMED"
     && isSettlementDestinationCompatible(destination);
+  const canRequest = canRequestPayment
+    && Number.isFinite(payable)
+    && payable > 0
+    && !balance.reconciliationRequired
+    && !working
+    && !manualWorking
+    && destination?.status === "BENEFICIARY_CONFIRMED"
+    && isSettlementDestinationCompatible(destination);
   return (
     <Surface elevation={1} style={[styles.balanceCard, isWide && styles.balanceCardWide, { backgroundColor: palette.surface, borderColor: palette.border }]}>
       <View style={styles.cardHeading}>
         <Chip compact>{balance.domain} · {balance.currency}</Chip>
-        <Text variant="labelLarge" style={{ color: palette.muted }}>Disponible para reservar</Text>
+        <Text variant="labelLarge" style={{ color: palette.muted }}>
+          {canRequestPayment ? "Disponible para solicitar" : "Disponible para reservar"}
+        </Text>
       </View>
       <Text selectable variant="headlineSmall" style={[styles.balanceValue, { color: payable < 0 ? palette.error : palette.title }]}>
         {formatSettlementMoney(balance.payable, balance.currency)}
@@ -342,9 +355,26 @@ const BalanceCard = ({
           </Button>
         </View>
       ) : null}
+      {canRequestPayment ? (
+        <Button
+          accessibilityLabel={`Solicitar cobro de ${formatSettlementMoney(balance.payable, balance.currency)}`}
+          disabled={!canRequest}
+          icon="cash-fast"
+          mode="contained"
+          onPress={() => onOpenPayment(balance, "TOTAL")}
+          style={styles.actionButton}
+        >
+          Solicitar cobro
+        </Button>
+      ) : null}
       {canRegister && !canPrepare && payable > 0 && !balance.reconciliationRequired ? (
         <Text selectable variant="bodySmall" style={{ color: palette.warning }}>
           Confirma un destino compatible en {balance.currency} antes de reservar este saldo.
+        </Text>
+      ) : null}
+      {canRequestPayment && !canRequest && payable > 0 && !balance.reconciliationRequired ? (
+        <Text selectable variant="bodySmall" style={{ color: palette.warning }}>
+          Confirma un destino compatible en {balance.currency} antes de solicitar este saldo.
         </Text>
       ) : null}
     </Surface>
@@ -499,7 +529,7 @@ const LineCard = ({ line, palette }) => (
   </Surface>
 );
 
-const LiquidacionesAdminScreen = () => {
+const LiquidacionesAdminScreen = ({ backHref = "/(normal)/Main", mode = "NORMAL" }) => {
   const theme = useTheme();
   const router = useRouter();
   const headerInset = useAppHeaderContentInset();
@@ -539,6 +569,7 @@ const LiquidacionesAdminScreen = () => {
   });
   const isPrincipal = isPrincipalAdmin(user);
   const [beneficiaries, setBeneficiaries] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [unassignedIssues, setUnassignedIssues] = useState({ items: [], total: 0 });
   const [targetId, setTargetId] = useState("");
   const [beneficiarySearch, setBeneficiarySearch] = useState("");
@@ -596,6 +627,9 @@ const LiquidacionesAdminScreen = () => {
     if (!isPrincipal || !userReady || !userId) {
       setCatalogLoading(false);
       setBeneficiaries([]);
+      setPendingRequests([]);
+      setCatalogError("");
+      setUnassignedIssues({ items: [], total: 0 });
       return () => { active = false; };
     }
     if (!connected) {
@@ -609,6 +643,7 @@ const LiquidacionesAdminScreen = () => {
       .then((result) => {
         if (!active) return;
         setBeneficiaries(Array.isArray(result?.beneficiaries) ? result.beneficiaries : []);
+        setPendingRequests(Array.isArray(result?.pendingRequests) ? result.pendingRequests : []);
         setUnassignedIssues({
           items: Array.isArray(result?.unassignedIssues) ? result.unassignedIssues : [],
           total: Number(result?.totalUnassignedIssues) || 0,
@@ -625,15 +660,19 @@ const LiquidacionesAdminScreen = () => {
 
   useEffect(() => {
     let active = true;
-    if (!isPrincipal || !userReady || !userId || !targetId || !connected) {
+    if (!userReady || !userId || !targetId) {
       setLoading(false);
-      if (!connected && isPrincipal && userId) setError("Sin conexión con VIDKAR. Reconecta para consultar saldos e historial.");
+      return () => { active = false; };
+    }
+    if (!connected) {
+      setLoading(false);
+      setError("Sin conexión con VIDKAR. Reconecta para consultar saldos e historial.");
       return () => { active = false; };
     }
     setLoading(true);
     setError("");
     setData(null);
-    const options = {
+    const options = buildSettlementSummaryOptions({
       page: linePage,
       historyPage,
       manualHistoryPage,
@@ -641,7 +680,7 @@ const LiquidacionesAdminScreen = () => {
       ...(lineDomain ? { domain: lineDomain } : {}),
       ...(lineCurrency ? { currency: lineCurrency } : {}),
       historyFilters,
-    };
+    });
     callMeteorMethod("pagos.liquidaciones.resumen", targetId, options)
       .then((result) => {
         if (active) setData(result);
@@ -752,7 +791,10 @@ const LiquidacionesAdminScreen = () => {
 
   const openPayment = (balance, paymentType) => {
     const destination = destinationForCurrency(balance.currency);
-    if (!data?.canRegister || !destination || !isSettlementDestinationCompatible(destination)) return;
+    const canRequestOwnBalance = !isPrincipal && isOwnBeneficiary;
+    if ((!data?.canRegister && !canRequestOwnBalance)
+      || !destination
+      || !isSettlementDestinationCompatible(destination)) return;
     setPaymentError("");
     setPaymentSubmitted(false);
     setPaymentForm({
@@ -761,7 +803,7 @@ const LiquidacionesAdminScreen = () => {
       domain: balance.domain,
       currency: balance.currency,
       destinationVersion: destination.version,
-      paymentType,
+      paymentType: canRequestOwnBalance ? "TOTAL" : paymentType,
       amount: "",
       available: balance.payable,
     });
@@ -805,7 +847,7 @@ const LiquidacionesAdminScreen = () => {
     || (paymentForm?.paymentType === "PARTIAL" && Boolean(paymentAmountError));
 
   const preparePayment = async () => {
-    if (!paymentForm || paymentInvalid) return;
+    if (!isPrincipal || !paymentForm || paymentInvalid) return;
     setPaymentWorking(true);
     setPaymentSubmitted(true);
     setPaymentError("");
@@ -828,6 +870,37 @@ const LiquidacionesAdminScreen = () => {
       setRevision((current) => current + 1);
     } catch (failure) {
       setPaymentError(getErrorMessage(failure, "No se pudo reservar el saldo. Reintenta la misma solicitud."));
+    } finally {
+      setPaymentWorking(false);
+    }
+  };
+
+  const requestOwnPayment = async () => {
+    if (isPrincipal || !isOwnBeneficiary || !paymentForm || paymentInvalid) return;
+    setPaymentWorking(true);
+    setPaymentSubmitted(true);
+    setPaymentError("");
+    const payload = {
+      requestId: paymentForm.requestId,
+      beneficiaryId: userId,
+      domain: paymentForm.domain,
+      currency: paymentForm.currency,
+      destinationVersion: paymentForm.destinationVersion,
+      paymentType: "TOTAL",
+    };
+    try {
+      const result = await callMeteorMethod("pagos.liquidaciones.solicitar", payload);
+      setNotice(
+        `${result.reused ? "Solicitud existente" : "Solicitud registrada"}: ${formatSettlementMoney(result.amount, result.currency)}. `
+        + "El saldo queda reservado; el administrador principal confirmará el pago después de verificar la entrega.",
+      );
+      setPaymentForm(null);
+      setPaymentSubmitted(false);
+      setHistoryPage(0);
+      setManualHistoryPage(0);
+      setRevision((current) => current + 1);
+    } catch (failure) {
+      setPaymentError(getErrorMessage(failure, "No se pudo registrar la solicitud. Reintenta usando la misma solicitud."));
     } finally {
       setPaymentWorking(false);
     }
@@ -1171,20 +1244,37 @@ const LiquidacionesAdminScreen = () => {
             <Chip icon="account-cash-outline" compact style={styles.heroChip} textStyle={styles.heroChipText}>
               {data.beneficiary.name}
             </Chip>
-            <Button
-              compact
-              mode="outlined"
-              textColor="#f8fafc"
-              style={styles.heroSelectButton}
-              onPress={() => setBeneficiaryDialogVisible(true)}
-            >
-              Cambiar beneficiario
-            </Button>
+            {isPrincipal ? (
+              <Button
+                compact
+                mode="outlined"
+                textColor="#f8fafc"
+                style={styles.heroSelectButton}
+                onPress={() => setBeneficiaryDialogVisible(true)}
+              >
+                Cambiar beneficiario
+              </Button>
+            ) : null}
           </View>
           <Text selectable variant="bodySmall" style={styles.heroFootnote}>
-            Reservar no transfiere dinero. No inicies un segundo envío mientras exista una operación en proceso o incierta.
+            {isPrincipal
+              ? "Reservar no transfiere dinero. Verifica la entrega antes de conciliar y no inicies un segundo envío mientras exista una operación incierta."
+              : "Solicitar no transfiere dinero. El saldo disponible se reserva y el administrador principal confirma la entrega."}
           </Text>
         </Surface>
+
+        {mode === "CADETE" ? (
+          <InfoCard type="info" title="Pagos de entregas en historial separado" palette={palette}>
+            <View style={{ gap: 8 }}>
+              <Text selectable style={{ color: palette.copy }}>
+                Las entregas pendientes de pago al cadete no se mezclan con estos saldos centralizados. Consulta ese flujo por separado.
+              </Text>
+              <Button compact icon="history" mode="outlined" onPress={() => router.push("/(cadete)/CadeteDeliveryHistory")}>
+                Ver historial de entregas
+              </Button>
+            </View>
+          </InfoCard>
+        ) : null}
 
         {activeManualRequests.length ? (
           <InfoCard
@@ -1192,7 +1282,9 @@ const LiquidacionesAdminScreen = () => {
             title={`${activeManualRequests.length} operación(es) pendiente(s)`}
             palette={palette}
           >
-            Filtra el historial por Solicitudes y por Reservado, En proceso o Incierto para continuar o conciliar cada una. Las reservas reducen el disponible, pero no se consideran pagos confirmados.
+            {isPrincipal
+              ? "Filtra el historial por Solicitudes y por Reservado, En proceso o Incierto para continuar o conciliar cada una. Las reservas reducen el disponible, pero no se consideran pagos confirmados."
+              : "El saldo reservado ya no se puede solicitar otra vez. El administrador principal revisará y confirmará la entrega del pago."}
           </InfoCard>
         ) : null}
 
@@ -1318,6 +1410,7 @@ const LiquidacionesAdminScreen = () => {
                 destination={destinationForCurrency(balance.currency)}
                 isWide={isWide}
                 canRegister={data.canRegister === true}
+                canRequestPayment={!isPrincipal && isOwnBeneficiary}
                 isOwnBeneficiary={isOwnBeneficiary}
                 working={paymentWorking}
                 manualWorking={manualWorking}
@@ -1331,7 +1424,7 @@ const LiquidacionesAdminScreen = () => {
           <Surface elevation={1} style={[styles.sectionCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
             <Text variant="titleSmall" style={{ color: palette.title }}>Sin saldos elegibles</Text>
             <Text selectable style={{ color: palette.muted }}>
-              No hay ventas entregadas y elegibles, comisiones o pagos centrales para este beneficiario.
+              No hay ventas entregadas y elegibles, comisiones o pagos centrales para este beneficiario. Los pagos pendientes de entregas al cadete se mantienen en su historial y no se mezclan con estas liquidaciones.
             </Text>
           </Surface>
         )}
@@ -1500,10 +1593,12 @@ const LiquidacionesAdminScreen = () => {
     <View style={[styles.screen, { backgroundColor: palette.screen }]}>
       <AppHeader
         title="Saldos y pagos"
-        subtitle="Administración financiera"
+        subtitle={isPrincipal ? "Administración financiera" : "Tus saldos y solicitudes"}
         showBackButton
-        backHref="/(normal)/Main"
+        backHref={backHref}
         backgroundColor={DEFAULT_HEADER_COLOR}
+        glassIntensity={48}
+        glassOverlayOpacity={0.4}
         overlapContent
         actions={(
           <IconButton
@@ -1523,21 +1618,16 @@ const LiquidacionesAdminScreen = () => {
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          style={{ marginTop: headerInset + 18 }}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingTop: headerInset + 18 }]}
         >
           {!userReady ? (
             <Surface elevation={1} style={[styles.sectionCard, { backgroundColor: palette.surface }]}>
               <ActivityIndicator />
-              <Text selectable style={{ color: palette.copy }}>Verificando la sesión administrativa…</Text>
+              <Text selectable style={{ color: palette.copy }}>Verificando la sesión…</Text>
             </Surface>
           ) : !userId ? (
             <InfoCard type="error" title="Sesión requerida" palette={palette}>
-              Inicia sesión con la cuenta administradora para consultar liquidaciones.
-            </InfoCard>
-          ) : !isPrincipal ? (
-            <InfoCard type="error" title="Acceso restringido" palette={palette}>
-              Esta pantalla está disponible únicamente para el administrador principal. La autorización definitiva se valida en el servidor.
+              Inicia sesión para consultar tus saldos y solicitudes.
             </InfoCard>
           ) : (
             <>
@@ -1548,6 +1638,24 @@ const LiquidacionesAdminScreen = () => {
                 </Surface>
               ) : null}
               {catalogError ? <InfoCard type="error" title="Catálogo de beneficiarios" palette={palette}>{catalogError}</InfoCard> : null}
+              {pendingRequests.length ? (
+                <Surface elevation={1} style={[styles.sectionCard, { backgroundColor: palette.surface }]}>
+                  <Text variant="titleMedium" style={{ color: palette.title }}>Solicitudes pendientes de cobro</Text>
+                  {pendingRequests.map((request) => (
+                    <Button
+                      key={request._id}
+                      mode="outlined"
+                      onPress={() => {
+                        chooseBeneficiary(request.beneficiaryId);
+                        setHistoryFilters({ kind: "REQUESTS" });
+                        setAppliedHistoryDraft({ ...DEFAULT_HISTORY_FILTERS, kind: "REQUESTS" });
+                      }}
+                    >
+                      {beneficiaries.find((item) => item._id === request.beneficiaryId)?.name || "Beneficiario"} · {formatSettlementMoney(request.amount, request.currency)} · {SETTLEMENT_STATUSES[request.status]}
+                    </Button>
+                  ))}
+                </Surface>
+              ) : null}
               {error ? <InfoCard type="error" title="No se pudo cargar el resumen" palette={palette}>{error}</InfoCard> : null}
               {loading ? (
                 <Surface elevation={1} style={[styles.sectionCard, { backgroundColor: palette.surface }]}>
@@ -1566,21 +1674,20 @@ const LiquidacionesAdminScreen = () => {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <Portal>
-        <Dialog
-          visible={beneficiaryDialogVisible}
-          onDismiss={() => setBeneficiaryDialogVisible(false)}
-          style={[styles.dialog, { backgroundColor: palette.surface }]}
-        >
-          <Dialog.Title>Seleccionar beneficiario</Dialog.Title>
-          <Dialog.Content>
+      <SettlementDrawer
+        actions={<Button onPress={() => setBeneficiaryDialogVisible(false)}>Cerrar</Button>}
+        onClose={() => setBeneficiaryDialogVisible(false)}
+        open={beneficiaryDialogVisible}
+        title="Seleccionar beneficiario"
+      >
+        <View style={styles.drawerContent}>
             <Searchbar
               accessibilityLabel="Buscar beneficiario"
               placeholder="Nombre o identificador"
               value={beneficiarySearch}
               onChangeText={setBeneficiarySearch}
             />
-            <ScrollView style={styles.dialogList} keyboardShouldPersistTaps="handled">
+            <View style={styles.dialogList}>
               {filteredBeneficiaries.map((beneficiary) => (
                 <Button
                   key={beneficiary._id}
@@ -1596,23 +1703,23 @@ const LiquidacionesAdminScreen = () => {
                   No hay beneficiarios que coincidan con la búsqueda.
                 </Text>
               ) : null}
-            </ScrollView>
-          </Dialog.Content>
-          <Dialog.Actions><Button onPress={() => setBeneficiaryDialogVisible(false)}>Cerrar</Button></Dialog.Actions>
-        </Dialog>
+            </View>
+        </View>
+      </SettlementDrawer>
 
-        <Dialog
-          visible={historyDialogVisible}
-          onDismiss={() => setHistoryDialogVisible(false)}
-          style={[styles.dialog, { backgroundColor: palette.surface }]}
-        >
-          <Dialog.Title>Filtros del historial</Dialog.Title>
-          <Dialog.Content style={styles.filterDialogContent}>
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.filterDialogBody}
-            >
+      <SettlementDrawer
+        actions={(
+          <>
+            <Button onPress={clearHistoryFilters}>Limpiar</Button>
+            <Button onPress={() => setHistoryDialogVisible(false)}>Cancelar</Button>
+            <Button mode="contained" onPress={applyHistoryFilters}>Aplicar</Button>
+          </>
+        )}
+        onClose={() => setHistoryDialogVisible(false)}
+        open={historyDialogVisible}
+        title="Filtros del historial"
+      >
+        <View style={styles.filterDialogBody}>
               <ChipGroup
                 label="Tipo de registro"
                 options={FILTER_KIND_OPTIONS}
@@ -1690,29 +1797,43 @@ const LiquidacionesAdminScreen = () => {
               {historyFilterError ? (
                 <InfoCard type="error" palette={palette}>{historyFilterError}</InfoCard>
               ) : null}
-            </ScrollView>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={clearHistoryFilters}>Limpiar</Button>
-            <Button onPress={() => setHistoryDialogVisible(false)}>Cancelar</Button>
-            <Button mode="contained" onPress={applyHistoryFilters}>Aplicar</Button>
-          </Dialog.Actions>
-        </Dialog>
+        </View>
+      </SettlementDrawer>
 
-        <Dialog
-          visible={Boolean(paymentForm)}
-          dismissable={!paymentWorking}
-          onDismiss={closePayment}
-          style={[styles.dialog, { backgroundColor: palette.surface }]}
-        >
-          <Dialog.Title>
-            Preparar pago {paymentForm?.paymentType === "TOTAL" ? "total" : "parcial"} · {paymentForm?.domain} · {paymentForm?.currency}
-          </Dialog.Title>
-          <Dialog.Content>
+      <SettlementDrawer
+        allowSwipeToClose={!paymentSubmitted}
+        actions={(
+          <>
+            <Button disabled={paymentWorking} onPress={closePayment}>Cerrar</Button>
+            <Button
+              disabled={paymentWorking || paymentInvalid || (isPrincipal ? !data?.canRegister : !isOwnBeneficiary)}
+              loading={paymentWorking}
+              mode="contained"
+              onPress={isPrincipal ? preparePayment : requestOwnPayment}
+            >
+              {paymentWorking
+                ? isPrincipal ? "Reservando…" : "Enviando solicitud…"
+                : paymentSubmitted
+                  ? "Reintentar misma solicitud"
+                  : isPrincipal ? "Reservar saldo" : "Solicitar cobro"}
+            </Button>
+          </>
+        )}
+        locked={paymentWorking}
+        onClose={closePayment}
+        open={Boolean(paymentForm)}
+        title={`${isPrincipal ? "Preparar pago" : "Solicitar cobro"} ${paymentForm?.paymentType === "TOTAL" ? "total" : "parcial"} · ${paymentForm?.domain || ""} · ${paymentForm?.currency || ""}`}
+      >
             {paymentForm ? (
-              <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.dialogForm}>
-                <InfoCard type="warning" title="Reserva manual · no se transfiere dinero" palette={palette}>
-                  El servidor congelará este importe y sus imputaciones FIFO. Después debes verificar el canal externo y confirmar el resultado. Si es REMESA, la liquidación ocurre únicamente al confirmar la entrega real.
+              <View style={styles.dialogForm}>
+                <InfoCard
+                  type="warning"
+                  title={isPrincipal ? "Reserva manual · no se transfiere dinero" : "Solicitud de cobro · requiere aprobación"}
+                  palette={palette}
+                >
+                  {isPrincipal
+                    ? "El servidor congelará este importe y sus imputaciones FIFO. Después debes verificar el canal externo y confirmar el resultado. Si es REMESA, la liquidación ocurre únicamente al confirmar la entrega real."
+                    : "Se reservará el saldo disponible para evitar solicitudes duplicadas. El administrador principal verificará y confirmará la entrega antes de marcarlo como pagado."}
                 </InfoCard>
                 <Text selectable variant="titleSmall" style={{ color: palette.title }}>
                   Disponible: {formatSettlementMoney(paymentForm.available, paymentForm.currency)}
@@ -1721,15 +1842,17 @@ const LiquidacionesAdminScreen = () => {
                   Destino confirmado: {SETTLEMENT_METHODS[paymentDestination?.method] || "sin destino"}
                   {paymentDestination?.masked ? ` · ${paymentDestination.masked}` : ""}
                 </Text>
-                <SegmentedButtons
-                  value={paymentForm.paymentType}
-                  onValueChange={(value) => setPaymentForm((current) => ({ ...current, paymentType: value, amount: "" }))}
-                  buttons={[
-                    { value: "TOTAL", label: "Todo el disponible", disabled: paymentSubmitted },
-                    { value: "PARTIAL", label: "Importe parcial", disabled: paymentSubmitted },
-                  ]}
-                />
-                {paymentForm.paymentType === "PARTIAL" ? (
+                {isPrincipal ? (
+                  <SegmentedButtons
+                    value={paymentForm.paymentType}
+                    onValueChange={(value) => setPaymentForm((current) => ({ ...current, paymentType: value, amount: "" }))}
+                    buttons={[
+                      { value: "TOTAL", label: "Todo el disponible", disabled: paymentSubmitted },
+                      { value: "PARTIAL", label: "Importe parcial", disabled: paymentSubmitted },
+                    ]}
+                  />
+                ) : null}
+                {isPrincipal && paymentForm.paymentType === "PARTIAL" ? (
                   <TextInput
                     accessibilityLabel={`Importe parcial en ${paymentForm.currency}`}
                     label={`Importe a reservar · ${paymentForm.currency}`}
@@ -1750,38 +1873,39 @@ const LiquidacionesAdminScreen = () => {
                   </InfoCard>
                 ) : null}
                 {paymentError ? (
-                  <InfoCard type="error" title="No se confirmó la reserva" palette={palette}>
+                  <InfoCard type="error" title={isPrincipal ? "No se confirmó la reserva" : "No se confirmó la solicitud"} palette={palette}>
                     {paymentError} Conserva esta solicitud y reintenta con el mismo formulario.
                   </InfoCard>
                 ) : null}
                 <Text selectable variant="bodySmall" style={{ color: palette.muted }}>
-                  El servidor selecciona las imputaciones más antiguas, verifica límites y evita duplicados con el mismo identificador de solicitud.
+                  {isPrincipal
+                    ? "El servidor selecciona las imputaciones más antiguas, verifica límites y evita duplicados con el mismo identificador de solicitud."
+                    : "La solicitud corresponde al total disponible en esta moneda. Puedes consultar el estado en el historial financiero."}
                 </Text>
-              </ScrollView>
+              </View>
             ) : null}
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button disabled={paymentWorking} onPress={closePayment}>Cerrar</Button>
-            <Button
-              disabled={paymentWorking || paymentInvalid || !data?.canRegister}
-              loading={paymentWorking}
-              mode="contained"
-              onPress={preparePayment}
-            >
-              {paymentWorking ? "Reservando…" : paymentSubmitted ? "Reintentar misma solicitud" : "Reservar saldo"}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
+      </SettlementDrawer>
 
-        <Dialog
-          visible={destinationDialogVisible}
-          dismissable={!destinationWorking}
-          onDismiss={() => !destinationWorking && setDestinationDialogVisible(false)}
-          style={[styles.dialog, { backgroundColor: palette.surface }]}
-        >
-          <Dialog.Title>Destino de cobro · {destinationForm.currency}</Dialog.Title>
-          <Dialog.Content>
-            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.dialogForm}>
+      <SettlementDrawer
+        actions={(
+          <>
+            <Button disabled={destinationWorking} onPress={() => setDestinationDialogVisible(false)}>Cancelar</Button>
+            <Button
+              disabled={destinationWorking || Boolean(destinationValidationError) || remesaOptionsLoading || Boolean(remesaOptionsError)}
+              loading={destinationWorking}
+              mode="contained"
+              onPress={saveDestination}
+            >
+              Guardar destino
+            </Button>
+          </>
+        )}
+        locked={destinationWorking}
+        onClose={() => !destinationWorking && setDestinationDialogVisible(false)}
+        open={destinationDialogVisible}
+        title={`Destino de cobro · ${destinationForm.currency}`}
+      >
+            <View style={styles.dialogForm}>
               <InfoCard type="info" title="Datos de cobro protegidos" palette={palette}>
                 Ingresa solo los datos necesarios para recibir el pago. No guardes contraseña, PIN, CVV, códigos 2FA ni credenciales bancarias.
               </InfoCard>
@@ -1965,33 +2089,30 @@ const LiquidacionesAdminScreen = () => {
                 <Text selectable variant="bodySmall" style={{ color: palette.warning }}>{destinationValidationError}</Text>
               ) : null}
               {destinationError ? <InfoCard type="error" palette={palette}>{destinationError}</InfoCard> : null}
-            </ScrollView>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button disabled={destinationWorking} onPress={() => setDestinationDialogVisible(false)}>Cancelar</Button>
-            <Button
-              disabled={destinationWorking || Boolean(destinationValidationError) || remesaOptionsLoading || Boolean(remesaOptionsError)}
-              loading={destinationWorking}
-              mode="contained"
-              onPress={saveDestination}
-            >
-              Guardar destino
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
+            </View>
+      </SettlementDrawer>
 
-        <Dialog
-          visible={Boolean(manualDetail)}
-          dismissable={!manualWorking}
-          onDismiss={closeManualDialog}
-          style={[styles.dialog, { backgroundColor: palette.surface }]}
-        >
-          <Dialog.Title>
-            {manualIsRemesa ? "Verificar remesa" : "Revisar transferencia"} · {manualDetail?.domain} · {manualDetail?.currency}
-          </Dialog.Title>
-          <Dialog.Content>
+      <SettlementDrawer
+        actions={(
+          <>
+            <Button disabled={manualWorking} onPress={closeManualDialog}>Cerrar</Button>
+            <Button
+              disabled={manualWorking || !canConfirmManual}
+              loading={manualWorking}
+              mode="contained"
+              onPress={confirmManualPayment}
+            >
+              {manualWorking ? "Registrando…" : manualIsRemesa ? "Confirmar entrega real" : "Confirmar pago completado"}
+            </Button>
+          </>
+        )}
+        locked={manualWorking}
+        onClose={closeManualDialog}
+        open={Boolean(manualDetail)}
+        title={`${manualIsRemesa ? "Verificar remesa" : "Revisar transferencia"} · ${manualDetail?.domain || ""} · ${manualDetail?.currency || ""}`}
+      >
             {manualDetail ? (
-              <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.dialogForm}>
+              <View style={styles.dialogForm}>
                 <InfoCard type={manualIsRemesa ? "warning" : "info"} title="Verifica antes de confirmar" palette={palette}>
                   {manualIsRemesa
                     ? "Solo confirma si la entrega física ya ocurrió. Confirmar entrega registra el mismo importe CUP/USD en la liquidación; no convierte monedas."
@@ -2132,31 +2253,18 @@ const LiquidacionesAdminScreen = () => {
                   </>
                 ) : null}
                 {manualError ? <InfoCard type="error" palette={palette}>{manualError}</InfoCard> : null}
-              </ScrollView>
+              </View>
             ) : null}
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button disabled={manualWorking} onPress={closeManualDialog}>Cerrar</Button>
-            <Button
-              disabled={manualWorking || !canConfirmManual}
-              loading={manualWorking}
-              mode="contained"
-              onPress={confirmManualPayment}
-            >
-              {manualWorking ? "Registrando…" : manualIsRemesa ? "Confirmar entrega real" : "Confirmar pago completado"}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
+      </SettlementDrawer>
 
-        <Dialog
-          visible={Boolean(selectedPayment)}
-          onDismiss={() => setSelectedPayment(null)}
-          style={[styles.dialog, { backgroundColor: palette.surface }]}
-        >
-          <Dialog.Title>Imputación del pago</Dialog.Title>
-          <Dialog.Content>
+      <SettlementDrawer
+        actions={<Button onPress={() => setSelectedPayment(null)}>Cerrar</Button>}
+        onClose={() => setSelectedPayment(null)}
+        open={Boolean(selectedPayment)}
+        title="Imputación del pago"
+      >
             {selectedPayment ? (
-              <ScrollView contentContainerStyle={styles.dialogForm}>
+              <View style={styles.dialogForm}>
                 <Text selectable variant="titleMedium" style={{ color: palette.title }}>
                   {formatSettlementMoney(selectedPayment.amount, selectedPayment.currency)}
                 </Text>
@@ -2192,12 +2300,9 @@ const LiquidacionesAdminScreen = () => {
                 {!selectedPayment.allocations?.length ? (
                   <Text selectable style={{ color: palette.muted }}>Este registro no incluye imputaciones visibles.</Text>
                 ) : null}
-              </ScrollView>
+              </View>
             ) : null}
-          </Dialog.Content>
-          <Dialog.Actions><Button onPress={() => setSelectedPayment(null)}>Cerrar</Button></Dialog.Actions>
-        </Dialog>
-      </Portal>
+      </SettlementDrawer>
       <Snackbar visible={Boolean(notice)} onDismiss={() => setNotice("")} duration={7000}>
         {notice}
       </Snackbar>
@@ -2250,11 +2355,10 @@ const styles = StyleSheet.create({
   chipGroup: { gap: 6 },
   chipRow: { alignItems: "center", gap: 8, paddingRight: 8 },
   filterChip: { marginVertical: 2 },
-  dialog: { maxHeight: "92%" },
-  dialogList: { maxHeight: 420, marginTop: 10 },
+  drawerContent: { gap: 10 },
+  dialogList: { gap: 4 },
   beneficiaryButton: { justifyContent: "flex-start", minHeight: 48 },
-  filterDialogContent: { paddingHorizontal: 0 },
-  filterDialogBody: { paddingHorizontal: 24, paddingBottom: 8, gap: 14 },
+  filterDialogBody: { paddingBottom: 8, gap: 14 },
   dateFilterRow: { flexDirection: "row", gap: 8 },
   dateInput: { flex: 1 },
   dialogForm: { gap: 12, paddingBottom: 8 },

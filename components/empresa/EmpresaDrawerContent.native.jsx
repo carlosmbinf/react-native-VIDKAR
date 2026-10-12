@@ -287,9 +287,9 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
       <View style={[styles.actionGroup, isCompactDrawer ? styles.actionGroupCompact : null]}>
         <DrawerAction
           compact={isCompactDrawer}
-          description="Consulta tus saldos, configura destinos de cobro y revisa solicitudes procesadas por administración."
+          description="Consulta tu saldo y solicita su cobro desde la pantalla común de Saldos y pagos."
           icon="wallet-outline"
-          label="Fondos y cobros"
+          label="Saldos y pagos"
           onPress={() => navigateTo("/(empresa)/FondosCobros")}
           palette={palette}
         />

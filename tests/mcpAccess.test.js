@@ -4,22 +4,36 @@ import test from "node:test";
 
 import { isMCPAdmin, isPrincipalAdmin } from "../services/mcp/mcpAccess.js";
 
-test("la gestión de liquidaciones queda visible solo para el administrador principal", () => {
+test("la aprobación administrativa de liquidaciones queda reservada al principal", () => {
   assert.equal(isPrincipalAdmin({ username: "CarlosMBInf" }), true);
   assert.equal(isPrincipalAdmin({ username: " administrador ", profile: { role: "admin" } }), false);
   assert.equal(isPrincipalAdmin({ username: "cliente", profile: { role: "user" } }), false);
   assert.equal(isPrincipalAdmin(null), false);
 });
 
-test("la ruta de saldos y pagos está conectada al grupo del administrador principal", () => {
+test("Saldos y pagos está en el menú normal y comparte pantalla en los tres modos", () => {
   const drawer = readFileSync(new URL("../components/drawer/DrawerOptionsAlls.js", import.meta.url), "utf8");
   const layout = readFileSync(new URL("../app/(normal)/_layout.tsx", import.meta.url), "utf8");
   const route = readFileSync(new URL("../app/(normal)/LiquidacionesAdmin.tsx", import.meta.url), "utf8");
+  const empresaRoute = readFileSync(new URL("../app/(empresa)/FondosCobros.tsx", import.meta.url), "utf8");
+  const cadeteRoute = readFileSync(new URL("../app/(cadete)/SaldosPagos.tsx", import.meta.url), "utf8");
+  const cadeteLayout = readFileSync(new URL("../app/(cadete)/_layout.tsx", import.meta.url), "utf8");
+  const serviceItems = drawer.slice(
+    drawer.indexOf("const buildServiceItems"),
+    drawer.indexOf("const buildCinemaItems"),
+  );
+  const adminItems = drawer.slice(
+    drawer.indexOf("const buildAdminItems"),
+    drawer.indexOf("const buildProfessorItems"),
+  );
 
-  assert.match(drawer, /const isAdmin = user\?\.\s*profile\?\.role === "admin" \|\| isPrincipalAdmin\(user\)/);
-  assert.match(drawer, /isPrincipalAdmin\(user\) \? \[\{\s*label: "Saldos y pagos"/);
+  assert.match(serviceItems, /label: "Saldos y pagos"[\s\S]*href: "\/\(normal\)\/LiquidacionesAdmin"/);
+  assert.doesNotMatch(adminItems, /Saldos y pagos/);
   assert.match(layout, /<Stack\.Screen name="LiquidacionesAdmin"/);
   assert.match(route, /LiquidacionesAdminScreen/);
+  assert.match(empresaRoute, /LiquidacionesAdminScreen/);
+  assert.match(cadeteRoute, /LiquidacionesAdminScreen/);
+  assert.match(cadeteLayout, /<Stack\.Screen name="SaldosPagos"/);
 });
 
 test("solo los administradores y el admin principal pueden abrir MCP", () => {

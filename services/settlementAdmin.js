@@ -23,6 +23,21 @@ export const SETTLEMENT_STATUSES = {
   HISTORICAL: "Histórico por conciliar",
 };
 
+export const buildSettlementSummaryOptions = ({
+  page = 0, historyPage = 0, manualHistoryPage = 0, historicalPage = 0,
+  domain = "", currency = "", historyFilters = { kind: "ALL" },
+}) => ({
+  page,
+  historyPage,
+  ...(domain ? { domain } : {}),
+  ...(currency ? { currency } : {}),
+  ...(manualHistoryPage ? { manualHistoryPage } : {}),
+  ...(historicalPage ? { historicalPage } : {}),
+  ...(Object.entries(historyFilters).some(([key, value]) =>
+    key === "kind" ? value && value !== "ALL" : Boolean(value))
+    ? { historyFilters } : {}),
+});
+
 export const EMPTY_SETTLEMENT_DESTINATION = {
   accountNumber: "",
   accountType: "CORRIENTE",

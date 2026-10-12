@@ -174,6 +174,11 @@ const buildServiceItems = (user) => {
 
   items.push(
     {
+      label: "Saldos y pagos",
+      icon: "cash-multiple",
+      href: "/(normal)/LiquidacionesAdmin",
+    },
+    {
       label: "Cursos",
       icon: "book-education-outline",
       href: "/(normal)/Cursos",
@@ -230,11 +235,6 @@ const buildCinemaItems = (user) => user?.subscipcionPelis === true ? [
 ] : [];
 
 const buildAdminItems = (user) => [
-  ...(isPrincipalAdmin(user) ? [{
-    label: "Saldos y pagos",
-    icon: "cash-multiple",
-    href: "/(normal)/LiquidacionesAdmin",
-  }] : []),
   {
     label: "Dashboard",
     icon: "view-dashboard-outline",

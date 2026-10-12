@@ -104,6 +104,10 @@ const CadeteDrawerContent = ({ onClose, user }) => {
     onClose?.();
     router.push("/(cadete)/CadeteDeliveryHistory");
   };
+  const openSettlements = () => {
+    onClose?.();
+    router.push("/(cadete)/SaldosPagos");
+  };
   const handleExitCadeteMode = () => {
     Alert.alert(
       "Salir del modo cadete",
@@ -262,6 +266,33 @@ const CadeteDrawerContent = ({ onClose, user }) => {
             Activo
           </Text>
         </Surface>
+      </View>
+
+      <View style={[styles.section, isCompactDrawer ? styles.sectionCompact : null]}>
+        <Text style={[styles.sectionTitle, { color: palette.muted }]} variant="labelLarge">
+          Finanzas
+        </Text>
+        <Pressable
+          onPress={openSettlements}
+          style={({ pressed }) => [
+            styles.navItem,
+            isCompactDrawer ? styles.navItemCompact : null,
+            { backgroundColor: palette.card, borderColor: palette.border },
+            pressed ? styles.navItemPressed : null,
+          ]}
+        >
+          <View style={[styles.navItemIconWrap, { backgroundColor: palette.cardSoft }]}>
+            <MaterialCommunityIcons color={palette.brandStrong} name="cash-multiple" size={22} />
+          </View>
+          <View style={styles.navItemCopy}>
+            <Text style={[styles.navItemTitle, { color: palette.title }]} variant="titleSmall">
+              Saldos y pagos
+            </Text>
+            <Text style={[styles.navItemText, { color: palette.copy }]} variant="bodySmall">
+              Consulta tus saldos centralizados y el estado de las solicitudes.
+            </Text>
+          </View>
+        </Pressable>
       </View>
 
       <View style={[styles.section, isCompactDrawer ? styles.sectionCompact : null]}>

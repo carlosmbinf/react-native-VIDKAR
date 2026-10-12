@@ -23,8 +23,8 @@ const EmpresaNavigator = () => {
           href: '/(empresa)/MisTiendas',
         },
         {
-          label: 'Fondos y cobros',
-          description: 'Consulta tus saldos y configura el destino donde recibir liquidaciones.',
+          label: 'Saldos y pagos',
+          description: 'Consulta el saldo disponible y solicita su cobro desde la misma pantalla.',
           icon: 'wallet-outline',
           href: '/(empresa)/FondosCobros',
         },
