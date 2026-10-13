@@ -19,8 +19,9 @@ for key in ["Consulta el catálogo", "Qué quieres consultar", "Coincidencia del
 	"¿Quieres buscar el username dentro de tu alcance autorizado de VIDKAR?",
 	"No encontré el username dentro de tu alcance autorizado de VIDKAR.",
 	"Encontré más de un usuario con ese username. No seleccioné ninguno.",
-	"Encontré una coincidencia. ¿Quieres consultar su perfil completo autorizado y abrirlo en VIDKAR?",
-	"Encontré el usuario en VIDKAR. Abre la app para ver su perfil completo.",
+	"Encontré una coincidencia. ¿Quieres consultar su perfil autorizado y mostrar su ficha en el resultado?",
+	"Encontré el usuario en VIDKAR. Su ficha está disponible en el resultado.",
+	"Foto de perfil no disponible",
 	"Encontré el usuario %@ en VIDKAR.",
 	"Indica qué quieres consultar: de 1 a 120 caracteres, sin caracteres de control.",
 	"La sesión MCP no es válida. Revisa tu sesión y token en VIDKAR.",
@@ -33,5 +34,5 @@ for key in ["Consulta el catálogo", "Qué quieres consultar", "Coincidencia del
 }
 let phrases = Bundle(url: bundleURL)!.url(forResource: "AppShortcuts", withExtension: "strings", subdirectory: nil, localization: "es")!
 let values = try PropertyListSerialization.propertyList(from: Data(contentsOf: phrases), format: nil) as! [String: String]
-precondition(values.count == 1 && values["Busca un usuario en ${applicationName}"] == "Busca un usuario en ${applicationName}")
+precondition(values.count == 10 && values["Busca un usuario en ${applicationName}"] == "Busca un usuario en ${applicationName}")
 print("Foundation nativo: títulos, parámetros y diálogos resueltos en español desde bundle compilado, sin fallback; placeholders intactos")

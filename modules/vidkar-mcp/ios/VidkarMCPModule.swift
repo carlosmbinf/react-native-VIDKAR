@@ -1,7 +1,10 @@
 import AppIntents
 import ExpoModulesCore
 import Foundation
+import OSLog
 import Security
+import SwiftUI
+import WidgetKit
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -135,25 +138,63 @@ private enum MCPError: LocalizedError {
 private final class KeychainStore {
   static let shared = KeychainStore()
   private let service = "com.vidkar.mcp"
+  private var sharedAccessGroup: String? {
+    Bundle.main.infoDictionary?["VIDKAR_MCP_WIDGET_KEYCHAIN_ACCESS_GROUP"] as? String
+  }
+  private var legacyAccessGroup: String? {
+    guard Bundle.main.bundleIdentifier == "com.vidkar" else { return nil }
+    return Bundle.main.infoDictionary?["VIDKAR_MCP_LEGACY_KEYCHAIN_ACCESS_GROUP"] as? String
+  }
+
+  private func query(for key: String, shared: Bool) -> [String: Any] {
+    var query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: service,
+      kSecAttrAccount as String: key,
+    ]
+    if shared, let sharedAccessGroup {
+      query[kSecAttrAccessGroup as String] = sharedAccessGroup
+    } else if !shared, let legacyAccessGroup {
+      query[kSecAttrAccessGroup as String] = legacyAccessGroup
+    }
+    return query
+  }
 
   func set(_ value: String, for key: String) throws {
     let data = Data(value.utf8)
-    let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: key]
+    let query = self.query(for: key, shared: true)
     SecItemDelete(query as CFDictionary)
     var item = query
     item[kSecValueData as String] = data
+    item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
     guard SecItemAdd(item as CFDictionary, nil) == errSecSuccess else { throw MCPError.server("No se pudo guardar la configuración MCP de forma segura.") }
   }
 
   func get(_ key: String) -> String? {
-    let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: key, kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
-    var result: AnyObject?
-    guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-          let data = result as? Data else { return nil }
-    return String(data: data, encoding: .utf8)
+    func read(shared: Bool) -> String? {
+      var query = self.query(for: key, shared: shared)
+      query[kSecReturnData as String] = true
+      query[kSecMatchLimit as String] = kSecMatchLimitOne
+      var result: AnyObject?
+      guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+            let data = result as? Data else { return nil }
+      return String(data: data, encoding: .utf8)
+    }
+
+    if let sharedValue = read(shared: true) { return sharedValue }
+    guard let legacyValue = read(shared: false) else { return nil }
+    // Migrate existing app-only credentials the next time the app reads them.
+    // The widget extension can then use the same credential without launching the app.
+    if sharedAccessGroup != nil, (try? set(legacyValue, for: key)) != nil {
+      SecItemDelete(query(for: key, shared: false) as CFDictionary)
+    }
+    return legacyValue
   }
 
-  func clear(_ key: String) { SecItemDelete([kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: key] as CFDictionary) }
+  func clear(_ key: String) {
+    SecItemDelete(query(for: key, shared: true) as CFDictionary)
+    SecItemDelete(query(for: key, shared: false) as CFDictionary)
+  }
 }
 
 private actor MCPTransport {
@@ -249,10 +290,119 @@ private actor MCPTransport {
     return (url, KeychainStore.shared.get(ownerKey), configured, queryRevision.uuidString)
   }
 
+  func refreshWidgetUsage() async throws {
+    let session = try querySession()
+    let current = try widgetTimelineState()
+    guard current.props["authenticated"] as? Bool == true,
+          current.props["isAdmin"] as? Bool == true,
+          current.props["mcpRefreshAvailable"] as? Bool == true,
+          current.props["mcpOwnerId"] as? String == session.ownerId else {
+      throw MCPError.ownerMismatch
+    }
+
+    let output = try await executeForSession(
+      name: "get_service_usage",
+      arguments: ["userId": session.ownerId],
+      ownerId: session.ownerId,
+      revision: session.revision.uuidString
+    )
+    guard output.utf8.count <= 200_000,
+          let outputData = output.data(using: .utf8),
+          let payload = try? JSONSerialization.jsonObject(with: outputData) as? [String: Any],
+          payload["success"] as? Bool == true else {
+      throw MCPError.invalidResponse
+    }
+    guard payload["id"] as? String == session.ownerId,
+          let services = payload["serviceUsage"] as? [String: Any],
+          let proxy = services["proxy"] as? [String: Any],
+          let vpn = services["vpn"] as? [String: Any] else {
+      throw MCPError.invalidResponse
+    }
+
+    func number(_ value: Any?) -> Double? {
+      guard let value = value as? NSNumber else { return nil }
+      let result = value.doubleValue
+      return result.isFinite && result >= 0 ? result : nil
+    }
+
+    func formatMegas(_ megas: Double) -> String {
+      megas >= 1024
+        ? String(format: "%.2f GB", megas / 1024)
+        : String(format: "%.2f MB", megas)
+    }
+
+    func apply(_ service: [String: Any], prefix: String, into props: inout [String: Any]) throws {
+      guard let active = service["active"] as? Bool,
+            let usedBytes = number(service["usedBytes"]),
+            let limitMB = number(service["limitMB"]) else {
+        throw MCPError.invalidResponse
+      }
+      let usedMB = usedBytes / 1_048_576
+      let unlimited = service["unlimited"] as? Bool == true
+      props["\(prefix)Enabled"] = active
+      props["\(prefix)Used"] = formatMegas(usedMB)
+      props["\(prefix)Progress"] = unlimited || limitMB == 0
+        ? 0
+        : min(1, max(0, usedMB / limitMB))
+      props["\(prefix)Status"] = active
+        ? (unlimited ? "Ilimitado" : "\(formatMegas(usedMB)) / \(formatMegas(limitMB))")
+        : "Inactivo"
+    }
+
+    var refreshedProps = current.props
+    try apply(proxy, prefix: "proxy", into: &refreshedProps)
+    try apply(vpn, prefix: "vpn", into: &refreshedProps)
+    try assertQuerySession(session)
+    refreshedProps["updatedAt"] = Self.widgetUpdateTime()
+    refreshedProps["refreshMessage"] = ""
+    try writeWidgetTimeline(props: refreshedProps, expectedOwnerId: session.ownerId)
+  }
+
+  func setWidgetRefreshFailure() {
+    guard let current = try? widgetTimelineState(),
+          let ownerId = current.props["mcpOwnerId"] as? String else { return }
+    var props = current.props
+    props["refreshMessage"] = "No se pudo consultar el MCP. Inténtalo de nuevo."
+    try? writeWidgetTimeline(props: props, expectedOwnerId: ownerId)
+  }
+
+  private func widgetTimelineState() throws -> (props: [String: Any], defaults: UserDefaults) {
+    guard let defaults = UserDefaults(suiteName: "group.com.vidkar"),
+          let timeline = defaults.array(forKey: "__expo_widgets_ProxyVpnUsageWidget_timeline") as? [[String: Any]],
+          let entry = timeline.last,
+          let props = entry["props"] as? [String: Any] else {
+      throw MCPError.invalidResponse
+    }
+    return (props, defaults)
+  }
+
+  private func writeWidgetTimeline(props: [String: Any], expectedOwnerId: String) throws {
+    let current = try widgetTimelineState()
+    guard current.props["authenticated"] as? Bool == true,
+          current.props["isAdmin"] as? Bool == true,
+          current.props["mcpRefreshAvailable"] as? Bool == true,
+          current.props["mcpOwnerId"] as? String == expectedOwnerId else {
+      throw MCPError.ownerMismatch
+    }
+    let entry: [String: Any] = [
+      "timestamp": Int(Date().timeIntervalSince1970 * 1000),
+      "props": props,
+    ]
+    current.defaults.set([entry], forKey: "__expo_widgets_ProxyVpnUsageWidget_timeline")
+    WidgetCenter.shared.reloadTimelines(ofKind: "ProxyVpnUsageWidget")
+  }
+
+  private static func widgetUpdateTime() -> String {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "es_CU")
+    formatter.dateFormat = "HH:mm"
+    return formatter.string(from: Date())
+  }
+
   private func verifyTokenOwner(endpoint: URL, token: String, expectedOwnerId: String) async throws {
     let response = try await request(
       method: "tools/call",
-      params: ["name": "get_current_user", "arguments": ["confirmed": true]],
+      params: ["name": "get_current_user", "arguments": [:]],
       endpoint: endpoint,
       token: token
     )
@@ -296,15 +446,10 @@ private actor MCPTransport {
   func execute(name: String, arguments: [String: Any], expectedRevision: UUID? = nil) async throws -> String {
     let revision = try expectedRevision ?? querySession().revision
     try assertQueryRevision(revision)
-    let tool = try await validatedTool(name: name, arguments: arguments, forceRefresh: true, expectedRevision: revision)
-    try assertQueryRevision(revision)
-    let requiresConfirmation = confirmationRequired(name: name, arguments: arguments, tool: tool)
-    if requiresConfirmation && arguments["confirmed"] as? Bool != true {
-      throw MCPError.confirmationRequired
-    }
-
     var safeArguments = arguments
-    if requiresConfirmation { safeArguments["confirmed"] = true }
+    safeArguments.removeValue(forKey: "confirmed")
+    _ = try await validatedTool(name: name, arguments: safeArguments, forceRefresh: true, expectedRevision: revision)
+    try assertQueryRevision(revision)
     let result = try await request(method: "tools/call", params: ["name": name, "arguments": safeArguments], expectedRevision: revision)
     try assertQueryRevision(revision)
     if let isError = result["isError"] as? Bool, isError {
@@ -320,9 +465,11 @@ private actor MCPTransport {
 
   func confirmationRequired(name: String, arguments: [String: Any], forceRefresh: Bool = false) async throws -> Bool {
     let session = try querySession()
-    let tool = try await validatedTool(name: name, arguments: arguments, forceRefresh: forceRefresh, expectedRevision: session.revision)
+    var safeArguments = arguments
+    safeArguments.removeValue(forKey: "confirmed")
+    _ = try await validatedTool(name: name, arguments: safeArguments, forceRefresh: forceRefresh, expectedRevision: session.revision)
     try assertQuerySession(session)
-    return confirmationRequired(name: name, arguments: arguments, tool: tool)
+    return false
   }
 
   func executeForSession(name: String, arguments: [String: Any], ownerId: String, revision: String) async throws -> String {
@@ -334,31 +481,17 @@ private actor MCPTransport {
   }
 
   func executeIntent(name: String, arguments: [String: Any], session: (revision: UUID, ownerId: String), forceConfirmation: Bool = false, confirm: () async throws -> Void) async throws -> String {
+    // Compatibilidad con callers antiguos: las tools MCP expuestas son de solo lectura y no piden confirmación.
+    _ = forceConfirmation
+    _ = confirm
     try assertQuerySession(session)
     var safeArguments = arguments
     safeArguments.removeValue(forKey: "confirmed")
-    let required = try await confirmationRequired(name: name, arguments: safeArguments, forceRefresh: true)
-    try assertQuerySession(session)
-    if required || forceConfirmation {
-      try await confirm()
-      try assertQuerySession(session)
-      safeArguments["confirmed"] = true
-    }
     try Task.checkCancellation()
     let output = try await executeForSession(name: name, arguments: safeArguments,
       ownerId: session.ownerId, revision: session.revision.uuidString)
     try assertQuerySession(session)
     return output
-  }
-
-  private func confirmationRequired(name: String, arguments: [String: Any], tool: MCPToolDefinition) -> Bool {
-    let security = tool.meta?["vidkar/security"]?.object ?? [:]
-    if name == "search_entities" {
-      let privateEntities: Set<String> = ["user", "purchase", "sale", "order", "message", "subscription", "lesson"]
-      return privateEntities.contains(arguments["entity"] as? String ?? "")
-    }
-    if case .bool(let required)? = security["requiresConfirmation"] { return required }
-    return true
   }
 
   private func validatedTool(name: String, arguments: [String: Any], forceRefresh: Bool = false, expectedRevision: UUID? = nil) async throws -> MCPToolDefinition {
@@ -383,7 +516,13 @@ private actor MCPTransport {
       let annotationsData = try JSONEncoder().encode(tool.annotations ?? [:])
       let annotations = try JSONSerialization.jsonObject(with: annotationsData)
       let securityData = try JSONEncoder().encode(security)
-      let securityMetadata = try JSONSerialization.jsonObject(with: securityData)
+      var securityMetadata = try JSONSerialization.jsonObject(with: securityData) as? [String: Any] ?? [:]
+      let readOnly = boolValue(tool.annotations?["readOnlyHint"]) ?? false
+      let requiresConfirmation = readOnly ? false : (boolValue(security["requiresConfirmation"]) ?? true)
+      if readOnly {
+        securityMetadata["requiresConfirmation"] = false
+        securityMetadata["confirmationFor"] = []
+      }
       return [
         "name": tool.name,
         "description": tool.description ?? "",
@@ -394,8 +533,8 @@ private actor MCPTransport {
           return nil
         },
         "dataClass": stringValue(security["dataClass"]) ?? "unclassified",
-        "readOnly": boolValue(tool.annotations?["readOnlyHint"]) ?? false,
-        "requiresConfirmation": boolValue(security["requiresConfirmation"]) ?? true,
+        "readOnly": readOnly,
+        "requiresConfirmation": requiresConfirmation,
         "security": securityMetadata,
       ]
     }
@@ -477,8 +616,8 @@ private actor MCPTransport {
   }
 
 #if VIDKAR_LEGACY_INTENTS
-  func searchEntities(entity: String, query: String, confirmed: Bool = false) async throws -> [VIDKARSearchResultEntity] {
-    let payloads = try await searchEntityPayloads(entity: entity, query: query, confirmed: confirmed)
+  func searchEntities(entity: String, query: String) async throws -> [VIDKARSearchResultEntity] {
+    let payloads = try await searchEntityPayloads(entity: entity, query: query)
     return payloads.compactMap(VIDKARSearchResultEntity.init(payload:))
   }
 
@@ -487,11 +626,10 @@ private actor MCPTransport {
     return try decodeSearchPayloads(output).compactMap(VIDKARSearchResultEntity.init(payload:))
   }
 
-  func searchEntityPayloads(entity: String, query: String, id: String? = nil, confirmed: Bool = false) async throws -> [MCPSearchEntityPayload] {
+  func searchEntityPayloads(entity: String, query: String, id: String? = nil) async throws -> [MCPSearchEntityPayload] {
     var arguments: [String: Any] = ["entity": entity, "limit": 20, "offset": 0]
     if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { arguments["query"] = query }
     if let id, !id.isEmpty { arguments["id"] = id }
-    if confirmed { arguments["confirmed"] = true }
     let output = try await execute(name: "search_entities", arguments: arguments)
     let payloads = try decodeSearchPayloads(output)
     if #available(iOS 27.0, *) {
@@ -502,8 +640,7 @@ private actor MCPTransport {
 
   func validatePlayableEntity(entityType: String, entityId: String) async throws {
     guard ["movie", "episode", "lesson"].contains(entityType), !entityId.isEmpty else { throw MCPError.toolNotAllowed }
-    let confirmed = entityType == "lesson"
-    let payloads = try await searchEntityPayloads(entity: entityType, query: "", id: entityId, confirmed: confirmed)
+    let payloads = try await searchEntityPayloads(entity: entityType, query: "", id: entityId)
     guard payloads.contains(where: { $0.type == entityType && $0.id == entityId }) else { throw MCPError.toolNotAllowed }
   }
 
@@ -583,6 +720,16 @@ private actor MCPTransport {
       if let json = try? JSONSerialization.jsonObject(with: Data(line.dropFirst(5).trimmingCharacters(in: .whitespaces).utf8)) as? [String: Any] { return json }
     }
     throw MCPError.invalidResponse
+  }
+}
+
+public enum VIDKARWidgetUsageRefresh {
+  public static func perform() async {
+    do {
+      try await MCPTransport.shared.refreshWidgetUsage()
+    } catch {
+      await MCPTransport.shared.setWidgetRefreshFailure()
+    }
   }
 }
 
@@ -1023,14 +1170,22 @@ extension VIDKARCatalogAppEntity {
 }
 
 private func searchVIDKARCatalog<Entity: VIDKARCatalogAppEntity>(_ type: Entity.Type, query: String) async throws -> [Entity] {
-  let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-  guard !normalizedQuery.isEmpty else { return [] }
+  let normalizedQuery = Entity.mcpType == "course" && query.isEmpty ? "" : try MCPCatalogQuery.query(query)
+  let session = try await MCPTransport.shared.querySession()
   let payloads = try await MCPTransport.shared.searchCatalogEntities(
     entity: Entity.mcpType,
     query: normalizedQuery,
     category: Entity.mcpCategory
   )
-  return payloads.compactMap(Entity.init(payload:))
+  var entities: [Entity] = []
+  for payload in payloads.prefix(5) {
+    guard let entity = Entity(payload: payload) else { throw MCPError.invalidResponse }
+    entities.append(Entity(id: entity.id, title: MCPCatalogQuery.text(entity.title, limit: 160),
+      subtitle: MCPCatalogQuery.text(entity.subtitle, limit: 120),
+      summary: MCPCatalogQuery.text(entity.summary, limit: 240), deepLink: entity.deepLink))
+  }
+  try await MCPTransport.shared.assertQuerySession(session)
+  return entities
 }
 
 private func resolveVIDKARCatalog<Entity: VIDKARCatalogAppEntity>(_ type: Entity.Type, identifiers: [String]) async throws -> [Entity] {
@@ -1146,13 +1301,11 @@ public struct VIDKARSearchMoviesIntent: AppIntent {
   @Parameter(title: "Título o búsqueda", default: "") public var query: String
   public static var parameterSummary: some ParameterSummary { Summary("Busca películas: \(\.$query)") }
 
-  public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARMovieAppEntity]> & ProvidesDialog {
-    do {
-      let entities = try await searchVIDKARCatalog(VIDKARMovieAppEntity.self, query: query)
-      return .result(value: entities, dialog: IntentDialog(stringLiteral: "Encontré \(entities.count) película\(entities.count == 1 ? "" : "s") en VIDKAR."))
-    } catch {
-      return .result(value: [], dialog: "No se pudo buscar películas en VIDKAR.")
-    }
+  public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARMovieAppEntity]> & ProvidesDialog & ShowsSnippetView {
+    let term = query.isEmpty ? try await $query.requestValue("¿Qué película quieres buscar?") : query
+    let entities = try await searchVIDKARCatalog(VIDKARMovieAppEntity.self, query: term)
+    return .result(value: entities, dialog: catalogDialog(entities),
+      view: catalogSnippet(entities, title: "Películas VIDKAR"))
   }
 }
 
@@ -1166,13 +1319,11 @@ public struct VIDKARSearchSeriesIntent: AppIntent {
   @Parameter(title: "Título o búsqueda", default: "") public var query: String
   public static var parameterSummary: some ParameterSummary { Summary("Busca series: \(\.$query)") }
 
-  public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSeriesAppEntity]> & ProvidesDialog {
-    do {
-      let entities = try await searchVIDKARCatalog(VIDKARSeriesAppEntity.self, query: query)
-      return .result(value: entities, dialog: IntentDialog(stringLiteral: "Encontré \(entities.count) serie\(entities.count == 1 ? "" : "s") en VIDKAR."))
-    } catch {
-      return .result(value: [], dialog: "No se pudo buscar series en VIDKAR.")
-    }
+  public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSeriesAppEntity]> & ProvidesDialog & ShowsSnippetView {
+    let term = query.isEmpty ? try await $query.requestValue("¿Qué serie quieres buscar?") : query
+    let entities = try await searchVIDKARCatalog(VIDKARSeriesAppEntity.self, query: term)
+    return .result(value: entities, dialog: catalogDialog(entities),
+      view: catalogSnippet(entities, title: "Series VIDKAR"))
   }
 }
 
@@ -1186,13 +1337,10 @@ public struct VIDKARSearchCoursesIntent: AppIntent {
   @Parameter(title: "Nombre o búsqueda", default: "") public var query: String
   public static var parameterSummary: some ParameterSummary { Summary("Busca cursos: \(\.$query)") }
 
-  public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARCourseAppEntity]> & ProvidesDialog {
-    do {
-      let entities = try await searchVIDKARCatalog(VIDKARCourseAppEntity.self, query: query)
-      return .result(value: entities, dialog: IntentDialog(stringLiteral: "Encontré \(entities.count) curso\(entities.count == 1 ? "" : "s") en VIDKAR."))
-    } catch {
-      return .result(value: [], dialog: "No se pudo buscar cursos en VIDKAR.")
-    }
+  public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARCourseAppEntity]> & ProvidesDialog & ShowsSnippetView {
+    let entities = try await searchVIDKARCatalog(VIDKARCourseAppEntity.self, query: query)
+    return .result(value: entities, dialog: catalogDialog(entities),
+      view: catalogSnippet(entities, title: "Cursos VIDKAR"))
   }
 }
 
@@ -1206,13 +1354,11 @@ public struct VIDKARSearchCommerceProductsIntent: AppIntent {
   @Parameter(title: "Producto o búsqueda", default: "") public var query: String
   public static var parameterSummary: some ParameterSummary { Summary("Busca en Comercio: \(\.$query)") }
 
-  public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARCommerceProductAppEntity]> & ProvidesDialog {
-    do {
-      let entities = try await searchVIDKARCatalog(VIDKARCommerceProductAppEntity.self, query: query)
-      return .result(value: entities, dialog: IntentDialog(stringLiteral: "Encontré \(entities.count) producto\(entities.count == 1 ? "" : "s") en Comercio VIDKAR."))
-    } catch {
-      return .result(value: [], dialog: "No se pudo buscar productos de Comercio en VIDKAR.")
-    }
+  public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARCommerceProductAppEntity]> & ProvidesDialog & ShowsSnippetView {
+    let term = query.isEmpty ? try await $query.requestValue("¿Qué producto quieres buscar?") : query
+    let entities = try await searchVIDKARCatalog(VIDKARCommerceProductAppEntity.self, query: term)
+    return .result(value: entities, dialog: catalogDialog(entities),
+      view: catalogSnippet(entities, title: "Comercio VIDKAR"))
   }
 }
 
@@ -1285,22 +1431,20 @@ public struct VIDKARServiceUsageEntityQuery: EntityQuery {
 public struct VIDKARGetServiceUsageIntent: AppIntent {
   public init() {}
   public static let title: LocalizedStringResource = "Consulta mi Proxy o VPN"
-  public static let description = IntentDescription("Consulta el uso del servicio seleccionado. Requiere confirmación y solo devuelve estado y consumo, nunca credenciales ni servidores.")
+  public static let description = IntentDescription("Consulta el uso del servicio seleccionado y solo devuelve estado y consumo, nunca credenciales ni servidores.")
   public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
   public static let openAppWhenRun = false
   @Parameter(title: "Servicio", default: .proxy) public var service: VIDKARAccountService
   public static var parameterSummary: some ParameterSummary { Summary("Consulta mi \(\.$service) en VIDKAR") }
 
-  public func perform() async throws -> some IntentResult & ReturnsValue<VIDKARServiceUsageAppEntity> {
+  public func perform() async throws -> some IntentResult & ReturnsValue<VIDKARServiceUsageAppEntity> & ProvidesDialog & ShowsSnippetView {
     let session = try await MCPTransport.shared.querySession()
-    let output = try await MCPTransport.shared.executeIntent(
+    let output = try await MCPTransport.shared.executeForSession(
       name: "get_service_usage",
-      arguments: ["userId": session.ownerId, "confirmed": true],
-      session: session,
-      forceConfirmation: true
-    ) {
-      try await requestConfirmation()
-    }
+      arguments: ["userId": session.ownerId],
+      ownerId: session.ownerId,
+      revision: session.revision.uuidString
+    )
     guard let data = output.data(using: .utf8),
           let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
           payload["success"] as? Bool == true,
@@ -1329,7 +1473,9 @@ public struct VIDKARGetServiceUsageIntent: AppIntent {
       expiresAt: expiresAt,
       summary: subtitle
     )
-    return .result(value: entity, dialog: IntentDialog(stringLiteral: "Consulta confirmada. \(subtitle)."))
+    try await MCPTransport.shared.assertQuerySession(session)
+    return .result(value: entity, dialog: "El consumo está disponible en la tarjeta.",
+      view: VIDKARReadSnippetView(title: "Mi \(service.rawValue.uppercased())", subtitle: "VIDKAR", lines: [subtitle]))
   }
 }
 
@@ -1356,6 +1502,13 @@ private func catalogFailure(_ error: Error) -> MCPCatalogQuery.Failure {
 
 private func catalogDialog<Entity: VIDKARCatalogAppEntity>(_ entities: [Entity]) -> IntentDialog {
   IntentDialog(stringLiteral: MCPCatalogQuery.summary(entities.map { ($0.title, $0.subtitle, $0.summary) }))
+}
+
+private func catalogSnippet<Entity: VIDKARCatalogAppEntity>(_ entities: [Entity], title: String) -> VIDKARReadSnippetView {
+  VIDKARReadSnippetView(title: title, subtitle: "Primeros \(entities.count) resultados",
+    lines: entities.isEmpty ? ["No encontré resultados."] : entities.prefix(5).map {
+      [$0.title, $0.subtitle, $0.summary].filter { !$0.isEmpty }.joined(separator: " · ")
+    })
 }
 
 public struct VIDKARCatalogResultEntity: TransientAppEntity {
@@ -1398,46 +1551,96 @@ public struct VIDKARCatalogResultEntityQuery: EntityQuery {
   public func suggestedEntities() async throws -> [VIDKARCatalogResultEntity] { [] }
 }
 
-private func validatedVIDKARUserAvatarURL(_ rawValue: String?) -> URL? {
-  guard let rawValue, rawValue.utf8.count <= 2048,
-        let components = URLComponents(string: rawValue),
-        components.scheme?.lowercased() == "https",
-        components.user == nil, components.password == nil,
-        components.port == nil || components.port == 443,
-        let host = components.host?.lowercased(),
-        ["vidkar.com", "googleusercontent.com", "facebook.com", "fbcdn.net", "fbsbx.com"].contains(where: {
-          host == $0 || host.hasSuffix(".\($0)")
-        }),
-        let url = components.url else { return nil }
-  return url
-}
-
-public struct VIDKARUserSearchAppEntity: TransientAppEntity {
+public struct VIDKARUserSearchAppEntity: AppEntity {
   public static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Usuario VIDKAR")
   public static let defaultQuery = VIDKARUserSearchAppEntityQuery()
 
   public var id: String
   @Property(title: "Nombre y apellido") public var fullName: String
   @Property(title: "Username") public var username: String
+  @Property(title: "Cuenta de usuario") public var account: VIDKARAccountUserAppEntity?
+  @Property(title: "Rol") public var role: String?
+  @Property(title: "Miembro desde") public var memberSince: Date?
+  @Property(title: "Correos registrados") public var registeredEmailCount: Int?
+  @Property(title: "Usuario bloqueado") public var isBanned: Bool?
+  @Property(title: "Proxy activo") public var proxyActive: Bool?
+  @Property(title: "Consumo Proxy en bytes") public var proxyUsedBytes: Double?
+  @Property(title: "Límite Proxy en MB") public var proxyLimitMB: Double?
+  @Property(title: "Proxy ilimitado") public var proxyUnlimited: Bool?
+  @Property(title: "Vencimiento Proxy") public var proxyExpiresAt: Date?
+  @Property(title: "VPN activa") public var vpnActive: Bool?
+  @Property(title: "VPN conectada") public var vpnConnected: Bool?
+  @Property(title: "Consumo VPN en bytes") public var vpnUsedBytes: Double?
+  @Property(title: "Límite VPN en MB") public var vpnLimitMB: Double?
+  @Property(title: "VPN ilimitada") public var vpnUnlimited: Bool?
+  @Property(title: "Vencimiento VPN") public var vpnExpiresAt: Date?
   private let avatarImageURL: URL?
+  private let avatarImageData: Data?
 
   public init() {
     avatarImageURL = nil
+    avatarImageData = nil
     id = UUID().uuidString
     fullName = ""
     username = ""
+    account = nil
+    role = nil
+    memberSince = nil
+    registeredEmailCount = nil
+    isBanned = nil
+    proxyActive = nil
+    proxyUsedBytes = nil
+    proxyLimitMB = nil
+    proxyUnlimited = nil
+    proxyExpiresAt = nil
+    vpnActive = nil
+    vpnConnected = nil
+    vpnUsedBytes = nil
+    vpnLimitMB = nil
+    vpnUnlimited = nil
+    vpnExpiresAt = nil
   }
 
-  init(fullName: String, username: String, avatarURL: String?) {
-    id = UUID().uuidString
+  init(fullName: String, username: String, avatarURL: String?, avatarData: Data? = nil,
+       account: VIDKARAccountUserAppEntity? = nil, details: VIDKARUserProfileDetails? = nil) {
+    id = account?.id ?? UUID().uuidString
     avatarImageURL = avatarURL.flatMap(validatedVIDKARUserAvatarURL)
+    avatarImageData = avatarData
     self.fullName = fullName
     self.username = username
+    self.account = account
+    role = details?.role.map { MCPCatalogQuery.text($0, limit: 60) }
+    memberSince = details?.memberSince
+    registeredEmailCount = details?.emailCount
+    isBanned = details?.banned
+    proxyActive = details?.serviceUsage?.proxy?.active
+    proxyUsedBytes = details?.serviceUsage?.proxy?.usedBytes
+    proxyLimitMB = details?.serviceUsage?.proxy?.limitMB
+    proxyUnlimited = details?.serviceUsage?.proxy?.unlimited
+    proxyExpiresAt = details?.serviceUsage?.proxy?.expirationDate
+    vpnActive = details?.serviceUsage?.vpn?.active
+    vpnConnected = details?.serviceUsage?.vpn?.connected
+    vpnUsedBytes = details?.serviceUsage?.vpn?.usedBytes
+    vpnLimitMB = details?.serviceUsage?.vpn?.limitMB
+    vpnUnlimited = details?.serviceUsage?.vpn?.unlimited
+    vpnExpiresAt = details?.serviceUsage?.vpn?.expirationDate
+  }
+
+  init(profile: [String: Any], ownerId: String) throws {
+    let account = try VIDKARAccountUserAppEntity(profile: profile, ownerId: ownerId)
+    self.init(fullName: account.fullName, username: account.username, avatarURL: nil,
+      account: account, details: try VIDKARUserProfileDetails.decode(profile))
   }
 
   public var displayRepresentation: DisplayRepresentation {
     let image: DisplayRepresentation.Image
-    if let url = avatarImageURL {
+    if let data = avatarImageData {
+      if #available(iOS 17.0, *) {
+        image = DisplayRepresentation.Image(data: data, displayStyle: .circular)
+      } else {
+        image = DisplayRepresentation.Image(data: data)
+      }
+    } else if let url = avatarImageURL {
       if #available(iOS 17.0, *) {
         image = DisplayRepresentation.Image(url: url, displayStyle: .circular)
       } else {
@@ -1450,22 +1653,38 @@ public struct VIDKARUserSearchAppEntity: TransientAppEntity {
   }
 }
 
-public struct VIDKARUserSearchAppEntityQuery: EntityQuery {
+public struct VIDKARUserSearchAppEntityQuery: EntityStringQuery {
   public init() {}
-  public func entities(for identifiers: [String]) async throws -> [VIDKARUserSearchAppEntity] { [] }
+  public func entities(for identifiers: [String]) async throws -> [VIDKARUserSearchAppEntity] {
+    guard identifiers.count <= 5 else { throw MCPError.invalidResponse }
+    // Los UUID de las fichas transitorias anteriores no identifican una cuenta.
+    let resolvable = identifiers.filter { $0.contains("|") }
+    guard !resolvable.isEmpty else { return [] }
+    let session = try await MCPTransport.shared.querySession()
+    var entities: [VIDKARUserSearchAppEntity] = []
+    for identifier in resolvable {
+      do {
+        let profile = try await queryVIDKARUserProfile(identifier: identifier, session: session)
+        entities.append(try VIDKARUserSearchAppEntity(profile: profile, ownerId: session.ownerId))
+      } catch MCPCatalogQuery.Failure.userNotFound {
+        continue
+      }
+    }
+    try await MCPTransport.shared.assertQuerySession(session)
+    return entities
+  }
+  public func entities(matching string: String) async throws -> [VIDKARUserSearchAppEntity] {
+    let session = try await MCPTransport.shared.querySession()
+    let outcome = try await queryVIDKARUserByUsername(string)
+    guard case .found(_, _, _, let resultId) = outcome else {
+      if case .ambiguous = outcome { throw VIDKARUserSearchFailure.ambiguous }
+      return []
+    }
+    let profile = try await readVIDKARStoredUserProfile(resultId: resultId, session: session)
+    return [try VIDKARUserSearchAppEntity(profile: profile, ownerId: session.ownerId)]
+  }
   public func suggestedEntities() async throws -> [VIDKARUserSearchAppEntity] { [] }
 }
-
-#if canImport(UIKit)
-@MainActor
-private func openVIDKARURL(_ url: URL) {
-  guard url.scheme?.lowercased() == "vidkar" else { return }
-  UIApplication.shared.open(url, options: [:], completionHandler: nil)
-}
-#else
-@MainActor
-private func openVIDKARURL(_ url: URL) {}
-#endif
 
 @available(iOS 16.0, *)
 public struct VIDKARQueryCatalogIntent: AppIntent {
@@ -1497,48 +1716,132 @@ public struct VIDKARQueryCatalogIntent: AppIntent {
 public struct VIDKARSearchUserByUsernameIntent: AppIntent {
   public init() {}
   public static let title: LocalizedStringResource = "Busca usuario por username"
-  public static let description = IntentDescription("Busca un username exacto dentro del alcance autorizado, pide confirmación para consultar el perfil sanitizado y abre VIDKAR para mostrarlo sin verbalizar datos privados.")
+  public static let description = IntentDescription("Busca un username exacto dentro del alcance autorizado. Devuelve foto, nombre, rol, alta, estado y consumo de Proxy y VPN en una ficha resoluble sin abrir VIDKAR ni verbalizar datos privados.")
   public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-  public static let openAppWhenRun = true
+  public static let openAppWhenRun = false
   @Parameter(title: "Nombre de usuario") public var username: String
   public static var parameterSummary: some ParameterSummary { Summary("Busca el usuario \(\.$username) en VIDKAR") }
 
-  public func perform() async throws -> some IntentResult & ReturnsValue<VIDKARUserSearchAppEntity> & ProvidesDialog {
+  public func perform() async throws -> some IntentResult & ReturnsValue<VIDKARUserSearchAppEntity> & ProvidesDialog & ShowsSnippetView {
     do {
-      let outcome = try await queryVIDKARUserByUsername(username, confirmSearch: {
-        if #available(iOS 18.0, *) {
-          try await requestConfirmation(dialog: IntentDialog(stringLiteral: "¿Quieres buscar el username dentro de tu alcance autorizado de VIDKAR?"))
-        } else {
-          try await requestConfirmation()
-        }
-      }, confirmProfile: {
-        if #available(iOS 18.0, *) {
-          try await requestConfirmation(dialog: IntentDialog(stringLiteral: "Encontré una coincidencia. ¿Quieres consultar su perfil completo autorizado y abrirlo en VIDKAR?"))
-        } else {
-          try await requestConfirmation()
-        }
-      })
+      let session = try await MCPTransport.shared.querySession()
+      let outcome = try await queryVIDKARUserByUsername(username)
       switch outcome {
       case .notFound:
         throw VIDKARUserSearchFailure.notFound
       case .ambiguous:
         throw VIDKARUserSearchFailure.ambiguous
       case .found(let displayName, let foundUsername, let avatarURL, let resultId):
-        let entity = VIDKARUserSearchAppEntity(fullName: displayName, username: foundUsername, avatarURL: avatarURL)
-        var components = URLComponents()
-        components.scheme = "vidkar"
-        components.host = "search"
-        components.queryItems = [URLQueryItem(name: "resultId", value: resultId)]
-        guard let url = components.url else { throw MCPError.invalidResponse }
-        await openVIDKARURL(url)
-        let dialog = String(localized: "Encontré el usuario en VIDKAR. Abre la app para ver su perfil completo.")
-        return .result(value: entity, dialog: IntentDialog(stringLiteral: dialog))
+        let profile = try await readVIDKARStoredUserProfile(resultId: resultId, session: session)
+        let account = try VIDKARAccountUserAppEntity(profile: profile, ownerId: session.ownerId)
+        let details = try VIDKARUserProfileDetails.decode(profile)
+        let (avatar, avatarUnavailable) = try await loadVIDKARProfileAvatar(avatarURL)
+        try await MCPTransport.shared.assertQuerySession(session)
+        let entity = VIDKARUserSearchAppEntity(fullName: displayName, username: foundUsername,
+          avatarURL: nil, avatarData: avatar?.data, account: account, details: details)
+        let dialog = String(localized: "Encontré el usuario en VIDKAR. Su ficha está disponible en el resultado.")
+        return .result(value: entity, dialog: IntentDialog(stringLiteral: dialog),
+          view: vidkarUserProfileSnippet(entity: entity, details: details,
+            avatar: avatar?.image, avatarUnavailable: avatarUnavailable))
       }
     } catch {
       if error is CancellationError { throw error }
       if let searchFailure = error as? VIDKARUserSearchFailure { throw searchFailure }
       throw catalogFailure(error)
     }
+  }
+}
+
+@ViewBuilder
+private func vidkarUserProfileSnippet(entity: VIDKARUserSearchAppEntity, details: VIDKARUserProfileDetails,
+                                     avatar: CGImage?, avatarUnavailable: Bool) -> some View {
+  let view = VIDKARUserSnippetView(fullName: entity.fullName, username: entity.username,
+    avatar: avatar, avatarUnavailable: avatarUnavailable, details: details)
+  if #available(iOS 18.4, macOS 15.4, *) {
+    view.appEntityIdentifier(EntityIdentifier(for: entity))
+  } else {
+    view
+  }
+}
+
+private func loadVIDKARProfileAvatar(_ rawURL: String?) async throws -> (VIDKARUserAvatar.LoadedImage?, Bool) {
+  guard let url = validatedVIDKARUserAvatarURL(rawURL) else { return (nil, false) }
+  do { return (try await VIDKARUserAvatar.load(from: url), false) }
+  catch {
+    if error is CancellationError || (error as? URLError)?.code == .cancelled { throw CancellationError() }
+    Logger(subsystem: "com.vidkar.mcp", category: "SiriUserAvatar")
+      .error("No se pudo cargar la foto para la ficha de Siri.")
+    return (nil, true)
+  }
+}
+
+private func readVIDKARStoredUserProfile(resultId: String, session: (revision: UUID, ownerId: String)) async throws -> [String: Any] {
+  let stored = try await MCPTransport.shared.getNaturalLanguageResult(resultId: resultId, ownerId: session.ownerId)
+  guard let envelope = try JSONSerialization.jsonObject(with: Data(stored.utf8)) as? [String: Any],
+        let profile = envelope["data"] as? [String: Any] else { throw MCPError.invalidResponse }
+  try await MCPTransport.shared.assertQuerySession(session)
+  return profile
+}
+
+private func queryVIDKARUserProfile(identifier: String, session: (revision: UUID, ownerId: String)) async throws -> [String: Any] {
+  let parts = identifier.split(separator: "|", omittingEmptySubsequences: false)
+  guard parts.count == 2, !parts[1].isEmpty else { throw MCPCatalogQuery.Failure.userNotFound }
+  guard parts[0] == Substring(session.ownerId) else { throw MCPError.ownerMismatch }
+  let profile = try await queryVIDKARReadTool("get_user", arguments: ["userId": String(parts[1])], session: session)
+  guard profile["id"] as? String == String(parts[1]) else { throw MCPError.invalidResponse }
+  return profile
+}
+
+public struct VIDKARGetUserProfileIntent: AppIntent {
+  public init() {}
+  public static let title: LocalizedStringResource = "Más datos de este usuario"
+  public static let description = IntentDescription("Actualiza la ficha del usuario recibido: identidad, rol, alta, estado, consumo, límites y vencimientos de Proxy y VPN. Revalida el acceso; no abre VIDKAR ni cambia datos.")
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  public static let openAppWhenRun = false
+  @Parameter(title: "Usuario VIDKAR") public var user: VIDKARUserSearchAppEntity
+  public static var parameterSummary: some ParameterSummary { Summary("Consulta la ficha completa de \(\.$user)") }
+
+  public func perform() async throws -> some IntentResult & ReturnsValue<VIDKARUserSearchAppEntity> & ProvidesDialog & ShowsSnippetView {
+    do {
+      let session = try await MCPTransport.shared.querySession()
+      let profile = try await queryVIDKARUserProfile(identifier: user.id, session: session)
+      let details = try VIDKARUserProfileDetails.decode(profile)
+      let account = try VIDKARAccountUserAppEntity(profile: profile, ownerId: session.ownerId)
+      let (avatar, avatarUnavailable) = try await loadVIDKARProfileAvatar(profile["picture"] as? String)
+      try await MCPTransport.shared.assertQuerySession(session)
+      let entity = VIDKARUserSearchAppEntity(fullName: account.fullName, username: account.username,
+        avatarURL: nil, avatarData: avatar?.data, account: account, details: details)
+      return .result(value: entity, dialog: "La ficha actualizada está disponible en la tarjeta.",
+        view: vidkarUserProfileSnippet(entity: entity, details: details,
+          avatar: avatar?.image, avatarUnavailable: avatarUnavailable))
+    } catch {
+      if error is CancellationError { throw error }
+      throw catalogFailure(error)
+    }
+  }
+}
+
+public struct VIDKARGetCapabilitiesIntent: AppIntent {
+  public init() {}
+  public static let title: LocalizedStringResource = "Qué puedo consultar en VIDKAR"
+  public static let description = IntentDescription("Describe las consultas de solo lectura disponibles dentro de Siri y sus límites. No abre VIDKAR ni obtiene datos privados.")
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  public static let openAppWhenRun = false
+
+  public func perform() async throws -> some IntentResult & ReturnsValue<VIDKARReadReportEntity> & ProvidesDialog & ShowsSnippetView {
+    try Task.checkCancellation()
+    let lines = [
+      "Usuarios: ficha, estado, Proxy y VPN. Busca por username exacto.",
+      "Cuenta autorizada: consumo actual; ventas asociadas, compras y órdenes por período.",
+      "Catálogos: películas, series, cursos y productos por título.",
+      "Tu cuenta: mensajes sin marcarlos leídos y suscripciones.",
+      "Negocio: resúmenes y pagos disponibles según tu rol.",
+      "Solo consultas: no envío mensajes ni compro, modifico o reproduzco contenido. No sumo monedas diferentes."
+    ]
+    let title = "Consultas VIDKAR"
+    return .result(value: VIDKARReadReportEntity(title: title, lines: lines),
+      dialog: "Puedes consultar usuarios, consumo, ventas y catálogos. Los detalles y límites están en la tarjeta.",
+      view: VIDKARReadSnippetView(title: title, subtitle: "Sin abrir la app · acceso según permisos", lines: lines))
   }
 }
 
@@ -1561,9 +1864,7 @@ private enum VIDKARUserSearchOutcome: Sendable {
 }
 
 private func queryVIDKARUserByUsername(
-  _ rawUsername: String,
-  confirmSearch: () async throws -> Void,
-  confirmProfile: () async throws -> Void
+  _ rawUsername: String
 ) async throws -> VIDKARUserSearchOutcome {
   let username = try MCPCatalogQuery.query(rawUsername)
   let session = try await MCPTransport.shared.querySession()
@@ -1577,17 +1878,10 @@ private func queryVIDKARUserByUsername(
   let pageSize = exactSearch ? 2 : 50
   var results: [[String: Any]] = []
   for page in 0..<4 {
-    var arguments: [String: Any] = ["entity": "user", exactSearch ? "username" : "query": username,
+    let arguments: [String: Any] = ["entity": "user", exactSearch ? "username" : "query": username,
       "limit": pageSize, "offset": page * pageSize]
-    let output: String
-    if page == 0 {
-      output = try await MCPTransport.shared.executeIntent(name: "search_entities", arguments: arguments,
-        session: session, forceConfirmation: true, confirm: confirmSearch)
-    } else {
-      arguments["confirmed"] = true
-      output = try await MCPTransport.shared.executeForSession(name: "search_entities", arguments: arguments,
-        ownerId: session.ownerId, revision: session.revision.uuidString)
-    }
+    let output = try await MCPTransport.shared.executeForSession(name: "search_entities", arguments: arguments,
+      ownerId: session.ownerId, revision: session.revision.uuidString)
     try await MCPTransport.shared.assertQuerySession(session)
     guard let data = output.data(using: .utf8),
           let response = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -1627,8 +1921,8 @@ private func queryVIDKARUserByUsername(
         profileTool.inputSchema["properties"]?.object?["userId"] != nil else {
     throw MCPCatalogQuery.Failure.incompatibleSchema
   }
-  let profileOutput = try await MCPTransport.shared.executeIntent(name: "get_user", arguments: ["userId": match.id],
-    session: session, forceConfirmation: true, confirm: confirmProfile)
+  let profileOutput = try await MCPTransport.shared.executeForSession(name: "get_user", arguments: ["userId": match.id],
+    ownerId: session.ownerId, revision: session.revision.uuidString)
   try await MCPTransport.shared.assertQuerySession(session)
   guard let profileData = profileOutput.data(using: .utf8),
         let profile = try? JSONSerialization.jsonObject(with: profileData) as? [String: Any] else {
@@ -1647,17 +1941,340 @@ private func queryVIDKARUserByUsername(
     query: "Perfil de usuario @\(match.username)", tool: "get_user", output: profileOutput,
     summary: "Perfil completo autorizado de @\(match.username)", revision: session.revision)
   try await MCPTransport.shared.assertQuerySession(session)
-  return .found(displayName: match.displayName, username: match.username, avatarURL: match.avatarURL, resultId: resultId)
+  let profileName = MCPCatalogQuery.text(profile["name"] as? String ?? match.displayName, limit: 120)
+  let profileAvatar = validatedVIDKARUserAvatarURL(profile["picture"] as? String)?.absoluteString
+  return .found(displayName: profileName, username: match.username,
+    avatarURL: profileAvatar ?? match.avatarURL, resultId: resultId)
 }
 
-private func queryVIDKARUserByUsername(_ rawUsername: String, confirm: () async throws -> Void) async throws -> VIDKARUserSearchOutcome {
-  try await queryVIDKARUserByUsername(rawUsername, confirmSearch: confirm, confirmProfile: confirm)
+public struct VIDKARAccountUserAppEntity: AppEntity {
+  public static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Cuenta de usuario VIDKAR")
+  public static let defaultQuery = VIDKARAccountUserEntityQuery()
+  public let id: String
+  @Property(title: "Nombre y apellido") public var fullName: String
+  @Property(title: "Username") public var username: String
+
+  init(profile: [String: Any], ownerId: String) throws {
+    guard let userId = profile["id"] as? String, !userId.isEmpty, userId.count <= 120,
+          !userId.contains("|"), !ownerId.contains("|"),
+          let username = profile["username"] as? String, !username.isEmpty else { throw MCPError.invalidResponse }
+    id = "\(ownerId)|\(userId)"
+    self.username = MCPCatalogQuery.text(username, limit: 120)
+    fullName = MCPCatalogQuery.text(profile["name"] as? String ?? username, limit: 120)
+  }
+
+  public var displayRepresentation: DisplayRepresentation {
+    DisplayRepresentation(title: "\(fullName)", subtitle: "@\(username)",
+      image: .init(systemName: "person.crop.circle", isTemplate: true))
+  }
+}
+
+public struct VIDKARAccountUserEntityQuery: EntityStringQuery {
+  public init() {}
+  public func suggestedEntities() async throws -> [VIDKARAccountUserAppEntity] { [] }
+  public func entities(for identifiers: [String]) async throws -> [VIDKARAccountUserAppEntity] {
+    guard identifiers.count <= 5 else { throw MCPError.invalidResponse }
+    let session = try await MCPTransport.shared.querySession()
+    var entities: [VIDKARAccountUserAppEntity] = []
+    for identifier in identifiers {
+      let parts = identifier.split(separator: "|", omittingEmptySubsequences: false)
+      guard parts.count == 2, parts[0] == Substring(session.ownerId), !parts[1].isEmpty else {
+        throw MCPError.ownerMismatch
+      }
+      let profile = try await queryVIDKARReadTool("get_user", arguments: ["userId": String(parts[1])], session: session)
+      guard profile["id"] as? String == String(parts[1]) else { throw MCPError.invalidResponse }
+      entities.append(try VIDKARAccountUserAppEntity(profile: profile, ownerId: session.ownerId))
+    }
+    try await MCPTransport.shared.assertQuerySession(session)
+    return entities
+  }
+  public func entities(matching string: String) async throws -> [VIDKARAccountUserAppEntity] {
+    let session = try await MCPTransport.shared.querySession()
+    let outcome = try await queryVIDKARUserByUsername(string)
+    guard case .found(_, _, _, let resultId) = outcome else {
+      if case .ambiguous = outcome { throw VIDKARUserSearchFailure.ambiguous }
+      return []
+    }
+    let stored = try await MCPTransport.shared.getNaturalLanguageResult(resultId: resultId, ownerId: session.ownerId)
+    guard let envelope = try JSONSerialization.jsonObject(with: Data(stored.utf8)) as? [String: Any],
+          let profile = envelope["data"] as? [String: Any] else { throw MCPError.invalidResponse }
+    try await MCPTransport.shared.assertQuerySession(session)
+    return [try VIDKARAccountUserAppEntity(profile: profile, ownerId: session.ownerId)]
+  }
+}
+
+private func readVIDKARPayload(_ output: String) throws -> [String: Any] {
+  guard output.utf8.count <= 200_000,
+        let payload = try JSONSerialization.jsonObject(with: Data(output.utf8)) as? [String: Any] else {
+    throw MCPError.invalidResponse
+  }
+  guard payload["success"] as? Bool == true else {
+    throw MCPCatalogQuery.failure(code: (payload["error"] as? [String: Any])?["code"] as? String)
+  }
+  return payload
+}
+
+private func queryVIDKARReadTool(_ name: String, arguments: [String: Any],
+  session: (revision: UUID, ownerId: String)) async throws -> [String: Any] {
+  let output = try await MCPTransport.shared.executeForSession(name: name, arguments: arguments,
+    ownerId: session.ownerId, revision: session.revision.uuidString)
+  let payload = try readVIDKARPayload(output)
+  try await MCPTransport.shared.assertQuerySession(session)
+  return payload
+}
+
+private func vidkarReadUserID(_ user: VIDKARAccountUserAppEntity?,
+  session: (revision: UUID, ownerId: String)) throws -> String {
+  guard let user else { return session.ownerId }
+  let parts = user.id.split(separator: "|", omittingEmptySubsequences: false)
+  guard parts.count == 2, parts[0] == Substring(session.ownerId), !parts[1].isEmpty,
+        parts[1].count <= 120 else { throw MCPError.ownerMismatch }
+  return String(parts[1])
+}
+
+public enum VIDKARReadPeriod: String, AppEnum {
+  case today, yesterday, this_week, last_week, this_month, last_month, this_year
+  public static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Período de consulta")
+  public static let caseDisplayRepresentations: [Self: DisplayRepresentation] = [
+    .today: "Hoy", .yesterday: "Ayer", .this_week: "Esta semana", .last_week: "La semana pasada",
+    .this_month: "Este mes", .last_month: "El mes pasado", .this_year: "Este año",
+  ]
+}
+
+public struct VIDKARReadReportEntity: TransientAppEntity {
+  public static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Consulta VIDKAR")
+  public static let defaultQuery = VIDKARReadReportQuery()
+  public var id: String
+  @Property(title: "Título") public var title: String
+  @Property(title: "Resultado de consulta") public var summary: String
+  public init() { id = UUID().uuidString; title = ""; summary = "" }
+  init(title: String, lines: [String]) {
+    id = UUID().uuidString; self.title = title; summary = lines.joined(separator: "\n")
+  }
+  public var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(title)", subtitle: "\(summary)") }
+}
+
+public struct VIDKARReadReportQuery: EntityQuery {
+  public init() {}
+  public func entities(for identifiers: [String]) async throws -> [VIDKARReadReportEntity] { [] }
+  public func suggestedEntities() async throws -> [VIDKARReadReportEntity] { [] }
+}
+
+public struct VIDKARGetUserServiceUsageIntent: AppIntent {
+  public init() {}
+  public static let title: LocalizedStringResource = "Consulta consumo de un usuario"
+  public static let description = IntentDescription("Consulta Proxy o VPN de la cuenta indicada por username o por una entidad de usuario devuelta antes. Si omites usuario, consulta tu cuenta. Solo lectura autorizada; no muestra contraseñas ni servidores.")
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  public static let openAppWhenRun = false
+  @Parameter(title: "Usuario") public var user: VIDKARAccountUserAppEntity?
+  @Parameter(title: "Servicio", default: .proxy) public var service: VIDKARAccountService
+  public static var parameterSummary: some ParameterSummary { Summary("Consulta consumo de \(\.$service) de \(\.$user)") }
+  public func perform() async throws -> some IntentResult & ReturnsValue<VIDKARReadReportEntity> & ProvidesDialog & ShowsSnippetView {
+    let session = try await MCPTransport.shared.querySession()
+    let userId = try vidkarReadUserID(user, session: session)
+    let payload = try await queryVIDKARReadTool("get_service_usage", arguments: ["userId": userId], session: session)
+    guard payload["id"] as? String == userId,
+          let username = payload["username"] as? String,
+          let services = payload["serviceUsage"] as? [String: Any],
+          let usage = services[service.rawValue] as? [String: Any],
+          let active = usage["active"] as? Bool,
+          let bytes = usage["usedBytes"] as? Double, bytes.isFinite, bytes >= 0 else { throw MCPError.invalidResponse }
+    var lines = [active ? "Activo" : "Inactivo", "\(ByteCountFormatter.string(fromByteCount: Int64(min(bytes, Double(Int64.max / 2))), countStyle: .binary)) usados"]
+    if let connected = usage["connected"] as? Bool { lines.append(connected ? "Conectado" : "Sin conexión") }
+    if usage["unlimited"] as? Bool == true { lines.append("Sin límite") }
+    else if let limit = usage["limitMB"] as? Double, limit.isFinite, limit >= 0 { lines.append("Límite: \(limit) MB") }
+    else { throw MCPError.invalidResponse }
+    if let expiry = usage["expiresAt"] as? String { lines.append("Vencimiento: \(MCPCatalogQuery.text(expiry, limit: 40))") }
+    let title = "Consumo \(service.rawValue.uppercased())"
+    return .result(value: VIDKARReadReportEntity(title: title, lines: lines),
+      dialog: "El consumo está disponible en la tarjeta.",
+      view: VIDKARReadSnippetView(title: title, subtitle: "@\(username)", lines: lines))
+  }
+}
+
+public struct VIDKARGetUserSalesIntent: AppIntent {
+  public init() {}
+  public static let title: LocalizedStringResource = "Consulta ventas de un usuario"
+  public static let description = IntentDescription("Muestra las primeras cinco ventas asociadas a la cuenta y el total de registros del período. No son necesariamente ventas generadas por el usuario. Omite usuario para consultar tu cuenta. No suma importes de monedas diferentes.")
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  public static let openAppWhenRun = false
+  @Parameter(title: "Usuario") public var user: VIDKARAccountUserAppEntity?
+  @Parameter(title: "Período", default: .this_month) public var period: VIDKARReadPeriod
+  public static var parameterSummary: some ParameterSummary { Summary("Consulta ventas de \(\.$user) en \(\.$period)") }
+  public func perform() async throws -> some IntentResult & ReturnsValue<VIDKARReadReportEntity> & ProvidesDialog & ShowsSnippetView {
+    let session = try await MCPTransport.shared.querySession()
+    let payload = try await queryVIDKARReadTool("get_sales", arguments: [
+      "userId": try vidkarReadUserID(user, session: session), "period": period.rawValue, "limit": 5, "offset": 0, "sort": "newest",
+    ], session: session)
+    let lines = try vidkarFinancialRows(payload, key: "sales", totalKey: "total")
+    let title = "Ventas asociadas a la cuenta"
+    return .result(value: VIDKARReadReportEntity(title: title, lines: lines), dialog: "Las ventas están disponibles en la tarjeta.",
+      view: VIDKARReadSnippetView(title: title, subtitle: vidkarReportPeriod(payload), lines: lines))
+  }
+}
+
+public enum VIDKARUserRecordKind: String, AppEnum {
+  case purchases, orders, profile
+  public static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Datos de usuario")
+  public static let caseDisplayRepresentations: [Self: DisplayRepresentation] = [
+    .purchases: "Compras", .orders: "Órdenes", .profile: "Datos del perfil",
+  ]
+}
+
+public struct VIDKARGetUserRecordsIntent: AppIntent {
+  public init() {}
+  public static let title: LocalizedStringResource = "Consulta datos de un usuario"
+  public static let description = IntentDescription("Consulta compras, órdenes o más datos del perfil autorizado. Usuario se resuelve por username; sin usuario consulta tu cuenta. Solo devuelve campos mínimos, sin correos, teléfonos, referencias de pago ni credenciales.")
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  public static let openAppWhenRun = false
+  @Parameter(title: "Usuario") public var user: VIDKARAccountUserAppEntity?
+  @Parameter(title: "Datos", default: .purchases) public var records: VIDKARUserRecordKind
+  @Parameter(title: "Período", default: .this_month) public var period: VIDKARReadPeriod
+  public static var parameterSummary: some ParameterSummary { Summary("Consulta \(\.$records) de \(\.$user) en \(\.$period)") }
+  public func perform() async throws -> some IntentResult & ReturnsValue<VIDKARReadReportEntity> & ProvidesDialog & ShowsSnippetView {
+    let session = try await MCPTransport.shared.querySession()
+    let userId = try vidkarReadUserID(user, session: session)
+    let tool = records == .profile ? "get_user" : records == .purchases ? "get_user_purchase_history" : "get_orders"
+    var arguments: [String: Any] = ["userId": userId]
+    if records != .profile { arguments.merge(["period": period.rawValue, "limit": 5, "offset": 0, "sort": "newest"]) { _, new in new } }
+    let payload = try await queryVIDKARReadTool(tool, arguments: arguments, session: session)
+    let lines: [String]
+    if records == .profile {
+      guard payload["id"] as? String == userId,
+            let username = payload["username"] as? String, let banned = payload["banned"] as? Bool else { throw MCPError.invalidResponse }
+      lines = [
+        MCPCatalogQuery.text(payload["name"] as? String ?? username, limit: 120), "@\(MCPCatalogQuery.text(username, limit: 120))",
+        "Rol: \(MCPCatalogQuery.text(payload["role"] as? String ?? "No disponible", limit: 60))",
+        banned ? "Cuenta bloqueada" : "Cuenta no bloqueada",
+      ]
+    } else if records == .purchases {
+      guard payload["userId"] as? String == userId else { throw MCPError.invalidResponse }
+      lines = try vidkarFinancialRows(payload, key: "sales", totalKey: "totalSales")
+    } else {
+      guard let rows = payload["orders"] as? [[String: Any]], rows.count <= 5,
+            let pagination = payload["pagination"] as? [String: Any],
+            let total = pagination["total"] as? Int, total >= rows.count else { throw MCPError.invalidResponse }
+      lines = ["\(total) órdenes; primeras \(rows.count)."] + (rows.isEmpty ? ["No hay registros en este período."] : try rows.map {
+        guard let status = $0["status"] as? String else { throw MCPError.invalidResponse }
+        return "Estado: \(MCPCatalogQuery.text(status, limit: 40)) · \(MCPCatalogQuery.text($0["createdAt"] as? String ?? "", limit: 40))"
+      })
+    }
+    let title = records == .profile ? "Perfil VIDKAR" : records == .purchases ? "Compras VIDKAR" : "Órdenes VIDKAR"
+    return .result(value: VIDKARReadReportEntity(title: title, lines: lines), dialog: "Los datos están disponibles en la tarjeta.",
+      view: VIDKARReadSnippetView(title: title, subtitle: records == .profile ? "" : vidkarReportPeriod(payload), lines: lines))
+  }
+}
+
+private func vidkarFinancialRows(_ payload: [String: Any], key: String, totalKey: String) throws -> [String] {
+  guard let rows = payload[key] as? [[String: Any]], rows.count <= 5,
+        let total = payload[totalKey] as? Int, total >= rows.count else { throw MCPError.invalidResponse }
+  return ["\(total) registros; primeros \(rows.count)."] + (rows.isEmpty ? ["No hay registros en este período."] : try rows.map { row in
+    guard let amount = row["amount"] as? Double, amount.isFinite,
+          let currency = row["currency"] as? String, !currency.isEmpty,
+          let service = row["service"] as? String,
+          let status = row["status"] as? String else { throw MCPError.invalidResponse }
+    return "\(MCPCatalogQuery.text(service, limit: 40)) · \(String(format: "%.2f", amount)) \(MCPCatalogQuery.text(currency, limit: 12)) · \(MCPCatalogQuery.text(status, limit: 40))"
+  })
+}
+
+private func vidkarReportPeriod(_ payload: [String: Any]) -> String {
+  guard let period = payload["period"] as? [String: Any],
+        let from = period["from"] as? String, let to = period["to"] as? String else { return "" }
+  return "\(MCPCatalogQuery.text(from, limit: 40)) — \(MCPCatalogQuery.text(to, limit: 40)) · UTC"
+}
+
+public enum VIDKARPersonalRecordKind: String, AppEnum {
+  case message, subscription
+  public static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Datos de mi cuenta")
+  public static let caseDisplayRepresentations: [Self: DisplayRepresentation] = [
+    .message: "Mensajes", .subscription: "Suscripciones",
+  ]
+}
+
+public struct VIDKARGetMyRecordsIntent: AppIntent {
+  public init() {}
+  public static let title: LocalizedStringResource = "Consulta mis mensajes o suscripciones"
+  public static let description = IntentDescription("Consulta mensajes enviados o recibidos y suscripciones de tu propia cuenta. No permite consultar los de otro usuario ni marca mensajes como leídos. Devuelve los primeros cinco resultados sin abrir VIDKAR.")
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  public static let openAppWhenRun = false
+  @Parameter(title: "Datos", default: .subscription) public var records: VIDKARPersonalRecordKind
+  @Parameter(title: "Texto de búsqueda", default: "") public var query: String
+  @Parameter(title: "Período") public var period: VIDKARReadPeriod?
+  public static var parameterSummary: some ParameterSummary { Summary("Consulta mis \(\.$records)") }
+  public func perform() async throws -> some IntentResult & ReturnsValue<VIDKARReadReportEntity> & ProvidesDialog & ShowsSnippetView {
+    let session = try await MCPTransport.shared.querySession()
+    var arguments: [String: Any] = ["entity": records.rawValue, "limit": 5, "offset": 0, "sort": "newest"]
+    if !query.isEmpty { arguments["query"] = try MCPCatalogQuery.query(query) }
+    if let period { arguments["period"] = period.rawValue }
+    let payload = try await queryVIDKARReadTool("search_entities", arguments: arguments, session: session)
+    guard let rows = payload["results"] as? [[String: Any]], rows.count <= 5,
+          let pagination = payload["pagination"] as? [String: Any],
+          let total = pagination["total"] as? Int, total >= rows.count else { throw MCPError.invalidResponse }
+    let lines = ["\(total) registros; primeros \(rows.count)."] + (rows.isEmpty ? ["No hay resultados."] : try rows.map { row in
+      guard row["type"] as? String == records.rawValue, let title = row["title"] as? String else { throw MCPError.invalidResponse }
+      return [MCPCatalogQuery.text(title, limit: 120), MCPCatalogQuery.text(row["subtitle"] as? String ?? "", limit: 100),
+        MCPCatalogQuery.text(row["description"] as? String ?? "", limit: 160)].filter { !$0.isEmpty }.joined(separator: " · ")
+    })
+    let title = records == .message ? "Mis mensajes VIDKAR" : "Mis suscripciones VIDKAR"
+    return .result(value: VIDKARReadReportEntity(title: title, lines: lines), dialog: "Los datos están disponibles en la tarjeta.",
+      view: VIDKARReadSnippetView(title: title, subtitle: "Solo tu cuenta", lines: lines))
+  }
+}
+
+public enum VIDKARBusinessReportKind: String, AppEnum {
+  case summary, payments, costs, profitability
+  public static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Informe del negocio")
+  public static let caseDisplayRepresentations: [Self: DisplayRepresentation] = [
+    .summary: "Resumen de ventas", .payments: "Pagos", .costs: "Costos registrados", .profitability: "Rentabilidad registrada",
+  ]
+}
+
+public struct VIDKARGetBusinessReportIntent: AppIntent {
+  public init() {}
+  public static let title: LocalizedStringResource = "Consulta el negocio"
+  public static let description = IntentDescription("Consulta resumen de ventas, pagos, costos o rentabilidad dentro del alcance del token. Solo lectura. No presenta los totales sin moneda del backend como un saldo monetario ni estima costos ausentes.")
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+  public static let openAppWhenRun = false
+  @Parameter(title: "Informe", default: .summary) public var report: VIDKARBusinessReportKind
+  @Parameter(title: "Período", default: .this_month) public var period: VIDKARReadPeriod
+  public static var parameterSummary: some ParameterSummary { Summary("Consulta \(\.$report) en \(\.$period)") }
+  public func perform() async throws -> some IntentResult & ReturnsValue<VIDKARReadReportEntity> & ProvidesDialog & ShowsSnippetView {
+    let session = try await MCPTransport.shared.querySession()
+    let tool = report == .summary ? "get_business_summary" : report == .payments ? "get_payments" : report == .costs ? "get_costs" : "get_profitability"
+    var arguments: [String: Any] = ["period": period.rawValue]
+    if report == .payments { arguments["limit"] = 5; arguments["offset"] = 0; arguments["sort"] = "newest" }
+    let payload = try await queryVIDKARReadTool(tool, arguments: arguments, session: session)
+    var lines: [String] = []
+    if report == .summary {
+      for (key, label) in [("totalSales", "Ventas"), ("completedSales", "Completadas"), ("cancelledSales", "Canceladas"), ("failedSales", "Fallidas")] {
+        guard let count = payload[key] as? Int, count >= 0 else { throw MCPError.invalidResponse }
+        lines.append("\(label): \(count)")
+      }
+      lines.append("No se suman importes de monedas diferentes.")
+    } else if report == .payments {
+      guard let rows = payload["payments"] as? [[String: Any]], rows.count <= 5 else { throw MCPError.invalidResponse }
+      lines = rows.isEmpty ? ["No hay pagos en este período."] : try rows.map {
+        guard let amount = $0["amount"] as? Double, amount.isFinite,
+              let currency = $0["currency"] as? String, let status = $0["status"] as? String else { throw MCPError.invalidResponse }
+        return "\(String(format: "%.2f", amount)) \(MCPCatalogQuery.text(currency, limit: 12)) · \(MCPCatalogQuery.text(status, limit: 40))"
+      }
+      if !rows.isEmpty { lines.insert("Primeros \(rows.count) pagos; no es el total del período.", at: 0) }
+    } else {
+      guard let limitations = payload["limitations"] as? [String], !limitations.isEmpty else { throw MCPError.invalidResponse }
+      lines = ["El backend no identifica la moneda de estos agregados; no se muestran como importes financieros."]
+        + limitations.prefix(3).map { MCPCatalogQuery.text($0, limit: 240) }
+    }
+    let title = "Informe VIDKAR"
+    return .result(value: VIDKARReadReportEntity(title: title, lines: lines), dialog: "El informe está disponible en la tarjeta.",
+      view: VIDKARReadSnippetView(title: title, subtitle: vidkarReportPeriod(payload), lines: lines))
+  }
 }
 
 @available(iOS 27.0, *)
 @AppIntent(schema: .system.searchInApp)
 public struct VIDKARSearchInAppIntent: ShowInAppSearchResultsIntent {
   public init() {}
+  public static let isDiscoverable = false
   public static let searchScopes: [StringSearchScope] = [.general, .movies, .tv]
   public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
   public var criteria: StringSearchCriteria
@@ -1699,7 +2316,7 @@ public final class VidkarMCPModule: Module {
     }
     AsyncFunction("discoverTools") { (forceRefresh: Bool) async throws -> [[String: Any]] in
       let tools = try await MCPTransport.shared.discover(force: forceRefresh)
-      return tools.compactMap { tool in
+      return tools.compactMap { tool -> [String: Any]? in
         guard let schemaData = try? JSONEncoder().encode(tool.inputSchema), let schema = try? JSONSerialization.jsonObject(with: schemaData) as? [String: Any] else { return nil }
         let security = tool.meta?["vidkar/security"]?.object ?? [:]
         let securityData = try? JSONEncoder().encode(security)
@@ -1715,7 +2332,18 @@ public final class VidkarMCPModule: Module {
         let readOnly: Bool
         if case .bool(let value)? = tool.annotations?["readOnlyHint"] { readOnly = value } else { readOnly = false }
         let requiresConfirmation: Bool
-        if case .bool(let value)? = security["requiresConfirmation"] { requiresConfirmation = value } else { requiresConfirmation = true }
+        if readOnly {
+          requiresConfirmation = false
+        } else if case .bool(let value)? = security["requiresConfirmation"] {
+          requiresConfirmation = value
+        } else {
+          requiresConfirmation = true
+        }
+        var normalizedSecurity = securityMetadata
+        if readOnly {
+          normalizedSecurity["requiresConfirmation"] = false
+          normalizedSecurity["confirmationFor"] = []
+        }
         return [
           "name": tool.name,
           "description": tool.description as Any,
@@ -1725,7 +2353,7 @@ public final class VidkarMCPModule: Module {
           "dataClass": dataClass,
           "readOnly": readOnly,
           "requiresConfirmation": requiresConfirmation,
-          "security": securityMetadata,
+          "security": normalizedSecurity,
         ]
       }
     }
@@ -1845,16 +2473,15 @@ public struct VIDKARExecuteMCPIntent: AppIntent {
 
     do {
       var safeArguments = arguments
-      // Never treat an argument supplied by Siri/another shortcut as user consent.
+      // Elimina el campo legado; la autorización la valida la sesión y el servidor.
       safeArguments.removeValue(forKey: "confirmed")
       let session = try await MCPTransport.shared.querySession()
-      let rawOutput = try await MCPTransport.shared.executeIntent(
+      let rawOutput = try await MCPTransport.shared.executeForSession(
         name: name,
         arguments: safeArguments,
-        session: session
-      ) {
-        try await requestConfirmation()
-      }
+        ownerId: session.ownerId,
+        revision: session.revision.uuidString
+      )
       let result = VIDKARMCPIntentJSON.toolResult(rawOutput, toolName: name)
       let dialog = result.success
         ? "La herramienta MCP se ejecutó correctamente. El resultado JSON está disponible."
@@ -2026,7 +2653,6 @@ struct VIDKARGeneralQueryIntent: AppIntent {
   @Parameter(title: "Tipo de entidad", default: .all) var entityType: VIDKAREntityType
   @Parameter(title: "Identificador opcional", default: "") var entityID: String
   @Parameter(title: "Acción", default: .search) var action: VIDKARIntentAction
-  @Parameter(title: "Solicitar confirmación adicional", default: false) var confirmationRequired: Bool
 
   static var parameterSummary: some ParameterSummary {
     Summary("\(\.$action) en VIDKAR: \(\.$query)")
@@ -2047,8 +2673,6 @@ struct VIDKARGeneralQueryIntent: AppIntent {
         try await requestConfirmation()
         try await MCPTransport.shared.validatePlayableEntity(entityType: entityType.rawValue, entityId: entityID)
         try await MCPTransport.shared.authorizePlayback(entityType: entityType.rawValue, entityId: entityID)
-      } else if confirmationRequired {
-        try await requestConfirmation()
       }
       await openVIDKARURL(url)
       let response = action == .play ? "Iniciando la reproducción en VIDKAR." : "Abriendo el contenido en VIDKAR."
@@ -2066,11 +2690,7 @@ struct VIDKARGeneralQueryIntent: AppIntent {
     } else if arguments["query"] == nil, !query.isEmpty {
       arguments["query"] = query
     }
-    let policyRequiresConfirmation = try await MCPTransport.shared.confirmationRequired(name: name, arguments: arguments)
-    if policyRequiresConfirmation || confirmationRequired {
-      try await requestConfirmation()
-      arguments["confirmed"] = true
-    }
+    arguments.removeValue(forKey: "confirmed")
     let output = try await MCPTransport.shared.execute(name: name, arguments: arguments)
     let summary = summarizeForSiri(output)
     return .result(value: summary, dialog: IntentDialog(stringLiteral: summary))
@@ -2116,12 +2736,9 @@ private func makeSearchArguments(entity: String, query: String, filtersJSON: Str
 @available(iOS 16.0, *)
 private extension AppIntent {
   func confirmedVIDKARSearch(_ originalArguments: [String: Any], forceConfirmation: Bool = false) async throws -> [VIDKARSearchResultEntity] {
+    _ = forceConfirmation
     var arguments = originalArguments
-    let policyRequiresConfirmation = try await MCPTransport.shared.confirmationRequired(name: "search_entities", arguments: arguments)
-    if forceConfirmation || policyRequiresConfirmation {
-      try await requestConfirmation()
-      arguments["confirmed"] = true
-    }
+    arguments.removeValue(forKey: "confirmed")
     return try await MCPTransport.shared.searchEntities(arguments: arguments)
   }
 
@@ -2129,7 +2746,7 @@ private extension AppIntent {
     var arguments = try makeSearchArguments(entity: entity, query: query)
     if !period.isEmpty { arguments["period"] = period }
     normalizeIntentPeriod(&arguments)
-    return try await confirmedVIDKARSearch(arguments, forceConfirmation: true)
+    return try await confirmedVIDKARSearch(arguments)
   }
 
   func confirmedVIDKARTypedSearch<Entity: VIDKARTypedAppEntity>(
@@ -2235,13 +2852,12 @@ struct VIDKARListUserDataIntent: AppIntent {
 @available(iOS 16.0, *)
 struct VIDKARExecuteActionIntent: AppIntent {
   static var title: LocalizedStringResource = "Ejecutar consulta VIDKAR"
-  static var description = IntentDescription("Ejecuta una herramienta MCP permitida. Solo se aceptan herramientas de lectura y se confirma cualquier consulta sensible.")
+  static var description = IntentDescription("Ejecuta una herramienta MCP permitida de solo lectura con los permisos de tu cuenta.")
   static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
   @Parameter(title: "Herramienta MCP") var toolName: String
   @Parameter(title: "Argumentos JSON", default: "{}") var argumentsJSON: String
   @Parameter(title: "Acción solicitada", default: "consultar") var requestedAction: String
-  @Parameter(title: "Confirmación adicional", default: true) var confirmationRequired: Bool
 
   static var parameterSummary: some ParameterSummary { Summary("\(\.$requestedAction) con \(\.$toolName) en VIDKAR") }
 
@@ -2250,11 +2866,7 @@ struct VIDKARExecuteActionIntent: AppIntent {
       throw MCPError.server("Los argumentos deben ser un objeto JSON válido.")
     }
     normalizeIntentPeriod(&arguments)
-    let policyRequiresConfirmation = try await MCPTransport.shared.confirmationRequired(name: toolName, arguments: arguments)
-    if policyRequiresConfirmation || confirmationRequired {
-      try await requestConfirmation()
-      arguments["confirmed"] = true
-    }
+    arguments.removeValue(forKey: "confirmed")
     let output = try await MCPTransport.shared.execute(name: toolName, arguments: arguments)
     let summary = summarizeForSiri(output)
     return .result(value: summary, dialog: IntentDialog(stringLiteral: summary))

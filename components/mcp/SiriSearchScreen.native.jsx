@@ -8,7 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppHeader, { MENU_PRINCIPAL_HEADER_COLOR, useAppHeaderContentInset } from "../Header/AppHeader";
 import { assertMCPQuerySession, authorizeMCPPlayback, consumeMCPPlaybackAuthorization, executeMCPTool, getMCPNaturalLanguageResult, getMCPQuerySession } from "../../services/mcp/mcpClient";
-import { IN_APP_SEARCH_CATEGORIES, makeInAppSearchArguments, PRIVATE_SEARCH_TYPES } from "../../services/mcp/inAppSearch";
+import { IN_APP_SEARCH_CATEGORIES, makeInAppSearchArguments } from "../../services/mcp/inAppSearch";
 import { ensureMeteorSession } from "../../services/meteor/client.native";
 import { useCurrentSession } from "../../services/meteor/session.native";
 import { isMCPAdmin } from "../../services/mcp/mcpAccess";
@@ -117,18 +117,6 @@ const UserSearchResultCard = ({ item, onPress, theme }) => {
   );
 };
 
-const requestPrivateConfirmation = () => new Promise((resolve) => {
-  Alert.alert(
-    "Información privada",
-    "Esta consulta accederá a información privada de tu cuenta. ¿Quieres continuar?",
-    [
-      { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
-      { text: "Continuar", onPress: () => resolve(true) },
-    ],
-    { cancelable: true, onDismiss: () => resolve(false) },
-  );
-});
-
 const requestPlaybackConfirmation = (title) => new Promise((resolve) => {
   Alert.alert(
     "Iniciar reproducción",
@@ -163,7 +151,6 @@ export default function SiriSearchScreen() {
   const [results, setResults] = React.useState([]);
   const [pagination, setPagination] = React.useState(null);
   const [snapshot, setSnapshot] = React.useState(null);
-  const privateConfirmedRef = React.useRef(null);
   const requestRef = React.useRef(0);
   const mountedRef = React.useRef(false);
   const snapshotReaderRef = React.useRef(null);
@@ -206,26 +193,11 @@ export default function SiriSearchScreen() {
       if (!userId || Meteor.userId() !== userId) throw new Error("Inicia sesión en VIDKAR para continuar.");
       if (!userIsMCPAdmin) throw new Error("La búsqueda Siri y MCP está disponible solo para administradores.");
       const args = makeInAppSearchArguments({ query, entityType, contentId, offset });
-      const session = privateConfirmedRef.current || await getMCPQuerySession();
+      const session = await getMCPQuerySession();
       await assertMCPQuerySession(session);
       if (!isCurrent()) return;
-      let confirmed = PRIVATE_SEARCH_TYPES.has(entityType) && Boolean(privateConfirmedRef.current);
-      if (PRIVATE_SEARCH_TYPES.has(entityType) && !confirmed) {
-        confirmed = await requestPrivateConfirmation();
-        if (!isCurrent()) return;
-        if (confirmed) {
-          await assertMCPQuerySession(session);
-          if (!isCurrent()) return;
-          privateConfirmedRef.current = session;
-        }
-      }
-      if (PRIVATE_SEARCH_TYPES.has(entityType) && !confirmed) {
-        setError("Consulta cancelada; no se accedió a tus datos privados.");
-        setLoading(false);
-        return;
-      }
       if (!isCurrent()) return;
-      const raw = await executeMCPTool("search_entities", { ...args, confirmed }, session);
+      const raw = await executeMCPTool("search_entities", args, session);
       if (!isCurrent()) return;
       const response = typeof raw === "string" ? JSON.parse(raw) : raw;
       if (!response?.success) {
@@ -242,7 +214,6 @@ export default function SiriSearchScreen() {
         : nextResults);
       setPagination(response.pagination || null);
     } catch (searchError) {
-      privateConfirmedRef.current = null;
       if (isCurrent()) setError(searchError?.reason || searchError?.message || "No se pudo completar la búsqueda en VIDKAR.");
     } finally {
       if (isCurrent()) setLoading(false);
@@ -253,7 +224,6 @@ export default function SiriSearchScreen() {
 
   React.useLayoutEffect(() => {
     mountedRef.current = true;
-    privateConfirmedRef.current = null;
     loadResults({ offset: 0, append: false });
     return () => {
       mountedRef.current = false;
@@ -465,7 +435,7 @@ export default function SiriSearchScreen() {
                     accessibilityState={{ selected: entityType === value }} onPress={() => search(value)}>{label}</Chip>
                 ))}
               </View>
-              <Text variant="bodySmall">Elige dónde buscar. El catálogo no incluye usuarios; esa consulta requiere confirmación.</Text>
+              <Text variant="bodySmall">Elige dónde buscar. Las consultas se limitan a los datos autorizados para tu cuenta.</Text>
               <View style={styles.categories}>
                 <Button mode="contained" onPress={() => search()} disabled={loading}>Buscar</Button>
                 <Button mode="outlined" onPress={() => search("course", "")}>Ver todos los cursos</Button>

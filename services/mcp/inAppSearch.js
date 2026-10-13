@@ -12,14 +12,14 @@ export const PRIVATE_SEARCH_TYPES = new Set(["user", "purchase", "sale", "order"
 const SEARCH_TYPES = new Set([...IN_APP_SEARCH_CATEGORIES.map(({ value }) => value), "episode", ...PRIVATE_SEARCH_TYPES]);
 const LISTABLE_TYPES = new Set(["course", "purchase", "sale", "order", "message", "subscription"]);
 
-export function makeInAppSearchArguments({ query, entityType, contentId = "", offset = 0, confirmed = false }) {
+export function makeInAppSearchArguments({ query, entityType, contentId = "", offset = 0 }) {
   if (typeof query !== "string" || !SEARCH_TYPES.has(entityType)) throw new Error("La búsqueda recibida no es válida.");
   // Una película seleccionada se resuelve por identidad, sin depender de su
   // título actual ni de la página en la que apareció en el catálogo.
   if (entityType === "movie" && contentId) {
     if (typeof contentId !== "string" || contentId.length > 120 || !contentId.trim()
       || /[\u0000-\u001f\u007f]/.test(contentId)) throw new Error("El identificador de película no es válido.");
-    return { entity: "movie", id: contentId, limit: 1, offset: 0, confirmed: false };
+    return { entity: "movie", id: contentId, limit: 1, offset: 0 };
   }
   const term = query.trim();
   if (term.length > 120 || /[\u0000-\u001f\u007f]/.test(term)) {
@@ -31,5 +31,5 @@ export function makeInAppSearchArguments({ query, entityType, contentId = "", of
   if (!Number.isInteger(offset) || offset < 0 || offset > (entityType === "all" ? 200 : 10000)) {
     throw new Error("Se alcanzó el límite de búsqueda. Elige una categoría o precisa el texto.");
   }
-  return { entity: entityType, query: term, limit: 20, offset, confirmed: PRIVATE_SEARCH_TYPES.has(entityType) && confirmed === true };
+  return { entity: entityType, query: term, limit: 20, offset };
 }

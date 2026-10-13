@@ -56,7 +56,7 @@ test("describe errores HTTP con y sin cuerpo", () => {
   assert.match(describeHTTPError(504), /MCP HTTP 504/);
 });
 
-test("formatea catálogo con método, descripción y schema", () => {
+test("formatea catálogo y no marca confirmación para herramientas de solo lectura", () => {
   assert.deepEqual(JSON.parse(formatToolCatalog([
     {
       name: "get_users",
@@ -74,7 +74,7 @@ test("formatea catálogo con método, descripción y schema", () => {
     permissions: ["authenticated", "token-owner-scope"],
     dataClass: "private-or-financial",
     readOnly: true,
-    requiresConfirmation: true,
+    requiresConfirmation: false,
   }]);
 });
 
@@ -83,4 +83,6 @@ test("clasifica herramientas antiguas sin metadatos como no ejecutables", () => 
   assert.equal(tool.readOnly, false);
   assert.equal(tool.requiresConfirmation, true);
   assert.equal(tool.dataClass, "unclassified");
+  const legacyReadTool = JSON.parse(formatToolCatalog([{ name: "get_sales", readOnly: true }]))[0];
+  assert.equal(legacyReadTool.requiresConfirmation, false);
 });

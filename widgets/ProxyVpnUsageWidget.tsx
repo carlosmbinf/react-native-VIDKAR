@@ -1,7 +1,6 @@
 import {
   HStack,
   Image,
-  Link,
   ProgressView,
   Spacer,
   Text,
@@ -50,6 +49,8 @@ export type ProxyVpnUsageWidgetProps = {
     vpn: number;
   }[];
   isAdmin: boolean;
+  mcpRefreshAvailable: boolean;
+  mcpOwnerId: string | null;
   proxyEnabled: boolean;
   proxyProgress: number;
   proxyStatus: string;
@@ -59,6 +60,7 @@ export type ProxyVpnUsageWidgetProps = {
   vpnStatus: string;
   vpnUsed: string;
   updatedAt: string;
+  refreshMessage?: string;
 };
 
 const ProxyVpnUsageWidget = (
@@ -188,7 +190,7 @@ const ProxyVpnUsageWidget = (
     >
       <HStack spacing={8}>
         <Image
-          systemName="person.crop.circle.badge.arrow.right"
+          systemName="person.crop.circle"
           modifiers={imageModifiers("#4DA3FF")}
         />
         <Text
@@ -394,16 +396,6 @@ const ProxyVpnUsageWidget = (
             VIDKAR
           </Text>
           <Spacer />
-          {!isSmall ? (
-            <Link
-              destination="vidkar://?widgetRefresh=1"
-              label="↻"
-              modifiers={[
-                font({ size: 17, weight: "bold" }),
-                foregroundStyle("#90CAF9"),
-              ]}
-            />
-          ) : null}
         </HStack>
 
         {!props.authenticated ? renderLoginCard() : renderAuthenticatedContent()}
@@ -419,15 +411,15 @@ const ProxyVpnUsageWidget = (
             Actualizado {props.updatedAt}
           </Text>
           <Spacer />
-          {!isSmall ? (
+          {props.refreshMessage ? (
             <Text
               modifiers={[
                 font({ size: 9, weight: "semibold" }),
-                foregroundStyle(secondaryText),
-                lineLimit(1),
+                foregroundStyle("#FFB4A6"),
+                lineLimit(2),
               ]}
             >
-              Toca para actualizar
+              {props.refreshMessage}
             </Text>
           ) : null}
         </HStack>

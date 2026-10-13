@@ -69,7 +69,8 @@ private actor FixtureNetwork {
     let name = params["name"] as? String
     if method == "initialize" { initializations += 1 }
     if method == "tools/list" { discoveries += 1 }
-    let isQuery = name == "search_entities" || name == "get_service_usage"
+    let reportTools = ["get_sales", "get_user_purchase_history", "get_orders", "get_business_summary", "get_payments", "get_costs", "get_profitability"]
+    let isQuery = name == "search_entities" || name == "get_service_usage" || reportTools.contains(name ?? "")
     let isUserProfile = name == "get_user"
     if isQuery { lastArguments = params["arguments"] as? [String: Any] ?? [:] }
     if isUserProfile { lastProfileArguments = params["arguments"] as? [String: Any] ?? [:] }
@@ -80,14 +81,20 @@ private actor FixtureNetwork {
     await checkpoint([phase, method == "initialize" ? "initialize-\(initializations)" : "", method == "tools/list" ? "discover-\(discoveries)" : ""])
     let result: [String: Any]
     if method == "tools/list" {
-      var searchProperties: [String: Any] = ["entity": [:], "confirmed": [:], "userId": [:], "limit": [:], "offset": [:], "query": [:], "category": [:], "id": [:]]
+      var searchProperties: [String: Any] = ["entity": [:], "confirmed": [:], "userId": [:], "limit": [:], "offset": [:], "query": [:], "category": [:], "id": [:], "sort": [:], "period": [:]]
       if supportsUsername { searchProperties["username"] = [:] }
+      let reports: [[String: Any]] = reportTools.map { tool in
+        ["name": tool, "inputSchema": ["properties": ["userId": [:], "period": [:], "limit": [:], "offset": [:], "sort": [:]]],
+          "annotations": ["readOnlyHint": readOnly]]
+      }
       result = ["tools": [
-        ["name": "search_entities", "inputSchema": ["properties": searchProperties], "annotations": ["readOnlyHint": readOnly]],
+        ["name": "search_entities", "inputSchema": ["properties": searchProperties], "annotations": ["readOnlyHint": readOnly],
+          "_meta": ["vidkar/security": ["requiresConfirmation": true]]],
         ["name": "get_user", "inputSchema": ["properties": ["userId": [:], "confirmed": [:]]], "annotations": ["readOnlyHint": readOnly],
           "_meta": ["vidkar/security": ["requiresConfirmation": true]]],
-        ["name": "get_service_usage", "inputSchema": ["properties": ["userId": [:], "confirmed": [:]]], "annotations": ["readOnlyHint": readOnly]],
-      ]]
+        ["name": "get_service_usage", "inputSchema": ["properties": ["userId": [:], "confirmed": [:]]], "annotations": ["readOnlyHint": readOnly],
+          "_meta": ["vidkar/security": ["requiresConfirmation": true]]],
+      ] + reports]
     } else if name == "get_current_user" {
       let owner = request.value(forHTTPHeaderField: "Authorization")!.contains("other-owner") ? "other-owner" : "fixture-owner"
       result = ["content": [["type": "text", "text": "{\"success\":true,\"userId\":\"\(owner)\"}"]]]
@@ -168,17 +175,23 @@ private struct MCPTransportSessionTests {
     let output = try await transport.executeForSession(name: "search_entities", arguments: arguments,
       ownerId: current.ownerId, revision: current.revision.uuidString)
     precondition(output.contains("\"success\":true"))
+    let executedArguments = await network.lastArguments
+    precondition(executedArguments["confirmed"] == nil, "El campo heredado no se envía al servidor")
+    let catalogOutput = try await transport.catalog(forceRefresh: true)
+    let catalog = try JSONSerialization.jsonObject(with: Data(catalogOutput.utf8)) as! [[String: Any]]
+    precondition(catalog.allSatisfy { $0["requiresConfirmation"] as? Bool == false }, "Las tools de solo lectura no anuncian confirmación")
+    precondition(catalog.allSatisfy { ($0["security"] as? [String: Any])?["requiresConfirmation"] as? Bool == false })
     do {
       _ = try await transport.executeForSession(name: "search_entities", arguments: arguments,
         ownerId: "other-owner", revision: current.revision.uuidString)
       preconditionFailure("Debe exigir owner")
     } catch MCPError.ownerMismatch { }
 
-    // Los dos intents usan executeIntent: ejecutar su flujo real, incluyendo
-    // discovery y la suspensión de confirmación, no una réplica JS del guard.
+    // Las llamadas MCP de solo lectura no abren prompts, aunque el catálogo remoto
+    // antiguo anuncie requiresConfirmation=true o el caller pase forceConfirmation.
     for owner in ["fixture-owner", "other-owner"] {
       for name in ["search_entities", "get_service_usage"] {
-        for phase in ["discover", "prompt", "discover-2", "initialize-3", "result"] {
+        for phase in ["call-initialize", "discover", "result"] {
           try await transport.configure(url: "https://vidkar.com/mcp", token: "fixture-old-token-not-a-secret", ownerId: "fixture-owner")
           let session = try await transport.querySession()
           await network.pause(at: phase)
@@ -197,8 +210,8 @@ private struct MCPTransportSessionTests {
           let calls = await network.calls
           let prompts = await network.confirmations
           precondition(calls == (phase == "result" ? 1 : 0))
-          precondition(prompts == (phase == "discover" ? 0 : 1))
-          if phase == "discover" || phase == "discover-2" {
+          precondition(prompts == 0, "Las consultas de solo lectura no solicitan consentimiento")
+          if phase == "discover" {
             precondition(transportTestDefaults.data(forKey: "tools.v2") == nil, "Discovery viejo no debe repoblar la caché")
           }
         }
@@ -222,14 +235,11 @@ private struct MCPTransportSessionTests {
     }
     let validSession = try await transport.querySession()
     await network.pause(at: "none")
-    _ = try await transport.executeIntent(name: "get_service_usage", arguments: ["userId": validSession.ownerId, "confirmed": true], session: validSession, forceConfirmation: true) { await network.confirm() }
+    let outputWithoutPrompt = try await transport.executeIntent(name: "get_service_usage", arguments: ["userId": validSession.ownerId, "confirmed": true], session: validSession, forceConfirmation: true) { throw CancellationError() }
+    precondition(outputWithoutPrompt.contains("\"success\":true"), "Una confirmación heredada no bloquea la consulta")
     let prompts = await network.confirmations
-    precondition(prompts == 1, "confirmed de entrada no evita consentimiento")
-    do {
-      _ = try await transport.executeIntent(name: "get_service_usage", arguments: ["userId": validSession.ownerId], session: validSession) { throw CancellationError() }
-      preconditionFailure("Debe propagar cancelación")
-    } catch is CancellationError { }
+    precondition(prompts == 0, "El callback de consentimiento no se invoca para lecturas")
     await transport.clearConfiguration()
-    print("Transporte real: 20 carreras de confirmación/ejecución + 12 de catálogo/opciones/búsquedas; same-owner/ownerchange, caché, cancelación y consentimiento verificados")
+    print("Transporte real: consultas MCP de solo lectura sin prompts; owner/revisión, caché, catálogo y bloqueo de escritura verificados")
   }
 }

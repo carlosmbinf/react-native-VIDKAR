@@ -78,13 +78,13 @@ test("plugin migra provider histórico conservando código anterior/posterior", 
   const shortcut = /    AppShortcut\([\s\S]*?\n    \)\n/.exec(fresh)?.[0];
   assert.ok(shortcut);
   const old = fresh.replace(shortcut, shortcut.repeat(8)).replace("// VIDKAR_APP_SHORTCUTS_PROVIDER_END\n", "");
-  assert.equal((old.match(/    AppShortcut\(/g) || []).length, 8);
+  assert.equal((old.match(/    AppShortcut\(/g) || []).length, 17);
   const suffix = '\n// cambio ajeno posterior\nstruct Other { let braces = "{}" }\n';
   fs.writeFileSync(file, old + suffix);
   await apply();
   const migrated = fs.readFileSync(file, "utf8");
   assert.equal(migrated, fresh + suffix);
-  assert.equal((migrated.match(/    AppShortcut\(/g) || []).length, 1);
+  assert.equal((migrated.match(/    AppShortcut\(/g) || []).length, 10);
   await apply();
   assert.equal(fs.readFileSync(file, "utf8"), migrated);
   const unknown = old.replace("  static var appShortcuts", "  // formato no reconocido\n  static var appShortcuts") + suffix;
@@ -112,7 +112,7 @@ test("los App Intents y el provider compilan en módulos separados", {
     .replace("import ExpoModulesCore\n", "");
   const modulePath = path.join(directory, "VidkarMCP.swift");
   fs.writeFileSync(modulePath, source);
-  const helpers = ["MCPQueryPolicy.swift", "MCPNaturalLanguagePlanner.swift", "MCPInAppSearch.swift", "MCPCatalogQuery.swift"]
+  const helpers = ["MCPQueryPolicy.swift", "MCPNaturalLanguagePlanner.swift", "MCPInAppSearch.swift", "MCPCatalogQuery.swift", "MCPUserSnippet.swift"]
     .map((name) => path.join(__dirname, "../modules/vidkar-mcp/ios", name));
 
   const appDirectory = path.join(directory, "Vidkar");

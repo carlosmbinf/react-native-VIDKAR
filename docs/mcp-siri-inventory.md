@@ -1,6 +1,13 @@
 # Inventario previo: Siri, App Intents y MCP VIDKAR
 
-> **Aviso de vigencia (septiembre de 2026):** este documento conserva una auditoría histórica de la integración Siri/MCP anterior y ya no representa los intents compilados. La superficie Siri vigente es `VIDKARQueryMCPIntent` + `VIDKARExecuteMCPIntent`; consulta `mcp-shortcuts.md`. El backend y la pantalla MCP siguen existiendo de forma independiente.
+> **Código posterior al build 1183:** diecisiete acciones VIDKAR, dieciséis
+> descubribles y una búsqueda foreground oculta; se conservan diez shortcuts.
+> La ficha es resoluble, tiene propiedades de perfil/servicios y una acción de
+> reconsulta del mismo tipo. La ayuda es una consulta personalizada, no adopción
+> semántica del «app toolbox». No se garantiza continuidad conversacional.
+> Véase [estado y límites](./siri-ai-integration.md).
+
+> **Aviso histórico (octubre de 2026):** este documento conserva una auditoría histórica y no representa los intents compilados ni la política actual de confirmación. Consulta [mcp-shortcuts.md](./mcp-shortcuts.md): todas las herramientas MCP actuales son de solo lectura y no requieren `confirmed` ni diálogos de confirmación, incluidos usuarios y finanzas. Se mantienen autenticación, rol administrador, alcance y rechazo de escrituras. La ampliación nativa publica diez shortcuts y quince acciones: perfil, catálogos, consumo, ventas/compras/órdenes, datos propios y negocio. Incluye una cuenta resoluble para composición, sin indexar datos privados. Las menciones a lecturas confirmadas de esta auditoría describen la política anterior, no requisitos vigentes. La confirmación de reproducción o revocación de tokens es independiente.
 
 Auditoría inicial del estado del repositorio y registro de cambios posteriores. La fuente de verdad son los archivos citados, no los nombres sugeridos en el requerimiento.
 
@@ -19,7 +26,7 @@ Auditoría inicial del estado del repositorio y registro de cambios posteriores.
 El catálogo final contiene 25 tools, 2 recursos y 2 prompts. Las definiciones están en `react-download/mcp/server.mjs`; los handlers y proyecciones en `analytics.mjs` y la nueva búsqueda en `search.mjs`. `get_current_user` y `search_entities` se añadieron para validar propietario y buscar entidades; el resto son herramientas existentes. En HTTP, `/mcp` requiere un token Bearer válido. Todos los tools son de lectura. Los argumentos de paginación aceptan `limit` hasta 500 en el schema, sujetos al máximo configurado (100 por defecto), `offset` y `sort=newest|oldest`. Los períodos admiten `today`, `yesterday`, `this_week`, `last_week`, `this_month`, `last_month`, `this_year` y `custom` con `from`/`to`.
 
 | Herramienta | Argumentos principales | Fuente/colecciones | Resultado y alcance | Datos / mutación |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `get_business_summary` | período | `ventas_Recharge`, `transaccionRecargas_DTSHOP`, `ventas`, `COMERCIO_ventas` | KPIs y tendencias, restringidos por alcance del token | Financiero; lectura |
 | `get_users` | `query`, `role`, paginación | `users` | perfiles resumidos filtrados a usuarios accesibles | Personal/rol/estado de servicios; lectura |
 | `search_users` | `query` requerido, paginación | `users` | mismo handler/proyección que `get_users` | Personal; lectura |
@@ -59,7 +66,7 @@ El modo stdio sigue permitiendo descubrir metadatos del catálogo, pero los hand
 La búsqueda del repositorio encontró registros `Meteor.methods` en `server/metodos.js`, `server/main.js`, `server/metodos/*`, `server/cursos/*`, `server/evaluacionesIA/*`, `server/evidencias/*`, `server/api/*`, `server/notificaciones/*` y `server/serverproxy3002.js`. Este mapa enumera los métodos directamente relacionados con las superficies Siri revisadas; no convierte otros métodos administrativos, de background o internos en herramientas MCP.
 
 | Método comprobado | Archivo | Autorización/comportamiento observado | Tratamiento Siri |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `getPelicula(id)` | `server/metodos/peliculas.js` | Método de detalle existente; el reproductor valida acceso/suscripción por los flujos de producto | No exponer su documento ni URL multimedia; búsqueda MCP devuelve solo metadata resumida |
 | `insertAsyncpelisbyyears`, `insertAsyncPelis`, `actualizarSubtitulos` | `server/metodos/peliculas.js` | Importación/actualización administrativa | No invocables desde Siri; mutación |
 | `cursos.catalogo.obtener()` | `server/cursos/methods.js` | Requiere usuario y filtra catálogo por nivel de evaluación | La nueva búsqueda usa proyección resumida y el gate equivalente; nunca expone medios |
@@ -95,7 +102,7 @@ La existencia de una colección no implica que sea publicable o consultable desd
 ## 5. Entidades y rutas actuales
 
 | Entidad solicitada | Evidencia/capacidad backend actual | Ruta móvil identificada | Estado para Siri |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Película | `search_entities` busca solo visibles | `/(normal)/PeliculaPlayer` o resultados `/(normal)/SiriSearch` | búsqueda disponible; player solo tras confirmación |
 | Serie/temporada/capítulo | publicaciones `series`/`temporadas`/`capitulos` usan helpers de visibilidad y exigen `subscipcionPelis`; métodos localizados en `metodos/series.js` son de importación/administración | `/(normal)/SeriesDetail`, `/(normal)/SeriesPlayer` | búsqueda nueva valida suscripción/visibilidad; reproducción confirmada |
 | Curso/lección | `search_entities` valida publicación/nivel; lección además suscripción activa | `/(normal)/Cursos`, `/(normal)/CursoDetalle?courseId=...` | cursos publicados visibles; las búsquedas de lecciones son privadas/confirmadas y playback usa método Meteor autorizado |
@@ -134,6 +141,7 @@ La existencia de una colección no implica que sea publicable o consultable desd
 Las intents privadas de compras, ventas y consultas por entidad usan `VIDKARPeriod`, un `AppEnum` con los períodos `today`, `yesterday`, `this_week`, `last_week`, `this_month`, `last_month`, `this_year` y `last_year`, además de `unspecified` para conservar la semántica anterior de período ausente. El handler convierte estos valores a los argumentos MCP internos; Siri/Atajos no necesitan construir `argumentsJSON`.
 
 La mejora es deliberadamente aditiva: `tools/list`, `tools/call`, autenticación MCP, Keychain, ownership, confirmaciones, autorización de reproducción, entidades tipadas y `VIDKARAppShortcuts` permanecen sin reemplazo. No se añadió una API pública genérica de “App Schemas” ni un target de extensión inventado: con el deployment target actual, las APIs públicas aplicables son App Intents, App Entity, Entity Query, App Enum, Parameter Summary y App Shortcuts. Apple decide finalmente qué intent selecciona para una frase libre, por lo que la integración mejora elegibilidad semántica pero no garantiza que Siri elija VIDKAR para toda formulación.
+
 ## Catálogo canónico de intents
 
 El módulo publica una sola intent por capacidad pública:

@@ -4,18 +4,18 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { expectedIntents, shortcutIntents, validateMetadata, validateAppBundle } = require("../scripts/validate-app-intents-metadata.cjs");
+const { expectedIntents, shortcutIntents, shortcutPhrases, userProfileProperties, validateMetadata, validateAppBundle } = require("../scripts/validate-app-intents-metadata.cjs");
 
 const fixture = () => ({
   actions: {
-    ...Object.fromEntries(expectedIntents.map((id) => [id, { isDiscoverable: true }])),
+    ...Object.fromEntries(expectedIntents.map((id) => [id, { isDiscoverable: true, openAppWhenRun: false, authenticationPolicy: 1 }])),
     VIDKARQueryCatalogIntent: {
       isDiscoverable: true, openAppWhenRun: false, authenticationPolicy: 1, assistantDefinedSchemas: [],
       parameters: [{ name: "query", isOptional: false, valueType: { primitive: { wrapper: { typeIdentifier: 0 } } }, typeSpecificMetadata: [] }],
       outputType: { array: { wrapper: { memberValueType: { entity: { wrapper: { typeName: "VIDKARCatalogResultEntity" } } } } } },
     },
     VIDKARSearchInAppIntent: {
-      isDiscoverable: true,
+      isDiscoverable: false,
       assistantDefinedSchemas: [{ domain: "system", name: "SystemSearchInAppIntent" }],
       availabilityAnnotations: { LNPlatformNameIOS: { introducedVersion: "27.0" } },
       openAppWhenRun: true,
@@ -24,33 +24,55 @@ const fixture = () => ({
       systemProtocolMetadataV2: [{ showInAppStringSearchResults: { searchScopes: ["general", "movies", "tv"] } }],
     },
     VIDKARSearchUserByUsernameIntent: {
-      isDiscoverable: true, openAppWhenRun: true, authenticationPolicy: 1, assistantDefinedSchemas: [],
+      isDiscoverable: true, openAppWhenRun: false, authenticationPolicy: 1, assistantDefinedSchemas: [],
       parameters: [{ name: "username", isOptional: false, valueType: { primitive: { wrapper: { typeIdentifier: 0 } } }, typeSpecificMetadata: [] }],
       outputType: { entity: { wrapper: { typeName: "VIDKARUserSearchAppEntity" } } },
+    },
+    VIDKARGetUserProfileIntent: {
+      isDiscoverable: true, openAppWhenRun: false, authenticationPolicy: 1, assistantDefinedSchemas: [],
+      parameters: [{ name: "user", isOptional: false, valueType: { entity: { wrapper: { typeName: "VIDKARUserSearchAppEntity" } } } }],
+      outputType: { entity: { wrapper: { typeName: "VIDKARUserSearchAppEntity" } } },
+    },
+    VIDKARGetCapabilitiesIntent: {
+      isDiscoverable: true, openAppWhenRun: false, authenticationPolicy: 1, assistantDefinedSchemas: [], parameters: [],
+      outputType: { entity: { wrapper: { typeName: "VIDKARReadReportEntity" } } },
     },
   },
   entities: {
     VIDKARCatalogResultEntity: { transient: true, properties: ["type", "sourceId", "title", "subtitle", "description"].map((identifier) => ({ identifier })) },
-    VIDKARUserSearchAppEntity: { transient: true, properties: ["fullName", "username"].map((identifier) => ({ identifier })) },
+    VIDKARUserSearchAppEntity: { transient: false, properties: userProfileProperties.map((identifier) => ({ identifier })) },
   },
-  autoShortcuts: shortcutIntents.map((actionIdentifier) => ({ actionIdentifier, phraseTemplates: [{ key: "Busca un usuario en ${applicationName}" }] })),
+  autoShortcuts: shortcutIntents.map((actionIdentifier) => ({ actionIdentifier, phraseTemplates: [{ key: shortcutPhrases[actionIdentifier] }] })),
 });
 
 const writeSpanishResources = (app, locale = "es") => {
   const directory = path.join(app, `${locale}.lproj`);
   fs.mkdirSync(directory, { recursive: true });
-  fs.writeFileSync(path.join(directory, "AppShortcuts.strings"), JSON.stringify({ "Busca un usuario en ${applicationName}": "Busca un usuario en ${applicationName}" }));
+  fs.writeFileSync(path.join(directory, "AppShortcuts.strings"), JSON.stringify(Object.fromEntries(Object.values(shortcutPhrases).map((key) => [key, key]))));
   const catalog = JSON.parse(fs.readFileSync(path.join(__dirname, "../plugins/resources/vidkar-app-intents/Localizable.xcstrings"), "utf8"));
   fs.writeFileSync(path.join(directory, "Localizable.strings"), JSON.stringify(Object.fromEntries(
     Object.entries(catalog.strings).map(([key, entry]) => [key, entry.localizations.es.stringUnit.value])
   )));
 };
 
-test("acepta diez acciones descubribles y solo el shortcut de username", () => {
+test("acepta diecisiete acciones, búsqueda foreground oculta y diez shortcuts de lectura", () => {
   const summary = validateMetadata(fixture());
-  assert.equal(summary.actions, 10);
-  assert.equal(summary.shortcuts, 1);
-  assert.deepEqual(shortcutIntents, ["VIDKARSearchUserByUsernameIntent"]);
+  assert.equal(summary.actions, 17);
+  assert.equal(summary.shortcuts, 10);
+  assert.equal(shortcutIntents.length, 10);
+});
+
+test("ficha de usuario exige background, autenticación y proyección mínima", () => {
+  for (const mutate of [
+    (m) => { m.actions.VIDKARSearchUserByUsernameIntent.openAppWhenRun = true; },
+    (m) => { m.actions.VIDKARSearchUserByUsernameIntent.authenticationPolicy = 0; },
+    (m) => { m.actions.VIDKARSearchUserByUsernameIntent.parameters[0].isOptional = true; },
+    (m) => { m.entities.VIDKARUserSearchAppEntity.properties.push({ identifier: "email" }); },
+  ]) {
+    const metadata = fixture();
+    mutate(metadata);
+    assert.throws(() => validateMetadata(metadata), /background|username|AppEntity/);
+  }
 });
 
 test("rechaza referencias a shortcuts sin acciones y cada acción ausente", () => {
@@ -66,16 +88,31 @@ test("rechaza acciones ocultas, shortcuts ausentes y experimentales", () => {
   const hidden = fixture();
   hidden.actions[expectedIntents[0]].isDiscoverable = false;
   assert.throws(() => validateMetadata(hidden), /no es descubrible/);
-  assert.throws(() => validateMetadata({ ...fixture(), autoShortcuts: [] }), /único App Shortcut/);
+  assert.throws(() => validateMetadata({ ...fixture(), autoShortcuts: [] }), /diez App Shortcuts/);
   const extraShortcut = fixture();
   extraShortcut.autoShortcuts.push({ actionIdentifier: "VIDKARSearchMoviesIntent", phraseTemplates: [{ key: "Busca películas en ${applicationName}" }] });
-  assert.throws(() => validateMetadata(extraShortcut), /único App Shortcut/);
+  assert.throws(() => validateMetadata(extraShortcut), /diez App Shortcuts/);
   for (const id of ["VIDKARAskQuestionIntent"]) {
     const metadata = fixture();
     metadata.actions[id] = { isDiscoverable: true };
     assert.throws(() => validateMetadata(metadata), /experimental/);
   }
   assert.throws(() => validateMetadata({}), /Formato/);
+});
+
+test("el perfil se reconsulta con la entidad original; no admite apertura ni descubrimiento de searchInApp", () => {
+  for (const [mutate, error] of [
+    [(m) => { m.entities.VIDKARUserSearchAppEntity.transient = true; }, /AppEntity resoluble/],
+    [(m) => { m.actions.VIDKARGetUserProfileIntent.parameters[0].isOptional = true; }, /perfil completo/],
+    [(m) => { m.actions.VIDKARGetUserProfileIntent.parameters[0].valueType.entity.wrapper.typeName = "VIDKARAccountUserAppEntity"; }, /perfil completo/],
+    [(m) => { m.actions.VIDKARGetUserProfileIntent.openAppWhenRun = true; }, /perfil completo/],
+    [(m) => { m.actions.VIDKARGetCapabilitiesIntent.openAppWhenRun = true; }, /capacidades/],
+    [(m) => { m.actions.VIDKARSearchInAppIntent.isDiscoverable = true; }, /oculto/],
+  ]) {
+    const metadata = fixture();
+    mutate(metadata);
+    assert.throws(() => validateMetadata(metadata), error);
+  }
 });
 
 test("exige metadata del bundle principal, no solo la de un framework", (t) => {
@@ -91,7 +128,7 @@ test("exige metadata del bundle principal, no solo la de un framework", (t) => {
   fs.writeFileSync(path.join(root, "extract.actionsdata"), JSON.stringify(fixture()));
   assert.throws(() => validateAppBundle(app), /evidencia española/);
   writeSpanishResources(app);
-  assert.equal(validateAppBundle(app).shortcuts, 1);
+  assert.equal(validateAppBundle(app).shortcuts, 10);
   fs.writeFileSync(path.join(root, "extract.actionsdata"), "not JSON");
   assert.throws(() => validateAppBundle(app), SyntaxError);
 });

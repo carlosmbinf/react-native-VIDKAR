@@ -7,6 +7,7 @@ import { formatToolCatalog, parseArgumentsJSON } from "./mcpProtocol";
 const TOKEN_KEY = "vidkar.mcp.bearer.v1";
 const TOKEN_ID_KEY = "vidkar.mcp.tokenId.v1";
 const PENDING_TOKEN_KEY = "vidkar.mcp.pendingBearer.v1";
+const RECOVERY_REQUIRED_KEY = "vidkar.mcp.recoveryRequired.v1";
 const URL_KEY = "vidkar.mcp.url.v1";
 const TOOL_CACHE_KEY = "vidkar.mcp.tools.v2";
 const TOOL_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -18,6 +19,11 @@ const requireNativeMCP = () => {
 const isHttpsUrl = (value) => /^https:\/\//i.test(String(value || "").trim());
 
 const getConfiguredMCPUrl = () => getMCPUrl();
+const MCP_OWNER_MISMATCH = "El token MCP no pertenece a la sesión actual de VIDKAR.";
+const isMCPOwnerMismatch = (error) => [error?.message, error?.reason, error?.details?.message]
+  .some((message) => typeof message === "string" && message.includes(MCP_OWNER_MISMATCH));
+const isMCPTokenNotFound = (error) => [error?.error, error?.code, error?.reason, error?.message]
+  .some((value) => typeof value === "string" && /mcp-token-not-found|Token MCP no encontrado/i.test(value));
 
 const readCache = async () => {
   const raw = await SecureStore.getItemAsync(TOOL_CACHE_KEY);
@@ -59,10 +65,12 @@ export const configureMCP = async ({ url, token, tokenId }) => {
   await SecureStore.setItemAsync(URL_KEY, normalizedUrl);
   await SecureStore.deleteItemAsync(TOOL_CACHE_KEY);
   await SecureStore.deleteItemAsync(PENDING_TOKEN_KEY);
+  await SecureStore.deleteItemAsync(RECOVERY_REQUIRED_KEY);
 };
 
 export const createAndConfigureMCPToken = async (label = "VIDKAR iOS") => {
   if (!VidkarMCP) throw new Error("La integración MCP de VIDKAR requiere un binario iOS nativo.");
+  const recoveryRequired = await SecureStore.getItemAsync(RECOVERY_REQUIRED_KEY);
   const result = await callMeteorMethod("mcp.tokens.create", label);
   const mcpUrl = getConfiguredMCPUrl() || (isHttpsUrl(result?.mcpUrl) ? result.mcpUrl : null);
   if (!result?.token || !mcpUrl) {
@@ -75,6 +83,7 @@ export const createAndConfigureMCPToken = async (label = "VIDKAR iOS") => {
   } catch (error) {
     if (result?.tokenId) await revokeMCPToken(result.tokenId).catch(() => null);
     await clearMCPConfiguration().catch(() => null);
+    if (recoveryRequired === "1") await SecureStore.setItemAsync(RECOVERY_REQUIRED_KEY, "1");
     throw error;
   }
   return result;
@@ -82,7 +91,14 @@ export const createAndConfigureMCPToken = async (label = "VIDKAR iOS") => {
 
 export const rotateAndConfigureMCPToken = async (tokenId, label = "VIDKAR iOS") => {
   if (!VidkarMCP) throw new Error("La integración MCP de VIDKAR requiere un binario iOS nativo.");
-  const result = await callMeteorMethod("mcp.tokens.rotate", tokenId, label);
+  let result;
+  try {
+    result = await callMeteorMethod("mcp.tokens.rotate", tokenId, label);
+  } catch (error) {
+    if (!isMCPTokenNotFound(error)) throw error;
+    const replacement = await createAndConfigureMCPToken(label);
+    return { ...replacement, replacedMissingBackendToken: true };
+  }
   const mcpUrl = getConfiguredMCPUrl() || (isHttpsUrl(result?.mcpUrl) ? result.mcpUrl : null);
   if (!result?.token || !result?.tokenId || !mcpUrl) {
     if (result?.tokenId) await revokeMCPToken(result.tokenId).catch(() => null);
@@ -109,11 +125,12 @@ export const getMCPAccessStatus = async () => {
   if (!ownerId) throw new Error("Inicia sesión en VIDKAR para consultar el acceso MCP.");
   const nativeModule = requireNativeMCP();
   let configuration;
-  const [initialConfiguration, tokenIdValue, storedBearer, pendingBearer, serverResult] = await Promise.all([
+  const [initialConfiguration, tokenIdValue, storedBearer, pendingBearer, recoveryRequired, serverResult] = await Promise.all([
     nativeModule.getConfiguration(),
     SecureStore.getItemAsync(TOKEN_ID_KEY),
     SecureStore.getItemAsync(TOKEN_KEY),
     SecureStore.getItemAsync(PENDING_TOKEN_KEY),
+    SecureStore.getItemAsync(RECOVERY_REQUIRED_KEY),
     callMeteorMethod("mcp.tokens.list"),
   ]);
   configuration = initialConfiguration;
@@ -129,27 +146,74 @@ export const getMCPAccessStatus = async () => {
     }
   }
   const loadedToken = tokenId ? tokens.find((item) => String(item?.tokenId) === String(tokenId)) : null;
+  const recoverableToken = loadedToken && !loadedToken.revokedAt ? loadedToken : null;
+  const savedBearerMatchesToken = !savedBearer || !loadedToken?.tokenPreview
+    || loadedToken.tokenPreview === `${String(savedBearer).slice(0, 18)}…`;
   const ownerMatches = configuration?.configured === true
     && String(configuration.ownerId) === String(ownerId);
-  let configured = ownerMatches && Boolean(loadedToken) && !loadedToken.revokedAt;
+  let configured = ownerMatches && Boolean(recoverableToken) && savedBearerMatchesToken;
+  const hasLocalCredential = Boolean(tokenIdValue || savedBearer || configuration?.configured || recoveryRequired === "1");
 
-  if (!configured && !configuration?.configured && loadedToken && !loadedToken.revokedAt && savedBearer) {
-    await configureMCP({
-      url: getConfiguredMCPUrl() || serverResult?.mcpUrl,
-      token: savedBearer,
-      tokenId: loadedToken.tokenId,
-    });
-    configuration = await nativeModule.getConfiguration();
-    configured = configuration?.configured === true
-      && String(configuration.ownerId) === String(ownerId);
+  const returnRecoverableToken = async () => {
+    await clearMCPConfiguration();
+    await SecureStore.setItemAsync(TOKEN_ID_KEY, recoverableToken.tokenId);
+    return {
+      configured: false,
+      token: null,
+      recoverableToken,
+      requiresTokenReplacement: false,
+      tokens,
+      mcpUrl: getConfiguredMCPUrl() || serverResult?.mcpUrl || null,
+    };
+  };
+
+  const returnReplacementRequired = async () => {
+    await clearMCPConfiguration();
+    await SecureStore.setItemAsync(RECOVERY_REQUIRED_KEY, "1");
+    return {
+      configured: false,
+      token: null,
+      recoverableToken: null,
+      requiresTokenReplacement: true,
+      tokens,
+      mcpUrl: getConfiguredMCPUrl() || serverResult?.mcpUrl || null,
+    };
+  };
+
+  if (!configured && recoverableToken && savedBearer && !savedBearerMatchesToken) {
+    return returnRecoverableToken();
   }
 
-  if (configuration?.configured && !configured) await clearMCPConfiguration();
+  if (!configured && !configuration?.configured && recoverableToken && savedBearer) {
+    try {
+      await configureMCP({
+        url: getConfiguredMCPUrl() || serverResult?.mcpUrl,
+        token: savedBearer,
+        tokenId: recoverableToken.tokenId,
+      });
+      configuration = await nativeModule.getConfiguration();
+      configured = configuration?.configured === true
+        && String(configuration.ownerId) === String(ownerId);
+    } catch (error) {
+      if (!isMCPOwnerMismatch(error)) throw error;
+      return returnRecoverableToken();
+    }
+  }
+
+  if (configuration?.configured && !configured) {
+    if (recoverableToken) return returnRecoverableToken();
+    if (hasLocalCredential) return returnReplacementRequired();
+    await clearMCPConfiguration();
+  }
   else if (configured && pendingBearer) await SecureStore.deleteItemAsync(PENDING_TOKEN_KEY);
+
+  if (!configured && !recoverableToken && hasLocalCredential) return returnReplacementRequired();
 
   return {
     configured,
     token: configured ? loadedToken : null,
+    recoverableToken: !configured ? recoverableToken : null,
+    requiresTokenReplacement: false,
     tokens,
     mcpUrl: getConfiguredMCPUrl() || serverResult?.mcpUrl || null,
   };
@@ -167,6 +231,7 @@ export const clearMCPConfiguration = async () => {
     SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => null),
     SecureStore.deleteItemAsync(TOKEN_ID_KEY).catch(() => null),
     SecureStore.deleteItemAsync(PENDING_TOKEN_KEY).catch(() => null),
+    SecureStore.deleteItemAsync(RECOVERY_REQUIRED_KEY).catch(() => null),
     SecureStore.deleteItemAsync(URL_KEY).catch(() => null),
     SecureStore.deleteItemAsync(TOOL_CACHE_KEY).catch(() => null),
   ]);
@@ -235,7 +300,6 @@ export const authorizeMCPPlayback = async (entityType, entityId, querySession) =
     id: String(entityId),
     limit: 1,
     offset: 0,
-    ...(String(entityType) === "lesson" ? { confirmed: true } : {}),
   }, querySession);
   const response = typeof responseText === "string" ? JSON.parse(responseText) : responseText;
   const matchingEntity = Array.isArray(response?.results)
@@ -267,9 +331,15 @@ export const discoverMCPTools = async ({ force = false } = {}) => {
     throw new Error("El token MCP no pertenece a la sesión actual de VIDKAR; se eliminó del dispositivo.");
   }
   const cached = await readCache();
-  if (!force && cached && Date.now() - cached.updatedAt < TOOL_CACHE_TTL_MS) return cached.tools;
-  const tools = await requireNativeMCP().discoverTools(force);
-  await SecureStore.setItemAsync(TOOL_CACHE_KEY, JSON.stringify({ updatedAt: Date.now(), tools }));
+  const useCache = !force && cached && Date.now() - cached.updatedAt < TOOL_CACHE_TTL_MS;
+  const tools = (useCache ? cached.tools : await requireNativeMCP().discoverTools(force)).map((tool) => (
+    tool.readOnly === true ? {
+      ...tool,
+      requiresConfirmation: false,
+      security: { ...tool.security, requiresConfirmation: false, confirmationFor: [] },
+    } : tool
+  ));
+  if (!useCache) await SecureStore.setItemAsync(TOOL_CACHE_KEY, JSON.stringify({ updatedAt: Date.now(), tools }));
   return tools;
 };
 
@@ -296,7 +366,7 @@ export const getMCPQuerySession = async () => {
   const nativeModule = requireNativeMCP();
   const configuration = await nativeModule.getConfiguration();
   if (Meteor.userId() !== ownerId || !configuration?.configured || configuration.ownerId !== String(ownerId)) {
-    throw new Error("La sesión MCP cambió. Vuelve a confirmar la consulta en tu cuenta actual.");
+    throw new Error("La sesión MCP cambió. Vuelve a intentarlo desde tu cuenta actual.");
   }
   if (typeof configuration.revision !== "string" || !configuration.revision
     || typeof nativeModule.executeToolForSession !== "function") {
@@ -308,23 +378,21 @@ export const getMCPQuerySession = async () => {
 export const assertMCPQuerySession = async (session) => {
   const current = await getMCPQuerySession();
   if (current.ownerId !== session?.ownerId || current.revision !== session?.revision) {
-    throw new Error("La sesión MCP cambió. Vuelve a confirmar la consulta en tu cuenta actual.");
+    throw new Error("La sesión MCP cambió. Vuelve a intentarlo desde tu cuenta actual.");
   }
 };
 
 export const executeMCPTool = async (toolName, args = {}, querySession = null) => {
-  // Un booleano no permite reconstruir a posteriori la sesión consentida.
-  if (args.confirmed === true && !querySession) {
-    throw new Error("La sesión MCP cambió. Vuelve a confirmar la consulta en tu cuenta actual.");
-  }
+  const safeArguments = { ...args };
+  delete safeArguments.confirmed;
   const session = querySession || await getMCPQuerySession();
   await assertMCPQuerySession(session);
   const tool = await findMCPTool(toolName);
   if (!tool) throw new Error(`La herramienta MCP no está disponible: ${toolName}`);
   if (tool.readOnly !== true) throw new Error("No tienes permisos para realizar esa acción en VIDKAR.");
-  validateMCPArguments(tool, args);
+  validateMCPArguments(tool, safeArguments);
   await assertMCPQuerySession(session);
-  const result = await requireNativeMCP().executeToolForSession(toolName, args, session.ownerId, session.revision);
+  const result = await requireNativeMCP().executeToolForSession(toolName, safeArguments, session.ownerId, session.revision);
   await assertMCPQuerySession(session);
   return result;
 };

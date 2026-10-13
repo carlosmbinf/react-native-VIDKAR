@@ -138,6 +138,7 @@ test("resuelve la suscripción hacia el área de compras", () => {
 test("resuelve el deep link de usuario a una ruta existente con el parámetro esperado", async () => {
   const target = resolveUniversalLink("vidkar://user/user-123");
   const route = await fs.readFile(new URL("../app/(normal)/User.tsx", import.meta.url), "utf8");
+  const userRoute = await fs.readFile(new URL("../components/users/UserRoute.jsx", import.meta.url), "utf8");
   const layout = await fs.readFile(new URL("../app/(normal)/_layout.tsx", import.meta.url), "utf8");
   const appConfig = JSON.parse(await fs.readFile(new URL("../app.json", import.meta.url), "utf8"));
 
@@ -145,7 +146,30 @@ test("resuelve el deep link de usuario a una ruta existente con el parámetro es
     pathname: "/(normal)/User",
     params: { item: "user-123" },
   });
-  assert.match(route, /UserDetails/);
+  assert.match(route, /export \{ default \} from "\.\.\/\.\.\/components\/users\/UserRoute"/);
+  for (const userId of [null, "signed-in-user"]) {
+    const exports = {};
+    const profile = () => null;
+    const login = () => null;
+    const dependencies = {
+      "@meteorrn/core": { useTracker: (callback) => callback(), userId: () => userId },
+      "../loguin/Loguin": { __esModule: true, default: login },
+      "./UserDetails": { __esModule: true, default: profile },
+    };
+    const code = ts.transpileModule(userRoute, {
+      fileName: "UserRoute.jsx",
+      compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React },
+    }).outputText;
+    vm.runInNewContext(code, {
+      exports,
+      React: { createElement: (type) => ({ type }) },
+      require: (name) => {
+        assert.ok(name in dependencies, name);
+        return dependencies[name];
+      },
+    });
+    assert.equal(exports.default().type, userId ? profile : login);
+  }
   assert.match(layout, /name="User"/);
   assert.equal(appConfig.expo.scheme, "vidkar");
 });

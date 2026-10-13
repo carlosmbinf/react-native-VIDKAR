@@ -162,7 +162,8 @@
             }
           ]
         }
-      ]
+      ],
+      "./plugins/with-vidkar-widget-mcp-refresh.js"
     ],
     "experiments": {
       "typedRoutes": true,

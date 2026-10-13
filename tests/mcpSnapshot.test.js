@@ -16,6 +16,7 @@ const sources = await Promise.all([
   "../services/meteor/client.native.js",
   "../app/+native-intent.tsx",
   "../../react-download/mcp/search.mjs",
+  "../components/mcp/MCPSettingsScreen.native.jsx",
 ].map(async (file) => ts.transpileModule(await fs.readFile(new URL(file, import.meta.url), "utf8"), {
   fileName: file.replace(/\.mjs$/, ".js"),
   compilerOptions: {
@@ -27,7 +28,7 @@ const sources = await Promise.all([
 }).outputText));
 
 // Ejecuta el código real con bridge, hooks y reloj aislados; no requiere un binario ni red.
-function fixture({ admin = true, search = false } = {}) {
+function fixture({ admin = true, search = false, settings = false } = {}) {
   const state = {
     now: 1000000,
     userId: "fixture-owner",
@@ -52,6 +53,8 @@ function fixture({ admin = true, search = false } = {}) {
     serverTokens: [],
     serverCalls: [],
     secureStore: new Map(),
+    configureFailureToken: null,
+    allowToolDiscovery: false,
     nextToken: 0,
     response: { success: true, results: [], pagination: { limit: 20, offset: 0, total: 0, hasMore: false } },
     envelope: { query: "Consulta privada", tool: "get_users", data: { results: [{ id: "fixture", type: "user", title: "Privado" }] }, summary: "Resumen privado", expiresAt: 1120000 },
@@ -86,7 +89,14 @@ function fixture({ admin = true, search = false } = {}) {
       } else if (methodName === "mcp.tokens.create") {
         callback(null, issueToken(args[0] || "VIDKAR iOS"));
       } else if (methodName === "mcp.tokens.rotate") {
-        callback(null, issueToken(args[1] || "VIDKAR iOS", args[0]));
+        const existing = state.serverTokens.find((token) => token.tokenId === args[0] && !token.revokedAt);
+        if (!existing) {
+          const error = new Error("Token MCP no encontrado.");
+          error.error = "mcp-token-not-found";
+          callback(error);
+        } else {
+          callback(null, issueToken(args[1] || "VIDKAR iOS", args[0]));
+        }
       } else if (methodName === "mcp.tokens.revoke") {
         const token = state.serverTokens.find((entry) => entry.tokenId === args[0]);
         if (token) token.revokedAt = new Date(state.now);
@@ -105,6 +115,9 @@ function fixture({ admin = true, search = false } = {}) {
   const native = {
     getConfiguration: async () => ({ configured: state.configured, ownerId: state.ownerId, revision: state.revision }),
     configure: async (url, token, ownerId) => {
+      if (token === state.configureFailureToken) {
+        throw new Error("UnexpectedException: El token MCP no pertenece a la sesión actual de VIDKAR.");
+      }
       state.configured = true;
       state.ownerId = String(ownerId);
       state.nativeToken = token;
@@ -128,7 +141,10 @@ function fixture({ admin = true, search = false } = {}) {
       return [{ name: "search_entities", readOnly: true, inputSchema: { properties: {
         entity: {}, query: {}, id: {}, limit: {}, offset: {}, confirmed: {},
       } } }];
-    } : network,
+    } : async () => {
+      if (state.allowToolDiscovery) return [];
+      return network();
+    },
     executeToolForSession: search ? async (tool, args, ownerId, revision) => {
       assert.equal(ownerId, state.ownerId);
       assert.equal(revision, state.revision);
@@ -195,6 +211,7 @@ function fixture({ admin = true, search = false } = {}) {
       getMeteorUrl: () => "wss://www.vidkar.com/websocket",
       normalizeMeteorUrl: (value) => typeof value === "string" && /^wss?:\/\//i.test(value) ? value : null,
     },
+    "../../services/appUrls": { getMCPUrl: () => "https://www.vidkar.com/mcp" },
     "../../modules/vidkar-mcp/src": { VidkarMCP: native },
     "../meteor/client.native": { Meteor },
     "./mcpProtocol": {},
@@ -211,7 +228,7 @@ function fixture({ admin = true, search = false } = {}) {
       useAppHeaderContentInset: () => 112,
     },
     react: React,
-    "react-native": { AppState, Keyboard: { dismiss() {} }, Alert: { alert: search ? (...args) => state.confirmations.push(args) : network }, FlatList: "FlatList", View: "View", Pressable: "Pressable", StyleSheet: { create: (s) => s } },
+    "react-native": { AppState, Keyboard: { dismiss() {} }, Alert: { alert: (...args) => state.confirmations.push(args) }, FlatList: "FlatList", ScrollView: "ScrollView", View: "View", Pressable: "Pressable", StyleSheet: { create: (s) => s } },
     "react-native-paper": {
       useTheme: () => ({ colors: { background: "white" } }),
       Appbar: { Header: "Header", Content: "HeaderContent", BackAction: "Back", Action: "Refresh" },
@@ -230,6 +247,7 @@ function fixture({ admin = true, search = false } = {}) {
     const exports = {};
     vm.runInNewContext(source, {
       exports,
+      React: dependencies.react,
       require: (name) => { assert.ok(name in dependencies, name); return dependencies[name]; },
       Date: class extends Date { static now() { return state.now; } },
       setTimeout: (fn, delay) => addTimer(fn, delay), clearTimeout: (id) => timers.delete(id),
@@ -248,7 +266,7 @@ function fixture({ admin = true, search = false } = {}) {
   dependencies["../services/navigation/universalLinks"] = links;
   dependencies["../../services/meteor/client.native"] = execute(sources[3]);
   const { redirectSystemPath } = execute(sources[4]);
-  const Screen = execute(sources[1]).default;
+  const Screen = execute(sources[settings ? 6 : 1]).default;
   const render = () => {
     if (!mounted) return;
     let count = 0;
@@ -257,7 +275,7 @@ function fixture({ admin = true, search = false } = {}) {
       dirty = false;
       cursor = 0;
       effects = [];
-      tree = Screen();
+      tree = settings ? Screen({}) : Screen();
       const pending = effects;
       pending.forEach(({ slot }) => slot.cleanup?.());
       pending.forEach(({ slot, fn }) => { slot.cleanup = fn(); });
@@ -357,6 +375,135 @@ test("renovar reemplaza el secreto conservando el tokenId y revoca invalida el d
   assert.equal(f.state.configured, false);
   assert.equal(f.state.secureStore.has("vidkar.mcp.tokenId.v1"), false);
   assert.equal(f.state.secureStore.has("vidkar.mcp.bearer.v1"), false);
+});
+
+test("renovar un tokenId que desapareció del backend crea y carga su reemplazo", async () => {
+  const f = fixture();
+  const original = await f.client.createAndConfigureMCPToken("VIDKAR iOS");
+  f.state.serverTokens = [];
+
+  const replacement = await f.client.rotateAndConfigureMCPToken(original.tokenId);
+
+  assert.notEqual(replacement.tokenId, original.tokenId);
+  assert.notEqual(replacement.token, original.token);
+  assert.equal(replacement.replacedMissingBackendToken, true);
+  assert.equal(f.state.nativeToken, replacement.token);
+  assert.equal(f.state.secureStore.get("vidkar.mcp.tokenId.v1"), replacement.tokenId);
+  assert.equal(f.state.serverTokens.length, 1);
+  assert.equal(f.state.serverCalls.filter(({ methodName }) => methodName === "mcp.tokens.rotate").length, 1);
+  assert.equal(f.state.serverCalls.filter(({ methodName }) => methodName === "mcp.tokens.create").length, 2);
+});
+
+test("token MCP con owner mismatch conserva la referencia segura y permite renovarlo", async () => {
+  const f = fixture({ settings: true });
+  const created = await f.client.createAndConfigureMCPToken("VIDKAR iOS");
+  f.state.configured = false;
+  f.state.ownerId = null;
+  f.state.configureFailureToken = created.token;
+  f.state.allowToolDiscovery = true;
+
+  await f.mount();
+
+  assert.equal(f.state.serverTokens.length, 1);
+  assert.equal(f.state.secureStore.get("vidkar.mcp.tokenId.v1"), created.tokenId);
+  assert.equal(f.state.secureStore.has("vidkar.mcp.bearer.v1"), false);
+  assert.equal(f.state.serverCalls.filter(({ methodName }) => methodName === "mcp.tokens.create").length, 1);
+  assert.equal(f.state.serverCalls.filter(({ methodName }) => methodName === "mcp.tokens.rotate").length, 0);
+  assert.match(f.text(), /Renovar y reconectar/);
+  assert.match(f.text(), /no está conectado/);
+  assert.doesNotMatch(f.text(), new RegExp(created.token));
+
+  await f.press("Renovar y reconectar");
+
+  assert.equal(f.state.configured, true);
+  assert.equal(f.state.secureStore.get("vidkar.mcp.tokenId.v1"), created.tokenId);
+  assert.notEqual(f.state.nativeToken, created.token);
+  assert.equal(f.state.serverTokens.length, 1);
+  assert.equal(f.state.serverCalls.filter(({ methodName }) => methodName === "mcp.tokens.create").length, 1);
+  assert.equal(f.state.serverCalls.filter(({ methodName }) => methodName === "mcp.tokens.rotate").length, 1);
+  assert.doesNotMatch(f.text(), new RegExp(created.token));
+});
+
+test("token guardado sin registro backend ofrece crear un reemplazo seguro", async () => {
+  const f = fixture({ settings: true });
+  f.state.configured = false;
+  f.state.ownerId = null;
+  f.state.secureStore.set("vidkar.mcp.tokenId.v1", "token-ausente-en-backend");
+  f.state.secureStore.set("vidkar.mcp.bearer.v1", "vidkar_mcp_bearer_sin_registro");
+  f.state.allowToolDiscovery = true;
+
+  await f.mount();
+
+  assert.match(f.text(), /Token local sin registro/);
+  assert.match(f.text(), /Crear reemplazo/);
+  assert.doesNotMatch(f.text(), /vidkar_mcp_bearer_sin_registro/);
+  assert.equal(f.state.serverCalls.filter(({ methodName }) => methodName === "mcp.tokens.rotate").length, 0);
+
+  await f.press("Crear reemplazo");
+
+  assert.equal(f.state.configured, true);
+  assert.equal(f.state.serverTokens.length, 1);
+  assert.notEqual(f.state.nativeToken, "vidkar_mcp_bearer_sin_registro");
+  assert.equal(f.state.secureStore.get("vidkar.mcp.tokenId.v1"), f.state.serverTokens[0].tokenId);
+  assert.equal(f.state.serverCalls.filter(({ methodName }) => methodName === "mcp.tokens.create").length, 1);
+});
+
+test("si se perdió el tokenId, se puede elegir y renovar un token de la cuenta con confirmación", async () => {
+  const f = fixture({ settings: true });
+  const created = await f.client.createAndConfigureMCPToken("Cliente MCP");
+  f.state.secureStore.delete("vidkar.mcp.tokenId.v1");
+  f.state.secureStore.set("vidkar.mcp.bearer.v1", "vidkar_mcp_stale_bearer_not_current");
+  f.state.configured = false;
+  f.state.ownerId = null;
+  f.state.allowToolDiscovery = true;
+
+  await f.mount();
+
+  assert.equal(f.state.serverTokens.length, 1);
+  assert.equal(f.state.serverCalls.filter(({ methodName }) => methodName === "mcp.tokens.create").length, 1);
+  assert.match(f.text(), /crea un reemplazo o renueva uno de los tokens de la cuenta/i);
+  assert.match(f.text(), /Renovar aquí/);
+
+  await f.press("Renovar aquí");
+  assert.match(f.state.confirmations.at(-1)[1], /dejará de funcionar en el otro cliente/);
+  await f.confirm(true);
+
+  assert.equal(f.state.configured, true);
+  assert.equal(f.state.secureStore.get("vidkar.mcp.tokenId.v1"), created.tokenId);
+  assert.notEqual(f.state.nativeToken, created.token);
+  assert.equal(f.state.serverTokens.length, 1);
+  assert.equal(f.state.serverCalls.filter(({ methodName }) => methodName === "mcp.tokens.create").length, 1);
+  assert.equal(f.state.serverCalls.filter(({ methodName }) => methodName === "mcp.tokens.rotate").length, 1);
+});
+
+test("catálogo elimina confirmación heredada en caché y discovery sin habilitar escrituras", async () => {
+  for (const force of [false, true]) {
+    const f = fixture();
+    const tools = [
+      { name: "get_users", readOnly: true, requiresConfirmation: true,
+        security: { requiresConfirmation: true, confirmationFor: ["personal"], permissions: ["users:read"] } },
+      { name: "write_fixture", readOnly: false, requiresConfirmation: true },
+      { name: "unknown_fixture", requiresConfirmation: true },
+    ];
+    const cached = JSON.stringify({ updatedAt: f.state.now - 1000, tools });
+    f.state.secureStore.set("vidkar.mcp.tools.v2", cached);
+    let discoveries = 0;
+    f.native.discoverTools = async () => { discoveries += 1; return tools; };
+    const result = await f.client.discoverMCPTools({ force });
+    assert.equal(discoveries, force ? 1 : 0);
+    assert.equal(result[0].requiresConfirmation, false);
+    assert.equal(result[0].security.requiresConfirmation, false);
+    assert.equal(result[0].security.confirmationFor.length, 0);
+    assert.deepEqual(Array.from(result[0].security.permissions), ["users:read"]);
+    assert.equal(result[1].readOnly, false);
+    assert.equal(result[1].requiresConfirmation, true);
+    assert.equal(result[2].readOnly, undefined);
+    assert.equal(result[2].requiresConfirmation, true);
+    assert.equal(tools[0].requiresConfirmation, true, "no modifica el catálogo original");
+    if (!force) assert.equal(f.state.secureStore.get("vidkar.mcp.tools.v2"), cached, "no renueva el TTL de caché");
+    await assert.rejects(f.client.executeMCPTool("write_fixture"), /No tienes permisos/);
+    await assert.rejects(f.client.executeMCPTool("unknown_fixture"), /No tienes permisos/);
+  }
 });
 
 test("snapshot helper exige expiresAt finito, numérico y futuro, sin renovar TTL", async () => {
@@ -566,7 +713,7 @@ test("búsqueda estable usa el término literal y nunca ejecuta un planner o pla
   assert.equal(f.state.calls[0].tool, "search_entities");
   assert.equal(f.state.calls[0].args.query, "Terminator");
   assert.equal(f.state.calls[0].args.entity, "all");
-  assert.equal(f.state.calls[0].args.confirmed, false);
+  assert.equal(f.state.calls[0].args.confirmed, undefined);
   assert.equal(f.list().data.length, 2);
   assert.equal(f.state.navigations.length, 0);
   assert.equal(f.state.confirmations.length, 0);
@@ -593,20 +740,15 @@ test("categorías explícitas conservan tema y permiten listar cursos sin texto"
   f.unmount();
 });
 
-test("usuarios nunca se consultan sin consentimiento, incluso con confirmed en la ruta", async () => {
+test("usuarios se consultan sin diálogo y se ignora confirmed en la ruta", async () => {
   const f = fixture({ search: true });
   f.state.params = { query: "Carlos", entityType: "user", confirmed: "true" };
   await f.mount();
-  assert.equal(f.state.calls.length, 0);
-  await f.confirm(false);
-  assert.equal(f.state.calls.length, 0);
-  assert.match(f.text(), /Consulta cancelada/);
-  await f.press("Reintentar");
-  await f.confirm(true);
   assert.equal(f.state.calls.length, 1);
   assert.equal(f.state.calls[0].args.entity, "user");
   assert.equal(f.state.calls[0].args.query, "Carlos");
-  assert.equal(f.state.calls[0].args.confirmed, true);
+  assert.equal(f.state.calls[0].args.confirmed, undefined);
+  assert.equal(f.state.confirmations.length, 0);
   f.unmount();
 });
 
@@ -623,7 +765,7 @@ test("login conserva consulta y no consulta MCP mientras falta sesión", async (
   f.unmount();
 });
 
-test("descarta resultados y consentimientos tardíos tras logout, cambio de consulta o foco", async () => {
+test("descarta resultados tardíos tras logout, cambio de consulta o foco", async () => {
   for (const event of ["logout", "query", "focus", "unmount"]) {
     const f = fixture({ search: true });
     let done;
@@ -639,13 +781,6 @@ test("descarta resultados y consentimientos tardíos tras logout, cambio de cons
     if (event !== "unmount") assert.equal(f.list().data.length, 0, event);
     f.unmount();
   }
-  const f = fixture({ search: true });
-  f.state.params = { query: "Carlos", entityType: "user" };
-  await f.mount();
-  await f.update({ userId: null });
-  await f.confirm(true);
-  assert.equal(f.state.calls.length, 0);
-  f.unmount();
 });
 
 test("búsqueda muestra errores de backend y permite reintento sin confundirlos con vacío", async () => {
@@ -669,7 +804,8 @@ test("política de búsqueda rechaza scopes inventados y límites sin reinterpre
     { query: "a", entityType: "all", offset: 201 }, { query: "a", entityType: "movie", offset: -1 },
   ]) assert.throws(() => inAppSearch.makeInAppSearchArguments(input));
   assert.equal(inAppSearch.makeInAppSearchArguments({ query: "", entityType: "course" }).query, "");
-  assert.equal(inAppSearch.makeInAppSearchArguments({ query: "a", entityType: "all", confirmed: true }).confirmed, false);
+  assert.equal(inAppSearch.makeInAppSearchArguments({ query: "a", entityType: "all", confirmed: true }).confirmed, undefined);
+  assert.equal(inAppSearch.makeInAppSearchArguments({ query: "Carlos", entityType: "user", confirmed: true }).confirmed, undefined);
 });
 
 test("cliente MCP liga la ejecución al owner y descarta cambios de cuenta durante discovery/ejecución", async () => {
@@ -690,6 +826,7 @@ test("cliente MCP liga la ejecución al owner y descarta cambios de cuenta duran
     if (changeAt === "none") {
       assert.equal(JSON.parse(await run()).success, true);
       assert.equal(calls[0].owner, "fixture-owner");
+      assert.equal(calls[0].args.confirmed, undefined);
     } else {
       await assert.rejects(run(), /sesión MCP cambió|Actualiza el binario/);
       if (changeAt !== "execute") assert.equal(calls.length, 0);
@@ -698,8 +835,8 @@ test("cliente MCP liga la ejecución al owner y descarta cambios de cuenta duran
   }
 });
 
-test("same owner: rotar revisión durante discovery, prompt o resultado invalida consentimiento", async () => {
-  for (const phase of ["discover", "prompt", "result"]) {
+test("same owner: rotar revisión durante discovery o resultado invalida la consulta sin pedir confirmación", async () => {
+  for (const phase of ["discover", "result"]) {
     const f = fixture({ search: true });
     f.state.params = { query: "Carlos", entityType: "user" };
     const rotate = () => { f.state.revision = "8cebedbd-865d-4e3a-9136-08e663bf5f34"; };
@@ -709,12 +846,10 @@ test("same owner: rotar revisión durante discovery, prompt o resultado invalida
       return JSON.stringify({ success: true, results: [{ id: "private", title: "No mostrar" }] });
     };
     await f.mount();
-    if (phase === "prompt") rotate();
-    await f.confirm(true);
     assert.equal(f.state.calls.length, phase === "result" ? 1 : 0, phase);
     assert.equal(f.list().data.length, 0, phase);
     assert.match(f.text(), /sesión MCP cambió/, phase);
-    assert.equal(f.state.confirmations.length, 1, "no pedir permiso automáticamente otra vez");
+    assert.equal(f.state.confirmations.length, 0, "las consultas no muestran diálogo de confirmación");
     f.unmount();
   }
 });

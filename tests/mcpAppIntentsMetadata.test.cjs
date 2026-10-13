@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const withVidkarAppIntents = require("../plugins/with-vidkar-app-intents");
-const { expectedIntents, validateMetadata, validateAppBundle } = require("../scripts/validate-app-intents-metadata.cjs");
+const { expectedIntents, shortcutIntents, userProfileProperties, validateMetadata, validateAppBundle } = require("../scripts/validate-app-intents-metadata.cjs");
 
 test("App Intents de producción: extracción del pod y de la app", {
   skip: process.platform !== "darwin" && "Requiere Xcode",
@@ -32,7 +32,7 @@ test("App Intents de producción: extracción del pod y de la app", {
   assert.ok(bridgeStart > 0 && bridgeEnd > bridgeStart);
   const modulePath = path.join(directory, "VidkarMCP.swift");
   fs.writeFileSync(modulePath, (original.slice(0, bridgeStart) + original.slice(bridgeEnd)).replace("import ExpoModulesCore\n", ""));
-  const helpers = ["MCPQueryPolicy.swift", "MCPNaturalLanguagePlanner.swift", "MCPInAppSearch.swift", "MCPCatalogQuery.swift"]
+  const helpers = ["MCPQueryPolicy.swift", "MCPNaturalLanguagePlanner.swift", "MCPInAppSearch.swift", "MCPCatalogQuery.swift", "MCPUserSnippet.swift"]
     .map((name) => path.join(__dirname, "../modules/vidkar-mcp/ios", name));
   fs.mkdirSync(path.join(directory, "Vidkar"));
   const appPath = path.join(directory, "Vidkar/AppDelegate.swift");
@@ -78,10 +78,8 @@ test("App Intents de producción: extracción del pod y de la app", {
   const appMetadata = extract("VidkarApp", [appPath], podMetadata);
   const metadata = JSON.parse(fs.readFileSync(path.join(appMetadata, "extract.actionsdata"), "utf8"));
   assert.deepEqual(Object.keys(metadata.actions).sort(), [...expectedIntents].sort());
-  assert.equal(metadata.autoShortcuts.length, 1);
-  assert.deepEqual(metadata.autoShortcuts.map((shortcut) => shortcut.actionIdentifier), [
-    "VIDKARSearchUserByUsernameIntent",
-  ]);
+  assert.equal(metadata.autoShortcuts.length, 10);
+  assert.deepEqual(metadata.autoShortcuts.map((shortcut) => shortcut.actionIdentifier).sort(), [...shortcutIntents].sort());
   // Contratos publicados en build 1169: IDs, parámetros, defaults, entidades y JSON.
   const previous = {
     VIDKARQueryMCPIntent: [["toolName"], [""], null],
@@ -96,7 +94,7 @@ test("App Intents de producción: extracción del pod y de la app", {
   for (const [id, [names, defaults, entity]] of Object.entries(previous)) {
     const action = metadata.actions[id];
     assert.deepEqual(action.parameters.map((parameter) => parameter.name), names, id);
-      assert.equal(action.openAppWhenRun, id === "VIDKARSearchUserByUsernameIntent", id);
+    assert.equal(action.openAppWhenRun, false, id);
     assert.equal(action.authenticationPolicy, 1, id);
     assert.deepEqual(action.assistantDefinedSchemas, [], id);
     for (const [index, parameter] of action.parameters.entries()) {
@@ -111,7 +109,8 @@ test("App Intents de producción: extracción del pod y de la app", {
     else if (id === "VIDKARGetServiceUsageIntent") assert.equal(action.outputType.entity.wrapper.typeName, entity);
     else if (id === "VIDKARSearchUserByUsernameIntent") {
       assert.equal(action.outputType.entity.wrapper.typeName, entity);
-      assert.deepEqual(metadata.entities[entity].properties.map((property) => property.identifier).sort(), ["fullName", "username"]);
+      assert.notEqual(metadata.entities[entity].transient, true);
+      assert.deepEqual(metadata.entities[entity].properties.map((property) => property.identifier).sort(), userProfileProperties);
     }
     else {
       assert.equal(action.outputType.array.wrapper.memberValueType.entity.wrapper.typeName, entity);
@@ -119,8 +118,21 @@ test("App Intents de producción: extracción del pod y de la app", {
     }
   }
   const summary = validateMetadata(metadata);
-  assert.equal(summary.actions, 10);
-  assert.equal(summary.shortcuts, 1);
+  for (const id of ["VIDKARGetUserServiceUsageIntent", "VIDKARGetUserSalesIntent", "VIDKARGetUserRecordsIntent", "VIDKARGetBusinessReportIntent"]) {
+    const action = metadata.actions[id];
+    assert.equal(action.openAppWhenRun, false, id);
+    assert.equal(action.authenticationPolicy, 1, id);
+    assert.equal(action.outputType.entity.wrapper.typeName, "VIDKARReadReportEntity", id);
+    if (id !== "VIDKARGetBusinessReportIntent") {
+      const user = action.parameters.find((parameter) => parameter.name === "user");
+      assert.equal(user.isOptional, true, id);
+      assert.equal(user.valueType.entity.wrapper.typeName, "VIDKARAccountUserAppEntity", id);
+    }
+  }
+  assert.notEqual(metadata.entities.VIDKARAccountUserAppEntity.transient, true);
+  assert.deepEqual(metadata.entities.VIDKARAccountUserAppEntity.properties.map((property) => property.identifier).sort(), ["fullName", "username"]);
+  assert.equal(summary.actions, 17);
+  assert.equal(summary.shortcuts, 10);
   const appBundle = path.join(directory, "Vidkar.app");
   fs.mkdirSync(appBundle);
   fs.cpSync(appMetadata, path.join(appBundle, "Metadata.appintents"), { recursive: true });

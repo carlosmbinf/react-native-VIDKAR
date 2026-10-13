@@ -60,7 +60,7 @@ export const formatToolCatalog = (tools = []) => JSON.stringify(
     permissions: Array.isArray(tool.permissions) ? tool.permissions : [],
     dataClass: tool.dataClass || "unclassified",
     readOnly: tool.readOnly === true,
-    requiresConfirmation: tool.requiresConfirmation !== false,
+    requiresConfirmation: tool.readOnly === true ? false : tool.requiresConfirmation !== false,
   })),
   null,
   2,

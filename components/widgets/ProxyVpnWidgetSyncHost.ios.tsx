@@ -1,7 +1,7 @@
 import MeteorBase from "@meteorrn/core";
 import React from "react";
-import { AppState } from "react-native";
 
+import { VidkarMCP } from "../../modules/vidkar-mcp/src";
 import { buildWatchUsageSnapshot } from "../../services/watch/watchDashboard";
 import ProxyVpnUsageWidget, {
   type ProxyVpnUsageWidgetProps,
@@ -48,6 +48,8 @@ const createSignedOutSnapshot = (): ProxyVpnUsageWidgetProps => ({
   authenticated: false,
   dailyUsage: [],
   isAdmin: false,
+  mcpRefreshAvailable: false,
+  mcpOwnerId: null,
   proxyEnabled: false,
   proxyProgress: 0,
   proxyStatus: "Inactivo",
@@ -121,6 +123,8 @@ export default function ProxyVpnWidgetSyncHost() {
       authenticated: true,
       dailyUsage: [],
       isAdmin,
+      mcpRefreshAvailable: false,
+      mcpOwnerId: null,
       proxyEnabled: usage.proxy.enabled,
       proxyProgress: usage.proxy.progress,
       proxyStatus: usage.proxy.isUnlimited
@@ -143,6 +147,28 @@ export default function ProxyVpnWidgetSyncHost() {
     latestSnapshotRef.current = snapshot;
     publishSnapshot(snapshot);
 
+    if (isAdmin && VidkarMCP) {
+      void VidkarMCP.getConfiguration()
+        .then((configuration) => {
+          if (
+            Meteor.userId() !== userId ||
+            configuration.configured !== true ||
+            String(configuration.ownerId) !== String(userId)
+          ) {
+            return;
+          }
+
+          const refreshableSnapshot = {
+            ...latestSnapshotRef.current,
+            mcpRefreshAvailable: true,
+            mcpOwnerId: String(userId),
+          };
+          latestSnapshotRef.current = refreshableSnapshot;
+          publishSnapshot(refreshableSnapshot);
+        })
+        .catch(() => undefined);
+    }
+
     Meteor.call("getWidgetDailyUsage", (error, result) => {
       if (error || !Array.isArray(result)) {
         return;
@@ -164,23 +190,6 @@ export default function ProxyVpnWidgetSyncHost() {
       publishSnapshot(refreshedSnapshot);
     });
   }, [ready, user, userId]);
-
-  React.useEffect(() => {
-    const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState !== "active") {
-        return;
-      }
-
-      const refreshedSnapshot = {
-        ...latestSnapshotRef.current,
-        updatedAt: formatUpdateTime(),
-      };
-      latestSnapshotRef.current = refreshedSnapshot;
-      publishSnapshot(refreshedSnapshot);
-    });
-
-    return () => subscription.remove();
-  }, []);
 
   return null;
 }

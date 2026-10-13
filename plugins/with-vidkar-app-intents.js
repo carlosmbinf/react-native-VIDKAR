@@ -29,6 +29,15 @@ struct VidkarAppShortcutsProvider: AppShortcutsProvider {
       shortTitle: "Buscar usuario",
       systemImageName: "person.crop.circle.magnifyingglass"
     )
+    AppShortcut(intent: VIDKARSearchMoviesIntent(), phrases: ["Busca películas en \\(.applicationName)"], shortTitle: "Películas", systemImageName: "film")
+    AppShortcut(intent: VIDKARSearchSeriesIntent(), phrases: ["Busca series en \\(.applicationName)"], shortTitle: "Series", systemImageName: "tv")
+    AppShortcut(intent: VIDKARSearchCoursesIntent(), phrases: ["Busca cursos en \\(.applicationName)"], shortTitle: "Cursos", systemImageName: "book.closed")
+    AppShortcut(intent: VIDKARSearchCommerceProductsIntent(), phrases: ["Busca productos en \\(.applicationName)"], shortTitle: "Comercio", systemImageName: "shippingbox")
+    AppShortcut(intent: VIDKARGetMyRecordsIntent(), phrases: ["Consulta mi cuenta en \\(.applicationName)"], shortTitle: "Mi cuenta", systemImageName: "person.crop.circle")
+    AppShortcut(intent: VIDKARGetUserServiceUsageIntent(), phrases: ["Consulta consumo de un usuario en \\(.applicationName)"], shortTitle: "Consumo de usuario", systemImageName: "gauge")
+    AppShortcut(intent: VIDKARGetUserSalesIntent(), phrases: ["Consulta ventas de un usuario en \\(.applicationName)"], shortTitle: "Ventas de usuario", systemImageName: "chart.bar")
+    AppShortcut(intent: VIDKARGetUserRecordsIntent(), phrases: ["Consulta datos de un usuario en \\(.applicationName)"], shortTitle: "Datos de usuario", systemImageName: "list.bullet.rectangle")
+    AppShortcut(intent: VIDKARGetBusinessReportIntent(), phrases: ["Consulta el negocio en \\(.applicationName)"], shortTitle: "Mi negocio", systemImageName: "chart.pie")
   }
 }
 // VIDKAR_APP_SHORTCUTS_PROVIDER_END

@@ -1,7 +1,81 @@
-# Siri AI: búsqueda nativa estable y MCP experimental
+# Siri AI: consultas nativas y límites de integración semántica
+
+## Ficha resoluble y consultas sin apertura — código posterior al build 1183
+
+- `VIDKARSearchInAppIntent` conserva su schema y contrato foreground, pero ahora
+  declara `isDiscoverable = false`: Siri, Spotlight y Atajos no deben descubrirlo.
+  Se conserva el buscador normal de VIDKAR. Esto no impide que Siri sugiera abrir
+  la app por iniciativa del sistema.
+- La ficha `VIDKARUserSearchAppEntity` deja de ser transitoria. Conserva nombre,
+  parámetro y tipo de resultado publicados, además de `fullName`, `username` y
+  `account`; usa una identidad estable `ownerId|userId` y expone dieciocho propiedades
+  autorizadas. Su query reconsulta `get_user`, comprueba sesión y alcance, omite
+  usuarios eliminados y no convierte errores de permisos/red en listas vacías.
+  Los UUID transitorios antiguos no son resolubles: debe repetirse la búsqueda.
+- El snippet asocia la entidad visible mediante `appEntityIdentifier` desde
+  iOS 18.4, con fallback al mismo contenido para el mínimo iOS 16.4.
+  `VIDKARGetUserProfileIntent(user)` recibe exactamente el tipo de entidad que
+  devuelve la búsqueda y actualiza su tarjeta sin abrir la app. No presupone que
+  una referencia ambigua signifique el titular del token.
+- La tarjeta muestra foto, nombre, username, rol, bloqueo, alta y cantidad de
+  correos registrados; separa Proxy/VPN con actividad, consumo, límites,
+  conexión VPN y vencimientos. Solo usa campos sanitizados disponibles en
+  `get_user`. No publica direcciones de correo, teléfonos, credenciales,
+  dominios internos, saldo sin contrato de moneda ni el documento del usuario.
+- `VIDKARGetCapabilitiesIntent` devuelve una tarjeta de consultas y límites sin
+  acceder a perfiles. Es una acción personalizada, no un schema semántico ni
+  un nuevo App Shortcut. Se conservan las diez frases existentes.
+
+**Siri AI no equivale a añadir más atajos:** Apple documenta que su «app toolbox»
+usa schemas oficiales y solo razona sobre las propiedades que estos definen.
+No se encontró un schema público aplicable a perfiles administrativos, consumo
+Proxy/VPN o ventas de VIDKAR. Los dominios Messages, Mail y Clock requieren
+adoptar sus grupos completos; no se simula una nota, contacto o mensaje para
+exponer datos de negocio. El ejemplo de enviar mensajes no modifica el alcance
+de solo lectura. La ayuda, las entidades y la anotación visual mejoran el
+contrato y el contexto disponible, **no garantizan** selección de una acción,
+continuidad con «ese usuario» ni resolución de preguntas compuestas.
+El planner experimental continúa desactivado.
+
+**Build local instalado:** **4.0.875 (1184)**, actualización sobre 1183 sin
+desinstalar ni borrar datos. Se confirmó en el iPhone y VIDKAR abrió correctamente
+después de desbloquearlo. La app contiene veinte acciones totales (diecisiete
+VIDKAR y tres de widgets), diez shortcuts; dieciséis acciones VIDKAR son
+descubribles y `searchInApp` queda oculta. Recursos españoles compilados;
+el extractor no generó NLU en el artefacto Release (no es requisito para
+validar estas acciones). Firma Development, perfiles, entitlements y cuatro
+bundles Apple verificados contra la instalación anterior.
+
+**Validación del build:** Xcode 27.2 extrae diecisiete acciones VIDKAR
+(dieciséis descubribles, una búsqueda foreground oculta) y diez shortcuts.
+`npm run test:mcp:ios`: 24 pruebas aprobadas, compilación iPhone/simulador y
+`perform()` real con I/O aislado. Se cubren identidad persistente, usuario
+eliminado, cambios de owner, rechazo de permisos, datos inválidos, bytes/MB y
+render claro/oscuro con entornos Dynamic Type en macOS (el escalado y VoiceOver
+en iOS siguen pendientes). `npm run test:mcp`: 82 aprobadas; helper de versión:
+5 aprobadas; lint: cero errores y 85 advertencias existentes; `git diff --check`
+sin errores. La firma, metadata y lanzamiento no acreditan interpretación
+de preguntas naturales: la continuidad con «ese usuario» y Siri AI aún
+necesitan validación conversacional en el dispositivo.
+
+Fuentes oficiales: [schemas y app toolbox](https://developer.apple.com/documentation/appintents/making-actions-and-content-discoverable-by-apple-intelligence),
+[dominios](https://developer.apple.com/documentation/appintents/app-schema-domains),
+[contexto visual](https://developer.apple.com/documentation/appintents/providing-contextual-cues-to-apple-intelligence-and-siri)
+y [descubrimiento](https://developer.apple.com/documentation/appintents/appintent/isdiscoverable).
+
+> Estado histórico instalado, 13/10: [consultas y tarjetas dentro de Siri](./mcp-shortcuts.md).
+> Quince acciones VIDKAR y diez App Shortcuts: usuario, catálogos, consumo,
+> ventas/compras/órdenes, mensajes/suscripciones propios y consultas del negocio.
+> Son lecturas autenticadas sin apertura automática; la ficha aporta una cuenta
+> resoluble para composición, sin indexar datos privados ni garantizar «ese usuario».
+> Release local **4.0.875 (1183)** instalado como actualización en iPhone y lanzamiento
+> confirmado. Xcode 27.2: 23 pruebas nativas y 82 MCP aprobadas; metadata española
+> y firmas de los cuatro bundles verificadas. El bundle completo contiene además
+> tres acciones de widgets. Reconocimiento de voz, continuidad conversacional y
+> consultas reales de backend todavía requieren aceptación en Siri.
 
 > Actualización 26/09: [consulta informativa background](./siri-catalog-background.md)
-> implementada separadamente del schema visual. Superficie actual: **10 acciones
+> implementada separadamente del schema visual. Superficie de esa fase: **10 acciones
 > VIDKAR, 1 App Shortcut y 1 frase preconfigurada**; `AskQuestion` sigue desactivado. El reporte
 > «abre inicio» de build 1169/OS 27.2 no tiene causa demostrada ni traza de entrega
 > OS; el resolver actual pasa pruebas, pero el recorrido en dispositivo sigue pendiente.
@@ -24,7 +98,7 @@ No se cambian Codemagic, backend, firma, capacidades SiriKit ni dependencias.
 - Scopes oficiales declarados: `.general`, `.movies`, `.tv`. `.freeformVideo` existe, pero no describe este catálogo. No existen `.courses`, `.products` o `.users`.
 - El extractor exige `.requiresLocalDeviceAuthentication`: desbloqueo del dispositivo, adicional al login y autorización MCP. La simple compilación no comprobaba este requisito.
 - Se conserva deployment target **16.4**; los siete shortcuts anteriores siguen desde **17** por el paquete. En iOS anteriores a 27 no se anuncia el schema; se usa la app/acciones existentes. No se añade otro intent duplicado para 17.2.
-- La metadata dirigida tiene **10 acciones y 1 shortcut** (sin contar widgets). El provider migra su bloque propio idempotentemente y publica solo la búsqueda exacta por username; las demás acciones no tienen frases preconfiguradas.
+- La metadata actual tiene **15 acciones y 10 shortcuts** (sin contar widgets). El provider migra su bloque propio idempotentemente; los contratos originales de acciones, parámetros y defaults permanecen y se añaden consultas con tarjetas.
 
 ### Experiencia y límites deliberados
 

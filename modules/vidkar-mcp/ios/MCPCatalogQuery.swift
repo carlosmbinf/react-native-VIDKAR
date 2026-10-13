@@ -6,7 +6,7 @@ enum MCPCatalogQuery {
   static let allowedTypes: Set<String> = ["movie", "series", "episode", "course", "product"]
 
   enum Failure: LocalizedError {
-    case invalidQuery, notConfigured, authentication, forbidden, confirmationRequired, incompatibleSchema, network, expired, invalidResponse, unavailable
+    case invalidQuery, notConfigured, authentication, forbidden, confirmationRequired, incompatibleSchema, network, expired, invalidResponse, unavailable, userNotFound
 
     var errorDescription: String? {
       switch self {
@@ -20,6 +20,7 @@ enum MCPCatalogQuery {
       case .expired: return String(localized: "La sesión de VIDKAR cambió durante la consulta. Vuelve a intentarlo.")
       case .invalidResponse: return String(localized: "VIDKAR devolvió una respuesta de catálogo no válida. Inténtalo de nuevo.")
       case .unavailable: return String(localized: "No se pudo consultar el catálogo de VIDKAR. Inténtalo de nuevo más tarde.")
+      case .userNotFound: return String(localized: "El usuario ya no está disponible dentro de tu alcance autorizado de VIDKAR.")
       }
     }
   }
@@ -54,6 +55,7 @@ enum MCPCatalogQuery {
     case "MCP_UNAUTHORIZED": return .authentication
     case "MCP_FORBIDDEN": return .forbidden
     case "MCP_CONFIRMATION_REQUIRED": return .confirmationRequired
+    case "USER_NOT_FOUND": return .userNotFound
     default: return .unavailable
     }
   }

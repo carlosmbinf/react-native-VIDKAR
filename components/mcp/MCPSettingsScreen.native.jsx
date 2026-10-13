@@ -27,6 +27,9 @@ const MCPSettingsScreen = ({
   const [tools, setTools] = useState([]);
   const [tokens, setTokens] = useState([]);
   const [loadedToken, setLoadedToken] = useState(null);
+  const [recoverableToken, setRecoverableToken] = useState(null);
+  const [requiresTokenReplacement, setRequiresTokenReplacement] = useState(false);
+  const [needsTokenSelection, setNeedsTokenSelection] = useState(false);
   const [busy, setBusy] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState("checking");
   const [feedback, setFeedback] = useState(null);
@@ -42,20 +45,50 @@ const MCPSettingsScreen = ({
 
       if (!access.configured) {
         setLoadedToken(null);
+        setRecoverableToken(access.recoverableToken || null);
         setTools([]);
+        const activeTokens = access.tokens.filter((token) => !token.revokedAt);
+        if (access.recoverableToken) {
+          setRequiresTokenReplacement(false);
+          setNeedsTokenSelection(false);
+          setConnectionStatus("error");
+          setFeedback({ kind: "error", message: "El token activo de esta cuenta no está conectado. Renuévalo para volver a cargarlo en este dispositivo." });
+          return;
+        }
+        if (access.requiresTokenReplacement) {
+          setRequiresTokenReplacement(true);
+          setNeedsTokenSelection(activeTokens.length > 0);
+          setConnectionStatus("error");
+          setFeedback({ kind: "error", message: "El token guardado en este dispositivo no tiene un registro activo en el backend. Crea un reemplazo o renueva uno de los tokens de la cuenta." });
+          return;
+        }
+        if (activeTokens.length > 0) {
+          setRequiresTokenReplacement(false);
+          setNeedsTokenSelection(true);
+          setConnectionStatus("error");
+          setFeedback({ kind: "error", message: "No se pudo identificar el token de este dispositivo. Elige un token de la cuenta para renovarlo y conectarlo aquí." });
+          return;
+        }
+        setRequiresTokenReplacement(false);
+        setNeedsTokenSelection(false);
         setConnectionStatus("provisioning");
         setFeedback({ kind: "info", message: "No hay un token cargado. Generando uno seguro para este dispositivo…" });
         await createAndConfigureMCPToken("VIDKAR iOS");
         const nextAccess = await getMCPAccessStatus();
         setTokens(nextAccess.tokens);
         setLoadedToken(nextAccess.token);
+        setRecoverableToken(nextAccess.recoverableToken || null);
+        setRequiresTokenReplacement(nextAccess.requiresTokenReplacement === true);
         setTools(await refreshMCPTools());
         setConnectionStatus("connected");
         setFeedback({ kind: "success", message: "Token generado y conectado automáticamente en este dispositivo." });
         return;
       }
 
+      setNeedsTokenSelection(false);
       setLoadedToken(access.token);
+      setRecoverableToken(null);
+      setRequiresTokenReplacement(false);
       const nextTools = await (force ? refreshMCPTools() : discoverMCPTools());
       setTools(nextTools);
       setConnectionStatus("connected");
@@ -84,19 +117,27 @@ const MCPSettingsScreen = ({
     loadTools();
   }, [adminAccess, backHref, loadTools, userId, userReady]);
 
-  const handleRenew = async () => {
-    if (!loadedToken?.tokenId || busy) return;
+  const handleRenew = async (token = loadedToken || recoverableToken) => {
+    if (!token?.tokenId || busy) return;
     setBusy(true);
     setConnectionStatus("provisioning");
     setFeedback(null);
     try {
-      await rotateAndConfigureMCPToken(loadedToken.tokenId, "VIDKAR iOS");
+      const rotated = await rotateAndConfigureMCPToken(token.tokenId, "VIDKAR iOS");
       const access = await getMCPAccessStatus();
       setTokens(access.tokens);
       setLoadedToken(access.token);
+      setRecoverableToken(access.recoverableToken || null);
+      setRequiresTokenReplacement(access.requiresTokenReplacement === true);
+      setNeedsTokenSelection(false);
       setTools(await refreshMCPTools());
       setConnectionStatus("connected");
-      setFeedback({ kind: "success", message: "Token renovado. El anterior dejó de funcionar y este dispositivo ya usa el nuevo." });
+      setFeedback({
+        kind: "success",
+        message: rotated.replacedMissingBackendToken
+          ? "El token guardado no existía en el backend. Se creó uno nuevo y se conectó en este dispositivo."
+          : "Token renovado. El anterior dejó de funcionar y este dispositivo ya usa el nuevo.",
+      });
     } catch (error) {
       setConnectionStatus("error");
       setFeedback({ kind: "error", message: error?.reason || error?.message || "No se pudo renovar el token MCP." });
@@ -105,9 +146,34 @@ const MCPSettingsScreen = ({
     }
   };
 
+  const handleReplaceToken = async () => {
+    if (!requiresTokenReplacement || busy) return;
+    setBusy(true);
+    setConnectionStatus("provisioning");
+    setFeedback(null);
+    try {
+      await createAndConfigureMCPToken("VIDKAR iOS");
+      const access = await getMCPAccessStatus();
+      setTokens(access.tokens);
+      setLoadedToken(access.token);
+      setRecoverableToken(access.recoverableToken || null);
+      setRequiresTokenReplacement(access.requiresTokenReplacement === true);
+      setNeedsTokenSelection(false);
+      setTools(await refreshMCPTools());
+      setConnectionStatus("connected");
+      setFeedback({ kind: "success", message: "Token de reemplazo creado y conectado en este dispositivo." });
+    } catch (error) {
+      setConnectionStatus("error");
+      setFeedback({ kind: "error", message: error?.reason || error?.message || "No se pudo crear un token de reemplazo." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleRevoke = async (token) => {
     if (!token?.tokenId || busy) return;
     const wasLoaded = token.tokenId === loadedToken?.tokenId;
+    const wasRecoverable = token.tokenId === recoverableToken?.tokenId;
     setBusy(true);
     setFeedback(null);
     try {
@@ -115,12 +181,16 @@ const MCPSettingsScreen = ({
       const access = await getMCPAccessStatus();
       setTokens(access.tokens);
       setLoadedToken(access.token);
-      if (wasLoaded) {
+      setRecoverableToken(access.recoverableToken || null);
+      setRequiresTokenReplacement(access.requiresTokenReplacement === true);
+      if (wasLoaded || wasRecoverable) {
         setTools([]);
         setConnectionStatus("idle");
       } else if (!access.configured) {
         await loadTools();
       }
+      setNeedsTokenSelection(!access.configured && !access.recoverableToken
+        && access.tokens.some((item) => !item.revokedAt));
       setFeedback({
         kind: "success",
         message: wasLoaded
@@ -134,10 +204,21 @@ const MCPSettingsScreen = ({
     }
   };
 
+  const confirmRenew = (token) => {
+    Alert.alert(
+      "Renovar y conectar token MCP",
+      `El token “${token?.label || "Cliente MCP"}” dejará de funcionar en el otro cliente y se cargará en este dispositivo.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Renovar y conectar", onPress: () => handleRenew(token) },
+      ],
+    );
+  };
+
   const confirmRevoke = (token) => {
     Alert.alert(
       "Revocar token MCP",
-      token?.tokenId === loadedToken?.tokenId
+      token?.tokenId === loadedToken?.tokenId || token?.tokenId === recoverableToken?.tokenId
         ? "Siri dejará de usar este token en el dispositivo. Esta acción no se puede deshacer."
         : `Se revocará “${token?.label || "este token"}” en el servidor.`,
       [
@@ -176,6 +257,7 @@ const MCPSettingsScreen = ({
         ? "alert-circle-outline"
         : "link-variant-off";
   const statusColor = status === "error" ? theme.colors.error : theme.colors.primary;
+  const deviceToken = loadedToken || recoverableToken;
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
@@ -229,43 +311,60 @@ const MCPSettingsScreen = ({
                 {getMCPUrl() || "Configura una URL base HTTPS para habilitar MCP."}
               </Text>
             </View>
-            {loadedToken ? (
+            {deviceToken ? (
               <Surface elevation={0} style={[styles.loadedToken, { backgroundColor: theme.colors.surfaceVariant }]}>
-                <Avatar.Icon icon="cellphone-key" size={42} style={{ backgroundColor: theme.colors.surface }} color={theme.colors.primary} />
+                <Avatar.Icon icon={loadedToken ? "cellphone-key" : "key-alert-outline"} size={42} style={{ backgroundColor: theme.colors.surface }} color={theme.colors.primary} />
                 <View style={styles.loadedTokenCopy}>
-                  <Text variant="titleSmall">{loadedToken.label || "VIDKAR iOS"}</Text>
+                  <Text variant="titleSmall">{loadedToken ? loadedToken.label || "VIDKAR iOS" : "Token listo para renovar"}</Text>
                   <Text selectable style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
-                    {loadedToken.tokenPreview || "Token seguro"} · cargado en este dispositivo
+                    {deviceToken.tokenPreview || "Token seguro"} · {loadedToken ? "cargado en este dispositivo" : "no está conectado a este dispositivo"}
                   </Text>
                 </View>
-                <Chip compact icon="check-circle-outline">Activo</Chip>
+                <Chip compact icon={loadedToken ? "check-circle-outline" : "alert-circle-outline"}>{loadedToken ? "Activo" : "Renovación"}</Chip>
+              </Surface>
+            ) : requiresTokenReplacement ? (
+              <Surface elevation={0} style={[styles.loadedToken, { backgroundColor: theme.colors.surfaceVariant }]}>
+                <Avatar.Icon icon="key-alert-outline" size={42} style={{ backgroundColor: theme.colors.surface }} color={theme.colors.error} />
+                <View style={styles.loadedTokenCopy}>
+                  <Text variant="titleSmall">Token local sin registro</Text>
+                  <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
+                    El backend no reconoce el token guardado. Puedes crear aquí uno de reemplazo.
+                  </Text>
+                </View>
+                <Chip compact icon="alert-circle-outline">Reemplazar</Chip>
               </Surface>
             ) : (
               <Surface elevation={0} style={[styles.loadedToken, { backgroundColor: theme.colors.surfaceVariant }]}>
                 <Avatar.Icon icon="key-plus" size={42} style={{ backgroundColor: theme.colors.surface }} color={theme.colors.primary} />
                 <View style={styles.loadedTokenCopy}>
-                  <Text variant="titleSmall">Preparando acceso</Text>
+                  <Text variant="titleSmall">{needsTokenSelection ? "Elige un token activo" : "Preparando acceso"}</Text>
                   <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
-                    Si no hay un token cargado, VIDKAR crea uno automáticamente para esta instalación.
+                    {needsTokenSelection
+                      ? "Renueva uno de los tokens de la cuenta para conectarlo a este dispositivo."
+                      : "Si no hay un token cargado, VIDKAR crea uno automáticamente para esta instalación."}
                   </Text>
                 </View>
               </Surface>
             )}
             <View style={styles.actionRow}>
               <Button
-                disabled={busy || !loadedToken}
+                disabled={busy || (!deviceToken?.tokenId && !requiresTokenReplacement)}
                 icon="autorenew"
                 loading={busy && status === "provisioning"}
                 mode="contained"
-                onPress={handleRenew}
+                onPress={() => (requiresTokenReplacement ? handleReplaceToken() : handleRenew())}
               >
-                Renovar token
+                {requiresTokenReplacement
+                  ? "Crear reemplazo"
+                  : recoverableToken
+                    ? "Renovar y reconectar"
+                    : "Renovar token"}
               </Button>
               <Button
-                disabled={busy || !loadedToken}
+                disabled={busy || !deviceToken}
                 icon="key-remove"
                 mode="outlined"
-                onPress={() => confirmRevoke(loadedToken)}
+                onPress={() => confirmRevoke(deviceToken)}
                 textColor={theme.colors.error}
               >
                 Revocar cargado
@@ -295,15 +394,22 @@ const MCPSettingsScreen = ({
           <Card.Content style={styles.toolsContent}>
             {tokens.filter((item) => !item.revokedAt).length ? tokens.filter((item) => !item.revokedAt).map((item) => {
               const isLoaded = item.tokenId === loadedToken?.tokenId;
+              const isRecoverable = item.tokenId === recoverableToken?.tokenId;
               return (
                 <Surface elevation={0} key={item.tokenId} style={[styles.tokenRow, { backgroundColor: theme.colors.surfaceVariant }]}>
                   <View style={styles.toolCopy}>
                     <Text variant="titleSmall">{item.label || "Cliente MCP"}</Text>
                     <Text selectable style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
-                      {item.tokenPreview} · {isLoaded ? "este dispositivo" : "otro cliente"}
+                      {item.tokenPreview} · {isLoaded ? "este dispositivo" : isRecoverable ? "este dispositivo · requiere renovar" : "otro cliente"}
                     </Text>
                   </View>
                   {isLoaded ? <Chip compact icon="cellphone-key">Cargado</Chip> : null}
+                  {isRecoverable ? <Chip compact icon="alert-circle-outline">Renovar</Chip> : null}
+                  {needsTokenSelection ? (
+                    <Button compact disabled={busy} mode="text" onPress={() => confirmRenew(item)}>
+                      Renovar aquí
+                    </Button>
+                  ) : null}
                   <Button compact disabled={busy} mode="text" onPress={() => confirmRevoke(item)} textColor={theme.colors.error}>
                     Revocar
                   </Button>

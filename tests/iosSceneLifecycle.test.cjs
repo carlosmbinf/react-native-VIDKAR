@@ -57,7 +57,7 @@ test("plugin real: template instalado, proyecto existente e idempotencia sin bor
     assert.equal(fs.readFileSync(scenePath, "utf8"), firstScene);
     assert.ok(firstApp.includes(orientation));
     assert.match(firstApp, /VIDKARSearchUserByUsernameIntent\(\)/);
-    assert.equal((firstApp.match(/    AppShortcut\(/g) || []).length, 1);
+    assert.equal((firstApp.match(/    AppShortcut\(/g) || []).length, 10);
     assert.equal((firstApp.match(/vidkarSceneLaunchOptions = launchOptions/g) || []).length, 1);
     assert.equal((firstApp.match(/return super\.application\(application, didFinishLaunchingWithOptions: launchOptions\)/g) || []).length, 1);
     assert.doesNotMatch(firstApp, /startReactNative\(/);
