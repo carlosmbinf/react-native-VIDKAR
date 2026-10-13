@@ -7,6 +7,7 @@ const { spawnSync } = require("node:child_process");
 const plist = require("@expo/plist").default;
 
 const withWidgetMCPRefresh = require("../plugins/with-vidkar-widget-mcp-refresh");
+const withExpoWidgets = require("expo-widgets/app.plugin").default;
 const { applyRefreshIntentToWidgetSwift } = withWidgetMCPRefresh;
 
 const generatedWidgetSource = `import WidgetKit
@@ -103,6 +104,62 @@ test("el plugin enlaza VidkarMCP y comparte el Keychain sin duplicar cambios", a
   const info = plist.parse(fs.readFileSync(path.join(targetDirectory, "Info.plist"), "utf8"));
   assert.equal(info.VIDKAR_MCP_WIDGET_KEYCHAIN_ACCESS_GROUP, "4TWB6RN383.com.vidkar.mcp-widget");
   assert.equal(info.VIDKAR_MCP_LEGACY_KEYCHAIN_ACCESS_GROUP, "4TWB6RN383.com.vidkar");
+});
+
+test("el prebuild limpio genera ExpoWidgetsTarget antes de aplicar el plugin MCP", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "vidkar-clean-prebuild-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const iosRoot = path.join(root, "ios");
+  fs.mkdirSync(iosRoot);
+  fs.writeFileSync(
+    path.join(iosRoot, "Podfile"),
+    'target "Vidkar" do\n  use_expo_modules!\nend\n',
+  );
+
+  const initialConfig = {
+    _internal: { projectRoot: root },
+    name: "Vidkar",
+    slug: "vidkar",
+    version: "4.0.875",
+    ios: {
+      appleTeamId: "4TWB6RN383",
+      bundleIdentifier: "com.vidkar",
+      deploymentTarget: "16.4",
+    },
+  };
+  let config = withWidgetMCPRefresh(initialConfig);
+  config = withExpoWidgets(config, {
+    groupIdentifier: "group.com.vidkar",
+    widgets: [{
+      name: "ProxyVpnUsageWidget",
+      displayName: "Consumo Proxy y VPN",
+      description: "Consulta el consumo y estado de tus servicios Proxy y VPN.",
+      ios: {
+        configuration: { title: "Servicio", parameters: {} },
+        supportedFamilies: ["systemSmall", "systemMedium", "systemLarge"],
+        contentMarginsDisabled: true,
+      },
+    }],
+  });
+
+  await config.mods.ios.dangerous({
+    ...config,
+    modRequest: {
+      projectRoot: root,
+      platformProjectRoot: iosRoot,
+      platform: "ios",
+      modName: "dangerous",
+    },
+    modResults: {},
+  });
+
+  const targetDirectory = path.join(iosRoot, "ExpoWidgetsTarget");
+  const podfile = fs.readFileSync(path.join(iosRoot, "Podfile"), "utf8");
+  const widgetSource = fs.readFileSync(path.join(targetDirectory, "ProxyVpnUsageWidget.swift"), "utf8");
+  assert.ok(fs.existsSync(path.join(targetDirectory, "Info.plist")));
+  assert.ok(podfile.includes('target "ExpoWidgetsTarget" do'));
+  assert.ok(podfile.includes("pod 'VidkarMCP', :path => '../modules/vidkar-mcp/ios'"));
+  assert.match(widgetSource, /ProxyVpnUsageWidgetRefreshIntent/);
 });
 
 test("el AppIntent interactivo compila para simulador y dispositivo iOS", {

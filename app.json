@@ -127,6 +127,7 @@
       ],
       "expo-secure-store",
       "expo-notifications",
+      "./plugins/with-vidkar-widget-mcp-refresh.js",
       [
         "expo-widgets",
         {
@@ -162,8 +163,7 @@
             }
           ]
         }
-      ],
-      "./plugins/with-vidkar-widget-mcp-refresh.js"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
