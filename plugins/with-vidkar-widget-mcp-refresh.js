@@ -20,9 +20,13 @@ const WIDGET_TARGET = "ExpoWidgetsTarget";
 const WIDGET_NAME = "ProxyVpnUsageWidget";
 const POD_LINE = "    pod 'VidkarMCP', :path => '../modules/vidkar-mcp/ios'";
 const REFRESH_MARKER = "// VIDKAR_WIDGET_MCP_REFRESH";
+const REFRESH_CONDITION = 'if entry.props?["mcpRefreshAvailable"] as? Bool == true {';
+const AVAILABLE_REFRESH_CONDITION = 'if #available(iOS 17.0, *), entry.props?["mcpRefreshAvailable"] as? Bool == true {';
 
 function applyRefreshIntentToWidgetSwift(source) {
-  if (source.includes(REFRESH_MARKER)) return source;
+  if (source.includes(REFRESH_MARKER)) {
+    return source.replace(REFRESH_CONDITION, AVAILABLE_REFRESH_CONDITION);
+  }
 
   const importMarker = "internal import ExpoWidgets";
   if (!source.includes(importMarker)) {
@@ -40,7 +44,7 @@ function applyRefreshIntentToWidgetSwift(source) {
     .replace(
       dynamicView,
       `${REFRESH_MARKER}\n      ${dynamicView}.overlay(alignment: .topTrailing) {
-        if entry.props?["mcpRefreshAvailable"] as? Bool == true {
+        ${AVAILABLE_REFRESH_CONDITION}
           Button(intent: ProxyVpnUsageWidgetRefreshIntent()) {
             Image(systemName: "arrow.clockwise")
               .font(.system(size: 13, weight: .semibold))

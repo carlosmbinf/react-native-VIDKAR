@@ -95,6 +95,15 @@ Si no aparece ninguna acción en Atajos, consulta el [diagnóstico de descubrimi
 
 ## MCP móvil (independiente de Siri)
 
+El botón nativo de actualización MCP del widget requiere iOS 17. El plugin
+`with-vidkar-widget-mcp-refresh.js` protege su generación con
+`if #available(iOS 17.0, *)`, incluso en archivos ya parcheados, sin elevar el
+mínimo iOS 16.4 ni cambiar los permisos MCP. `npm run test:widget-refresh`
+comprueba la vista Swift y su intent con mínimos 16.4 y 17.0 para simulador
+y dispositivo. La actualización conserva el transporte del módulo `vidkar-mcp`
+y el Keychain compartido con la app; no eliminar esa implementación mientras el
+widget invoque `VIDKARWidgetUsageRefresh`.
+
 La app conserva el módulo Expo `modules/vidkar-mcp` y el backend MCP para la pantalla de configuración/consultas dentro de VIDKAR. La pantalla, la emisión/gestión de tokens y el endpoint MCP están reservados a usuarios con rol administrador (incluido el administrador principal). El servidor vuelve a validar el rol del propietario en cada conexión, por lo que ocultar la ruta no es la única barrera y tokens antiguos de cuentas normales dejan de funcionar. Las dos acciones Siri reutilizan ese transporte y contrato; el MCP sigue validando tokens, permisos y datos en backend.
 
 ```text

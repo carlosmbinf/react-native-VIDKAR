@@ -16,8 +16,11 @@ import AppIntents
 internal import ExpoWidgets
 
 struct ProxyVpnUsageWidgetEntryView: View {
+  var entry = WidgetEntryFixture()
+  var widgetEnvironmentString: String? = nil
+
   var body: some View {
-    if let layout = "layout" {
+    if let layout = Optional("layout") {
       let node = "node"
       WidgetsDynamicView(name: entry.name, kind: .widget, node: node, entryIndex: entry.entryIndex, environmentString: widgetEnvironmentString)
     }
@@ -33,11 +36,22 @@ test("genera un botón AppIntent de actualización MCP sin abrir VIDKAR", () => 
   assert.match(output, /openAppWhenRun: Bool = false/);
   assert.match(output, /await VIDKARWidgetUsageRefresh\.perform\(\)/);
   assert.match(output, /mcpRefreshAvailable/);
+  assert.match(output, /if #available\(iOS 17\.0, \*\), entry\.props\?\["mcpRefreshAvailable"\] as\? Bool == true/);
 });
 
 test("la transformación del target es idempotente", () => {
   const once = applyRefreshIntentToWidgetSwift(generatedWidgetSource);
   assert.equal(applyRefreshIntentToWidgetSwift(once), once);
+});
+
+test("protege también un widget ya parcheado sin duplicar el intent", () => {
+  const current = applyRefreshIntentToWidgetSwift(generatedWidgetSource);
+  const legacy = current.replace(
+    'if #available(iOS 17.0, *), entry.props?["mcpRefreshAvailable"] as? Bool == true',
+    'if entry.props?["mcpRefreshAvailable"] as? Bool == true',
+  );
+  assert.notEqual(legacy, current);
+  assert.equal(applyRefreshIntentToWidgetSwift(legacy), current);
 });
 
 test("falla de forma explícita si Expo cambia el contrato generado", () => {
@@ -162,32 +176,30 @@ test("el prebuild limpio genera ExpoWidgetsTarget antes de aplicar el plugin MCP
   assert.match(widgetSource, /ProxyVpnUsageWidgetRefreshIntent/);
 });
 
-test("el AppIntent interactivo compila para simulador y dispositivo iOS", {
+test("la vista generada y su AppIntent compilan con mínimo iOS 16.4 y 17.0", {
   skip: process.platform !== "darwin",
 }, (t) => {
   const generated = applyRefreshIntentToWidgetSwift(generatedWidgetSource);
-  const intentMarker = "@available(iOS 17.0, *)\n// VIDKAR_WIDGET_MCP_REFRESH\nstruct ProxyVpnUsageWidgetRefreshIntent";
-  const intentStart = generated.lastIndexOf(intentMarker);
-  assert.notEqual(intentStart, -1);
-  const source = `import AppIntents
-import SwiftUI
-
+  const source = `
 enum VIDKARWidgetUsageRefresh {
   static func perform() async {}
 }
 
-${generated.slice(intentStart)}
-
-struct WidgetRefreshButtonFixture: View {
-  var body: some View {
-    Button(intent: ProxyVpnUsageWidgetRefreshIntent()) {
-      Image(systemName: "arrow.clockwise")
-        .foregroundStyle(.white)
-        .frame(width: 32, height: 32)
-        .background(.ultraThinMaterial, in: Circle())
-    }
-  }
+struct WidgetEntryFixture {
+  var name = "ProxyVpnUsageWidget"
+  var props: [String: Any]? = ["mcpRefreshAvailable": true]
+  var entryIndex: Int? = 0
 }
+
+enum WidgetKindFixture {
+  case widget
+}
+
+func WidgetsDynamicView(name: String, kind: WidgetKindFixture, node: String, entryIndex: Int?, environmentString: String?) -> some View {
+  Text(name)
+}
+
+${generated.replace("internal import ExpoWidgets\n", "").replace("internal import VidkarMCP\n", "")}
 `;
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "vidkar-widget-intent-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
@@ -195,6 +207,8 @@ struct WidgetRefreshButtonFixture: View {
   fs.writeFileSync(sourcePath, source);
 
   for (const [sdkName, target] of [
+    ["iphonesimulator", `${process.arch === "arm64" ? "arm64" : "x86_64"}-apple-ios16.4-simulator`],
+    ["iphoneos", "arm64-apple-ios16.4"],
     ["iphonesimulator", `${process.arch === "arm64" ? "arm64" : "x86_64"}-apple-ios17.0-simulator`],
     ["iphoneos", "arm64-apple-ios17.0"],
   ]) {
@@ -204,6 +218,6 @@ struct WidgetRefreshButtonFixture: View {
       "swiftc", "-sdk", sdkResult.stdout.trim(), "-target", target,
       "-swift-version", "5", "-typecheck", sourcePath,
     ], { encoding: "utf8", maxBuffer: 10 * 1024 * 1024 });
-    assert.equal(compile.status, 0, `${sdkName}: ${compile.stderr || compile.stdout}`);
+    assert.equal(compile.status, 0, `${target}: ${compile.stderr || compile.stdout}`);
   }
 });

@@ -96,7 +96,7 @@
       ],
       [
         "expo-image-picker",
-        {
+        { 
           "cameraPermission": "VIDKAR necesita acceso a la cámara para capturar evidencias de pago.",
           "photosPermission": "VIDKAR necesita acceso a tus fotos para seleccionar evidencias de pago."
         }
