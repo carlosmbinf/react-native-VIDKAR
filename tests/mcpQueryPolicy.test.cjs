@@ -86,6 +86,7 @@ test("consulta de catálogo: perform y entidades reales con I/O aislado", { skip
   const build = spawnSync("xcrun", ["swiftc", "-swift-version", "5", "-parse-as-library", "-o", executable,
     path.join(__dirname, "../modules/vidkar-mcp/ios/MCPQueryPolicy.swift"),
     path.join(__dirname, "../modules/vidkar-mcp/ios/MCPCatalogQuery.swift"),
+    path.join(__dirname, "../modules/vidkar-mcp/ios/MCPInAppSearch.swift"),
     path.join(__dirname, "../modules/vidkar-mcp/ios/MCPUserSnippet.swift"), file], { encoding: "utf8" });
   assert.equal(build.status, 0, build.stderr);
   const result = spawnSync(executable, [], { encoding: "utf8", timeout: 20000 });

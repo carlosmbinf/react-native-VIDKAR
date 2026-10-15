@@ -13,6 +13,9 @@ export type MCPTool = {
 };
 
 type NativeMCPModule = {
+  getPendingInAppSearch?: () => { id: string; url: string } | null;
+  acknowledgeInAppSearch?: (id: string) => void;
+  addListener: (event: "onInAppSearch", listener: () => void) => { remove: () => void };
   configure: (url: string, token: string, ownerId: string) => Promise<void>;
   clearConfiguration: () => Promise<void>;
   getConfiguration: () => Promise<{ url: string | null; ownerId: string | null; configured: boolean; revision?: string }>;

@@ -2281,23 +2281,8 @@ public struct VIDKARSearchInAppIntent: ShowInAppSearchResultsIntent {
 
   public func perform() async throws -> some IntentResult & OpensIntent {
     try Task.checkCancellation()
-    let query = criteria.term.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard query.utf16.count <= 120,
-          !query.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else {
-      throw MCPError.invalidResponse
-    }
-    let configuredBase = Bundle.main.object(forInfoDictionaryKey: "VIDKAR_BASE_URL") as? String
-      ?? "https://www.vidkar.com"
-    let baseComponents = URLComponents(string: configuredBase)
-    let configuredHost = baseComponents?.scheme?.lowercased() == "https" ? baseComponents?.host : nil
-    var components = URLComponents()
-    components.scheme = "https"
-    components.host = configuredHost ?? "www.vidkar.com"
-    components.port = configuredHost == nil ? nil : baseComponents?.port
-    components.path = "/search"
-    components.queryItems = [URLQueryItem(name: "q", value: query), URLQueryItem(name: "entity", value: "all")]
-    components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
-    guard let url = components.url else { throw MCPError.invalidResponse }
+    let url = try MCPInAppSearch.url(term: criteria.term)
+    MCPInAppSearchDelivery.shared.enqueue(url)
     return .result(opensIntent: OpenURLIntent(url))
   }
 }
@@ -2305,6 +2290,22 @@ public struct VIDKARSearchInAppIntent: ShowInAppSearchResultsIntent {
 public final class VidkarMCPModule: Module {
   public func definition() -> ModuleDefinition {
     Name("VidkarMCP")
+    Events("onInAppSearch")
+
+    OnStartObserving {
+      MCPInAppSearchDelivery.shared.setListener { [weak self] in
+        self?.sendEvent("onInAppSearch", [:])
+      }
+    }
+    OnStopObserving {
+      MCPInAppSearchDelivery.shared.setListener(nil)
+    }
+    Function("getPendingInAppSearch") {
+      MCPInAppSearchDelivery.shared.getPending()
+    }
+    Function("acknowledgeInAppSearch") { (id: String) in
+      MCPInAppSearchDelivery.shared.acknowledge(id)
+    }
 
     AsyncFunction("configure") { (url: String, token: String, ownerId: String) async throws in
       try await MCPTransport.shared.configure(url: url, token: token, ownerId: ownerId)

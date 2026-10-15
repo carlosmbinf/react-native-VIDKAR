@@ -7,6 +7,7 @@ enum MCPInAppSearch {
     var errorDescription: String? {
       "Indica una búsqueda de hasta 120 caracteres, sin caracteres de control."
     }
+
   }
 
   static func url(term: String) throws -> URL {
@@ -32,5 +33,39 @@ enum MCPInAppSearch {
     components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
     guard let url = components.url else { throw InvalidCriteria.invalidTerm }
     return url
+  }
+}
+
+final class MCPInAppSearchDelivery {
+  static let shared = MCPInAppSearchDelivery()
+
+  private let lock = NSLock()
+  private var pending: [String: String]?
+  private var listener: (() -> Void)?
+
+  func enqueue(_ url: URL) {
+    lock.lock()
+    pending = ["id": UUID().uuidString, "url": url.absoluteString]
+    let notify = listener
+    lock.unlock()
+    notify?()
+  }
+
+  func getPending() -> [String: String]? {
+    lock.lock()
+    defer { lock.unlock() }
+    return pending
+  }
+
+  func acknowledge(_ id: String) {
+    lock.lock()
+    defer { lock.unlock() }
+    if pending?["id"] == id { pending = nil }
+  }
+
+  func setListener(_ listener: (() -> Void)?) {
+    lock.lock()
+    self.listener = listener
+    lock.unlock()
   }
 }

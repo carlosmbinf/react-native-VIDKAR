@@ -18,6 +18,25 @@ struct MCPInAppSearchTests {
         preconditionFailure("Debe rechazar criterios inválidos")
       } catch MCPInAppSearch.InvalidCriteria.invalidTerm { }
     }
+    let delivery = MCPInAppSearchDelivery()
+    let firstURL = try MCPInAppSearch.url(term: "C++ & Swift")
+    delivery.enqueue(firstURL)
+    let first = delivery.getPending()!
+    precondition(first["url"] == firstURL.absoluteString)
+    precondition(delivery.getPending() == first, "Leer no debe perder el destino antes de navegar")
+    var notifications = 0
+    delivery.setListener { notifications += 1 }
+    let secondURL = try MCPInAppSearch.url(term: "otra búsqueda")
+    delivery.enqueue(secondURL)
+    precondition(notifications == 1)
+    delivery.acknowledge(first["id"]!)
+    let second = delivery.getPending()!
+    precondition(second["url"] == secondURL.absoluteString, "Una confirmación vieja no borra la búsqueda nueva")
+    delivery.acknowledge(second["id"]!)
+    precondition(delivery.getPending() == nil)
+    delivery.setListener(nil)
+    delivery.enqueue(firstURL)
+    precondition(notifications == 1 && delivery.getPending() != nil)
     print("Criterios literales, Universal Link https y límites UTF-16: OK")
   }
 }

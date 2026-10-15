@@ -10,6 +10,7 @@ import {
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import SpotlightNavigation from "../components/spotlight/SpotlightNavigation.native";
+import SiriSearchNavigation from "../components/mcp/SiriSearchNavigation.native";
 import ProxyVpnWidgetSyncHost from "../components/widgets/ProxyVpnWidgetSyncHost";
 import { appHeaderBlurTargetRef } from "../components/Header/appHeaderBlurTarget";
 import { useColorScheme } from "../hooks/use-color-scheme";
@@ -37,6 +38,7 @@ export default function RootLayout() {
             <Stack screenOptions={{ headerShown: false }} />
           </BlurTargetView>
           <SpotlightNavigation />
+          <SiriSearchNavigation />
           <ProxyVpnWidgetSyncHost />
         </PaperProvider>
       </SafeAreaProvider>

@@ -1,5 +1,21 @@
 # Siri, App Intents y MCP de VIDKAR
 
+## Entrega de la búsqueda al abrir la app
+
+`VIDKARSearchInAppIntent` conserva en memoria nativa el destino validado antes
+de devolver `OpenURLIntent`. El navegador raíz recupera esa solicitud tanto al
+montarse como al recibir un evento o volver a primer plano; espera a que exista
+el navegador y confirma la entrega por ID. La solicitud más reciente reemplaza
+la anterior y una confirmación antigua no puede borrarla. No se guardan búsquedas
+en disco ni se ejecutan consultas durante esta entrega.
+
+La ruta `/siri-search` mantiene los parámetros durante la restauración de sesión
+y usa el login integrado con `deferSessionRedirect`, sin enviar al menú al terminar.
+Si Expo Router ya recibió el mismo enlace, no se duplica la navegación.
+Este mecanismo requiere recompilar el binario iOS; una OTA no actualiza el módulo.
+Las pruebas aisladas cubren entrega fría/caliente y login; la aceptación real con
+Siri y el binario actualizado debe comprobarse en dispositivo.
+
 > [Estado y límites de Siri AI](./siri-ai-integration.md): `VIDKARSearchInAppIntent`
 > conserva su contrato de apertura, pero está oculto del descubrimiento. Solo
 > consultas background se ofrecen para Siri. El planner experimental sigue
