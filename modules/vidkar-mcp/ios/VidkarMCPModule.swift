@@ -2021,7 +2021,7 @@ public struct VIDKARGetUserProfileIntent: AppIntent {
 public struct VIDKARGetCapabilitiesIntent: AppIntent {
   public init() {}
   public static let title: LocalizedStringResource = "Qué puedo consultar en VIDKAR"
-  public static let description = IntentDescription("Describe las consultas de solo lectura disponibles dentro de Siri y sus límites. No abre VIDKAR ni obtiene datos privados.")
+  public static let description = IntentDescription("Describe las consultas de solo lectura disponibles en VIDKAR y sus límites. No abre la app ni obtiene datos privados.")
   public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
   public static let openAppWhenRun = false
 
