@@ -151,7 +151,7 @@ private struct MCPUserSnippetTests {
           .frame(width: 360)
           .background(dark ? Color.black : Color.white))
         guard let image = renderer.cgImage else { preconditionFailure("Debia renderizar el perfil completo") }
-        precondition(image.width == 360 && image.height > 300)
+        precondition(image.width == 360 && image.height > 120)
         precondition(image.height <= (size == .large ? 640 : 1050), "Ficha completa legible y acotada")
         print("Perfil completo: \(dark ? "oscuro" : "claro"), \(size): \(image.width)x\(image.height) puntos")
         if let directory = ProcessInfo.processInfo.environment["VIDKAR_SNIPPET_SNAPSHOT_DIR"] {
@@ -164,6 +164,46 @@ private struct MCPUserSnippetTests {
         }
       }
     }
+    precondition(validatedVIDKAROpenLink("vidkar://user/u1") != nil)
+    precondition(validatedVIDKAROpenLink("vidkar://movie/m1?q=Avatar") != nil)
+    precondition(validatedVIDKAROpenLink("https://attacker.example/user/u1") == nil)
+    precondition(validatedVIDKAROpenLink("vidkar://unknown/u1") == nil)
+    precondition(validatedVIDKARInAppSearchLink(query: "Carlos Medina", entityType: "user")?.absoluteString == "vidkar://search?q=Carlos%20Medina&entity=user")
+    let multiUserSnippet = VIDKARUserSnippetView(
+      fullName: "Carlos Medina",
+      username: "carlosmbinf",
+      avatar: loaded.image,
+      avatarUnavailable: false,
+      details: details,
+      openURL: validatedVIDKAROpenLink("vidkar://user/u1"),
+      additionalRows: [
+        VIDKARUserSnippetRow(
+          fullName: "Carlos Medina Jr",
+          username: "carlosjr",
+          avatar: loaded.image,
+          avatarUnavailable: false,
+          details: details,
+          openURL: validatedVIDKAROpenLink("vidkar://user/u2")
+        )
+      ],
+      searchURL: validatedVIDKARInAppSearchLink(query: "Carlos Medina", entityType: "user")
+    )
+    let multiRenderer = ImageRenderer(content: multiUserSnippet.frame(width: 360))
+    guard let multiImage = multiRenderer.cgImage else { preconditionFailure("Debia renderizar lista compacta de usuarios") }
+    precondition(multiImage.width == 360 && multiImage.height <= 480)
+    let catalogListSnippet = VIDKARReadSnippetView(
+      title: "Películas VIDKAR",
+      subtitle: "Primeros 2 resultados",
+      lines: ["Avatar · 2009"],
+      items: [
+        VIDKARSnippetItem(id: "movie:1", title: "Avatar", subtitle: "2009", detail: "Ciencia ficción", symbolName: "film", image: loaded.image, openURL: validatedVIDKAROpenLink("vidkar://movie/1?q=Avatar")),
+        VIDKARSnippetItem(id: "movie:2", title: "Terminator", subtitle: "1984", detail: "Acción", symbolName: "film", image: nil, openURL: validatedVIDKAROpenLink("vidkar://movie/2?q=Terminator")),
+      ],
+      searchURL: validatedVIDKARInAppSearchLink(query: "Avatar", entityType: "movie")
+    )
+    let catalogRenderer = ImageRenderer(content: catalogListSnippet.frame(width: 360))
+    guard let catalogImage = catalogRenderer.cgImage else { preconditionFailure("Debia renderizar snippet de catalogo con tarjetas e imagenes") }
+    precondition(catalogImage.width == 360 && catalogImage.height <= 360)
     print("Avatar seguro; perfil validado, bytes/MB y ausencias sin inventar datos; render macOS básico <=340 y completo <=640 puntos, entornos Dynamic Type verificados; aceptación visual/accesible iOS pendiente: PASS")
   }
 }

@@ -62,7 +62,18 @@ struct VIDKARCatalogEntityPayload: Decodable, Sendable {
   let title: String
   let subtitle: String?
   let description: String?
+  let imageUrl: String?
   let deepLink: String
+
+  init(id: String, type: String, title: String, subtitle: String? = nil, description: String? = nil, imageUrl: String? = nil, deepLink: String) {
+    self.id = id
+    self.type = type
+    self.title = title
+    self.subtitle = subtitle
+    self.description = description
+    self.imageUrl = imageUrl
+    self.deepLink = deepLink
+  }
 }
 
 private struct VIDKARCatalogEntityEnvelope: Decodable {
@@ -1116,7 +1127,9 @@ protocol VIDKARCatalogAppEntity: AppEntity where ID == String {
   var subtitle: String { get }
   var summary: String { get }
   var deepLink: String { get }
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String)
+  var thumbnailImageURL: URL? { get }
+  var thumbnailImageData: Data? { get }
+  init(id: String, title: String, subtitle: String, summary: String, deepLink: String, thumbnailURL: String?, thumbnailData: Data?)
   init?(payload: VIDKARCatalogEntityPayload)
 }
 
@@ -1127,10 +1140,18 @@ extension VIDKARCatalogAppEntity {
   }
 
   public var displayRepresentation: DisplayRepresentation {
-    DisplayRepresentation(
+    let image: DisplayRepresentation.Image
+    if let data = thumbnailImageData {
+      image = DisplayRepresentation.Image(data: data)
+    } else if let url = thumbnailImageURL {
+      image = DisplayRepresentation.Image(url: url)
+    } else {
+      image = DisplayRepresentation.Image(systemName: Self.symbolName, isTemplate: true)
+    }
+    return DisplayRepresentation(
       title: "\(title)",
       subtitle: "\(subtitle)",
-      image: DisplayRepresentation.Image(systemName: Self.symbolName, isTemplate: true)
+      image: image
     )
   }
 
@@ -1142,7 +1163,9 @@ extension VIDKARCatalogAppEntity {
       title: payload.title,
       subtitle: payload.subtitle ?? "",
       summary: payload.description ?? "",
-      deepLink: payload.deepLink
+      deepLink: payload.deepLink,
+      thumbnailURL: payload.imageUrl,
+      thumbnailData: nil
     )
   }
 
@@ -1169,7 +1192,7 @@ extension VIDKARCatalogAppEntity {
   }
 }
 
-private func searchVIDKARCatalog<Entity: VIDKARCatalogAppEntity>(_ type: Entity.Type, query: String) async throws -> [Entity] {
+private func searchVIDKARCatalogWithImages<Entity: VIDKARCatalogAppEntity>(_ type: Entity.Type, query: String) async throws -> ([Entity], [VIDKARSnippetItem]) {
   let normalizedQuery = Entity.mcpType == "course" && query.isEmpty ? "" : try MCPCatalogQuery.query(query)
   let session = try await MCPTransport.shared.querySession()
   let payloads = try await MCPTransport.shared.searchCatalogEntities(
@@ -1178,14 +1201,41 @@ private func searchVIDKARCatalog<Entity: VIDKARCatalogAppEntity>(_ type: Entity.
     category: Entity.mcpCategory
   )
   var entities: [Entity] = []
+  var items: [VIDKARSnippetItem] = []
   for payload in payloads.prefix(5) {
-    guard let entity = Entity(payload: payload) else { throw MCPError.invalidResponse }
-    entities.append(Entity(id: entity.id, title: MCPCatalogQuery.text(entity.title, limit: 160),
-      subtitle: MCPCatalogQuery.text(entity.subtitle, limit: 120),
-      summary: MCPCatalogQuery.text(entity.summary, limit: 240), deepLink: entity.deepLink))
+    guard let parsed = Entity(payload: payload) else { throw MCPError.invalidResponse }
+    let (loadedImage, _) = try await loadVIDKARProfileAvatar(payload.imageUrl)
+    let cleanTitle = MCPCatalogQuery.text(parsed.title, limit: 160)
+    let cleanSubtitle = MCPCatalogQuery.text(parsed.subtitle, limit: 120)
+    let cleanSummary = MCPCatalogQuery.text(parsed.summary, limit: 240)
+    let entity = Entity(
+      id: parsed.id,
+      title: cleanTitle,
+      subtitle: cleanSubtitle,
+      summary: cleanSummary,
+      deepLink: parsed.deepLink,
+      thumbnailURL: payload.imageUrl,
+      thumbnailData: loadedImage?.data
+    )
+    entities.append(entity)
+    items.append(VIDKARSnippetItem(
+      id: entity.id,
+      title: cleanTitle,
+      subtitle: cleanSubtitle,
+      detail: cleanSummary,
+      badge: nil,
+      symbolName: Entity.symbolName,
+      image: loadedImage?.image,
+      circularImage: false,
+      openURL: validatedVIDKAROpenLink(entity.deepLink)
+    ))
   }
   try await MCPTransport.shared.assertQuerySession(session)
-  return entities
+  return (entities, items)
+}
+
+private func searchVIDKARCatalog<Entity: VIDKARCatalogAppEntity>(_ type: Entity.Type, query: String) async throws -> [Entity] {
+  try await searchVIDKARCatalogWithImages(type, query: query).0
 }
 
 private func resolveVIDKARCatalog<Entity: VIDKARCatalogAppEntity>(_ type: Entity.Type, identifiers: [String]) async throws -> [Entity] {
@@ -1219,7 +1269,11 @@ public struct VIDKARMovieAppEntity: VIDKARCatalogAppEntity {
   @Property(title: "Subtítulo") var subtitle: String
   @Property(title: "Descripción") var summary: String
   @Property(title: "Enlace VIDKAR") var deepLink: String
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String) {
+  let thumbnailImageURL: URL?
+  let thumbnailImageData: Data?
+  init(id: String, title: String, subtitle: String, summary: String, deepLink: String, thumbnailURL: String? = nil, thumbnailData: Data? = nil) {
+    self.thumbnailImageURL = thumbnailURL.flatMap(validatedVIDKARUserAvatarURL)
+    self.thumbnailImageData = thumbnailData
     self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink
   }
 }
@@ -1241,7 +1295,11 @@ public struct VIDKARSeriesAppEntity: VIDKARCatalogAppEntity {
   @Property(title: "Subtítulo") var subtitle: String
   @Property(title: "Descripción") var summary: String
   @Property(title: "Enlace VIDKAR") var deepLink: String
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String) {
+  let thumbnailImageURL: URL?
+  let thumbnailImageData: Data?
+  init(id: String, title: String, subtitle: String, summary: String, deepLink: String, thumbnailURL: String? = nil, thumbnailData: Data? = nil) {
+    self.thumbnailImageURL = thumbnailURL.flatMap(validatedVIDKARUserAvatarURL)
+    self.thumbnailImageData = thumbnailData
     self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink
   }
 }
@@ -1263,7 +1321,11 @@ public struct VIDKARCourseAppEntity: VIDKARCatalogAppEntity {
   @Property(title: "Subtítulo") var subtitle: String
   @Property(title: "Descripción") var summary: String
   @Property(title: "Enlace VIDKAR") var deepLink: String
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String) {
+  let thumbnailImageURL: URL?
+  let thumbnailImageData: Data?
+  init(id: String, title: String, subtitle: String, summary: String, deepLink: String, thumbnailURL: String? = nil, thumbnailData: Data? = nil) {
+    self.thumbnailImageURL = thumbnailURL.flatMap(validatedVIDKARUserAvatarURL)
+    self.thumbnailImageData = thumbnailData
     self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink
   }
 }
@@ -1286,7 +1348,11 @@ public struct VIDKARCommerceProductAppEntity: VIDKARCatalogAppEntity {
   @Property(title: "Subtítulo") var subtitle: String
   @Property(title: "Descripción y precio") var summary: String
   @Property(title: "Enlace VIDKAR") var deepLink: String
-  init(id: String, title: String, subtitle: String, summary: String, deepLink: String) {
+  let thumbnailImageURL: URL?
+  let thumbnailImageData: Data?
+  init(id: String, title: String, subtitle: String, summary: String, deepLink: String, thumbnailURL: String? = nil, thumbnailData: Data? = nil) {
+    self.thumbnailImageURL = thumbnailURL.flatMap(validatedVIDKARUserAvatarURL)
+    self.thumbnailImageData = thumbnailData
     self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink
   }
 }
@@ -1303,9 +1369,9 @@ public struct VIDKARSearchMoviesIntent: AppIntent {
 
   public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARMovieAppEntity]> & ProvidesDialog & ShowsSnippetView {
     let term = query.isEmpty ? try await $query.requestValue("¿Qué película quieres buscar?") : query
-    let entities = try await searchVIDKARCatalog(VIDKARMovieAppEntity.self, query: term)
+    let (entities, items) = try await searchVIDKARCatalogWithImages(VIDKARMovieAppEntity.self, query: term)
     return .result(value: entities, dialog: catalogDialog(entities),
-      view: catalogSnippet(entities, title: "Películas VIDKAR"))
+      view: catalogSnippet(entities, items: items, title: "Películas VIDKAR", query: term, entityType: "movie"))
   }
 }
 
@@ -1321,9 +1387,9 @@ public struct VIDKARSearchSeriesIntent: AppIntent {
 
   public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSeriesAppEntity]> & ProvidesDialog & ShowsSnippetView {
     let term = query.isEmpty ? try await $query.requestValue("¿Qué serie quieres buscar?") : query
-    let entities = try await searchVIDKARCatalog(VIDKARSeriesAppEntity.self, query: term)
+    let (entities, items) = try await searchVIDKARCatalogWithImages(VIDKARSeriesAppEntity.self, query: term)
     return .result(value: entities, dialog: catalogDialog(entities),
-      view: catalogSnippet(entities, title: "Series VIDKAR"))
+      view: catalogSnippet(entities, items: items, title: "Series VIDKAR", query: term, entityType: "series"))
   }
 }
 
@@ -1338,9 +1404,9 @@ public struct VIDKARSearchCoursesIntent: AppIntent {
   public static var parameterSummary: some ParameterSummary { Summary("Busca cursos: \(\.$query)") }
 
   public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARCourseAppEntity]> & ProvidesDialog & ShowsSnippetView {
-    let entities = try await searchVIDKARCatalog(VIDKARCourseAppEntity.self, query: query)
+    let (entities, items) = try await searchVIDKARCatalogWithImages(VIDKARCourseAppEntity.self, query: query)
     return .result(value: entities, dialog: catalogDialog(entities),
-      view: catalogSnippet(entities, title: "Cursos VIDKAR"))
+      view: catalogSnippet(entities, items: items, title: "Cursos VIDKAR", query: query, entityType: "course"))
   }
 }
 
@@ -1356,9 +1422,9 @@ public struct VIDKARSearchCommerceProductsIntent: AppIntent {
 
   public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARCommerceProductAppEntity]> & ProvidesDialog & ShowsSnippetView {
     let term = query.isEmpty ? try await $query.requestValue("¿Qué producto quieres buscar?") : query
-    let entities = try await searchVIDKARCatalog(VIDKARCommerceProductAppEntity.self, query: term)
+    let (entities, items) = try await searchVIDKARCatalogWithImages(VIDKARCommerceProductAppEntity.self, query: term)
     return .result(value: entities, dialog: catalogDialog(entities),
-      view: catalogSnippet(entities, title: "Comercio VIDKAR"))
+      view: catalogSnippet(entities, items: items, title: "Comercio VIDKAR", query: term, entityType: "product"))
   }
 }
 
@@ -1504,11 +1570,22 @@ private func catalogDialog<Entity: VIDKARCatalogAppEntity>(_ entities: [Entity])
   IntentDialog(stringLiteral: MCPCatalogQuery.summary(entities.map { ($0.title, $0.subtitle, $0.summary) }))
 }
 
-private func catalogSnippet<Entity: VIDKARCatalogAppEntity>(_ entities: [Entity], title: String) -> VIDKARReadSnippetView {
-  VIDKARReadSnippetView(title: title, subtitle: "Primeros \(entities.count) resultados",
+private func catalogSnippet<Entity: VIDKARCatalogAppEntity>(
+  _ entities: [Entity],
+  items: [VIDKARSnippetItem] = [],
+  title: String,
+  query: String = "",
+  entityType: String = "all"
+) -> VIDKARReadSnippetView {
+  VIDKARReadSnippetView(
+    title: title,
+    subtitle: "Primeros \(entities.count) resultados",
     lines: entities.isEmpty ? ["No encontré resultados."] : entities.prefix(5).map {
       [$0.title, $0.subtitle, $0.summary].filter { !$0.isEmpty }.joined(separator: " · ")
-    })
+    },
+    items: items,
+    searchURL: validatedVIDKARInAppSearchLink(query: query, entityType: entityType)
+  )
 }
 
 public struct VIDKARCatalogResultEntity: TransientAppEntity {
@@ -1676,12 +1753,13 @@ public struct VIDKARUserSearchAppEntityQuery: EntityStringQuery {
   public func entities(matching string: String) async throws -> [VIDKARUserSearchAppEntity] {
     let session = try await MCPTransport.shared.querySession()
     let outcome = try await queryVIDKARUserByUsername(string)
-    guard case .found(_, _, _, let resultId) = outcome else {
-      if case .ambiguous = outcome { throw VIDKARUserSearchFailure.ambiguous }
-      return []
+    if case .found(_, _, _, let resultId) = outcome {
+      let profile = try await readVIDKARStoredUserProfile(resultId: resultId, session: session)
+      return [try VIDKARUserSearchAppEntity(profile: profile, ownerId: session.ownerId)]
     }
-    let profile = try await readVIDKARStoredUserProfile(resultId: resultId, session: session)
-    return [try VIDKARUserSearchAppEntity(profile: profile, ownerId: session.ownerId)]
+    if case .ambiguous = outcome { throw VIDKARUserSearchFailure.ambiguous }
+    let matches = try await queryVIDKARUsersByText(string, session: session)
+    return matches.map(\.entity)
   }
   public func suggestedEntities() async throws -> [VIDKARUserSearchAppEntity] { [] }
 }
@@ -1728,7 +1806,26 @@ public struct VIDKARSearchUserByUsernameIntent: AppIntent {
       let outcome = try await queryVIDKARUserByUsername(username)
       switch outcome {
       case .notFound:
-        throw VIDKARUserSearchFailure.notFound
+        let multiMatches = try await queryVIDKARUsersByText(username, session: session)
+        guard let first = multiMatches.first else {
+          throw VIDKARUserSearchFailure.notFound
+        }
+        try await MCPTransport.shared.assertQuerySession(session)
+        let dialog = String(localized: "Encontré el usuario en VIDKAR. Su ficha está disponible en el resultado.")
+        let additionalRows = Array(multiMatches.dropFirst().map(\.row))
+        return .result(
+          value: first.entity,
+          dialog: IntentDialog(stringLiteral: dialog),
+          view: vidkarUserProfileSnippet(
+            entity: first.entity,
+            details: first.details,
+            avatar: first.row.avatar,
+            avatarUnavailable: first.row.avatarUnavailable,
+            openURL: first.row.openURL,
+            additionalRows: additionalRows,
+            searchURL: validatedVIDKARInAppSearchLink(query: username, entityType: "user")
+          )
+        )
       case .ambiguous:
         throw VIDKARUserSearchFailure.ambiguous
       case .found(let displayName, let foundUsername, let avatarURL, let resultId):
@@ -1739,10 +1836,14 @@ public struct VIDKARSearchUserByUsernameIntent: AppIntent {
         try await MCPTransport.shared.assertQuerySession(session)
         let entity = VIDKARUserSearchAppEntity(fullName: displayName, username: foundUsername,
           avatarURL: nil, avatarData: avatar?.data, account: account, details: details)
+        let userId = (profile["id"] as? String) ?? ""
+        let openURL = validatedVIDKAROpenLink("vidkar://user/\(userId)")
         let dialog = String(localized: "Encontré el usuario en VIDKAR. Su ficha está disponible en el resultado.")
         return .result(value: entity, dialog: IntentDialog(stringLiteral: dialog),
           view: vidkarUserProfileSnippet(entity: entity, details: details,
-            avatar: avatar?.image, avatarUnavailable: avatarUnavailable))
+            avatar: avatar?.image, avatarUnavailable: avatarUnavailable,
+            openURL: openURL,
+            searchURL: validatedVIDKARInAppSearchLink(query: foundUsername, entityType: "user")))
       }
     } catch {
       if error is CancellationError { throw error }
@@ -1753,15 +1854,111 @@ public struct VIDKARSearchUserByUsernameIntent: AppIntent {
 }
 
 @ViewBuilder
-private func vidkarUserProfileSnippet(entity: VIDKARUserSearchAppEntity, details: VIDKARUserProfileDetails,
-                                     avatar: CGImage?, avatarUnavailable: Bool) -> some View {
-  let view = VIDKARUserSnippetView(fullName: entity.fullName, username: entity.username,
-    avatar: avatar, avatarUnavailable: avatarUnavailable, details: details)
+private func vidkarUserProfileSnippet(
+  entity: VIDKARUserSearchAppEntity,
+  details: VIDKARUserProfileDetails,
+  avatar: CGImage?,
+  avatarUnavailable: Bool,
+  openURL: URL? = nil,
+  additionalRows: [VIDKARUserSnippetRow] = [],
+  searchURL: URL? = nil
+) -> some View {
+  let resolvedOpenURL = openURL ?? entity.id.split(separator: "|", omittingEmptySubsequences: false).last.flatMap {
+    validatedVIDKAROpenLink("vidkar://user/\($0)")
+  }
+  let view = VIDKARUserSnippetView(
+    fullName: entity.fullName,
+    username: entity.username,
+    avatar: avatar,
+    avatarUnavailable: avatarUnavailable,
+    details: details,
+    openURL: resolvedOpenURL,
+    additionalRows: additionalRows,
+    searchURL: searchURL
+  )
   if #available(iOS 18.4, macOS 15.4, *) {
     view.appEntityIdentifier(EntityIdentifier(for: entity))
   } else {
     view
   }
+}
+
+private struct VIDKARMatchedUserCandidate {
+  let entity: VIDKARUserSearchAppEntity
+  let details: VIDKARUserProfileDetails
+  let row: VIDKARUserSnippetRow
+}
+
+private func queryVIDKARUsersByText(
+  _ rawQuery: String,
+  session: (revision: UUID, ownerId: String)
+) async throws -> [VIDKARMatchedUserCandidate] {
+  let term = try MCPCatalogQuery.query(rawQuery)
+  guard term.contains(" ") else { return [] }
+  let tools = try await MCPTransport.shared.discover(force: true)
+  try await MCPTransport.shared.assertQuerySession(session)
+  guard let tool = tools.first(where: { $0.name == "search_entities" }),
+        case .bool(true)? = tool.annotations?["readOnlyHint"],
+        tool.inputSchema["properties"]?.object?["query"] != nil else {
+    return []
+  }
+  let output = try await MCPTransport.shared.executeForSession(
+    name: "search_entities",
+    arguments: ["entity": "user", "query": term, "limit": 5, "offset": 0],
+    ownerId: session.ownerId,
+    revision: session.revision.uuidString
+  )
+  try await MCPTransport.shared.assertQuerySession(session)
+  guard let data = output.data(using: .utf8),
+        let response = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        response["success"] as? Bool == true,
+        let rows = response["results"] as? [[String: Any]] else {
+    return []
+  }
+  var candidates: [VIDKARMatchedUserCandidate] = []
+  for row in rows.prefix(5) {
+    guard row["type"] as? String == "user",
+          let id = row["id"] as? String, !id.isEmpty,
+          let rawSub = row["subtitle"] as? String else { continue }
+    let uname = MCPCatalogQuery.text(rawSub.hasPrefix("@") ? String(rawSub.dropFirst()) : rawSub, limit: 120)
+    guard !uname.isEmpty else { continue }
+    let displayName = MCPCatalogQuery.text(row["title"] as? String ?? uname, limit: 120)
+    let rawAvatar = validatedVIDKARUserAvatarURL(row["imageUrl"] as? String)?.absoluteString
+    let (avatar, avatarUnavailable) = try await loadVIDKARProfileAvatar(rawAvatar)
+    try await MCPTransport.shared.assertQuerySession(session)
+    var profilePayload: [String: Any] = [
+      "id": id,
+      "username": uname,
+      "name": displayName,
+    ]
+    if let role = row["role"] as? String ?? row["description"] as? String {
+      profilePayload["role"] = role
+    }
+    if let usage = row["serviceUsage"] as? [String: Any] {
+      profilePayload["serviceUsage"] = usage
+    }
+    guard let account = try? VIDKARAccountUserAppEntity(profile: profilePayload, ownerId: session.ownerId),
+          let details = try? VIDKARUserProfileDetails.decode(profilePayload) else { continue }
+    let entity = VIDKARUserSearchAppEntity(
+      fullName: displayName,
+      username: uname,
+      avatarURL: nil,
+      avatarData: avatar?.data,
+      account: account,
+      details: details
+    )
+    let openURL = validatedVIDKAROpenLink((row["deepLink"] as? String) ?? "vidkar://user/\(id)")
+    let snippetRow = VIDKARUserSnippetRow(
+      fullName: displayName,
+      username: uname,
+      avatar: avatar?.image,
+      avatarUnavailable: avatarUnavailable,
+      details: details,
+      openURL: openURL
+    )
+    candidates.append(VIDKARMatchedUserCandidate(entity: entity, details: details, row: snippetRow))
+  }
+  return candidates
 }
 
 private func loadVIDKARProfileAvatar(_ rawURL: String?) async throws -> (VIDKARUserAvatar.LoadedImage?, Bool) {
@@ -2106,10 +2303,11 @@ public struct VIDKARGetUserSalesIntent: AppIntent {
     let payload = try await queryVIDKARReadTool("get_sales", arguments: [
       "userId": try vidkarReadUserID(user, session: session), "period": period.rawValue, "limit": 5, "offset": 0, "sort": "newest",
     ], session: session)
-    let lines = try vidkarFinancialRows(payload, key: "sales", totalKey: "total")
+    let (lines, items) = try vidkarFinancialRowsAndItems(payload, key: "sales", totalKey: "total", linkType: "sale")
     let title = "Ventas asociadas a la cuenta"
     return .result(value: VIDKARReadReportEntity(title: title, lines: lines), dialog: "Las ventas están disponibles en la tarjeta.",
-      view: VIDKARReadSnippetView(title: title, subtitle: vidkarReportPeriod(payload), lines: lines))
+      view: VIDKARReadSnippetView(title: title, subtitle: vidkarReportPeriod(payload), lines: lines, items: items,
+        searchURL: validatedVIDKARInAppSearchLink(query: "", entityType: "sale")))
   }
 }
 
@@ -2139,17 +2337,36 @@ public struct VIDKARGetUserRecordsIntent: AppIntent {
     if records != .profile { arguments.merge(["period": period.rawValue, "limit": 5, "offset": 0, "sort": "newest"]) { _, new in new } }
     let payload = try await queryVIDKARReadTool(tool, arguments: arguments, session: session)
     let lines: [String]
+    var items: [VIDKARSnippetItem] = []
+    let searchEntityType: String
     if records == .profile {
       guard payload["id"] as? String == userId,
             let username = payload["username"] as? String, let banned = payload["banned"] as? Bool else { throw MCPError.invalidResponse }
+      let fullName = MCPCatalogQuery.text(payload["name"] as? String ?? username, limit: 120)
+      let cleanUsername = MCPCatalogQuery.text(username, limit: 120)
+      let roleText = MCPCatalogQuery.text(payload["role"] as? String ?? "No disponible", limit: 60)
       lines = [
-        MCPCatalogQuery.text(payload["name"] as? String ?? username, limit: 120), "@\(MCPCatalogQuery.text(username, limit: 120))",
-        "Rol: \(MCPCatalogQuery.text(payload["role"] as? String ?? "No disponible", limit: 60))",
+        fullName, "@\(cleanUsername)",
+        "Rol: \(roleText)",
         banned ? "Cuenta bloqueada" : "Cuenta no bloqueada",
       ]
+      items = [VIDKARSnippetItem(
+        id: userId,
+        title: fullName,
+        subtitle: "@\(cleanUsername) · \(roleText)",
+        detail: banned ? "Cuenta bloqueada" : "Cuenta no bloqueada",
+        badge: banned ? "Bloqueado" : "Sin bloqueo",
+        symbolName: "person.crop.circle",
+        circularImage: true,
+        openURL: validatedVIDKAROpenLink("vidkar://user/\(userId)")
+      )]
+      searchEntityType = "user"
     } else if records == .purchases {
       guard payload["userId"] as? String == userId else { throw MCPError.invalidResponse }
-      lines = try vidkarFinancialRows(payload, key: "sales", totalKey: "totalSales")
+      let parsed = try vidkarFinancialRowsAndItems(payload, key: "sales", totalKey: "totalSales", linkType: "purchase")
+      lines = parsed.0
+      items = parsed.1
+      searchEntityType = "purchase"
     } else {
       guard let rows = payload["orders"] as? [[String: Any]], rows.count <= 5,
             let pagination = payload["pagination"] as? [String: Any],
@@ -2158,23 +2375,58 @@ public struct VIDKARGetUserRecordsIntent: AppIntent {
         guard let status = $0["status"] as? String else { throw MCPError.invalidResponse }
         return "Estado: \(MCPCatalogQuery.text(status, limit: 40)) · \(MCPCatalogQuery.text($0["createdAt"] as? String ?? "", limit: 40))"
       })
+      items = rows.enumerated().map { index, row in
+        let orderId = (row["id"] as? String) ?? ""
+        let status = MCPCatalogQuery.text((row["status"] as? String) ?? "", limit: 40)
+        let createdAt = MCPCatalogQuery.text((row["createdAt"] as? String) ?? "", limit: 40)
+        return VIDKARSnippetItem(
+          id: orderId.isEmpty ? "order-\(index)" : orderId,
+          title: orderId.isEmpty ? "Orden VIDKAR" : "Orden \(MCPCatalogQuery.text(orderId, limit: 40))",
+          subtitle: createdAt,
+          detail: "",
+          badge: status,
+          symbolName: "shippingbox",
+          openURL: orderId.isEmpty ? nil : validatedVIDKAROpenLink("vidkar://order/\(orderId)")
+        )
+      }
+      searchEntityType = "order"
     }
     let title = records == .profile ? "Perfil VIDKAR" : records == .purchases ? "Compras VIDKAR" : "Órdenes VIDKAR"
     return .result(value: VIDKARReadReportEntity(title: title, lines: lines), dialog: "Los datos están disponibles en la tarjeta.",
-      view: VIDKARReadSnippetView(title: title, subtitle: records == .profile ? "" : vidkarReportPeriod(payload), lines: lines))
+      view: VIDKARReadSnippetView(title: title, subtitle: records == .profile ? "" : vidkarReportPeriod(payload), lines: lines,
+        items: items, searchURL: validatedVIDKARInAppSearchLink(query: "", entityType: searchEntityType)))
   }
 }
 
-private func vidkarFinancialRows(_ payload: [String: Any], key: String, totalKey: String) throws -> [String] {
+private func vidkarFinancialRowsAndItems(_ payload: [String: Any], key: String, totalKey: String, linkType: String) throws -> ([String], [VIDKARSnippetItem]) {
   guard let rows = payload[key] as? [[String: Any]], rows.count <= 5,
         let total = payload[totalKey] as? Int, total >= rows.count else { throw MCPError.invalidResponse }
-  return ["\(total) registros; primeros \(rows.count)."] + (rows.isEmpty ? ["No hay registros en este período."] : try rows.map { row in
+  var rowLines: [String] = []
+  var items: [VIDKARSnippetItem] = []
+  for (index, row) in rows.enumerated() {
     guard let amount = row["amount"] as? Double, amount.isFinite,
           let currency = row["currency"] as? String, !currency.isEmpty,
           let service = row["service"] as? String,
           let status = row["status"] as? String else { throw MCPError.invalidResponse }
-    return "\(MCPCatalogQuery.text(service, limit: 40)) · \(String(format: "%.2f", amount)) \(MCPCatalogQuery.text(currency, limit: 12)) · \(MCPCatalogQuery.text(status, limit: 40))"
-  })
+    let cleanService = MCPCatalogQuery.text(service, limit: 40)
+    let cleanCurrency = MCPCatalogQuery.text(currency, limit: 12)
+    let cleanStatus = MCPCatalogQuery.text(status, limit: 40)
+    let amountFormatted = "\(String(format: "%.2f", amount)) \(cleanCurrency)"
+    rowLines.append("\(cleanService) · \(amountFormatted) · \(cleanStatus)")
+    let rowId = (row["id"] as? String) ?? ""
+    let createdAt = MCPCatalogQuery.text((row["createdAt"] as? String) ?? "", limit: 40)
+    items.append(VIDKARSnippetItem(
+      id: rowId.isEmpty ? "\(linkType)-\(index)" : rowId,
+      title: "\(cleanService) · \(amountFormatted)",
+      subtitle: createdAt.isEmpty ? cleanStatus : createdAt,
+      detail: "",
+      badge: cleanStatus,
+      symbolName: linkType == "sale" ? "chart.bar" : "creditcard",
+      openURL: rowId.isEmpty ? nil : validatedVIDKAROpenLink("vidkar://\(linkType)/\(rowId)")
+    ))
+  }
+  let lines = ["\(total) registros; primeros \(rows.count)."] + (rowLines.isEmpty ? ["No hay registros en este período."] : rowLines)
+  return (lines, items)
 }
 
 private func vidkarReportPeriod(_ payload: [String: Any]) -> String {

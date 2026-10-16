@@ -7,10 +7,13 @@ export function redirectSystemPath({ path }: { path: string; initial: boolean })
   try {
     const url = new URL(path, getVidkarBaseUrl());
     const isSearch = url.protocol === "vidkar:" ? url.hostname.toLowerCase() === "search" : url.pathname === "/search";
-    if (!isSearch) return path;
+    const isVIDKARLink = url.protocol === "vidkar:";
+    if (!isSearch && !isVIDKARLink) return path;
+    if (isVIDKARLink && url.searchParams.get("play") === "true") return path;
+
     const target = resolveUniversalLink(url.toString());
     // Validar también el original: el parser puede normalizar credenciales/puertos vacíos.
-    if (!target || (path.includes("://") && !resolveUniversalLink(path))) return "/";
+    if (!target || (path.includes("://") && !resolveUniversalLink(path))) return isSearch ? "/" : path;
     return `${target.pathname}?${new URLSearchParams(target.params).toString()}`;
   } catch {
     return "/";

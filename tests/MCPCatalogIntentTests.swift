@@ -192,6 +192,22 @@ private struct MCPCatalogIntentTests {
     precondition(persistedUser.count == 1 && persistedUser[0].vpnUsedBytes == 256)
     let searchedUser = try await profileQuery.entities(matching: "carlosmbinf")
     precondition(searchedUser.count == 1 && searchedUser[0].id == mainEntity.id)
+    let multiUsers = [
+      ["id": "first-user-id", "type": "user", "title": "Carlos Medina", "subtitle": "@carlosmbinf",
+       "description": "admin", "imageUrl": avatarURL, "deepLink": "vidkar://user/first-user-id"],
+      ["id": "second-user-id", "type": "user", "title": "Carlos Medina Jr", "subtitle": "@carlosjr",
+       "description": "cliente", "imageUrl": avatarURL, "deepLink": "vidkar://user/second-user-id"],
+    ]
+    await network.response(try json(multiUsers))
+    let matchedByFullName = try await profileQuery.entities(matching: "Carlos Medina")
+    precondition(matchedByFullName.count == 2 && matchedByFullName[0].username == "carlosmbinf" && matchedByFullName[1].username == "carlosjr")
+    var fullNameIntent = VIDKARSearchUserByUsernameIntent()
+    fullNameIntent.username = "Carlos Medina"
+    await network.response(try json(multiUsers))
+    let fullNameResult = try await fullNameIntent.perform()
+    precondition(fullNameResult.value?.fullName == "Carlos Medina" && fullNameResult.value?.username == "carlosmbinf")
+    await network.response(try json([userPayload]))
+    await network.profileResponse(String(data: profileData, encoding: .utf8))
     let otherUserEntity = try VIDKARUserSearchAppEntity(profile: profileFixture, ownerId: "other-owner")
     let callsBeforeOtherOwner = await network.calls
     do { _ = try await profileQuery.entities(for: [otherUserEntity.id]); preconditionFailure("No resolver usuarios de otro owner") }

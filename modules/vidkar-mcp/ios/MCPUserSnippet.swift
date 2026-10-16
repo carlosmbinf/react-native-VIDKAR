@@ -16,6 +16,39 @@ func validatedVIDKARUserAvatarURL(_ rawValue: String?) -> URL? {
   return url
 }
 
+func validatedVIDKAROpenLink(_ rawValue: String?) -> URL? {
+  guard let rawValue, rawValue.utf8.count <= 512,
+        let components = URLComponents(string: rawValue),
+        components.scheme?.lowercased() == "vidkar",
+        components.user == nil, components.password == nil,
+        components.port == nil, components.fragment == nil,
+        let host = components.host?.lowercased(),
+        ["user", "movie", "series", "episode", "course", "lesson", "product", "sale", "purchase", "order", "message", "subscription", "search"].contains(host),
+        let url = components.url else { return nil }
+  if host != "search" && host != "message" {
+    guard components.path.split(separator: "/").count == 1 else { return nil }
+  }
+  return url
+}
+
+func validatedVIDKARInAppSearchLink(query: String, entityType: String = "all") -> URL? {
+  let cleanQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+  guard cleanQuery.utf16.count <= 120,
+        !cleanQuery.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }),
+        ["all", "user", "movie", "series", "episode", "course", "lesson", "product", "sale", "purchase", "order", "message", "subscription"].contains(entityType) else {
+    return nil
+  }
+  var components = URLComponents()
+  components.scheme = "vidkar"
+  components.host = "search"
+  var items: [URLQueryItem] = []
+  if !cleanQuery.isEmpty { items.append(URLQueryItem(name: "q", value: cleanQuery)) }
+  items.append(URLQueryItem(name: "entity", value: entityType))
+  components.queryItems = items
+  components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+  return components.url
+}
+
 enum VIDKARUserAvatar {
   static let maximumBytes = 1_048_576
 
@@ -148,22 +181,219 @@ struct VIDKARUserProfileDetails: Decodable, Sendable {
   }
 }
 
+struct VIDKARSnippetItem: Sendable {
+  let id: String
+  let title: String
+  let subtitle: String
+  let detail: String
+  let badge: String?
+  let symbolName: String
+  let image: CGImage?
+  let circularImage: Bool
+  let openURL: URL?
+
+  init(
+    id: String,
+    title: String,
+    subtitle: String = "",
+    detail: String = "",
+    badge: String? = nil,
+    symbolName: String = "square.grid.2x2",
+    image: CGImage? = nil,
+    circularImage: Bool = false,
+    openURL: URL? = nil
+  ) {
+    self.id = id
+    self.title = title
+    self.subtitle = subtitle
+    self.detail = detail
+    self.badge = badge
+    self.symbolName = symbolName
+    self.image = image
+    self.circularImage = circularImage
+    self.openURL = openURL
+  }
+}
+
+private struct VIDKARSnippetRowContentView: View {
+  let item: VIDKARSnippetItem
+
+  var body: some View {
+    HStack(alignment: .center, spacing: 10) {
+      Group {
+        if let image = item.image {
+          Image(decorative: image, scale: 1)
+            .resizable()
+            .scaledToFill()
+        } else {
+          Image(systemName: item.symbolName)
+            .resizable()
+            .scaledToFit()
+            .padding(8)
+            .foregroundStyle(.secondary)
+            .background(.primary.opacity(0.05))
+        }
+      }
+      .frame(width: 40, height: 40)
+      .clipShape(RoundedRectangle(cornerRadius: item.circularImage ? 20 : 8))
+      .overlay(
+        RoundedRectangle(cornerRadius: item.circularImage ? 20 : 8)
+          .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
+      )
+      .accessibilityHidden(true)
+
+      VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: 6) {
+          Text(verbatim: item.title)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
+            .lineLimit(1)
+          Spacer(minLength: 4)
+          if let badge = item.badge, !badge.isEmpty {
+            Text(verbatim: badge)
+              .font(.caption2.weight(.semibold))
+              .foregroundStyle(.secondary)
+              .padding(.horizontal, 6)
+              .padding(.vertical, 2)
+              .background(.primary.opacity(0.06), in: Capsule())
+              .lineLimit(1)
+          }
+        }
+        if !item.subtitle.isEmpty {
+          Text(verbatim: item.subtitle)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+        }
+        if !item.detail.isEmpty {
+          Text(verbatim: item.detail)
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+        }
+      }
+
+      if item.openURL != nil {
+        Image(systemName: "chevron.right")
+          .font(.caption.weight(.semibold))
+          .foregroundStyle(.tertiary)
+          .accessibilityHidden(true)
+      }
+    }
+    .padding(.horizontal, 10)
+    .padding(.vertical, 8)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
+  }
+}
+
+struct VIDKAREntityListSnippetView: View {
+  let title: String
+  let subtitle: String
+  let items: [VIDKARSnippetItem]
+  var searchURL: URL? = nil
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack(alignment: .firstTextBaseline) {
+        VStack(alignment: .leading, spacing: 2) {
+          Text(verbatim: title).font(.subheadline.weight(.semibold))
+          if !subtitle.isEmpty {
+            Text(verbatim: subtitle).font(.caption).foregroundStyle(.secondary)
+          }
+        }
+        Spacer()
+        if let searchURL {
+          Link(destination: searchURL) {
+            HStack(spacing: 4) {
+              Text("Ver en la app")
+              Image(systemName: "arrow.up.forward.app")
+            }
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.primary.opacity(0.06), in: Capsule())
+          }
+          .buttonStyle(.plain)
+        }
+      }
+      if items.isEmpty {
+        Text("No encontré resultados.")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      } else {
+        ForEach(Array(items.prefix(5).enumerated()), id: \.offset) { _, item in
+          if let openURL = item.openURL {
+            Link(destination: openURL) {
+              VIDKARSnippetRowContentView(item: item)
+            }
+            .buttonStyle(.plain)
+          } else {
+            VIDKARSnippetRowContentView(item: item)
+          }
+        }
+      }
+    }
+    .padding(14)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .privacySensitive()
+  }
+}
+
 struct VIDKARReadSnippetView: View {
   let title: String
   let subtitle: String
   let lines: [String]
+  var items: [VIDKARSnippetItem] = []
+  var searchURL: URL? = nil
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text(verbatim: title).font(.headline)
-      if !subtitle.isEmpty {
-        Text(verbatim: subtitle).font(.subheadline).foregroundStyle(.secondary)
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(alignment: .firstTextBaseline) {
+        VStack(alignment: .leading, spacing: 2) {
+          Text(verbatim: title).font(.headline)
+          if !subtitle.isEmpty {
+            Text(verbatim: subtitle).font(.subheadline).foregroundStyle(.secondary)
+          }
+        }
+        Spacer()
+        if let searchURL {
+          Link(destination: searchURL) {
+            HStack(spacing: 4) {
+              Text("Ver en la app")
+              Image(systemName: "arrow.up.forward.app")
+            }
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.primary.opacity(0.06), in: Capsule())
+          }
+          .buttonStyle(.plain)
+        }
       }
-      ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-        Text(verbatim: line).font(.body).fixedSize(horizontal: false, vertical: true)
+      if !items.isEmpty {
+        if let firstLine = lines.first, lines.count > items.count {
+          Text(verbatim: firstLine)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        ForEach(Array(items.prefix(5).enumerated()), id: \.offset) { _, item in
+          if let openURL = item.openURL {
+            Link(destination: openURL) {
+              VIDKARSnippetRowContentView(item: item)
+            }
+            .buttonStyle(.plain)
+          } else {
+            VIDKARSnippetRowContentView(item: item)
+          }
+        }
+      } else {
+        ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+          Text(verbatim: line).font(.body).fixedSize(horizontal: false, vertical: true)
+        }
       }
     }
-    .padding(20)
+    .padding(14)
     .frame(maxWidth: .infinity, alignment: .leading)
     .privacySensitive()
   }
@@ -175,66 +405,56 @@ private struct VIDKARUserServiceSnippetView: View {
   let usage: VIDKARUserProfileDetails.Usage
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 7) {
+    VStack(alignment: .leading, spacing: 4) {
       HStack {
-        Label(title, systemImage: symbol).font(.subheadline.weight(.semibold))
+        Label(title, systemImage: symbol).font(.caption.weight(.semibold))
         Spacer()
         if let active = usage.active {
-          HStack(spacing: 5) {
+          HStack(spacing: 4) {
             Circle().fill(active ? Color.green : Color.secondary)
               .frame(width: 5, height: 5).accessibilityHidden(true)
             Text(active ? "Activo" : "Inactivo")
-              .font(.caption.weight(.medium))
+              .font(.caption2.weight(.medium))
               .foregroundStyle(.primary)
           }
         }
       }
-      Text(verbatim: usage.consumption).font(.subheadline).monospacedDigit()
-      if let connected = usage.connected {
-        Text(connected ? "Conectado" : "Sin conexión")
-          .font(.caption).foregroundStyle(.secondary)
-      }
-      if let expires = usage.expirationDate {
-        HStack {
-          Text("Vencimiento")
-          Spacer()
-          Text(expires, format: .dateTime.day().month().year())
+      Text(verbatim: usage.consumption).font(.caption).monospacedDigit().lineLimit(1)
+      HStack(spacing: 6) {
+        if let connected = usage.connected {
+          Text(connected ? "Conectado" : "Sin conexión")
+            .font(.caption2).foregroundStyle(.secondary)
         }
-        .font(.caption).foregroundStyle(.secondary)
+        if let expires = usage.expirationDate {
+          Spacer(minLength: 4)
+          Text(expires, format: .dateTime.day().month().year())
+            .font(.caption2).foregroundStyle(.secondary)
+        }
       }
     }
-    .padding(12)
+    .padding(8)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 14))
+    .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
   }
 }
 
-struct VIDKARUserSnippetView: View {
+struct VIDKARUserSnippetRow: Sendable {
   let fullName: String
   let username: String
   let avatar: CGImage?
   let avatarUnavailable: Bool
   var details: VIDKARUserProfileDetails? = nil
+  var openURL: URL? = nil
+}
+
+private struct VIDKARUserCompactCardContentView: View {
+  let row: VIDKARUserSnippetRow
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 16) {
-      HStack {
-        Label("Usuario VIDKAR", systemImage: "person.text.rectangle")
-          .font(.caption.weight(.semibold))
-          .foregroundStyle(.secondary)
-        Spacer()
-        if let banned = details?.banned {
-          Text(banned ? "Bloqueado" : "Sin bloqueo")
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background((banned ? Color.orange : Color.green).opacity(0.1), in: Capsule())
-        }
-      }
-      HStack(alignment: .top, spacing: 16) {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack(alignment: .center, spacing: 10) {
         Group {
-          if let avatar {
+          if let avatar = row.avatar {
             Image(decorative: avatar, scale: 1)
               .resizable()
               .scaledToFill()
@@ -244,60 +464,145 @@ struct VIDKARUserSnippetView: View {
               .scaledToFit()
               .foregroundStyle(.secondary)
           }
-
         }
-        .frame(width: 64, height: 64)
+        .frame(width: 44, height: 44)
         .clipShape(Circle())
         .overlay(Circle().strokeBorder(.primary.opacity(0.08), lineWidth: 1))
         .accessibilityHidden(true)
-        VStack(alignment: .leading, spacing: 6) {
-          Text(verbatim: fullName.isEmpty ? "@\(username)" : fullName)
-            .font(.headline)
-            .lineLimit(3)
-          Text(verbatim: "@\(username)")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .lineLimit(2)
-          if let role = details?.role {
-            Text(verbatim: String(role.prefix(60)))
-              .font(.caption.weight(.medium))
+
+        VStack(alignment: .leading, spacing: 2) {
+          HStack(spacing: 6) {
+            Text(verbatim: row.fullName.isEmpty ? "@\(row.username)" : row.fullName)
+              .font(.subheadline.weight(.semibold))
+              .foregroundStyle(.primary)
+              .lineLimit(1)
+            Spacer(minLength: 4)
+            if let banned = row.details?.banned {
+              Text(banned ? "Bloqueado" : "Sin bloqueo")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background((banned ? Color.orange : Color.green).opacity(0.12), in: Capsule())
+            }
+          }
+          HStack(spacing: 6) {
+            Text(verbatim: "@\(row.username)")
+              .font(.caption)
               .foregroundStyle(.secondary)
+              .lineLimit(1)
+            if let role = row.details?.role, !role.isEmpty {
+              Text(verbatim: "· \(String(role.prefix(40)))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            if row.openURL != nil {
+              Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
+            }
           }
         }
       }
-      if let details {
-        Divider()
-        if let memberSince = details.memberSince {
-          HStack {
-            Text("Miembro desde").foregroundStyle(.secondary)
-            Spacer()
-            Text(memberSince, format: .dateTime.day().month().year())
+
+      if let details = row.details {
+        HStack(spacing: 10) {
+          if let memberSince = details.memberSince {
+            HStack(spacing: 4) {
+              Text("Miembro desde").foregroundStyle(.secondary)
+              Text(memberSince, format: .dateTime.day().month().year())
+            }
+            .font(.caption2)
           }
-          .font(.caption)
-        }
-        if let emailCount = details.emailCount {
-          HStack {
-            Text("Correos registrados").foregroundStyle(.secondary)
-            Spacer()
-            Text(verbatim: String(emailCount)).monospacedDigit()
+          if let emailCount = details.emailCount {
+            HStack(spacing: 4) {
+              Text("Correos registrados").foregroundStyle(.secondary)
+              Text(verbatim: String(emailCount)).monospacedDigit()
+            }
+            .font(.caption2)
           }
-          .font(.caption)
         }
-        if let proxy = details.serviceUsage?.proxy {
-          VIDKARUserServiceSnippetView(title: "Proxy", symbol: "network", usage: proxy)
-        }
-        if let vpn = details.serviceUsage?.vpn {
-          VIDKARUserServiceSnippetView(title: "VPN", symbol: "shield.lefthalf.filled", usage: vpn)
+        if details.serviceUsage?.proxy != nil || details.serviceUsage?.vpn != nil {
+          HStack(alignment: .top, spacing: 8) {
+            if let proxy = details.serviceUsage?.proxy {
+              VIDKARUserServiceSnippetView(title: "Proxy", symbol: "network", usage: proxy)
+            }
+            if let vpn = details.serviceUsage?.vpn {
+              VIDKARUserServiceSnippetView(title: "VPN", symbol: "shield.lefthalf.filled", usage: vpn)
+            }
+          }
         }
       }
-      if avatarUnavailable {
+      if row.avatarUnavailable {
         Text("Foto de perfil no disponible")
-          .font(.caption)
+          .font(.caption2)
           .foregroundStyle(.secondary)
       }
     }
+    .padding(10)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 12))
+  }
+}
 
-    .padding(20)
+struct VIDKARUserSnippetView: View {
+  let fullName: String
+  let username: String
+  let avatar: CGImage?
+  let avatarUnavailable: Bool
+  var details: VIDKARUserProfileDetails? = nil
+  var openURL: URL? = nil
+  var additionalRows: [VIDKARUserSnippetRow] = []
+  var searchURL: URL? = nil
+
+  private var allRows: [VIDKARUserSnippetRow] {
+    [VIDKARUserSnippetRow(
+      fullName: fullName,
+      username: username,
+      avatar: avatar,
+      avatarUnavailable: avatarUnavailable,
+      details: details,
+      openURL: openURL
+    )] + additionalRows
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack {
+        Label("Usuario VIDKAR", systemImage: "person.text.rectangle")
+          .font(.caption.weight(.semibold))
+          .foregroundStyle(.secondary)
+        Spacer()
+        if let searchURL {
+          Link(destination: searchURL) {
+            HStack(spacing: 4) {
+              Text("Ver en la app")
+              Image(systemName: "arrow.up.forward.app")
+            }
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(.primary.opacity(0.06), in: Capsule())
+          }
+          .buttonStyle(.plain)
+        }
+      }
+
+      ForEach(Array(allRows.prefix(5).enumerated()), id: \.offset) { _, row in
+        if let rowURL = row.openURL {
+          Link(destination: rowURL) {
+            VIDKARUserCompactCardContentView(row: row)
+          }
+          .buttonStyle(.plain)
+        } else {
+          VIDKARUserCompactCardContentView(row: row)
+        }
+      }
+    }
+    .padding(12)
     .frame(maxWidth: .infinity, alignment: .leading)
     .privacySensitive()
   }

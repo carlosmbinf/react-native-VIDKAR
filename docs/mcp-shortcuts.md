@@ -16,6 +16,12 @@ Este mecanismo requiere recompilar el binario iOS; una OTA no actualiza el módu
 Las pruebas aisladas cubren entrega fría/caliente y login; la aceptación real con
 Siri y el binario actualizado debe comprobarse en dispositivo.
 
+Los enlaces de entidades `vidkar://` se convierten en `+native-intent` a rutas
+Expo Router allowlisted antes de resolverlos. Por ejemplo,
+`vidkar://user/<id>` abre la ficha existente con ese ID, no la ficha del usuario
+autenticado. Los enlaces con `play=true` siguen el flujo raíz que valida la
+autorización de reproducción antes de abrir el reproductor.
+
 > [Estado y límites de Siri AI](./siri-ai-integration.md): `VIDKARSearchInAppIntent`
 > conserva su contrato de apertura, pero está oculto del descubrimiento. Solo
 > consultas background se ofrecen para Siri. El planner experimental sigue

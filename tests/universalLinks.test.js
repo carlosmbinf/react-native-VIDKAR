@@ -147,6 +147,9 @@ test("resuelve el deep link de usuario a una ruta existente con el parámetro es
     params: { item: "user-123" },
   });
   assert.match(route, /export \{ default \} from "\.\.\/\.\.\/components\/users\/UserRoute"/);
+  const userDetails = await fs.readFile(new URL("../components/users/UserDetails.native.js", import.meta.url), "utf8");
+  assert.match(userDetails, /const routeItemId = Array\.isArray\(params\.item\) \? params\.item\[0\] : params\.item/);
+  assert.match(userDetails, /const itemId = routeItemId \|\| currentUserId \|\| null/);
   for (const userId of [null, "signed-in-user"]) {
     const exports = {};
     const profile = () => null;
@@ -234,7 +237,24 @@ test("entrada nativa Expo entrega la misma búsqueda en frío y caliente sin dep
     assert.equal(redirectSystemPath({ path: `vidkar://search?resultId=${RESULT_ID}`, initial }), `/siri-search?resultId=${RESULT_ID}`);
     assert.equal(redirectSystemPath({ path: "vidkar://search?q=a&confirmed=true", initial }), "/");
     assert.equal(redirectSystemPath({ path: "vidkar://@search?q=a", initial }), "/");
-    assert.equal(redirectSystemPath({ path: "vidkar://movie/fixture?q=Title", initial }), "vidkar://movie/fixture?q=Title");
+    assert.equal(
+      redirectSystemPath({ path: "vidkar://movie/fixture?q=Title", initial }),
+      "/siri-search?query=Title&entityType=movie&contentId=fixture",
+    );
+    assert.equal(
+      redirectSystemPath({ path: "vidkar://user/v2RLQM6CXKFBxQ2zQ", initial }),
+      "/(normal)/User?item=v2RLQM6CXKFBxQ2zQ",
+    );
+    assert.equal(
+      redirectSystemPath({ path: "vidkar://series/series-1", initial }),
+      "/(normal)/SeriesDetail?id=series-1",
+    );
+    assert.equal(
+      redirectSystemPath({ path: "vidkar://course/course-1", initial }),
+      "/(normal)/CursoDetalle?courseId=course-1",
+    );
+    assert.equal(redirectSystemPath({ path: "vidkar://movie/fixture?play=true", initial }), "vidkar://movie/fixture?play=true");
+    assert.equal(redirectSystemPath({ path: "vidkar://unknown/fixture", initial }), "vidkar://unknown/fixture");
     for (const term of ["Título con acentos", "", "x".repeat(120), "😀".repeat(60)]) {
       const target = redirectSystemPath({ path: `vidkar://search?q=${encodeURIComponent(term)}&entity=all`, initial });
       assert.equal(target, `/siri-search?${new URLSearchParams({ query: term, entityType: "all" })}`);
@@ -308,4 +328,3 @@ test("la entrada nativa y el parser aceptan el origen base configurado", async (
 });
 // Siri usa el host www porque es el que publica el AASA de VIDKAR.
 // Mantener la ruta web cubierta aunque Siri active VIDKAR directamente.
-
