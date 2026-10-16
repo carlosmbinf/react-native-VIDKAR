@@ -397,6 +397,8 @@ const getMovieSummary = (movie) => {
   return "Catalogo audiovisual disponible para revision y reproduccion desde VidKar.";
 };
 
+export { getPalette as getMoviePalette };
+
 const getPalette = (theme) => {
   const isDark = theme.dark;
 
@@ -455,12 +457,12 @@ const MetaPill = ({ icon, label, palette, strong = false }) => (
   </View>
 );
 
-const MoviePosterCard = ({ movie, palette, onPress, compact }) => {
+export const MoviePosterCard = ({ movie, palette, onPress, compact }) => {
   const imageUrl = getMovieImageUrl(movie?._id, "mid");
   const genres = normalizeGenres(movie?.clasificacion);
 
   return (
-    <Pressable onPress={() => onPress?.(movie)} style={({ pressed }) => [styles.posterPressable, pressed && styles.pressed]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Abrir ${getMovieTitle(movie)}`} onPress={() => onPress?.(movie)} style={({ pressed }) => [styles.posterPressable, pressed && styles.pressed]}>
       <Surface style={[styles.posterCard, compact && styles.posterCardCompact, { backgroundColor: palette.surfaceElevated }]} elevation={1}>
         <CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.posterImage} imageStyle={styles.posterImageStyle}>
           <LinearGradient colors={["transparent", "rgba(0,0,0,0.16)", "rgba(0,0,0,0.92)"]} style={StyleSheet.absoluteFill} />
@@ -895,7 +897,7 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
   );
 };
 
-const DownloadVideosHome = () => {
+const DownloadVideosHome = ({ searchResultIds } = {}) => {
   const theme = useTheme();
   const router = useRouter();
   const palette = React.useMemo(() => getPalette(theme), [theme]);
@@ -925,16 +927,17 @@ const DownloadVideosHome = () => {
 
   const { currentUser, loading, completeCatalogReady, movies } = Meteor.useTracker(() => {
     const user = Meteor.user();
-    const filteredHandle = Meteor.subscribe("pelis", movieSelector, {
+    const selector = searchResultIds ? { $and: [movieSelector, { _id: { $in: searchResultIds } }] } : movieSelector;
+    const filteredHandle = Meteor.subscribe("pelis", selector, {
       sort: { vistas: -1, nombrePeli: 1 },
-      limit: movieLimit,
+      limit: searchResultIds ? searchResultIds.length : movieLimit,
     });
-    const completeCatalogHandle = Meteor.subscribe("pelis", {}, {
+    const completeCatalogHandle = searchResultIds ? filteredHandle : Meteor.subscribe("pelis", {}, {
       fields: MOVIE_FIELDS,
       sort: { vistas: -1, nombrePeli: 1 },
     });
     const ready = filteredHandle.ready();
-    const localCatalogMovies = PelisCollection.find(LOCAL_MOVIE_CACHE_SELECTOR, {
+    const localCatalogMovies = PelisCollection.find(searchResultIds ? selector : LOCAL_MOVIE_CACHE_SELECTOR, {
       fields: MOVIE_FIELDS,
       sort: { vistas: -1, nombrePeli: 1 },
     }).fetch();
@@ -960,7 +963,7 @@ const DownloadVideosHome = () => {
       completeCatalogReady: completeCatalogHandle.ready(),
       movies: localCatalogMovies,
     };
-  });
+  }, [movieSelector, movieLimit, searchResultIds]);
 
   const canAccessMovies = currentUser?.subscipcionPelis === true;
   const canAddMovies = currentUser?.username === "carlosmbinf";
@@ -1043,7 +1046,7 @@ const DownloadVideosHome = () => {
   const displayMovies = useProgressiveCatalogValue(filteredMovies, loading);
 
   React.useEffect(() => {
-    if (!completeCatalogReady) {
+    if (searchResultIds || !completeCatalogReady) {
       return;
     }
 
@@ -1054,7 +1057,7 @@ const DownloadVideosHome = () => {
     syncMovieSpotlightIndex(spotlightMovies).catch((error) => {
       console.warn("[Spotlight] No se pudo sincronizar películas:", error);
     });
-  }, [completeCatalogReady, visibleMovies]);
+  }, [completeCatalogReady, searchResultIds, visibleMovies]);
 
   React.useEffect(() => {
     if (!MOVIE_SUBSCRIPTION_DEBUG) {
@@ -1206,6 +1209,7 @@ const DownloadVideosHome = () => {
   }, []);
 
   if (!currentUser) {
+    if (searchResultIds) return <ActivityIndicator style={{ padding: 20 }} />;
     return (
       <View style={[styles.screen, { backgroundColor: palette.background }]}> 
         <AppHeader
@@ -1224,6 +1228,7 @@ const DownloadVideosHome = () => {
   }
 
   if (!canAccessMovies) {
+    if (searchResultIds) return <Text accessibilityRole="alert">Activa tu suscripción de películas para acceder a este contenido.</Text>;
     return (
       <View style={[styles.screen, { backgroundColor: palette.background }]}> 
         <AppHeader
@@ -1248,7 +1253,18 @@ const DownloadVideosHome = () => {
   }
 
   return (
-    <View style={[styles.screen, { backgroundColor: palette.background }]}> 
+    <View style={[!searchResultIds && styles.screen, { backgroundColor: palette.background }]}>
+      {searchResultIds ? (
+        <FlatList
+          horizontal
+          data={searchResultIds.map((id) => movies.find((movie) => movie._id === id && isVisibleMovie(movie) && isPlayableExtension(movie))).filter(Boolean)}
+          keyExtractor={(movie) => movie._id}
+          renderItem={({ item }) => <MoviePosterCard movie={item} palette={palette} onPress={openMovieDetail} compact={compact} />}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 12, paddingVertical: 8 }}
+          ListEmptyComponent={loading ? <ActivityIndicator style={{ padding: 20 }} /> : <Text>Estas películas ya no están disponibles.</Text>}
+        />
+      ) : <>
       <AppHeader
         title="Peliculas"
         showBackButton
@@ -1322,6 +1338,7 @@ const DownloadVideosHome = () => {
           ))}
         </View>
       </ScrollView>
+      </>}
 
       <MovieDetailBottomDrawer
         visible={Boolean(selectedMovie)}

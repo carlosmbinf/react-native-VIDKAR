@@ -19,7 +19,52 @@ const isSubscriptionActive = (subscription) =>
   subscription?.estado === "ACTIVA" && new Date(subscription.fechaFin) > new Date();
 const isPrincipalAdmin = (user) => ["carlosmbinf"].includes(String(user?.username || "").toLowerCase());
 
-export default function CoursesCatalog() {
+export function CourseCard({ item, active = false, accessWithoutSubscription = false, locked = false, onPress, onEvaluate, width }) {
+  const theme = useTheme();
+  const palette = getCoursePalette(theme);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Abrir curso ${item.titulo}`}
+      accessibilityState={{ disabled: locked }}
+      onPress={locked ? undefined : onPress}
+      style={({ pressed }) => [styles.card, { backgroundColor: palette.card, borderColor: locked ? palette.primary : palette.border, opacity: pressed ? 0.92 : 1, width }]}
+    >
+      <View style={styles.coverFrame}>
+        {item.portadaUrl ? (
+          <Image source={{ uri: item.portadaUrl }} style={styles.cover} resizeMode="cover" />
+        ) : (
+          <LinearGradient colors={theme.dark ? ["#113344", "#172554", "#3b2a0d"] : ["#cffafe", "#dbeafe", "#fef3c7"]} style={styles.coverFallback}><Text style={[styles.coverInitial, { color: palette.accent }]}>{item.titulo?.slice(0, 1)?.toUpperCase() || "C"}</Text></LinearGradient>
+        )}
+        <LinearGradient colors={["transparent", "rgba(2,8,13,0.78)"]} style={StyleSheet.absoluteFill} />
+        <View style={styles.coverTopRow}><View style={styles.categoryBadge}><Icon source="school-outline" color="#ffffff" size={14} /><Text style={styles.categoryText}>{item.categoria || "Curso"}</Text></View>{active ? <View style={styles.activeBadge}><Icon source="check-decagram" color="#bbf7d0" size={14} /><Text style={styles.activeText}>{accessWithoutSubscription ? "Acceso sin suscripción" : "Activo"}</Text></View> : null}</View>
+        <View style={styles.coverBottom}><Text style={styles.teacher} numberOfLines={1}>{item.profesorNombre || (item.profesorUsername ? `@${item.profesorUsername}` : "Profesor VIDKAR")}</Text></View>
+        {locked ? <View style={styles.lockOverlay}><Icon source="lock-outline" color="#ffffff" size={28} /><Text style={styles.lockTitle}>Requiere nivel {item.nivelRequerido}</Text><Text style={styles.lockCaption}>Tu nivel: {item.nivelUsuario === null ? "sin evaluar" : item.nivelUsuario}</Text></View> : null}
+      </View>
+      <View style={styles.cardBody}>
+        <Text variant="titleLarge" style={[styles.title, { color: palette.text }]} numberOfLines={2}>{item.titulo}</Text>
+        <Text style={[styles.description, { color: palette.muted }]} numberOfLines={3}>{item.descripcion}</Text>
+        <View style={styles.footerRow}>
+          <View style={styles.levelRow}><Icon source="signal" color={palette.muted} size={15} /><Text style={[styles.level, { color: palette.muted }]}>{item.nivel}</Text></View>
+          {item.precioMensual != null ? <View style={styles.priceBlock}><Text style={[styles.price, { color: palette.primary }]}>{Number(item.precioMensual).toFixed(2)} {item.moneda}</Text><Text style={[styles.period, { color: palette.muted }]}>por mes</Text></View> : null}
+        </View>
+        {locked && onEvaluate ? <Pressable accessibilityRole="button" onPress={onEvaluate} style={[styles.reEvaluateButton, { borderColor: palette.primary }]}><Icon source="school-outline" color={palette.primary} size={17} /><Text style={[styles.reEvaluateText, { color: palette.primary }]}>Reevaluarme</Text></Pressable> : null}
+      </View>
+    </Pressable>
+  );
+}
+
+const getCoursePalette = (theme) => ({
+  accent: theme.dark ? "#67e8f9" : "#0e7490",
+  background: theme.dark ? "#071018" : "#edf5f7",
+  border: theme.dark ? "rgba(103,232,249,0.16)" : "rgba(14,116,144,0.14)",
+  card: theme.dark ? "#0d1b25" : "#ffffff",
+  muted: theme.dark ? "#a5b7c0" : "#5b707a",
+  primary: theme.dark ? "#fbbf24" : "#b45309",
+  text: theme.dark ? "#f8fafc" : "#10232e",
+});
+
+export default function CoursesCatalog({ searchResultIds } = {}) {
   const theme = useTheme();
   const router = useRouter();
   const { width: windowWidth } = useWindowDimensions();
@@ -31,15 +76,9 @@ export default function CoursesCatalog() {
   const [courses, setCourses] = React.useState([]);
   const [coursesLoading, setCoursesLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
-  const palette = {
-    accent: theme.dark ? "#67e8f9" : "#0e7490",
-    background: theme.dark ? "#071018" : "#edf5f7",
-    border: theme.dark ? "rgba(103,232,249,0.16)" : "rgba(14,116,144,0.14)",
-    card: theme.dark ? "#0d1b25" : "#ffffff",
-    muted: theme.dark ? "#a5b7c0" : "#5b707a",
-    primary: theme.dark ? "#fbbf24" : "#b45309",
-    text: theme.dark ? "#f8fafc" : "#10232e",
-  };
+  const [coursesError, setCoursesError] = React.useState("");
+  const requestRef = React.useRef(0);
+  const palette = getCoursePalette(theme);
 
   const { subscriptions, subscriptionsLoading } = Meteor.useTracker(() => {
     if (!dataReady || !currentUserId) return { subscriptions: [], subscriptionsLoading: true };
@@ -59,23 +98,32 @@ export default function CoursesCatalog() {
 
     if (isRefresh) setRefreshing(true);
     else setCoursesLoading(true);
+    const requestId = ++requestRef.current;
+    setCoursesError("");
     try {
       const result = await callMethod("cursos.catalogo.obtener");
+      if (requestRef.current !== requestId) return;
       const nextCourses = Array.isArray(result?.courses) ? result.courses : [];
       setCourses(nextCourses);
       syncCourseSpotlightIndex(nextCourses).catch((error) => {
         console.warn("[Spotlight] No se pudo sincronizar el catálogo de cursos:", error);
       });
-    } catch (_error) {
+    } catch (error) {
+      if (requestRef.current !== requestId) return;
+      console.warn("[Cursos] No se pudo cargar el catálogo:", error);
+      setCoursesError(error?.reason || error?.message || "No se pudo cargar el catálogo de cursos.");
       if (!isRefresh) setCourses([]);
     } finally {
-      if (isRefresh) setRefreshing(false);
-      else setCoursesLoading(false);
+      if (requestRef.current === requestId) {
+        if (isRefresh) setRefreshing(false);
+        else setCoursesLoading(false);
+      }
     }
   }, [currentUserId, dataReady]);
 
   useFocusEffect(React.useCallback(() => {
     loadCourses();
+    return () => { requestRef.current += 1; };
   }, [loadCourses]));
 
   React.useEffect(() => {
@@ -108,33 +156,15 @@ export default function CoursesCatalog() {
     const active = isPrincipalAdmin(currentUser) || isOwner || isSubscriptionActive(subscription);
     const locked = Boolean(item.bloqueadoPorNivel) && !isPrincipalAdmin(currentUser) && !isOwner;
     return (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ disabled: locked }}
-        onPress={locked ? undefined : () => router.push(`/(normal)/CursoDetalle?courseId=${encodeURIComponent(item._id)}`)}
-        style={({ pressed }) => [styles.card, { backgroundColor: palette.card, borderColor: locked ? palette.primary : palette.border, opacity: pressed ? 0.92 : 1, width: cardWidth }]}
-      >
-        <View style={styles.coverFrame}>
-          {item.portadaUrl ? (
-            <Image source={{ uri: item.portadaUrl }} style={styles.cover} resizeMode="cover" />
-          ) : (
-            <LinearGradient colors={theme.dark ? ["#113344", "#172554", "#3b2a0d"] : ["#cffafe", "#dbeafe", "#fef3c7"]} style={styles.coverFallback}><Text style={[styles.coverInitial, { color: palette.accent }]}>{item.titulo?.slice(0, 1)?.toUpperCase() || "C"}</Text></LinearGradient>
-          )}
-          <LinearGradient colors={["transparent", "rgba(2,8,13,0.78)"]} style={StyleSheet.absoluteFill} />
-              <View style={styles.coverTopRow}><View style={styles.categoryBadge}><Icon source="school-outline" color="#ffffff" size={14} /><Text style={styles.categoryText}>{item.categoria || "Curso"}</Text></View>{active ? <View style={styles.activeBadge}><Icon source="check-decagram" color="#bbf7d0" size={14} /><Text style={styles.activeText}>{isPrincipalAdmin(currentUser) || isOwner ? "Acceso sin suscripción" : "Activo"}</Text></View> : null}</View>
-          <View style={styles.coverBottom}><Text style={styles.teacher} numberOfLines={1}>{item.profesorNombre || `@${item.profesorUsername}`}</Text></View>
-          {locked ? <View style={styles.lockOverlay}><Icon source="lock-outline" color="#ffffff" size={28} /><Text style={styles.lockTitle}>Requiere nivel {item.nivelRequerido}</Text><Text style={styles.lockCaption}>Tu nivel: {item.nivelUsuario === null ? "sin evaluar" : item.nivelUsuario}</Text></View> : null}
-        </View>
-          <View style={styles.cardBody}>
-            <Text variant="titleLarge" style={[styles.title, { color: palette.text }]} numberOfLines={2}>{item.titulo}</Text>
-            <Text style={[styles.description, { color: palette.muted }]} numberOfLines={3}>{item.descripcion}</Text>
-            <View style={styles.footerRow}>
-              <View style={styles.levelRow}><Icon source="signal" color={palette.muted} size={15} /><Text style={[styles.level, { color: palette.muted }]}>{item.nivel}</Text></View>
-              <View style={styles.priceBlock}><Text style={[styles.price, { color: palette.primary }]}>{Number(item.precioMensual).toFixed(2)} {item.moneda}</Text><Text style={[styles.period, { color: palette.muted }]}>por mes</Text></View>
-            </View>
-            {locked ? <Pressable accessibilityRole="button" onPress={() => router.push(`/(normal)/EvaluacionesIA?categoriaId=${encodeURIComponent(item.categoriaEvaluacionId)}`)} style={[styles.reEvaluateButton, { borderColor: palette.primary }]}><Icon source="school-outline" color={palette.primary} size={17} /><Text style={[styles.reEvaluateText, { color: palette.primary }]}>Reevaluarme</Text></Pressable> : null}
-          </View>
-      </Pressable>
+      <CourseCard
+        item={item}
+        active={active}
+        accessWithoutSubscription={isPrincipalAdmin(currentUser) || isOwner}
+        locked={locked}
+        width={cardWidth}
+        onPress={() => router.push(`/(normal)/CursoDetalle?courseId=${encodeURIComponent(item._id)}`)}
+        onEvaluate={() => router.push(`/(normal)/EvaluacionesIA?categoriaId=${encodeURIComponent(item.categoriaEvaluacionId)}`)}
+      />
     );
   };
 
@@ -152,10 +182,26 @@ export default function CoursesCatalog() {
     </View>
   );
 
+  if (searchResultIds) return (
+    <View>
+      {coursesError ? <Text accessibilityRole="alert">{coursesError}</Text> : null}
+      <FlatList
+        horizontal
+        data={coursesLoading || subscriptionsLoading ? [] : searchResultIds.map((id) => courses.find((course) => course._id === id)).filter(Boolean)}
+        keyExtractor={(course) => course._id}
+        renderItem={renderCourse}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.courseRail}
+        ListEmptyComponent={coursesLoading || subscriptionsLoading ? <ActivityIndicator style={styles.empty} /> : <Text>No hay cursos disponibles para estos resultados.</Text>}
+      />
+    </View>
+  );
+
   return (
     <View style={[styles.root, { backgroundColor: palette.background }]}>
       <LinearGradient colors={theme.dark ? ["rgba(8,47,73,0.42)", "transparent"] : ["rgba(165,243,252,0.48)", "transparent"]} style={styles.backgroundWash} />
       <AppHeader title="Cursos" subtitle="Aprende con profesores VIDKAR" showBackButton backHref="/(normal)/Main" overlapContent />
+      {coursesError ? <Text accessibilityRole="alert" style={{ marginTop: headerInset }}>{coursesError}</Text> : null}
       {coursesLoading || subscriptionsLoading ? (
         <View style={[styles.loadingScreen, { marginTop: headerInset + 14 }]}>
           <ActivityIndicator color={palette.accent} size="large" />

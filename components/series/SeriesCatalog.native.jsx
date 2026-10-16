@@ -23,6 +23,8 @@ const summaryOf = (item) => item?.descripcion && item.descripcion !== titleOf(it
 const isSeriesAdministrator = (user) => user?.profile?.role === "admin" || String(user?.username || "").toLowerCase() === "carlosmbinf";
 const initialManualForm = { nombre: "", year: "", temporada: "1", capitulo: "1", nombreCapitulo: "", url: "", poster: "", subtitle: "", extension: "mkv", mostrar: true };
 
+export { usePalette as getSeriesPalette };
+
 const usePalette = (theme) => ({
   background: theme.colors.background,
   surface: theme.colors.surface,
@@ -34,8 +36,8 @@ const usePalette = (theme) => ({
   accentSoft: theme.dark ? "rgba(99,102,241,0.2)" : "rgba(79,70,229,0.12)",
 });
 
-const SeriesPoster = ({ item, onPress, compact, palette }) => (
-  <Pressable onPress={() => onPress(item)} style={({ pressed }) => [styles.posterPressable, compact && styles.posterPressableCompact, pressed && styles.pressed]}>
+export const SeriesPoster = ({ item, onPress, compact, palette }) => (
+  <Pressable accessibilityRole="button" accessibilityLabel={`Abrir ${titleOf(item)}`} onPress={() => onPress(item)} style={({ pressed }) => [styles.posterPressable, compact && styles.posterPressableCompact, pressed && styles.pressed]}>
     <Surface elevation={1} style={[styles.posterCard, { backgroundColor: palette.elevated, borderColor: palette.border }]}>
       <ImageBackground source={imageOf(item) ? { uri: imageOf(item) } : undefined} style={styles.posterImage} imageStyle={styles.posterImageStyle}>
         <LinearGradient colors={["transparent", "rgba(2,6,23,0.9)"]} style={StyleSheet.absoluteFill} />
@@ -50,7 +52,7 @@ const SeriesRow = ({ items, onPress, palette, title }) => !items.length ? null :
 
 const Restricted = ({ palette, onBack }) => <View style={[styles.center, { backgroundColor: palette.background }]}><IconButton icon="lock-outline" iconColor={palette.accent} size={44} /><Text variant="headlineSmall" style={{ color: palette.text }}>Suscripción requerida</Text><Text style={[styles.centerCopy, { color: palette.muted }]}>Activa tu suscripción de películas para acceder a Series.</Text><Button mode="outlined" onPress={onBack}>Volver</Button></View>;
 
-export default function SeriesCatalog() {
+export default function SeriesCatalog({ searchResultIds } = {}) {
   const theme = useTheme();
   const palette = usePalette(theme);
   const router = useRouter();
@@ -70,6 +72,8 @@ export default function SeriesCatalog() {
   const [seasons, setSeasons] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [detailLoading, setDetailLoading] = React.useState(false);
+  const detailRequestRef = React.useRef(0);
+  React.useEffect(() => () => { detailRequestRef.current += 1; }, []);
   const [adminModal, setAdminModal] = React.useState(false);
   const [adminMode, setAdminMode] = React.useState("manual");
   const [manualForm, setManualForm] = React.useState(initialManualForm);
@@ -78,9 +82,10 @@ export default function SeriesCatalog() {
   const adminBackdropOpacity = React.useRef(new Animated.Value(0)).current;
   const adminSheetTranslateY = React.useRef(new Animated.Value(42)).current;
   const tracker = Meteor.useTracker(() => {
-    const handle = Meteor.subscribe("series", {}, { sort: { nombre: 1 }, limit: 1000 });
-    return { ready: handle.ready(), series: SeriesCollection.find({}, { sort: { nombre: 1 } }).fetch() };
-  });
+    const selector = searchResultIds ? { _id: { $in: searchResultIds } } : {};
+    const handle = Meteor.subscribe("series", selector, { sort: { nombre: 1 }, limit: 1000 });
+    return { ready: handle.ready(), series: SeriesCollection.find(selector, { sort: { nombre: 1 } }).fetch() };
+  }, [searchResultIds]);
   React.useEffect(() => setLoading(!tracker.ready), [tracker.ready]);
   const availableSeries = React.useMemo(() => tracker.series.filter(isVisible), [tracker.series]);
   const genres = React.useMemo(() => [ALL_GENRES, ...Array.from(new Set(availableSeries.flatMap((item) => listOf(item.clasificacion)))).slice(0, 12)], [availableSeries]);
@@ -94,22 +99,31 @@ export default function SeriesCatalog() {
   }, [connected, currentUser, currentUserId, router, userReady]);
 
   const openDetails = React.useCallback((item) => {
+    const requestId = ++detailRequestRef.current;
     setSelected(item);
     setDetail(item);
     setSeasons([]);
     setDetailLoading(true);
-    getSeriesSeasons(item._id)
-      .then((result) => setSeasons(Array.isArray(result) ? result : []))
-      .catch(() => null)
-      .finally(() => setDetailLoading(false));
-    getSeries(item._id)
-      .then((result) => result && setDetail(result))
-      .catch(() => null);
+    Promise.all([getSeriesSeasons(item._id), getSeries(item._id)])
+      .then(([nextSeasons, nextDetail]) => {
+        if (detailRequestRef.current !== requestId) return;
+        setSeasons(Array.isArray(nextSeasons) ? nextSeasons : []);
+        if (nextDetail) setDetail(nextDetail);
+      })
+      .catch((error) => {
+        if (detailRequestRef.current !== requestId) return;
+        console.warn("[Series] No se pudo cargar el detalle:", error);
+        Alert.alert("Series", error?.reason || error?.message || "No se pudo cargar la información de la serie.");
+      })
+      .finally(() => {
+        if (detailRequestRef.current === requestId) setDetailLoading(false);
+      });
   }, []);
 
   const goToDetail = React.useCallback((item) => {
     const target = item || detail || selected;
     if (!target?._id) return;
+    detailRequestRef.current += 1;
     setSelected(null);
     setDetail(null);
     router.push({
@@ -118,7 +132,7 @@ export default function SeriesCatalog() {
     });
   }, [detail, selected, router]);
 
-  const closeDetails = React.useCallback(() => { setSelected(null); setDetail(null); }, []);
+  const closeDetails = React.useCallback(() => { detailRequestRef.current += 1; setSelected(null); setDetail(null); }, []);
   const canManageSeries = isSeriesAdministrator(currentUser);
   React.useEffect(() => {
     if (!adminModal) return;
@@ -162,10 +176,21 @@ export default function SeriesCatalog() {
     Alert.alert("Creación iniciada", `El servidor continuará procesando el capítulo de ${seriesName} en segundo plano.`);
   }, [adminMode, closeAdminModal, manualForm, urlForm]);
 
-  if (!userReady || !currentUser) return <View style={[styles.center, { backgroundColor: palette.background }]}><ActivityIndicator color={palette.accent} size="large" /></View>;
-  if (currentUser.subscipcionPelis !== true) return <Restricted onBack={() => router.replace("/(normal)/Main")} palette={palette} />;
+  if (!userReady || !currentUser) return searchResultIds ? <ActivityIndicator style={{ padding: 20 }} /> : <View style={[styles.center, { backgroundColor: palette.background }]}><ActivityIndicator color={palette.accent} size="large" /></View>;
+  if (currentUser.subscipcionPelis !== true) return searchResultIds ? <Text accessibilityRole="alert">Activa tu suscripción de películas para acceder a Series.</Text> : <Restricted onBack={() => router.replace("/(normal)/Main")} palette={palette} />;
 
-  return <View style={[styles.screen, { backgroundColor: palette.background }]}>
+  return <View style={[!searchResultIds && styles.screen, { backgroundColor: palette.background }]}>
+    {searchResultIds ? (
+      <FlatList
+        horizontal
+        data={searchResultIds.map((id) => availableSeries.find((serie) => serie._id === id)).filter(Boolean)}
+        keyExtractor={(serie) => serie._id}
+        renderItem={({ item }) => <SeriesPoster item={item} onPress={openDetails} palette={palette} />}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 12, paddingVertical: 8 }}
+        ListEmptyComponent={loading ? <ActivityIndicator style={{ padding: 20 }} /> : <Text>Estas series ya no están disponibles.</Text>}
+      />
+    ) : <>
     <AppHeader backgroundColor={DEFAULT_HEADER_COLOR} containerStyle={{ zIndex: 1 }} elevated={false} overlapContent portal={false} showBackButton title="Series" transparent backHref="/(normal)/Main" actions={canManageSeries ? <IconButton accessibilityLabel="Agregar serie" icon="movie-plus" iconColor="#fff" onPress={() => setAdminModal(true)} /> : null} />
     <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(insets.bottom, 16) + 112 }]} showsVerticalScrollIndicator={false} bounces={false} alwaysBounceVertical={false} overScrollMode="never" contentInsetAdjustmentBehavior="never">
       {featured ? <View style={styles.hero}><ImageBackground source={imageOf(featured) ? { uri: imageOf(featured) } : undefined} style={[styles.heroImage, { height: heroHeight }]} imageStyle={styles.heroImageStyle}><BlurView intensity={18} tint="dark" experimentalBlurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined} renderToHardwareTextureAndroid style={StyleSheet.absoluteFill} pointerEvents="none" /><LinearGradient colors={["rgba(0,0,0,0.12)", "rgba(0,0,0,0.62)", palette.background]} locations={[0, 0.58, 1]} style={StyleSheet.absoluteFill} /><View style={[styles.heroContent, isLandscape && styles.heroContentLandscape, !isLandscape && styles.heroContentPortrait, { paddingTop: headerInset + (isLandscape ? 28 : 56) }]}><Text style={styles.eyebrow}>VIDKAR CINEMA · SERIES</Text><View style={styles.heroSearchSurface}><View style={styles.heroSearchInputRow}><IconButton icon="magnify" iconColor="rgba(255,255,255,0.78)" size={20} style={styles.heroSearchIcon} /><TextInput value={query} onChangeText={setQuery} placeholder="Buscar serie, género o actor" placeholderTextColor="rgba(255,255,255,0.58)" style={styles.heroSearchInput} /></View><FlatList data={genres} horizontal keyExtractor={(item) => item} renderItem={({ item }) => { const selected = genre === item; return <Chip compact selected={selected} showSelectedCheck={false} selectedColor="#fff" style={[styles.heroGenreChip, { backgroundColor: selected ? palette.accent : "rgba(255,255,255,0.28)", borderColor: selected ? palette.accent : "rgba(255,255,255,0.44)" }]} textStyle={[styles.heroGenreChipText, { color: "#fff" }]} onPress={() => setGenre(item)}>{item}</Chip>; }} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.heroGenreList} /></View><Text numberOfLines={3} style={styles.heroTitle}>{titleOf(featured)}</Text><Text style={styles.heroMeta}>{yearOf(featured)}  ·  {listOf(featured.clasificacion)[0] || "Serie"}</Text><Text numberOfLines={3} style={styles.heroCopy}>{summaryOf(featured)}</Text><View style={styles.heroActions}><Button mode="contained" buttonColor={palette.accent} textColor="#fff" icon="play" onPress={() => openDetails(featured)}>Explorar</Button><Button mode="outlined" textColor="#fff" onPress={() => openDetails(featured)}>Detalles</Button></View></View></ImageBackground></View> : null}
@@ -174,6 +199,7 @@ export default function SeriesCatalog() {
       <SeriesRow items={popular} onPress={openDetails} palette={palette} title="Para descubrir" />
       <SeriesRow items={recent} onPress={openDetails} palette={palette} title="Agregadas recientemente" />
     </ScrollView>
+    </>}
 
     <ModernBottomDrawer
       visible={Boolean(selected)}

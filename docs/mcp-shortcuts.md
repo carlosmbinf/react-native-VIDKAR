@@ -28,6 +28,30 @@ Siri y el binario actualizado debe comprobarse en dispositivo.
 
 ## Estado actual de Siri (octubre de 2026)
 
+### Tarjetas dentro de la app
+
+La pantalla agrupa los resultados en filas horizontales por tipo. Películas,
+series, cursos y usuarios delegan a sus pantallas originales en modo de resultados:
+conservan las mismas tarjetas, drawers de detalle y reproducción, destinos,
+bloqueos por nivel y menú contextual al mantener pulsado un usuario. Conexiones
+y push conservan los permisos de la lista de usuarios. Comercio usa `ProductoCard`
+con su drawer de detalles y carrito, sin reemplazar su pulsación por un enlace.
+
+El snapshot identifica los resultados, pero no sustituye los datos vigentes de
+las tarjetas interactivas. La app rehidrata películas, series, usuarios y productos
+mediante publicaciones Meteor limitadas a esos IDs y conserva los filtros y
+permisos originales. Cursos reutiliza su catálogo autorizado y suscripciones propias.
+La carga no inicia reproducción ni compras. Al salir, cerrar sesión, cambiar
+consulta o vencer el snapshot, se desmontan las filas y sus overlays.
+
+Los filtros permiten consultar todos los tipos soportados por `search_entities`,
+incluidos episodios, lecciones, compras, ventas, órdenes, mensajes y suscripciones.
+«Catálogo» mantiene la búsqueda pública; los tipos privados se consultan en su
+filtro y conservan autorización y alcance. Los resultados sin tarjeta de catálogo
+compatible mantienen la ficha de apertura. Películas y series abren su drawer
+original antes de navegar o reproducir; episodios y lecciones mantienen su
+acción separada con confirmación.
+
 La app conserva sus contratos nativos y publica **diez App Shortcuts de consulta**.
 La metadata compilada contiene diecisiete acciones VIDKAR: dieciséis descubribles
 y una búsqueda foreground intencionalmente oculta.

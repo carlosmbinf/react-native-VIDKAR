@@ -3,14 +3,34 @@ export const IN_APP_SEARCH_CATEGORIES = [
   { value: "all", label: "Catálogo" },
   { value: "movie", label: "Películas" },
   { value: "series", label: "Series" },
+  { value: "episode", label: "Episodios" },
   { value: "course", label: "Cursos" },
+  { value: "lesson", label: "Lecciones" },
   { value: "product", label: "Productos" },
   { value: "user", label: "Usuarios" },
+  { value: "purchase", label: "Compras" },
+  { value: "sale", label: "Ventas" },
+  { value: "order", label: "Órdenes" },
+  { value: "message", label: "Mensajes" },
+  { value: "subscription", label: "Suscripciones" },
 ];
 
 export const PRIVATE_SEARCH_TYPES = new Set(["user", "purchase", "sale", "order", "message", "subscription", "lesson"]);
 const SEARCH_TYPES = new Set([...IN_APP_SEARCH_CATEGORIES.map(({ value }) => value), "episode", ...PRIVATE_SEARCH_TYPES]);
 const LISTABLE_TYPES = new Set(["course", "purchase", "sale", "order", "message", "subscription"]);
+
+export function groupInAppSearchResults(results) {
+  return results.reduce((sections, result) => {
+    const section = sections.find((entry) => entry.type === result.type);
+    if (section) section.results.push(result);
+    else sections.push({
+      type: result.type,
+      title: IN_APP_SEARCH_CATEGORIES.find(({ value }) => value === result.type)?.label || "Resultados",
+      results: [result],
+    });
+    return sections;
+  }, []);
+}
 
 export function makeInAppSearchArguments({ query, entityType, contentId = "", offset = 0 }) {
   if (typeof query !== "string" || !SEARCH_TYPES.has(entityType)) throw new Error("La búsqueda recibida no es válida.");

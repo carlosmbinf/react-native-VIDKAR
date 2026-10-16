@@ -5,7 +5,7 @@ import { Surface, Text } from "react-native-paper";
 import AddToCartDialog from "./AddToCartDialog";
 import ProductImageCarousel from "./ProductImageCarousel";
 
-const ProductoCardNative = ({ producto, searchQuery, tienda }) => {
+const ProductoCardNative = ({ producto, searchQuery, tienda, onPress, images }) => {
   const [dialogVisible, setDialogVisible] = useState(false);
 
   const estaDisponible = producto.productoDeElaboracion || producto.count > 0;
@@ -33,7 +33,7 @@ const ProductoCardNative = ({ producto, searchQuery, tienda }) => {
       <Pressable
         accessibilityLabel={`Ver detalles de ${producto.name || "producto"}`}
         android_ripple={{ color: "rgba(0, 0, 0, 0.1)" }}
-        onPress={() => setDialogVisible(true)}
+        onPress={onPress || (() => setDialogVisible(true))}
         style={styles.cardContainer}
       >
         <View style={styles.cardInner}>
@@ -51,6 +51,7 @@ const ProductoCardNative = ({ producto, searchQuery, tienda }) => {
 
             <View style={styles.imageContainer}>
               <ProductImageCarousel
+                images={images}
                 productId={producto._id}
                 size={160}
                 style={styles.imageCarousel}
@@ -106,12 +107,12 @@ const ProductoCardNative = ({ producto, searchQuery, tienda }) => {
         </View>
       </Pressable>
 
-      <AddToCartDialog
+      {!onPress ? <AddToCartDialog
         onDismiss={() => setDialogVisible(false)}
         producto={producto}
         tienda={tienda}
         visible={dialogVisible}
-      />
+      /> : null}
     </>
   );
 };

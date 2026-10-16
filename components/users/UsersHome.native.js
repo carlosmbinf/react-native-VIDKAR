@@ -15,6 +15,7 @@ import {
     View,
 } from "react-native";
 import {
+    ActivityIndicator,
     Appbar,
     Button,
     Chip,
@@ -380,7 +381,7 @@ const getServiceSnapshot = (item) => {
   };
 };
 
-const getUsersLayout = (screenWidth) => {
+export const getUsersLayout = (screenWidth) => {
   const width = Number(screenWidth) || 390;
   const listPaddingHorizontal = 12;
   const sectionPaddingHorizontal = width < 390 ? 14 : 18;
@@ -460,6 +461,8 @@ const UserCardContent = ({
   overlayMode = false,
   pushTokens,
   showPushState = true,
+  showConnectionState = true,
+  showLongPressHint = true,
   theme,
 }) => {
   const connectionState = getUserConnectionState(item, connections);
@@ -520,14 +523,14 @@ const UserCardContent = ({
               </Text>
             </View>
 
-            <View style={styles.connectionPillsRow}>
+            {showConnectionState ? <View style={styles.connectionPillsRow}>
               {connectionBadges.map((badge) => (
                 <MetaPill
                   key={`${item?._id || "user"}-${badge.label}`}
                   {...badge}
                 />
               ))}
-            </View>
+            </View> : null}
 
             <Text
               numberOfLines={1}
@@ -677,7 +680,7 @@ const UserCardContent = ({
         >
           Toca para abrir perfil
         </Text>
-        <Text
+        {showLongPressHint ? <Text
           style={[
             styles.userCardFooterText,
             {
@@ -687,13 +690,13 @@ const UserCardContent = ({
           ]}
         >
           Mantén presionado para acciones
-        </Text>
+        </Text> : null}
       </View>
     </View>
   );
 };
 
-const UserListCard = ({
+export const UserListCard = ({
   connections,
   index,
   isPeekSource,
@@ -706,6 +709,7 @@ const UserListCard = ({
   peekSourceScale,
   pushTokens,
   showPushState,
+  showConnectionState,
   theme,
 }) => {
   const cardRef = useRef(null);
@@ -813,7 +817,9 @@ const UserListCard = ({
           }
         >
           <Pressable
-            onLongPress={handleOpenPeek}
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir perfil de ${getDisplayName(item)}`}
+            onLongPress={onLongPeek ? handleOpenPeek : undefined}
             onPress={() => onOpenProfile(item)}
             onPressIn={() => animatePress(true)}
             onPressOut={() => animatePress(false)}
@@ -833,6 +839,8 @@ const UserListCard = ({
             >
               <UserCardContent
                 item={item}
+                showConnectionState={showConnectionState}
+                showLongPressHint={Boolean(onLongPeek)}
                 connections={connections}
                 layout={layout}
                 pushTokens={pushTokens}
@@ -847,7 +855,7 @@ const UserListCard = ({
   );
 };
 
-const UsersHome = () => {
+const UsersHome = ({ searchResultIds } = {}) => {
   const theme = useTheme();
   const headerInset = useAppHeaderContentInset();
   const { width, height } = useWindowDimensions();
@@ -869,6 +877,7 @@ const UsersHome = () => {
   const [peekSourceId, setPeekSourceId] = useState(null);
   const [peekTarget, setPeekTarget] = useState(null);
   const peekProgress = useRef(new Animated.Value(0)).current;
+  useEffect(() => () => peekProgress.stopAnimation(), [peekProgress]);
   const dataReady = useDeferredScreenData();
 
   const { loading, users, connections, pushTokens } = Meteor.useTracker(() => {
@@ -905,11 +914,12 @@ const UsersHome = () => {
       vpnmegas: 1,
       megas: 1,
     };
-    const userHandle = Meteor.subscribe("user", userFilter, {
+    const scopedUserFilter = searchResultIds ? { $and: [userFilter, { _id: { $in: searchResultIds } }] } : userFilter;
+    const userHandle = Meteor.subscribe("user", scopedUserFilter, {
       fields: userFields,
     });
     const usersDocs = Meteor.users
-      .find(userFilter, {
+      .find(scopedUserFilter, {
         sort: {
           vpnMbGastados: -1,
           megasGastadosinBytes: -1,
@@ -962,7 +972,7 @@ const UsersHome = () => {
           ).fetch()
         : [],
     };
-  }, [canViewPushTokens, dataReady]);
+  }, [canViewPushTokens, dataReady, searchResultIds]);
 
   const currentUsername = Meteor.user()?.username;
   const shouldHideCarlosFromUsersList =
@@ -1034,7 +1044,7 @@ const UsersHome = () => {
   );
 
   useEffect(() => {
-    if (!dataReady || loading) {
+    if (searchResultIds || !dataReady || loading) {
       return;
     }
 
@@ -1044,7 +1054,7 @@ const UsersHome = () => {
     syncUserSpotlightIndex(indexableUsers).catch((error) => {
       console.warn("[Spotlight] No se pudo sincronizar usuarios:", error);
     });
-  }, [dataReady, loading, shouldHideCarlosFromUsersList, users]);
+  }, [dataReady, loading, searchResultIds, shouldHideCarlosFromUsersList, users]);
 
   const peekVisible = !!peekTarget?.item;
   const PeekOverlayHost = Platform.OS === "android" ? Modal : Portal;
@@ -1298,7 +1308,36 @@ const UsersHome = () => {
   };
 
   return (
-    <Surface style={styles.screen}>
+    <Surface style={!searchResultIds && styles.screen}>
+      {searchResultIds ? (
+        <FlatList
+          horizontal
+          data={searchResultIds.map((id) => filteredUsers.find((user) => user._id === id)).filter(Boolean)}
+          keyExtractor={(item) => item._id}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 12, paddingVertical: 8 }}
+          ListEmptyComponent={loading ? <ActivityIndicator style={{ padding: 20 }} /> : <Text>Estos usuarios ya no están disponibles.</Text>}
+          renderItem={({ item, index }) => (
+            <View style={{ width: Math.min(360, width - 40) }}>
+              <UserListCard
+                connections={connections}
+                index={index}
+                isPeekSource={peekSourceId === item._id}
+                item={item}
+                layout={layout}
+                onLongPeek={openPeek}
+                onPeekStart={(nextItem) => setPeekSourceId(nextItem?._id || null)}
+                onOpenProfile={openUserProfile}
+                peekSourceOpacity={sourcePeekOpacity}
+                peekSourceScale={sourcePeekScale}
+                pushTokens={pushTokens}
+                showPushState={canViewPushTokens}
+                theme={theme}
+              />
+            </View>
+          )}
+        />
+      ) : <>
       <AppHeader
         title="Usuarios"
         subtitle="Administración y consumo"
@@ -1496,6 +1535,7 @@ const UsersHome = () => {
         />
       )}
 
+      </>}
       <PeekOverlayHost {...peekOverlayHostProps}>
         {Platform.OS === "android" ? (
           <StatusBar

@@ -241,6 +241,7 @@ function fixture({ admin = true, search = false, settings = false } = {}) {
       useCurrentSession: () => ({ user: state.user, userId: state.userId, userReady: state.userReady }),
     },
     "../loguin/Loguin.native": "Loguin",
+    "./SiriSearchResultSection.native": "SiriSearchResultSection",
     "react-native-safe-area-context": { SafeAreaView: "SafeAreaView" },
   };
   const execute = (source) => {
@@ -336,7 +337,11 @@ function fixture({ admin = true, search = false, settings = false } = {}) {
       alert[2][accepted ? 1 : 0].onPress();
       await flush();
     },
-    list: () => tree.props.children.find((node) => node?.type === "FlatList").props,
+    list: () => {
+      const props = tree.props.children.find((node) => node?.type === "FlatList").props;
+      return { ...props, data: props.data.flatMap((section) => section.results) };
+    },
+    sections: () => tree.props.children.find((node) => node?.type === "FlatList").props,
     text: () => JSON.stringify(tree),
     unmount() { mounted = false; slots.forEach((slot) => slot.cleanup?.()); },
   };
@@ -717,9 +722,9 @@ test("búsqueda estable usa el término literal y nunca ejecuta un planner o pla
   assert.equal(f.list().data.length, 2);
   assert.equal(f.state.navigations.length, 0);
   assert.equal(f.state.confirmations.length, 0);
-  const card = f.list().renderItem({ item: f.list().data[1] });
-  const open = card.props.children[1].props.children.find((node) => node?.props?.children?.includes("Abrir en VIDKAR"));
-  await open.props.onPress();
+  const section = f.sections().renderItem({ item: f.sections().data[0] });
+  assert.equal(section.props.section.type, "movie");
+  await section.props.onOpen(f.list().data[1]);
   assert.equal(f.state.navigations[0].pathname, "/siri-search");
   assert.equal(f.state.navigations[0].params.contentId, "movie-2");
   assert.equal(f.state.navigations[0].params.play, undefined);
@@ -921,9 +926,8 @@ test("abrir la coincidencia 21 usa resolver real e ID exacto, no primera página
   assert.equal(f.list().data.length, 20);
   await f.press("Cargar más resultados");
   assert.equal(f.list().data.length, 21);
-  const card = f.list().renderItem({ item: f.list().data[20] });
-  const open = card.props.children[1].props.children.find((node) => node?.props?.children?.includes("Abrir en VIDKAR"));
-  await open.props.onPress();
+  const section = f.sections().renderItem({ item: f.sections().data[0] });
+  await section.props.onOpen(f.list().data[20]);
   const target = f.state.navigations.at(-1);
   assert.equal(target.pathname, "/siri-search");
   movies[20].nombrePeli = "Título actualizado";
