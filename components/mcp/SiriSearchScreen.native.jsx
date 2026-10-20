@@ -8,7 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppHeader, { MENU_PRINCIPAL_HEADER_COLOR, useAppHeaderContentInset } from "../Header/AppHeader";
 import { assertMCPQuerySession, authorizeMCPPlayback, consumeMCPPlaybackAuthorization, executeMCPTool, getMCPNaturalLanguageResult, getMCPQuerySession } from "../../services/mcp/mcpClient";
-import { groupInAppSearchResults, IN_APP_SEARCH_CATEGORIES, makeInAppSearchArguments } from "../../services/mcp/inAppSearch";
+import { groupInAppSearchResults, IN_APP_SEARCH_CATEGORIES, inferInAppSearchIntent, makeInAppSearchArguments } from "../../services/mcp/inAppSearch";
 import { ensureMeteorSession } from "../../services/meteor/client.native";
 import { useCurrentSession } from "../../services/meteor/session.native";
 import { isMCPAdmin } from "../../services/mcp/mcpAccess";
@@ -46,9 +46,14 @@ export default function SiriSearchScreen() {
   const [appState, setAppState] = React.useState(AppState.currentState);
   const isSnapshot = params.resultId !== undefined;
   const resultId = asString(params.resultId);
-  const query = isSnapshot ? "" : asString(params.query);
-  const entityType = isSnapshot ? "all" : asString(params.entityType) || "all";
+  const rawQuery = isSnapshot ? "" : asString(params.query);
+  const rawEntityType = isSnapshot ? "all" : asString(params.entityType) || "all";
   const contentId = isSnapshot ? "" : asString(params.contentId || params.productId);
+  // Siri abre la búsqueda con entity=all y la frase literal; si nombra una
+  // entidad ("usuario Carlos Medina"), se selecciona su chip y se limpia el término.
+  const inferred = rawEntityType === "all" && !isSnapshot && !contentId ? inferInAppSearchIntent(rawQuery) : null;
+  const query = inferred ? inferred.query : rawQuery;
+  const entityType = inferred ? inferred.entityType : rawEntityType;
   const [draftQuery, setDraftQuery] = React.useState(query);
   const [showLogin, setShowLogin] = React.useState(false);
   const [sessionReady, setSessionReady] = React.useState(false);

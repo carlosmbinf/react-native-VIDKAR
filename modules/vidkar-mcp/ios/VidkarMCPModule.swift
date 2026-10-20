@@ -1357,11 +1357,65 @@ public struct VIDKARCommerceProductAppEntity: VIDKARCatalogAppEntity {
   }
 }
 
-@available(iOS 16.0, *)
+// Siri responde en segundo plano; solo si no hay coincidencias pregunta antes de abrir la búsqueda en la app.
+@available(iOSApplicationExtension, unavailable)
+@available(iOS 16.4, *)
+@available(*, deprecated, message: "ForegroundContinuableIntent es el único mecanismo de continuación disponible desde iOS 16.4")
+private func offerVIDKARInAppSearch(
+  _ intent: some ForegroundContinuableIntent,
+  query: String,
+  entityType: String
+) async -> Bool {
+  guard let url = validatedVIDKARInAppSearchLink(query: query, entityType: entityType) else { return false }
+  let prompt = String(localized: "No encontré coincidencias en VIDKAR. ¿Quieres buscarlo dentro de la app?")
+  do {
+    // El sistema trae la app al frente; SiriSearchNavigation consume la entrega pendiente.
+    return try await intent.requestToContinueInForeground(IntentDialog(stringLiteral: prompt)) {
+      MCPInAppSearchDelivery.shared.enqueue(url)
+      return true
+    }
+  } catch {
+    return false
+  }
+}
+
+@available(iOS 16.4, *)
+private func catalogDialogAfterInAppOffer(opened: Bool) -> IntentDialog {
+  IntentDialog(stringLiteral: opened
+    ? String(localized: "Abriendo la búsqueda en VIDKAR.")
+    : String(localized: "No encontré coincidencias en el catálogo autorizado de VIDKAR."))
+}
+
+@available(iOSApplicationExtension, unavailable)
+@available(iOS 16.4, *)
+@available(*, deprecated)
+extension VIDKARSearchMoviesIntent: ForegroundContinuableIntent {}
+@available(iOSApplicationExtension, unavailable)
+@available(iOS 16.4, *)
+@available(*, deprecated)
+extension VIDKARSearchSeriesIntent: ForegroundContinuableIntent {}
+@available(iOSApplicationExtension, unavailable)
+@available(iOS 16.4, *)
+@available(*, deprecated)
+extension VIDKARSearchCoursesIntent: ForegroundContinuableIntent {}
+@available(iOSApplicationExtension, unavailable)
+@available(iOS 16.4, *)
+@available(*, deprecated)
+extension VIDKARSearchCommerceProductsIntent: ForegroundContinuableIntent {}
+@available(iOSApplicationExtension, unavailable)
+@available(iOS 16.4, *)
+@available(*, deprecated)
+extension VIDKARSearchUserByUsernameIntent: ForegroundContinuableIntent {}
+
+@available(iOSApplicationExtension, unavailable)
+@available(iOS 16.4, *)
 public struct VIDKARSearchMoviesIntent: AppIntent {
   public init() {}
   public static let title: LocalizedStringResource = "Busca películas"
-  public static let description = IntentDescription("Busca películas visibles en el catálogo de VIDKAR y devuelve resultados tipados.")
+  public static let description = IntentDescription(
+    "Busca películas visibles en el catálogo de VIDKAR y devuelve resultados tipados sin abrir la app. Si no hay coincidencias, pregunta antes de abrir la búsqueda dentro de VIDKAR.",
+    categoryName: "Catálogo",
+    searchKeywords: ["película", "film", "cine", "ver", "catálogo"])
   public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
   public static let openAppWhenRun = false
   @Parameter(title: "Título o búsqueda", default: "") public var query: String
@@ -1370,16 +1424,24 @@ public struct VIDKARSearchMoviesIntent: AppIntent {
   public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARMovieAppEntity]> & ProvidesDialog & ShowsSnippetView {
     let term = query.isEmpty ? try await $query.requestValue("¿Qué película quieres buscar?") : query
     let (entities, items) = try await searchVIDKARCatalogWithImages(VIDKARMovieAppEntity.self, query: term)
-    return .result(value: entities, dialog: catalogDialog(entities),
-      view: catalogSnippet(entities, items: items, title: "Películas VIDKAR", query: term, entityType: "movie"))
+    let view = catalogSnippet(entities, items: items, title: "Películas VIDKAR", query: term, entityType: "movie")
+    if entities.isEmpty {
+      let opened = await offerVIDKARInAppSearch(self, query: term, entityType: "movie")
+      return .result(value: entities, dialog: catalogDialogAfterInAppOffer(opened: opened), view: view)
+    }
+    return .result(value: entities, dialog: catalogDialog(entities), view: view)
   }
 }
 
-@available(iOS 16.0, *)
+@available(iOSApplicationExtension, unavailable)
+@available(iOS 16.4, *)
 public struct VIDKARSearchSeriesIntent: AppIntent {
   public init() {}
   public static let title: LocalizedStringResource = "Busca series"
-  public static let description = IntentDescription("Busca series visibles del catálogo VIDKAR con autorización actual.")
+  public static let description = IntentDescription(
+    "Busca series visibles del catálogo VIDKAR con autorización actual, sin abrir la app. Si no hay coincidencias, pregunta antes de abrir la búsqueda dentro de VIDKAR.",
+    categoryName: "Catálogo",
+    searchKeywords: ["serie", "temporada", "episodio", "ver", "catálogo"])
   public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
   public static let openAppWhenRun = false
   @Parameter(title: "Título o búsqueda", default: "") public var query: String
@@ -1388,33 +1450,50 @@ public struct VIDKARSearchSeriesIntent: AppIntent {
   public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSeriesAppEntity]> & ProvidesDialog & ShowsSnippetView {
     let term = query.isEmpty ? try await $query.requestValue("¿Qué serie quieres buscar?") : query
     let (entities, items) = try await searchVIDKARCatalogWithImages(VIDKARSeriesAppEntity.self, query: term)
-    return .result(value: entities, dialog: catalogDialog(entities),
-      view: catalogSnippet(entities, items: items, title: "Series VIDKAR", query: term, entityType: "series"))
+    let view = catalogSnippet(entities, items: items, title: "Series VIDKAR", query: term, entityType: "series")
+    if entities.isEmpty {
+      let opened = await offerVIDKARInAppSearch(self, query: term, entityType: "series")
+      return .result(value: entities, dialog: catalogDialogAfterInAppOffer(opened: opened), view: view)
+    }
+    return .result(value: entities, dialog: catalogDialog(entities), view: view)
   }
 }
 
-@available(iOS 16.0, *)
+@available(iOSApplicationExtension, unavailable)
+@available(iOS 16.4, *)
 public struct VIDKARSearchCoursesIntent: AppIntent {
   public init() {}
   public static let title: LocalizedStringResource = "Busca cursos"
-  public static let description = IntentDescription("Busca cursos publicados y autorizados para el usuario en VIDKAR.")
+  public static let description = IntentDescription(
+    "Busca cursos publicados y autorizados para el usuario en VIDKAR sin abrir la app. Si no hay coincidencias, pregunta antes de abrir la búsqueda dentro de VIDKAR.",
+    categoryName: "Catálogo",
+    searchKeywords: ["curso", "clase", "lección", "profesor", "aprender"])
   public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
   public static let openAppWhenRun = false
   @Parameter(title: "Nombre o búsqueda", default: "") public var query: String
   public static var parameterSummary: some ParameterSummary { Summary("Busca cursos: \(\.$query)") }
 
   public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARCourseAppEntity]> & ProvidesDialog & ShowsSnippetView {
-    let (entities, items) = try await searchVIDKARCatalogWithImages(VIDKARCourseAppEntity.self, query: query)
-    return .result(value: entities, dialog: catalogDialog(entities),
-      view: catalogSnippet(entities, items: items, title: "Cursos VIDKAR", query: query, entityType: "course"))
+    let term = query.isEmpty ? try await $query.requestValue("¿Qué curso quieres buscar?") : query
+    let (entities, items) = try await searchVIDKARCatalogWithImages(VIDKARCourseAppEntity.self, query: term)
+    let view = catalogSnippet(entities, items: items, title: "Cursos VIDKAR", query: term, entityType: "course")
+    if entities.isEmpty {
+      let opened = await offerVIDKARInAppSearch(self, query: term, entityType: "course")
+      return .result(value: entities, dialog: catalogDialogAfterInAppOffer(opened: opened), view: view)
+    }
+    return .result(value: entities, dialog: catalogDialog(entities), view: view)
   }
 }
 
-@available(iOS 16.0, *)
+@available(iOSApplicationExtension, unavailable)
+@available(iOS 16.4, *)
 public struct VIDKARSearchCommerceProductsIntent: AppIntent {
   public init() {}
   public static let title: LocalizedStringResource = "Busca productos de Comercio"
-  public static let description = IntentDescription("Busca productos únicamente en el catálogo COMERCIO de VIDKAR.")
+  public static let description = IntentDescription(
+    "Busca productos únicamente en el catálogo COMERCIO de VIDKAR sin abrir la app. Si no hay coincidencias, pregunta antes de abrir la búsqueda dentro de VIDKAR.",
+    categoryName: "Catálogo",
+    searchKeywords: ["producto", "comercio", "tienda", "comprar", "precio"])
   public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
   public static let openAppWhenRun = false
   @Parameter(title: "Producto o búsqueda", default: "") public var query: String
@@ -1423,8 +1502,12 @@ public struct VIDKARSearchCommerceProductsIntent: AppIntent {
   public func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARCommerceProductAppEntity]> & ProvidesDialog & ShowsSnippetView {
     let term = query.isEmpty ? try await $query.requestValue("¿Qué producto quieres buscar?") : query
     let (entities, items) = try await searchVIDKARCatalogWithImages(VIDKARCommerceProductAppEntity.self, query: term)
-    return .result(value: entities, dialog: catalogDialog(entities),
-      view: catalogSnippet(entities, items: items, title: "Comercio VIDKAR", query: term, entityType: "product"))
+    let view = catalogSnippet(entities, items: items, title: "Comercio VIDKAR", query: term, entityType: "product")
+    if entities.isEmpty {
+      let opened = await offerVIDKARInAppSearch(self, query: term, entityType: "product")
+      return .result(value: entities, dialog: catalogDialogAfterInAppOffer(opened: opened), view: view)
+    }
+    return .result(value: entities, dialog: catalogDialog(entities), view: view)
   }
 }
 
@@ -1790,11 +1873,15 @@ public struct VIDKARQueryCatalogIntent: AppIntent {
   }
 }
 
-@available(iOS 16.0, *)
+@available(iOSApplicationExtension, unavailable)
+@available(iOS 16.4, *)
 public struct VIDKARSearchUserByUsernameIntent: AppIntent {
   public init() {}
   public static let title: LocalizedStringResource = "Busca usuario por username"
-  public static let description = IntentDescription("Busca un username exacto dentro del alcance autorizado. Devuelve foto, nombre, rol, alta, estado y consumo de Proxy y VPN en una ficha resoluble sin abrir VIDKAR ni verbalizar datos privados.")
+  public static let description = IntentDescription(
+    "Busca un username exacto dentro del alcance autorizado. Devuelve foto, nombre, rol, alta, estado y consumo de Proxy y VPN en una ficha resoluble sin abrir VIDKAR ni verbalizar datos privados. Si no lo encuentra, pregunta antes de abrir la búsqueda dentro de la app.",
+    categoryName: "Usuarios",
+    searchKeywords: ["usuario", "username", "cliente", "perfil", "ficha"])
   public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
   public static let openAppWhenRun = false
   @Parameter(title: "Nombre de usuario") public var username: String
@@ -1808,6 +1895,9 @@ public struct VIDKARSearchUserByUsernameIntent: AppIntent {
       case .notFound:
         let multiMatches = try await queryVIDKARUsersByText(username, session: session)
         guard let first = multiMatches.first else {
+          if await offerVIDKARInAppSearch(self, query: username, entityType: "user") {
+            throw VIDKARUserSearchFailure.openedInApp
+          }
           throw VIDKARUserSearchFailure.notFound
         }
         try await MCPTransport.shared.assertQuerySession(session)
@@ -2045,11 +2135,13 @@ public struct VIDKARGetCapabilitiesIntent: AppIntent {
 private enum VIDKARUserSearchFailure: LocalizedError {
   case notFound
   case ambiguous
+  case openedInApp
 
   var errorDescription: String? {
     switch self {
     case .notFound: return String(localized: "No encontré el username dentro de tu alcance autorizado de VIDKAR.")
     case .ambiguous: return String(localized: "Encontré más de un usuario con ese username. No seleccioné ninguno.")
+    case .openedInApp: return String(localized: "Abriendo la búsqueda en VIDKAR.")
     }
   }
 }
@@ -2747,6 +2839,7 @@ public struct VIDKARExecuteMCPIntent: AppIntent {
   }
 }
 
+@available(iOSApplicationExtension, unavailable)
 @available(iOS 16.0, *)
 public enum VIDKARMCPSiriShortcutDefinitions {
   public static var queryMCP: AppShortcut {

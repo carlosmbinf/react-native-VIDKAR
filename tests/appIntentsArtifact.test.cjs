@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { expectedIntents, shortcutIntents, shortcutPhrases, userProfileProperties, validateMetadata, validateAppBundle } = require("../scripts/validate-app-intents-metadata.cjs");
+const { expectedIntents, shortcutIntents, shortcutPhrases, shortcutPhraseVariants, userProfileProperties, validateMetadata, validateAppBundle } = require("../scripts/validate-app-intents-metadata.cjs");
 
 const fixture = () => ({
   actions: {
@@ -42,13 +42,13 @@ const fixture = () => ({
     VIDKARCatalogResultEntity: { transient: true, properties: ["type", "sourceId", "title", "subtitle", "description"].map((identifier) => ({ identifier })) },
     VIDKARUserSearchAppEntity: { transient: false, properties: userProfileProperties.map((identifier) => ({ identifier })) },
   },
-  autoShortcuts: shortcutIntents.map((actionIdentifier) => ({ actionIdentifier, phraseTemplates: [{ key: shortcutPhrases[actionIdentifier] }] })),
+  autoShortcuts: shortcutIntents.map((actionIdentifier) => ({ actionIdentifier, phraseTemplates: shortcutPhraseVariants[actionIdentifier].map((key) => ({ key })) })),
 });
 
 const writeSpanishResources = (app, locale = "es") => {
   const directory = path.join(app, `${locale}.lproj`);
   fs.mkdirSync(directory, { recursive: true });
-  fs.writeFileSync(path.join(directory, "AppShortcuts.strings"), JSON.stringify(Object.fromEntries(Object.values(shortcutPhrases).map((key) => [key, key]))));
+  fs.writeFileSync(path.join(directory, "AppShortcuts.strings"), JSON.stringify(Object.fromEntries(Object.values(shortcutPhraseVariants).flat().map((key) => [key, key]))));
   const catalog = JSON.parse(fs.readFileSync(path.join(__dirname, "../plugins/resources/vidkar-app-intents/Localizable.xcstrings"), "utf8"));
   fs.writeFileSync(path.join(directory, "Localizable.strings"), JSON.stringify(Object.fromEntries(
     Object.entries(catalog.strings).map(([key, entry]) => [key, entry.localizations.es.stringUnit.value])
@@ -60,6 +60,25 @@ test("acepta diecisiete acciones, búsqueda foreground oculta y diez shortcuts d
   assert.equal(summary.actions, 17);
   assert.equal(summary.shortcuts, 10);
   assert.equal(shortcutIntents.length, 10);
+});
+
+test("cada shortcut tiene variantes de frase en español con la principal primero", () => {
+  for (const id of shortcutIntents) {
+    const variants = shortcutPhraseVariants[id];
+    assert.ok(variants.length >= 3, `${id} necesita al menos tres frases`);
+    assert.equal(variants[0], shortcutPhrases[id]);
+    assert.equal(new Set(variants).size, variants.length);
+    for (const phrase of variants) assert.match(phrase, /\$\{applicationName\}/);
+  }
+  const primaryOnly = fixture();
+  primaryOnly.autoShortcuts = shortcutIntents.map((actionIdentifier) => ({ actionIdentifier, phraseTemplates: [{ key: shortcutPhrases[actionIdentifier] }] }));
+  assert.equal(validateMetadata(primaryOnly).shortcuts, 10);
+  const reordered = fixture();
+  reordered.autoShortcuts[0].phraseTemplates.reverse();
+  assert.throws(() => validateMetadata(reordered), /diez App Shortcuts/);
+  const foreign = fixture();
+  foreign.autoShortcuts[0].phraseTemplates.push({ key: "Abre ${applicationName}" });
+  assert.throws(() => validateMetadata(foreign), /diez App Shortcuts/);
 });
 
 test("ficha de usuario exige background, autenticación y proyección mínima", () => {

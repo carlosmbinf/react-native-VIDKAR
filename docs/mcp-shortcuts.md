@@ -64,6 +64,8 @@ y una búsqueda foreground intencionalmente oculta.
 
 - `VIDKARSearchUserByUsernameIntent`: recibe un username obligatorio, busca coincidencia exacta dentro del alcance autorizado del token y consulta el perfil usando únicamente el ID devuelto por esa búsqueda; backend vuelve a validar el alcance. Devuelve una `VIDKARUserSearchAppEntity` resoluble y un snippet SwiftUI con identidad, rol, alta, estado y servicios, **sin abrir VIDKAR**. Conserva nombre del intent, parámetro y tipo de salida para Atajos guardados, y la propiedad opcional `account`. No verbaliza el perfil ni devuelve direcciones de correo o credenciales. La frase «Busca un usuario en VIDKAR» se conserva.
 
+La primera frase de cada fila es la principal (la que Atajos muestra). Cada App Shortcut registra además variantes en español (37 frases en total, definidas en `plugins/with-vidkar-app-intents.js`, validadas por `scripts/validate-app-intents-metadata.cjs` y localizadas en `plugins/resources/vidkar-app-intents/AppShortcuts.xcstrings`), por ejemplo «Qué películas hay en VIDKAR», «Cómo va el negocio en VIDKAR» o «Muéstrame mi cuenta de VIDKAR». Añadir una variante exige actualizar los tres archivos y las pruebas `mcpAppIntentsCompile.test.cjs` / `MCPSpanishLocalizationTests.swift`.
+
 | Consulta | Acción / parámetros | Frase preconfigurada |
 | --- | --- | --- |
 | Usuario | `VIDKARSearchUserByUsernameIntent(username)` | Busca un usuario en VIDKAR |
@@ -217,7 +219,7 @@ La ficha de usuario y los informes de compras, ventas y mensajes se exponen medi
 1. Inicia sesión con una cuenta administradora y configura el token MCP desde la pantalla «Siri y MCP de VIDKAR».
 2. Usa un development build o distribución iOS nativa; Expo Go no contiene el módulo Swift ni App Intents.
 3. Para buscar una persona, usa «Busca usuario en VIDKAR» y proporciona el username exacto. La intent consulta el username y, si hay una coincidencia única dentro del alcance permitido, muestra un snippet sanitizado sin solicitar confirmación ni verbalizar los datos privados.
-4. Las diez frases del provider se conservan. Las acciones nuevas de ficha completa y capacidades son intents explícitas sin otra frase preconfigurada; su mera presencia no garantiza que Siri AI las seleccione mediante lenguaje natural.
+4. Las diez frases principales del provider se conservan; las variantes adicionales son sinónimos del mismo shortcut y no cambian acciones ni parámetros. Las acciones nuevas de ficha completa y capacidades son intents explícitas sin otra frase preconfigurada; su mera presencia no garantiza que Siri AI las seleccione mediante lenguaje natural.
 
 El config plugin `plugins/with-vidkar-app-intents.js` registra el paquete del pod MCP en el `AppDelegate` generado; no se crea un target de extensión adicional. Para compilar y probar App Intents se requiere Xcode y un iPhone real; la compilación de simulator es útil pero no sustituye esa prueba.
 

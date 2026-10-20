@@ -5,7 +5,7 @@ const { createRunOncePlugin, withDangerousMod, withXcodeProject } = require("@ex
 
 const pkg = {
   name: "with-vidkar-app-intents",
-  version: "1.2.0",
+  version: "1.3.0",
 };
 
 const packageDeclaration = `
@@ -25,19 +25,19 @@ struct VidkarAppShortcutsProvider: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
     AppShortcut(
       intent: VIDKARSearchUserByUsernameIntent(),
-      phrases: ["Busca un usuario en \\(.applicationName)"],
+      phrases: ["Busca un usuario en \\(.applicationName)", "Buscar usuario en \\(.applicationName)", "Encuentra un usuario en \\(.applicationName)", "Busca el username en \\(.applicationName)"],
       shortTitle: "Buscar usuario",
       systemImageName: "person.crop.circle.magnifyingglass"
     )
-    AppShortcut(intent: VIDKARSearchMoviesIntent(), phrases: ["Busca películas en \\(.applicationName)"], shortTitle: "Películas", systemImageName: "film")
-    AppShortcut(intent: VIDKARSearchSeriesIntent(), phrases: ["Busca series en \\(.applicationName)"], shortTitle: "Series", systemImageName: "tv")
-    AppShortcut(intent: VIDKARSearchCoursesIntent(), phrases: ["Busca cursos en \\(.applicationName)"], shortTitle: "Cursos", systemImageName: "book.closed")
-    AppShortcut(intent: VIDKARSearchCommerceProductsIntent(), phrases: ["Busca productos en \\(.applicationName)"], shortTitle: "Comercio", systemImageName: "shippingbox")
-    AppShortcut(intent: VIDKARGetMyRecordsIntent(), phrases: ["Consulta mi cuenta en \\(.applicationName)"], shortTitle: "Mi cuenta", systemImageName: "person.crop.circle")
-    AppShortcut(intent: VIDKARGetUserServiceUsageIntent(), phrases: ["Consulta consumo de un usuario en \\(.applicationName)"], shortTitle: "Consumo de usuario", systemImageName: "gauge")
-    AppShortcut(intent: VIDKARGetUserSalesIntent(), phrases: ["Consulta ventas de un usuario en \\(.applicationName)"], shortTitle: "Ventas de usuario", systemImageName: "chart.bar")
-    AppShortcut(intent: VIDKARGetUserRecordsIntent(), phrases: ["Consulta datos de un usuario en \\(.applicationName)"], shortTitle: "Datos de usuario", systemImageName: "list.bullet.rectangle")
-    AppShortcut(intent: VIDKARGetBusinessReportIntent(), phrases: ["Consulta el negocio en \\(.applicationName)"], shortTitle: "Mi negocio", systemImageName: "chart.pie")
+    AppShortcut(intent: VIDKARSearchMoviesIntent(), phrases: ["Busca películas en \\(.applicationName)", "Buscar una película en \\(.applicationName)", "Qué películas hay en \\(.applicationName)", "Encuentra una película en \\(.applicationName)"], shortTitle: "Películas", systemImageName: "film")
+    AppShortcut(intent: VIDKARSearchSeriesIntent(), phrases: ["Busca series en \\(.applicationName)", "Buscar una serie en \\(.applicationName)", "Qué series hay en \\(.applicationName)", "Encuentra una serie en \\(.applicationName)"], shortTitle: "Series", systemImageName: "tv")
+    AppShortcut(intent: VIDKARSearchCoursesIntent(), phrases: ["Busca cursos en \\(.applicationName)", "Buscar un curso en \\(.applicationName)", "Qué cursos hay en \\(.applicationName)", "Encuentra un curso en \\(.applicationName)"], shortTitle: "Cursos", systemImageName: "book.closed")
+    AppShortcut(intent: VIDKARSearchCommerceProductsIntent(), phrases: ["Busca productos en \\(.applicationName)", "Buscar un producto en \\(.applicationName)", "Qué productos hay en \\(.applicationName)", "Encuentra un producto en \\(.applicationName)"], shortTitle: "Comercio", systemImageName: "shippingbox")
+    AppShortcut(intent: VIDKARGetMyRecordsIntent(), phrases: ["Consulta mi cuenta en \\(.applicationName)", "Cómo está mi cuenta en \\(.applicationName)", "Muéstrame mi cuenta de \\(.applicationName)", "Mis datos en \\(.applicationName)"], shortTitle: "Mi cuenta", systemImageName: "person.crop.circle")
+    AppShortcut(intent: VIDKARGetUserServiceUsageIntent(), phrases: ["Consulta consumo de un usuario en \\(.applicationName)", "Cuánto ha consumido un usuario en \\(.applicationName)", "Consumo de usuario en \\(.applicationName)"], shortTitle: "Consumo de usuario", systemImageName: "gauge")
+    AppShortcut(intent: VIDKARGetUserSalesIntent(), phrases: ["Consulta ventas de un usuario en \\(.applicationName)", "Cuánto ha comprado un usuario en \\(.applicationName)", "Ventas de usuario en \\(.applicationName)"], shortTitle: "Ventas de usuario", systemImageName: "chart.bar")
+    AppShortcut(intent: VIDKARGetUserRecordsIntent(), phrases: ["Consulta datos de un usuario en \\(.applicationName)", "Muéstrame los datos de un usuario en \\(.applicationName)", "Ficha de usuario en \\(.applicationName)"], shortTitle: "Datos de usuario", systemImageName: "list.bullet.rectangle")
+    AppShortcut(intent: VIDKARGetBusinessReportIntent(), phrases: ["Consulta el negocio en \\(.applicationName)", "Cómo va el negocio en \\(.applicationName)", "Resumen del negocio en \\(.applicationName)", "Muéstrame las ventas de \\(.applicationName)"], shortTitle: "Mi negocio", systemImageName: "chart.pie")
   }
 }
 // VIDKAR_APP_SHORTCUTS_PROVIDER_END

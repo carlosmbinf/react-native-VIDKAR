@@ -34,5 +34,7 @@ for key in ["Consulta el catálogo", "Qué quieres consultar", "Coincidencia del
 }
 let phrases = Bundle(url: bundleURL)!.url(forResource: "AppShortcuts", withExtension: "strings", subdirectory: nil, localization: "es")!
 let values = try PropertyListSerialization.propertyList(from: Data(contentsOf: phrases), format: nil) as! [String: String]
-precondition(values.count == 10 && values["Busca un usuario en ${applicationName}"] == "Busca un usuario en ${applicationName}")
+precondition(values.count == 37 && values["Busca un usuario en ${applicationName}"] == "Busca un usuario en ${applicationName}")
+precondition(values["Qué películas hay en ${applicationName}"] == "Qué películas hay en ${applicationName}")
+precondition(values["Cómo va el negocio en ${applicationName}"] == "Cómo va el negocio en ${applicationName}")
 print("Foundation nativo: títulos, parámetros y diálogos resueltos en español desde bundle compilado, sin fallback; placeholders intactos")

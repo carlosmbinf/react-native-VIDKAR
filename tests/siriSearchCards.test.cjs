@@ -91,6 +91,17 @@ test("la agrupación conserva orden, identidad, paginación y todos los tipos de
   }
 });
 
+test("la frase de Siri selecciona el chip de la entidad pedida y limpia el término", () => {
+  const { inferInAppSearchIntent } = load("services/mcp/inAppSearch.js", {});
+  const plain = (value) => value && { ...value };
+  assert.deepEqual(plain(inferInAppSearchIntent("usuario Carlos Medina")), { entityType: "user", query: "Carlos Medina" });
+  assert.deepEqual(plain(inferInAppSearchIntent("búscame el usuario Carlos Medina")), { entityType: "user", query: "Carlos Medina" });
+  assert.deepEqual(plain(inferInAppSearchIntent("búscame la película Avatar")), { entityType: "movie", query: "Avatar" });
+  assert.deepEqual(plain(inferInAppSearchIntent("cursos de fotografía")), { entityType: "course", query: "fotografía" });
+  assert.equal(inferInAppSearchIntent("Carlos Medina"), null);
+  assert.equal(inferInAppSearchIntent(""), null);
+});
+
 function productFixture({ ready = true, product = { _id: "product-id", idTienda: "store-id", count: 4, precio: 6 } } = {}) {
   const subscriptions = [];
   const selectors = [];

@@ -2,18 +2,21 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const shortcutPhrases = {
-  VIDKARSearchUserByUsernameIntent: "Busca un usuario en ${applicationName}",
-  VIDKARSearchMoviesIntent: "Busca películas en ${applicationName}",
-  VIDKARSearchSeriesIntent: "Busca series en ${applicationName}",
-  VIDKARSearchCoursesIntent: "Busca cursos en ${applicationName}",
-  VIDKARSearchCommerceProductsIntent: "Busca productos en ${applicationName}",
-  VIDKARGetMyRecordsIntent: "Consulta mi cuenta en ${applicationName}",
-  VIDKARGetUserServiceUsageIntent: "Consulta consumo de un usuario en ${applicationName}",
-  VIDKARGetUserSalesIntent: "Consulta ventas de un usuario en ${applicationName}",
-  VIDKARGetUserRecordsIntent: "Consulta datos de un usuario en ${applicationName}",
-  VIDKARGetBusinessReportIntent: "Consulta el negocio en ${applicationName}",
+// Primera frase = principal (la que muestra Siri/Atajos); el resto son variantes
+// de dictado en español que deben coincidir con el provider del config plugin.
+const shortcutPhraseVariants = {
+  VIDKARSearchUserByUsernameIntent: ["Busca un usuario en ${applicationName}", "Buscar usuario en ${applicationName}", "Encuentra un usuario en ${applicationName}", "Busca el username en ${applicationName}"],
+  VIDKARSearchMoviesIntent: ["Busca películas en ${applicationName}", "Buscar una película en ${applicationName}", "Qué películas hay en ${applicationName}", "Encuentra una película en ${applicationName}"],
+  VIDKARSearchSeriesIntent: ["Busca series en ${applicationName}", "Buscar una serie en ${applicationName}", "Qué series hay en ${applicationName}", "Encuentra una serie en ${applicationName}"],
+  VIDKARSearchCoursesIntent: ["Busca cursos en ${applicationName}", "Buscar un curso en ${applicationName}", "Qué cursos hay en ${applicationName}", "Encuentra un curso en ${applicationName}"],
+  VIDKARSearchCommerceProductsIntent: ["Busca productos en ${applicationName}", "Buscar un producto en ${applicationName}", "Qué productos hay en ${applicationName}", "Encuentra un producto en ${applicationName}"],
+  VIDKARGetMyRecordsIntent: ["Consulta mi cuenta en ${applicationName}", "Cómo está mi cuenta en ${applicationName}", "Muéstrame mi cuenta de ${applicationName}", "Mis datos en ${applicationName}"],
+  VIDKARGetUserServiceUsageIntent: ["Consulta consumo de un usuario en ${applicationName}", "Cuánto ha consumido un usuario en ${applicationName}", "Consumo de usuario en ${applicationName}"],
+  VIDKARGetUserSalesIntent: ["Consulta ventas de un usuario en ${applicationName}", "Cuánto ha comprado un usuario en ${applicationName}", "Ventas de usuario en ${applicationName}"],
+  VIDKARGetUserRecordsIntent: ["Consulta datos de un usuario en ${applicationName}", "Muéstrame los datos de un usuario en ${applicationName}", "Ficha de usuario en ${applicationName}"],
+  VIDKARGetBusinessReportIntent: ["Consulta el negocio en ${applicationName}", "Cómo va el negocio en ${applicationName}", "Resumen del negocio en ${applicationName}", "Muéstrame las ventas de ${applicationName}"],
 };
+const shortcutPhrases = Object.fromEntries(Object.entries(shortcutPhraseVariants).map(([intent, phrases]) => [intent, phrases[0]]));
 const shortcutIntents = Object.keys(shortcutPhrases);
 const expectedIntents = [
   "VIDKARQueryMCPIntent",
@@ -51,8 +54,14 @@ function validateMetadata(metadata) {
       throw new Error(`Intent experimental habilitado: ${identifier}.`);
     }
   }
+  const phrasesMatch = (shortcut) => {
+    const keys = shortcut.phraseTemplates?.map((phrase) => phrase?.key);
+    const expected = shortcutPhraseVariants[shortcut.actionIdentifier];
+    return Array.isArray(keys) && keys.length >= 1 && keys[0] === shortcutPhrases[shortcut.actionIdentifier] &&
+      new Set(keys).size === keys.length && keys.every((key) => expected?.includes(key));
+  };
   if (shortcuts.length !== shortcutIntents.length || new Set(shortcuts.map((s) => s.actionIdentifier)).size !== shortcutIntents.length ||
-      shortcuts.some((s) => s.phraseTemplates?.length !== 1 || s.phraseTemplates[0]?.key !== shortcutPhrases[s.actionIdentifier])) {
+      !shortcuts.every(phrasesMatch)) {
     throw new Error("Deben existir diez App Shortcuts de consulta con sus frases localizadas.");
   }
   for (const identifier of shortcutIntents) {
@@ -211,4 +220,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { expectedIntents, shortcutIntents, shortcutPhrases, userProfileProperties, validateMetadata, validateAppBundle, validateSpanishResources };
+module.exports = { expectedIntents, shortcutIntents, shortcutPhrases, shortcutPhraseVariants, userProfileProperties, validateMetadata, validateAppBundle, validateSpanishResources };
