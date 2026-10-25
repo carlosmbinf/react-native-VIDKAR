@@ -40,6 +40,7 @@ export const getWebsiteProgress = (request) => {
   const closeActive = ["CERRANDO", "CERRADA", "CIERRE_FALLIDO"].includes(request.status);
   const closeReviewRequired = request.closeAutoRetryPolicyVersion === 1
     && request.closeAutoRetryBlocked === true;
+  const codeUpdateBusy = ["PENDIENTE", "EN_PROGRESO"].includes(request.codeUpdate?.status);
   const steps = cancelled ? [] : (closeActive ? request.closeSteps : request.steps) || [];
   const completedCount = steps.filter((step) => step.status === "COMPLETADO").length;
   const total = steps.length || 1;
@@ -59,7 +60,9 @@ export const getWebsiteProgress = (request) => {
     label,
     showRollback: ["REVERTIENDO", "FALLIDA", "ROLLBACK_FALLIDO"].includes(request.status),
     canCancel: request.status === "PENDIENTE_DNS",
-    canClose: request.status === "COMPLETADA",
+    canClose: request.status === "COMPLETADA" && !codeUpdateBusy,
+    canUpdateCode: request.status === "COMPLETADA" && !codeUpdateBusy,
+    codeUpdateBusy,
     canRetryClose: request.status === "CERRANDO"
       && request.currentStep === "close:auto_retry_wait"
       && request.closeAutoRetryPolicyVersion === 1
@@ -97,6 +100,15 @@ export const WEBSITE_ACTIONS = {
     confirm: (request) => `¿Reintentar ahora el cierre de ${request.hostname}? Se conservarán los pasos completados y se retirarán solo los recursos de esta web. No se borrarán los productos, imágenes, ventas, pedidos ni la cuenta de empresa.`,
     notice: (request) => `Se solicitó adelantar el reintento de ${request.hostname}. El worker retomará el cierre conservando los pasos completados.`,
     allowed: (progress) => progress.canRetryClose,
+  },
+  updateCode: {
+    method: "comercio.provisioning.updateCodeMine",
+    label: "Actualizar página",
+    busyLabel: "Enviando actualización…",
+    title: "Actualizar página web",
+    confirm: (request) => `¿Actualizar el código de ${request.displayName}? Se instalarán las dependencias de la última versión publicada y se reiniciará solo esta página; puede haber una interrupción breve. No se modificarán tus productos, imágenes, ventas, pedidos, datos ni configuración del dominio.`,
+    notice: (request) => `Actualización solicitada para ${request.hostname}. Verás el avance aquí; puede haber una interrupción breve mientras se reinicia la página.`,
+    allowed: (progress) => progress.canUpdateCode,
   },
 };
 

@@ -315,6 +315,11 @@ const buildProfessorItems = () => [
 
 const buildPrivateItems = () => [
   {
+    label: "Actualización de comercios",
+    icon: "store-sync-outline",
+    href: "/(normal)/CommerceProvisioning",
+  },
+  {
     label: "Categorías de comercios",
     icon: "shape-outline",
     href: "/(normal)/GlobalCommerceCategories",

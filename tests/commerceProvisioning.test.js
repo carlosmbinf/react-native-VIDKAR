@@ -10,6 +10,12 @@ import {
   WEBSITE_ACTIONS,
   WEBSITE_STATUS_LABELS,
 } from "../services/commerceProvisioning.js";
+import {
+  canAdminUpdateCode,
+  isCodeUpdateBusy,
+  isProvisioningAdmin,
+  requestAdminCodeUpdate,
+} from "../services/commerceProvisioningAdmin.js";
 
 const companyUser = {
   _id: "company-fixture",
@@ -54,12 +60,50 @@ test("el progreso de instalación usa pasos publicados y distingue rollback de �
   assert.equal(progress.label, WEBSITE_STATUS_LABELS.APROVISIONANDO);
   assert.equal(getWebsiteProgress({ status: "COMPLETADA" }).percent, 100);
   assert.equal(getWebsiteProgress({ status: "COMPLETADA" }).canClose, true);
+  assert.equal(getWebsiteProgress({ status: "COMPLETADA" }).canUpdateCode, true);
   assert.equal(getWebsiteProgress({ status: "PENDIENTE_DNS" }).canCancel, true);
   assert.equal(getWebsiteProgress({ status: "FALLIDA" }).showRollback, true);
   assert.equal(getWebsiteProgress({ status: "ROLLBACK_FALLIDO" }).showRollback, true);
   assert.equal(getWebsiteProgress({ status: "FALLIDA" }).canCancel, false);
   assert.equal(getWebsiteProgress({ status: "CANCELADA", steps: [step("dns", "COMPLETADO")] }).completedCount, 0);
   assert.equal(getWebsiteProgress({ status: "CANCELADA" }).percent, 0);
+});
+
+test("actualizar una página lista bloquea otras actualizaciones y el cierre hasta terminar", () => {
+  for (const status of ["PENDIENTE", "EN_PROGRESO"]) {
+    const progress = getWebsiteProgress({ status: "COMPLETADA", codeUpdate: { status } });
+    assert.equal(progress.codeUpdateBusy, true);
+    assert.equal(progress.canUpdateCode, false);
+    assert.equal(progress.canClose, false);
+  }
+  for (const status of ["COMPLETADA", "FALLIDA"]) {
+    const progress = getWebsiteProgress({ status: "COMPLETADA", codeUpdate: { status } });
+    assert.equal(progress.canUpdateCode, true);
+    assert.equal(progress.canClose, true);
+  }
+  assert.equal(getWebsiteProgress({ status: "CERRADA" }).canUpdateCode, false);
+});
+
+test("las operaciones administrativas de actualización se limitan al administrador principal", async () => {
+  assert.equal(isProvisioningAdmin({ username: "CARLOSMBINF" }), true);
+  assert.equal(isProvisioningAdmin({ username: "other", profile: { role: "admin" } }), false);
+  assert.equal(canAdminUpdateCode({ status: "COMPLETADA" }), true);
+  assert.equal(isCodeUpdateBusy({ codeUpdate: { status: "EN_PROGRESO" } }), true);
+  assert.equal(canAdminUpdateCode({ status: "COMPLETADA", codeUpdate: { status: "PENDIENTE" } }), false);
+  const calls = [];
+  const meteor = {
+    userId: () => "admin",
+    status: () => ({ connected: true }),
+    call: (method, requestId, callback) => {
+      calls.push({ method, requestId });
+      callback(null, { success: true, status: "PENDIENTE" });
+    },
+  };
+  assert.deepEqual(await requestAdminCodeUpdate(meteor, "request-fixture"), { success: true, status: "PENDIENTE" });
+  assert.deepEqual(calls, [{ method: "comercio.provisioning.admin.updateCode", requestId: "request-fixture" }]);
+  await assert.rejects(requestAdminCodeUpdate(meteor, ""), /no es válida/);
+  await assert.rejects(requestAdminCodeUpdate({ ...meteor, userId: () => null }, "request-fixture"), /iniciar sesión/);
+  await assert.rejects(requestAdminCodeUpdate({ ...meteor, status: () => ({ connected: false }) }, "request-fixture"), /Sin conexión/);
 });
 
 test("el progreso del cierre no cuenta los pasos de instalación", () => {
@@ -115,18 +159,19 @@ test("usa los métodos y payloads de la web sin invocar contratos de administrac
   const meteor = fakeMeteor();
   const service = createWebsiteService(meteor);
   await service.create({ displayName: "  Mi   tienda  ", slug: "Mi Tiénda" });
-  for (const action of ["cancel", "close", "retryClose"]) await service.perform(action, "request-fixture");
+  for (const action of ["cancel", "close", "retryClose", "updateCode"]) await service.perform(action, "request-fixture");
   assert.deepEqual(meteor.calls, [
     { method: "comercio.provisioning.create", args: [{ displayName: "Mi tienda", slug: "mi-tienda" }] },
     { method: "comercio.provisioning.cancelMine", args: ["request-fixture"] },
     { method: "comercio.provisioning.closeMine", args: ["request-fixture"] },
     { method: "comercio.provisioning.retryCloseMine", args: ["request-fixture"] },
+    { method: "comercio.provisioning.updateCodeMine", args: ["request-fixture"] },
   ]);
-  assert.equal(Object.keys(WEBSITE_ACTIONS).length, 3);
+  assert.equal(Object.keys(WEBSITE_ACTIONS).length, 4);
   await assert.rejects(service.perform("admin.retry", "request-fixture"), /no es válida/);
   await assert.rejects(service.perform("__proto__", "request-fixture"), /no es válida/);
   await assert.rejects(service.perform("close", ""), /no es válida/);
-  assert.equal(meteor.calls.length, 4);
+  assert.equal(meteor.calls.length, 5);
 });
 
 test("conserva la respuesta idempotente de creación y propaga errores del backend", async () => {
@@ -166,4 +211,14 @@ test("la ruta, el drawer y la colección quedan conectados al flujo compartido",
   assert.match(screen, /Meteor.subscribe\("comercio.provisioning.mine"\)/);
   assert.match(screen, /ownerId: userId/);
   assert.match(screen, /handles.forEach\(\(handle\) => handle.stop\(\)\)/);
+  assert.match(read("../services/commerceProvisioning.js"), /updateCode/);
+  assert.match(read("../services/commerceProvisioning.js"), /Actualizar página/);
+  assert.match(read("../services/commerceProvisioningAdmin.js"), /comercio\.provisioning\.admin\.updateCode/);
+  assert.match(read("../components/commerceProvisioning/CommerceProvisioningAdminScreen.jsx"), /comercio\.provisioning\.adminQueue/);
+  assert.match(read("../components/commerceProvisioning/CommerceProvisioningAdminScreen.jsx"), /Actualización de tiendas/);
+  assert.match(read("../app/(normal)/CommerceProvisioning.tsx"), /CommerceProvisioningAdminScreen/);
+  assert.match(read("../components/drawer/DrawerOptionsAlls.js"), /Actualización de comercios/);
+  const card = read("../components/empresa/components/WebsiteRequestCard.jsx");
+  assert.match(card, /Actualizando el código de esta página/);
+  assert.match(card, /codeUpdate\.status/);
 });

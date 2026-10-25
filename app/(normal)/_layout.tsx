@@ -38,6 +38,7 @@ export default function NormalLayout() {
       <Stack.Screen name="NotificacionUsersConnectionVPN" />
       <Stack.Screen name="Precios" />
       <Stack.Screen name="HlsAdmin" />
+      <Stack.Screen name="CommerceProvisioning" options={{ animation: "slide_from_right" }} />
       <Stack.Screen name="ListaArchivos" />
       <Stack.Screen name="CreateUsers" />
       <Stack.Screen name="Logs" />

@@ -53,12 +53,12 @@ export default function WebsiteRequestCard({ busy, busyRequestId, disabled, onAc
       <Button
         accessibilityLabel={`${definition.label}: ${request.hostname}`}
         disabled={disabled}
-        icon={action === "retryClose" ? "refresh" : "delete-outline"}
+        icon={action === "updateCode" || action === "retryClose" ? "refresh" : "delete-outline"}
         loading={pending}
         mode="outlined"
         onPress={() => onAction(action, request)}
         style={styles.action}
-        textColor={action === "retryClose" ? palette.brandStrong : "#ef4444"}
+        textColor={["updateCode", "retryClose"].includes(action) ? palette.brandStrong : "#ef4444"}
       >
         {pending ? definition.busyLabel : definition.label}
       </Button>
@@ -101,6 +101,15 @@ export default function WebsiteRequestCard({ busy, busyRequestId, disabled, onAc
       {request.status === "CERRADA" ? <WebsiteNotice palette={palette} severity="success">
         La web fue retirada del servidor. El registro A de Squarespace debe eliminarse manualmente; los productos, imágenes, ventas, pedidos y la cuenta de empresa permanecen intactos.
       </WebsiteNotice> : null}
+      {request.codeUpdate ? <WebsiteNotice
+        palette={palette}
+        severity={request.codeUpdate.status === "COMPLETADA" ? "success" : request.codeUpdate.status === "FALLIDA" ? "error" : "info"}
+      >
+        {request.codeUpdate.status === "PENDIENTE" ? "Actualización solicitada; está esperando al provisionador."
+          : request.codeUpdate.status === "EN_PROGRESO" ? "Actualizando el código de esta página. Mantén la app abierta para ver el resultado."
+            : request.codeUpdate.message || (request.codeUpdate.status === "COMPLETADA" ? "El código de la página se actualizó correctamente." : "La actualización no pudo completarse. Puedes intentarlo de nuevo.")}
+        {request.codeUpdate.completedAt ? ` · ${new Date(request.codeUpdate.completedAt).toLocaleString("es", { dateStyle: "medium", timeStyle: "short" })}` : ""}
+      </WebsiteNotice> : null}
       {request.status === "CIERRE_FALLIDO" ? <WebsiteNotice palette={palette} severity={progress.closeReviewRequired ? "error" : "info"}>
         {progress.closeReviewRequired
           ? "El sistema detectó un bloqueo de seguridad o propiedad y conserva los recursos dudosos. Para continuar, administración debe revisar que sea seguro retirarlos."
@@ -132,6 +141,8 @@ export default function WebsiteRequestCard({ busy, busyRequestId, disabled, onAc
           {request.publicUrl || request.hostname}
         </Button>
       ) : <Text style={[styles.title, { color: palette.title }]} variant="titleMedium">{request.hostname}</Text>}
+      {progress.canUpdateCode ? actionButton("updateCode") : null}
+      {progress.codeUpdateBusy ? <WebsiteNotice palette={palette}>La página no se puede cerrar mientras el código está actualizándose.</WebsiteNotice> : null}
       {progress.canCancel ? actionButton("cancel") : null}
       {progress.canClose ? <>
         <WebsiteNotice palette={palette} severity="warning">
