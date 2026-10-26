@@ -116,6 +116,9 @@ const ComercioCategorySelectionNative = ({
     setRevision((current) => current + 1);
   };
 
+  // No desmontar la suscripción: una selección vacía puede recibir productos después.
+  if (!state.loading && !state.products.length) return null;
+
   return (
     <Surface elevation={0} style={styles.categorySection}>
       <View style={styles.categoryHeader}>
@@ -151,10 +154,6 @@ const ComercioCategorySelectionNative = ({
         <Text selectable style={{ color: theme.colors.error }} variant="bodySmall">
           {error}
         </Text>
-      ) : unavailableOwner ? (
-        <Text selectable style={{ color: theme.colors.error }} variant="bodySmall">
-          No se pudo identificar el propietario de esta categoría.
-        </Text>
       ) : state.loading ? (
         <View style={styles.loadingState}>
           <ActivityIndicator animating size="small" />
@@ -162,7 +161,7 @@ const ComercioCategorySelectionNative = ({
             Cargando selección aleatoria…
           </Text>
         </View>
-      ) : state.products.length ? (
+      ) : (
         <FlatList
           accessibilityLabel={`Productos aleatorios de ${category.nombre || category.label}`}
           contentContainerStyle={styles.productsContent}
@@ -179,12 +178,6 @@ const ComercioCategorySelectionNative = ({
           showsHorizontalScrollIndicator={false}
           windowSize={5}
         />
-      ) : (
-        <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
-          {selectedStoreIds.length
-            ? "No hay productos de esta categoría en los comercios cercanos."
-            : "Busca comercios cercanos para ver productos de esta categoría."}
-        </Text>
       )}
     </Surface>
   );

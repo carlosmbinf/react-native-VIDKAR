@@ -8,7 +8,7 @@ const ts = require("typescript");
 
 // Pruebas del contrato JS: no simulan layout, gestos ni animaciones nativas.
 const compiled = new Map();
-function load(file, dependencies) {
+function load(file, dependencies, globals = {}) {
   if (!compiled.has(file)) {
     const output = ts.transpileModule(
       fs.readFileSync(path.join(__dirname, "..", file), "utf8"),
@@ -27,6 +27,7 @@ function load(file, dependencies) {
   }
   const exports = {};
   vm.runInNewContext(compiled.get(file), {
+    ...globals,
     exports,
     require: (name) => {
       assert.ok(Object.hasOwn(dependencies, name), `Dependencia no simulada: ${name}`);
@@ -79,6 +80,9 @@ function createHarness() {
   const React = {
     Fragment: "Fragment",
     createElement: (type, attributes, ...children) => ({ type, props: { ...attributes, children } }),
+    useId() {
+      return slot("id", () => ({ value: "synthetic-instance" })).value;
+    },
     useState(initial) {
       const state = slot("state", () => ({ value: typeof initial === "function" ? initial() : initial }));
       if (!state.set) state.set = (update) => {
@@ -456,15 +460,116 @@ test("tarjeta abre carrito por defecto y onDismiss vuelve a ocultarlo", () => {
   assert.equal(only(h.tree, "AddToCartDialog").props.visible, false);
 });
 
-test("tarjeta mantiene nombre de dos líneas y galería contain con producto e imágenes originales", () => {
+test("tarjeta mantiene nombre de dos líneas y galería cover con producto e imágenes originales", () => {
   const h = cardFixture({ images: urls });
   const name = byType(h.tree, "Text").find((node) => text(node) === product.name);
   assert.ok(name);
   assert.equal(name.props.numberOfLines, 2);
   const gallery = only(h.tree, "ProductImageCarousel");
-  assert.equal(gallery.props.resizeMode, "contain");
+  assert.equal(gallery.props.resizeMode, "cover");
   assert.equal(gallery.props.productId, product._id);
   assert.equal(gallery.props.images, urls);
   const carousel = carouselFixture(gallery.props);
-  for (const image of byType(carousel.tree, "Image")) assert.equal(image.props.resizeMode, "contain");
+  for (const image of byType(carousel.tree, "Image")) assert.equal(image.props.resizeMode, "cover");
+});
+
+function categoryFixture({ ready = true, products = [], extraProps = {} } = {}) {
+  const h = createHarness();
+  const state = { ready, products };
+  const subscriptions = [];
+  const timers = new Map();
+  let timerId = 0;
+  const categoryStore = { ...store, idUser: "synthetic-owner" };
+  const props = {
+    category: { id: "synthetic-category", nombre: "Categoría de prueba", creadaPor: categoryStore.idUser },
+    storeIds: [store._id],
+    storesById: new Map([[store._id, categoryStore]]),
+    ...extraProps,
+  };
+  const component = load("components/productos/ComercioCategorySelection.native.jsx", {
+    react: h.React,
+    "react-native": { ...native, FlatList: "FlatList" },
+    "react-native-paper": { ...paper, Button: "Button", Chip: "Chip" },
+    "@meteorrn/core": {
+      useTracker: (fn) => fn(),
+      subscribe: (...args) => { subscriptions.push(args); return { ready: () => state.ready }; },
+    },
+    "../collections/collections": {
+      SeleccionesCatalogoCollection: { findOne: () => ({ productIds: state.products.map(({ _id }) => _id) }) },
+      ProductosComercioCollection: { find: (query) => ({ fetch: () => state.products.filter((item) =>
+        query._id.$in.includes(item._id) && query.idTienda.$in.includes(item.idTienda)) }) },
+    },
+    "../../services/commerceProductCatalog": {
+      COMMERCE_CATEGORY_SELECTION_LIMIT: 15,
+      getCommerceCategorySelectionProducts: (items) => items,
+    },
+    "./ProductoCard": "ProductoCard",
+  }, {
+    setTimeout: (callback) => { timers.set(++timerId, callback); return timerId; },
+    clearTimeout: (id) => timers.delete(id),
+  });
+  h.mount(component, props);
+  return Object.assign(h, { state, subscriptions, timers });
+}
+
+test("la categoría sin productos oculta también encabezado, contador y acciones", () => {
+  const h = categoryFixture();
+  assert.equal(h.tree, null);
+  assert.equal(h.subscriptions[0][0], "comercio.productosSeleccionCategoria");
+  assert.equal(h.timers.size, 0);
+});
+
+test("categorías sin propietario o tiendas cercanas no muestran bloques vacíos", () => {
+  for (const extraProps of [
+    { category: { id: "category-without-owner" } },
+    { storeIds: [] },
+    { storesById: new Map() },
+  ]) {
+    const h = categoryFixture({ extraProps });
+    assert.equal(h.tree, null);
+    assert.equal(h.subscriptions.length, 0);
+  }
+});
+
+test("carga pendiente no se interpreta como categoría vacía", () => {
+  const h = categoryFixture({ ready: false });
+  only(h.tree, "ActivityIndicator");
+  assert.ok(texts(h.tree).includes("Categoría de prueba"));
+  h.state.ready = true;
+  h.render();
+  assert.equal(h.tree, null);
+  assert.equal(h.timers.size, 0);
+});
+
+test("una categoría vacía reaparece con productos y se oculta si se retiran", () => {
+  const h = categoryFixture();
+  const selectionProduct = { ...product, idTienda: store._id };
+  assert.equal(h.tree, null);
+  h.state.products = [selectionProduct];
+  h.render();
+  const list = only(h.tree, "FlatList");
+  assert.equal(list.props.data[0].producto, selectionProduct);
+  assert.equal(list.props.data[0].tienda._id, store._id);
+  assert.equal(list.props.horizontal, true);
+  assert.equal(text(only(h.tree, "Chip")), "1 productos");
+  h.state.products = [];
+  h.render();
+  assert.equal(h.tree, null);
+});
+
+test("productos fuera del alcance de tiendas no mantienen una categoría vacía visible", () => {
+  const h = categoryFixture({ products: [{ ...product, idTienda: "another-store" }] });
+  assert.equal(h.tree, null);
+});
+
+test("un timeout conserva el error y reintento, no se oculta como selección vacía", () => {
+  const h = categoryFixture({ ready: false });
+  h.act(() => h.timers.values().next().value());
+  assert.ok(texts(h.tree).some((value) => value.includes("No se pudo cargar esta selección")));
+  const retry = byType(h.tree, "Button").find((node) => text(node) === "Reintentar");
+  assert.ok(retry);
+  const previousSelection = h.subscriptions.at(-1)[3];
+  h.act(() => retry.props.onPress());
+  assert.notEqual(h.subscriptions.at(-1)[3], previousSelection);
+  only(h.tree, "ActivityIndicator");
 });

@@ -57,7 +57,7 @@ const ProductoCardNative = ({
               <ProductImageCarousel
                 images={images}
                 productId={producto._id}
-                resizeMode="contain"
+                resizeMode="cover"
                 size={180}
                 style={styles.imageCarousel}
               />
