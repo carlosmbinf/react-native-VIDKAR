@@ -15,7 +15,12 @@ import {
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
-import { filterVisibleCommerceStores, getPopulatedCommerceCategoryRows, normalizeCommerceHomeCategories } from "../../services/commerceCategories";
+import {
+  filterVisibleCommerceStores,
+  getCommerceParentCategories,
+  normalizeCommerceHomeCategories,
+} from "../../services/commerceCategories";
+import { buildCommerceProductQuery, COMMERCE_CATALOG_INITIAL_LIMIT } from "../../services/commerceProductCatalog";
 import {
   getCachedDeviceLocationSync,
   getCurrentDeviceLocation,
@@ -29,8 +34,8 @@ import {
   TiendasComercioCollection,
 } from "../collections/collections";
 import CommerceLocationAccessCard from "./CommerceLocationAccessCard";
+import ComercioCategorySelection from "./ComercioCategorySelection.native";
 import TiendaCard from "./TiendaCard";
-import ProductoCard from "./ProductoCard";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -53,6 +58,7 @@ const PRODUCTOS_COMERCIO_FIELDS = {
 
 const TIENDAS_CLIENT_FIELDS = {
   _id: 1,
+  idUser: 1,
   cordenadas: 1,
   coordenadas: 1,
   createdAt: 1,
@@ -66,6 +72,8 @@ const RADIO_OPTIONS = [
   { label: "5 km", value: 5 },
   { label: "7 km", value: 7 },
 ];
+
+const HOME_STORE_PREVIEW_COUNT = 4;
 
 const meteorCallAsync = (methodName, ...args) =>
   new Promise((resolve, reject) => {
@@ -105,6 +113,7 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
   const locationPermissionRequestIdRef = useRef(0);
   const lastSearchSignatureRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [userLocation, setUserLocation] = useState(initialCachedLocationRef.current);
   const [locationError, setLocationError] = useState(null);
   const [locationPermissionState, setLocationPermissionState] = useState(null);
@@ -119,12 +128,25 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
     const userId = Meteor.userId();
     if (userId) Meteor.subscribe("user", { _id: userId }, { fields: { _id: 1, categoriasComercioInicio: 1 } });
     return {
-      categories: CategoriasComercioCollection.find({ activa: { $ne: false } }, { fields: { _id: 1, nombre: 1, idCategoriaHeredada: 1, visibleEnInicio: 1, ordenInicio: 1 } }).fetch(),
+      categories: CategoriasComercioCollection.find({ activa: { $ne: false } }, { fields: { _id: 1, creadaPor: 1, nombre: 1, idCategoriaHeredada: 1, visibleEnInicio: 1, ordenInicio: 1 } }).fetch(),
       categoriesReady: categoriesHandle.ready(),
       preferences: Meteor.user()?.categoriasComercioInicio,
     };
   }, [dataReady]);
   const visibleCategories = useMemo(() => normalizeCommerceHomeCategories(categories, preferences).filter((category) => category.visible), [categories, preferences]);
+  const parentCategoryCandidates = useMemo(
+    () => getCommerceParentCategories(visibleCategories),
+    [visibleCategories],
+  );
+  const visibleCategoryIds = useMemo(
+    () => visibleCategories.map((category) => category.id),
+    [visibleCategories],
+  );
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const refreshLocationPermissionState = React.useCallback(
     async ({ showLoading = false } = {}) => {
@@ -367,67 +389,124 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
     buscarTiendasCercanas(userLocation, nuevoRadio);
   };
 
-  const { loading, tiendasConProductos } = Meteor.useTracker(() => {
-    if (!dataReady) {
-      return { loading: true, tiendasConProductos: [] };
+  const { catalogStores, loading, tiendasConProductos } = Meteor.useTracker(() => {
+    if (!dataReady || !categoriesReady) {
+      return { catalogStores: [], loading: true, tiendasConProductos: [] };
     }
 
-    const tiendasIds =
-      tiendasCercanas.length > 0
-        ? tiendasCercanas.map((tienda) => tienda._id).filter(Boolean)
-        : [];
-
-    if (tiendasIds.length === 0) {
-      return { loading: loadingTiendas, tiendasConProductos: [] };
+    const tiendasIds = tiendasCercanas.map((tienda) => String(tienda._id)).filter(Boolean);
+    if (!tiendasIds.length) {
+      return { catalogStores: [], loading: loadingTiendas, tiendasConProductos: [] };
     }
 
     const tiendasQuery = { _id: { $in: tiendasIds } };
-    const productosQuery = { idTienda: { $in: tiendasIds } };
     const subTiendas = Meteor.subscribe("tiendas", tiendasQuery, {
       fields: TIENDAS_CLIENT_FIELDS,
     });
-    const subProductos = Meteor.subscribe("productosComercio", productosQuery, {
-      fields: PRODUCTOS_COMERCIO_FIELDS,
-    });
-
-    if (!subTiendas.ready() || !subProductos.ready()) {
-      return { loading: true, tiendasConProductos: [] };
-    }
-
     const tiendas = TiendasComercioCollection.find(tiendasQuery, {
       fields: TIENDAS_CLIENT_FIELDS,
       sort: { title: 1 },
     }).fetch();
-    const tiendasMap = new Map(tiendasCercanas.map((tienda) => [tienda._id, tienda]));
-
-    const mappedTiendas = tiendas
-      .map((tienda) => {
-        const productos = ProductosComercioCollection.find(
-          { idTienda: tienda._id },
-          { fields: PRODUCTOS_COMERCIO_FIELDS, sort: { name: 1 } },
-        ).fetch();
-        const tiendaCercana = tiendasMap.get(tienda._id);
-
-        return {
-          ...tienda,
-          coordenadas: tienda.coordenadas || tiendaCercana?.coordenadas || null,
-          distancia: tiendaCercana?.distancia,
-          distanciaFormateada: tiendaCercana?.distanciaFormateada,
-          productos,
-          productosDisponibles: productos.filter((producto) =>
-            !producto.productoDeElaboracion ? producto.count > 0 : true,
-          ).length,
-          totalProductos: productos.length,
-        };
-      })
-      .filter((tienda) => tienda.totalProductos > 0);
+    const matchingStoreIds = debouncedSearch
+      ? tiendasCercanas
+        .filter((tienda) =>
+          String(tienda.title || "").toLocaleLowerCase("es").includes(debouncedSearch.toLocaleLowerCase("es")) ||
+          String(tienda.descripcion || "").toLocaleLowerCase("es").includes(debouncedSearch.toLocaleLowerCase("es")),
+        )
+        .map((tienda) => String(tienda._id))
+      : [];
+    const productQueries = debouncedSearch
+      ? [{
+          key: "search",
+          query: buildCommerceProductQuery({
+            limit: COMMERCE_CATALOG_INITIAL_LIMIT,
+            matchingStoreIds,
+            search: debouncedSearch,
+            storeIds: tiendasIds,
+            visibleCategoryIds,
+          }),
+        }]
+      : tiendasCercanas.slice(0, HOME_STORE_PREVIEW_COUNT).map((tienda) => {
+          const storeId = String(tienda._id);
+          return {
+            key: `store:${storeId}`,
+            query: buildCommerceProductQuery({
+              limit: COMMERCE_CATALOG_INITIAL_LIMIT,
+              selectedStore: storeId,
+              storeIds: tiendasIds,
+              visibleCategoryIds,
+            }),
+          };
+        });
+    const subscriptions = productQueries
+      .filter(({ query }) => query.enabled)
+      .map((entry) => ({
+        ...entry,
+        handle: Meteor.subscribe("productosComercio", entry.query.selector, {
+          ...entry.query.options,
+          fields: PRODUCTOS_COMERCIO_FIELDS,
+        }),
+      }));
+    const resultsByKey = new Map(subscriptions.map(({ key, query }) => [
+      key,
+      ProductosComercioCollection.find(query.selector, {
+        fields: PRODUCTOS_COMERCIO_FIELDS,
+        limit: query.limit,
+        sort: query.options.sort,
+      }).fetch().slice(0, query.limit),
+    ]));
+    const uniqueProducts = (products) => [...new Map(products.map((product) => [
+      String(product._id),
+      product,
+    ])).values()];
+    const storeProducts = uniqueProducts(productQueries.flatMap(({ key }) =>
+      resultsByKey.get(key) || [],
+    ));
+    const storesById = new Map(tiendas.map((tienda) => [String(tienda._id), tienda]));
+    const tiendasCercanasById = new Map(tiendasCercanas.map((tienda) => [String(tienda._id), tienda]));
+    const mapStoresWithProducts = (products) => {
+      const productsByStore = new Map();
+      products.forEach((product) => {
+        const storeId = String(product.idTienda || "");
+        if (!productsByStore.has(storeId)) productsByStore.set(storeId, []);
+        productsByStore.get(storeId).push(product);
+      });
+      return [...productsByStore.entries()]
+        .map(([storeId, storeProductsForCard]) => {
+          const tienda = storesById.get(storeId);
+          if (!tienda) return null;
+          const nearbyStore = tiendasCercanasById.get(storeId);
+          return {
+            ...tienda,
+            coordenadas: tienda.coordenadas || nearbyStore?.coordenadas || null,
+            distancia: nearbyStore?.distancia,
+            distanciaFormateada: nearbyStore?.distanciaFormateada,
+            catalogoParcial: true,
+            productos: storeProductsForCard,
+            productosDisponibles: storeProductsForCard.filter((producto) =>
+              !producto.productoDeElaboracion ? producto.count > 0 : true,
+            ).length,
+            totalProductos: storeProductsForCard.length,
+          };
+        })
+        .filter(Boolean);
+    };
 
     return {
-      loading: false,
-      tiendasConProductos: mappedTiendas,
+      catalogStores: tiendas,
+      loading: !subTiendas.ready() || subscriptions.some(({ handle }) => !handle.ready()),
+      tiendasConProductos: mapStoresWithProducts(storeProducts),
     };
-  }, [dataReady, loadingTiendas, tiendasCercanas]);
+  }, [categoriesReady, dataReady, debouncedSearch, loadingTiendas, tiendasCercanas, visibleCategoryIds]);
 
+  const nearbyOwnerIds = useMemo(
+    () => [...new Set(catalogStores.map((tienda) => String(tienda.idUser || "")).filter(Boolean))],
+    [catalogStores],
+  );
+  const parentCategories = useMemo(
+    () => getCommerceParentCategories(parentCategoryCandidates, nearbyOwnerIds),
+    [nearbyOwnerIds, parentCategoryCandidates],
+  );
   const tiendasFiltradas = useMemo(() => {
     const tiendas = categoriesReady ? filterVisibleCommerceStores(tiendasConProductos, categories) : [];
     const orderedTiendas = tiendas.some((tienda) => tienda.distancia !== undefined)
@@ -438,29 +517,33 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
         })
       : tiendas;
 
-    if (!searchQuery.trim()) {
+    if (!debouncedSearch.trim()) {
       return orderedTiendas;
     }
 
-    const query = searchQuery.toLowerCase();
+    const query = debouncedSearch.toLocaleLowerCase("es");
     return orderedTiendas.filter((tienda) => {
       const matchTienda =
-        tienda.title?.toLowerCase().includes(query) ||
-        tienda.descripcion?.toLowerCase().includes(query);
+        tienda.title?.toLocaleLowerCase("es").includes(query) ||
+        tienda.descripcion?.toLocaleLowerCase("es").includes(query);
       const matchProducto = tienda.productos?.some(
         (producto) =>
-          producto.name?.toLowerCase().includes(query) ||
-          producto.descripcion?.toLowerCase().includes(query),
+          producto.name?.toLocaleLowerCase("es").includes(query) ||
+          producto.descripcion?.toLocaleLowerCase("es").includes(query),
       );
 
       return matchTienda || matchProducto;
     });
-  }, [categories, categoriesReady, searchQuery, tiendasConProductos]);
+  }, [categories, categoriesReady, debouncedSearch, tiendasConProductos]);
 
   const visibleTiendas = tiendasFiltradas.slice(0, 4);
-  const categoryRows = useMemo(
-    () => getPopulatedCommerceCategoryRows(categories, visibleCategories, tiendasFiltradas),
-    [categories, tiendasFiltradas, visibleCategories],
+  const nearbyStoreIds = useMemo(
+    () => tiendasCercanas.map((tienda) => String(tienda._id)).filter(Boolean),
+    [tiendasCercanas],
+  );
+  const storesById = useMemo(
+    () => new Map(catalogStores.map((tienda) => [String(tienda._id), tienda])),
+    [catalogStores],
   );
   const isLoading = loading || loadingTiendas || !categoriesReady || (Boolean(userLocation) && storeSearchStatus === "idle");
   const locationPermissionBlocked =
@@ -476,6 +559,15 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
     (!userLocation && locationPermissionState?.granted === false);
   const shouldShowLocationEmptyState =
     showLocationAccessCard && !isLoading && visibleTiendas.length === 0;
+  const openCatalog = React.useCallback((routeParams = {}) => {
+    router.push({
+      pathname: "/(normal)/ComerciosList",
+      params: {
+        ...(debouncedSearch ? { search: debouncedSearch } : {}),
+        ...routeParams,
+      },
+    });
+  }, [debouncedSearch, router]);
   return (
     <Surface elevation={0} style={styles.section}>
       <View style={styles.headerRow}>
@@ -494,7 +586,7 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
 
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.push("/(normal)/ComerciosList")}
+          onPress={() => openCatalog()}
           style={({ pressed }) => [
             styles.openButton,
             { borderColor: palette.actionBorder },
@@ -551,14 +643,14 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
         </Chip>
       </View>
 
-      {categoryRows.length ? (
+      {parentCategories.length ? (
         <View style={styles.categoryShortcuts}>
           <Text style={[styles.categoryShortcutsTitle, { color: palette.title }]} variant="titleSmall">
-            Explorar por categorías
+            Explorar categorías principales
           </Text>
           <FlatList
-            accessibilityLabel="Categorías de comercios"
-            data={categoryRows}
+            accessibilityLabel="Categorías principales de comercios"
+            data={parentCategories}
             horizontal
             keyExtractor={(category) => category.id}
             renderItem={({ item: category }) => (
@@ -566,10 +658,10 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
                 accessibilityLabel={`Ver ${category.label}`}
                 compact
                 mode="outlined"
-                onPress={() => router.push({ pathname: "/(normal)/ComerciosList", params: { category: category.id } })}
+                onPress={() => openCatalog({ category: category.id })}
                 style={[styles.categoryShortcut, { backgroundColor: palette.chip }]}
               >
-                {category.label}
+                {category.nombre || category.label}
               </Chip>
             )}
             showsHorizontalScrollIndicator={false}
@@ -577,13 +669,15 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
         </View>
       ) : (
         <View style={styles.categoryShortcuts}>
-          <Text style={[styles.categoryShortcutsTitle, { color: palette.title }]} variant="titleSmall">Explorar por categorías</Text>
+          <Text style={[styles.categoryShortcutsTitle, { color: palette.title }]} variant="titleSmall">Explorar categorías principales</Text>
           <Text style={{ color: palette.subtitle }} variant="bodySmall">
             {!categoriesReady || loading || loadingTiendas
-              ? "Cargando categorías y productos del catálogo…"
-              : categories.length
-                ? "No hay productos en las categorías visibles. Puedes seguir explorando por tiendas."
-                : "Todavía no hay categorías activas. Los productos siguen disponibles por tienda."}
+              ? "Cargando categorías principales…"
+              : !tiendasCercanas.length
+                ? "Busca comercios cercanos para explorar sus categorías principales."
+                : parentCategoryCandidates.length
+                  ? "No hay categorías principales para estos comercios."
+                : "Todavía no hay categorías principales activas."}
           </Text>
         </View>
       )}
@@ -626,7 +720,7 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
               searchQuery={searchQuery}
               tienda={tienda}
               userLocation={userLocation}
-              onSeeAll={() => router.push({ pathname: "/(normal)/ComerciosList", params: { store: tienda._id } })}
+              onSeeAll={() => openCatalog({ store: tienda._id })}
             />
           ))}
         </View>
@@ -665,26 +759,20 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
         </View>
       )}
 
-      {categoryRows.length ? (
+      {!debouncedSearch && parentCategories.length ? (
         <View style={styles.categoryRows}>
-          <Text style={[styles.listHeading, { color: palette.title }]} variant="titleMedium">Por categorías</Text>
-          {categoryRows.map((category) => (
-            <View key={category.id} style={styles.categorySection}>
-              <View style={styles.categoryHeader}>
-                <Text style={{ color: palette.title, flex: 1, fontWeight: "800" }} variant="titleMedium">{category.label}</Text>
-                <Button compact onPress={() => router.push({ pathname: "/(normal)/ComerciosList", params: { category: category.id } })}>
-                  Ver todos ({category.matches.length})
-                </Button>
-              </View>
-              <FlatList
-                contentContainerStyle={styles.categoryProductsListContent}
-                data={category.matches.slice(0, 8)}
-                horizontal
-                keyExtractor={({ producto }) => producto._id}
-                renderItem={({ item }) => <ProductoCard producto={item.producto} searchQuery={searchQuery} tienda={item.tienda} />}
-                showsHorizontalScrollIndicator={false}
+          <Text style={[styles.listHeading, { color: palette.title }]} variant="titleMedium">
+            Productos por categoría principal
+          </Text>
+          {parentCategories.map((category) => (
+            <ComercioCategorySelection
+              category={category}
+              key={category.id}
+              onSeeAll={() => openCatalog({ category: category.id })}
+              searchQuery={searchQuery}
+              storeIds={nearbyStoreIds}
+              storesById={storesById}
               />
-            </View>
           ))}
         </View>
       ) : null}
@@ -703,7 +791,7 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
           compact
           icon="store-search"
           mode="contained-tonal"
-          onPress={() => router.push("/(normal)/ComerciosList")}
+          onPress={() => openCatalog()}
           style={styles.footerButton}
         >
           Ver más
@@ -719,9 +807,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   categoryRows: { marginTop: 20 },
-  categorySection: { marginTop: 14 },
-  categoryHeader: { alignItems: "center", flexDirection: "row", gap: 8, paddingLeft: 16, paddingRight: 12 },
-  categoryProductsListContent: { paddingHorizontal: 16 },
   categoryShortcuts: { gap: 8, marginTop: 16, paddingLeft: 16 },
   categoryShortcutsTitle: { fontWeight: "800" },
   categoryShortcut: { marginRight: 8 },

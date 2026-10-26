@@ -72,6 +72,9 @@ export const ProductosComercioCollection = new Mongo.Collection(
 export const CategoriasComercioCollection = new Mongo.Collection(
   "COMERCIO_categorias",
 );
+export const SeleccionesCatalogoCollection = new Mongo.Collection(
+  "COMERCIO_seleccionesCatalogo",
+);
 export const VentasComercioCollection = new Mongo.Collection("COMERCIO_ventas");
 export const PedidosAsignadosComercioCollection = new Mongo.Collection(
   "COMERCIO_pedidosAsignados",
@@ -127,6 +130,7 @@ export const collections = {
   TiendasComercioCollection,
   ProductosComercioCollection,
   CategoriasComercioCollection,
+  SeleccionesCatalogoCollection,
   VentasComercioCollection,
   PedidosAsignadosComercioCollection,
   ColaCadetesPorTiendasComercioCollection,

@@ -165,8 +165,9 @@ const TiendaCardNative = ({ tienda, searchQuery, userLocation, onSeeAll }) => {
 
             <View style={styles.chipsRow}>
               <Chip compact mode="flat" textStyle={styles.chipText}>
-                {tienda.totalProductos} producto
-                {tienda.totalProductos !== 1 ? "s" : ""}
+                {tienda.catalogoParcial
+                  ? `${tienda.totalProductos} producto${tienda.totalProductos !== 1 ? "s" : ""} mostrados`
+                  : `${tienda.totalProductos} producto${tienda.totalProductos !== 1 ? "s" : ""}`}
               </Chip>
 
               {tienda.productosDisponibles < tienda.totalProductos ? (
@@ -177,8 +178,9 @@ const TiendaCardNative = ({ tienda, searchQuery, userLocation, onSeeAll }) => {
                   style={[styles.chip, styles.chipWarning]}
                   textStyle={styles.chipText}
                 >
-                  {tienda.productosDisponibles} disponible
-                  {tienda.productosDisponibles !== 1 ? "s" : ""}
+                  {tienda.catalogoParcial
+                    ? `${tienda.productosDisponibles} disponible${tienda.productosDisponibles !== 1 ? "s" : ""} en esta selección`
+                    : `${tienda.productosDisponibles} disponible${tienda.productosDisponibles !== 1 ? "s" : ""}`}
                 </Chip>
               ) : null}
 
@@ -250,9 +252,11 @@ const TiendaCardNative = ({ tienda, searchQuery, userLocation, onSeeAll }) => {
             windowSize={5}
           />
 
-          {tienda.productos.length > 8 && !showAll ? (
+          {(tienda.catalogoParcial || tienda.productos.length > 8) && !showAll ? (
             <Button onPress={onSeeAll || (() => setShowAll(true))} style={styles.moreButton}>
-              Ver todos los productos ({tienda.productos.length})
+              {tienda.catalogoParcial
+                ? "Ver catálogo completo"
+                : `Ver todos los productos (${tienda.productos.length})`}
             </Button>
           ) : null}
 

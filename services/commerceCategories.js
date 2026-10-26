@@ -121,6 +121,8 @@ export const normalizeCommerceHomeCategories = (categories, preferences) => {
       id: category._id,
       label: [...parents, category.nombre].join(" › "),
       nombre: category.nombre,
+      parentId: normalizeId(category.idCategoriaHeredada) || null,
+      creadaPor: normalizeId(category.creadaPor),
       visible,
       ordenInicio: category.ordenInicio,
     });
@@ -141,6 +143,18 @@ export const normalizeCommerceHomeCategories = (categories, preferences) => {
     available.delete(entry.id);
   });
   return [...result, ...available.values()];
+};
+
+export const getCommerceParentCategories = (categories, ownerIds) => {
+  const allowedOwnerIds = ownerIds === undefined
+    ? null
+    : new Set((Array.isArray(ownerIds) ? ownerIds : []).map(normalizeId).filter(Boolean));
+  return (Array.isArray(categories) ? categories : [])
+    .filter((category) =>
+      category?.visible !== false &&
+      !category?.parentId &&
+      (allowedOwnerIds === null || allowedOwnerIds.has(normalizeId(category?.creadaPor))),
+    );
 };
 
 export const getGlobalCommerceHomeCategories = (categories) =>

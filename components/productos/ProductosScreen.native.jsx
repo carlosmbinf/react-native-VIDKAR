@@ -1,3 +1,4 @@
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -8,6 +9,7 @@ import {
     FlatList,
     Linking,
     Platform,
+    Pressable,
     RefreshControl,
     StyleSheet,
     View,
@@ -15,17 +17,39 @@ import {
 import {
     ActivityIndicator,
     Appbar,
+    Badge,
     Button,
     Chip,
+    Divider,
     FAB,
+    IconButton,
     Menu,
     Searchbar,
     Surface,
     Text,
+    TextInput,
+    useTheme,
 } from "react-native-paper";
+import { useReducedMotion } from "react-native-reanimated";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
-import { filterVisibleCommerceStores, getPopulatedCommerceCategoryRows, matchesCommerceProductCategory, normalizeCommerceHomeCategories, UNCATEGORIZED_COMMERCE_CATEGORY_ID } from "../../services/commerceCategories";
+import {
+  buildCategoryTree,
+  filterCategoryTree,
+  filterVisibleCommerceStores,
+  getCategoryDescendantIds,
+  getCategoryPath,
+  getCommerceParentCategories,
+  normalizeCommerceHomeCategories,
+  UNCATEGORIZED_COMMERCE_CATEGORY_ID,
+} from "../../services/commerceCategories";
+import {
+  buildCommerceProductQuery,
+  COMMERCE_CATALOG_INITIAL_LIMIT,
+  COMMERCE_CATALOG_LIMIT_STEP,
+  COMMERCE_CATALOG_MAX_LIMIT,
+  isValidCommercePriceRange,
+} from "../../services/commerceProductCatalog";
 import {
     getCachedDeviceLocationSync,
     getCurrentDeviceLocation,
@@ -35,6 +59,7 @@ import {
 } from "../../services/location/deviceLocationCache.native";
 import { clearMCPConfiguration } from "../../services/mcp/mcpClient";
 import WizardConStepper from "../carritoCompras/WizardConStepper.native";
+import DrawerBottom from "../drawer/DrawerBottom.native";
 import {
   CategoriasComercioCollection,
     ProductosComercioCollection,
@@ -86,6 +111,21 @@ const radioOptions = [
   { label: "7 km", value: 7, icon: "map-marker-radius" },
 ];
 
+const availabilityOptions = [
+  { label: "Todos", value: "all" },
+  { label: "Disponibles", value: "available" },
+  { label: "Por encargo", value: "made" },
+];
+
+const currencyOptions = ["CUP", "UYU", "USD"];
+
+const sortOptions = [
+  { label: "Recomendados", value: "recommended" },
+  { label: "Nombre (A-Z)", value: "name" },
+  { label: "Precio: menor a mayor", value: "price-asc" },
+  { label: "Precio: mayor a menor", value: "price-desc" },
+];
+
 const meteorCallAsync = (methodName, ...args) =>
   new Promise((resolve, reject) => {
     Meteor.call(methodName, ...args, (error, result) => {
@@ -103,15 +143,26 @@ const ProductosScreenNative = () => {
   const params = useLocalSearchParams();
   const routeCategory = Array.isArray(params.category) ? params.category[0] : params.category;
   const routeStore = Array.isArray(params.store) ? params.store[0] : params.store;
+  const routeSearch = Array.isArray(params.search) ? params.search[0] : params.search;
+  const theme = useTheme();
   const [selectedCategory, setSelectedCategory] = useState(routeCategory || "all");
   const [selectedStore, setSelectedStore] = useState(routeStore || "all");
   const canNavigateBack = useCanNavigateBack();
   const safeBack = useSafeBack("/(normal)/Main");
   const headerInset = useAppHeaderContentInset();
   const initialCachedLocationRef = React.useRef(getCachedDeviceLocationSync());
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(routeSearch || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(routeSearch || "");
+  const [availability, setAvailability] = useState("all");
+  const [selectedCurrency, setSelectedCurrency] = useState("all");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [sort, setSort] = useState("recommended");
+  const [catalogLimit, setCatalogLimit] = useState(COMMERCE_CATALOG_INITIAL_LIMIT);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [showSearchbar, setShowSearchbar] = useState(false);
+  const [showSearchbar, setShowSearchbar] = useState(true);
   const [userLocation, setUserLocation] = useState(
     initialCachedLocationRef.current,
   );
@@ -140,11 +191,114 @@ const ProductosScreenNative = () => {
     };
   }, [dataReady]);
   const visibleCategories = useMemo(() => normalizeCommerceHomeCategories(categories, preferences).filter((category) => category.visible), [categories, preferences]);
+  const visibleCategoryIds = useMemo(
+    () => visibleCategories.map((category) => category.id),
+    [visibleCategories],
+  );
+  const categoryOptions = useMemo(
+    () => [
+      { id: "all", label: "Todas" },
+      ...visibleCategories,
+      { id: UNCATEGORIZED_COMMERCE_CATEGORY_ID, label: "Sin categoría" },
+    ],
+    [visibleCategories],
+  );
+  const selectedCategoryIds = useMemo(() => {
+    if (selectedCategory === "all" || selectedCategory === UNCATEGORIZED_COMMERCE_CATEGORY_ID) {
+      return [];
+    }
+    const allowedIds = new Set(visibleCategoryIds);
+    const visibleCategoryDocs = categories.filter((category) =>
+      allowedIds.has(String(category._id)),
+    );
+    return [...getCategoryDescendantIds(visibleCategoryDocs, String(selectedCategory))]
+      .filter((id) => allowedIds.has(String(id)));
+  }, [categories, selectedCategory, visibleCategoryIds]);
+  const nearbyStoreIds = useMemo(
+    () => tiendasCercanas.map((store) => String(store._id)).filter(Boolean),
+    [tiendasCercanas],
+  );
+  const matchingStoreIds = useMemo(() => {
+    const normalizedQuery = debouncedSearch.trim().toLocaleLowerCase("es");
+    if (!normalizedQuery) return [];
+    return tiendasCercanas
+      .filter((store) =>
+        String(store.title || "").toLocaleLowerCase("es").includes(normalizedQuery) ||
+        String(store.descripcion || "").toLocaleLowerCase("es").includes(normalizedQuery),
+      )
+      .map((store) => String(store._id));
+  }, [debouncedSearch, tiendasCercanas]);
+  const priceRangeValid = isValidCommercePriceRange(minPrice, maxPrice);
+  const hasInvalidPrice = [minPrice, maxPrice].some((value) =>
+    value.trim() !== "" && (!Number.isFinite(Number(value)) || Number(value) < 0),
+  );
+  const priceRangeError = !priceRangeValid
+    ? hasInvalidPrice
+      ? "Introduce precios numéricos iguales o mayores que cero."
+      : "El precio mínimo no puede superar el máximo."
+    : "";
+  const catalogQuery = useMemo(
+    () => buildCommerceProductQuery({
+      availability,
+      categoryIds: selectedCategoryIds,
+      enabled: categoriesReady && !priceRangeError,
+      limit: catalogLimit,
+      matchingStoreIds,
+      maxPrice,
+      minPrice,
+      search: debouncedSearch,
+      selectedCategory,
+      selectedCurrency,
+      selectedStore,
+      sort,
+      storeIds: nearbyStoreIds,
+      visibleCategoryIds,
+    }),
+    [
+      availability,
+      categoriesReady,
+      catalogLimit,
+      debouncedSearch,
+      matchingStoreIds,
+      maxPrice,
+      minPrice,
+      nearbyStoreIds,
+      priceRangeError,
+      selectedCategory,
+      selectedCategoryIds,
+      selectedCurrency,
+      selectedStore,
+      sort,
+      visibleCategoryIds,
+    ],
+  );
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (selectedStore !== "all") count += 1;
+    if (selectedCategory !== "all") count += 1;
+    if (availability !== "all") count += 1;
+    if (selectedCurrency !== "all") count += 1;
+    if (minPrice !== "" || maxPrice !== "") count += 1;
+    if (sort !== "recommended") count += 1;
+    return count;
+  }, [availability, maxPrice, minPrice, selectedCategory, selectedCurrency, selectedStore, sort]);
+  const selectedSortLabel = sortOptions.find((option) => option.value === sort)?.label || "Recomendados";
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   React.useEffect(() => {
     setSelectedCategory(routeCategory || "all");
     setSelectedStore(routeStore || "all");
-  }, [routeCategory, routeStore]);
+    setSearchQuery(routeSearch || "");
+    setDebouncedSearch(routeSearch || "");
+  }, [routeCategory, routeSearch, routeStore]);
+
+  React.useEffect(() => {
+    setCatalogLimit(COMMERCE_CATALOG_INITIAL_LIMIT);
+  }, [availability, debouncedSearch, maxPrice, minPrice, selectedCategory, selectedCurrency, selectedStore, sort]);
 
   const refreshLocationPermissionState = React.useCallback(
     async ({ showLoading = false } = {}) => {
@@ -470,76 +624,95 @@ const ProductosScreenNative = () => {
     [buscarTiendasCercanas, locationPermissionState, obtenerUbicacion, userLocation],
   );
 
-  const { loading: loadingProducts, tiendasConProductos } = Meteor.useTracker(() => {
-    if (!dataReady) {
-      return { loading: true, tiendasConProductos: [] };
+  const {
+    catalogStores,
+    hasMoreProducts,
+    loading: loadingProducts,
+    productCount,
+    tiendasConProductos,
+  } = Meteor.useTracker(() => {
+    if (!dataReady || !categoriesReady) {
+      return {
+        catalogStores: [],
+        hasMoreProducts: false,
+        loading: true,
+        productCount: 0,
+        tiendasConProductos: [],
+      };
     }
 
-    const tiendasIds =
-      tiendasCercanas.length > 0
-        ? tiendasCercanas.map((tienda) => tienda._id)
-        : null;
-
-    if (!tiendasIds) {
-      return { loading: false, tiendasConProductos: [] };
+    if (!nearbyStoreIds.length) {
+      return {
+        catalogStores: [],
+        hasMoreProducts: false,
+        loading: loadingTiendas,
+        productCount: 0,
+        tiendasConProductos: [],
+      };
     }
 
-    const query = { _id: { $in: tiendasIds } };
-    const subProductos = Meteor.subscribe("productosComercio", { idTienda: { $in: tiendasIds } }, {
-      fields: PRODUCTOS_COMERCIO_FIELDS,
-    });
-    const subTiendas = Meteor.subscribe("tiendas", query, {
+    const storesSelector = { _id: { $in: nearbyStoreIds } };
+    const storesHandle = Meteor.subscribe("tiendas", storesSelector, {
       fields: TIENDAS_CLIENT_FIELDS,
     });
-
-    if (!subTiendas.ready() || !subProductos.ready()) {
-      return { loading: true, tiendasConProductos: [] };
-    }
-
-    const tiendas = TiendasComercioCollection.find(query, {
+    const productsHandle = catalogQuery.enabled
+      ? Meteor.subscribe("productosComercio", catalogQuery.selector, {
+          ...catalogQuery.options,
+          fields: PRODUCTOS_COMERCIO_FIELDS,
+        })
+      : null;
+    const stores = TiendasComercioCollection.find(storesSelector, {
       fields: TIENDAS_CLIENT_FIELDS,
       sort: { title: 1 },
     }).fetch();
-
-    const tiendasMap = new Map(
-      tiendasCercanas.map((tienda) => [tienda._id, tienda]),
-    );
-
-    const mappedTiendas = tiendas
-      .map((tienda) => {
-        const productos = ProductosComercioCollection.find(
-          { idTienda: tienda._id },
-          { fields: PRODUCTOS_COMERCIO_FIELDS, sort: { name: 1 } },
-        ).fetch();
-        const tiendaCercana = tiendasMap.get(tienda._id);
-
+    const fetchedProducts = catalogQuery.enabled
+      ? ProductosComercioCollection.find(catalogQuery.selector, {
+          fields: PRODUCTOS_COMERCIO_FIELDS,
+          limit: catalogQuery.options.limit,
+          sort: catalogQuery.options.sort,
+        }).fetch()
+      : [];
+    const products = fetchedProducts.slice(0, catalogQuery.limit);
+    const productsByStore = new Map();
+    products.forEach((product) => {
+      const storeId = String(product.idTienda || "");
+      if (!productsByStore.has(storeId)) productsByStore.set(storeId, []);
+      productsByStore.get(storeId).push(product);
+    });
+    const storesById = new Map(stores.map((store) => [String(store._id), store]));
+    const nearbyStoresById = new Map(tiendasCercanas.map((store) => [String(store._id), store]));
+    const mappedStores = [...productsByStore.entries()]
+      .map(([storeId, storeProducts]) => {
+        const store = storesById.get(storeId);
+        if (!store) return null;
+        const nearbyStore = nearbyStoresById.get(storeId);
         return {
-          ...tienda,
-          coordenadas: tienda.coordenadas || tiendaCercana?.coordenadas || null,
-          distancia: tiendaCercana?.distancia,
-          distanciaFormateada: tiendaCercana?.distanciaFormateada,
-          productos,
-          productosDisponibles: productos.filter((producto) =>
-            !producto.productoDeElaboracion ? producto.count > 0 : true,
+          ...store,
+          coordenadas: store.coordenadas || nearbyStore?.coordenadas || null,
+          distancia: nearbyStore?.distancia,
+          distanciaFormateada: nearbyStore?.distanciaFormateada,
+          catalogoParcial: true,
+          productos: storeProducts,
+          productosDisponibles: storeProducts.filter((product) =>
+            !product.productoDeElaboracion ? product.count > 0 : true,
           ).length,
-          totalProductos: productos.length,
+          totalProductos: storeProducts.length,
         };
       })
-      .filter((tienda) => tienda.totalProductos > 0);
+      .filter(Boolean);
 
     return {
-      loading: false,
-      tiendasConProductos: mappedTiendas,
+      catalogStores: stores,
+      hasMoreProducts: Boolean(productsHandle?.ready() && fetchedProducts.length > catalogQuery.limit),
+      loading: !storesHandle.ready() || Boolean(productsHandle && !productsHandle.ready()),
+      productCount: products.length,
+      tiendasConProductos: mappedStores,
     };
-  }, [dataReady, tiendasCercanas]);
+  }, [catalogQuery, categoriesReady, dataReady, loadingTiendas, nearbyStoreIds, tiendasCercanas]);
 
   const tiendasDisponibles = useMemo(() => categoriesReady
     ? filterVisibleCommerceStores(tiendasConProductos, categories) : [],
   [categories, categoriesReady, tiendasConProductos]);
-  const populatedCategories = useMemo(
-    () => getPopulatedCommerceCategoryRows(categories, visibleCategories, tiendasDisponibles),
-    [categories, tiendasDisponibles, visibleCategories],
-  );
   React.useEffect(() => {
     if (categoriesReady && selectedCategory !== "all" &&
       selectedCategory !== UNCATEGORIZED_COMMERCE_CATEGORY_ID &&
@@ -559,55 +732,33 @@ const ProductosScreenNative = () => {
     (!userLocation && locationPermissionState?.granted === false);
 
   const tiendasFiltradas = useMemo(() => {
-    const selected = tiendasDisponibles
-      .filter((tienda) => selectedStore === "all" || tienda._id === selectedStore)
-      .map((tienda) => {
-        if (selectedCategory === "all") return tienda;
-        const productos = tienda.productos.filter((producto) =>
-          matchesCommerceProductCategory(producto, selectedCategory),
-        );
-        return { ...tienda, productos, totalProductos: productos.length, productosDisponibles: productos.filter((producto) => producto.productoDeElaboracion || Number(producto.count || 0) > 0).length };
-      })
-      .filter((tienda) => selectedCategory === "all" || tienda.productos.length);
-    if (!searchQuery.trim()) {
-      if (selected.some((tienda) => tienda.distancia !== undefined)) {
-        return [...selected].sort((a, b) => {
-          if (a.distancia === undefined) return 1;
-          if (b.distancia === undefined) return -1;
-          return a.distancia - b.distancia;
-        });
-      }
-
-      return selected;
-    }
-
-    const query = searchQuery.toLowerCase();
-    const filtradas = selected.filter((tienda) => {
-      const matchTienda =
-        tienda.title?.toLowerCase().includes(query) ||
-        tienda.descripcion?.toLowerCase().includes(query);
-      const matchProducto = tienda.productos?.some(
-        (producto) =>
-          producto.name?.toLowerCase().includes(query) ||
-          producto.descripcion?.toLowerCase().includes(query),
-      );
-
-      return matchTienda || matchProducto;
+    const selected = tiendasDisponibles.filter((store) =>
+      selectedStore === "all" || String(store._id) === String(selectedStore),
+    );
+    if (!selected.some((store) => store.distancia !== undefined)) return selected;
+    return [...selected].sort((left, right) => {
+      if (left.distancia === undefined) return 1;
+      if (right.distancia === undefined) return -1;
+      return left.distancia - right.distancia;
     });
+  }, [selectedStore, tiendasDisponibles]);
 
-    if (filtradas.some((tienda) => tienda.distancia !== undefined)) {
-      return filtradas.sort((a, b) => {
-        if (a.distancia === undefined) return 1;
-        if (b.distancia === undefined) return -1;
-        return a.distancia - b.distancia;
-      });
-    }
-
-    return filtradas;
-  }, [searchQuery, selectedCategory, selectedStore, tiendasDisponibles]);
+  const resetCatalogFilters = React.useCallback(() => {
+    setSearchQuery("");
+    setDebouncedSearch("");
+    setSelectedStore("all");
+    setSelectedCategory("all");
+    setAvailability("all");
+    setSelectedCurrency("all");
+    setMinPrice("");
+    setMaxPrice("");
+    setSort("recommended");
+    setCatalogLimit(COMMERCE_CATALOG_INITIAL_LIMIT);
+  }, []);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
+    setCatalogLimit(COMMERCE_CATALOG_INITIAL_LIMIT);
     await obtenerUbicacion();
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setRefreshing(false);
@@ -619,7 +770,7 @@ const ProductosScreenNative = () => {
         <View style={styles.categoryFilters}>
           <Text variant="titleSmall">Explorar por tiendas</Text>
           <FlatList
-            data={[{ _id: "all", title: "Todas las tiendas" }, ...tiendasDisponibles]}
+            data={[{ _id: "all", title: "Todas las tiendas" }, ...catalogStores]}
             horizontal
             keyExtractor={(tienda) => tienda._id}
             renderItem={({ item }) => (
@@ -634,7 +785,7 @@ const ProductosScreenNative = () => {
           />
           <Text variant="titleSmall">Explorar por categorías</Text>
           <FlatList
-            data={[{ id: "all", label: "Todas" }, ...populatedCategories]}
+            data={categoryOptions}
             horizontal
             keyExtractor={(category) => category.id}
             renderItem={({ item }) => (
@@ -647,14 +798,132 @@ const ProductosScreenNative = () => {
             )}
             showsHorizontalScrollIndicator={false}
           />
-          {!populatedCategories.length ? (
+          {!visibleCategories.length && categoriesReady ? (
             <Text variant="bodySmall">
-              {!categoriesReady || loadingProducts
-                ? "Cargando categorías y productos del catálogo…"
-                : categories.length
-                  ? "No hay productos en las categorías visibles."
-                  : "Todavía no hay categorías activas; explora los productos por tienda."}
+              {categories.length
+                ? "No hay categorías visibles. Puedes seguir explorando los productos sin categoría."
+                : "Todavía no hay categorías activas; explora los productos sin categoría."}
             </Text>
+          ) : null}
+          <Text variant="titleSmall">Disponibilidad</Text>
+          <View style={styles.filterChipRow}>
+            {availabilityOptions.map((option) => (
+              <Chip
+                compact
+                key={option.value}
+                selected={availability === option.value}
+                onPress={() => setAvailability(option.value)}
+                style={styles.categoryChip}
+              >
+                {option.label}
+              </Chip>
+            ))}
+          </View>
+          <View style={styles.catalogToolbar}>
+            <Button
+              compact
+              icon={filtersExpanded ? "tune-variant" : "tune"}
+              mode={filtersExpanded ? "contained-tonal" : "outlined"}
+              onPress={() => setFiltersExpanded((current) => !current)}
+            >
+              Filtros{activeFiltersCount ? ` · ${activeFiltersCount}` : ""}
+            </Button>
+            <Menu
+              anchor={
+                <Button
+                  compact
+                  icon="sort"
+                  mode="outlined"
+                  onPress={() => setSortMenuVisible(true)}
+                >
+                  {selectedSortLabel}
+                </Button>
+              }
+              onDismiss={() => setSortMenuVisible(false)}
+              visible={sortMenuVisible}
+            >
+              {sortOptions.map((option) => (
+                <Menu.Item
+                  key={option.value}
+                  leadingIcon={sort === option.value ? "check" : undefined}
+                  onPress={() => {
+                    setSort(option.value);
+                    setSortMenuVisible(false);
+                  }}
+                  title={option.label}
+                />
+              ))}
+            </Menu>
+            <Chip compact icon={loadingProducts ? "progress-clock" : "view-grid-outline"} mode="outlined">
+              {loadingProducts && !productCount
+                ? "Cargando"
+                : `${productCount}${hasMoreProducts ? "+" : ""} producto${productCount === 1 ? "" : "s"}`}
+            </Chip>
+          </View>
+          {filtersExpanded ? (
+            <Surface elevation={0} style={styles.advancedFilters}>
+              <Text variant="labelLarge">Moneda</Text>
+              <View style={styles.filterChipRow}>
+                {["all", ...currencyOptions].map((currency) => (
+                  <Chip
+                    compact
+                    key={currency}
+                    selected={selectedCurrency === currency}
+                    onPress={() => setSelectedCurrency(currency)}
+                    style={styles.categoryChip}
+                  >
+                    {currency === "all" ? "Todas" : currency}
+                  </Chip>
+                ))}
+              </View>
+              <Text variant="labelLarge">Rango de precio</Text>
+              <View style={styles.priceFilterRow}>
+                <TextInput
+                  dense
+                  keyboardType="decimal-pad"
+                  label="Mínimo"
+                  mode="outlined"
+                  onChangeText={setMinPrice}
+                  style={styles.priceFilterInput}
+                  value={minPrice}
+                />
+                <TextInput
+                  dense
+                  keyboardType="decimal-pad"
+                  label="Máximo"
+                  mode="outlined"
+                  onChangeText={setMaxPrice}
+                  style={styles.priceFilterInput}
+                  value={maxPrice}
+                />
+              </View>
+              {priceRangeError ? (
+                <Text style={{ color: theme.colors.error }} variant="bodySmall">
+                  {priceRangeError}
+                </Text>
+              ) : null}
+              <Button
+                compact
+                icon="restart"
+                onPress={resetCatalogFilters}
+                style={styles.clearFiltersButton}
+              >
+                Limpiar filtros
+              </Button>
+            </Surface>
+          ) : null}
+        </View>
+        <View style={styles.catalogSummary}>
+          <Text numberOfLines={2} style={styles.catalogSummaryTitle} variant="titleSmall">
+            {categoryOptions.find((category) => category.id === selectedCategory)?.label ||
+              (selectedStore !== "all"
+                ? catalogStores.find((store) => String(store._id) === String(selectedStore))?.title || "Tienda seleccionada"
+                : "Productos de tiendas cercanas")}
+          </Text>
+          {debouncedSearch ? (
+            <Chip compact icon="magnify" mode="outlined">
+              “{debouncedSearch}”
+            </Chip>
           ) : null}
         </View>
         {showLocationAccessCard ? (
@@ -715,22 +984,39 @@ const ProductosScreenNative = () => {
       </>
     ),
     [
+      availability,
+      activeFiltersCount,
       loadingTiendas,
       loadingProducts,
+      catalogStores,
+      categoryOptions,
+      categories.length,
+      categoriesReady,
+      debouncedSearch,
+      filtersExpanded,
+      hasMoreProducts,
       locationPermissionBlocked,
       locationPermissionLoading,
       locationUnavailable,
+      maxPrice,
+      minPrice,
       obtenerUbicacion,
-      categories.length,
-      categoriesReady,
+      priceRangeError,
+      productCount,
       radioKm,
       router,
+      resetCatalogFilters,
       selectedCategory,
+      selectedCurrency,
+      selectedSortLabel,
       selectedStore,
+      sort,
+      sortMenuVisible,
       showLocationAccessCard,
       tiendasDisponibles,
       userLocation,
-      populatedCategories,
+      visibleCategories.length,
+      theme.colors.error,
     ],
   );
 
@@ -751,6 +1037,8 @@ const ProductosScreenNative = () => {
         <Text style={styles.emptyTitle} variant="titleMedium">
           {loadingTiendas
             ? "Buscando tiendas..."
+            : priceRangeError
+                ? "Revisa el rango de precio"
             : locationUnavailable
                 ? "Ubicación apagada"
                 : locationError
@@ -762,7 +1050,9 @@ const ProductosScreenNative = () => {
                   : "Activando ubicación..."}
         </Text>
         <Text style={styles.emptySubtitle} variant="bodyMedium">
-          {loadingTiendas
+          {priceRangeError
+            ? priceRangeError
+            : loadingTiendas
             ? "Por favor espera..."
             : locationUnavailable
               ? "Activa la ubicación para Vidkar desde los ajustes del dispositivo para encontrar tiendas cercanas."
@@ -776,13 +1066,49 @@ const ProductosScreenNative = () => {
         </Text>
       </Surface>
     ),
-    [loadingTiendas, locationError, locationUnavailable, radioKm, searchQuery, userLocation],
+    [loadingTiendas, locationError, locationUnavailable, priceRangeError, radioKm, searchQuery, userLocation],
   );
+
+  const listFooterComponent = useMemo(() => {
+    const canLoadMore = hasMoreProducts && catalogLimit < COMMERCE_CATALOG_MAX_LIMIT;
+    return (
+      <>
+        {productCount > 0 ? (
+          <View style={styles.catalogFooter}>
+            <Text style={styles.catalogFooterText} variant="bodySmall">
+              {canLoadMore
+                ? `Mostrando ${productCount} productos para mantener el catálogo ligero.`
+                : hasMoreProducts
+                  ? `Se alcanzó el máximo de ${COMMERCE_CATALOG_MAX_LIMIT} productos. Refina los filtros para encontrar otros.`
+                  : `Has visto los ${productCount} productos de esta selección.`}
+            </Text>
+            {canLoadMore ? (
+              <Button
+                disabled={loadingProducts}
+                icon="plus"
+                mode="contained-tonal"
+                onPress={() => setCatalogLimit((current) =>
+                  Math.min(COMMERCE_CATALOG_MAX_LIMIT, current + COMMERCE_CATALOG_LIMIT_STEP),
+                )}
+              >
+                Cargar más productos
+              </Button>
+            ) : null}
+          </View>
+        ) : null}
+        <View style={styles.listFooter} />
+      </>
+    );
+  }, [catalogLimit, hasMoreProducts, loadingProducts, productCount]);
 
   const renderTiendaItem = React.useCallback(
     ({ index, item }) => (
       <TiendaCard
         index={index}
+        onSeeAll={() => {
+          setSelectedStore(String(item._id));
+          setCatalogLimit(COMMERCE_CATALOG_INITIAL_LIMIT);
+        }}
         searchQuery={searchQuery}
         tienda={item}
         userLocation={userLocation}
@@ -889,8 +1215,9 @@ const ProductosScreenNative = () => {
           {searchQuery.trim() ? (
             <View style={styles.resultsInfo}>
               <Chip compact icon="filter-variant" mode="outlined">
-                {tiendasFiltradas.length} resultado
-                {tiendasFiltradas.length !== 1 ? "s" : ""}
+                {loadingProducts
+                  ? "Buscando…"
+                  : `${productCount}${hasMoreProducts ? "+" : ""} producto${productCount === 1 ? "" : "s"}`}
               </Chip>
             </View>
           ) : null}
@@ -901,7 +1228,7 @@ const ProductosScreenNative = () => {
         ListEmptyComponent={!categoriesReady || loadingProducts
           ? <ActivityIndicator style={{ marginTop: 28 }} />
           : listEmptyComponent}
-        ListFooterComponent={<View style={styles.listFooter} />}
+        ListFooterComponent={listFooterComponent}
         ListHeaderComponent={listHeaderComponent}
         contentContainerStyle={[
           styles.flatListContent,
@@ -968,6 +1295,46 @@ const styles = StyleSheet.create({
   },
   categoryFilters: { gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
   categoryChip: { marginRight: 8 },
+  advancedFilters: {
+    borderRadius: 16,
+    gap: 10,
+    marginTop: 8,
+    padding: 12,
+  },
+  catalogFooter: {
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+  },
+  catalogFooterText: {
+    opacity: 0.72,
+    textAlign: "center",
+  },
+  catalogSummary: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 4,
+  },
+  catalogSummaryTitle: {
+    flex: 1,
+    fontWeight: "700",
+    minWidth: 120,
+  },
+  catalogToolbar: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "space-between",
+  },
+  clearFiltersButton: {
+    alignSelf: "flex-end",
+  },
   emptyIcon: {
     fontSize: 64,
     marginBottom: 16,
@@ -990,6 +1357,11 @@ const styles = StyleSheet.create({
   },
   fab: {
     backgroundColor: "#3f51b5",
+  },
+  filterChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
   flatListContent: {
     flexGrow: 1,
@@ -1044,6 +1416,13 @@ const styles = StyleSheet.create({
   },
   pedidosBannerButtonLabel: {
     fontWeight: "700",
+  },
+  priceFilterInput: {
+    flex: 1,
+  },
+  priceFilterRow: {
+    flexDirection: "row",
+    gap: 10,
   },
   pedidosBannerContent: {
     alignItems: "center",
