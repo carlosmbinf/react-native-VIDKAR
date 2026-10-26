@@ -198,9 +198,15 @@ export const matchesCommerceProductCategory = (producto, categoryId) => {
     : Boolean(categoryId) && assignedId === String(categoryId);
 };
 
-export const getPopulatedCommerceCategoryRows = (_categories, visibleCategories, stores) => {
+export const getPopulatedCommerceCategoryRows = (_categories, visibleCategories, stores, productOrderIds = []) => {
   const products = (stores || []).flatMap((tienda) => (tienda.productos || [])
     .map((producto) => ({ producto, tienda })));
+  if (productOrderIds.length) {
+    const orderById = new Map(productOrderIds.map((id, index) => [normalizeId(id), index]));
+    products.sort((left, right) =>
+      (orderById.get(normalizeId(left.producto._id)) ?? Infinity) -
+      (orderById.get(normalizeId(right.producto._id)) ?? Infinity));
+  }
   const rows = visibleCategories.map((category) => ({
     ...category,
     matches: products.filter(({ producto }) => matchesCommerceProductCategory(producto, category.id)),

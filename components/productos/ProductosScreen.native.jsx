@@ -40,6 +40,7 @@ import {
   getCategoryDescendantIds,
   getCategoryPath,
   getCommerceParentCategories,
+  getPopulatedCommerceCategoryRows,
   normalizeCommerceHomeCategories,
   UNCATEGORIZED_COMMERCE_CATEGORY_ID,
 } from "../../services/commerceCategories";
@@ -73,6 +74,8 @@ import AppHeader, {
 import BlurMenuSurface, { blurMenuContentStyle } from "../Header/BlurMenuSurface";
 import useSafeBack, { useCanNavigateBack } from "../navigation/useSafeBack";
 import CommerceLocationAccessCard from "./CommerceLocationAccessCard";
+import ComercioCategorySelection from "./ComercioCategorySelection.native";
+import ProductoCard from "./ProductoCard";
 import TiendaCard from "./TiendaCard";
 
 const Meteor =
@@ -96,6 +99,7 @@ const PRODUCTOS_COMERCIO_FIELDS = {
 
 const TIENDAS_CLIENT_FIELDS = {
   _id: 1,
+  idUser: 1,
   cordenadas: 1,
   coordenadas: 1,
   createdAt: 1,
@@ -112,19 +116,24 @@ const radioOptions = [
 ];
 
 const availabilityOptions = [
-  { label: "Todos", value: "all" },
-  { label: "Disponibles", value: "available" },
-  { label: "Por encargo", value: "made" },
+  { label: "Todos", value: "all", icon: "apps" },
+  { label: "En stock", value: "available", icon: "check-circle-outline" },
+  { label: "Por encargo", value: "made", icon: "chef-hat" },
 ];
 
 const currencyOptions = ["CUP", "UYU", "USD"];
 
 const sortOptions = [
-  { label: "Recomendados", value: "recommended" },
-  { label: "Nombre (A-Z)", value: "name" },
-  { label: "Precio: menor a mayor", value: "price-asc" },
-  { label: "Precio: mayor a menor", value: "price-desc" },
+  { label: "Recomendados", value: "recommended", icon: "star-four-points-outline" },
+  { label: "Nombre (A-Z)", value: "name", icon: "sort-alphabetical-ascending" },
+  { label: "Precio: menor a mayor", value: "price-asc", icon: "sort-numeric-ascending" },
+  { label: "Precio: mayor a menor", value: "price-desc", icon: "sort-numeric-descending" },
 ];
+
+const SCREEN_INITIAL_CATALOG_LIMIT = Math.min(
+  COMMERCE_CATALOG_MAX_LIMIT,
+  COMMERCE_CATALOG_INITIAL_LIMIT * 2,
+);
 
 const meteorCallAsync = (methodName, ...args) =>
   new Promise((resolve, reject) => {
@@ -159,13 +168,13 @@ const ProductosScreenNative = () => {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [sort, setSort] = useState("recommended");
-  const [catalogLimit, setCatalogLimit] = useState(COMMERCE_CATALOG_INITIAL_LIMIT);
+  const [catalogLimit, setCatalogLimit] = useState(SCREEN_INITIAL_CATALOG_LIMIT);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [categorySearchQuery, setCategorySearchQuery] = useState("");
   const [expandedCategoryIds, setExpandedCategoryIds] = useState({});
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [showSearchbar, setShowSearchbar] = useState(true);
+  const [showSearchbar, setShowSearchbar] = useState(Boolean(routeSearch));
   const [userLocation, setUserLocation] = useState(
     initialCachedLocationRef.current,
   );
@@ -188,13 +197,13 @@ const ProductosScreenNative = () => {
     const userId = Meteor.userId();
     if (userId) Meteor.subscribe("user", { _id: userId }, { fields: { _id: 1, categoriasComercioInicio: 1 } });
     return {
-      categories: CategoriasComercioCollection.find({ activa: { $ne: false } }, { fields: { _id: 1, nombre: 1, idCategoriaHeredada: 1, visibleEnInicio: 1, ordenInicio: 1 } }).fetch(),
+      categories: CategoriasComercioCollection.find({ activa: { $ne: false } }, { fields: { _id: 1, creadaPor: 1, nombre: 1, idCategoriaHeredada: 1, visibleEnInicio: 1, ordenInicio: 1 } }).fetch(),
       categoriesReady: categoriesHandle.ready(),
       preferences: Meteor.user()?.categoriasComercioInicio,
     };
   }, [dataReady]);
   const visibleCategories = useMemo(() => normalizeCommerceHomeCategories(categories, preferences).filter((category) => category.visible), [categories, preferences]);
-  const parentCategories = useMemo(
+  const parentCategoryCandidates = useMemo(
     () => getCommerceParentCategories(visibleCategories),
     [visibleCategories],
   );
@@ -237,10 +246,6 @@ const ProductosScreenNative = () => {
       : selectedCategoryPath[selectedCategoryPath.length - 1]?.nombre ||
         categoryOptions.find((category) => category.id === selectedCategory)?.label ||
         "Categoría";
-  const quickCategoryOptions = useMemo(
-    () => [{ id: "all", label: "Todas" }, ...parentCategories],
-    [parentCategories],
-  );
   const selectedCategoryIds = useMemo(() => {
     if (selectedCategory === "all" || selectedCategory === UNCATEGORIZED_COMMERCE_CATEGORY_ID) {
       return [];
@@ -341,7 +346,7 @@ const ProductosScreenNative = () => {
   }, [routeCategory, routeSearch, routeStore]);
 
   React.useEffect(() => {
-    setCatalogLimit(COMMERCE_CATALOG_INITIAL_LIMIT);
+    setCatalogLimit(SCREEN_INITIAL_CATALOG_LIMIT);
   }, [availability, debouncedSearch, maxPrice, minPrice, selectedCategory, selectedCurrency, selectedStore, sort]);
 
   const refreshLocationPermissionState = React.useCallback(
@@ -673,6 +678,7 @@ const ProductosScreenNative = () => {
     hasMoreProducts,
     loading: loadingProducts,
     productCount,
+    productOrderIds,
     tiendasConProductos,
   } = Meteor.useTracker(() => {
     if (!dataReady || !categoriesReady) {
@@ -681,6 +687,7 @@ const ProductosScreenNative = () => {
         hasMoreProducts: false,
         loading: true,
         productCount: 0,
+        productOrderIds: [],
         tiendasConProductos: [],
       };
     }
@@ -691,6 +698,7 @@ const ProductosScreenNative = () => {
         hasMoreProducts: false,
         loading: loadingTiendas,
         productCount: 0,
+        productOrderIds: [],
         tiendasConProductos: [],
       };
     }
@@ -725,6 +733,7 @@ const ProductosScreenNative = () => {
     });
     const storesById = new Map(stores.map((store) => [String(store._id), store]));
     const nearbyStoresById = new Map(tiendasCercanas.map((store) => [String(store._id), store]));
+    const hasMore = Boolean(productsHandle?.ready() && fetchedProducts.length > catalogQuery.limit);
     const mappedStores = [...productsByStore.entries()]
       .map(([storeId, storeProducts]) => {
         const store = storesById.get(storeId);
@@ -735,7 +744,7 @@ const ProductosScreenNative = () => {
           coordenadas: store.coordenadas || nearbyStore?.coordenadas || null,
           distancia: nearbyStore?.distancia,
           distanciaFormateada: nearbyStore?.distanciaFormateada,
-          catalogoParcial: true,
+          catalogoParcial: hasMore,
           productos: storeProducts,
           productosDisponibles: storeProducts.filter((product) =>
             !product.productoDeElaboracion ? product.count > 0 : true,
@@ -747,9 +756,10 @@ const ProductosScreenNative = () => {
 
     return {
       catalogStores: stores,
-      hasMoreProducts: Boolean(productsHandle?.ready() && fetchedProducts.length > catalogQuery.limit),
+      hasMoreProducts: hasMore,
       loading: !storesHandle.ready() || Boolean(productsHandle && !productsHandle.ready()),
       productCount: products.length,
+      productOrderIds: products.map((product) => String(product._id)),
       tiendasConProductos: mappedStores,
     };
   }, [catalogQuery, categoriesReady, dataReady, loadingTiendas, nearbyStoreIds, tiendasCercanas]);
@@ -757,6 +767,22 @@ const ProductosScreenNative = () => {
   const tiendasDisponibles = useMemo(() => categoriesReady
     ? filterVisibleCommerceStores(tiendasConProductos, categories) : [],
   [categories, categoriesReady, tiendasConProductos]);
+  const storesById = useMemo(
+    () => new Map(catalogStores.map((store) => [String(store._id), store])),
+    [catalogStores],
+  );
+  const nearbyOwnerIds = useMemo(
+    () => [...new Set(catalogStores.map((store) => String(store.idUser || "")).filter(Boolean))],
+    [catalogStores],
+  );
+  const parentCategories = useMemo(
+    () => getCommerceParentCategories(parentCategoryCandidates, nearbyOwnerIds),
+    [nearbyOwnerIds, parentCategoryCandidates],
+  );
+  const quickCategoryOptions = useMemo(
+    () => [{ id: "all", label: "Todas" }, ...parentCategories],
+    [parentCategories],
+  );
   React.useEffect(() => {
     if (categoriesReady && selectedCategory !== "all" &&
       selectedCategory !== UNCATEGORIZED_COMMERCE_CATEGORY_ID &&
@@ -787,6 +813,20 @@ const ProductosScreenNative = () => {
     });
   }, [selectedStore, tiendasDisponibles]);
 
+  const showCategorySelections = activeFiltersCount === 0 && !debouncedSearch;
+  const catalogRows = useMemo(() => showCategorySelections
+    ? [
+        ...parentCategories.map((category) => ({
+          id: `selection:${category.id}`, kind: "selection", category,
+        })),
+        ...tiendasFiltradas.map((tienda) => ({
+          id: `store:${tienda._id}`, kind: "store", tienda,
+        })),
+      ]
+    : getPopulatedCommerceCategoryRows(categories, visibleCategories, tiendasFiltradas, productOrderIds)
+      .map((category) => ({ id: `category:${category.id}`, kind: "category", category })),
+  [categories, parentCategories, productOrderIds, showCategorySelections, tiendasFiltradas, visibleCategories]);
+
   const resetCatalogFilters = React.useCallback(() => {
     setSearchQuery("");
     setDebouncedSearch("");
@@ -797,7 +837,7 @@ const ProductosScreenNative = () => {
     setMinPrice("");
     setMaxPrice("");
     setSort("recommended");
-    setCatalogLimit(COMMERCE_CATALOG_INITIAL_LIMIT);
+    setCatalogLimit(SCREEN_INITIAL_CATALOG_LIMIT);
   }, []);
 
   const renderCategoryNode = React.useCallback((category, depth = 0) => {
@@ -881,229 +921,335 @@ const ProductosScreenNative = () => {
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    setCatalogLimit(COMMERCE_CATALOG_INITIAL_LIMIT);
+    setCatalogLimit(SCREEN_INITIAL_CATALOG_LIMIT);
     await obtenerUbicacion();
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setRefreshing(false);
   }, [obtenerUbicacion]);
 
   const listHeaderComponent = useMemo(
-    () => (
-      <>
-        {userLocation ? (
-          <View style={styles.locationInfo}>
-            <Chip
-              icon={locationUnavailable ? "map-marker-alert" : "map-marker-check"}
-              mode="flat"
-              style={styles.locationChip}
-              textStyle={styles.locationChipText}
-            >
-              {locationUnavailable
-                ? `Resultados aproximados · ${radioKm} km`
-                : `Tiendas a ${radioKm} km`}
-            </Chip>
-            <Chip
-              icon="map"
-              mode="outlined"
-              style={styles.countChip}
-              textStyle={styles.locationChipText}
-            >
-              {tiendasDisponibles.length} tienda
-              {tiendasDisponibles.length !== 1 ? "s" : ""}
-            </Chip>
-          </View>
-        ) : null}
+    () => {
+      const panelBg = theme.dark ? "rgba(30, 41, 59, 0.72)" : "#ffffff";
+      const panelBorder = theme.dark ? "rgba(148, 163, 184, 0.18)" : "rgba(15, 23, 42, 0.08)";
+      const subtleChipBg = theme.dark ? "rgba(99, 102, 241, 0.16)" : "rgba(63, 81, 181, 0.08)";
 
-        <View style={styles.categoryFilters}>
-          <View style={styles.sectionHeadingRow}>
-            <Text variant="titleSmall">Categorías principales</Text>
-            <Button compact mode="text" onPress={() => setFiltersExpanded(true)}>
-              Ver todas
-            </Button>
-          </View>
-          <FlatList
-            data={quickCategoryOptions}
-            horizontal
-            keyExtractor={(category) => category.id}
-            renderItem={({ item }) => (
-              <Chip
-                accessibilityRole="button"
-                accessibilityLabel={`Filtrar por ${item.nombre || item.label}`}
-                compact
-                selected={selectedCategory === item.id}
-                onPress={() => setSelectedCategory(item.id)}
-                style={styles.quickCategoryChip}
-              >
-                <Text numberOfLines={1} style={styles.quickCategoryLabel}>
-                  {item.nombre || item.label}
-                </Text>
-              </Chip>
-            )}
-            showsHorizontalScrollIndicator={false}
-          />
-          {!parentCategories.length && categoriesReady ? (
-            <Text variant="bodySmall">
-              {categories.length
-                ? "No hay categorías principales para estas tiendas."
-                : "Todavía no hay categorías principales activas."}
-            </Text>
-          ) : null}
-          <View style={styles.sectionHeadingRow}>
-            <Text variant="titleSmall">Disponibilidad</Text>
-          </View>
-          <View style={styles.quickAvailabilityRow}>
-            {availabilityOptions.map((option) => (
-              <Chip
-                compact
-                key={option.value}
-                selected={availability === option.value}
-                onPress={() => setAvailability(option.value)}
-                style={styles.availabilityChip}
-              >
-                {option.label}
-              </Chip>
-            ))}
-          </View>
-          <View style={styles.catalogToolbar}>
-            <View style={styles.filterButtonWrap}>
-              <Button
-                compact
-                icon="tune-variant"
-                mode={activeFiltersCount ? "contained-tonal" : "outlined"}
-                onPress={() => setFiltersExpanded(true)}
-              >
-                Filtros
-              </Button>
-              {activeFiltersCount ? (
-                <Badge style={[styles.filtersBadge, { backgroundColor: theme.colors.primary }]}>
-                  {activeFiltersCount}
-                </Badge>
-              ) : null}
-            </View>
-            <Menu
-              anchor={
-                <Button
-                  compact
-                  icon="sort"
-                  mode="outlined"
-                  onPress={() => setSortMenuVisible(true)}
-                >
-                  {selectedSortLabel}
-                </Button>
-              }
-              onDismiss={() => setSortMenuVisible(false)}
-              visible={sortMenuVisible}
-            >
-              {sortOptions.map((option) => (
-                <Menu.Item
-                  key={option.value}
-                  leadingIcon={sort === option.value ? "check" : undefined}
-                  onPress={() => {
-                    setSort(option.value);
-                    setSortMenuVisible(false);
-                  }}
-                  title={option.label}
-                />
-              ))}
-            </Menu>
-            <Chip compact icon={loadingProducts ? "progress-clock" : "view-grid-outline"} mode="outlined">
-              {loadingProducts && !productCount
-                ? "Cargando"
-                : `${productCount}${hasMoreProducts ? "+" : ""} producto${productCount === 1 ? "" : "s"}`}
-            </Chip>
-          </View>
-          {activeFiltersCount || debouncedSearch ? (
-            <View style={styles.activeFiltersWrap}>
-              <View style={styles.activeFiltersRow}>
-                {debouncedSearch ? (
-                  <Chip compact onClose={() => setSearchQuery("")}>
-                    Búsqueda: {debouncedSearch}
-                  </Chip>
-                ) : null}
-                {selectedStore !== "all" ? (
-                  <Chip compact onClose={() => setSelectedStore("all")}>
-                    Tienda: {catalogStores.find((store) => String(store._id) === String(selectedStore))?.title || "Tienda"}
-                  </Chip>
-                ) : null}
-                {selectedCategory !== "all" ? (
-                  <Chip compact onClose={() => setSelectedCategory("all")}>
-                    Categoría: {selectedCategoryName}
-                  </Chip>
-                ) : null}
-                {availability !== "all" ? (
-                  <Chip compact onClose={() => setAvailability("all")}>
-                    {availabilityOptions.find((option) => option.value === availability)?.label || "Disponibilidad"}
-                  </Chip>
-                ) : null}
-                {selectedCurrency !== "all" ? (
-                  <Chip compact onClose={() => setSelectedCurrency("all")}>
-                    Moneda: {selectedCurrency}
-                  </Chip>
-                ) : null}
-                {minPrice !== "" || maxPrice !== "" ? (
-                  <Chip compact onClose={() => { setMinPrice(""); setMaxPrice(""); }}>
-                    Precio: {minPrice || "0"}–{maxPrice || "∞"} {selectedCurrency === "all" ? "" : selectedCurrency}
-                  </Chip>
-                ) : null}
-                {sort !== "recommended" ? (
-                  <Chip compact onClose={() => setSort("recommended")}>
-                    Orden: {selectedSortLabel}
-                  </Chip>
+      return (
+        <>
+          <Surface
+            elevation={theme.dark ? 0 : 1}
+            style={[
+              styles.filterPanelSurface,
+              {
+                backgroundColor: panelBg,
+                borderColor: panelBorder,
+              },
+            ]}
+          >
+            <View style={styles.filterTopStatusRow}>
+              <View style={styles.statusPillsGroup}>
+                {userLocation ? (
+                  <>
+                    <Chip
+                      compact
+                      icon={locationUnavailable ? "map-marker-alert" : "map-marker-check"}
+                      mode="flat"
+                      style={[styles.locationChip, { backgroundColor: subtleChipBg }]}
+                      textStyle={styles.locationChipText}
+                    >
+                      {locationUnavailable
+                        ? `Aprox. · ${radioKm} km`
+                        : `Tiendas a ${radioKm} km`}
+                    </Chip>
+                    <Chip
+                      compact
+                      icon="storefront-outline"
+                      mode="outlined"
+                      style={styles.countChip}
+                      textStyle={styles.locationChipText}
+                    >
+                      {tiendasDisponibles.length} tienda
+                      {tiendasDisponibles.length !== 1 ? "s" : ""}
+                    </Chip>
+                  </>
                 ) : null}
               </View>
-              <Button compact icon="restart" mode="text" onPress={resetCatalogFilters}>
-                Restablecer
+              <Button
+                compact
+                contentStyle={styles.misComprasChipContent}
+                icon="shopping-outline"
+                labelStyle={styles.misComprasChipLabel}
+                mode="contained-tonal"
+                onPress={() => router.push("/(normal)/MisCompras")}
+                style={styles.misComprasCompactButton}
+              >
+                Mis compras
               </Button>
             </View>
-          ) : null}
-        </View>
-        <View style={styles.catalogSummary}>
-          <Text numberOfLines={2} style={styles.catalogSummaryTitle} variant="titleSmall">
-            {selectedCategory !== "all"
-              ? selectedCategoryName
-              : selectedStore !== "all"
-                ? catalogStores.find((store) => String(store._id) === String(selectedStore))?.title || "Tienda seleccionada"
-                : "Productos de tiendas cercanas"}
-          </Text>
-          {debouncedSearch ? (
-            <Chip compact icon="magnify" mode="outlined">
-              “{debouncedSearch}”
-            </Chip>
-          ) : null}
-        </View>
-        {showLocationAccessCard ? (
-          <CommerceLocationAccessCard
-            blocked={locationPermissionBlocked}
-            loading={locationPermissionLoading}
-            onOpenSettings={() => Linking.openSettings()}
-            onRequestLocation={obtenerUbicacion}
-            style={styles.locationAccessCard}
-          />
-        ) : null}
 
-        {loadingTiendas ? (
-          <View style={styles.loadingTiendasContainer}>
-            <ActivityIndicator color="#3f51b5" size="small" />
-            <Text style={styles.loadingTiendasText}>
-              Buscando tiendas cercanas...
-            </Text>
+            <View style={styles.categoryFilters}>
+              <View style={styles.sectionHeadingRow}>
+                <View style={styles.sectionTitleWithIcon}>
+                  <MaterialCommunityIcons
+                    color={theme.colors.primary}
+                    name="shape-outline"
+                    size={16}
+                  />
+                  <Text style={styles.sectionTitleText} variant="labelLarge">
+                    Categorías principales
+                  </Text>
+                </View>
+                <Button
+                  compact
+                  icon="chevron-right"
+                  contentStyle={styles.seeAllCategoriesContent}
+                  labelStyle={styles.seeAllCategoriesLabel}
+                  mode="text"
+                  onPress={() => setFiltersExpanded(true)}
+                >
+                  Ver todas
+                </Button>
+              </View>
+
+              <FlatList
+                contentContainerStyle={styles.quickCategoryListContent}
+                data={quickCategoryOptions}
+                horizontal
+                keyExtractor={(category) => category.id}
+                renderItem={({ item }) => {
+                  const isSelected = selectedCategory === item.id;
+                  return (
+                    <Chip
+                      accessibilityRole="button"
+                      accessibilityLabel={`Filtrar por ${item.nombre || item.label}`}
+                      compact
+                      mode={isSelected ? "flat" : "outlined"}
+                      selected={isSelected}
+                      onPress={() => setSelectedCategory(item.id)}
+                      style={[
+                        styles.quickCategoryChip,
+                        isSelected && {
+                          backgroundColor: theme.colors.secondaryContainer,
+                          borderColor: theme.colors.primary,
+                        },
+                      ]}
+                    >
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.quickCategoryLabel,
+                          isSelected && { color: theme.colors.onSecondaryContainer, fontWeight: "700" },
+                        ]}
+                      >
+                        {item.nombre || item.label}
+                      </Text>
+                    </Chip>
+                  );
+                }}
+                showsHorizontalScrollIndicator={false}
+              />
+
+              {!parentCategories.length && categoriesReady ? (
+                <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
+                  {categories.length
+                    ? "No hay categorías principales para estas tiendas."
+                    : "Todavía no hay categorías principales activas."}
+                </Text>
+              ) : null}
+
+              <Divider style={styles.filterPanelDivider} />
+
+              <View style={styles.availabilityAndSortWrap}>
+                <View style={styles.quickAvailabilityRow}>
+                  {availabilityOptions.map((option) => {
+                    const isSelected = availability === option.value;
+                    return (
+                      <Chip
+                        compact
+                        icon={option.icon}
+                        key={option.value}
+                        mode={isSelected ? "flat" : "outlined"}
+                        selected={isSelected}
+                        onPress={() => setAvailability(option.value)}
+                        style={[
+                          styles.availabilityChip,
+                          isSelected && {
+                            backgroundColor: theme.colors.secondaryContainer,
+                            borderColor: theme.colors.primary,
+                          },
+                        ]}
+                        textStyle={
+                          isSelected
+                            ? { color: theme.colors.onSecondaryContainer, fontWeight: "700", fontSize: 12 }
+                            : { fontSize: 12 }
+                        }
+                      >
+                        {option.label}
+                      </Chip>
+                    );
+                  })}
+                </View>
+
+                <View style={styles.catalogToolbar}>
+                  <View style={styles.toolbarActionsGroup}>
+                    <View style={styles.filterButtonWrap}>
+                      <Button
+                        compact
+                        contentStyle={styles.toolbarButtonContent}
+                        icon="tune-variant"
+                        labelStyle={styles.toolbarButtonLabel}
+                        mode={activeFiltersCount ? "contained-tonal" : "outlined"}
+                        onPress={() => setFiltersExpanded(true)}
+                        style={styles.toolbarButton}
+                      >
+                        Filtros
+                      </Button>
+                      {activeFiltersCount ? (
+                        <Badge style={[styles.filtersBadge, { backgroundColor: theme.colors.primary }]}>
+                          {activeFiltersCount}
+                        </Badge>
+                      ) : null}
+                    </View>
+
+                    <Menu
+                      anchor={
+                        <Button
+                          compact
+                          contentStyle={styles.toolbarButtonContent}
+                          icon="sort-variant"
+                          labelStyle={styles.toolbarButtonLabel}
+                          mode={sort !== "recommended" ? "contained-tonal" : "outlined"}
+                          onPress={() => setSortMenuVisible(true)}
+                          style={styles.toolbarButton}
+                        >
+                          {selectedSortLabel}
+                        </Button>
+                      }
+                      onDismiss={() => setSortMenuVisible(false)}
+                      visible={sortMenuVisible}
+                    >
+                      {sortOptions.map((option) => (
+                        <Menu.Item
+                          key={option.value}
+                          leadingIcon={sort === option.value ? "check" : option.icon}
+                          onPress={() => {
+                            setSort(option.value);
+                            setSortMenuVisible(false);
+                          }}
+                          title={option.label}
+                        />
+                      ))}
+                    </Menu>
+                  </View>
+
+                  <Chip
+                    compact
+                    icon={loadingProducts ? "progress-clock" : "package-variant-closed"}
+                    mode="flat"
+                    style={[styles.productCountPill, { backgroundColor: subtleChipBg }]}
+                    textStyle={styles.productCountPillText}
+                  >
+                    {loadingProducts && !productCount
+                      ? "Cargando"
+                      : `${productCount}${hasMoreProducts ? "+" : ""} prod.`}
+                  </Chip>
+                </View>
+              </View>
+
+              {activeFiltersCount || debouncedSearch ? (
+                <View style={styles.activeFiltersWrap}>
+                  <View style={styles.activeFiltersRow}>
+                    {debouncedSearch ? (
+                      <Chip compact onClose={() => setSearchQuery("")} style={styles.activeFilterChip}>
+                        “{debouncedSearch}”
+                      </Chip>
+                    ) : null}
+                    {selectedStore !== "all" ? (
+                      <Chip compact onClose={() => setSelectedStore("all")} style={styles.activeFilterChip}>
+                        {catalogStores.find((store) => String(store._id) === String(selectedStore))?.title || "Tienda"}
+                      </Chip>
+                    ) : null}
+                    {selectedCategory !== "all" ? (
+                      <Chip compact onClose={() => setSelectedCategory("all")} style={styles.activeFilterChip}>
+                        {selectedCategoryName}
+                      </Chip>
+                    ) : null}
+                    {availability !== "all" ? (
+                      <Chip compact onClose={() => setAvailability("all")} style={styles.activeFilterChip}>
+                        {availabilityOptions.find((option) => option.value === availability)?.label || "Disponibilidad"}
+                      </Chip>
+                    ) : null}
+                    {selectedCurrency !== "all" ? (
+                      <Chip compact onClose={() => setSelectedCurrency("all")} style={styles.activeFilterChip}>
+                        {selectedCurrency}
+                      </Chip>
+                    ) : null}
+                    {minPrice !== "" || maxPrice !== "" ? (
+                      <Chip compact onClose={() => { setMinPrice(""); setMaxPrice(""); }} style={styles.activeFilterChip}>
+                        {minPrice || "0"}–{maxPrice || "∞"} {selectedCurrency === "all" ? "" : selectedCurrency}
+                      </Chip>
+                    ) : null}
+                    {sort !== "recommended" ? (
+                      <Chip compact onClose={() => setSort("recommended")} style={styles.activeFilterChip}>
+                        {selectedSortLabel}
+                      </Chip>
+                    ) : null}
+                  </View>
+                  <Button compact icon="restart" mode="text" onPress={resetCatalogFilters}>
+                    Limpiar
+                  </Button>
+                </View>
+              ) : null}
+            </View>
+          </Surface>
+
+          <View style={styles.catalogSummary}>
+            <View style={styles.catalogSummaryTitleRow}>
+              <MaterialCommunityIcons
+                color={theme.colors.primary}
+                name={selectedStore !== "all" ? "store" : "store-marker-outline"}
+                size={18}
+              />
+              <Text numberOfLines={2} style={styles.catalogSummaryTitle} variant="titleSmall">
+                {selectedCategory !== "all"
+                  ? selectedCategoryName
+                  : selectedStore !== "all"
+                    ? catalogStores.find((store) => String(store._id) === String(selectedStore))?.title || "Tienda seleccionada"
+                    : "Productos de tiendas cercanas"}
+              </Text>
+            </View>
+            {selectedStore !== "all" ? (
+              <Button
+                compact
+                icon="store-remove-outline"
+                mode="text"
+                onPress={() => setSelectedStore("all")}
+              >
+                Ver todas las tiendas
+              </Button>
+            ) : null}
           </View>
-        ) : null}
 
-        <View style={styles.pedidosBannerContent}>
-          <Button
-            contentStyle={styles.pedidosBannerButtonContent}
-            icon="arrow-right"
-            labelStyle={styles.pedidosBannerButtonLabel}
-            mode="outlined"
-            onPress={() => router.push("/(normal)/MisCompras")}
-            style={styles.pedidosBannerButton}
-          >
-            Ver listado de compras
-          </Button>
-        </View>
-      </>
-    ),
+          {showLocationAccessCard ? (
+            <CommerceLocationAccessCard
+              blocked={locationPermissionBlocked}
+              loading={locationPermissionLoading}
+              onOpenSettings={() => Linking.openSettings()}
+              onRequestLocation={obtenerUbicacion}
+              style={styles.locationAccessCard}
+            />
+          ) : null}
+
+          {loadingTiendas ? (
+            <View style={styles.loadingTiendasContainer}>
+              <ActivityIndicator color="#3f51b5" size="small" />
+              <Text style={styles.loadingTiendasText}>
+                Buscando tiendas cercanas...
+              </Text>
+            </View>
+          ) : null}
+        </>
+      );
+    },
     [
       availability,
       activeFiltersCount,
@@ -1136,7 +1282,11 @@ const ProductosScreenNative = () => {
       showLocationAccessCard,
       tiendasDisponibles,
       userLocation,
+      theme.colors.onSecondaryContainer,
+      theme.colors.onSurfaceVariant,
       theme.colors.primary,
+      theme.colors.secondaryContainer,
+      theme.dark,
     ],
   );
 
@@ -1221,21 +1371,65 @@ const ProductosScreenNative = () => {
     );
   }, [catalogLimit, hasMoreProducts, loadingProducts, productCount]);
 
-  const renderTiendaItem = React.useCallback(
-    ({ index, item }) => (
+  const renderCatalogItem = React.useCallback(({ item }) => {
+    if (item.kind === "selection") {
+      return (
+        <ComercioCategorySelection
+          category={item.category}
+          onSeeAll={() => setSelectedCategory(item.category.id)}
+          searchQuery={searchQuery}
+          storeIds={nearbyStoreIds}
+          storesById={storesById}
+        />
+      );
+    }
+    if (item.kind === "category") {
+      const category = item.category;
+      return (
+        <View style={styles.categoryResults}>
+          <View style={styles.categoryResultsHeading}>
+            <Text accessibilityRole="header" style={styles.filterGroupTitle} variant="titleMedium">
+              {category.label || category.nombre}
+            </Text>
+            <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
+              {category.matches.length} productos cargados · desliza para explorar
+            </Text>
+          </View>
+          <FlatList
+            accessibilityLabel={`Productos de ${category.label || category.nombre}`}
+            contentContainerStyle={styles.categoryProductsContent}
+            data={category.matches}
+            horizontal
+            initialNumToRender={5}
+            keyExtractor={({ producto }) => String(producto._id)}
+            maxToRenderPerBatch={5}
+            renderItem={({ item: match }) => (
+              <ProductoCard producto={match.producto} searchQuery={searchQuery} tienda={match.tienda} />
+            )}
+            showsHorizontalScrollIndicator={false}
+            windowSize={5}
+          />
+        </View>
+      );
+    }
+    const tienda = item.tienda;
+    return (
       <TiendaCard
-        index={index}
-        onSeeAll={() => {
-          setSelectedStore(String(item._id));
-          setCatalogLimit(COMMERCE_CATALOG_INITIAL_LIMIT);
-        }}
+        layoutMode="carousel"
+        showLoadedProducts
+        onSeeAll={
+          tienda.catalogoParcial && catalogLimit < COMMERCE_CATALOG_MAX_LIMIT
+            ? () => {
+                setSelectedStore(String(tienda._id));
+              }
+            : undefined
+        }
         searchQuery={searchQuery}
-        tienda={item}
+        tienda={tienda}
         userLocation={userLocation}
       />
-    ),
-    [searchQuery, userLocation],
-  );
+    );
+  }, [catalogLimit, nearbyStoreIds, searchQuery, storesById, theme.colors.onSurfaceVariant, userLocation]);
 
   return (
     <Surface style={styles.container}>
@@ -1354,15 +1548,15 @@ const ProductosScreenNative = () => {
           styles.flatListContent,
           !showSearchbar && { paddingTop: headerInset + 12 },
         ]}
-        data={tiendasFiltradas}
+        data={catalogRows}
         initialNumToRender={10}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item) => item.id}
         maxToRenderPerBatch={10}
         refreshControl={
           <RefreshControl onRefresh={onRefresh} refreshing={refreshing} />
         }
         removeClippedSubviews={Platform.OS === "android"}
-        renderItem={renderTiendaItem}
+        renderItem={renderCatalogItem}
         showsVerticalScrollIndicator={false}
         updateCellsBatchingPeriod={50}
         windowSize={10}
@@ -1541,6 +1735,25 @@ const ProductosScreenNative = () => {
           <Divider />
 
           <View style={styles.filterGroup}>
+            <Text style={styles.filterGroupTitle} variant="titleSmall">Ordenar por</Text>
+            <View style={styles.filterChipRow}>
+              {sortOptions.map((option) => (
+                <Chip
+                  compact
+                  icon={option.icon}
+                  key={option.value}
+                  selected={sort === option.value}
+                  onPress={() => setSort(option.value)}
+                >
+                  {option.label}
+                </Chip>
+              ))}
+            </View>
+          </View>
+
+          <Divider />
+
+          <View style={styles.filterGroup}>
             <Text style={styles.filterGroupTitle} variant="titleSmall">Rango de precio</Text>
             <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
               {selectedCurrency === "all"
@@ -1582,6 +1795,9 @@ const ProductosScreenNative = () => {
 };
 
 const styles = StyleSheet.create({
+  categoryResults: { gap: 8, marginTop: 18 },
+  categoryResultsHeading: { gap: 4, paddingHorizontal: 16 },
+  categoryProductsContent: { paddingHorizontal: 16 },
   appbar: {
     backgroundColor: "#3f51b5",
     justifyContent: "center",
@@ -1595,33 +1811,122 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  filterPanelSurface: {
+    borderCurve: "continuous",
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 10,
+    marginHorizontal: 16,
+    marginTop: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  filterTopStatusRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "space-between",
+  },
+  statusPillsGroup: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    minWidth: 0,
+  },
+  misComprasCompactButton: {
+    borderRadius: 999,
+  },
+  misComprasChipContent: {
+    minHeight: 34,
+    paddingHorizontal: 4,
+  },
+  misComprasChipLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginVertical: 4,
+  },
   countChip: {
-    borderColor: "#3f51b5",
+    borderRadius: 999,
   },
   categoryFilters: {
     gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 10,
   },
   sectionHeadingRow: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
   },
+  sectionTitleWithIcon: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
+  sectionTitleText: {
+    fontWeight: "800",
+  },
+  seeAllCategoriesContent: {
+    flexDirection: "row-reverse",
+  },
+  seeAllCategoriesLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginVertical: 2,
+  },
+  quickCategoryListContent: {
+    gap: 8,
+    paddingVertical: 2,
+  },
   quickCategoryChip: {
-    marginRight: 8,
+    borderRadius: 999,
     maxWidth: 176,
   },
   quickCategoryLabel: {
+    fontSize: 12,
     maxWidth: 140,
+  },
+  filterPanelDivider: {
+    opacity: 0.65,
+  },
+  availabilityAndSortWrap: {
+    gap: 8,
   },
   quickAvailabilityRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 6,
   },
   availabilityChip: {
     borderRadius: 999,
+  },
+  toolbarActionsGroup: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    minWidth: 0,
+  },
+  toolbarButton: {
+    borderRadius: 999,
+  },
+  toolbarButtonContent: {
+    minHeight: 34,
+    paddingHorizontal: 4,
+  },
+  toolbarButtonLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginVertical: 4,
+  },
+  productCountPill: {
+    borderRadius: 999,
+  },
+  productCountPillText: {
+    fontSize: 12,
+    fontWeight: "700",
   },
   filterButtonWrap: {
     position: "relative",
@@ -1634,10 +1939,13 @@ const styles = StyleSheet.create({
   },
   activeFiltersWrap: {
     alignItems: "center",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(148, 163, 184, 0.25)",
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 4,
+    gap: 6,
     justifyContent: "space-between",
+    paddingTop: 8,
   },
   activeFiltersRow: {
     flex: 1,
@@ -1645,6 +1953,9 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 6,
     minWidth: 0,
+  },
+  activeFilterChip: {
+    borderRadius: 999,
   },
   filterDrawerSurface: {
     backgroundColor: "transparent",
@@ -1722,12 +2033,20 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 8,
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 4,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 2,
+  },
+  catalogSummaryTitleRow: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    minWidth: 140,
   },
   catalogSummaryTitle: {
     flex: 1,
-    fontWeight: "700",
+    fontWeight: "800",
     minWidth: 120,
   },
   catalogToolbar: {
@@ -1793,10 +2112,11 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   locationChip: {
-    backgroundColor: "rgba(63, 81, 181, 0.08)",
+    borderRadius: 999,
   },
   locationChipText: {
     fontSize: 12,
+    fontWeight: "600",
   },
   locationInfo: {
     alignItems: "center",

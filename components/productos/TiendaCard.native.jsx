@@ -7,9 +7,10 @@ import {
     Platform,
     StyleSheet,
     UIManager,
+    useWindowDimensions,
     View,
 } from "react-native";
-import { Button, Card, Chip, Divider, IconButton, Text } from "react-native-paper";
+import { Button, Card, Chip, Divider, IconButton, Text, useTheme } from "react-native-paper";
 
 import ProductoCard from "./ProductoCard";
 
@@ -25,7 +26,16 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const TiendaCardNative = ({ tienda, searchQuery, userLocation, onSeeAll }) => {
+const TiendaCardNative = ({
+  layoutMode = "carousel",
+  onSeeAll,
+  searchQuery,
+  showLoadedProducts = false,
+  tienda,
+  userLocation,
+}) => {
+  const theme = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
   const [expanded, setExpanded] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const [distanciaKm, setDistanciaKm] = useState(
@@ -33,6 +43,11 @@ const TiendaCardNative = ({ tienda, searchQuery, userLocation, onSeeAll }) => {
   );
   const [loadingDistancia, setLoadingDistancia] = useState(false);
   const rotateAnim = React.useRef(new Animated.Value(0)).current;
+  const isGridMode = layoutMode === "grid";
+  const gridColumns = windowWidth >= 1024 ? 4 : windowWidth >= 700 ? 3 : 2;
+  const visibleProductos = isGridMode || showLoadedProducts || showAll
+    ? tienda.productos || []
+    : (tienda.productos || []).slice(0, 8);
 
   useEffect(() => {
     let cancelled = false;
@@ -221,41 +236,81 @@ const TiendaCardNative = ({ tienda, searchQuery, userLocation, onSeeAll }) => {
             </Chip>
           </View>
 
-          <FlatList
-            ListEmptyComponent={
+          {isGridMode ? (
+            visibleProductos.length ? (
+              <View style={styles.productosGrid}>
+                {visibleProductos.map((item) => (
+                  <View
+                    key={item._id}
+                    style={[
+                      styles.gridItemWrapper,
+                      { width: `${100 / gridColumns}%` },
+                    ]}
+                  >
+                    <ProductoCard
+                      containerStyle={styles.gridCardContainer}
+                      innerStyle={styles.gridCardInner}
+                      producto={item}
+                      searchQuery={searchQuery}
+                      tienda={tienda}
+                    />
+                  </View>
+                ))}
+              </View>
+            ) : (
               <View style={styles.emptyProductos}>
                 <IconButton
                   icon="package-variant-closed"
-                  iconColor="#ccc"
+                  iconColor={theme.colors.onSurfaceDisabled || "#ccc"}
                   size={40}
                 />
                 <Text style={styles.emptyText} variant="bodySmall">
                   No hay productos disponibles
                 </Text>
               </View>
-            }
-            contentContainerStyle={styles.productosListContent}
-            data={showAll ? tienda.productos : tienda.productos.slice(0, 8)}
-            decelerationRate="fast"
-            horizontal
-            keyExtractor={(item) => item._id}
-            pagingEnabled={false}
-            renderItem={({ item }) => (
-              <ProductoCard
-                producto={item}
-                searchQuery={searchQuery}
-                tienda={tienda}
-              />
-            )}
-            showsHorizontalScrollIndicator={false}
-            snapToInterval={192}
-            windowSize={5}
-          />
+            )
+          ) : (
+            <FlatList
+              ListEmptyComponent={
+                <View style={styles.emptyProductos}>
+                  <IconButton
+                    icon="package-variant-closed"
+                    iconColor="#ccc"
+                    size={40}
+                  />
+                  <Text style={styles.emptyText} variant="bodySmall">
+                    No hay productos disponibles
+                  </Text>
+                </View>
+              }
+              contentContainerStyle={styles.productosListContent}
+              data={visibleProductos}
+              decelerationRate="fast"
+              horizontal
+              keyExtractor={(item) => item._id}
+              pagingEnabled={false}
+              renderItem={({ item }) => (
+                <ProductoCard
+                  producto={item}
+                  searchQuery={searchQuery}
+                  tienda={tienda}
+                />
+              )}
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={192}
+              windowSize={5}
+            />
+          )}
 
-          {(tienda.catalogoParcial || tienda.productos.length > 8) && !showAll ? (
-            <Button onPress={onSeeAll || (() => setShowAll(true))} style={styles.moreButton}>
+          {((tienda.catalogoParcial && onSeeAll) || tienda.productos.length > visibleProductos.length) && !showAll ? (
+            <Button
+              icon={tienda.catalogoParcial ? "store-search-outline" : "view-grid-plus-outline"}
+              mode="contained-tonal"
+              onPress={onSeeAll || (() => setShowAll(true))}
+              style={styles.moreButton}
+            >
               {tienda.catalogoParcial
-                ? "Ver catálogo completo"
+                ? "Ver más de esta tienda"
                 : `Ver todos los productos (${tienda.productos.length})`}
             </Button>
           ) : null}
@@ -313,6 +368,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 20,
     paddingVertical: 40,
+  },
+  productosGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: -6,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+  },
+  gridItemWrapper: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+  },
+  gridCardContainer: {
+    marginRight: 0,
+    marginVertical: 0,
+    width: "100%",
+  },
+  gridCardInner: {
+    width: "100%",
   },
   emptyText: {
     marginTop: 8,

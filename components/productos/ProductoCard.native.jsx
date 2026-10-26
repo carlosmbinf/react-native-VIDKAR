@@ -1,11 +1,21 @@
 import React, { useState } from "react";
-import { Platform, Pressable, StyleSheet, View } from "react-native";
-import { Surface, Text } from "react-native-paper";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { Pressable, StyleSheet, View } from "react-native";
+import { Surface, Text, useTheme } from "react-native-paper";
 
 import AddToCartDialog from "./AddToCartDialog";
 import ProductImageCarousel from "./ProductImageCarousel";
 
-const ProductoCardNative = ({ producto, searchQuery, tienda, onPress, images }) => {
+const ProductoCardNative = ({
+  containerStyle,
+  images,
+  innerStyle,
+  onPress,
+  producto,
+  searchQuery,
+  tienda,
+}) => {
+  const theme = useTheme();
   const [dialogVisible, setDialogVisible] = useState(false);
 
   const estaDisponible = producto.productoDeElaboracion || producto.count > 0;
@@ -16,9 +26,10 @@ const ProductoCardNative = ({ producto, searchQuery, tienda, onPress, images }) 
       return text;
     }
 
-    const parts = String(text).split(new RegExp(`(${searchQuery})`, "gi"));
+    const escapedQuery = searchQuery.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const parts = String(text).split(new RegExp(`(${escapedQuery})`, "gi"));
     return parts.map((part, index) =>
-      part.toLowerCase() === searchQuery.toLowerCase() ? (
+      part.toLowerCase() === searchQuery.trim().toLowerCase() ? (
         <Text key={`${part}-${index}`} style={styles.highlight}>
           {part}
         </Text>
@@ -32,46 +43,35 @@ const ProductoCardNative = ({ producto, searchQuery, tienda, onPress, images }) 
     <>
       <Pressable
         accessibilityLabel={`Ver detalles de ${producto.name || "producto"}`}
+        accessibilityRole="button"
         android_ripple={{ color: "rgba(0, 0, 0, 0.1)" }}
         onPress={onPress || (() => setDialogVisible(true))}
-        style={styles.cardContainer}
+        style={[styles.cardContainer, containerStyle]}
       >
-        <View style={styles.cardInner}>
+        <View style={[styles.cardInner, innerStyle]}>
           <Surface
-            elevation={4}
-            style={[styles.card, !estaDisponible ? styles.cardDisabled : null]}
+            elevation={1}
+            style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}
           >
-            {producto.productoDeElaboracion ? (
-              <View pointerEvents="none" style={styles.ribbonWrapper}>
-                <View style={styles.ribbon}>
-                  <Text style={styles.ribbonText}>ELABORACIÓN</Text>
-                </View>
-              </View>
-            ) : null}
-
             <View style={styles.imageContainer}>
               <ProductImageCarousel
                 images={images}
                 productId={producto._id}
-                size={160}
+                resizeMode="contain"
+                size={180}
                 style={styles.imageCarousel}
               />
 
-              {!producto.productoDeElaboracion && producto.count <= 5 ? (
-                <View style={styles.stockBadge}>
+              {producto.productoDeElaboracion || producto.count <= 5 ? (
+                <View pointerEvents="none" style={styles.stockBadge}>
                   <View
                     style={[
                       styles.stockChip,
-                      producto.count === 0 ? styles.stockChipError : null,
-                      producto.count > 0 && producto.count <= 5
-                        ? styles.stockChipWarning
-                        : null,
+                      { backgroundColor: !estaDisponible ? theme.colors.errorContainer : theme.colors.secondaryContainer },
                     ]}
                   >
-                    <Text style={styles.stockChipText}>
-                      {producto.count === 0
-                        ? "Agotado"
-                        : `${producto.count} unid.`}
+                    <Text style={[styles.stockChipText, { color: !estaDisponible ? theme.colors.onErrorContainer : theme.colors.onSecondaryContainer }]}>
+                      {producto.productoDeElaboracion ? "Por encargo" : !estaDisponible ? "Agotado" : `Últimas ${producto.count} unid.`}
                     </Text>
                   </View>
                 </View>
@@ -79,28 +79,32 @@ const ProductoCardNative = ({ producto, searchQuery, tienda, onPress, images }) 
             </View>
 
             <View style={styles.content}>
+              <Text numberOfLines={1} style={{ color: theme.colors.onSurfaceVariant }} variant="labelSmall">
+                {tienda?.title || "Comercio local"}
+              </Text>
               <Text
-                numberOfLines={1}
-                style={styles.nombre}
+                numberOfLines={2}
+                style={[styles.nombre, { color: theme.colors.onSurface }]}
                 variant="titleSmall"
               >
                 {highlightText(producto.name)}
               </Text>
 
-              {producto.descripcion ? (
-                <Text
-                  numberOfLines={3}
-                  style={styles.descripcion}
-                  variant="bodySmall"
-                >
-                  {highlightText(producto.descripcion)}
-                </Text>
-              ) : null}
+              <Text
+                numberOfLines={2}
+                style={[styles.descripcion, { color: theme.colors.onSurfaceVariant }]}
+                variant="bodySmall"
+              >
+                {highlightText(producto.descripcion || "")}
+              </Text>
 
-              <View style={styles.precioContainer}>
-                <Text style={styles.precio} variant="titleMedium">
+              <View style={[styles.precioContainer, { borderTopColor: theme.colors.outlineVariant }]}>
+                <Text style={[styles.precio, { color: theme.colors.primary }]} variant="titleMedium">
                   {precioFormateado}
                 </Text>
+                <View style={[styles.detailsIcon, { backgroundColor: theme.colors.secondaryContainer }]}>
+                  <MaterialCommunityIcons color={theme.colors.onSecondaryContainer} name="arrow-top-right" size={18} />
+                </View>
               </View>
             </View>
           </Surface>
@@ -119,7 +123,9 @@ const ProductoCardNative = ({ producto, searchQuery, tienda, onPress, images }) 
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
+    borderRadius: 20,
+    borderCurve: "continuous",
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
     width: "100%",
   },
@@ -127,40 +133,22 @@ const styles = StyleSheet.create({
     marginRight: 16,
     marginVertical: 8,
   },
-  cardDisabled: {
-    opacity: 0.6,
-  },
   cardInner: {
-    ...Platform.select({
-      android: {
-        elevation: 0,
-      },
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { height: 4, width: 0 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-      },
-    }),
     width: 180,
   },
   content: {
+    gap: 6,
     padding: 12,
     paddingBottom: 14,
   },
   descripcion: {
     fontSize: 12,
     lineHeight: 16,
-    marginBottom: 10,
-    opacity: 0.7,
+    minHeight: 32,
   },
   highlight: {
     backgroundColor: "#FFEB3B",
     fontWeight: "bold",
-  },
-  image: {
-    height: "100%",
-    width: "100%",
   },
   imageCarousel: {
     height: "100%",
@@ -168,94 +156,50 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     backgroundColor: "#f5f5f5",
-    height: 160,
+    height: 180,
     position: "relative",
     width: "100%",
   },
   nombre: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
-    lineHeight: 16,
-    marginBottom: 4,
-  },
-  placeholderImage: {
-    alignItems: "center",
-    justifyContent: "center",
+    lineHeight: 20,
+    minHeight: 40,
   },
   precio: {
-    fontWeight: "700",
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "800",
+    fontVariant: ["tabular-nums"],
   },
   precioContainer: {
     alignItems: "center",
-    borderRadius: 8,
-    marginBottom: 0,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 4,
+    marginTop: 4,
+    paddingTop: 10,
   },
-  ribbon: {
-    ...Platform.select({
-      android: {
-        elevation: 4,
-      },
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { height: 2, width: 0 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-      },
-    }),
-    backgroundColor: "rgba(156, 39, 176, 0.95)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    position: "absolute",
-    right: -25,
-    top: 20,
-    transform: [{ rotate: "45deg" }],
-    width: 120,
-  },
-  ribbonText: {
-    color: "#FFFFFF",
-    fontSize: 9,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-    textAlign: "center",
-    textTransform: "uppercase",
-  },
-  ribbonWrapper: {
-    ...Platform.select({
-      android: {
-        elevation: 5,
-      },
-    }),
-    height: 100,
-    overflow: "hidden",
-    position: "absolute",
-    right: 0,
-    top: 0,
-    width: 100,
-    zIndex: 10,
+  detailsIcon: {
+    alignItems: "center",
+    borderRadius: 16,
+    height: 30,
+    justifyContent: "center",
+    width: 30,
   },
   stockBadge: {
     position: "absolute",
-    right: 8,
+    left: 8,
     top: 8,
   },
   stockChip: {
-    backgroundColor: "rgba(76, 175, 80, 0.60)",
-    borderRadius: 16,
+    borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  stockChipError: {
-    backgroundColor: "rgba(244, 67, 54, 0.60)",
-  },
   stockChipText: {
-    color: "#424242",
     fontSize: 10,
-    fontWeight: "600",
-  },
-  stockChipWarning: {
-    backgroundColor: "rgba(255, 152, 0, 0.60)",
+    fontWeight: "700",
   },
 });
 

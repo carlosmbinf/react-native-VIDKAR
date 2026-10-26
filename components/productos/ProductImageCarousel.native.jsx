@@ -1,6 +1,6 @@
 import MeteorBase from "@meteorrn/core";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Image, StyleSheet, View, useWindowDimensions } from "react-native";
+import { Image, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { ActivityIndicator, IconButton, Text, useTheme } from "react-native-paper";
 
 const Meteor = /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -12,11 +12,12 @@ const normalizeImages = (value) => (Array.isArray(value) ? value : [])
     const url = typeof image === "string" ? image : image?.url;
     if (typeof url !== "string" || !url.trim()) return null;
     return {
-      id: String(typeof image === "object" ? image?.id || image?._id || index : index),
+      id: `${typeof image === "object" ? image?.id || image?._id || index : index}:${url.trim()}`,
       url: url.trim(),
     };
   })
-  .filter(Boolean);
+  .filter((image, index, images) => image &&
+    images.findIndex((candidate) => candidate?.url === image.url) === index);
 
 const ProductImageCarousel = ({
   fill = false,
@@ -35,11 +36,13 @@ const ProductImageCarousel = ({
   const [frameWidth, setFrameWidth] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const listRef = useRef(null);
+  const targetIndexRef = useRef(0);
   const images = useMemo(
     () => normalizeImages(suppliedImages || remoteImages),
     [remoteImages, suppliedImages],
   );
   const pageWidth = frameWidth || (fill ? windowWidth : size);
+  const imagesKey = JSON.stringify(images.map((image) => image.url));
   const frameStyle = fill
     ? [StyleSheet.absoluteFill, styles.frame, style]
     : [styles.frame, { height: size, width: size }, style];
@@ -52,6 +55,7 @@ const ProductImageCarousel = ({
     }
 
     let mounted = true;
+    setRemoteImages([]);
     setFailedIds({});
     setActiveIndex(0);
 
@@ -87,24 +91,34 @@ const ProductImageCarousel = ({
 
   useEffect(() => {
     setActiveIndex(0);
-    listRef.current?.scrollToOffset({ offset: 0, animated: false });
-  }, [images.length, pageWidth]);
+    targetIndexRef.current = 0;
+    setFailedIds({});
+    listRef.current?.scrollTo({ x: 0, animated: false });
+  }, [imagesKey, pageWidth, productId]);
 
   const moveTo = (nextIndex) => {
     if (images.length < 2 || !pageWidth) return;
     const normalizedIndex = (nextIndex + images.length) % images.length;
-    listRef.current?.scrollToIndex({ index: normalizedIndex, animated: true });
-    setActiveIndex(normalizedIndex);
+    targetIndexRef.current = normalizedIndex;
+    listRef.current?.scrollTo({ x: normalizedIndex * pageWidth, animated: true });
+  };
+
+  const finishScroll = (event) => {
+    if (!pageWidth) return;
+    const index = Math.max(0, Math.min(images.length - 1, Math.round(event.nativeEvent.contentOffset.x / pageWidth)));
+    targetIndexRef.current = index;
+    setActiveIndex(index);
   };
 
   const renderItem = ({ item, index }) => (
-    <View style={[styles.slide, { height: fill ? undefined : size, width: pageWidth }]}>
+    <View key={item.id} style={[styles.slide, { height: "100%", width: pageWidth }]}>
       {failedIds[item.id] ? (
         <View style={[styles.placeholder, { backgroundColor: theme.colors.surfaceVariant || theme.colors.surface }]}>
           <Text style={{ color: theme.colors.onSurfaceVariant }} variant="labelSmall">Imagen no disponible</Text>
         </View>
       ) : (
         <Image
+          key={item.url}
           accessibilityLabel={`Imagen ${index + 1} de ${images.length}`}
           onError={() => setFailedIds((current) => ({ ...current, [item.id]: true }))}
           resizeMode={resizeMode}
@@ -129,22 +143,27 @@ const ProductImageCarousel = ({
         </View>
       ) : images.length ? (
         <>
-          <FlatList
-            data={images}
+          {/* La fila de productos ya virtualiza: esta galería acotada no necesita otra FlatList horizontal. */}
+          <ScrollView
+            bounces={false}
             decelerationRate="fast"
-            getItemLayout={(_data, index) => ({ length: pageWidth, offset: pageWidth * index, index })}
             horizontal
-            keyExtractor={(item) => item.id}
-            onMomentumScrollEnd={(event) => {
+            nestedScrollEnabled
+            onScroll={(event) => {
               if (!pageWidth) return;
               setActiveIndex(Math.max(0, Math.min(images.length - 1, Math.round(event.nativeEvent.contentOffset.x / pageWidth))));
             }}
+            onScrollBeginDrag={() => { targetIndexRef.current = activeIndex; }}
+            onScrollEndDrag={finishScroll}
+            onMomentumScrollEnd={finishScroll}
             pagingEnabled
             ref={listRef}
-            renderItem={renderItem}
+            scrollEventThrottle={16}
             showsHorizontalScrollIndicator={false}
-            style={styles.list}
-          />
+            style={[styles.list, { width: pageWidth }]}
+          >
+            {images.map((item, index) => renderItem({ item, index }))}
+          </ScrollView>
           {images.length > 1 ? (
             <>
               {showControls ? (
@@ -156,7 +175,7 @@ const ProductImageCarousel = ({
                     iconColor="#ffffff"
                     onPress={(event) => {
                       event.stopPropagation();
-                      moveTo(activeIndex - 1);
+                      moveTo(targetIndexRef.current - 1);
                     }}
                     size={18}
                     style={[styles.arrow, styles.arrowLeft]}
@@ -168,7 +187,7 @@ const ProductImageCarousel = ({
                     iconColor="#ffffff"
                     onPress={(event) => {
                       event.stopPropagation();
-                      moveTo(activeIndex + 1);
+                      moveTo(targetIndexRef.current + 1);
                     }}
                     size={18}
                     style={[styles.arrow, styles.arrowRight]}
@@ -195,7 +214,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: "50%",
     margin: 0,
-    transform: [{ translateY: -18 }],
+    transform: [{ translateY: -22 }],
+    height: 44,
+    width: 44,
     backgroundColor: "rgba(15, 23, 42, 0.68)",
   },
   arrowLeft: { left: 4 },
@@ -212,7 +233,7 @@ const styles = StyleSheet.create({
   counterText: { color: "#ffffff", fontWeight: "700", fontVariant: ["tabular-nums"] },
   frame: { overflow: "hidden", position: "relative" },
   image: { height: "100%", width: "100%" },
-  list: { flex: 1 },
+  list: { height: "100%", flexGrow: 0 },
   placeholder: { alignItems: "center", flex: 1, justifyContent: "center", width: "100%" },
   slide: { overflow: "hidden" },
 });
