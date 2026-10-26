@@ -157,6 +157,34 @@ export const getCommerceParentCategories = (categories, ownerIds) => {
     );
 };
 
+export const getRandomCommerceCategorySample = (categories, limit, seed) => {
+  const candidates = (Array.isArray(categories) ? categories : [])
+    .slice()
+    .sort((left, right) => normalizeId(left?.id).localeCompare(normalizeId(right?.id)));
+  const requestedLimit = Number(limit);
+  const sampleSize = Number.isFinite(requestedLimit)
+    ? Math.min(candidates.length, Math.max(0, Math.floor(requestedLimit)))
+    : candidates.length;
+  const numericSeed = Number(seed);
+  let state = Number.isInteger(numericSeed)
+    ? numericSeed >>> 0
+    : Math.floor((Number.isFinite(numericSeed) ? Math.abs(numericSeed % 1) : 0) * 0x100000000) >>> 0;
+  const random = () => {
+    state = (state + 0x6D2B79F5) >>> 0;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 0x100000000;
+  };
+
+  for (let index = candidates.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [candidates[index], candidates[swapIndex]] = [candidates[swapIndex], candidates[index]];
+  }
+
+  return candidates.slice(0, sampleSize);
+};
+
 export const getGlobalCommerceHomeCategories = (categories) =>
   normalizeCommerceHomeCategories(categories, null);
 

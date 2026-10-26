@@ -18,6 +18,7 @@ import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import {
   filterVisibleCommerceStores,
   getCommerceParentCategories,
+  getRandomCommerceCategorySample,
   normalizeCommerceHomeCategories,
 } from "../../services/commerceCategories";
 import { buildCommerceProductQuery, COMMERCE_CATALOG_INITIAL_LIMIT } from "../../services/commerceProductCatalog";
@@ -74,6 +75,7 @@ const RADIO_OPTIONS = [
 ];
 
 const HOME_STORE_PREVIEW_COUNT = 4;
+const HOME_CATEGORY_PREVIEW_COUNT = 5;
 
 const meteorCallAsync = (methodName, ...args) =>
   new Promise((resolve, reject) => {
@@ -122,6 +124,7 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
   const [loadingTiendas, setLoadingTiendas] = useState(false);
   const [storeSearchStatus, setStoreSearchStatus] = useState("idle");
   const [radioKm, setRadioKm] = useState(5);
+  const [categoryRandomSeed] = useState(() => Math.random());
   const { categories, categoriesReady, preferences } = Meteor.useTracker(() => {
     if (!dataReady) return { categories: [], categoriesReady: false, preferences: [] };
     const categoriesHandle = Meteor.subscribe("categoriasComercioCatalogo");
@@ -507,6 +510,10 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
     () => getCommerceParentCategories(parentCategoryCandidates, nearbyOwnerIds),
     [nearbyOwnerIds, parentCategoryCandidates],
   );
+  const featuredParentCategories = useMemo(
+    () => getRandomCommerceCategorySample(parentCategories, HOME_CATEGORY_PREVIEW_COUNT, categoryRandomSeed),
+    [categoryRandomSeed, parentCategories],
+  );
   const tiendasFiltradas = useMemo(() => {
     const tiendas = categoriesReady ? filterVisibleCommerceStores(tiendasConProductos, categories) : [];
     const orderedTiendas = tiendas.some((tienda) => tienda.distancia !== undefined)
@@ -643,14 +650,14 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
         </Chip>
       </View>
 
-      {parentCategories.length ? (
+      {featuredParentCategories.length ? (
         <View style={styles.categoryShortcuts}>
           <Text style={[styles.categoryShortcutsTitle, { color: palette.title }]} variant="titleSmall">
             Explorar categorías principales
           </Text>
           <FlatList
             accessibilityLabel="Categorías principales de comercios"
-            data={parentCategories}
+            data={featuredParentCategories}
             horizontal
             keyExtractor={(category) => category.id}
             renderItem={({ item: category }) => (
@@ -759,12 +766,12 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
         </View>
       )}
 
-      {!debouncedSearch && parentCategories.length ? (
+      {!debouncedSearch && featuredParentCategories.length ? (
         <View style={styles.categoryRows}>
           <Text style={[styles.listHeading, { color: palette.title }]} variant="titleMedium">
             Productos por categoría principal
           </Text>
-          {parentCategories.map((category) => (
+          {featuredParentCategories.map((category) => (
             <ComercioCategorySelection
               category={category}
               key={category.id}

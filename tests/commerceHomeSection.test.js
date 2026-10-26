@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   getPopulatedCommerceCategoryRows,
+  getRandomCommerceCategorySample,
   normalizeCommerceHomeCategories,
   UNCATEGORIZED_COMMERCE_CATEGORY_ID,
 } from "../services/commerceCategories.js";
@@ -36,7 +37,7 @@ test("las categorías se muestran independientemente de las tiendas y su editor 
   assert.match(homeSection, /categoriesHandle\.ready\(\)/);
   assert.match(catalog, /categoriesHandle\.ready\(\)/);
   assert.match(catalog, /selectedCategory === item\.id/);
-  assert.ok(homeSection.lastIndexOf("{!debouncedSearch && parentCategories.length ? (") > homeSection.indexOf("shouldShowLocationEmptyState ? ("));
+  assert.ok(homeSection.lastIndexOf("{!debouncedSearch && featuredParentCategories.length ? (") > homeSection.indexOf("shouldShowLocationEmptyState ? ("));
   assert.match(serviceCard, /Organizar categorías/);
   assert.match(normalLayout, /<Stack\.Screen name="UserCommerceCategories"/);
   assert.match(empresaLayout, /<Stack\.Screen name="UserCommerceCategories"/);
@@ -46,7 +47,10 @@ test("las selecciones móviles usan categorías padre y limitan cada muestra a 1
   const homeSection = readFileSync(new URL("../components/productos/ComercioHomeSection.native.jsx", import.meta.url), "utf8");
   const selection = readFileSync(new URL("../components/productos/ComercioCategorySelection.native.jsx", import.meta.url), "utf8");
   const catalogService = readFileSync(new URL("../services/commerceProductCatalog.js", import.meta.url), "utf8");
-  assert.match(homeSection, /data=\{parentCategories\}/);
+  assert.match(homeSection, /HOME_CATEGORY_PREVIEW_COUNT = 5/);
+  assert.match(homeSection, /getRandomCommerceCategorySample\(parentCategories, HOME_CATEGORY_PREVIEW_COUNT, categoryRandomSeed\)/);
+  assert.match(homeSection, /data=\{featuredParentCategories\}/);
+  assert.match(homeSection, /featuredParentCategories\.map\(\(category\)/);
   assert.match(homeSection, /storeIds=\{nearbyStoreIds\}/);
   assert.match(catalogService, /COMMERCE_CATEGORY_SELECTION_LIMIT = 15/);
   assert.match(selection, /COMMERCE_CATEGORY_SELECTION_LIMIT/);
@@ -56,6 +60,33 @@ test("las selecciones móviles usan categorías padre y limitan cada muestra a 1
   assert.match(selection, /Ver categoría/);
 });
 
+test("Inicio selecciona una muestra aleatoria limitada, estable por semilla e independiente del orden", () => {
+  const categories = Array.from({ length: 12 }, (_, index) => ({
+    id: `category-${index}`,
+    nombre: `Categoría ${index}`,
+  }));
+  const originalIds = categories.map(({ id }) => id);
+  const sample = getRandomCommerceCategorySample(categories, 5, 0.314159);
+
+  assert.equal(sample.length, 5);
+  assert.deepEqual(
+    sample.map(({ id }) => id),
+    getRandomCommerceCategorySample(categories, 5, 0.314159).map(({ id }) => id),
+  );
+  assert.deepEqual(
+    sample.map(({ id }) => id),
+    getRandomCommerceCategorySample([...categories].reverse(), 5, 0.314159).map(({ id }) => id),
+  );
+  assert.notDeepEqual(
+    sample.map(({ id }) => id),
+    getRandomCommerceCategorySample(categories, 5, 0.271828).map(({ id }) => id),
+  );
+  assert.deepEqual(categories.map(({ id }) => id), originalIds, "No modifica las categorías recibidas");
+  assert.deepEqual(getRandomCommerceCategorySample(categories, 0, 1), []);
+  assert.equal(getRandomCommerceCategorySample(categories, 20, 1).length, categories.length);
+  assert.deepEqual(getRandomCommerceCategorySample([], 5, 1), []);
+});
+
 test("el inicio limita productos por tienda y el catálogo pagina las suscripciones", () => {
   const homeSection = readFileSync(new URL("../components/productos/ComercioHomeSection.native.jsx", import.meta.url), "utf8");
   const catalog = readFileSync(new URL("../components/productos/ProductosScreen.native.jsx", import.meta.url), "utf8");
@@ -63,7 +94,7 @@ test("el inicio limita productos por tienda y el catálogo pagina las suscripcio
   assert.match(homeSection, /HOME_STORE_PREVIEW_COUNT = 4/);
   assert.match(homeSection, /buildCommerceProductQuery/);
   assert.match(homeSection, /limit: COMMERCE_CATALOG_INITIAL_LIMIT/);
-  assert.doesNotMatch(homeSection, /HOME_CATEGORY_PREVIEW_COUNT/);
+  assert.match(homeSection, /HOME_CATEGORY_PREVIEW_COUNT = 5/);
   assert.match(catalog, /COMMERCE_CATALOG_INITIAL_LIMIT/);
   assert.match(catalog, /COMMERCE_CATALOG_MAX_LIMIT/);
   assert.match(catalog, /Cargar más productos/);
