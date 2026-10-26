@@ -83,6 +83,20 @@ export const filterCategoryTree = (nodes, query) => {
   }, []);
 };
 
+// Solo coincidencias, sin añadir los ancestros que necesita el selector en árbol.
+export const searchCategoryTree = (nodes, query) => {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return [];
+
+  const matches = [];
+  const visit = (categories) => (Array.isArray(categories) ? categories : []).forEach((category) => {
+    if (normalizeSearchText(category?.nombre).includes(normalizedQuery)) matches.push(category);
+    visit(category.children);
+  });
+  visit(nodes);
+  return matches;
+};
+
 export const getCategoryPath = (tree, categoryId) => {
   const byId = tree?.byId instanceof Map ? tree.byId : new Map();
   const path = [];

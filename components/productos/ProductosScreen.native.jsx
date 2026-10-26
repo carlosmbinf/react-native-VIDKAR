@@ -11,6 +11,8 @@ import {
     Platform,
     Pressable,
     RefreshControl,
+    ScrollView,
+    Keyboard,
     StyleSheet,
     View,
 } from "react-native";
@@ -24,6 +26,7 @@ import {
     FAB,
     IconButton,
     Menu,
+    RadioButton,
     Searchbar,
     Surface,
     Text,
@@ -35,7 +38,6 @@ import { useReducedMotion } from "react-native-reanimated";
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import {
   buildCategoryTree,
-  filterCategoryTree,
   filterVisibleCommerceStores,
   getCategoryDescendantIds,
   getCategoryPath,
@@ -74,6 +76,7 @@ import AppHeader, {
 import BlurMenuSurface, { blurMenuContentStyle } from "../Header/BlurMenuSurface";
 import useSafeBack, { useCanNavigateBack } from "../navigation/useSafeBack";
 import CommerceLocationAccessCard from "./CommerceLocationAccessCard";
+import CommerceCategoryFilter from "./CommerceCategoryFilter.native";
 import ComercioCategorySelection from "./ComercioCategorySelection.native";
 import ProductoCard from "./ProductoCard";
 import TiendaCard from "./TiendaCard";
@@ -170,8 +173,8 @@ const ProductosScreenNative = () => {
   const [sort, setSort] = useState("recommended");
   const [catalogLimit, setCatalogLimit] = useState(SCREEN_INITIAL_CATALOG_LIMIT);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
-  const [categorySearchQuery, setCategorySearchQuery] = useState("");
-  const [expandedCategoryIds, setExpandedCategoryIds] = useState({});
+  const [filtersTab, setFiltersTab] = useState("categories");
+  const [categoryResetKey, setCategoryResetKey] = useState(0);
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showSearchbar, setShowSearchbar] = useState(Boolean(routeSearch));
@@ -227,17 +230,9 @@ const ProductosScreenNative = () => {
     () => buildCategoryTree(visibleCategoryDocs),
     [visibleCategoryDocs],
   );
-  const filteredCategoryRoots = useMemo(
-    () => filterCategoryTree(categoryTreeData.roots, categorySearchQuery),
-    [categorySearchQuery, categoryTreeData.roots],
-  );
   const selectedCategoryPath = useMemo(
     () => getCategoryPath(categoryTreeData, selectedCategory),
     [categoryTreeData, selectedCategory],
-  );
-  const selectedCategoryAncestorIds = useMemo(
-    () => new Set(selectedCategoryPath.slice(0, -1).map((category) => String(category._id))),
-    [selectedCategoryPath],
   );
   const selectedCategoryName = selectedCategory === "all"
     ? "Todas"
@@ -334,8 +329,7 @@ const ProductosScreenNative = () => {
 
   React.useEffect(() => {
     if (!filtersExpanded) return;
-    setCategorySearchQuery("");
-    setExpandedCategoryIds({});
+    setFiltersTab("categories");
   }, [filtersExpanded]);
 
   React.useEffect(() => {
@@ -783,6 +777,7 @@ const ProductosScreenNative = () => {
     () => [{ id: "all", label: "Todas" }, ...parentCategories],
     [parentCategories],
   );
+  const isCategorySelected = (item) => selectedCategory === item.id;
   React.useEffect(() => {
     if (categoriesReady && selectedCategory !== "all" &&
       selectedCategory !== UNCATEGORIZED_COMMERCE_CATEGORY_ID &&
@@ -838,86 +833,8 @@ const ProductosScreenNative = () => {
     setMaxPrice("");
     setSort("recommended");
     setCatalogLimit(SCREEN_INITIAL_CATALOG_LIMIT);
+    setCategoryResetKey((current) => current + 1);
   }, []);
-
-  const renderCategoryNode = React.useCallback((category, depth = 0) => {
-    const categoryId = String(category._id);
-    const children = Array.isArray(category.children) ? category.children : [];
-    const selected = selectedCategory === categoryId;
-    const expanded = Boolean(categorySearchQuery.trim()) ||
-      Boolean(expandedCategoryIds[categoryId]) ||
-      selectedCategoryAncestorIds.has(categoryId);
-    return (
-      <View key={categoryId} style={depth ? { marginLeft: Math.min(depth, 4) * 12 } : null}>
-        <View style={styles.categoryTreeRow}>
-          <Pressable
-            accessibilityLabel={`Seleccionar ${category.nombre}`}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: selected }}
-            onPress={() => setSelectedCategory(categoryId)}
-            style={({ pressed }) => [
-              styles.categoryTreeSelect,
-              {
-                backgroundColor: selected
-                  ? theme.colors.secondaryContainer || theme.colors.surfaceVariant || theme.colors.surface
-                  : theme.colors.surface,
-                borderColor: selected ? theme.colors.primary : theme.colors.outlineVariant,
-              },
-              pressed ? styles.categoryTreeRowPressed : null,
-            ]}
-          >
-            <MaterialCommunityIcons
-              color={selected ? theme.colors.primary : theme.colors.onSurfaceVariant}
-              name={selected ? "radiobox-marked" : "radiobox-blank"}
-              size={21}
-            />
-            <View style={styles.categoryTreeCopy}>
-              <Text
-                numberOfLines={1}
-                style={selected
-                  ? [styles.categoryTreeSelectedText, { color: theme.colors.primary }]
-                  : { color: theme.colors.onSurface }}
-                variant="bodyMedium"
-              >
-                {category.nombre}
-              </Text>
-              {children.length ? (
-                <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
-                  {children.length} subcategoría{children.length === 1 ? "" : "s"}
-                </Text>
-              ) : null}
-            </View>
-          </Pressable>
-          {children.length ? (
-            <IconButton
-              accessibilityLabel={`${expanded ? "Ocultar" : "Mostrar"} subcategorías de ${category.nombre}`}
-              accessibilityState={{ expanded }}
-              icon={expanded ? "chevron-up" : "chevron-down"}
-              onPress={() => setExpandedCategoryIds((current) => ({
-                ...current,
-                [categoryId]: !current[categoryId],
-              }))}
-              size={20}
-            />
-          ) : <View style={styles.categoryDisclosurePlaceholder} />}
-        </View>
-        {expanded ? children.map((child) => renderCategoryNode(child, depth + 1)) : null}
-      </View>
-    );
-  }, [
-    categorySearchQuery,
-    expandedCategoryIds,
-    selectedCategory,
-    selectedCategoryAncestorIds,
-    setSelectedCategory,
-    theme.colors.onSurface,
-    theme.colors.onSurfaceVariant,
-    theme.colors.outlineVariant,
-    theme.colors.primary,
-    theme.colors.secondaryContainer,
-    theme.colors.surface,
-    theme.colors.surfaceVariant,
-  ]);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -958,7 +875,7 @@ const ProductosScreenNative = () => {
                     >
                       {locationUnavailable
                         ? `Aprox. · ${radioKm} km`
-                        : `Tiendas a ${radioKm} km`}
+                        : `${radioKm} km`}
                     </Chip>
                     <Chip
                       compact
@@ -967,8 +884,7 @@ const ProductosScreenNative = () => {
                       style={styles.countChip}
                       textStyle={styles.locationChipText}
                     >
-                      {tiendasDisponibles.length} tienda
-                      {tiendasDisponibles.length !== 1 ? "s" : ""}
+                      {tiendasDisponibles.length} {tiendasDisponibles.length === 1 ? "tienda" : "tiendas"}
                     </Chip>
                   </>
                 ) : null}
@@ -986,178 +902,83 @@ const ProductosScreenNative = () => {
               </Button>
             </View>
 
-            <View style={styles.categoryFilters}>
-              <View style={styles.sectionHeadingRow}>
-                <View style={styles.sectionTitleWithIcon}>
-                  <MaterialCommunityIcons
-                    color={theme.colors.primary}
-                    name="shape-outline"
-                    size={16}
-                  />
-                  <Text style={styles.sectionTitleText} variant="labelLarge">
-                    Categorías principales
-                  </Text>
-                </View>
-                <Button
-                  compact
-                  icon="chevron-right"
-                  contentStyle={styles.seeAllCategoriesContent}
-                  labelStyle={styles.seeAllCategoriesLabel}
-                  mode="text"
-                  onPress={() => setFiltersExpanded(true)}
-                >
-                  Ver todas
-                </Button>
-              </View>
+            <Divider style={styles.filterPanelDivider} />
 
-              <FlatList
-                contentContainerStyle={styles.quickCategoryListContent}
-                data={quickCategoryOptions}
-                horizontal
-                keyExtractor={(category) => category.id}
-                renderItem={({ item }) => {
-                  const isSelected = selectedCategory === item.id;
-                  return (
-                    <Chip
-                      accessibilityRole="button"
-                      accessibilityLabel={`Filtrar por ${item.nombre || item.label}`}
-                      compact
-                      mode={isSelected ? "flat" : "outlined"}
-                      selected={isSelected}
-                      onPress={() => setSelectedCategory(item.id)}
-                      style={[
-                        styles.quickCategoryChip,
-                        isSelected && {
-                          backgroundColor: theme.colors.secondaryContainer,
-                          borderColor: theme.colors.primary,
-                        },
-                      ]}
-                    >
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.quickCategoryLabel,
-                          isSelected && { color: theme.colors.onSecondaryContainer, fontWeight: "700" },
-                        ]}
-                      >
-                        {item.nombre || item.label}
-                      </Text>
-                    </Chip>
-                  );
-                }}
-                showsHorizontalScrollIndicator={false}
-              />
-
-              {!parentCategories.length && categoriesReady ? (
-                <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
-                  {categories.length
-                    ? "No hay categorías principales para estas tiendas."
-                    : "Todavía no hay categorías principales activas."}
-                </Text>
-              ) : null}
-
-              <Divider style={styles.filterPanelDivider} />
-
-              <View style={styles.availabilityAndSortWrap}>
-                <View style={styles.quickAvailabilityRow}>
-                  {availabilityOptions.map((option) => {
-                    const isSelected = availability === option.value;
-                    return (
-                      <Chip
-                        compact
-                        icon={option.icon}
-                        key={option.value}
-                        mode={isSelected ? "flat" : "outlined"}
-                        selected={isSelected}
-                        onPress={() => setAvailability(option.value)}
-                        style={[
-                          styles.availabilityChip,
-                          isSelected && {
-                            backgroundColor: theme.colors.secondaryContainer,
-                            borderColor: theme.colors.primary,
-                          },
-                        ]}
-                        textStyle={
-                          isSelected
-                            ? { color: theme.colors.onSecondaryContainer, fontWeight: "700", fontSize: 12 }
-                            : { fontSize: 12 }
-                        }
-                      >
-                        {option.label}
-                      </Chip>
-                    );
-                  })}
-                </View>
-
-                <View style={styles.catalogToolbar}>
-                  <View style={styles.toolbarActionsGroup}>
-                    <View style={styles.filterButtonWrap}>
-                      <Button
-                        compact
-                        contentStyle={styles.toolbarButtonContent}
-                        icon="tune-variant"
-                        labelStyle={styles.toolbarButtonLabel}
-                        mode={activeFiltersCount ? "contained-tonal" : "outlined"}
-                        onPress={() => setFiltersExpanded(true)}
-                        style={styles.toolbarButton}
-                      >
-                        Filtros
-                      </Button>
-                      {activeFiltersCount ? (
-                        <Badge style={[styles.filtersBadge, { backgroundColor: theme.colors.primary }]}>
-                          {activeFiltersCount}
-                        </Badge>
-                      ) : null}
-                    </View>
-
-                    <Menu
-                      anchor={
-                        <Button
-                          compact
-                          contentStyle={styles.toolbarButtonContent}
-                          icon="sort-variant"
-                          labelStyle={styles.toolbarButtonLabel}
-                          mode={sort !== "recommended" ? "contained-tonal" : "outlined"}
-                          onPress={() => setSortMenuVisible(true)}
-                          style={styles.toolbarButton}
-                        >
-                          {selectedSortLabel}
-                        </Button>
-                      }
-                      onDismiss={() => setSortMenuVisible(false)}
-                      visible={sortMenuVisible}
-                    >
-                      {sortOptions.map((option) => (
-                        <Menu.Item
-                          key={option.value}
-                          leadingIcon={sort === option.value ? "check" : option.icon}
-                          onPress={() => {
-                            setSort(option.value);
-                            setSortMenuVisible(false);
-                          }}
-                          title={option.label}
-                        />
-                      ))}
-                    </Menu>
-                  </View>
-
-                  <Chip
+            <View style={styles.catalogToolbar}>
+              <View style={styles.toolbarActionsGroup}>
+                <View style={styles.filterButtonWrap}>
+                  <Button
                     compact
-                    icon={loadingProducts ? "progress-clock" : "package-variant-closed"}
-                    mode="flat"
-                    style={[styles.productCountPill, { backgroundColor: subtleChipBg }]}
-                    textStyle={styles.productCountPillText}
+                    contentStyle={styles.toolbarButtonContent}
+                    icon="tune-variant"
+                    labelStyle={styles.toolbarButtonLabel}
+                    mode={activeFiltersCount ? "contained-tonal" : "outlined"}
+                    onPress={() => setFiltersExpanded(true)}
+                    style={styles.toolbarButton}
                   >
-                    {loadingProducts && !productCount
-                      ? "Cargando"
-                      : `${productCount}${hasMoreProducts ? "+" : ""} prod.`}
-                  </Chip>
+                    Filtros
+                  </Button>
+                  {activeFiltersCount ? (
+                    <Badge style={[styles.filtersBadge, { backgroundColor: theme.colors.primary }]}>
+                      {activeFiltersCount}
+                    </Badge>
+                  ) : null}
                 </View>
+
+                <Menu
+                  anchor={
+                    <Button
+                      compact
+                      contentStyle={styles.toolbarButtonContent}
+                      icon="sort-variant"
+                      labelStyle={styles.toolbarButtonLabel}
+                      mode={sort !== "recommended" ? "contained-tonal" : "outlined"}
+                      onPress={() => setSortMenuVisible(true)}
+                      style={styles.toolbarButton}
+                    >
+                      <Text numberOfLines={1} style={styles.toolbarSortText}>
+                        {selectedSortLabel}
+                      </Text>
+                    </Button>
+                  }
+                  onDismiss={() => setSortMenuVisible(false)}
+                  visible={sortMenuVisible}
+                >
+                  {sortOptions.map((option) => (
+                    <Menu.Item
+                      key={option.value}
+                      leadingIcon={sort === option.value ? "check" : option.icon}
+                      onPress={() => {
+                        setSort(option.value);
+                        setSortMenuVisible(false);
+                      }}
+                      title={option.label}
+                    />
+                  ))}
+                </Menu>
               </View>
+
+              <Chip
+                compact
+                icon={loadingProducts ? "progress-clock" : "package-variant-closed"}
+                mode="flat"
+                style={[styles.productCountPill, { backgroundColor: subtleChipBg }]}
+                textStyle={styles.productCountPillText}
+              >
+                {loadingProducts && !productCount
+                  ? "Cargando"
+                  : `${productCount}${hasMoreProducts ? "+" : ""} prod.`}
+              </Chip>
+            </View>
 
               {activeFiltersCount || debouncedSearch ? (
                 <View style={styles.activeFiltersWrap}>
-                  <View style={styles.activeFiltersRow}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.activeFiltersScrollContent}
+                    style={styles.activeFiltersScrollView}
+                  >
                     {debouncedSearch ? (
                       <Chip compact onClose={() => setSearchQuery("")} style={styles.activeFilterChip}>
                         “{debouncedSearch}”
@@ -1193,13 +1014,19 @@ const ProductosScreenNative = () => {
                         {selectedSortLabel}
                       </Chip>
                     ) : null}
-                  </View>
-                  <Button compact icon="restart" mode="text" onPress={resetCatalogFilters}>
+                  </ScrollView>
+                  <Button
+                    compact
+                    icon="restart"
+                    mode="text"
+                    onPress={resetCatalogFilters}
+                    style={styles.clearFiltersButton}
+                    labelStyle={styles.clearFiltersLabel}
+                  >
                     Limpiar
                   </Button>
                 </View>
               ) : null}
-            </View>
           </Surface>
 
           <View style={styles.catalogSummary}>
@@ -1620,51 +1447,36 @@ const ProductosScreenNative = () => {
         title={activeFiltersCount ? `Filtros · ${activeFiltersCount} activos` : "Filtrar comercios"}
       >
         <View style={styles.filterSheetContent}>
-          <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
-            Elige una categoría, tienda o disponibilidad para afinar los resultados.
-          </Text>
-
-          <View style={styles.filterGroup}>
-            <Text style={styles.filterGroupTitle} variant="titleSmall">Categoría</Text>
-            <TextInput
-              dense
-              left={<TextInput.Icon icon="magnify" />}
-              mode="outlined"
-              onChangeText={setCategorySearchQuery}
-              placeholder="Buscar categoría"
-              value={categorySearchQuery}
-            />
-            <View style={styles.filterChipRow}>
-              <Chip
-                compact
-                selected={selectedCategory === "all"}
-                onPress={() => setSelectedCategory("all")}
+          <View accessibilityRole="tablist" style={[styles.filterTabs, { borderColor: theme.colors.outlineVariant }]}>
+            {[
+              { id: "categories", label: "Categorías", count: selectedCategory === "all" ? 0 : 1 },
+              { id: "more", label: "Más filtros", count: activeFiltersCount - (selectedCategory === "all" ? 0 : 1) },
+            ].map((tab) => (
+              <Pressable
+                accessibilityLabel={tab.count ? `${tab.label}, ${tab.count} activos` : tab.label}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: filtersTab === tab.id }}
+                key={tab.id}
+                onPress={() => { Keyboard.dismiss(); setFiltersTab(tab.id); }}
+                style={[styles.filterTab, { borderBottomColor: filtersTab === tab.id ? theme.colors.primary : "transparent" }]}
               >
-                Todas
-              </Chip>
-              <Chip
-                compact
-                selected={selectedCategory === UNCATEGORIZED_COMMERCE_CATEGORY_ID}
-                onPress={() => setSelectedCategory(UNCATEGORIZED_COMMERCE_CATEGORY_ID)}
-              >
-                Sin categoría
-              </Chip>
-            </View>
-            {filteredCategoryRoots.length ? (
-              <View style={styles.categoryTreeList}>
-                {filteredCategoryRoots.map((category) => renderCategoryNode(category))}
-              </View>
-            ) : (
-              <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
-                {categorySearchQuery.trim()
-                  ? "No encontramos categorías con ese nombre."
-                  : "No hay categorías visibles para estos comercios."}
-              </Text>
-            )}
+                <Text style={{ color: filtersTab === tab.id ? theme.colors.primary : theme.colors.onSurfaceVariant }} variant="labelLarge">
+                  {tab.label}{tab.count ? ` · ${tab.count}` : ""}
+                </Text>
+              </Pressable>
+            ))}
           </View>
-
-          <Divider />
-
+          <View style={filtersTab !== "categories" ? styles.hiddenFilterPanel : undefined}>
+            <CommerceCategoryFilter
+              loading={!categoriesReady}
+              onSelectCategory={setSelectedCategory}
+              open={filtersExpanded}
+              resetKey={categoryResetKey}
+              selectedCategory={selectedCategory}
+              tree={categoryTreeData}
+            />
+          </View>
+          <View style={filtersTab === "more" ? styles.moreFiltersPanel : styles.hiddenFilterPanel}>
           <View style={styles.filterGroup}>
             <View style={styles.filterGroupHeading}>
               <Text style={styles.filterGroupTitle} variant="titleSmall">Tienda</Text>
@@ -1672,28 +1484,18 @@ const ProductosScreenNative = () => {
                 Una selección
               </Text>
             </View>
-            <View style={styles.filterChipRow}>
-              <Chip
-                compact
-                selected={selectedStore === "all"}
-                onPress={() => setSelectedStore("all")}
-              >
-                Todas las tiendas
-              </Chip>
-              {catalogStores.map((store) => {
-                const storeId = String(store._id);
-                return (
-                  <Chip
-                    compact
-                    key={storeId}
-                    selected={selectedStore === storeId}
-                    onPress={() => setSelectedStore(storeId)}
-                  >
-                    {store.title || store.name || "Tienda"}
-                  </Chip>
-                );
-              })}
-            </View>
+            <RadioButton.Group onValueChange={setSelectedStore} value={selectedStore}>
+              <RadioButton.Item label="Todas las tiendas" labelVariant="bodyMedium" style={styles.filterRadioItem} value="all" />
+              {catalogStores.map((store) => (
+                <RadioButton.Item
+                  key={String(store._id)}
+                  label={store.title || store.name || "Tienda"}
+                  labelVariant="bodyMedium"
+                  style={styles.filterRadioItem}
+                  value={String(store._id)}
+                />
+              ))}
+            </RadioButton.Group>
           </View>
 
           <Divider />
@@ -1736,19 +1538,17 @@ const ProductosScreenNative = () => {
 
           <View style={styles.filterGroup}>
             <Text style={styles.filterGroupTitle} variant="titleSmall">Ordenar por</Text>
-            <View style={styles.filterChipRow}>
+            <RadioButton.Group onValueChange={setSort} value={sort}>
               {sortOptions.map((option) => (
-                <Chip
-                  compact
-                  icon={option.icon}
+                <RadioButton.Item
                   key={option.value}
-                  selected={sort === option.value}
-                  onPress={() => setSort(option.value)}
-                >
-                  {option.label}
-                </Chip>
+                  label={option.label}
+                  labelVariant="bodyMedium"
+                  style={styles.filterRadioItem}
+                  value={option.value}
+                />
               ))}
-            </View>
+            </RadioButton.Group>
           </View>
 
           <Divider />
@@ -1788,6 +1588,7 @@ const ProductosScreenNative = () => {
               </Text>
             ) : null}
           </View>
+          </View>
         </View>
       </DrawerBottom>
     </Surface>
@@ -1824,7 +1625,6 @@ const styles = StyleSheet.create({
   filterTopStatusRow: {
     alignItems: "center",
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 8,
     justifyContent: "space-between",
   },
@@ -1832,7 +1632,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 6,
     minWidth: 0,
   },
@@ -1894,18 +1693,25 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   quickAvailabilityRow: {
+    alignItems: "center",
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 6,
   },
   availabilityChip: {
     borderRadius: 999,
+    flex: 1,
+  },
+  availabilityChipContent: {
+    justifyContent: "center",
+  },
+  availabilityChipText: {
+    fontSize: 12,
+    textAlign: "center",
   },
   toolbarActionsGroup: {
     alignItems: "center",
     flex: 1,
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 8,
     minWidth: 0,
   },
@@ -1914,15 +1720,21 @@ const styles = StyleSheet.create({
   },
   toolbarButtonContent: {
     minHeight: 34,
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
   },
   toolbarButtonLabel: {
     fontSize: 12,
     fontWeight: "700",
     marginVertical: 4,
   },
+  toolbarSortText: {
+    fontSize: 12,
+    fontWeight: "700",
+    maxWidth: 110,
+  },
   productCountPill: {
     borderRadius: 999,
+    flexShrink: 0,
   },
   productCountPillText: {
     fontSize: 12,
@@ -1942,20 +1754,29 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "rgba(148, 163, 184, 0.25)",
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    justifyContent: "space-between",
+    gap: 4,
     paddingTop: 8,
   },
-  activeFiltersRow: {
+  activeFiltersScrollView: {
     flex: 1,
+  },
+  activeFiltersScrollContent: {
+    alignItems: "center",
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 6,
-    minWidth: 0,
+    paddingRight: 4,
   },
   activeFilterChip: {
     borderRadius: 999,
+    maxWidth: 200,
+  },
+  clearFiltersButton: {
+    flexShrink: 0,
+    marginRight: -4,
+  },
+  clearFiltersLabel: {
+    fontSize: 12,
+    fontWeight: "700",
   },
   filterDrawerSurface: {
     backgroundColor: "transparent",
@@ -1973,42 +1794,24 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   filterGroupTitle: {
-    fontWeight: "800",
+    fontWeight: "600",
   },
-  categoryTreeList: {
-    gap: 6,
-  },
-  categoryTreeRow: {
-    alignItems: "center",
+  filterTabs: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
-    gap: 4,
   },
-  categoryTreeSelect: {
+  filterTab: {
     alignItems: "center",
-    borderCurve: "continuous",
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 2,
     flex: 1,
-    flexDirection: "row",
-    gap: 10,
-    minHeight: 54,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    justifyContent: "center",
+    minHeight: 48,
+    paddingHorizontal: 8,
+    paddingVertical: 12,
   },
-  categoryTreeRowPressed: {
-    opacity: 0.76,
-  },
-  categoryTreeCopy: {
-    flex: 1,
-    gap: 2,
-    minWidth: 0,
-  },
-  categoryTreeSelectedText: {
-    fontWeight: "700",
-  },
-  categoryDisclosurePlaceholder: {
-    width: 44,
-  },
+  hiddenFilterPanel: { display: "none" },
+  moreFiltersPanel: { gap: 20 },
+  filterRadioItem: { minHeight: 48, paddingHorizontal: 0 },
   filterSheetFooter: {
     alignItems: "center",
     flexDirection: "row",
@@ -2052,7 +1855,6 @@ const styles = StyleSheet.create({
   catalogToolbar: {
     alignItems: "center",
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 8,
     justifyContent: "space-between",
   },
