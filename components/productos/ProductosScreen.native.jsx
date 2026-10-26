@@ -145,6 +145,7 @@ const ProductosScreenNative = () => {
   const routeStore = Array.isArray(params.store) ? params.store[0] : params.store;
   const routeSearch = Array.isArray(params.search) ? params.search[0] : params.search;
   const theme = useTheme();
+  const reducedMotion = useReducedMotion();
   const [selectedCategory, setSelectedCategory] = useState(routeCategory || "all");
   const [selectedStore, setSelectedStore] = useState(routeStore || "all");
   const canNavigateBack = useCanNavigateBack();
@@ -160,6 +161,8 @@ const ProductosScreenNative = () => {
   const [sort, setSort] = useState("recommended");
   const [catalogLimit, setCatalogLimit] = useState(COMMERCE_CATALOG_INITIAL_LIMIT);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [categorySearchQuery, setCategorySearchQuery] = useState("");
+  const [expandedCategoryIds, setExpandedCategoryIds] = useState({});
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showSearchbar, setShowSearchbar] = useState(true);
@@ -191,6 +194,10 @@ const ProductosScreenNative = () => {
     };
   }, [dataReady]);
   const visibleCategories = useMemo(() => normalizeCommerceHomeCategories(categories, preferences).filter((category) => category.visible), [categories, preferences]);
+  const parentCategories = useMemo(
+    () => getCommerceParentCategories(visibleCategories),
+    [visibleCategories],
+  );
   const visibleCategoryIds = useMemo(
     () => visibleCategories.map((category) => category.id),
     [visibleCategories],
@@ -202,6 +209,37 @@ const ProductosScreenNative = () => {
       { id: UNCATEGORIZED_COMMERCE_CATEGORY_ID, label: "Sin categoría" },
     ],
     [visibleCategories],
+  );
+  const visibleCategoryDocs = useMemo(() => {
+    const visibleIds = new Set(visibleCategoryIds);
+    return categories.filter((category) => visibleIds.has(String(category._id)));
+  }, [categories, visibleCategoryIds]);
+  const categoryTreeData = useMemo(
+    () => buildCategoryTree(visibleCategoryDocs),
+    [visibleCategoryDocs],
+  );
+  const filteredCategoryRoots = useMemo(
+    () => filterCategoryTree(categoryTreeData.roots, categorySearchQuery),
+    [categorySearchQuery, categoryTreeData.roots],
+  );
+  const selectedCategoryPath = useMemo(
+    () => getCategoryPath(categoryTreeData, selectedCategory),
+    [categoryTreeData, selectedCategory],
+  );
+  const selectedCategoryAncestorIds = useMemo(
+    () => new Set(selectedCategoryPath.slice(0, -1).map((category) => String(category._id))),
+    [selectedCategoryPath],
+  );
+  const selectedCategoryName = selectedCategory === "all"
+    ? "Todas"
+    : selectedCategory === UNCATEGORIZED_COMMERCE_CATEGORY_ID
+      ? "Sin categoría"
+      : selectedCategoryPath[selectedCategoryPath.length - 1]?.nombre ||
+        categoryOptions.find((category) => category.id === selectedCategory)?.label ||
+        "Categoría";
+  const quickCategoryOptions = useMemo(
+    () => [{ id: "all", label: "Todas" }, ...parentCategories],
+    [parentCategories],
   );
   const selectedCategoryIds = useMemo(() => {
     if (selectedCategory === "all" || selectedCategory === UNCATEGORIZED_COMMERCE_CATEGORY_ID) {
@@ -288,6 +326,12 @@ const ProductosScreenNative = () => {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 250);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  React.useEffect(() => {
+    if (!filtersExpanded) return;
+    setCategorySearchQuery("");
+    setExpandedCategoryIds({});
+  }, [filtersExpanded]);
 
   React.useEffect(() => {
     setSelectedCategory(routeCategory || "all");
@@ -756,6 +800,85 @@ const ProductosScreenNative = () => {
     setCatalogLimit(COMMERCE_CATALOG_INITIAL_LIMIT);
   }, []);
 
+  const renderCategoryNode = React.useCallback((category, depth = 0) => {
+    const categoryId = String(category._id);
+    const children = Array.isArray(category.children) ? category.children : [];
+    const selected = selectedCategory === categoryId;
+    const expanded = Boolean(categorySearchQuery.trim()) ||
+      Boolean(expandedCategoryIds[categoryId]) ||
+      selectedCategoryAncestorIds.has(categoryId);
+    return (
+      <View key={categoryId} style={depth ? { marginLeft: Math.min(depth, 4) * 12 } : null}>
+        <View style={styles.categoryTreeRow}>
+          <Pressable
+            accessibilityLabel={`Seleccionar ${category.nombre}`}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: selected }}
+            onPress={() => setSelectedCategory(categoryId)}
+            style={({ pressed }) => [
+              styles.categoryTreeSelect,
+              {
+                backgroundColor: selected
+                  ? theme.colors.secondaryContainer || theme.colors.surfaceVariant || theme.colors.surface
+                  : theme.colors.surface,
+                borderColor: selected ? theme.colors.primary : theme.colors.outlineVariant,
+              },
+              pressed ? styles.categoryTreeRowPressed : null,
+            ]}
+          >
+            <MaterialCommunityIcons
+              color={selected ? theme.colors.primary : theme.colors.onSurfaceVariant}
+              name={selected ? "radiobox-marked" : "radiobox-blank"}
+              size={21}
+            />
+            <View style={styles.categoryTreeCopy}>
+              <Text
+                numberOfLines={1}
+                style={selected
+                  ? [styles.categoryTreeSelectedText, { color: theme.colors.primary }]
+                  : { color: theme.colors.onSurface }}
+                variant="bodyMedium"
+              >
+                {category.nombre}
+              </Text>
+              {children.length ? (
+                <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
+                  {children.length} subcategoría{children.length === 1 ? "" : "s"}
+                </Text>
+              ) : null}
+            </View>
+          </Pressable>
+          {children.length ? (
+            <IconButton
+              accessibilityLabel={`${expanded ? "Ocultar" : "Mostrar"} subcategorías de ${category.nombre}`}
+              accessibilityState={{ expanded }}
+              icon={expanded ? "chevron-up" : "chevron-down"}
+              onPress={() => setExpandedCategoryIds((current) => ({
+                ...current,
+                [categoryId]: !current[categoryId],
+              }))}
+              size={20}
+            />
+          ) : <View style={styles.categoryDisclosurePlaceholder} />}
+        </View>
+        {expanded ? children.map((child) => renderCategoryNode(child, depth + 1)) : null}
+      </View>
+    );
+  }, [
+    categorySearchQuery,
+    expandedCategoryIds,
+    selectedCategory,
+    selectedCategoryAncestorIds,
+    setSelectedCategory,
+    theme.colors.onSurface,
+    theme.colors.onSurfaceVariant,
+    theme.colors.outlineVariant,
+    theme.colors.primary,
+    theme.colors.secondaryContainer,
+    theme.colors.surface,
+    theme.colors.surfaceVariant,
+  ]);
+
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
     setCatalogLimit(COMMERCE_CATALOG_INITIAL_LIMIT);
@@ -767,67 +890,96 @@ const ProductosScreenNative = () => {
   const listHeaderComponent = useMemo(
     () => (
       <>
+        {userLocation ? (
+          <View style={styles.locationInfo}>
+            <Chip
+              icon={locationUnavailable ? "map-marker-alert" : "map-marker-check"}
+              mode="flat"
+              style={styles.locationChip}
+              textStyle={styles.locationChipText}
+            >
+              {locationUnavailable
+                ? `Resultados aproximados · ${radioKm} km`
+                : `Tiendas a ${radioKm} km`}
+            </Chip>
+            <Chip
+              icon="map"
+              mode="outlined"
+              style={styles.countChip}
+              textStyle={styles.locationChipText}
+            >
+              {tiendasDisponibles.length} tienda
+              {tiendasDisponibles.length !== 1 ? "s" : ""}
+            </Chip>
+          </View>
+        ) : null}
+
         <View style={styles.categoryFilters}>
-          <Text variant="titleSmall">Explorar por tiendas</Text>
+          <View style={styles.sectionHeadingRow}>
+            <Text variant="titleSmall">Categorías principales</Text>
+            <Button compact mode="text" onPress={() => setFiltersExpanded(true)}>
+              Ver todas
+            </Button>
+          </View>
           <FlatList
-            data={[{ _id: "all", title: "Todas las tiendas" }, ...catalogStores]}
-            horizontal
-            keyExtractor={(tienda) => tienda._id}
-            renderItem={({ item }) => (
-              <Chip
-                accessibilityRole="button"
-                selected={selectedStore === item._id}
-                onPress={() => setSelectedStore(item._id)}
-                style={styles.categoryChip}
-              >{item.title || "Tienda"}</Chip>
-            )}
-            showsHorizontalScrollIndicator={false}
-          />
-          <Text variant="titleSmall">Explorar por categorías</Text>
-          <FlatList
-            data={categoryOptions}
+            data={quickCategoryOptions}
             horizontal
             keyExtractor={(category) => category.id}
             renderItem={({ item }) => (
               <Chip
                 accessibilityRole="button"
+                accessibilityLabel={`Filtrar por ${item.nombre || item.label}`}
+                compact
                 selected={selectedCategory === item.id}
                 onPress={() => setSelectedCategory(item.id)}
-                style={styles.categoryChip}
-              >{item.label}</Chip>
+                style={styles.quickCategoryChip}
+              >
+                <Text numberOfLines={1} style={styles.quickCategoryLabel}>
+                  {item.nombre || item.label}
+                </Text>
+              </Chip>
             )}
             showsHorizontalScrollIndicator={false}
           />
-          {!visibleCategories.length && categoriesReady ? (
+          {!parentCategories.length && categoriesReady ? (
             <Text variant="bodySmall">
               {categories.length
-                ? "No hay categorías visibles. Puedes seguir explorando los productos sin categoría."
-                : "Todavía no hay categorías activas; explora los productos sin categoría."}
+                ? "No hay categorías principales para estas tiendas."
+                : "Todavía no hay categorías principales activas."}
             </Text>
           ) : null}
-          <Text variant="titleSmall">Disponibilidad</Text>
-          <View style={styles.filterChipRow}>
+          <View style={styles.sectionHeadingRow}>
+            <Text variant="titleSmall">Disponibilidad</Text>
+          </View>
+          <View style={styles.quickAvailabilityRow}>
             {availabilityOptions.map((option) => (
               <Chip
                 compact
                 key={option.value}
                 selected={availability === option.value}
                 onPress={() => setAvailability(option.value)}
-                style={styles.categoryChip}
+                style={styles.availabilityChip}
               >
                 {option.label}
               </Chip>
             ))}
           </View>
           <View style={styles.catalogToolbar}>
-            <Button
-              compact
-              icon={filtersExpanded ? "tune-variant" : "tune"}
-              mode={filtersExpanded ? "contained-tonal" : "outlined"}
-              onPress={() => setFiltersExpanded((current) => !current)}
-            >
-              Filtros{activeFiltersCount ? ` · ${activeFiltersCount}` : ""}
-            </Button>
+            <View style={styles.filterButtonWrap}>
+              <Button
+                compact
+                icon="tune-variant"
+                mode={activeFiltersCount ? "contained-tonal" : "outlined"}
+                onPress={() => setFiltersExpanded(true)}
+              >
+                Filtros
+              </Button>
+              {activeFiltersCount ? (
+                <Badge style={[styles.filtersBadge, { backgroundColor: theme.colors.primary }]}>
+                  {activeFiltersCount}
+                </Badge>
+              ) : null}
+            </View>
             <Menu
               anchor={
                 <Button
@@ -860,65 +1012,58 @@ const ProductosScreenNative = () => {
                 : `${productCount}${hasMoreProducts ? "+" : ""} producto${productCount === 1 ? "" : "s"}`}
             </Chip>
           </View>
-          {filtersExpanded ? (
-            <Surface elevation={0} style={styles.advancedFilters}>
-              <Text variant="labelLarge">Moneda</Text>
-              <View style={styles.filterChipRow}>
-                {["all", ...currencyOptions].map((currency) => (
-                  <Chip
-                    compact
-                    key={currency}
-                    selected={selectedCurrency === currency}
-                    onPress={() => setSelectedCurrency(currency)}
-                    style={styles.categoryChip}
-                  >
-                    {currency === "all" ? "Todas" : currency}
+          {activeFiltersCount || debouncedSearch ? (
+            <View style={styles.activeFiltersWrap}>
+              <View style={styles.activeFiltersRow}>
+                {debouncedSearch ? (
+                  <Chip compact onClose={() => setSearchQuery("")}>
+                    Búsqueda: {debouncedSearch}
                   </Chip>
-                ))}
+                ) : null}
+                {selectedStore !== "all" ? (
+                  <Chip compact onClose={() => setSelectedStore("all")}>
+                    Tienda: {catalogStores.find((store) => String(store._id) === String(selectedStore))?.title || "Tienda"}
+                  </Chip>
+                ) : null}
+                {selectedCategory !== "all" ? (
+                  <Chip compact onClose={() => setSelectedCategory("all")}>
+                    Categoría: {selectedCategoryName}
+                  </Chip>
+                ) : null}
+                {availability !== "all" ? (
+                  <Chip compact onClose={() => setAvailability("all")}>
+                    {availabilityOptions.find((option) => option.value === availability)?.label || "Disponibilidad"}
+                  </Chip>
+                ) : null}
+                {selectedCurrency !== "all" ? (
+                  <Chip compact onClose={() => setSelectedCurrency("all")}>
+                    Moneda: {selectedCurrency}
+                  </Chip>
+                ) : null}
+                {minPrice !== "" || maxPrice !== "" ? (
+                  <Chip compact onClose={() => { setMinPrice(""); setMaxPrice(""); }}>
+                    Precio: {minPrice || "0"}–{maxPrice || "∞"} {selectedCurrency === "all" ? "" : selectedCurrency}
+                  </Chip>
+                ) : null}
+                {sort !== "recommended" ? (
+                  <Chip compact onClose={() => setSort("recommended")}>
+                    Orden: {selectedSortLabel}
+                  </Chip>
+                ) : null}
               </View>
-              <Text variant="labelLarge">Rango de precio</Text>
-              <View style={styles.priceFilterRow}>
-                <TextInput
-                  dense
-                  keyboardType="decimal-pad"
-                  label="Mínimo"
-                  mode="outlined"
-                  onChangeText={setMinPrice}
-                  style={styles.priceFilterInput}
-                  value={minPrice}
-                />
-                <TextInput
-                  dense
-                  keyboardType="decimal-pad"
-                  label="Máximo"
-                  mode="outlined"
-                  onChangeText={setMaxPrice}
-                  style={styles.priceFilterInput}
-                  value={maxPrice}
-                />
-              </View>
-              {priceRangeError ? (
-                <Text style={{ color: theme.colors.error }} variant="bodySmall">
-                  {priceRangeError}
-                </Text>
-              ) : null}
-              <Button
-                compact
-                icon="restart"
-                onPress={resetCatalogFilters}
-                style={styles.clearFiltersButton}
-              >
-                Limpiar filtros
+              <Button compact icon="restart" mode="text" onPress={resetCatalogFilters}>
+                Restablecer
               </Button>
-            </Surface>
+            </View>
           ) : null}
         </View>
         <View style={styles.catalogSummary}>
           <Text numberOfLines={2} style={styles.catalogSummaryTitle} variant="titleSmall">
-            {categoryOptions.find((category) => category.id === selectedCategory)?.label ||
-              (selectedStore !== "all"
+            {selectedCategory !== "all"
+              ? selectedCategoryName
+              : selectedStore !== "all"
                 ? catalogStores.find((store) => String(store._id) === String(selectedStore))?.title || "Tienda seleccionada"
-                : "Productos de tiendas cercanas")}
+                : "Productos de tiendas cercanas"}
           </Text>
           {debouncedSearch ? (
             <Chip compact icon="magnify" mode="outlined">
@@ -945,30 +1090,6 @@ const ProductosScreenNative = () => {
           </View>
         ) : null}
 
-        {userLocation ? (
-          <View style={styles.locationInfo}>
-            <Chip
-              icon={locationUnavailable ? "map-marker-alert" : "map-marker-check"}
-              mode="flat"
-              style={styles.locationChip}
-              textStyle={styles.locationChipText}
-            >
-              {locationUnavailable
-                ? `📍 Resultados aproximados en ${radioKm} km`
-                : `📍 Mostrando tiendas en ${radioKm} km`}
-            </Chip>
-            <Chip
-              icon="map"
-              mode="outlined"
-              style={styles.countChip}
-              textStyle={styles.locationChipText}
-            >
-              {tiendasDisponibles.length} tienda
-              {tiendasDisponibles.length !== 1 ? "s" : ""}
-            </Chip>
-          </View>
-        ) : null}
-
         <View style={styles.pedidosBannerContent}>
           <Button
             contentStyle={styles.pedidosBannerButtonContent}
@@ -986,14 +1107,14 @@ const ProductosScreenNative = () => {
     [
       availability,
       activeFiltersCount,
+      parentCategories,
+      quickCategoryOptions,
       loadingTiendas,
       loadingProducts,
       catalogStores,
-      categoryOptions,
       categories.length,
       categoriesReady,
       debouncedSearch,
-      filtersExpanded,
       hasMoreProducts,
       locationPermissionBlocked,
       locationPermissionLoading,
@@ -1001,12 +1122,12 @@ const ProductosScreenNative = () => {
       maxPrice,
       minPrice,
       obtenerUbicacion,
-      priceRangeError,
       productCount,
       radioKm,
       router,
       resetCatalogFilters,
       selectedCategory,
+      selectedCategoryName,
       selectedCurrency,
       selectedSortLabel,
       selectedStore,
@@ -1015,8 +1136,7 @@ const ProductosScreenNative = () => {
       showLocationAccessCard,
       tiendasDisponibles,
       userLocation,
-      visibleCategories.length,
-      theme.colors.error,
+      theme.colors.primary,
     ],
   );
 
@@ -1272,6 +1392,191 @@ const ProductosScreenNative = () => {
         open={fabOpen}
         visible
       />
+
+      <DrawerBottom
+        allowContentSwipeToClose={false}
+        closeOnBackdropPress
+        footer={(
+          <View style={styles.filterSheetFooter}>
+            <Button
+              compact
+              mode="outlined"
+              onPress={resetCatalogFilters}
+              style={styles.filterFooterButton}
+            >
+              Restablecer
+            </Button>
+            <Button
+              compact
+              mode="contained"
+              onPress={() => setFiltersExpanded(false)}
+              style={styles.filterFooterButton}
+            >
+              Ver resultados
+            </Button>
+          </View>
+        )}
+        keyboardShouldPersistTaps="handled"
+        maxHeightRatio={0.92}
+        onClose={() => setFiltersExpanded(false)}
+        open={filtersExpanded}
+        reducedMotion={reducedMotion}
+        scrollable
+        surfaceStyle={styles.filterDrawerSurface}
+        title={activeFiltersCount ? `Filtros · ${activeFiltersCount} activos` : "Filtrar comercios"}
+      >
+        <View style={styles.filterSheetContent}>
+          <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
+            Elige una categoría, tienda o disponibilidad para afinar los resultados.
+          </Text>
+
+          <View style={styles.filterGroup}>
+            <Text style={styles.filterGroupTitle} variant="titleSmall">Categoría</Text>
+            <TextInput
+              dense
+              left={<TextInput.Icon icon="magnify" />}
+              mode="outlined"
+              onChangeText={setCategorySearchQuery}
+              placeholder="Buscar categoría"
+              value={categorySearchQuery}
+            />
+            <View style={styles.filterChipRow}>
+              <Chip
+                compact
+                selected={selectedCategory === "all"}
+                onPress={() => setSelectedCategory("all")}
+              >
+                Todas
+              </Chip>
+              <Chip
+                compact
+                selected={selectedCategory === UNCATEGORIZED_COMMERCE_CATEGORY_ID}
+                onPress={() => setSelectedCategory(UNCATEGORIZED_COMMERCE_CATEGORY_ID)}
+              >
+                Sin categoría
+              </Chip>
+            </View>
+            {filteredCategoryRoots.length ? (
+              <View style={styles.categoryTreeList}>
+                {filteredCategoryRoots.map((category) => renderCategoryNode(category))}
+              </View>
+            ) : (
+              <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
+                {categorySearchQuery.trim()
+                  ? "No encontramos categorías con ese nombre."
+                  : "No hay categorías visibles para estos comercios."}
+              </Text>
+            )}
+          </View>
+
+          <Divider />
+
+          <View style={styles.filterGroup}>
+            <View style={styles.filterGroupHeading}>
+              <Text style={styles.filterGroupTitle} variant="titleSmall">Tienda</Text>
+              <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
+                Una selección
+              </Text>
+            </View>
+            <View style={styles.filterChipRow}>
+              <Chip
+                compact
+                selected={selectedStore === "all"}
+                onPress={() => setSelectedStore("all")}
+              >
+                Todas las tiendas
+              </Chip>
+              {catalogStores.map((store) => {
+                const storeId = String(store._id);
+                return (
+                  <Chip
+                    compact
+                    key={storeId}
+                    selected={selectedStore === storeId}
+                    onPress={() => setSelectedStore(storeId)}
+                  >
+                    {store.title || store.name || "Tienda"}
+                  </Chip>
+                );
+              })}
+            </View>
+          </View>
+
+          <Divider />
+
+          <View style={styles.filterGroup}>
+            <Text style={styles.filterGroupTitle} variant="titleSmall">Disponibilidad</Text>
+            <View style={styles.filterChipRow}>
+              {availabilityOptions.map((option) => (
+                <Chip
+                  compact
+                  key={option.value}
+                  selected={availability === option.value}
+                  onPress={() => setAvailability(option.value)}
+                >
+                  {option.label}
+                </Chip>
+              ))}
+            </View>
+          </View>
+
+          <Divider />
+
+          <View style={styles.filterGroup}>
+            <Text style={styles.filterGroupTitle} variant="titleSmall">Moneda</Text>
+            <View style={styles.filterChipRow}>
+              {["all", ...currencyOptions].map((currency) => (
+                <Chip
+                  compact
+                  key={currency}
+                  selected={selectedCurrency === currency}
+                  onPress={() => setSelectedCurrency(currency)}
+                >
+                  {currency === "all" ? "Todas" : currency}
+                </Chip>
+              ))}
+            </View>
+          </View>
+
+          <Divider />
+
+          <View style={styles.filterGroup}>
+            <Text style={styles.filterGroupTitle} variant="titleSmall">Rango de precio</Text>
+            <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
+              {selectedCurrency === "all"
+                ? "Con Todas, el rango numérico se aplica a los precios de cualquier moneda."
+                : `Importes expresados en ${selectedCurrency}.`}
+            </Text>
+            <View style={styles.priceFilterRow}>
+              <TextInput
+                dense
+                keyboardType="decimal-pad"
+                label="Mínimo"
+                mode="outlined"
+                onChangeText={setMinPrice}
+                right={<TextInput.Affix text={selectedCurrency === "all" ? "Todas" : selectedCurrency} />}
+                style={styles.priceFilterInput}
+                value={minPrice}
+              />
+              <TextInput
+                dense
+                keyboardType="decimal-pad"
+                label="Máximo"
+                mode="outlined"
+                onChangeText={setMaxPrice}
+                right={<TextInput.Affix text={selectedCurrency === "all" ? "Todas" : selectedCurrency} />}
+                style={styles.priceFilterInput}
+                value={maxPrice}
+              />
+            </View>
+            {priceRangeError ? (
+              <Text selectable style={{ color: theme.colors.error }} variant="bodySmall">
+                {priceRangeError}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+      </DrawerBottom>
     </Surface>
   );
 };
@@ -1293,13 +1598,113 @@ const styles = StyleSheet.create({
   countChip: {
     borderColor: "#3f51b5",
   },
-  categoryFilters: { gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
-  categoryChip: { marginRight: 8 },
-  advancedFilters: {
-    borderRadius: 16,
+  categoryFilters: {
     gap: 10,
-    marginTop: 8,
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  sectionHeadingRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  quickCategoryChip: {
+    marginRight: 8,
+    maxWidth: 176,
+  },
+  quickCategoryLabel: {
+    maxWidth: 140,
+  },
+  quickAvailabilityRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  availabilityChip: {
+    borderRadius: 999,
+  },
+  filterButtonWrap: {
+    position: "relative",
+  },
+  filtersBadge: {
+    position: "absolute",
+    right: -4,
+    top: -5,
+    zIndex: 1,
+  },
+  activeFiltersWrap: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    justifyContent: "space-between",
+  },
+  activeFiltersRow: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    minWidth: 0,
+  },
+  filterDrawerSurface: {
+    backgroundColor: "transparent",
+  },
+  filterSheetContent: {
+    gap: 16,
+    paddingBottom: 8,
+  },
+  filterGroup: {
+    gap: 9,
+  },
+  filterGroupHeading: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  filterGroupTitle: {
+    fontWeight: "800",
+  },
+  categoryTreeList: {
+    gap: 6,
+  },
+  categoryTreeRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 4,
+  },
+  categoryTreeSelect: {
+    alignItems: "center",
+    borderCurve: "continuous",
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    flex: 1,
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 54,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  categoryTreeRowPressed: {
+    opacity: 0.76,
+  },
+  categoryTreeCopy: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  categoryTreeSelectedText: {
+    fontWeight: "700",
+  },
+  categoryDisclosurePlaceholder: {
+    width: 44,
+  },
+  filterSheetFooter: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  filterFooterButton: {
+    flex: 1,
   },
   catalogFooter: {
     alignItems: "center",
@@ -1331,9 +1736,6 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 8,
     justifyContent: "space-between",
-  },
-  clearFiltersButton: {
-    alignSelf: "flex-end",
   },
   emptyIcon: {
     fontSize: 64,
@@ -1419,9 +1821,11 @@ const styles = StyleSheet.create({
   },
   priceFilterInput: {
     flex: 1,
+    minWidth: 140,
   },
   priceFilterRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
   },
   pedidosBannerContent: {
