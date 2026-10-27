@@ -23,12 +23,12 @@ import {
 } from "../../services/commerceCategories";
 import { buildCommerceProductQuery, COMMERCE_CATALOG_INITIAL_LIMIT } from "../../services/commerceProductCatalog";
 import {
-  getCachedDeviceLocationSync,
   getCurrentDeviceLocation,
   getDeviceLocationPermissionState,
   readCachedDeviceLocation,
   requestDeviceLocationPermission,
 } from "../../services/location/deviceLocationCache.native";
+import { confirmCommerceLocationDisclosure } from "../../services/location/commerceLocationDisclosure.native";
 import {
   CategoriasComercioCollection,
   ProductosComercioCollection,
@@ -110,13 +110,13 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
     delay: deferDelay,
     keepReadyOnBlur: true,
   });
-  const initialCachedLocationRef = useRef(getCachedDeviceLocationSync());
   const radioKmRef = useRef(5);
   const locationPermissionRequestIdRef = useRef(0);
+  const locationRequestInProgressRef = useRef(false);
   const lastSearchSignatureRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [userLocation, setUserLocation] = useState(initialCachedLocationRef.current);
+  const [userLocation, setUserLocation] = useState(null);
   const [locationError, setLocationError] = useState(null);
   const [locationPermissionState, setLocationPermissionState] = useState(null);
   const [locationPermissionLoading, setLocationPermissionLoading] = useState(false);
@@ -270,9 +270,20 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
   );
 
   const obtenerUbicacion = React.useCallback(async () => {
+    if (locationRequestInProgressRef.current) {
+      return;
+    }
+
+    locationRequestInProgressRef.current = true;
+    setLocationPermissionLoading(true);
     let cachedLocation = null;
 
     try {
+      const disclosureAccepted = await confirmCommerceLocationDisclosure();
+      if (!disclosureAccepted) {
+        return;
+      }
+
       cachedLocation = await readCachedDeviceLocation();
 
       const permission = await requestDeviceLocationPermission();
@@ -331,6 +342,9 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
       }
 
       setLocationError(error?.message || "No pudimos obtener tu ubicación.");
+    } finally {
+      locationRequestInProgressRef.current = false;
+      setLocationPermissionLoading(false);
     }
   }, [aplicarUbicacion]);
 
@@ -340,14 +354,6 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
     }
 
     refreshLocationPermissionState();
-
-    if (initialCachedLocationRef.current) {
-      aplicarUbicacion(initialCachedLocationRef.current, {
-        clearError: false,
-        updateBackend: false,
-      });
-    }
-
     obtenerUbicacion();
   }, [aplicarUbicacion, dataReady, obtenerUbicacion, refreshLocationPermissionState]);
 
@@ -563,7 +569,7 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
   const showLocationAccessCard =
     locationUnavailable ||
     Boolean(locationError) ||
-    (!userLocation && locationPermissionState?.granted === false);
+    (!userLocation && Boolean(locationPermissionState));
   const shouldShowLocationEmptyState =
     showLocationAccessCard && !isLoading && visibleTiendas.length === 0;
   const openCatalog = React.useCallback((routeParams = {}) => {

@@ -54,12 +54,12 @@ import {
   isValidCommercePriceRange,
 } from "../../services/commerceProductCatalog";
 import {
-    getCachedDeviceLocationSync,
     getCurrentDeviceLocation,
     getDeviceLocationPermissionState,
     readCachedDeviceLocation,
     requestDeviceLocationPermission,
 } from "../../services/location/deviceLocationCache.native";
+import { confirmCommerceLocationDisclosure } from "../../services/location/commerceLocationDisclosure.native";
 import { clearMCPConfiguration } from "../../services/mcp/mcpClient";
 import WizardConStepper from "../carritoCompras/WizardConStepper.native";
 import DrawerBottom from "../drawer/DrawerBottom.native";
@@ -163,7 +163,6 @@ const ProductosScreenNative = () => {
   const canNavigateBack = useCanNavigateBack();
   const safeBack = useSafeBack("/(normal)/Main");
   const headerInset = useAppHeaderContentInset();
-  const initialCachedLocationRef = React.useRef(getCachedDeviceLocationSync());
   const [searchQuery, setSearchQuery] = useState(routeSearch || "");
   const [debouncedSearch, setDebouncedSearch] = useState(routeSearch || "");
   const [availability, setAvailability] = useState("all");
@@ -178,9 +177,7 @@ const ProductosScreenNative = () => {
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showSearchbar, setShowSearchbar] = useState(Boolean(routeSearch));
-  const [userLocation, setUserLocation] = useState(
-    initialCachedLocationRef.current,
-  );
+  const [userLocation, setUserLocation] = useState(null);
   const [locationError, setLocationError] = useState(null);
   const [locationPermissionState, setLocationPermissionState] = useState(null);
   const [locationPermissionLoading, setLocationPermissionLoading] =
@@ -192,6 +189,7 @@ const ProductosScreenNative = () => {
   const [profileMenuVisible, setProfileMenuVisible] = useState(false);
   const radioKmRef = React.useRef(5);
   const locationPermissionRequestIdRef = React.useRef(0);
+  const locationRequestInProgressRef = React.useRef(false);
   const lastSearchSignatureRef = React.useRef(null);
   const dataReady = useDeferredScreenData();
   const { categories, categoriesReady, preferences } = Meteor.useTracker(() => {
@@ -482,9 +480,20 @@ const ProductosScreenNative = () => {
   );
 
   const obtenerUbicacion = React.useCallback(async () => {
+    if (locationRequestInProgressRef.current) {
+      return;
+    }
+
+    locationRequestInProgressRef.current = true;
+    setLocationPermissionLoading(true);
     let cachedLocation = null;
 
     try {
+      const disclosureAccepted = await confirmCommerceLocationDisclosure();
+      if (!disclosureAccepted) {
+        return;
+      }
+
       cachedLocation = await readCachedDeviceLocation();
 
       const permission = await requestDeviceLocationPermission();
@@ -595,19 +604,14 @@ const ProductosScreenNative = () => {
         `${fallbackMessage}. Las tiendas se mostrarán sin ordenar por distancia.`,
         [{ text: "OK" }],
       );
+    } finally {
+      locationRequestInProgressRef.current = false;
+      setLocationPermissionLoading(false);
     }
   }, [aplicarUbicacion]);
 
   React.useEffect(() => {
     refreshLocationPermissionState();
-
-    if (initialCachedLocationRef.current) {
-      aplicarUbicacion(initialCachedLocationRef.current, {
-        clearError: false,
-        updateBackend: false,
-      });
-    }
-
     obtenerUbicacion();
   }, [aplicarUbicacion, obtenerUbicacion, refreshLocationPermissionState]);
 
@@ -794,7 +798,7 @@ const ProductosScreenNative = () => {
   const showLocationAccessCard =
     locationUnavailable ||
     Boolean(locationError) ||
-    (!userLocation && locationPermissionState?.granted === false);
+    (!userLocation && Boolean(locationPermissionState));
 
   const tiendasFiltradas = useMemo(() => {
     const selected = tiendasDisponibles.filter((store) =>

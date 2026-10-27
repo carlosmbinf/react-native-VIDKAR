@@ -101,6 +101,32 @@ test("el inicio limita productos por tienda y el catálogo pagina las suscripcio
   assert.match(catalog, /limit: catalogQuery\.options\.limit/);
 });
 
+test("Comercios obtiene consentimiento antes de leer o solicitar ubicación", () => {
+  const disclosure = readFileSync(new URL("../services/location/commerceLocationDisclosure.native.js", import.meta.url), "utf8");
+  const screens = [
+    readFileSync(new URL("../components/productos/ComercioHomeSection.native.jsx", import.meta.url), "utf8"),
+    readFileSync(new URL("../components/productos/ProductosScreen.native.jsx", import.meta.url), "utf8"),
+  ];
+
+  assert.match(disclosure, /ubicación precisa/);
+  assert.match(disclosure, /servidores de VIDKAR/);
+  assert.match(disclosure, /funciones de entrega/);
+  assert.match(disclosure, /segundo plano/);
+  assert.match(disclosure, /SecureStore\.getItemAsync/);
+  assert.match(disclosure, /SecureStore\.setItemAsync/);
+
+  screens.forEach((screen) => {
+    const disclosureIndex = screen.indexOf("await confirmCommerceLocationDisclosure()");
+    const cachedLocationIndex = screen.indexOf("await readCachedDeviceLocation()", disclosureIndex);
+    const permissionRequestIndex = screen.indexOf("await requestDeviceLocationPermission()", disclosureIndex);
+
+    assert.ok(disclosureIndex >= 0, "La pantalla debe solicitar consentimiento explícito");
+    assert.ok(cachedLocationIndex > disclosureIndex, "No se debe usar la ubicación en caché antes del consentimiento");
+    assert.ok(permissionRequestIndex > cachedLocationIndex, "El permiso del sistema debe solicitarse después del consentimiento");
+    assert.doesNotMatch(screen, /initialCachedLocationRef|getCachedDeviceLocationSync/);
+  });
+});
+
 test("Comercios reutiliza las selecciones de Inicio y muestra carruseles completos por tienda", () => {
   const catalog = readFileSync(new URL("../components/productos/ProductosScreen.native.jsx", import.meta.url), "utf8");
   const storeCard = readFileSync(new URL("../components/productos/TiendaCard.native.jsx", import.meta.url), "utf8");

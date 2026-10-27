@@ -106,7 +106,7 @@
         {
           "locationAlwaysAndWhenInUsePermission": "VIDKAR necesita acceso permanente a tu ubicación para compartir la posición del cadete y coordinar entregas incluso cuando la app esté en segundo plano.",
           "locationAlwaysPermission": "VIDKAR necesita acceso permanente a tu ubicación para mantener activo el seguimiento del cadete durante las entregas.",
-          "locationWhenInUsePermission": "VIDKAR necesita acceso a tu ubicación para seleccionar puntos de entrega y activar el modo cadete.",
+          "locationWhenInUsePermission": "VIDKAR usa tu ubicación precisa para mostrar comercios cercanos, seleccionar puntos de entrega y activar el modo cadete.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
