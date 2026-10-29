@@ -32,6 +32,7 @@ const DEFAULT_REGION = {
 };
 
 const MapLocationPicker = ({
+  disabled = false,
   currentLocation,
   nombreCalle,
   numeroCasa,
@@ -41,6 +42,13 @@ const MapLocationPicker = ({
 }) => {
   const immediateCachedLocation = getCachedDeviceLocationSync();
   const mapRef = useRef(null);
+  const activeRef = useRef(true);
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
+  useEffect(() => {
+    activeRef.current = true;
+    return () => { activeRef.current = false; };
+  }, []);
   const sessionTokenRef = useRef(null);
   const selectedAddressRef = useRef("");
   const [loading, setLoading] = useState(false);
@@ -111,6 +119,7 @@ const MapLocationPicker = ({
           sessionTokenRef.current,
           controller.signal,
         );
+        if (!activeRef.current || controller.signal.aborted) return;
         setSuggestions(results);
       } catch (_error) {
         if (!controller.signal.aborted) {
@@ -143,7 +152,7 @@ const MapLocationPicker = ({
   };
 
   const handleAddressSelect = async (suggestion) => {
-    if (!sessionTokenRef.current || selectingAddress) return;
+    if (!sessionTokenRef.current || selectingAddress || disabled) return;
 
     setSelectingAddress(true);
     setAddressError("");
@@ -152,6 +161,7 @@ const MapLocationPicker = ({
         suggestion.placeId,
         sessionTokenRef.current,
       );
+      if (!activeRef.current || disabledRef.current) return;
       const address = selected.address || suggestion.text;
       selectedAddressRef.current = address;
       sessionTokenRef.current = null;
@@ -170,18 +180,20 @@ const MapLocationPicker = ({
         350,
       );
     } catch (_error) {
-      setAddressError(
+      if (activeRef.current && !disabledRef.current) setAddressError(
         "No se pudo ubicar esa dirección. Prueba otra sugerencia o marca el punto en el mapa.",
       );
     } finally {
-      setSelectingAddress(false);
+      if (activeRef.current) setSelectingAddress(false);
     }
   };
 
   const handleUseCurrentLocation = async () => {
+    if (disabled || loading) return;
     setLoading(true);
     try {
       const permission = await requestDeviceLocationPermission();
+      if (!activeRef.current || disabledRef.current) return;
       if (permission.status !== "granted") {
         alert("Debe conceder permiso de ubicación para usar esta opción.");
         return;
@@ -196,6 +208,7 @@ const MapLocationPicker = ({
       const next = await getCurrentDeviceLocation({
         accuracy: Location.Accuracy.High,
       });
+      if (!activeRef.current || disabledRef.current) return;
 
       setSelectedLocation(next);
       onLocationSelect?.(next);
@@ -207,15 +220,15 @@ const MapLocationPicker = ({
         },
         350,
       );
-    } catch (error) {
-      console.error("No se pudo obtener la ubicación:", error);
-      alert("No se pudo obtener la ubicación actual.");
+    } catch (_error) {
+      if (activeRef.current && !disabledRef.current) alert("No se pudo obtener la ubicación actual.");
     } finally {
-      setLoading(false);
+      if (activeRef.current) setLoading(false);
     }
   };
 
   const handleMapPress = (event) => {
+    if (disabled) return;
     const next = {
       latitude: Number(event.nativeEvent.coordinate.latitude),
       longitude: Number(event.nativeEvent.coordinate.longitude),
@@ -239,6 +252,8 @@ const MapLocationPicker = ({
         <View style={styles.addressSearch}>
           <TextInput
             label="Buscar dirección"
+            accessibilityLabel="Buscar dirección"
+            disabled={disabled}
             mode="outlined"
             value={addressQuery}
             onChangeText={handleAddressChange}
@@ -263,6 +278,7 @@ const MapLocationPicker = ({
                 <Pressable
                   accessibilityRole="button"
                   key={suggestion.placeId}
+                  disabled={disabled}
                   onPress={() => handleAddressSelect(suggestion)}
                   style={({ pressed }) => [
                     styles.suggestionItem,
@@ -297,6 +313,9 @@ const MapLocationPicker = ({
         <View style={styles.addressForm}>
           <TextInput
             label="Nombre de la calle"
+            accessibilityLabel="Nombre de la calle"
+            disabled={disabled}
+            maxLength={200}
             mode="outlined"
             value={nombreCalle || ""}
             onChangeText={(value) => {
@@ -313,7 +332,10 @@ const MapLocationPicker = ({
             dense
           />
           <TextInput
-            label="Número de la casa"
+            label="Número / apartamento"
+            accessibilityLabel="Número / apartamento"
+            disabled={disabled}
+            maxLength={80}
             mode="outlined"
             value={numeroCasa || ""}
             onChangeText={(value) => {
@@ -358,7 +380,7 @@ const MapLocationPicker = ({
           <Button
             mode="outlined"
             onPress={handleUseCurrentLocation}
-            disabled={loading}
+            disabled={loading || disabled}
             icon="crosshairs-gps"
           >
             Usar mi ubicación

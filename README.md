@@ -12,6 +12,16 @@ Las variables `EXPO_PUBLIC_*` son públicas y se incluyen en el bundle: aquí so
 
 ## Get started
 
+### Direcciones guardadas en el carrito
+
+El paso Ubicación de las compras COMERCIO comparte la libreta privada de direcciones de la cuenta con `comercio-web` y el MCP. Permite elegir una guardada o crear una con el buscador, mapa o ubicación actual, guardarla opcionalmente con un nombre, marcarla como predeterminada y eliminarla con confirmación. El carrito conserva su entrega actual al abrirse; si no tiene una configurada, preselecciona la predeterminada.
+
+Se reutilizan los métodos Meteor `comercio.deliveryAddresses.list`, `.save`, `.use`, `.setDefault` y `.remove`; requieren el backend con esa funcionalidad. El alta de una ubicación de un solo uso conserva `carrito.actualizarUbicacion`. La dirección confirmada se aplica al cálculo de envío y a los datos del pedido mientras llega la actualización reactiva del carrito. Los pedidos de otros servicios conservan su recorrido sin ubicación.
+
+Validación enfocada: `node --experimental-default-type=module --test tests/commerceDeliveryAddresses.test.js`.
+
+### Arranque local
+
 1. Install dependencies
 
    ```bash

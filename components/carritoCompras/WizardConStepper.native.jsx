@@ -1,6 +1,6 @@
 import MeteorBase from "@meteorrn/core";
 import * as WebBrowser from "expo-web-browser";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Linking, ScrollView, StyleSheet, View } from "react-native";
 import { Dropdown } from "react-native-element-dropdown";
 import {
@@ -10,6 +10,8 @@ import {
     Card,
     Chip,
     Divider,
+    HelperText,
+    Icon,
     IconButton,
     Modal,
     Portal,
@@ -24,6 +26,9 @@ import {
 } from "../collections/collections";
 import ListaPedidosRemesa from "./ListaPedidosRemesa.native";
 import MapLocationPicker from "./MapLocationPicker.native";
+import DeliveryAddressSection from './DeliveryAddressSection.native';
+import { deliveryAddressClient, useDeliveryAddresses } from '../../hooks/useDeliveryAddresses';
+import { applyDeliverySnapshot, commerceCartIds, initialDeliverySelection, normalizeDeliveryLocation } from '../../services/commerceDeliveryAddresses';
 
 import { BlurView } from "expo-blur";
 
@@ -45,19 +50,6 @@ const stepLabelList = [
   "Términos y Condiciones",
   "Pago",
 ];
-
-const normalizeDeliveryLocation = (location) => {
-  if (!location) return null;
-
-  const latitude = Number(location.latitude);
-  const longitude = Number(location.longitude);
-
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return null;
-  }
-
-  return { latitude, longitude };
-};
 
 const terminosYCondiciones = {
   efectivo: {
@@ -135,7 +127,7 @@ const CART_BADGE_FIELDS = {
 const WizardConStepper = ({ initialLocation = null }) => {
   const theme = useTheme();
   const isDarkMode = theme.dark;
-  const userId = Meteor.userId();
+  const userId = Meteor.useTracker(() => Meteor.userId(), []);
 
   const wizardPalette = useMemo(
     () => ({
@@ -223,6 +215,17 @@ const WizardConStepper = ({ initialLocation = null }) => {
   );
   const [nombreCalle, setNombreCalle] = useState("");
   const [numeroCasa, setNumeroCasa] = useState("");
+  const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [saveAddress, setSaveAddress] = useState(false);
+  const [addressLabel, setAddressLabel] = useState('');
+  const [makeAddressDefault, setMakeAddressDefault] = useState(false);
+  const [savingLocation, setSavingLocation] = useState(false);
+  const [addressBusy, setAddressBusy] = useState(false);
+  const [deliveryError, setDeliveryError] = useState('');
+  const [appliedDelivery, setAppliedDelivery] = useState(null);
+  const [locationDraftKey, setLocationDraftKey] = useState(0);
+  const deliveryInitializedRef = useRef(false);
+  const savingLocationRef = useRef(false);
   const [metodoPago, setMetodoPago] = useState(null);
   const [paisPago, setPaisPago] = useState(null);
   const [paisesPagoData, setPaisesPagoData] = useState([]);
@@ -235,6 +238,9 @@ const WizardConStepper = ({ initialLocation = null }) => {
   const [totalAPagar, setTotalAPagar] = useState(0);
   const [resumenMercadoPagoComercio, setResumenMercadoPagoComercio] = useState(null);
   const [visible, setVisible] = useState(false);
+  const addressContextRef = useRef({ userId, visible });
+  addressContextRef.current = { userId, visible };
+  useEffect(() => () => { addressContextRef.current = { userId: null, visible: false }; }, []);
 
   const { compra } = Meteor.useTracker(() => {
     if (!visible || !userId) {
@@ -257,7 +263,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
     return { compra };
   }, [userId, visible]);
 
-  const { cargandoCarrito, pedidosRemesa } = Meteor.useTracker(() => {
+  const { cargandoCarrito, pedidosRemesa: cartItems } = Meteor.useTracker(() => {
     if (!userId) {
       return { cargandoCarrito: false, pedidosRemesa: [] };
     }
@@ -282,6 +288,8 @@ const WizardConStepper = ({ initialLocation = null }) => {
     };
   }, [userId, visible]);
 
+  const pedidosRemesa = useMemo(() => applyDeliverySnapshot(cartItems, appliedDelivery, userId), [cartItems, appliedDelivery, userId]);
+
   const permitirPagoEfectivoCUP = Boolean(
     Meteor.user()?.permitirPagoEfectivoCUP,
   );
@@ -290,6 +298,35 @@ const WizardConStepper = ({ initialLocation = null }) => {
     () => pedidosRemesa?.some((item) => item.type === "COMERCIO"),
     [pedidosRemesa],
   );
+  const addressBook = useDeliveryAddresses(userId, visible && tieneComercio);
+
+  useEffect(() => {
+    if (!visible || !userId || !tieneComercio || cargandoCarrito || addressBook.loading || deliveryInitializedRef.current) return;
+    deliveryInitializedRef.current = true;
+    const selection = initialDeliverySelection(cartItems, addressBook.addresses, initialLocation || getCachedDeviceLocationSync());
+    setLocation(selection.point);
+    setNombreCalle(selection.street);
+    setNumeroCasa(selection.houseNumber);
+    setSelectedAddressId(selection.addressId);
+  }, [visible, userId, tieneComercio, cargandoCarrito, addressBook.loading, addressBook.addresses, cartItems, initialLocation]);
+
+  useEffect(() => {
+    setVisible(false);
+    setActiveStep(STEP_SUMMARY);
+    setLocation(null);
+    setNombreCalle('');
+    setNumeroCasa('');
+    setSelectedAddressId('');
+    setSaveAddress(false);
+    setAddressLabel('');
+    setMakeAddressDefault(false);
+    setSavingLocation(false);
+    setAddressBusy(false);
+    setDeliveryError('');
+    setAppliedDelivery(null);
+    deliveryInitializedRef.current = false;
+    savingLocationRef.current = false;
+  }, [userId]);
 
   const tieneProxyVPN = useMemo(
     () =>
@@ -398,6 +435,11 @@ const WizardConStepper = ({ initialLocation = null }) => {
       setComisionesComercio(null);
       setErrorComisiones(null);
       setLocation(null);
+      setNombreCalle('');
+      setNumeroCasa('');
+      setSelectedAddressId('');
+      setAppliedDelivery(null);
+      deliveryInitializedRef.current = false;
       setMetodoPago(null);
       setPaisPago(null);
     }
@@ -424,16 +466,6 @@ const WizardConStepper = ({ initialLocation = null }) => {
       setPreparingCheckout(false);
     }
   }, [activeStep, compra, esperandoOrdenBase, metodoPago]);
-
-  useEffect(() => {
-    if (!initialLocation) {
-      return;
-    }
-
-    if (!visible || !location) {
-      setLocation(initialLocation);
-    }
-  }, [initialLocation, location, visible]);
 
   useEffect(() => {
     let cancelled = false;
@@ -564,22 +596,25 @@ const WizardConStepper = ({ initialLocation = null }) => {
       (item) => item.type === "COMERCIO",
     );
     const todosConCoordenadas = itemsComercio.every(
-      (item) => item?.coordenadas?.latitude && item?.coordenadas?.longitude,
+      (item) => normalizeDeliveryLocation(item.coordenadas),
     );
 
     if (!todosConCoordenadas) {
       setComisionesComercio(null);
+      setCargandoComisiones(false);
       return;
     }
 
     setCargandoComisiones(true);
     setErrorComisiones(null);
+    let active = true;
 
     Meteor.call(
       "comercio.calcularCostosEntrega",
       pedidosRemesa,
       monedaFinalUI,
       (error, costos) => {
+        if (!active) return;
         setCargandoComisiones(false);
         if (error) {
           setComisionesComercio(null);
@@ -594,6 +629,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
         setComisionesComercio(costos || null);
       },
     );
+    return () => { active = false; };
   }, [
     comercioCoordsSignature,
     monedaFinalUI,
@@ -795,7 +831,76 @@ const WizardConStepper = ({ initialLocation = null }) => {
     visible,
   ]);
 
-  const hideModal = () => setVisible(false);
+  const addressContextActive = (ownerId) => addressContextRef.current.visible && addressContextRef.current.userId === ownerId;
+  const showModal = () => {
+    setActiveStep(STEP_SUMMARY);
+    setLocation(null);
+    setNombreCalle('');
+    setNumeroCasa('');
+    setSelectedAddressId('');
+    setSaveAddress(false);
+    setAddressLabel('');
+    setMakeAddressDefault(false);
+    setDeliveryError('');
+    setAppliedDelivery(null);
+    deliveryInitializedRef.current = false;
+    setVisible(true);
+  };
+  const hideModal = () => {
+    if (savingLocationRef.current || addressBusy) return;
+    setVisible(false);
+  };
+  const selectDeliveryAddress = (address) => {
+    deliveryInitializedRef.current = true;
+    setSelectedAddressId(address.id);
+    setLocation(normalizeDeliveryLocation(address));
+    setNombreCalle(address.street);
+    setNumeroCasa(address.houseNumber);
+    setSaveAddress(false);
+    setDeliveryError('');
+  };
+  const newDeliveryAddress = () => {
+    deliveryInitializedRef.current = true;
+    setSelectedAddressId('');
+    setLocation(null);
+    setNombreCalle('');
+    setNumeroCasa('');
+    setSaveAddress(false);
+    setAddressLabel('');
+    setMakeAddressDefault(false);
+    setDeliveryError('');
+    setLocationDraftKey((value) => value + 1);
+  };
+  const setDefaultDeliveryAddress = async (address) => {
+    const ownerId = userId;
+    setAddressBusy(true);
+    setDeliveryError('');
+    try {
+      await deliveryAddressClient.setDefault(ownerId, address.id);
+      if (addressContextActive(ownerId)) addressBook.refresh();
+    } catch (error) {
+      if (addressContextActive(ownerId)) setDeliveryError(error?.reason || error?.message || 'No se pudo cambiar la dirección predeterminada.');
+    } finally { if (addressContextActive(ownerId)) setAddressBusy(false); }
+  };
+  const removeDeliveryAddress = (address) => {
+    const ownerId = userId;
+    Alert.alert('Eliminar dirección', `¿Quieres eliminar “${address.label}” de tus direcciones guardadas?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: async () => {
+        if (!addressContextActive(ownerId)) return;
+        setAddressBusy(true);
+        setDeliveryError('');
+        try {
+          await deliveryAddressClient.remove(ownerId, address.id);
+          if (!addressContextActive(ownerId)) return;
+          if (selectedAddressId === address.id) newDeliveryAddress();
+          addressBook.refresh();
+        } catch (error) {
+          if (addressContextActive(ownerId)) setDeliveryError(error?.reason || error?.message || 'No se pudo eliminar la dirección.');
+        } finally { if (addressContextActive(ownerId)) setAddressBusy(false); }
+      } },
+    ]);
+  };
 
   const nextStep = async () => {
     if (activeStep === STEP_SUMMARY) {
@@ -821,6 +926,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
     }
 
     if (activeStep === STEP_LOCATION) {
+      if (savingLocationRef.current || addressBusy) return;
       const deliveryLocation = normalizeDeliveryLocation(location);
 
       if (tieneComercio && !deliveryLocation) {
@@ -834,35 +940,58 @@ const WizardConStepper = ({ initialLocation = null }) => {
       const normalizedNombreCalle = nombreCalle.trim();
       const normalizedNumeroCasa = numeroCasa.trim();
 
-      if (tieneComercio && (!normalizedNombreCalle || !normalizedNumeroCasa)) {
+      if (tieneComercio && !normalizedNombreCalle) {
         Alert.alert(
           "Dirección requerida",
-          "Ingresa el nombre de la calle y el número de la casa para completar la entrega.",
+          "Ingresa la calle o dirección que corresponde al punto de entrega.",
         );
         return;
       }
 
       if (tieneComercio) {
-        Meteor.call(
-          "carrito.actualizarUbicacion",
-          userId,
-          {
-            latitude: deliveryLocation.latitude,
-            longitude: deliveryLocation.longitude,
-            nombreCalle: normalizedNombreCalle,
-            numeroCasa: normalizedNumeroCasa,
-          },
-          (error) => {
-            if (error) {
-              Alert.alert(
-                "Error",
-                error.reason || "No se pudo actualizar la ubicación.",
-              );
-              return;
-            }
-            setActiveStep(STEP_TERMS);
-          },
-        );
+        if (!selectedAddressId && saveAddress && !addressLabel.trim()) {
+          setDeliveryError('Ponle un nombre a la dirección, por ejemplo Casa o Trabajo.');
+          return;
+        }
+        const ownerId = userId;
+        savingLocationRef.current = true;
+        setSavingLocation(true);
+        setDeliveryError('');
+        try {
+          let addressId = selectedAddressId;
+          if (!addressId && saveAddress) {
+            const saved = await deliveryAddressClient.save(ownerId, {
+              ...deliveryLocation, street: normalizedNombreCalle, houseNumber: normalizedNumeroCasa,
+              label: addressLabel.trim(), isDefault: makeAddressDefault,
+            });
+            if (!addressContextActive(ownerId)) return;
+            addressId = saved.address.id;
+            setSelectedAddressId(addressId);
+            addressBook.refresh();
+          }
+          let confirmed;
+          if (addressId) {
+            const applied = await deliveryAddressClient.use(ownerId, addressId);
+            confirmed = { point: normalizeDeliveryLocation(applied.address), street: applied.address.street, houseNumber: applied.address.houseNumber };
+          } else {
+            confirmed = await deliveryAddressClient.applyNew(ownerId, {
+              ...deliveryLocation, street: normalizedNombreCalle, houseNumber: normalizedNumeroCasa,
+            });
+          }
+          if (!addressContextActive(ownerId)) return;
+          setLocation(confirmed.point);
+          setNombreCalle(confirmed.street);
+          setNumeroCasa(confirmed.houseNumber);
+          setAppliedDelivery({ ...confirmed, userId: ownerId, cartIds: commerceCartIds(cartItems) });
+          setActiveStep(STEP_TERMS);
+        } catch (error) {
+          if (addressContextActive(ownerId)) setDeliveryError(error?.reason || error?.message || 'No se pudo aplicar la dirección de entrega.');
+        } finally {
+          if (addressContextActive(ownerId)) {
+            savingLocationRef.current = false;
+            setSavingLocation(false);
+          }
+        }
         return;
       }
 
@@ -871,6 +1000,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
     }
 
     if (activeStep === STEP_TERMS) {
+      if (tieneComercio && bloquearPagoPorComisiones) return;
       setActiveStep(STEP_PAY);
     }
   };
@@ -1852,19 +1982,56 @@ const WizardConStepper = ({ initialLocation = null }) => {
           <Text style={[styles.locationTitle, { color: wizardPalette.contentText }]}> 
             Selecciona dónde recibirás tu pedido
           </Text>
-          <MapLocationPicker
-            currentLocation={location}
-            nombreCalle={nombreCalle}
-            numeroCasa={numeroCasa}
-            onLocationSelect={setLocation}
-            onNombreCalleChange={setNombreCalle}
-            onNumeroCasaChange={setNumeroCasa}
-          />
+          {deliveryError ? <HelperText accessibilityLiveRegion="polite" type="error" visible>{deliveryError}</HelperText> : null}
+          <DeliveryAddressSection
+            addresses={addressBook.addresses}
+            addressLabel={addressLabel}
+            busy={savingLocation || addressBusy}
+            error={addressBook.error}
+            loading={addressBook.loading}
+            makeDefault={makeAddressDefault}
+            onDefault={setDefaultDeliveryAddress}
+            onLabelChange={setAddressLabel}
+            onMakeDefaultChange={setMakeAddressDefault}
+            onNew={newDeliveryAddress}
+            onRemove={removeDeliveryAddress}
+            onRetry={addressBook.refresh}
+            onSaveChange={setSaveAddress}
+            onSelect={selectDeliveryAddress}
+            saveAddress={saveAddress}
+            selectedId={selectedAddressId}
+          >
+            {selectedAddressId ? (
+              <Card mode="outlined">
+                <Card.Title title="Entregar en esta dirección" left={() => <Icon color={theme.colors.primary} size={24} source="map-marker-check-outline" />} />
+                <Card.Content>
+                  <Text selectable variant="titleSmall">{nombreCalle}</Text>
+                  <Text selectable>{numeroCasa || 'Sin número indicado'} · Punto de entrega guardado</Text>
+                </Card.Content>
+              </Card>
+            ) : (
+              <View pointerEvents={savingLocation || addressBusy ? 'none' : 'auto'}>
+                <MapLocationPicker
+                  key={locationDraftKey}
+                  disabled={savingLocation || addressBusy}
+                  currentLocation={location}
+                  nombreCalle={nombreCalle}
+                  numeroCasa={numeroCasa}
+                  onLocationSelect={setLocation}
+                  onNombreCalleChange={setNombreCalle}
+                  onNumeroCasaChange={setNumeroCasa}
+                />
+              </View>
+            )}
+          </DeliveryAddressSection>
         </ScrollView>
       );
     }
     if (activeStep === STEP_TERMS) {
-      return renderTerms();
+      return <View style={{ flex: 1 }}>
+        {renderTerms()}
+        {tieneComercio && errorComisiones ? <HelperText type="error" visible>No se pudo calcular el envío. Vuelve a Ubicación e inténtalo de nuevo.</HelperText> : null}
+      </View>;
     }
     return (
       <ScrollView
@@ -1934,7 +2101,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
         <IconButton
           icon="cart"
           iconColor="#ffffff"
-          onPress={() => setVisible(true)}
+          onPress={showModal}
           size={24}
         />
         {pedidosRemesa != null ? (
@@ -1971,6 +2138,8 @@ const WizardConStepper = ({ initialLocation = null }) => {
                 <Text style={[styles.dialogTitleText, { color: wizardPalette.surfaceText }]}>Carrito de compras:</Text>
                 <IconButton
                   icon="close"
+                  accessibilityLabel="Cerrar carrito"
+                  disabled={savingLocation || addressBusy}
                   onPress={hideModal}
                   iconColor={wizardPalette.surfaceText}
                 />
@@ -1983,7 +2152,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
                   buttonColor="#4a4a4a"
                   mode="contained"
                   onPress={previousStep}
-                  disabled={activeStep === STEP_SUMMARY}
+                  disabled={activeStep === STEP_SUMMARY || savingLocation || addressBusy}
                 >
                   Atras
                 </Button>
@@ -1991,9 +2160,10 @@ const WizardConStepper = ({ initialLocation = null }) => {
                   <Button
                     mode="contained"
                     onPress={nextStep}
-                    disabled={cargandoCarrito || pedidosRemesa.length === 0}
+                    loading={savingLocation || (activeStep === STEP_TERMS && cargandoComisiones)}
+                    disabled={cargandoCarrito || pedidosRemesa.length === 0 || savingLocation || addressBusy || (activeStep === STEP_TERMS && bloquearPagoPorComisiones)}
                   >
-                    {activeStep === STEP_TERMS ? "Aceptar" : "Siguiente"}
+                    {savingLocation ? 'Guardando entrega…' : activeStep === STEP_TERMS ? "Aceptar" : "Siguiente"}
                   </Button>
                 ) : (
                   <Button
