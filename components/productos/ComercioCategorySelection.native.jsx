@@ -19,6 +19,7 @@ const Meteor =
   );
 
 const PRODUCT_FIELDS = {
+  "mercadoLibre.status": 1,
   _id: 1,
   count: 1,
   createdAt: 1,
@@ -82,6 +83,7 @@ const ComercioCategorySelectionNative = ({
     const productIds = Array.isArray(selection?.productIds) ? selection.productIds : [];
     const products = productIds.length
       ? ProductosComercioCollection.find({
+          "mercadoLibre.status": { $ne: "paused" },
           _id: { $in: productIds },
           idTienda: { $in: selectedStoreIds },
         }, { fields: PRODUCT_FIELDS }).fetch()

@@ -87,6 +87,7 @@ const Meteor =
   );
 
 const PRODUCTOS_COMERCIO_FIELDS = {
+  "mercadoLibre.status": 1,
   _id: 1,
   comentario: 1,
   count: 1,

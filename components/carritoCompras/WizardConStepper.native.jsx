@@ -233,6 +233,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
   const [subtotalProductosConvertido, setSubtotalProductosConvertido] =
     useState(0);
   const [totalAPagar, setTotalAPagar] = useState(0);
+  const [resumenMercadoPagoComercio, setResumenMercadoPagoComercio] = useState(null);
   const [visible, setVisible] = useState(false);
 
   const { compra } = Meteor.useTracker(() => {
@@ -354,6 +355,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
 
   const totalComisionesUI = useMemo(() => {
     if (!tieneComercio || !comisionesComercio) return 0;
+    if (metodoPago === 'mercadopago' && resumenMercadoPagoComercio) return resumenMercadoPagoComercio.customerCommerce;
 
     const envio = Number(comisionesComercio?.costoTotalEntrega) || 0;
     const adicionales =
@@ -367,7 +369,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
         : 0;
 
     return envio + adicionales;
-  }, [comisionesComercio, tieneComercio]);
+  }, [comisionesComercio, tieneComercio, metodoPago, resumenMercadoPagoComercio]);
 
   const totalResumenConvertido = useMemo(
     () =>
@@ -509,7 +511,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
 
         const comisionesRaw = Number(totalComisionesUI) || 0;
         const monedaComisiones = String(
-          comisionesComercio?.moneda || monedaFinal,
+          (metodoPago === 'mercadopago' && resumenMercadoPagoComercio ? monedaFinal : comisionesComercio?.moneda) || monedaFinal,
         )
           .trim()
           .toUpperCase();
@@ -537,6 +539,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
     };
   }, [
     comisionesComercio?.moneda,
+    resumenMercadoPagoComercio,
     metodoPago,
     monedaFinalUI,
     pedidosRemesa,
@@ -670,8 +673,11 @@ const WizardConStepper = ({ initialLocation = null }) => {
     }
 
     setCargadoPago(false);
+    let active = true;
+    setResumenMercadoPagoComercio(null);
 
     const callback = (err, res) => {
+      if (!active) return;
       if (err) {
         console.error("Error al calcular total a pagar:", err);
         setCargadoPago(false);
@@ -689,18 +695,23 @@ const WizardConStepper = ({ initialLocation = null }) => {
         monedaFinalUI,
         callback,
       );
-      return;
+      return () => { active = false; };
     }
 
     if (metodoPago === "mercadopago") {
       Meteor.call(
-        "mercadopago.totalAPagar",
+        "mercadopago.resumenComercio",
         pedidosRemesa,
-        comisionesComercio,
         monedaFinalUI,
-        callback,
+        (error, quote) => {
+          if (!active) return;
+          if (error) return callback(error);
+          setResumenMercadoPagoComercio(quote || null);
+          if (quote) return callback(null, quote.total);
+          Meteor.call('mercadopago.totalAPagar', pedidosRemesa, comisionesComercio, monedaFinalUI, callback);
+        },
       );
-      return;
+      return () => { active = false; };
     }
 
     Meteor.call(
@@ -710,6 +721,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
       comisionesComercio,
       callback,
     );
+    return () => { active = false; };
   }, [comisionesComercio, metodoPago, monedaFinalUI, pedidosRemesa, visible]);
 
   useEffect(() => {
@@ -1370,7 +1382,7 @@ const WizardConStepper = ({ initialLocation = null }) => {
                       </View>
                     </View>
 
-                    {comisionesComercio.comisiones &&
+                    {!(metodoPago === 'mercadopago' && resumenMercadoPagoComercio) && comisionesComercio.comisiones &&
                     Object.keys(comisionesComercio.comisiones).length > 0 ? (
                       <>
                         <Divider style={styles.seccionDivider} />

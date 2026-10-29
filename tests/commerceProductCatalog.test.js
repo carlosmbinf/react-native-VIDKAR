@@ -46,6 +46,7 @@ test("el filtro de categoría consulta sus descendientes visibles y combina mone
 
   assert.equal(query.enabled, true);
   assert.deepEqual(query.selector.idTienda, { $in: ["store-1", "store-2"] });
+  assert.deepEqual(query.selector["mercadoLibre.status"], { $ne: "paused" });
   assert.equal(query.selector.monedaPrecio, "UYU");
   assert.deepEqual(query.selector.precio, { $gte: 10, $lte: 250 });
   assert.deepEqual(query.selector.$and[0], {

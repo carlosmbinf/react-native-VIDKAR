@@ -85,6 +85,7 @@ export const buildCommerceProductQuery = ({
   }
 
   const selector = {
+    "mercadoLibre.status": { $ne: "paused" },
     idTienda: normalizedStore === "all"
       ? { $in: allowedStoreIds }
       : normalizedStore,
