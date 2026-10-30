@@ -435,7 +435,7 @@ const CategoriasScreen = () => {
 
       {categoryState.ready && !isInvalidParent ? (
         <FAB
-          color="#ffffff"
+          color={theme.empresaAppearance?.onPrimary || '#ffffff'}
           icon="plus"
           label={currentCategory ? "Añadir subcategoría" : "Añadir categoría"}
           onPress={openCreateDrawer}

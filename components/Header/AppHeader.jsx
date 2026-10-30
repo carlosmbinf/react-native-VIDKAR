@@ -1,7 +1,8 @@
 import { BlurView } from "expo-blur";
+import { StatusBar } from 'expo-status-bar';
 import { useIsFocused } from "expo-router/react-navigation";
 import React from "react";
-import { Platform, StyleSheet, View, useWindowDimensions } from "react-native";
+import { Image, Platform, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Appbar, Portal, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -67,9 +68,10 @@ const AppHeader = ({
   const safeBack = useSafeBack(backHref);
   const resolvedHeaderHeight = useAppHeaderContentInset(includeSafeAreaTop);
   const topInset = resolvedHeaderHeight - APP_HEADER_HEIGHT;
-  const resolvedBackgroundColor = backgroundColor;
-  const headerForegroundColor = "#ffffff";
-  const headerSubtitleColor = "rgba(255, 255, 255, 0.82)";
+  const appearance = theme.empresaAppearance;
+  const resolvedBackgroundColor = appearance?.header || backgroundColor;
+  const headerForegroundColor = appearance?.headerText || "#ffffff";
+  const headerSubtitleColor = appearance?.headerMuted || "rgba(255, 255, 255, 0.82)";
   const resolvedBackIconColor = backIconColor || headerForegroundColor;
   const resolvedBlurTarget =
     Platform.OS === "android"
@@ -113,6 +115,7 @@ const AppHeader = ({
 
   const headerNode = (
     <View style={headerStyle}>
+      {appearance && isFocused ? <StatusBar style={headerForegroundColor === '#ffffff' ? 'light' : 'dark'} /> : null}
       {!transparent ? (
         <>
           <BlurView
@@ -127,6 +130,7 @@ const AppHeader = ({
             renderToHardwareTextureAndroid={true}
             style={StyleSheet.absoluteFill}
           />
+          {appearance?.images.headerImage ? <Image accessibilityIgnoresInvertColors pointerEvents="none" resizeMode="cover" source={{ uri: appearance.images.headerImage }} style={StyleSheet.absoluteFill} /> : null}
           <View
             pointerEvents="none"
             style={[
@@ -134,7 +138,7 @@ const AppHeader = ({
               {
                 backgroundColor: getHeaderOverlayColor(
                   resolvedBackgroundColor,
-                  glassOverlayOpacity,
+                  appearance ? (appearance.images.headerImage ? 0.72 : 1) : glassOverlayOpacity,
                 ),
               },
             ]}
@@ -144,7 +148,7 @@ const AppHeader = ({
             style={[
               styles.sheenOverlay,
               {
-                backgroundColor: theme.dark
+                backgroundColor: appearance ? 'transparent' : theme.dark
                   ? "rgba(255, 255, 255, 0.055)"
                   : "rgba(255, 255, 255, 0.055)",
               },

@@ -39,7 +39,7 @@ import {
 import CategoryTreeSelect from "../components/CategoryTreeSelect.native";
 import EmpresaTopBar from "../components/EmpresaTopBar.native";
 import ProductImageCarousel from "../../productos/ProductImageCarousel";
-import { createEmpresaPalette, EMPRESA_BRAND, getEmpresaScreenMetrics } from "../styles/empresaTheme";
+import { createEmpresaPalette, getEmpresaScreenMetrics } from "../styles/empresaTheme";
 import {
   buildCategoryTree,
   filterActiveCategoryTree,
@@ -930,7 +930,7 @@ const ProductoFormScreen = () => {
                         <MaterialCommunityIcons accessibilityLabel="Ayuda sobre publicación Mercado Libre" color={palette.muted} name="information-outline" size={19} />
                       </Tooltip>
                     </View>
-                    <Host matchContents={{ vertical: true }} seedColor={EMPRESA_BRAND} style={styles.mercadoLibreNativeHost}>
+                    <Host matchContents={{ vertical: true }} seedColor={palette.brand} style={styles.mercadoLibreNativeHost}>
                       <NativeSwitch
                         label="Publicar también en Mercado Libre"
                         onValueChange={(publish) => setMercadoLibreForm((current) => ({ ...current, publish }))}
@@ -974,7 +974,7 @@ const ProductoFormScreen = () => {
                         {mercadoLibreSuggestions.length ? (
                           <View style={styles.fieldGroup}>
                             <Text style={{ color: palette.muted }} variant="labelLarge">Categoría MLU</Text>
-                            <Host matchContents={{ vertical: true }} seedColor={EMPRESA_BRAND} style={styles.mercadoLibreNativeHost}>
+                            <Host matchContents={{ vertical: true }} seedColor={palette.brand} style={styles.mercadoLibreNativeHost}>
                               <Picker selectedValue={mercadoLibreForm.categoryId} onValueChange={selectMercadoLibreCategory}>
                                 <Picker.Item label="Selecciona una categoría" value="" />
                                 {mercadoLibreSuggestions.map((suggestion) => (
@@ -1026,7 +1026,7 @@ const ProductoFormScreen = () => {
 
                             <View style={styles.fieldGroup}>
                               <Text style={{ color: palette.muted }} variant="labelLarge">Condición</Text>
-                              <Host matchContents={{ vertical: true }} seedColor={EMPRESA_BRAND} style={styles.mercadoLibreNativeHost}>
+                              <Host matchContents={{ vertical: true }} seedColor={palette.brand} style={styles.mercadoLibreNativeHost}>
                                 <Picker selectedValue={mercadoLibreForm.condition} onValueChange={(condition) => setMercadoLibreForm((current) => ({ ...current, condition }))}>
                                   <Picker.Item label="Nuevo" value="new" />
                                   <Picker.Item label="Usado" value="used" />
@@ -1036,7 +1036,7 @@ const ProductoFormScreen = () => {
 
                             <View style={styles.fieldGroup}>
                               <Text style={{ color: palette.muted }} variant="labelLarge">Tipo de publicación</Text>
-                              <Host matchContents={{ vertical: true }} seedColor={EMPRESA_BRAND} style={styles.mercadoLibreNativeHost}>
+                              <Host matchContents={{ vertical: true }} seedColor={palette.brand} style={styles.mercadoLibreNativeHost}>
                                 <Picker selectedValue={mercadoLibreForm.listingTypeId} onValueChange={(listingTypeId) => setMercadoLibreForm((current) => ({ ...current, listingTypeId }))}>
                                   {(mercadoLibreListingTypes.length ? mercadoLibreListingTypes : [{ id: "gold_special", name: "Clásica" }]).map((listingType) => (
                                     <Picker.Item key={listingType.id} label={listingType.name} value={listingType.id} />
@@ -1087,7 +1087,7 @@ const ProductoFormScreen = () => {
                                       <Text style={{ color: palette.muted }} variant="labelLarge">{label}</Text>
                                       {gtinHint ? <Text style={{ color: palette.muted }} variant="bodySmall">{gtinHint}</Text> : null}
                                       {attribute.conditionalRequired && !required ? <Text style={{ color: palette.muted }} variant="bodySmall">Condicional · {attribute.id}</Text> : null}
-                                      <Host matchContents={{ vertical: true }} seedColor={EMPRESA_BRAND} style={styles.mercadoLibreNativeHost}>
+                                      <Host matchContents={{ vertical: true }} seedColor={palette.brand} style={styles.mercadoLibreNativeHost}>
                                         <Picker
                                           selectedValue={selected.valueId || selected.valueName}
                                           onValueChange={(value) => setMercadoLibreAttribute(attribute.id, value)}
@@ -1444,7 +1444,7 @@ const ProductoFormScreen = () => {
                 mode="contained"
                 onPress={handleSubmit}
                 style={styles.submitButton}
-                textColor="#FFFFFF"
+                textColor={theme.empresaAppearance?.onPrimary || '#FFFFFF'}
               >
                 {isEditMode ? "Guardar cambios" : "Crear producto"}
               </Button>

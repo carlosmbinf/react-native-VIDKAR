@@ -1,3 +1,4 @@
+import EmpresaBrandImage from '../components/EmpresaBrandImage';
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
 import { FieldGroup, Host, Picker, Switch as NativeSwitch } from "@expo/ui";
@@ -8,7 +9,7 @@ import { ActivityIndicator, Button, Chip, Surface, Text, Tooltip, useTheme } fro
 
 import { TiendasComercioCollection } from "../../collections/collections";
 import EmpresaTopBar from "../components/EmpresaTopBar.native";
-import { createEmpresaPalette, EMPRESA_BRAND } from "../styles/empresaTheme";
+import { createEmpresaPalette } from "../styles/empresaTheme";
 
 const Meteor = /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (MeteorBase);
 const MOBILE_REDIRECT_URL = "vidkar://mercadolibre/callback";
@@ -253,7 +254,8 @@ const MercadoLibreSettingsScreen = () => {
       <EmpresaTopBar backHref="/(empresa)/EmpresaNavigator" subtitle="Cuenta del comercio" title="Mercado Libre" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Surface style={[styles.hero, { backgroundColor: palette.hero, borderColor: palette.border }]}>
-          <View style={[styles.heroIcon, { backgroundColor: palette.brandSoft }]}>
+          <EmpresaBrandImage />
+        <View style={[styles.heroIcon, { backgroundColor: palette.brandSoft }]}>
             <MaterialCommunityIcons color={palette.brandStrong} name="store-sync-outline" size={26} />
           </View>
           <View style={styles.heroCopy}>
@@ -299,7 +301,7 @@ const MercadoLibreSettingsScreen = () => {
                   <MaterialCommunityIcons accessibilityLabel="Ayuda sobre disponibilidad" color={palette.muted} name="information-outline" size={19} />
                 </Tooltip>
               </View>
-              <Host matchContents={{ vertical: true }} seedColor={EMPRESA_BRAND} style={styles.nativeHost}>
+              <Host matchContents={{ vertical: true }} seedColor={palette.brand} style={styles.nativeHost}>
                 <FieldGroup>
                   <FieldGroup.Section title="Disponibilidad">
                     <NativeSwitch
@@ -326,7 +328,7 @@ const MercadoLibreSettingsScreen = () => {
             <Text style={{ color: palette.title }} variant="titleMedium">Catálogo y depósitos</Text>
             <Text style={{ color: palette.copy }} variant="bodySmall">La sincronización recorre publicaciones activas, pausadas y otros estados por lotes con scan/scroll_id.</Text>
             {stores.length ? (
-              <Host matchContents={{ vertical: true }} seedColor={EMPRESA_BRAND} style={styles.nativeHost}>
+              <Host matchContents={{ vertical: true }} seedColor={palette.brand} style={styles.nativeHost}>
                 <Picker selectedValue={selectedStoreId} onValueChange={setSelectedStoreId}>
                   {stores.map((store) => <Picker.Item key={store._id} label={store.title || "Tienda"} value={String(store._id)} />)}
                 </Picker>
@@ -338,7 +340,7 @@ const MercadoLibreSettingsScreen = () => {
                 <Text style={{ color: palette.title }} variant="titleSmall">Depósito para stock multiorigen</Text>
                 {stockLocations.length ? (
                   <>
-                    <Host matchContents={{ vertical: true }} seedColor={EMPRESA_BRAND} style={styles.nativeHost}>
+                    <Host matchContents={{ vertical: true }} seedColor={palette.brand} style={styles.nativeHost}>
                       <Picker selectedValue={selectedStockLocation} onValueChange={setSelectedStockLocation}>
                         <Picker.Item label="Selecciona un depósito" value="" />
                         {stockLocations.map((location) => <Picker.Item

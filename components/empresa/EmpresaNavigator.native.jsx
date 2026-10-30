@@ -174,7 +174,7 @@ const EmpresaNavigator = () => {
         >
           <StatusBar
             backgroundColor="transparent"
-            barStyle="light-content"
+            barStyle={theme.empresaAppearance ? (theme.empresaAppearance.headerText === '#ffffff' ? 'light-content' : 'dark-content') : 'light-content'}
             translucent
           />
           <View style={styles.drawerPortal}>

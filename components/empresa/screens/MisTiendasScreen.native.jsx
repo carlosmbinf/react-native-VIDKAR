@@ -1,3 +1,4 @@
+import EmpresaBrandImage from '../components/EmpresaBrandImage';
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
 import { BlurView } from "expo-blur";
@@ -31,7 +32,7 @@ import { ProductosComercioCollection, TiendasComercioCollection } from "../../co
 import EmpresaTopBar from "../components/EmpresaTopBar.native";
 import LocationPicker from "../components/LocationPicker.native";
 import MapaTiendaCardBackground from "../maps/MapaTiendaCardBackground.native";
-import { createEmpresaPalette, getEmpresaScreenMetrics } from "../styles/empresaTheme";
+import { getEmpresaCardStyle, createEmpresaPalette, getEmpresaScreenMetrics } from "../styles/empresaTheme";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
@@ -228,6 +229,7 @@ const StoreCard = ({ numColumns, onDelete, onEdit, onOpen, productCount, tienda 
         style={[
           styles.storeCard,
           isCompactCard ? styles.storeCardCompact : null,
+          getEmpresaCardStyle(theme),
           {
             backgroundColor: palette.card,
             borderColor: palette.border,
@@ -701,6 +703,7 @@ const MisTiendasScreen = ({ onOpenDrawer }) => {
           },
         ]}
       >
+        <EmpresaBrandImage />
         <View style={styles.heroCopy}>
           <Text style={{ color: palette.title }} variant="headlineSmall">
             Tus tiendas activas
@@ -846,7 +849,7 @@ const MisTiendasScreen = ({ onOpenDrawer }) => {
       />
 
       {!visibleTiendas.length && tiendas.length ? null : (
-        <FAB icon="plus" label="Nueva tienda" onPress={openCreateDialog} style={[styles.fab, { backgroundColor: palette.brand }]} />
+        <FAB color={theme.empresaAppearance?.onPrimary} icon="plus" label="Nueva tienda" onPress={openCreateDialog} style={[styles.fab, { backgroundColor: palette.brand }]} />
       )}
 
       <Portal>

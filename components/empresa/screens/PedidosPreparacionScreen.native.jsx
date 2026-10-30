@@ -1,15 +1,16 @@
+import EmpresaBrandImage from '../components/EmpresaBrandImage';
 import { memo, useMemo, useState } from "react";
 
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
 import { Alert, FlatList, RefreshControl, StyleSheet, useWindowDimensions, View } from "react-native";
-import { Appbar, Chip, Surface, Text, TextInput, TouchableRipple, useTheme } from "react-native-paper";
+import { Appbar, Avatar, Chip, Surface, Text, TextInput, TouchableRipple, useTheme } from "react-native-paper";
 
 import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
 import { TiendasComercioCollection, VentasRechargeCollection } from "../../collections/collections";
 import EmpresaTopBar from "../components/EmpresaTopBar.native";
 import SlideToConfirm from "../screens/pedidos/components/SlideToConfirm.native";
-import { createEmpresaPalette, getEmpresaScreenMetrics } from "../styles/empresaTheme";
+import { getEmpresaButtonStyle, getEmpresaCardStyle, createEmpresaPalette, getEmpresaScreenMetrics } from "../styles/empresaTheme";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
@@ -171,6 +172,7 @@ const PedidoPreparacionCard = ({
     <Surface
       style={[
         styles.orderCard,
+        getEmpresaCardStyle(theme),
         {
           backgroundColor: palette.card,
           borderColor: palette.border,
@@ -198,7 +200,7 @@ const PedidoPreparacionCard = ({
         {statusMeta.description}
       </Text>
 
-      <Surface style={[styles.assignedCadeteCard, compact ? styles.assignedCadeteCardCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
+      <Surface style={[styles.assignedCadeteCard, compact ? styles.assignedCadeteCardCompact : null, getEmpresaCardStyle(theme), { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
         <View style={styles.assignedCadeteHeader}>
           <View style={[styles.assignedCadeteIcon, { backgroundColor: statusTint }]}> 
             <MaterialCommunityIcons color={statusMeta.sliderColor} name={pedido.cadeteid ? "account-hard-hat-outline" : "account-clock-outline"} size={20} />
@@ -232,6 +234,7 @@ const PedidoPreparacionCard = ({
             style={[
               styles.unassignCadeteButton,
               compact ? styles.unassignCadeteButtonCompact : null,
+              getEmpresaButtonStyle(theme),
               {
                 backgroundColor: hexToRgba("#ef4444", theme.dark ? 0.18 : 0.1),
                 borderColor: hexToRgba("#ef4444", theme.dark ? 0.42 : 0.24),
@@ -250,7 +253,7 @@ const PedidoPreparacionCard = ({
       </Surface>
 
       <View style={styles.summaryGrid}>
-        <Surface style={[styles.summaryTile, compact ? styles.summaryTileCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
+        <Surface style={[styles.summaryTile, compact ? styles.summaryTileCompact : null, getEmpresaCardStyle(theme), { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
           <Text style={{ color: palette.muted }} variant="labelMedium">
             Tiendas
           </Text>
@@ -258,7 +261,7 @@ const PedidoPreparacionCard = ({
             {pedido.storeTitles.join(", ") || "Sin tienda"}
           </Text>
         </Surface>
-        <Surface style={[styles.summaryTile, compact ? styles.summaryTileCompact : null, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
+        <Surface style={[styles.summaryTile, compact ? styles.summaryTileCompact : null, getEmpresaCardStyle(theme), { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
           <Text style={{ color: palette.muted }} variant="labelMedium">
             Productos
           </Text>
@@ -319,7 +322,7 @@ const PedidoPreparacionCard = ({
           text={getSliderLabel(pedido.estado)}
         />
       ) : (
-        <Surface style={[styles.infoCard, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
+        <Surface style={[styles.infoCard, getEmpresaCardStyle(theme), { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
           <MaterialCommunityIcons
             color={palette.brandStrong}
             name={pedido.estado === "PREPARACION_LISTO" ? "check-circle-outline" : "truck-delivery-outline"}
@@ -341,6 +344,9 @@ const PedidoPreparacionCard = ({
 
 const PedidosPreparacionHeader = memo(
   ({
+    appearance,
+    buttonStyle,
+    cardStyle,
     onClearStoreFilter,
     onSearchChange,
     onStoreFilterQueryChange,
@@ -357,6 +363,7 @@ const PedidosPreparacionHeader = memo(
       <Surface
         style={[
           styles.heroCard,
+          cardStyle,
           {
             backgroundColor: palette.hero,
             borderColor: palette.border,
@@ -364,6 +371,17 @@ const PedidosPreparacionHeader = memo(
           },
         ]}
       >
+        {appearance?.siteName || appearance?.images.logo ? (
+          <View style={styles.brandIdentity}>
+            {appearance.images.logo ? <Avatar.Image size={36} source={{ uri: appearance.images.logo }} /> : null}
+            {appearance.siteName ? (
+              <Text style={{ color: palette.brandStrong }} variant="labelLarge">
+                {appearance.siteName}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+        <EmpresaBrandImage slot="ordersCover" />
         <View style={styles.heroCopy}>
           <Text style={{ color: palette.title }} variant="headlineSmall">
             Preparación de pedidos
@@ -373,10 +391,10 @@ const PedidosPreparacionHeader = memo(
           </Text>
         </View>
         <View style={styles.summaryGrid}>
-          <Surface style={[styles.summaryTile, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}><Text style={{ color: palette.title }} variant="titleLarge">{statusCounts.total}</Text><Text style={{ color: palette.muted }} variant="bodySmall">Activos</Text></Surface>
-          <Surface style={[styles.summaryTile, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}><Text style={{ color: palette.title }} variant="titleLarge">{statusCounts.pendientes}</Text><Text style={{ color: palette.muted }} variant="bodySmall">Pendientes</Text></Surface>
-          <Surface style={[styles.summaryTile, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}><Text style={{ color: palette.title }} variant="titleLarge">{statusCounts.preparando}</Text><Text style={{ color: palette.muted }} variant="bodySmall">Preparando</Text></Surface>
-          <Surface style={[styles.summaryTile, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}><Text style={{ color: palette.title }} variant="titleLarge">{statusCounts.listos}</Text><Text style={{ color: palette.muted }} variant="bodySmall">Listos</Text></Surface>
+          <Surface style={[styles.summaryTile, cardStyle, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}><Text style={{ color: palette.title }} variant="titleLarge">{statusCounts.total}</Text><Text style={{ color: palette.muted }} variant="bodySmall">Activos</Text></Surface>
+          <Surface style={[styles.summaryTile, cardStyle, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}><Text style={{ color: palette.title }} variant="titleLarge">{statusCounts.pendientes}</Text><Text style={{ color: palette.muted }} variant="bodySmall">Pendientes</Text></Surface>
+          <Surface style={[styles.summaryTile, cardStyle, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}><Text style={{ color: palette.title }} variant="titleLarge">{statusCounts.preparando}</Text><Text style={{ color: palette.muted }} variant="bodySmall">Preparando</Text></Surface>
+          <Surface style={[styles.summaryTile, cardStyle, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}><Text style={{ color: palette.title }} variant="titleLarge">{statusCounts.listos}</Text><Text style={{ color: palette.muted }} variant="bodySmall">Listos</Text></Surface>
         </View>
       </Surface>
       {/* <TextInput
@@ -394,6 +412,7 @@ const PedidosPreparacionHeader = memo(
       <Surface
         style={[
           styles.storeFilterCard,
+          cardStyle,
           {
             backgroundColor: palette.card,
             borderColor: palette.border,
@@ -401,7 +420,7 @@ const PedidosPreparacionHeader = memo(
           },
         ]}
       >
-        <TouchableRipple borderless={false} onPress={onToggleStoreFilters} style={styles.storeFilterToggle}>
+        <TouchableRipple borderless={false} onPress={onToggleStoreFilters} style={[styles.storeFilterToggle, buttonStyle]}>
           <View style={styles.storeFilterToggleContent}>
             <View style={styles.storeFilterToggleCopy}>
               <Text style={{ color: palette.title }} variant="titleSmall">
@@ -413,7 +432,7 @@ const PedidosPreparacionHeader = memo(
             </View>
             <View style={styles.storeFilterToggleActions}>
               {selectedStoreLabel ? (
-                <Chip compact icon="close" onPress={onClearStoreFilter} style={[styles.activeStoreChip, { backgroundColor: palette.cardSoft }]} textStyle={{ color: palette.title }}>
+                <Chip compact icon="close" onPress={onClearStoreFilter} style={[styles.activeStoreChip, buttonStyle, { backgroundColor: palette.cardSoft }]} textStyle={{ color: palette.title }}>
                   Limpiar
                 </Chip>
               ) : null}
@@ -444,6 +463,7 @@ const PedidosPreparacionHeader = memo(
                 selected={!selectedStoreLabel}
                 style={[
                   styles.storeOptionChip,
+                  buttonStyle,
                   { backgroundColor: !selectedStoreLabel ? palette.cardSoft : "transparent", borderColor: palette.border },
                 ]}
                 textStyle={{ color: palette.title }}
@@ -461,6 +481,7 @@ const PedidosPreparacionHeader = memo(
                     selected={isSelected}
                     style={[
                       styles.storeOptionChip,
+                      buttonStyle,
                       { backgroundColor: isSelected ? palette.brandMuted : "transparent", borderColor: isSelected ? palette.brand : palette.border },
                     ]}
                     textStyle={{ color: isSelected ? palette.brandStrong : palette.title }}
@@ -483,6 +504,9 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
   const theme = useTheme();
   const { width } = useWindowDimensions();
   const palette = useMemo(() => createEmpresaPalette(theme), [theme]);
+  const appearance = theme.empresaAppearance;
+  const cardStyle = getEmpresaCardStyle(theme);
+  const buttonStyle = getEmpresaButtonStyle(theme);
   const { contentMaxWidth, horizontalPadding } = useMemo(() => getEmpresaScreenMetrics(width), [width]);
   const numColumns = getGridColumns(width);
   const compactCards = numColumns > 1 || width < 720;
@@ -759,7 +783,7 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
     }
 
     return (
-      <Surface style={[styles.emptyCard, { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
+      <Surface style={[styles.emptyCard, getEmpresaCardStyle(theme), { backgroundColor: palette.cardSoft, borderColor: palette.border }]}> 
         <MaterialCommunityIcons color={palette.brandStrong} name="clipboard-check-outline" size={44} />
         <Text style={{ color: palette.title }} variant="headlineSmall">
           Sin pedidos por preparar
@@ -784,6 +808,9 @@ const PedidosPreparacionScreen = ({ onOpenDrawer }) => {
         ListEmptyComponent={renderEmpty}
         ListHeaderComponent={
           <PedidosPreparacionHeader
+            appearance={appearance}
+            buttonStyle={buttonStyle}
+            cardStyle={cardStyle}
             onClearStoreFilter={handleClearStoreFilter}
             onSearchChange={setSearchQuery}
             onStoreFilterQueryChange={setStoreFilterQuery}
@@ -891,6 +918,11 @@ const styles = StyleSheet.create({
   headerContent: {
     gap: 16,
     marginBottom: 20,
+  },
+  brandIdentity: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
   },
   heroCard: {
     borderWidth: 1,

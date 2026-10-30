@@ -7,15 +7,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ProductosComercioCollection, TiendasComercioCollection } from "../collections/collections";
 import DrawerBlurShell from "../drawer/DrawerBlurShell";
-import { createEmpresaPalette } from "./styles/empresaTheme";
+import { createEmpresaPalette, getEmpresaButtonStyle, getEmpresaCardStyle } from "./styles/empresaTheme";
 import { hasEmpresaWebsiteAccess } from "../../services/commerceProvisioning";
+import EmpresaBrandImage from './components/EmpresaBrandImage';
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
     MeteorBase
   );
 
-const DrawerMetric = ({ compact, icon, label, palette, value }) => {
+const DrawerMetric = ({ cardStyle, compact, icon, label, palette, value }) => {
   if (compact) {
     return (
       <Surface
@@ -23,6 +24,7 @@ const DrawerMetric = ({ compact, icon, label, palette, value }) => {
         style={[
           styles.metricItem,
           styles.metricItemCompact,
+          cardStyle,
           {
             backgroundColor: palette.cardSoft,
             borderColor: palette.border,
@@ -50,6 +52,7 @@ const DrawerMetric = ({ compact, icon, label, palette, value }) => {
       style={[
         styles.metricItem,
         compact ? styles.metricItemCompact : null,
+        cardStyle,
         {
           backgroundColor: palette.cardSoft,
           borderColor: palette.border,
@@ -69,13 +72,14 @@ const DrawerMetric = ({ compact, icon, label, palette, value }) => {
   );
 };
 
-const DrawerAction = ({ compact, description, icon, label, onPress, palette }) => {
+const DrawerAction = ({ buttonStyle, compact, description, icon, label, onPress, palette }) => {
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.actionItem,
         compact ? styles.actionItemCompact : null,
+        buttonStyle,
         {
           backgroundColor: palette.card,
           borderColor: palette.border,
@@ -105,6 +109,9 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
   const palette = createEmpresaPalette(theme);
+  const cardStyle = getEmpresaCardStyle(theme);
+  const buttonStyle = getEmpresaButtonStyle(theme);
+  const appearance = theme.empresaAppearance;
   const isLandscapeDrawer = width > height;
   const isCompactDrawer = isLandscapeDrawer || height < 560;
 
@@ -170,14 +177,15 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
 
   const headerNode = (
     <>
-      <View style={styles.headerFrame}>
+      <View style={[styles.headerFrame, appearance ? { backgroundColor: appearance.header } : null]}>
+        <EmpresaBrandImage slot="headerImage" radius={0} />
         <View
           pointerEvents="none"
           style={[
             StyleSheet.absoluteFill,
             styles.headerOverlay,
             {
-              backgroundColor: theme.dark
+              backgroundColor: appearance ? 'transparent' : theme.dark
                 ? "rgba(30, 41, 59, 0.26)"
                 : "rgba(255, 255, 255, 0.22)",
               borderColor: palette.border,
@@ -191,19 +199,19 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
             { paddingTop: Math.max(insets.top, isCompactDrawer ? 12 : 16) },
           ]}
         >
-          {user?.picture ? (
-            <Avatar.Image size={isCompactDrawer ? 46 : 58} source={{ uri: user.picture }} />
+          {appearance?.images.logo || user?.picture ? (
+            <Avatar.Image size={isCompactDrawer ? 46 : 58} source={{ uri: appearance?.images.logo || user.picture }} />
           ) : (
             <Avatar.Text
               label={user?.profile?.firstName?.slice(0, 2)?.toUpperCase() || user?.username?.slice(0, 2)?.toUpperCase() || "EM"}
               size={isCompactDrawer ? 46 : 58}
-              style={{ backgroundColor: palette.brand }}
+              style={{ backgroundColor: palette.brand }} color={appearance?.onPrimary}
             />
           )}
 
           <View style={styles.headerCopy}>
-            <Text style={{ color: palette.title }} variant="titleMedium">
-              {user?.profile?.firstName || user?.username || "Empresa"}
+            <Text style={{ color: appearance?.headerText || palette.title }} variant="titleMedium">
+              {appearance?.siteName || user?.profile?.firstName || user?.username || "Empresa"}
             </Text>
             <View style={[styles.statusPill, isCompactDrawer ? styles.statusPillCompact : null, { backgroundColor: palette.brandSoft }]}>
               <Text style={{ color: palette.brandStrong }} variant="labelMedium">
@@ -211,7 +219,7 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
               </Text>
             </View>
             {!isLandscapeDrawer ? (
-              <Text style={[isCompactDrawer ? styles.headerDescriptionCompact : null, { color: palette.copy }]} variant="bodySmall">
+              <Text style={[isCompactDrawer ? styles.headerDescriptionCompact : null, { color: appearance?.headerMuted || palette.copy }]} variant="bodySmall">
                 Gestiona tus tiendas, productos y pedidos de preparación desde este espacio.
               </Text>
             ) : null}
@@ -230,13 +238,14 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
       </Text>
 
       <View style={[styles.metricsRow, isCompactDrawer ? styles.metricsRowCompact : null]}>
-        <DrawerMetric compact={isCompactDrawer} icon="storefront-outline" label="Tiendas" palette={palette} value={tiendasCount} />
-        <DrawerMetric compact={isCompactDrawer} icon="package-variant-closed" label="Productos" palette={palette} value={productosCount} />
-        <DrawerMetric compact={isCompactDrawer} icon="clipboard-list-outline" label="Estado" palette={palette} value="Activa" />
+        <DrawerMetric cardStyle={cardStyle} compact={isCompactDrawer} icon="storefront-outline" label="Tiendas" palette={palette} value={tiendasCount} />
+        <DrawerMetric cardStyle={cardStyle} compact={isCompactDrawer} icon="package-variant-closed" label="Productos" palette={palette} value={productosCount} />
+        <DrawerMetric cardStyle={cardStyle} compact={isCompactDrawer} icon="clipboard-list-outline" label="Estado" palette={palette} value="Activa" />
       </View>
 
       <View style={[styles.actionGroup, isCompactDrawer ? styles.actionGroupCompact : null]}>
         <DrawerAction
+          buttonStyle={buttonStyle}
           compact={isCompactDrawer}
           description="Revisa, prepara y deja listos los pedidos antes de que el cadete los recoja."
           icon="clipboard-list-outline"
@@ -245,6 +254,7 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
           palette={palette}
         />
         <DrawerAction
+          buttonStyle={buttonStyle}
           compact={isCompactDrawer}
           description="Administra tus tiendas, su ubicación y el catálogo asociado a cada una."
           icon="storefront-outline"
@@ -254,6 +264,7 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
         />
         {hasEmpresaWebsiteAccess(user) ? (
           <DrawerAction
+            buttonStyle={buttonStyle}
             compact={isCompactDrawer}
             description="Crea páginas web y sigue su instalación, cierre y reintentos."
             icon="web"
@@ -263,6 +274,7 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
           />
         ) : null}
         <DrawerAction
+          buttonStyle={buttonStyle}
           compact={isCompactDrawer}
           description="Crea categorías y subcategorías para organizar los productos de tus tiendas."
           icon="shape-outline"
@@ -271,6 +283,7 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
           palette={palette}
         />
         <DrawerAction
+          buttonStyle={buttonStyle}
           compact={isCompactDrawer}
           description="Vincula tu propia cuenta y sincroniza su catálogo de Mercado Libre Uruguay."
           icon="store-sync-outline"
@@ -286,6 +299,7 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
 
       <View style={[styles.actionGroup, isCompactDrawer ? styles.actionGroupCompact : null]}>
         <DrawerAction
+          buttonStyle={buttonStyle}
           compact={isCompactDrawer}
           description="Consulta tu saldo y solicita su cobro desde la pantalla común de Saldos y pagos."
           icon="wallet-outline"
@@ -301,6 +315,7 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
 
       <View style={[styles.actionGroup, isCompactDrawer ? styles.actionGroupCompact : null]}>
         <DrawerAction
+          buttonStyle={buttonStyle}
           compact={isCompactDrawer}
           description="Consulta tus datos de usuario dentro del entorno empresa."
           icon="account-outline"
@@ -323,6 +338,7 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
         style={[
           styles.tipCard,
           isCompactDrawer ? styles.tipCardCompact : null,
+          cardStyle,
           {
             backgroundColor: palette.cardSoft,
             borderColor: palette.border,
@@ -350,11 +366,12 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
         styles.footer,
         isLandscapeDrawer ? styles.footerScrollable : null,
         {
-          backgroundColor: "transparent",
+          backgroundColor: appearance?.footer || "transparent",
           paddingBottom: Math.max(insets.bottom, isLandscapeDrawer ? 4 : 8),
         },
       ]}
     >
+      <EmpresaBrandImage slot="footerImage" radius={0} />
       <Divider />
       <View style={[styles.footerActions, isLandscapeDrawer ? styles.footerActionsLandscape : null]}>
         <Pressable
@@ -362,6 +379,7 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
           style={({ pressed }) => [
             styles.modeExitButton,
             isLandscapeDrawer ? styles.modeExitButtonLandscape : null,
+            buttonStyle,
             { backgroundColor: palette.cardSoft },
             pressed ? styles.modeExitButtonPressed : null,
           ]}
@@ -385,7 +403,7 @@ const EmpresaDrawerContent = ({ onClose, user }) => {
   return (
     <View style={styles.safeArea}>
       <DrawerBlurShell
-        overlayColor={theme.dark ? "rgba(15, 23, 42, 0.72)" : "rgba(255, 255, 255, 0.58)"}
+        overlayColor={appearance ? `${palette.panel}f5` : theme.dark ? "rgba(15, 23, 42, 0.72)" : "rgba(255, 255, 255, 0.58)"}
         style={styles.panel}
       >
         {isLandscapeDrawer ? (

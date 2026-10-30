@@ -1,6 +1,7 @@
 export const EMPRESA_BRAND = "#673ab7";
 
 export const createEmpresaPalette = (theme) => {
+  if (theme?.empresaAppearance?.palette) return theme.empresaAppearance.palette;
   const isDark = Boolean(theme?.dark);
 
   return {
@@ -23,6 +24,27 @@ export const createEmpresaPalette = (theme) => {
     shadowColor: isDark ? "#000000" : "#2a1550",
     title: isDark ? "#f8fafc" : "#24133b",
   };
+};
+
+export const getEmpresaCardStyle = (theme) => {
+  const appearance = theme?.empresaAppearance;
+  if (!appearance) return undefined;
+  const raised = appearance.styles.cardShadow === 'raised';
+  const none = appearance.styles.cardShadow === 'none';
+  return {
+    borderRadius: appearance.styles.cardRadius,
+    shadowColor: appearance.palette.shadowColor,
+    shadowOpacity: none ? 0 : raised ? 0.2 : 0.08,
+    shadowRadius: none ? 0 : raised ? 16 : 8,
+    shadowOffset: { width: 0, height: none ? 0 : raised ? 8 : 3 },
+    elevation: none ? 0 : raised ? 6 : 2,
+  };
+};
+
+export const getEmpresaButtonStyle = (theme) => {
+  const buttonStyle = theme?.empresaAppearance?.styles?.buttonStyle;
+  if (!buttonStyle) return undefined;
+  return { borderRadius: buttonStyle === 'pill' ? 999 : buttonStyle === 'rounded' ? 12 : 0 };
 };
 
 export const getEmpresaScreenMetrics = (width) => ({

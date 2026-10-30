@@ -119,7 +119,12 @@ const UserDetails = () => {
   const currentWidth = width;
   const dataReady = useDeferredScreenData();
   const profilePalette = useMemo(
-    () => ({
+    () => theme.empresaAppearance ? {
+      border: theme.colors.outlineVariant, card: theme.colors.surface,
+      cardAlt: theme.colors.surfaceVariant, dropdown: theme.colors.surface,
+      dropdownBorder: theme.colors.outline, label: theme.colors.onSurfaceVariant,
+      screen: theme.colors.background, text: theme.colors.onSurfaceVariant, title: theme.colors.onSurface,
+    } : ({
       border: theme.dark
         ? "rgba(148, 163, 184, 0.14)"
         : "rgba(15, 23, 42, 0.08)",
@@ -136,7 +141,7 @@ const UserDetails = () => {
       text: theme.dark ? "#cbd5e1" : "#334155",
       title: theme.dark ? "#f8fafc" : "#0f172a",
     }),
-    [theme.dark],
+    [theme],
   );
   const profileStyles = useMemo(
     () => ({
@@ -184,7 +189,11 @@ const UserDetails = () => {
     [profilePalette, theme.dark],
   );
   const timelinePalette = useMemo(
-    () => ({
+    () => theme.empresaAppearance ? {
+      description: theme.colors.onSurfaceVariant, icon: theme.colors.primary,
+      iconSurface: theme.colors.primaryContainer, label: theme.colors.onSurfaceVariant,
+      surface: theme.colors.surface, title: theme.colors.onSurface,
+    } : ({
       description: theme.dark ? "#cbd5e1" : "#64748b",
       icon: theme.dark ? "#dbeafe" : "#1d4ed8",
       iconSurface: theme.dark
@@ -194,7 +203,7 @@ const UserDetails = () => {
       surface: theme.dark ? "rgba(15, 23, 42, 0.96)" : theme.colors.surface,
       title: theme.dark ? "#f8fafc" : "#0f172a",
     }),
-    [theme.colors.surface, theme.dark],
+    [theme],
   );
   const { ready, item, precioslist, preciosVPNlist } = Meteor.useTracker(() => {
     if (!dataReady || !itemId) {

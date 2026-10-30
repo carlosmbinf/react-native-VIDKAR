@@ -20,6 +20,14 @@ Se reutilizan los métodos Meteor `comercio.deliveryAddresses.list`, `.save`, `.
 
 Validación enfocada: `node --experimental-default-type=module --test tests/commerceDeliveryAddresses.test.js`.
 
+### Apariencia del modo empresa
+
+El grupo `app/(empresa)` lee en tiempo real `comercio.webAppearance` de la cuenta propietaria de la sesión. Los cambios publicados en **Modo empresa → Apariencia** de `comercio-web` se adaptan a las pantallas existentes de la app: paletas claras/oscuras, fondo general, tarjetas, controles, cabeceras e imágenes, logo y nombre del menú, portada de tiendas y preparación, y fondo del pie del menú.
+
+La navegación, dimensiones de listas y organización móvil se mantienen. Esquinas y sombras de las tarjetas principales y las fuentes serif/monoespaciadas se adaptan a las opciones compatibles de cada plataforma. Los estados operativos y errores conservan sus colores semánticos. El tema se limita a este grupo; al salir del modo empresa se utiliza el tema global. Sin configuración visual, al restaurar el diseño original o si la publicación no está disponible, se conservan los estilos anteriores de la app.
+
+Se reutilizan la colección `COMERCIO_webAppearance` y la publicación existentes; la app no guarda ni edita esta configuración. Validación del contrato y del fallback: `node --experimental-default-type=module --test tests/commerceAppearance.test.js`.
+
 ### Arranque local
 
 1. Install dependencies

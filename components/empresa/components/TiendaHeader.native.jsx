@@ -1,8 +1,9 @@
+import EmpresaBrandImage from './EmpresaBrandImage';
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Linking, StyleSheet, View } from "react-native";
 import { Button, Card, Chip, Text, useTheme } from "react-native-paper";
 
-import { createEmpresaPalette } from "../styles/empresaTheme";
+import { getEmpresaCardStyle, createEmpresaPalette } from "../styles/empresaTheme";
 
 const normalizeCoordinates = (tienda) => {
   const source = tienda?.coordenadas || tienda?.cordenadas || null;
@@ -40,6 +41,7 @@ const TiendaHeader = ({
       mode="elevated"
       style={[
         styles.card,
+        getEmpresaCardStyle(theme),
         {
           backgroundColor: palette.hero,
           borderColor: palette.border,
@@ -47,6 +49,7 @@ const TiendaHeader = ({
         },
       ]}
     >
+      <EmpresaBrandImage />
       <Card.Content style={styles.content}>
         <View style={styles.titleRow}>
           <View style={[styles.iconWrap, { backgroundColor: palette.brandSoft }]}> 

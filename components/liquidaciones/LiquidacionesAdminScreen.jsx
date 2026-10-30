@@ -536,15 +536,15 @@ const LiquidacionesAdminScreen = ({ backHref = "/(normal)/Main", mode = "NORMAL"
   const { width } = useWindowDimensions();
   const isWide = width >= 780;
   const palette = useMemo(() => ({
-    screen: theme.dark ? "#020617" : "#eef3fb",
-    hero: "#0f172a",
+    screen: theme.empresaAppearance ? theme.colors.background : theme.dark ? "#020617" : "#eef3fb",
+    hero: theme.empresaAppearance?.header || "#0f172a",
     surface: theme.colors.surface,
-    nestedSurface: theme.dark ? "#1e293b" : "#f8fafc",
+    nestedSurface: theme.empresaAppearance ? theme.colors.surfaceVariant : theme.dark ? "#1e293b" : "#f8fafc",
     border: theme.colors.outline,
     title: theme.colors.onSurface,
     copy: theme.colors.onSurfaceVariant,
     muted: theme.colors.onSurfaceVariant,
-    accent: "#38bdf8",
+    accent: theme.empresaAppearance?.headerText || "#38bdf8",
     success: "#16a34a",
     warning: "#d97706",
     error: theme.colors.error,
@@ -1227,21 +1227,21 @@ const LiquidacionesAdminScreen = ({ backHref = "/(normal)/Main", mode = "NORMAL"
           <View style={styles.heroHeader}>
             <View style={styles.heroCopy}>
               <Text variant="labelLarge" style={{ color: palette.accent }}>VIDKAR · FINANZAS</Text>
-              <Text variant="headlineSmall" style={styles.heroTitle}>Saldos y pagos</Text>
-              <Text selectable style={styles.heroSubtitle}>
+              <Text variant="headlineSmall" style={[styles.heroTitle, theme.empresaAppearance ? { color: theme.empresaAppearance.headerText } : null]}>Saldos y pagos</Text>
+              <Text selectable style={[styles.heroSubtitle, theme.empresaAppearance ? { color: theme.empresaAppearance.headerMuted } : null]}>
                 Reserva montos parciales o totales, gestiona cada envío manual y concilia solo después de verificar el resultado real.
               </Text>
             </View>
             <IconButton
               accessibilityLabel="Actualizar saldos e historial"
               icon="refresh"
-              iconColor="#f8fafc"
+              iconColor={theme.empresaAppearance?.headerText || '#f8fafc'}
               disabled={loading || paymentWorking || manualWorking}
               onPress={refresh}
             />
           </View>
           <View style={styles.heroFooter}>
-            <Chip icon="account-cash-outline" compact style={styles.heroChip} textStyle={styles.heroChipText}>
+            <Chip icon="account-cash-outline" compact style={styles.heroChip} textStyle={[styles.heroChipText, theme.empresaAppearance ? { color: theme.empresaAppearance.headerText } : null]}>
               {data.beneficiary.name}
             </Chip>
             {isPrincipal ? (
@@ -1256,7 +1256,7 @@ const LiquidacionesAdminScreen = ({ backHref = "/(normal)/Main", mode = "NORMAL"
               </Button>
             ) : null}
           </View>
-          <Text selectable variant="bodySmall" style={styles.heroFootnote}>
+          <Text selectable variant="bodySmall" style={[styles.heroFootnote, theme.empresaAppearance ? { color: theme.empresaAppearance.headerMuted } : null]}>
             {isPrincipal
               ? "Reservar no transfiere dinero. Verifica la entrega antes de conciliar y no inicies un segundo envío mientras exista una operación incierta."
               : "Solicitar no transfiere dinero. El saldo disponible se reserva y el administrador principal confirma la entrega."}

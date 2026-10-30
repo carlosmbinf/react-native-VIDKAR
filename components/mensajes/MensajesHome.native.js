@@ -25,6 +25,7 @@ import {
     Menu,
     Surface,
     Text,
+    useTheme,
 } from "react-native-paper";
 
 import { buildMeteorHttpBaseUrl } from "../../services/meteor/evidenceImages";
@@ -238,7 +239,24 @@ const getInitials = (label) => {
   return parts.map((part) => part[0]?.toUpperCase() || "").join("");
 };
 
-const getConversationPalette = (isDark) => {
+const getConversationPalette = (isDark, appearance) => {
+  if (appearance) {
+    const p = appearance.palette;
+    return {
+      screen: p.background, headerBackground: appearance.header,
+      backgroundTop: 'transparent', backgroundBottom: 'transparent',
+      heroBackground: p.card, heroBorder: p.border, heroMuted: p.muted, heroStrong: p.title, heroAccent: p.brandStrong,
+      timelineBackground: p.card, timelineBorder: p.border,
+      ownBubble: p.brand, ownBubbleBorder: p.borderStrong, otherBubble: p.card, otherBubbleBorder: p.border,
+      ownText: appearance.onPrimary, otherText: p.title, ownMeta: appearance.onPrimary, otherMeta: p.muted,
+      senderName: p.brandStrong, datePillBackground: p.card, datePillBorder: p.border, datePillText: p.copy,
+      emptyIconBackground: p.brandSoft, emptyIcon: p.icon, title: p.title, subtitle: p.copy, subtle: p.muted,
+      inputBackground: p.input, inputBorder: p.border, inputText: p.title, inputPlaceholder: p.muted,
+      composerBackground: p.panel, composerBorder: p.border, sendBackground: p.brand,
+      sendDisabledBackground: p.cardSoft, sendIcon: appearance.onPrimary, sendDisabledIcon: p.muted,
+      separator: p.border, infoPillBackground: p.brandSoft, infoPillText: p.brandStrong, shadow: p.shadowColor,
+    };
+  }
   if (isDark) {
     return {
       screen: "#030712",
@@ -350,7 +368,7 @@ class MensajesHomeScreen extends React.Component {
     this.flatListRef = React.createRef();
     this.attachmentButtonRef = React.createRef();
     this.composerBlurTargetRef = React.createRef();
-    this.palette = getConversationPalette(this.state.isDarkMode);
+    this.palette = getConversationPalette(this.state.isDarkMode, this.props.empresaAppearance);
   }
 
   componentDidMount() {
@@ -895,7 +913,7 @@ class MensajesHomeScreen extends React.Component {
     const bottomInset = insets?.bottom ?? (Platform.OS === "ios" ? 20 : 8);
     const composerBottomPadding = Math.max(bottomInset, 0);
 
-    const palette = getConversationPalette(isDarkMode);
+    const palette = getConversationPalette(isDarkMode, this.props.empresaAppearance);
     const attachmentMenuTint = isDarkMode
       ? DARK_MENU_GLASS_TINT
       : LIGHT_MENU_GLASS_TINT;
@@ -1128,6 +1146,7 @@ class MensajesHomeScreen extends React.Component {
 }
 
 const MensajesHomeNative = (props) => {
+  const theme = useTheme();
   const params = useLocalSearchParams();
   const pathname = usePathname();
   const routeUser = Array.isArray(params.item) ? params.item[0] : params.item;
@@ -1299,6 +1318,7 @@ const MensajesHomeNative = (props) => {
   return (
     <MensajesHomeScreen
       {...props}
+      empresaAppearance={theme.empresaAppearance}
       insets={insets}
       headerBackHref={headerBackHref}
       headerBackgroundColor={headerBackgroundColor}

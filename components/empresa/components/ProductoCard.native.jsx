@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Alert, Platform, StyleSheet, View } from "react-native";
 import { Card, IconButton, Menu, Text, Tooltip, useTheme } from "react-native-paper";
 
-import { createEmpresaPalette } from "../styles/empresaTheme";
+import { getEmpresaCardStyle, createEmpresaPalette } from "../styles/empresaTheme";
 import ProductoImage from "./ProductoImage";
 
 const getEmbeddedMethodMessage = (result) => {
@@ -159,6 +159,7 @@ const ProductoCard = ({ closingMercadoLibre = false, compact = false, mercadoLib
       style={[
         styles.card,
         compact ? styles.cardCompact : null,
+        getEmpresaCardStyle(theme),
         {
           backgroundColor: palette.card,
           borderColor: palette.border,

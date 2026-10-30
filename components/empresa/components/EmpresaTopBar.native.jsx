@@ -1,8 +1,8 @@
 import MeteorBase from "@meteorrn/core";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { cloneElement, isValidElement, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { Appbar, Menu } from "react-native-paper";
+import { Appbar, Menu, useTheme } from "react-native-paper";
 
 import AppHeader from "../../Header/AppHeader";
 import BlurMenuSurface, { blurMenuContentStyle } from "../../Header/BlurMenuSurface";
@@ -25,6 +25,8 @@ const EmpresaTopBar = ({
   rightActions,
 }) => {
   const router = useRouter();
+  const theme = useTheme();
+  const headerColor = theme.empresaAppearance?.headerText || '#ffffff';
   const safeBack = useSafeBack(backHref);
   const [menuVisible, setMenuVisible] = useState(false);
 
@@ -47,7 +49,7 @@ const EmpresaTopBar = ({
 
   const actions = (
     <View style={styles.actionsRow}>
-      {rightActions ? <View style={styles.injectedAction}>{rightActions}</View> : null}
+      {rightActions ? <View style={styles.injectedAction}>{theme.empresaAppearance && isValidElement(rightActions) ? cloneElement(rightActions, { iconColor: headerColor }) : rightActions}</View> : null}
 
       <MenuIconMensajes
         onOpenMessages={(item) => {
@@ -64,7 +66,7 @@ const EmpresaTopBar = ({
       />
 
       <Menu
-        anchor={<Appbar.Action icon="dots-vertical" iconColor="#ffffff" onPress={() => setMenuVisible(true)} />}
+        anchor={<Appbar.Action icon="dots-vertical" iconColor={headerColor} onPress={() => setMenuVisible(true)} />}
         anchorPosition="bottom"
         contentStyle={styles.menuContent}
         onDismiss={() => setMenuVisible(false)}
@@ -96,7 +98,7 @@ const EmpresaTopBar = ({
       backHref={backHref}
       left={
         onOpenDrawer ? (
-          <Appbar.Action icon="menu" iconColor="#ffffff" onPress={onOpenDrawer} />
+          <Appbar.Action icon="menu" iconColor={headerColor} onPress={onOpenDrawer} />
         ) : null
       }
       onBack={handleBack}

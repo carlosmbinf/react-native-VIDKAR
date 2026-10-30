@@ -1,3 +1,4 @@
+import EmpresaBrandImage from '../components/EmpresaBrandImage';
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import MeteorBase from "@meteorrn/core";
 import { useRouter } from "expo-router";
@@ -162,6 +163,7 @@ export default function PaginasWebScreen({ header }) {
   const listHeader = (
     <View style={styles.headerContent}>
       <Surface elevation={0} style={[styles.hero, { backgroundColor: palette.hero, borderColor: palette.border }]}>
+        <EmpresaBrandImage />
         <View style={[styles.heroIcon, { backgroundColor: palette.brandSoft }]}>
           <MaterialCommunityIcons color="#60a5fa" name="web" size={30} />
         </View>

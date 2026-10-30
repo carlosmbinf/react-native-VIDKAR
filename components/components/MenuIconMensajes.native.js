@@ -104,7 +104,7 @@ const MenuIconMensajesNative = ({ onOpenMessages }) => {
     ? DARK_MENU_GLASS_TINT
     : LIGHT_MENU_GLASS_TINT;
   const blurTint = theme.dark ? "dark" : "light";
-  const headerIconColor = "#ffffff";
+  const headerIconColor = theme.empresaAppearance?.headerText || "#ffffff";
   const currentUserId = Meteor.useTracker(() => Meteor.userId());
 
   useEffect(() => {

@@ -415,6 +415,7 @@ const TiendaDetailScreen = () => {
 
       {tienda ? (
         <FAB
+          color={theme.empresaAppearance?.onPrimary}
           icon="plus"
           label="Agregar producto"
           onPress={handleCreateProduct}

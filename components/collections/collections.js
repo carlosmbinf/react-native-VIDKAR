@@ -1,5 +1,7 @@
 import Meteor, { Mongo } from "@meteorrn/core";
 
+export const ComercioWebAppearanceCollection = new Mongo.Collection("COMERCIO_webAppearance");
+
 export const Logs = new Meteor.Collection("Logs");
 export const Mensajes = new Meteor.Collection("mensajes");
 export const PreciosCollection = new Meteor.Collection("precios");
