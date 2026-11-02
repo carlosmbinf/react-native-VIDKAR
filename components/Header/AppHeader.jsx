@@ -1,4 +1,6 @@
 import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
+import MaskedView from "@react-native-masked-view/masked-view";
 import { StatusBar } from 'expo-status-bar';
 import { useIsFocused } from "expo-router/react-navigation";
 import React from "react";
@@ -44,7 +46,7 @@ const AppHeader = ({
   backgroundColor = DEFAULT_HEADER_COLOR,
   blurTarget,
   containerStyle,
-  elevated = true,
+  elevated = false,
   floating = false,
   glassIntensity = 42,
   glassOverlayOpacity = 0.68,
@@ -53,6 +55,7 @@ const AppHeader = ({
   onBack,
   overlapContent = false,
   portal = true,
+  showBottomBorder = true,
   showBackButton,
   statusBarHeight = 0,
   subtitle,
@@ -118,42 +121,81 @@ const AppHeader = ({
       {appearance && isFocused ? <StatusBar style={headerForegroundColor === '#ffffff' ? 'light' : 'dark'} /> : null}
       {!transparent ? (
         <>
-          <BlurView
-            key={`${width}-${height}`}
-            blurTarget={resolvedBlurTarget}
-            blurReductionFactor={4}
-            intensity={glassIntensity}
-            tint="dark"
-            blurMethod={
-              Platform.OS === "android" ? "dimezisBlurView" : undefined
-            }
-            renderToHardwareTextureAndroid={true}
-            style={StyleSheet.absoluteFill}
-          />
-          {appearance?.images.headerImage ? <Image accessibilityIgnoresInvertColors pointerEvents="none" resizeMode="cover" source={{ uri: appearance.images.headerImage }} style={StyleSheet.absoluteFill} /> : null}
-          <View
-            pointerEvents="none"
-            style={[
-              styles.colorOverlay,
-              {
-                backgroundColor: getHeaderOverlayColor(
-                  resolvedBackgroundColor,
-                  appearance ? (appearance.images.headerImage ? 0.72 : 1) : glassOverlayOpacity,
-                ),
-              },
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            {Platform.OS === "web" ? (
+              <>
+                <BlurView
+                  key={`${width}-${height}`}
+                  blurTarget={resolvedBlurTarget}
+                  blurReductionFactor={4}
+                  intensity={glassIntensity}
+                  tint="dark"
+                  blurMethod={
+                    Platform.OS === "android" ? "dimezisBlurView" : undefined
+                  }
+                  renderToHardwareTextureAndroid={true}
+                  style={StyleSheet.absoluteFill}
+                />
+                {appearance?.images.headerImage ? <Image accessibilityIgnoresInvertColors pointerEvents="none" resizeMode="cover" source={{ uri: appearance.images.headerImage }} style={StyleSheet.absoluteFill} /> : null}
+              </>
+            ) : (
+              <MaskedView
+                androidRenderingMode="hardware"
+                maskElement={(
+                  <View collapsable={false} style={StyleSheet.absoluteFill}>
+                    <LinearGradient
+                      colors={["#000000", "rgba(0, 0, 0, 0)"]}
+                      end={{ x: 0, y: 1 }}
+                      locations={[0, 1]}
+                      start={{ x: 0, y: 0 }}
+                      style={StyleSheet.absoluteFill}
+                    />
+                  </View>
+                )}
+                style={StyleSheet.absoluteFill}
+              >
+                <View style={StyleSheet.absoluteFill}>
+                  <BlurView
+                    key={`${width}-${height}`}
+                    blurTarget={resolvedBlurTarget}
+                    blurReductionFactor={4}
+                    intensity={glassIntensity}
+                    tint="dark"
+                    blurMethod={
+                      Platform.OS === "android" ? "dimezisBlurView" : undefined
+                    }
+                    renderToHardwareTextureAndroid={true}
+                    style={StyleSheet.absoluteFill}
+                  />
+                  {appearance?.images.headerImage ? <Image accessibilityIgnoresInvertColors pointerEvents="none" resizeMode="cover" source={{ uri: appearance.images.headerImage }} style={StyleSheet.absoluteFill} /> : null}
+                </View>
+              </MaskedView>
+            )}
+          </View>
+          <LinearGradient
+            colors={[
+              getHeaderOverlayColor(
+                resolvedBackgroundColor,
+                appearance ? (appearance.images.headerImage ? 0.72 : 1) : glassOverlayOpacity,
+              ),
+              "rgba(15, 23, 42, 0)",
             ]}
-          />
-          <View
+            end={{ x: 0, y: 1 }}
+            locations={[0, 1]}
             pointerEvents="none"
-            style={[
-              styles.sheenOverlay,
-              {
-                backgroundColor: appearance ? 'transparent' : theme.dark
-                  ? "rgba(255, 255, 255, 0.055)"
-                  : "rgba(255, 255, 255, 0.055)",
-              },
-            ]}
+            start={{ x: 0, y: 0 }}
+            style={styles.colorOverlay}
           />
+          {!appearance ? (
+            <LinearGradient
+              colors={["rgba(255, 255, 255, 0.055)", "rgba(255, 255, 255, 0)"]}
+              end={{ x: 0, y: 1 }}
+              locations={[0, 1]}
+              pointerEvents="none"
+              start={{ x: 0, y: 0 }}
+              style={styles.sheenOverlay}
+            />
+          ) : null}
         </>
       ) : null}
       <Appbar.Header
@@ -178,7 +220,7 @@ const AppHeader = ({
         />
         {actions || null}
       </Appbar.Header>
-      {!transparent ? (
+      {!transparent && showBottomBorder ? (
         <View
           pointerEvents="none"
           style={[

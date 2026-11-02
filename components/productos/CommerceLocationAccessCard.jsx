@@ -16,6 +16,7 @@ const getPalette = (isDarkMode) => ({
 const CommerceLocationAccessCard = ({
   blocked = false,
   compact = false,
+  locationFailed = false,
   loading = false,
   onOpenSettings,
   onRequestLocation,
@@ -23,11 +24,13 @@ const CommerceLocationAccessCard = ({
 }) => {
   const theme = useTheme();
   const palette = getPalette(theme.dark);
-  const primaryLabel = blocked ? "Abrir ajustes" : "Buscar cerca de mí";
-  const title = blocked ? "Ubicación bloqueada" : "Comercios cercanos";
+  const primaryLabel = blocked ? "Abrir ajustes" : locationFailed ? "Reintentar" : "Buscar cerca de mí";
+  const title = blocked ? "Ubicación bloqueada" : locationFailed ? "Ubicación no disponible" : "Comercios cercanos";
   const copy = blocked
     ? "Para buscar tiendas cercanas y ordenarlas por distancia, VIDKAR necesita tu ubicación precisa. Activa el permiso desde los ajustes de la app."
-    : "VIDKAR usa tu ubicación precisa para buscar tiendas dentro del radio elegido y ordenar por distancia. Las coordenadas se envían a nuestros servidores y la última ubicación se asocia a tu cuenta para funciones de entrega. Comercios no activa seguimiento en segundo plano.";
+    : locationFailed
+      ? "No pudimos obtener tu ubicación. Intenta de nuevo para buscar comercios cercanos."
+      : "VIDKAR usa tu ubicación precisa para buscar tiendas dentro del radio elegido y ordenar por distancia. Las coordenadas se envían a nuestros servidores y la última ubicación se asocia a tu cuenta para funciones de entrega. Comercios no activa seguimiento en segundo plano.";
 
   const handlePrimaryAction = blocked ? onOpenSettings : onRequestLocation;
 

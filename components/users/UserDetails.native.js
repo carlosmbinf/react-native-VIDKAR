@@ -96,6 +96,18 @@ const USER_PENDING_VENTAS_FIELDS = {
   precio: 1,
 };
 
+const SectionHeading = ({ title, subtitle, palette }) => (
+  <View style={styles.sectionHeading}>
+    <View style={[styles.sectionIndicatorWrap, { backgroundColor: palette.cardAlt }]}>
+      <View style={[styles.sectionDot, { backgroundColor: palette.accent }]} />
+    </View>
+    <View style={styles.sectionCopy}>
+      <Text style={[styles.sectionTitle, { color: palette.title }]}>{title}</Text>
+      <Text style={[styles.sectionSubtitle, { color: palette.label }]}>{subtitle}</Text>
+    </View>
+  </View>
+);
+
 const UserDetails = () => {
   const theme = useTheme();
   const headerInset = useAppHeaderContentInset();
@@ -151,7 +163,9 @@ const UserDetails = () => {
         {
           backgroundColor: profilePalette.card,
           borderColor: profilePalette.border,
-          shadowColor: theme.dark ? "#000000" : "#0f172a",
+          boxShadow: theme.dark
+            ? "0px 8px 22px rgba(0, 0, 0, 0.38)"
+            : "0px 8px 20px rgba(35, 51, 86, 0.16)",
         },
       ],
       data: [styles.data, { color: profilePalette.text }],
@@ -523,6 +537,19 @@ const UserDetails = () => {
           </View>
         ) : item ? (
           <View style={[styles.root, isTablet && styles.rootTablet]}>
+            <SectionHeading title="Resumen de la cuenta" subtitle="Identidad, acceso y actividad" palette={{ ...profilePalette, accent: accentColor }} />
+            <View style={[styles.cardItem, computedCardWidth]}>
+              <PersonalDataCard item={item} styles={profileStyles} />
+            </View>
+            <View style={[styles.cardItem, computedCardWidth]}>
+              <UserDataCard
+                item={item}
+                styles={profileStyles}
+                edit={edit}
+                setEdit={setEdit}
+                accentColor={accentColor}
+              />
+            </View>
             {Meteor.user()?.profile?.role === "admin" ? (
               <View style={[styles.cardItem, computedCardWidth]}>
                 <VentasCard
@@ -542,18 +569,7 @@ const UserDetails = () => {
                 />
               </View>
             ) : null}
-            <View style={[styles.cardItem, computedCardWidth]}>
-              <PersonalDataCard item={item} styles={profileStyles} />
-            </View>
-            <View style={[styles.cardItem, computedCardWidth]}>
-              <UserDataCard
-                item={item}
-                styles={profileStyles}
-                edit={edit}
-                setEdit={setEdit}
-                accentColor={accentColor}
-              />
-            </View>
+            <SectionHeading title="Herramientas y actividad" subtitle="Configuración y seguimiento del usuario" palette={{ ...profilePalette, accent: accentColor }} />
             {isAdminUser ? (
               <View style={[styles.cardItem, computedCardWidth]}>
                 <WelcomeServicesLinkCard
@@ -575,20 +591,14 @@ const UserDetails = () => {
             ) : null}
             <View style={[styles.cardItem, computedCardWidth]}>
               <Surface
-                elevation={5}
+                elevation={0}
                 style={[
-                  styles.cards,
+                  profileStyles.cards,
                   styles.timelineLinkCard,
-                  { backgroundColor: timelinePalette.surface },
+                  { backgroundColor: timelinePalette.surface, borderColor: profilePalette.border },
                 ]}
                 testID="user-logs-timeline-card"
               >
-                <View
-                  style={[
-                    styles.timelineAccentBar,
-                    { backgroundColor: accentColor },
-                  ]}
-                />
                 <View style={styles.timelineLinkContent}>
                   <View style={styles.timelineLinkHeader}>
                     <View
@@ -599,7 +609,7 @@ const UserDetails = () => {
                     >
                       <IconButton
                         icon="timeline-clock-outline"
-                        size={26}
+                        size={24}
                         iconColor={timelinePalette.icon}
                         style={styles.timelineIcon}
                       />
@@ -629,8 +639,7 @@ const UserDetails = () => {
                       { color: timelinePalette.description },
                     ]}
                   >
-                    Revisa los eventos, ordenados por fecha en una vista
-                    cronológica.
+                    Revisa los eventos y accesos, ordenados por fecha en una vista cronológica.
                   </Text>
                   <Button
                     mode="contained-tonal"
@@ -671,6 +680,7 @@ const UserDetails = () => {
                 />
               </View>
             ) : null}
+            <SectionHeading title="Conectividad" subtitle="Planes, consumo y configuración" palette={{ ...profilePalette, accent: accentColor }} />
             {isTablet ? (
               <View style={styles.rowPairFull}>
                 <View style={[styles.cardItem, styles.pairItemWidth]}>
@@ -718,6 +728,7 @@ const UserDetails = () => {
                 </View>
               </>
             )}
+            <SectionHeading title="Administración" subtitle="Opciones disponibles para esta cuenta" palette={{ ...profilePalette, accent: accentColor }} />
             <View style={[styles.cardItem, computedCardWidth]}>
               <OptionsCardAdmin
                 item={item}
@@ -755,7 +766,7 @@ const styles = StyleSheet.create({
   },
   root: {
     paddingHorizontal: 16,
-    paddingTop: 18,
+    paddingTop: 4,
     paddingBottom: 18,
     width: "100%",
   },
@@ -769,7 +780,30 @@ const styles = StyleSheet.create({
     maxWidth: 1400,
     alignSelf: "center",
   },
-  cardItem: { marginBottom: 18, minWidth: 300 },
+  cardItem: { marginBottom: 18, minWidth: 0 },
+  sectionHeading: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 14,
+    marginTop: 22,
+    width: "100%",
+  },
+  sectionIndicatorWrap: {
+    alignItems: "center",
+    borderRadius: 10,
+    height: 32,
+    justifyContent: "center",
+    width: 32,
+  },
+  sectionDot: {
+    borderRadius: 3,
+    height: 16,
+    width: 4,
+  },
+  sectionCopy: { flex: 1, gap: 2 },
+  sectionTitle: { fontSize: 20, fontWeight: "800", letterSpacing: -0.4 },
+  sectionSubtitle: { fontSize: 13, lineHeight: 18 },
   element: { fontSize: 12 },
   title: {
     fontSize: 18,
@@ -780,14 +814,10 @@ const styles = StyleSheet.create({
   },
   data: { fontSize: 14, fontWeight: "600", lineHeight: 20, paddingVertical: 4 },
   cards: {
-    borderRadius: 24,
+    borderRadius: 22,
     borderWidth: 1,
-    elevation: 3,
     marginBottom: 0,
     overflow: "hidden",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
   },
   dropdown: {
     height: 50,
@@ -819,15 +849,13 @@ const styles = StyleSheet.create({
   },
   pairItemWidth: { flexBasis: "48%", maxWidth: "48%", minWidth: 300 },
   timelineLinkCard: {
+    borderWidth: 1,
     overflow: "hidden",
-  },
-  timelineAccentBar: {
-    height: 4,
-    width: "100%",
   },
   timelineLinkContent: {
     gap: 14,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
   },
   timelineLinkHeader: {
     alignItems: "center",
@@ -836,8 +864,10 @@ const styles = StyleSheet.create({
   },
   timelineIconWrap: {
     alignItems: "center",
-    borderRadius: 18,
+    borderRadius: 16,
+    height: 46,
     justifyContent: "center",
+    width: 46,
   },
   timelineIcon: {
     margin: 0,
@@ -849,22 +879,23 @@ const styles = StyleSheet.create({
   timelineEyebrow: {
     fontSize: 11,
     fontWeight: "800",
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
     textTransform: "uppercase",
   },
   timelineTitle: {
-    fontSize: 19,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "900",
+    letterSpacing: -0.2,
   },
   timelineDescription: {
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 12.5,
+    lineHeight: 18,
   },
   timelineButton: {
     borderRadius: 14,
   },
   timelineButtonContent: {
-    minHeight: 42,
+    minHeight: 44,
   },
 });
 

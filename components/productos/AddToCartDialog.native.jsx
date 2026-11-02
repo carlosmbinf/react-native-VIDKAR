@@ -139,18 +139,21 @@ const AddToCartDialogNative = ({ onDismiss, producto, tienda, visible }) => {
       onClose={onDismiss}
       maxHeightRatio={0.95}
       open={visible}
+      overlayHeader
       reducedMotion={reducedMotion}
       scrollable
       surfaceStyle={styles.drawerSurface}
       title="Agregar al carrito"
     >
       {visible ? (
-        <ProductImageCarousel
-          productId={producto?._id}
-          resizeMode="contain"
-          size={230}
-          style={styles.productGallery}
-        />
+        <View style={styles.productGalleryContainer}>
+          <ProductImageCarousel
+            productId={producto?._id}
+            resizeMode="cover"
+            size={300}
+            style={styles.productGallery}
+          />
+        </View>
       ) : null}
 
       <View style={styles.productoInfo}>
@@ -326,10 +329,12 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   productGallery: {
-    height: 230,
+    height: 300,
     width: "100%",
-    borderRadius: 18,
-    overflow: "hidden",
+  },
+  productGalleryContainer: {
+    marginHorizontal: -16,
+    marginTop: -4,
   },
   precioResumen: {
     borderRadius: 12,

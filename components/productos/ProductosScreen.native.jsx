@@ -448,8 +448,7 @@ const ProductosScreenNative = () => {
 
         Alert.alert(
           "Error al buscar tiendas",
-          error.reason ||
-            "No se pudieron cargar las tiendas cercanas. Por favor, intenta de nuevo.",
+          "No se pudieron cargar las tiendas cercanas. Por favor, intenta de nuevo.",
           [{ text: "OK" }],
         );
         setTiendasCercanas([]);
@@ -559,9 +558,7 @@ const ProductosScreenNative = () => {
       const locationMessage =
         !servicesEnabled
           ? "La ubicación del dispositivo está apagada"
-          : error?.code === "E_LOCATION_TIMEOUT"
-            ? "Tiempo de espera agotado"
-            : error?.message || "Error desconocido";
+          : "No pudimos obtener tu ubicación. Intenta de nuevo para buscar comercios cercanos.";
 
       if (!servicesEnabled) {
         setLocationPermissionState((current) => ({
@@ -576,7 +573,7 @@ const ProductosScreenNative = () => {
       if (cachedLocation && servicesEnabled) {
         console.warn(
           "⚠️ [Productos] No se pudo actualizar la ubicación actual. Se mantiene la última ubicación guardada:",
-          locationMessage,
+          error?.code || "LOCATION_UNAVAILABLE",
         );
         return;
       }
@@ -595,16 +592,7 @@ const ProductosScreenNative = () => {
         return;
       }
 
-      const fallbackMessage =
-        error?.code === "E_LOCATION_TIMEOUT"
-          ? "Tiempo de espera agotado"
-          : error?.message || "Error desconocido";
-
-      Alert.alert(
-        "Error de Ubicación",
-        `${fallbackMessage}. Las tiendas se mostrarán sin ordenar por distancia.`,
-        [{ text: "OK" }],
-      );
+      console.warn("[Productos] No se pudo obtener la ubicación:", error?.code || "LOCATION_UNAVAILABLE");
     } finally {
       locationRequestInProgressRef.current = false;
       setLocationPermissionLoading(false);
@@ -1064,6 +1052,7 @@ const ProductosScreenNative = () => {
           {showLocationAccessCard ? (
             <CommerceLocationAccessCard
               blocked={locationPermissionBlocked}
+              locationFailed={Boolean(locationError) && !locationUnavailable}
               loading={locationPermissionLoading}
               onOpenSettings={() => Linking.openSettings()}
               onRequestLocation={obtenerUbicacion}
@@ -1094,6 +1083,7 @@ const ProductosScreenNative = () => {
       categoriesReady,
       debouncedSearch,
       hasMoreProducts,
+      locationError,
       locationPermissionBlocked,
       locationPermissionLoading,
       locationUnavailable,
@@ -1159,7 +1149,7 @@ const ProductosScreenNative = () => {
             : locationUnavailable
               ? "Activa la ubicación para Vidkar desde los ajustes del dispositivo para encontrar tiendas cercanas."
                 : locationError
-                  ? `${locationError}. Activa el GPS para ver tiendas cercanas.`
+                  ? locationError
               : searchQuery.trim()
                 ? "Intenta con otros términos de búsqueda"
                 : userLocation

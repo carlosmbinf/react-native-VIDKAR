@@ -544,7 +544,7 @@ export default function CourseDetail() {
   if (data.loading && !data.course) {
     return (
       <View style={[styles.root, { backgroundColor: palette.background }]}>
-        <AppHeader title="Detalle del curso" showBackButton backHref="/(normal)/Cursos" />
+        <AppHeader title="Detalle del curso" showBackButton backHref="/(normal)/Cursos" showBottomBorder={false} />
         <View style={styles.loadingScreen}>
           <ActivityIndicator color={palette.accent} size="large" />
           <Text style={[styles.loadingText, { color: palette.muted }]}>Cargando curso...</Text>
@@ -559,11 +559,10 @@ export default function CourseDetail() {
   return (
     <View style={[styles.root, { backgroundColor: palette.background }]}>
       {!player?.url ? (
-        <AppHeader title="Detalle del curso" subtitle={data.course.profesorNombre} showBackButton backHref="/(normal)/Cursos" overlapContent />
+        <AppHeader title="Detalle del curso" subtitle={data.course.profesorNombre} showBackButton backHref="/(normal)/Cursos" overlapContent showBottomBorder={false} />
       ) : null}
       <ScrollView
-        contentContainerStyle={styles.content}
-        style={{ marginTop: headerInset + 12 }}
+        contentContainerStyle={[styles.content, { paddingTop: headerInset }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadCourseDetail(true)} />}
       >
         <View style={[styles.hero, { borderColor: palette.border }]}>

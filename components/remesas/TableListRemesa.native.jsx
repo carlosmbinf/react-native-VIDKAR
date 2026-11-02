@@ -130,6 +130,7 @@ const deriveEstadoVenta = (venta) => {
 
 const TableListRemesa = () => {
   const theme = useTheme();
+  const detailScrollAtTopRef = React.useRef(true);
   const isDark = Boolean(theme?.dark);
   const { height, width } = useWindowDimensions();
   const isWide = width >= 768;
@@ -229,6 +230,7 @@ const TableListRemesa = () => {
   const [snackbarVisible, setSnackbarVisible] = useState(false);
 
   const openDialog = (venta) => {
+    detailScrollAtTopRef.current = true;
     setVentaSel(venta);
     setVisible(true);
   };
@@ -431,16 +433,24 @@ const TableListRemesa = () => {
 
       {/* Drawer con el detalle completo de la orden */}
       <DrawerBottom
+        contentAtTopRef={detailScrollAtTopRef}
         open={visible}
         onClose={closeDialog}
         overlayOpacity={0.34}
         title="Detalles de la Orden de Remesa"
       >
         <ScrollView
+          alwaysBounceVertical={false}
+          bounces={false}
           style={[styles.drawerScroll, { maxHeight: maxScrollHeight }]}
           contentContainerStyle={styles.drawerScrollContent}
           keyboardShouldPersistTaps="handled"
+          onScroll={(event) => {
+            detailScrollAtTopRef.current = event.nativeEvent.contentOffset.y <= 0.5;
+          }}
+          overScrollMode="never"
           refreshControl={<RefreshControl refreshing={false} onRefresh={() => {}} />}
+          scrollEventThrottle={16}
         >
           {ventaSel ? (
             <View style={styles.dialogContent}>

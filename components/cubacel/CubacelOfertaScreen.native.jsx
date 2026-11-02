@@ -1,13 +1,18 @@
 import MeteorBase from "@meteorrn/core";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { BlurView } from "expo-blur";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   Alert,
   ImageBackground,
   KeyboardAvoidingView,
+  LayoutAnimation,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
+  UIManager,
   View,
 } from "react-native";
 import {
@@ -22,15 +27,23 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
+import { useReducedMotion } from "react-native-reanimated";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { DTShopProductosCollection } from "../collections/collections";
-import AppHeader from "../Header/AppHeader";
+import AppHeader, { APP_HEADER_HEIGHT } from "../Header/AppHeader";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
     MeteorBase
   );
+
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const formatPromoDate = (value) => {
   if (!value) {
@@ -205,8 +218,13 @@ const CubacelOfertaScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
+  const headerInset = insets.top + APP_HEADER_HEIGHT;
+  const reducedMotion = useReducedMotion();
   const [extraFields, setExtraFields] = useState({});
   const [nombre, setNombre] = useState("");
+  const [isPromoDescriptionExpanded, setIsPromoDescriptionExpanded] =
+    useState(false);
+  const [footerHeight, setFooterHeight] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const dataReady = useDeferredScreenData();
 
@@ -356,9 +374,10 @@ const CubacelOfertaScreen = () => {
           <AppHeader
             title="Oferta Cubacel"
             backHref="/(normal)/ProductosCubacelCards"
+            overlapContent
             showBackButton
           />
-          <View style={styles.centerState}>
+          <View style={[styles.centerState, { paddingTop: headerInset }]}>
             <Text style={styles.stateTitle}>
               No se recibió una oferta válida
             </Text>
@@ -375,9 +394,10 @@ const CubacelOfertaScreen = () => {
           <AppHeader
             title="Oferta Cubacel"
             backHref="/(normal)/ProductosCubacelCards"
+            overlapContent
             showBackButton
           />
-          <View style={styles.centerState}>
+          <View style={[styles.centerState, { paddingTop: headerInset }]}>
             <ActivityIndicator size="large" />
             <Text style={styles.stateTitle}>Cargando oferta Cubacel...</Text>
           </View>
@@ -393,9 +413,10 @@ const CubacelOfertaScreen = () => {
           <AppHeader
             title="Oferta Cubacel"
             backHref="/(normal)/ProductosCubacelCards"
+            overlapContent
             showBackButton
           />
-          <View style={styles.centerState}>
+          <View style={[styles.centerState, { paddingTop: headerInset }]}>
             <Text style={styles.stateTitle}>
               La oferta ya no está disponible
             </Text>
@@ -418,17 +439,21 @@ const CubacelOfertaScreen = () => {
           title="Oferta Cubacel"
           subtitle="Completa tu recarga con datos correctos"
           backHref="/(normal)/ProductosCubacelCards"
+          overlapContent
           showBackButton
         />
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior="height"
           keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
           style={styles.keyboardView}
         >
           <ScrollView
             style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: footerHeight + 20 },
+            ]}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={
               Platform.OS === "ios" ? "interactive" : "on-drag"
@@ -440,7 +465,7 @@ const CubacelOfertaScreen = () => {
               defaultSource={Platform.OS === "ios" ? localFallback : undefined}
               resizeMode="cover"
               imageStyle={styles.heroImageBorder}
-              style={styles.heroImage}
+              style={[styles.heroImage, { paddingTop: headerInset + 18 }]}
             >
               <View style={styles.heroScrim} />
               <View style={styles.heroBadge}>
@@ -474,7 +499,48 @@ const CubacelOfertaScreen = () => {
               <Text style={styles.summaryEyebrow}>Resumen de la oferta</Text>
               <Text style={styles.summaryTitle}>{promoTitle}</Text>
               {promoTerms ? (
-                <Text style={styles.summaryBody}>{promoTerms}</Text>
+                <>
+                  <Text
+                    numberOfLines={isPromoDescriptionExpanded ? undefined : 3}
+                    style={styles.summaryBody}
+                  >
+                    {promoTerms}
+                  </Text>
+                  <Pressable
+                    accessibilityLabel={
+                      isPromoDescriptionExpanded
+                        ? "Ver menos de la descripción"
+                        : "Leer la descripción completa"
+                    }
+                    accessibilityRole="button"
+                    accessibilityState={{
+                      expanded: isPromoDescriptionExpanded,
+                    }}
+                    hitSlop={8}
+                    onPress={() => {
+                      if (!reducedMotion) {
+                        LayoutAnimation.configureNext(
+                          LayoutAnimation.Presets.easeInEaseOut,
+                        );
+                      }
+                      setIsPromoDescriptionExpanded((current) => !current);
+                    }}
+                    style={styles.summaryExpandButton}
+                  >
+                    <Text style={styles.summaryExpandLabel}>
+                      {isPromoDescriptionExpanded ? "Ver menos" : "Leer más"}
+                    </Text>
+                    <MaterialCommunityIcons
+                      color="#ffffff"
+                      name={
+                        isPromoDescriptionExpanded
+                          ? "chevron-up"
+                          : "chevron-down"
+                      }
+                      size={17}
+                    />
+                  </Pressable>
+                </>
               ) : null}
               {promoStartDate && promoEndDate ? (
                 <View style={styles.summaryPill}>
@@ -583,6 +649,12 @@ const CubacelOfertaScreen = () => {
           </ScrollView>
 
           <View
+            onLayout={({ nativeEvent }) => {
+              const nextHeight = nativeEvent.layout.height;
+              setFooterHeight((currentHeight) =>
+                currentHeight === nextHeight ? currentHeight : nextHeight,
+              );
+            }}
             style={[
               styles.footer,
               {
@@ -590,6 +662,16 @@ const CubacelOfertaScreen = () => {
               },
             ]}
           >
+            <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+              <BlurView
+                experimentalBlurMethod={
+                  Platform.OS === "android" ? "dimezisBlurView" : undefined
+                }
+                intensity={22}
+                tint="default"
+                style={StyleSheet.absoluteFill}
+              />
+            </View>
             <View style={styles.footerSummary}>
               <Text style={styles.footerSummaryLabel}>Total</Text>
               <Text style={styles.footerSummaryValue}>
@@ -634,6 +716,7 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     flex: 1,
+    position: "relative",
   },
   scroll: {
     flex: 1,
@@ -760,6 +843,19 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginTop: 8,
   },
+  summaryExpandButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    gap: 3,
+    marginTop: 8,
+    minHeight: 32,
+  },
+  summaryExpandLabel: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
   summaryPill: {
     alignSelf: "flex-start",
     backgroundColor: "rgba(255,255,255,0.12)",
@@ -843,12 +939,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   footer: {
-    // backgroundColor: "#ffffff",
+    bottom: 0,
     borderTopColor: "#dbe4ef",
     borderTopWidth: 1,
+    left: 0,
+    overflow: "hidden",
     paddingBottom: 18,
     paddingHorizontal: 16,
     paddingTop: 14,
+    position: "absolute",
+    right: 0,
+    zIndex: 10,
   },
   footerSummary: {
     marginBottom: 12,

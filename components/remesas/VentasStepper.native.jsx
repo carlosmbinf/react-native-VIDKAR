@@ -137,11 +137,16 @@ const obtenerPasoDesdeEstado = (venta) => {
 
 const VentasStepper = () => {
   const theme = useTheme();
+  const detailScrollAtTopRef = React.useRef(true);
   const isDark = Boolean(theme?.dark);
   const { height: screenHeight } = useWindowDimensions();
 
   const [dialogVisible, setDialogVisible] = useState(false);
   const [selectedVenta, setSelectedVenta] = useState(null);
+  const selectedVentaId = selectedVenta?._id;
+  React.useEffect(() => {
+    if (selectedVentaId) detailScrollAtTopRef.current = true;
+  }, [selectedVentaId]);
   const [selectedAction, setSelectedAction] = useState(null);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -700,15 +705,23 @@ const VentasStepper = () => {
 
       {/* Drawer profesional de detalles de la remesa seleccionada */}
       <DrawerBottom
+        contentAtTopRef={detailScrollAtTopRef}
         open={Boolean(selectedVenta)}
         onClose={() => setSelectedVenta(null)}
         overlayOpacity={0.4}
         title="Detalles de la Remesa"
       >
         <ScrollView
+          alwaysBounceVertical={false}
+          bounces={false}
           style={[styles.drawerScroll, { maxHeight: screenHeight * 0.8 }]}
           contentContainerStyle={styles.drawerScrollContent}
           keyboardShouldPersistTaps="handled"
+          onScroll={(event) => {
+            detailScrollAtTopRef.current = event.nativeEvent.contentOffset.y <= 0.5;
+          }}
+          overScrollMode="never"
+          scrollEventThrottle={16}
         >
           {selectedVenta ? (() => {
             const isFondoSale = selectedVenta?.metodoPago === "FONDO";

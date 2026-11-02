@@ -1,9 +1,11 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import ConsumptionProgressBar from './ConsumptionProgressBar';
 import Meteor from '@meteorrn/core';
 import { memo, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import CalendarPicker from 'react-native-calendar-picker';
 import { Dropdown } from 'react-native-element-dropdown';
-import { Button, Card, Chip, Divider, ProgressBar, Surface, Switch, Text, Title, useTheme } from 'react-native-paper';
+import { Button, Card, Divider, Switch, Text, useTheme } from 'react-native-paper';
 import { Logs } from '../../collections/collections';
 
 const BYTES_IN_MB_BINARY = 1048576;
@@ -28,12 +30,24 @@ const ProxyCardAdmin = ({ item, styles, precioslist = [], handleReiniciarConsumo
 	const progress = item.isIlimitado || !limiteMB ? 0 : clamp01(consumoMB / limiteMB);
 	const restanteMB = Math.max(0, limiteMB - consumoMB);
 	const statusActivo = !item.baneado;
-	const headerAccent = accentColor || '#546e7a';
+	const headerAccent = accentColor || (theme.dark ? '#38bdf8' : '#0284c7');
+
 	const palette = {
+		cardBorder: theme.dark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)',
 		copy: theme.dark ? '#cbd5e1' : '#475569',
+		dropdownBg: theme.dark ? 'rgba(15, 23, 42, 0.90)' : '#ffffff',
+		dropdownBorder: theme.dark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(15, 23, 42, 0.12)',
+		exitBg: theme.dark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(15, 23, 42, 0.08)',
+		exitText: theme.dark ? '#cbd5e1' : '#475569',
+		iconBg: theme.dark ? 'rgba(56, 189, 248, 0.16)' : 'rgba(2, 132, 199, 0.08)',
 		label: theme.dark ? '#94a3b8' : '#64748b',
-		panel: theme.dark ? 'rgba(30, 41, 59, 0.72)' : 'rgba(248, 250, 252, 0.96)',
-		panelBorder: theme.dark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(15, 23, 42, 0.08)',
+		panel: theme.dark ? 'rgba(30, 41, 59, 0.55)' : 'rgba(241, 245, 249, 0.75)',
+		panelBorder: theme.dark ? 'rgba(148, 163, 184, 0.10)' : 'rgba(15, 23, 42, 0.05)',
+		progressBg: theme.dark ? '#cbd5e1' : 'rgba(15, 23, 42, 0.08)',
+		statusBg: statusActivo
+			? (theme.dark ? 'rgba(34, 197, 94, 0.20)' : 'rgba(34, 197, 94, 0.12)')
+			: (theme.dark ? 'rgba(239, 68, 68, 0.20)' : 'rgba(239, 68, 68, 0.12)'),
+		statusText: statusActivo ? (theme.dark ? '#4ade80' : '#15803d') : (theme.dark ? '#f87171' : '#b91c1c'),
 		title: theme.dark ? '#f8fafc' : '#0f172a',
 	};
 
@@ -47,148 +61,201 @@ const ProxyCardAdmin = ({ item, styles, precioslist = [], handleReiniciarConsumo
 				: 'No hay un límite asignado aún.';
 
 	return (
-		<Card elevation={4} style={styles.cards} testID="proxy-admin-card">
-			<View style={[ui.accentBar, { backgroundColor: headerAccent }]} />
+		<Card elevation={0} style={[styles.cards, ui.card, { borderColor: palette.cardBorder }]} testID="proxy-admin-card">
+			<View style={[ui.statusRibbon, { backgroundColor: palette.statusBg }]} accessibilityRole="text">
+				<Text style={[ui.statusRibbonText, { color: palette.statusText }]}>{statusActivo ? 'Activo' : 'Inactivo'}</Text>
+			</View>
 			<Card.Content style={ui.content}>
-				<View style={styles.element}>
-					<View style={ui.headerRow}>
-						<Title style={[styles.title, { color: palette.title }]}>Proxy</Title>
-						<View style={ui.headerRight}>
-							<Chip compact icon={statusActivo ? 'check-circle' : 'close-circle'} style={{ backgroundColor: statusActivo ? '#2e7d32' : '#c62828' }} selectedColor="#fff">
-								{statusActivo ? 'Activo' : 'Inactivo'}
-							</Chip>
-							{canEdit ? (
-								<Chip compact icon="close-circle" mode="flat" onPress={onRequestView} style={ui.cancelChip} textStyle={ui.cancelChipText}>
-									Cancelar
-								</Chip>
-							) : null}
+				{/* Header */}
+				<View style={ui.headerRow}>
+					<View style={[ui.iconWrap, { backgroundColor: palette.iconBg }]}>
+						<MaterialCommunityIcons name="server-network" size={24} color={headerAccent} />
+					</View>
+					<View style={ui.headerCopy}>
+						<Text style={[ui.eyebrow, { color: palette.label }]}>Administración de proxy</Text>
+						<Text style={[ui.title, { color: palette.title }]}>Gestión de límites</Text>
+					</View>
+				</View>
+				{canEdit ? (
+					<View style={ui.headerActions}>
+						<Button
+							mode="text"
+							compact
+							icon="close"
+							onPress={onRequestView}
+							style={[ui.cancelBtn, { backgroundColor: palette.exitBg }]}
+							labelStyle={[ui.cancelBtnLabel, { color: palette.exitText }]}
+						>
+							Cerrar
+						</Button>
+					</View>
+				) : null}
+
+				<Text style={[ui.helper, { color: palette.copy }]}>{helper}</Text>
+
+				{/* Metrics Grid */}
+				<View style={ui.kpiGrid}>
+					<View style={[ui.kpiItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+						<View style={ui.kpiTop}>
+							<MaterialCommunityIcons name="speedometer" size={16} color={headerAccent} />
+							<Text style={[ui.kpiLabel, { color: palette.label }]}>{item.isIlimitado ? 'Modalidad' : 'Límite'}</Text>
 						</View>
+						<Text style={[ui.kpiValue, { color: palette.title }]} numberOfLines={1}>{limitLabel}</Text>
 					</View>
 
-					<Text style={[ui.helper, { color: palette.copy }]}>{helper}</Text>
-					<Divider style={ui.divider} />
-
-					<View style={ui.kpiRow}>
-						<View style={[ui.kpiItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
-							<Text style={[ui.kpiLabel, { color: palette.label }]}>{item.isIlimitado ? 'Tipo' : 'Límite'}</Text>
-							<Text style={[ui.kpiValue, { color: palette.title }]}>{limitLabel}</Text>
-						</View>
-						<View style={[ui.kpiItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+					<View style={[ui.kpiItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+						<View style={ui.kpiTop}>
+							<MaterialCommunityIcons name="cloud-download-outline" size={16} color="#10b981" />
 							<Text style={[ui.kpiLabel, { color: palette.label }]}>Consumo</Text>
-							<Text style={[ui.kpiValue, { color: palette.title }]}>{formatGB(consumoMB)} GB</Text>
 						</View>
-						{!item.isIlimitado && limiteMB ? (
-							<View style={[ui.kpiItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
-								<Text style={[ui.kpiLabel, { color: palette.label }]}>Restante</Text>
-								<Text style={[ui.kpiValue, { color: palette.title }]}>{formatGB(restanteMB)} GB</Text>
-							</View>
-						) : null}
+						<Text style={[ui.kpiValue, { color: palette.title }]} numberOfLines={1}>{formatGB(consumoMB)} GB</Text>
 					</View>
 
 					{!item.isIlimitado && limiteMB ? (
-						<View style={ui.progressWrap}>
-							<View style={ui.progressMeta}>
-								<Text style={[ui.progressText, { color: palette.label }]}>{formatGB(consumoMB)} / {formatGB(limiteMB)} GB</Text>
-								<Text style={[ui.progressText, { color: palette.label }]}>{Math.round(progress * 100)}%</Text>
+						<View style={[ui.kpiItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+							<View style={ui.kpiTop}>
+								<MaterialCommunityIcons name="timer-sand" size={16} color="#f59e0b" />
+								<Text style={[ui.kpiLabel, { color: palette.label }]}>Restante</Text>
 							</View>
-							<ProgressBar progress={progress} color={progress > 0.8 ? '#F57C00' : '#1E88E5'} />
+							<Text style={[ui.kpiValue, { color: palette.title }]} numberOfLines={1}>{formatGB(restanteMB)} GB</Text>
 						</View>
 					) : null}
+				</View>
 
-					<Divider style={ui.divider} />
+				{!item.isIlimitado && limiteMB ? (
+					<ConsumptionProgressBar
+						label={`${formatGB(consumoMB)} / ${formatGB(limiteMB)} GB consumidos`}
+						progress={progress}
+						trackColor={palette.progressBg}
+						textColor="#000000"
+					/>
+				) : null}
 
-					<View style={ui.rowBetween}>
-						<Text style={[ui.mutedLabel, { color: palette.copy }]}>Por tiempo:</Text>
-						<Switch value={!!item.isIlimitado} onValueChange={() => Meteor.users.update(item._id, { $set: { isIlimitado: !item.isIlimitado } })} />
+				<Divider style={ui.divider} />
+
+				{/* Plan Type Switch */}
+				<View style={[ui.switchRow, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+					<View style={ui.switchCopy}>
+						<Text style={[ui.switchLabel, { color: palette.title }]}>Modalidad por tiempo</Text>
+						<Text style={[ui.switchDesc, { color: palette.copy }]}>
+							{item.isIlimitado ? 'Fecha de vencimiento fija' : 'Límite por megas consumidos'}
+						</Text>
 					</View>
+					<Switch
+						value={!!item.isIlimitado}
+						onValueChange={() => Meteor.users.update(item._id, { $set: { isIlimitado: !item.isIlimitado } })}
+					/>
+				</View>
 
-					<Divider style={ui.divider} />
-
-					{item.isIlimitado ? (
-						<>
-							<View style={{ width: '100%', marginTop: 6 }}>
-								<Text style={[ui.sectionTitle, { color: palette.title }]}>Fecha Límite</Text>
-								<Text style={[ui.sectionSubtitle, { color: palette.copy }]}>{formatLimitDate(moment, item.fechaSubscripcion)}</Text>
-							</View>
-							<Surface style={[ui.formPanel, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
-								<CalendarPicker
-									minDate={new Date()}
-									selectedDayColor="#6200ee"
-									selectedDayTextColor="#FFFFFF"
-									selectedStartDate={item.fechaSubscripcion}
-									width={320}
-									height={320}
-									onDateChange={(date) => {
-										if (!date) {
-											return;
-										}
-										Meteor.users.update(item._id, { $set: { fechaSubscripcion: new Date(moment.utc(date).startOf('day').add(4, 'hours')) } });
-										Logs.insert({
-											type: 'Fecha Limite Proxy',
-											userAfectado: item._id,
-											userAdmin: Meteor.userId(),
-											message: `La Fecha Límite del Proxy se cambió para: ${moment.utc(new Date(date)).format('YYYY-MM-DD')}`,
-										});
-										if (!item.baneado) {
-											Logs.insert({ type: 'PROXY', userAfectado: item._id, userAdmin: Meteor.userId(), message: 'Se desactivó el PROXY porque cambió la fecha límite' });
-											Meteor.users.update(item._id, { $set: { baneado: !item.baneado } });
-										}
-									}}
-								/>
-							</Surface>
-						</>
-					) : (
-						<View style={{ paddingTop: 10 }}>
-							<Surface style={[ui.formPanel, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
-								{value || isFocus ? <Text style={[styles.label, isFocus && { color: 'blue' }]}>Megas • Precio</Text> : null}
-								<Dropdown
-									style={[styles.dropdown, isFocus && { borderColor: 'blue' }]}
-									placeholderStyle={styles.placeholderStyle}
-									selectedTextStyle={styles.selectedTextStyle}
-									inputSearchStyle={styles.inputSearchStyle}
-									iconStyle={styles.iconStyle}
-									data={precioslist}
-									search
-									maxHeight={precioslist.length * 50 + 70 > 220 ? 220 : precioslist.length * 50 + 70}
-									labelField="label"
-									valueField="value"
-									placeholder={!isFocus ? 'Seleccione un paquete' : '...'}
-									searchPlaceholder="Buscar..."
-									value={value}
-									onFocus={() => setIsFocus(true)}
-									onBlur={() => setIsFocus(false)}
-									onChange={(option) => {
-										setValue(option.value);
-										setIsFocus(false);
-									}}
-								/>
-								<View style={{ paddingTop: 10 }}>
-									<Button icon="database-import" disabled={!value} mode="contained" style={btnStyles.action} onPress={async () => {
-										try {
-											await Meteor.users.update(item._id, { $set: { megas: value } });
-											await Meteor.call('registrarLog', 'Proxy', item._id, Meteor.userId(), `Consumo de Proxy actualizado a: ${value}MB`);
-										} catch (error) {
-											console.error(error);
-										}
-									}}>
-										{value ? `Establecer ${value}MB` : 'Seleccione un paquete'}
-									</Button>
-								</View>
-							</Surface>
+				{/* Calendar or Package Selector */}
+				{item.isIlimitado ? (
+					<View style={[ui.formPanel, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+						<View style={ui.calendarHeader}>
+							<MaterialCommunityIcons name="calendar-month-outline" size={20} color={headerAccent} />
+							<Text style={[ui.sectionTitle, { color: palette.title }]}>Fecha límite de suscripción</Text>
 						</View>
-					)}
-
-					<View style={{ width: '100%', marginTop: 18 }}>
-						<Text style={[ui.sectionTitle, { color: palette.title }]}>Acciones</Text>
-						<View style={{ flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap' }}>
-							<Button disabled={!item.megasGastadosinBytes} mode="outlined" onPress={handleReiniciarConsumo} style={btnStyles.action} icon="backup-restore">
-								Reiniciar Consumo
-							</Button>
-							<Button mode="contained" buttonColor={statusActivo ? '#c62828' : '#2e7d32'} onPress={addVenta} style={btnStyles.action}>
-								{statusActivo ? 'Deshabilitar' : 'Habilitar'}
-							</Button>
+						<Text style={[ui.calendarSubtitle, { color: palette.copy }]}>
+							Vencimiento actual: {formatLimitDate(moment, item.fechaSubscripcion)}
+						</Text>
+						<View style={ui.calendarWrap}>
+							<CalendarPicker
+								minDate={new Date()}
+								selectedDayColor={headerAccent}
+								selectedDayTextColor="#FFFFFF"
+								selectedStartDate={item.fechaSubscripcion}
+								width={300}
+								height={300}
+								onDateChange={(date) => {
+									if (!date) {
+										return;
+									}
+									Meteor.users.update(item._id, { $set: { fechaSubscripcion: new Date(moment.utc(date).startOf('day').add(4, 'hours')) } });
+									Logs.insert({
+										type: 'Fecha Limite Proxy',
+										userAfectado: item._id,
+										userAdmin: Meteor.userId(),
+										message: `La Fecha Límite del Proxy se cambió para: ${moment.utc(new Date(date)).format('YYYY-MM-DD')}`,
+									});
+									if (!item.baneado) {
+										Logs.insert({ type: 'PROXY', userAfectado: item._id, userAdmin: Meteor.userId(), message: 'Se desactivó el PROXY porque cambió la fecha límite' });
+										Meteor.users.update(item._id, { $set: { baneado: !item.baneado } });
+									}
+								}}
+							/>
 						</View>
 					</View>
+				) : (
+					<View style={[ui.formPanel, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
+						<View style={ui.calendarHeader}>
+							<MaterialCommunityIcons name="package-variant-closed" size={20} color={headerAccent} />
+							<Text style={[ui.sectionTitle, { color: palette.title }]}>Paquete de datos (Megas)</Text>
+						</View>
+						<Dropdown
+							style={[
+								ui.dropdown,
+								{ backgroundColor: palette.dropdownBg, borderColor: isFocus ? headerAccent : palette.dropdownBorder },
+							]}
+							placeholderStyle={[ui.dropdownPlaceholder, { color: palette.label }]}
+							selectedTextStyle={[ui.dropdownSelectedText, { color: palette.title }]}
+							inputSearchStyle={[ui.inputSearchStyle, { color: palette.title, backgroundColor: palette.dropdownBg }]}
+							iconStyle={ui.iconStyle}
+							data={precioslist}
+							search
+							maxHeight={240}
+							labelField="label"
+							valueField="value"
+							placeholder={!isFocus ? 'Seleccione un paquete...' : '...'}
+							searchPlaceholder="Buscar paquete..."
+							value={value}
+							onFocus={() => setIsFocus(true)}
+							onBlur={() => setIsFocus(false)}
+							onChange={(option) => {
+								setValue(option.value);
+								setIsFocus(false);
+							}}
+						/>
+						<Button
+							icon="database-import"
+							disabled={!value}
+							mode="contained"
+							style={ui.setPackageBtn}
+							contentStyle={ui.actionBtnContent}
+							onPress={async () => {
+								try {
+									await Meteor.users.update(item._id, { $set: { megas: value } });
+									await Meteor.call('registrarLog', 'Proxy', item._id, Meteor.userId(), `Consumo de Proxy actualizado a: ${value}MB`);
+								} catch (error) {
+									console.error(error);
+								}
+							}}
+						>
+							{value ? `Establecer ${value}MB` : 'Seleccione un paquete'}
+						</Button>
+					</View>
+				)}
+
+				{/* Action Buttons */}
+				<View style={ui.actionsContainer}>
+					<Button
+						disabled={!item.megasGastadosinBytes}
+						mode="outlined"
+						onPress={handleReiniciarConsumo}
+						icon="backup-restore"
+						style={ui.actionBtn}
+						contentStyle={ui.actionBtnContent}
+					>
+						Reiniciar consumo
+					</Button>
+					<Button
+						mode="contained"
+						buttonColor={statusActivo ? '#dc2626' : '#16a34a'}
+						onPress={addVenta}
+						icon={statusActivo ? 'close-circle-outline' : 'check-circle-outline'}
+						style={ui.actionBtn}
+						contentStyle={ui.actionBtnContent}
+					>
+						{statusActivo ? 'Deshabilitar' : 'Habilitar'}
+					</Button>
 				</View>
 			</Card.Content>
 		</Card>
@@ -196,30 +263,193 @@ const ProxyCardAdmin = ({ item, styles, precioslist = [], handleReiniciarConsumo
 };
 
 const ui = StyleSheet.create({
-	accentBar: { height: 4, width: '100%' },
-	content: { paddingBottom: 18, paddingTop: 16 },
-	divider: { marginVertical: 10, opacity: 0.2 },
-	rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-	mutedLabel: { fontWeight: '700' },
-	headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-	headerRight: { flexDirection: 'row', alignItems: 'center' },
-	helper: { marginTop: 8, fontSize: 12, lineHeight: 17 },
-	kpiRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },
-	kpiItem: { borderRadius: 16, borderWidth: 1, flexGrow: 1, flexBasis: '30%', paddingHorizontal: 12, paddingVertical: 10 },
-	kpiLabel: { fontSize: 11, fontWeight: '900', letterSpacing: 0.4, textTransform: 'uppercase' },
-	kpiValue: { marginTop: 2, fontSize: 14, fontWeight: '800' },
-	progressWrap: { marginTop: 10 },
-	progressMeta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-	progressText: { fontSize: 12, opacity: 0.75, fontWeight: '600' },
-	cancelChip: { marginLeft: 8, backgroundColor: '#E3F2FD' },
-	cancelChipText: { fontWeight: '800', color: '#1565C0' },
-	formPanel: { borderRadius: 18, borderWidth: 1, marginTop: 14, padding: 12, width: '100%' },
-	sectionTitle: { fontWeight: '800', textAlign: 'center' },
-	sectionSubtitle: { marginTop: 4, textAlign: 'center' },
-});
-
-const btnStyles = StyleSheet.create({
-	action: { marginTop: 8, borderRadius: 20, marginHorizontal: 8 },
+	actionBtn: {
+		borderRadius: 14,
+		flex: 1,
+		minWidth: 140,
+	},
+	actionBtnContent: {
+		minHeight: 44,
+	},
+	actionsContainer: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 10,
+		marginTop: 4,
+	},
+	calendarHeader: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		gap: 8,
+	},
+	calendarSubtitle: {
+		fontSize: 12,
+	},
+	calendarWrap: {
+		alignItems: 'center',
+		justifyContent: 'center',
+		marginTop: 6,
+	},
+	cancelBtn: {
+		borderRadius: 999,
+		height: 28,
+		justifyContent: 'center',
+	},
+	cancelBtnLabel: {
+		fontSize: 11,
+		fontWeight: '800',
+		marginHorizontal: 8,
+		marginVertical: 0,
+	},
+	card: {
+		borderWidth: 1,
+		overflow: 'hidden',
+	},
+	content: {
+		gap: 14,
+		paddingHorizontal: 16,
+		paddingVertical: 18,
+	},
+	divider: {
+		marginVertical: 2,
+		opacity: 0.14,
+	},
+	dropdown: {
+		borderRadius: 14,
+		borderWidth: 1,
+		height: 48,
+		paddingHorizontal: 14,
+	},
+	dropdownPlaceholder: {
+		fontSize: 13.5,
+	},
+	dropdownSelectedText: {
+		fontSize: 13.5,
+		fontWeight: '700',
+	},
+	eyebrow: {
+		fontSize: 11,
+		fontWeight: '800',
+		letterSpacing: 0.6,
+		textTransform: 'uppercase',
+	},
+	formPanel: {
+		borderRadius: 16,
+		borderWidth: 1,
+		gap: 10,
+		paddingHorizontal: 14,
+		paddingVertical: 14,
+	},
+	headerActions: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 6,
+	},
+	headerCopy: {
+		flex: 1,
+		gap: 2,
+	},
+	headerRow: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		gap: 12,
+	},
+	helper: {
+		fontSize: 12,
+		lineHeight: 17,
+	},
+	iconStyle: {
+		height: 20,
+		width: 20,
+	},
+	iconWrap: {
+		alignItems: 'center',
+		borderRadius: 16,
+		height: 46,
+		justifyContent: 'center',
+		width: 46,
+	},
+	inputSearchStyle: {
+		borderRadius: 12,
+		fontSize: 13,
+		height: 42,
+	},
+	kpiGrid: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 10,
+	},
+	kpiItem: {
+		borderRadius: 14,
+		borderWidth: 1,
+		flexBasis: '30%',
+		flexGrow: 1,
+		gap: 4,
+		paddingHorizontal: 12,
+		paddingVertical: 10,
+	},
+	kpiLabel: {
+		fontSize: 10,
+		fontWeight: '800',
+		letterSpacing: 0.3,
+		textTransform: 'uppercase',
+	},
+	kpiTop: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		gap: 5,
+	},
+	kpiValue: {
+		fontSize: 15,
+		fontWeight: '800',
+	},
+	sectionTitle: {
+		fontSize: 13.5,
+		fontWeight: '800',
+	},
+	setPackageBtn: {
+		borderRadius: 14,
+		marginTop: 4,
+	},
+	statusRibbon: {
+		borderBottomLeftRadius: 12,
+		paddingHorizontal: 20,
+		paddingVertical: 9,
+		position: 'absolute',
+		right: 0,
+		top: 0,
+		zIndex: 1,
+	},
+	statusRibbonText: {
+		fontSize: 13,
+		fontWeight: '800',
+	},
+	switchCopy: {
+		flex: 1,
+		gap: 2,
+	},
+	switchDesc: {
+		fontSize: 11.5,
+	},
+	switchLabel: {
+		fontSize: 13.5,
+		fontWeight: '800',
+	},
+	switchRow: {
+		alignItems: 'center',
+		borderRadius: 14,
+		borderWidth: 1,
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		paddingHorizontal: 14,
+		paddingVertical: 10,
+	},
+	title: {
+		fontSize: 18,
+		fontWeight: '900',
+		letterSpacing: -0.2,
+	},
 });
 
 export default memo(ProxyCardAdmin);

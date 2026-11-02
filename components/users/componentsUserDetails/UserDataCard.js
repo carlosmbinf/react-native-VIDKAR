@@ -1,10 +1,10 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Meteor from '@meteorrn/core';
 import { router } from 'expo-router';
 import { clearMCPConfiguration } from '../../../services/mcp/mcpClient';
 import { memo, useCallback, useEffect, useState } from 'react';
-import { Alert, View } from 'react-native';
-import { Avatar, Button, Card, Chip, Divider, HelperText, Snackbar, Switch, Text, TextInput, Title, useTheme } from 'react-native-paper';
+import { Alert, StyleSheet, View } from 'react-native';
+import { Avatar, Button, Card, Chip, Divider, HelperText, Snackbar, Switch, Text, TextInput, useTheme } from 'react-native-paper';
 
 const getInitials = (name = '') =>
 	name
@@ -42,7 +42,7 @@ const getUserEmail = (user) => {
 	return String(primaryEmail || googleEmail || '').trim();
 };
 
-const UserDataCard = ({ item, styles, edit, setEdit }) => {
+const UserDataCard = ({ item, styles, edit, setEdit, accentColor: customAccent }) => {
 	const theme = useTheme();
 	const [form, setForm] = useState({ username: '', email: '' });
 	const [password, setPassword] = useState('');
@@ -55,20 +55,24 @@ const UserDataCard = ({ item, styles, edit, setEdit }) => {
 	const [feedback, setFeedback] = useState({ visible: false, message: '', type: 'info' });
 	const [focus, setFocus] = useState(null);
 
-	const headerAccent = theme.dark ? '#60a5fa' : '#2563eb';
+	const roleIsAdmin = item?.profile?.role === 'admin';
+	const baseAccent = customAccent || (theme.dark ? '#60a5fa' : '#2563eb');
+
 	const palette = {
-		accent: theme.dark ? '#60a5fa' : '#2563eb',
-		accentSoft: theme.dark ? 'rgba(59, 130, 246, 0.22)' : 'rgba(37, 99, 235, 0.10)',
-		cardSoft: theme.dark ? 'rgba(15, 23, 42, 0.62)' : 'rgba(255, 255, 255, 0.72)',
-		chip: theme.dark ? 'rgba(59, 130, 246, 0.24)' : 'rgba(219, 234, 254, 0.95)',
-		chipText: theme.dark ? '#dbeafe' : '#1d4ed8',
+		accent: baseAccent,
+		accentSoft: theme.dark ? 'rgba(59, 130, 246, 0.16)' : 'rgba(37, 99, 235, 0.08)',
+		badgeBg: roleIsAdmin
+			? (theme.dark ? 'rgba(168, 85, 247, 0.22)' : 'rgba(126, 34, 206, 0.12)')
+			: (theme.dark ? 'rgba(59, 130, 246, 0.20)' : 'rgba(37, 99, 235, 0.10)'),
+		badgeText: roleIsAdmin ? (theme.dark ? '#c084fc' : '#7e22ce') : (theme.dark ? '#93c5fd' : '#1d4ed8'),
+		cardBorder: theme.dark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)',
 		copy: theme.dark ? '#cbd5e1' : '#475569',
-		danger: theme.dark ? '#fca5a5' : '#dc2626',
+		danger: theme.dark ? '#f87171' : '#dc2626',
+		dangerBg: theme.dark ? 'rgba(239, 68, 68, 0.18)' : 'rgba(239, 68, 68, 0.08)',
 		input: theme.dark ? 'rgba(15, 23, 42, 0.74)' : 'rgba(255, 255, 255, 0.96)',
 		label: theme.dark ? '#94a3b8' : '#64748b',
-		panel: theme.dark ? 'rgba(30, 41, 59, 0.7)' : 'rgba(248, 250, 252, 0.96)',
-		panelBorder: theme.dark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(15, 23, 42, 0.08)',
-		success: theme.dark ? '#86efac' : '#16a34a',
+		tileBg: theme.dark ? 'rgba(30, 41, 59, 0.55)' : 'rgba(241, 245, 249, 0.75)',
+		tileBorder: theme.dark ? 'rgba(148, 163, 184, 0.10)' : 'rgba(15, 23, 42, 0.05)',
 		title: theme.dark ? '#f8fafc' : '#0f172a',
 	};
 
@@ -174,7 +178,7 @@ const UserDataCard = ({ item, styles, edit, setEdit }) => {
 
 	const passwordStrength = (() => {
 		if (!password) {
-			return { label: '', color: undefined };
+			return { label: '', color: undefined, score: 0 };
 		}
 		let score = 0;
 		if (password.length >= 8) score += 1;
@@ -182,9 +186,9 @@ const UserDataCard = ({ item, styles, edit, setEdit }) => {
 		if (/[a-z]/.test(password)) score += 1;
 		if (/\d/.test(password)) score += 1;
 		if (/[^A-Za-z0-9]/.test(password)) score += 1;
-		if (score <= 2) return { label: 'Débil', color: '#d9534f' };
-		if (score === 3) return { label: 'Media', color: '#f0ad4e' };
-		return { label: 'Fuerte', color: '#5cb85c' };
+		if (score <= 2) return { label: 'Débil', color: '#ef4444', score: 1 };
+		if (score <= 4) return { label: 'Media', color: '#f59e0b', score: 2 };
+		return { label: 'Fuerte', color: '#22c55e', score: 3 };
 	})();
 
 	const onChangePassword = () => {
@@ -247,154 +251,201 @@ const UserDataCard = ({ item, styles, edit, setEdit }) => {
 
 	return (
 		<>
-			<Card elevation={4} style={styles.cards} testID="user-data-card">
-				<View style={[ui.accentBar, { backgroundColor: headerAccent }]} />
+			<Card elevation={0} style={[styles.cards, ui.card, { borderColor: palette.cardBorder }]} testID="user-data-card">
 				<Card.Content style={ui.content}>
-					<View style={ui.cardBody}>
-						<View style={ui.headerRow}>
-							<Avatar.Text size={52} label={getInitials(item?.username || item?.profile?.name || 'U')} style={{ backgroundColor: hashColor(item?.username || item?._id || 'U') }} />
-							<View style={ui.headerCopy}>
+					{/* Header Row */}
+					<View style={ui.headerRow}>
+						<Avatar.Text
+							size={56}
+							label={getInitials(item?.username || item?.profile?.firstName || 'U')}
+							style={{ backgroundColor: hashColor(item?.username || item?._id || 'U') }}
+							labelStyle={ui.avatarText}
+						/>
+						<View style={ui.headerCopy}>
+							<View style={ui.eyebrowRow}>
 								<Text style={[ui.eyebrow, { color: palette.label }]}>Cuenta de acceso</Text>
-								<Text style={[ui.accountTitle, { color: palette.title }]} numberOfLines={1}>
-									{item?.username || 'Usuario'}
-								</Text>
-								<Chip compact icon={item?.profile?.role === 'admin' ? 'shield-crown' : 'account'} style={[ui.roleChip, { backgroundColor: palette.chip }]} textStyle={[ui.roleChipText, { color: palette.chipText }]}>
+								<Chip
+									compact
+									icon={roleIsAdmin ? 'shield-crown' : 'account-check'}
+									style={[ui.roleChip, { backgroundColor: palette.badgeBg }]}
+									textStyle={[ui.roleChipText, { color: palette.badgeText }]}
+								>
 									{item?.profile?.role || 'N/R'}
 								</Chip>
 							</View>
+							<Text style={[ui.accountTitle, { color: palette.title }]} numberOfLines={1}>
+								{item?.username || 'Usuario'}
+							</Text>
 						</View>
+					</View>
 
-						<Divider style={ui.divider} />
+					<Divider style={ui.divider} />
 
-						{edit ? (
-							<>
-								<Text style={[ui.sectionLabel, { color: palette.label }]}>Identidad</Text>
-								<TextInput
-									mode="outlined"
-									value={form.username}
-									onFocus={() => setFocus('username')}
-									onBlur={() => setFocus(null)}
-									onChangeText={(value) => setForm((previous) => ({ ...previous, username: value }))}
-									label="Usuario"
-									autoCapitalize="none"
-									error={!!errors.username}
-									disabled={saving}
-									outlineColor={changed.username ? '#1976D2' : undefined}
-									right={changed.username ? <TextInput.Icon icon="circle-edit-outline" forceTextInputFocus={false} /> : undefined}
-									style={[ui.input, { backgroundColor: palette.input }]}
-								/>
-								<HelperText type={errors.username ? 'error' : 'info'} visible={focus === 'username' || !!errors.username} style={{ marginBottom: 4 }}>
-									{errors.username || 'Mínimo 3 caracteres.'}
-								</HelperText>
+					{edit ? (
+						<View style={ui.editContainer}>
+							<Text style={[ui.sectionLabel, { color: palette.label }]}>Identidad de usuario</Text>
+							<TextInput
+								mode="outlined"
+								value={form.username}
+								onFocus={() => setFocus('username')}
+								onBlur={() => setFocus(null)}
+								onChangeText={(value) => setForm((previous) => ({ ...previous, username: value }))}
+								label="Nombre de usuario"
+								autoCapitalize="none"
+								error={!!errors.username}
+								disabled={saving}
+								outlineColor={changed.username ? palette.accent : undefined}
+								activeOutlineColor={palette.accent}
+								right={changed.username ? <TextInput.Icon icon="circle-edit-outline" forceTextInputFocus={false} /> : undefined}
+								style={[ui.input, { backgroundColor: palette.input }]}
+							/>
+							<HelperText type={errors.username ? 'error' : 'info'} visible={focus === 'username' || !!errors.username} style={ui.helper}>
+								{errors.username || 'Mínimo 3 caracteres alfanuméricos.'}
+							</HelperText>
 
-								<Text style={[ui.sectionLabel, { color: palette.label, marginTop: 4 }]}>Contacto</Text>
-								{Meteor.user()?.profile?.role === 'admin' ? (
-									<>
-										<TextInput
-											mode="outlined"
-											value={form.email}
-											onFocus={() => setFocus('email')}
-											onBlur={() => setFocus(null)}
-											onChangeText={(value) => setForm((previous) => ({ ...previous, email: value }))}
-											label="Email"
-											keyboardType="email-address"
-											autoCapitalize="none"
-											error={!!errors.email}
-											disabled={saving}
-											outlineColor={changed.email ? '#1976D2' : undefined}
-											right={changed.email ? <TextInput.Icon icon="circle-edit-outline" forceTextInputFocus={false} /> : undefined}
-											style={[ui.input, { backgroundColor: palette.input }]}
-										/>
-										<HelperText type={errors.email ? 'error' : 'info'} visible={focus === 'email' || !!errors.email} style={{ marginBottom: 4 }}>
-											{errors.email || 'Formato válido: usuario@dominio'}
-										</HelperText>
-									</>
-								) : (
-									<Text style={styles.data}>
-										<MaterialCommunityIcons name="email" size={18} /> {resolvedEmail || '—'}
+							<Text style={[ui.sectionLabel, { color: palette.label, marginTop: 8 }]}>Correo de contacto</Text>
+							{Meteor.user()?.profile?.role === 'admin' ? (
+								<>
+									<TextInput
+										mode="outlined"
+										value={form.email}
+										onFocus={() => setFocus('email')}
+										onBlur={() => setFocus(null)}
+										onChangeText={(value) => setForm((previous) => ({ ...previous, email: value }))}
+										label="Correo electrónico"
+										keyboardType="email-address"
+										autoCapitalize="none"
+										error={!!errors.email}
+										disabled={saving}
+										outlineColor={changed.email ? palette.accent : undefined}
+										activeOutlineColor={palette.accent}
+										right={changed.email ? <TextInput.Icon icon="circle-edit-outline" forceTextInputFocus={false} /> : undefined}
+										style={[ui.input, { backgroundColor: palette.input }]}
+									/>
+									<HelperText type={errors.email ? 'error' : 'info'} visible={focus === 'email' || !!errors.email} style={ui.helper}>
+										{errors.email || 'Ejemplo: usuario@vidkar.com'}
+									</HelperText>
+								</>
+							) : (
+								<View style={[ui.readOnlyItem, { backgroundColor: palette.tileBg, borderColor: palette.tileBorder }]}>
+									<MaterialCommunityIcons name="email-outline" size={18} color={palette.label} />
+									<Text style={[ui.infoValue, { color: palette.title, flex: 1 }]}>
+										{resolvedEmail || '—'}
 									</Text>
-								)}
+								</View>
+							)}
 
-								<Text style={[ui.sectionLabel, { color: palette.label, marginTop: 8 }]}>Rol</Text>
-								<View style={[ui.rolePanel, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}> 
-									<Text style={[styles.data, { flex: 1 }]}>
-										<MaterialCommunityIcons name="shield-account" size={22} /> {item?.profile?.role}
-									</Text>
-									{Meteor.user()?.username === 'carlosmbinf' ? <Switch value={item?.profile?.role === 'admin'} onValueChange={onToggleRole} disabled={saving} /> : null}
-								</View>
-
-								<View style={ui.formActions}>
-									<Button mode="outlined" onPress={handleCancelEdit} disabled={saving} icon="close-circle-outline" style={ui.secondaryButton}>Cancelar</Button>
-									<Button mode="contained" onPress={onSaveUserInfo} loading={saving} icon="content-save-outline" disabled={saving || !hasChanges() || hasUserInfoErrors} style={ui.primaryButton}>Guardar datos</Button>
-								</View>
-							</>
-						) : (
-							<View style={ui.readOnlyGrid}>
-								<View style={[ui.readOnlyItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
-									<Text style={[ui.infoLabel, { color: palette.label }]}>Correo</Text>
-									<Text style={[ui.infoValue, { color: palette.title }]} numberOfLines={1}><MaterialCommunityIcons name="email" size={16} /> {resolvedEmail || '—'}</Text>
-								</View>
-								{item?.createdAt ? (
-									<View style={[ui.readOnlyItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
-										<Text style={[ui.infoLabel, { color: palette.label }]}>Alta</Text>
-										<Text style={[ui.infoValue, { color: palette.title }]} numberOfLines={1}><MaterialCommunityIcons name="calendar" size={16} /> {formatDate(item?.createdAt)}</Text>
-									</View>
-								) : null}
-								{Meteor.user()?.username === 'carlosmbinf' ? (
-									<View style={[ui.readOnlyItem, { backgroundColor: palette.panel, borderColor: palette.panelBorder }]}>
-										<Text style={[ui.infoLabel, { color: palette.label }]}>Contraseña VPN</Text>
-										<Text style={[ui.infoValue, { color: palette.title }]} numberOfLines={1}>
-											<MaterialCommunityIcons name="key-variant" size={16} /> {item?.passvpn || '—'}
+							<Text style={[ui.sectionLabel, { color: palette.label, marginTop: 10 }]}>Rol en el sistema</Text>
+							<View style={[ui.rolePanel, { backgroundColor: palette.tileBg, borderColor: palette.tileBorder }]}>
+								<View style={ui.roleInfo}>
+									<MaterialCommunityIcons name={roleIsAdmin ? 'shield-crown' : 'shield-account'} size={22} color={palette.badgeText} />
+									<View>
+										<Text style={[ui.roleTitle, { color: palette.title }]}>
+											{roleIsAdmin ? 'Administrador' : 'Usuario estándar'}
+										</Text>
+										<Text style={[ui.roleSubtitle, { color: palette.copy }]}>
+											{roleIsAdmin ? 'Acceso a paneles y control' : 'Acceso general al sistema'}
 										</Text>
 									</View>
+								</View>
+								{Meteor.user()?.username === 'carlosmbinf' ? (
+									<Switch value={item?.profile?.role === 'admin'} onValueChange={onToggleRole} disabled={saving} />
 								) : null}
 							</View>
-						)}
 
-						{!edit ? (
-							<View style={ui.quickActionsRow}>
-								<Button
-									mode="outlined"
-									icon="account-edit-outline"
-									onPress={handleStartEdit}
-									style={ui.quickActionButton}
-									contentStyle={ui.quickActionContent}
-								>
-									Editar datos
+							<View style={ui.formActions}>
+								<Button mode="outlined" onPress={handleCancelEdit} disabled={saving} icon="close-circle-outline" style={ui.secondaryButton}>
+									Cancelar
 								</Button>
-								<Button
-									mode="contained-tonal"
-									icon="lock-reset"
-									onPress={() => setPasswordExpanded(true)}
-									style={ui.quickActionButton}
-									contentStyle={ui.quickActionContent}
-								>
-									Cambiar contraseña
+								<Button mode="contained" onPress={onSaveUserInfo} loading={saving} icon="content-save-outline" disabled={saving || !hasChanges() || hasUserInfoErrors} style={ui.primaryButton}>
+									Guardar datos
 								</Button>
 							</View>
-						) : null}
-					</View>
+						</View>
+					) : (
+						<View style={ui.readOnlyGrid}>
+							<View style={[ui.readOnlyItem, { backgroundColor: palette.tileBg, borderColor: palette.tileBorder }]}>
+								<View style={ui.tileHeader}>
+									<MaterialCommunityIcons name="email-outline" size={16} color={palette.label} />
+									<Text style={[ui.infoLabel, { color: palette.label }]}>Correo</Text>
+								</View>
+								<Text style={[ui.infoValue, { color: palette.title }]} numberOfLines={1}>
+									{resolvedEmail || '—'}
+								</Text>
+							</View>
+							{item?.createdAt ? (
+								<View style={[ui.readOnlyItem, { backgroundColor: palette.tileBg, borderColor: palette.tileBorder }]}>
+									<View style={ui.tileHeader}>
+										<MaterialCommunityIcons name="calendar-clock-outline" size={16} color={palette.label} />
+										<Text style={[ui.infoLabel, { color: palette.label }]}>Fecha de alta</Text>
+									</View>
+									<Text style={[ui.infoValue, { color: palette.title }]} numberOfLines={1}>
+										{formatDate(item?.createdAt)}
+									</Text>
+								</View>
+							) : null}
+							{Meteor.user()?.username === 'carlosmbinf' ? (
+								<View style={[ui.readOnlyItem, { backgroundColor: palette.tileBg, borderColor: palette.tileBorder }]}>
+									<View style={ui.tileHeader}>
+										<MaterialCommunityIcons name="key-variant" size={16} color={palette.label} />
+										<Text style={[ui.infoLabel, { color: palette.label }]}>Clave VPN</Text>
+									</View>
+									<Text style={[ui.infoValue, { color: palette.title }]} numberOfLines={1}>
+										{item?.passvpn || '—'}
+									</Text>
+								</View>
+							) : null}
+						</View>
+					)}
+
+					{!edit ? (
+						<View style={ui.quickActionsRow}>
+							<Button
+								mode="outlined"
+								icon="account-edit-outline"
+								onPress={handleStartEdit}
+								style={ui.quickActionButton}
+								contentStyle={ui.quickActionContent}
+							>
+								Editar datos
+							</Button>
+							<Button
+								mode="contained-tonal"
+								icon="lock-reset"
+								onPress={() => setPasswordExpanded(true)}
+								style={ui.quickActionButton}
+								contentStyle={ui.quickActionContent}
+							>
+								Cambiar contraseña
+							</Button>
+						</View>
+					) : null}
 				</Card.Content>
 			</Card>
 
 			{passwordExpanded ? (
-				<Card elevation={4} style={[styles.cards, ui.passwordCard]} testID="password-change-card">
-					<View style={[ui.accentBar, { backgroundColor: headerAccent }]} />
+				<Card elevation={0} style={[styles.cards, ui.card, ui.passwordCard, { borderColor: palette.cardBorder }]} testID="password-change-card">
 					<Card.Content style={ui.passwordContent}>
 						<View style={ui.securityHeader}>
-							<View style={[ui.securityIconWrap, { backgroundColor: palette.accentSoft }]}> 
-								<MaterialCommunityIcons name="lock-reset" size={26} color={palette.accent} />
+							<View style={[ui.securityIconWrap, { backgroundColor: palette.accentSoft }]}>
+								<MaterialCommunityIcons name="lock-reset" size={24} color={palette.accent} />
 							</View>
 							<View style={ui.headerCopy}>
 								<Text style={[ui.eyebrow, { color: palette.label }]}>Seguridad</Text>
-								<Title style={[ui.securityTitle, { color: palette.title }]}>Cambiar contraseña</Title>
-								<Text style={[ui.securitySubtitle, { color: palette.copy }]}>Define una clave nueva para este usuario. La acción no modifica sus datos personales.</Text>
+								<Text style={[ui.securityTitle, { color: palette.title }]}>Cambiar contraseña</Text>
+								<Text style={[ui.securitySubtitle, { color: palette.copy }]}>
+									Define una nueva clave de acceso sin alterar los demás datos.
+								</Text>
 							</View>
 						</View>
-						<View style={[ui.passwordNotice, { backgroundColor: palette.cardSoft, borderColor: palette.panelBorder }]}> 
-							<MaterialCommunityIcons name="information-outline" size={18} color={palette.accent} />
-							<Text style={[ui.passwordNoticeText, { color: palette.copy }]}>Usa al menos 8 caracteres e incluye mayúscula, minúscula y número.</Text>
+
+						<View style={[ui.passwordNotice, { backgroundColor: palette.tileBg, borderColor: palette.tileBorder }]}>
+							<MaterialCommunityIcons name="shield-check-outline" size={18} color={palette.accent} />
+							<Text style={[ui.passwordNoticeText, { color: palette.copy }]}>
+								Mínimo 8 caracteres, con mayúscula, minúscula y número.
+							</Text>
 						</View>
+
 						<TextInput
 							mode="outlined"
 							value={password}
@@ -404,27 +455,56 @@ const UserDataCard = ({ item, styles, edit, setEdit }) => {
 							right={<TextInput.Icon icon={showPassword ? 'eye-off' : 'eye'} onPress={() => setShowPassword((current) => !current)} />}
 							error={!!errors.password}
 							disabled={saving}
+							outlineColor={palette.tileBorder}
+							activeOutlineColor={palette.accent}
 							style={[ui.input, { backgroundColor: palette.input }]}
 						/>
-						{passwordStrength.label ? <Text style={[ui.passwordHelper, { color: passwordStrength.color }]}>Fortaleza: {passwordStrength.label}</Text> : null}
+
+						{passwordStrength.label ? (
+							<View style={ui.strengthMeter}>
+								<View style={ui.strengthBars}>
+									<View style={[ui.strengthBar, { backgroundColor: passwordStrength.score >= 1 ? passwordStrength.color : palette.tileBorder }]} />
+									<View style={[ui.strengthBar, { backgroundColor: passwordStrength.score >= 2 ? passwordStrength.color : palette.tileBorder }]} />
+									<View style={[ui.strengthBar, { backgroundColor: passwordStrength.score >= 3 ? passwordStrength.color : palette.tileBorder }]} />
+								</View>
+								<Text style={[ui.passwordHelper, { color: passwordStrength.color }]}>
+									Seguridad: {passwordStrength.label}
+								</Text>
+							</View>
+						) : null}
+
 						{errors.password ? <Text style={[ui.passwordError, { color: palette.danger }]}>{errors.password}</Text> : null}
+
 						<TextInput
 							mode="outlined"
 							value={repeatPassword}
 							onChangeText={setRepeatPassword}
-							label="Confirmar nueva contraseña"
+							label="Confirmar contraseña"
 							secureTextEntry={!showRepeatPassword}
 							right={<TextInput.Icon icon={showRepeatPassword ? 'eye-off' : 'eye'} onPress={() => setShowRepeatPassword((current) => !current)} />}
 							error={!!errors.repeatPassword}
 							disabled={saving}
+							outlineColor={palette.tileBorder}
+							activeOutlineColor={palette.accent}
 							style={[ui.input, { backgroundColor: palette.input }]}
 						/>
 						{errors.repeatPassword ? <Text style={[ui.passwordError, { color: palette.danger }]}>{errors.repeatPassword}</Text> : null}
+
+						<View style={ui.passwordActions}>
+							<Button mode="outlined" icon="close-circle-outline" onPress={handleCancelPassword} disabled={saving} style={ui.secondaryButton}>
+								Cancelar
+							</Button>
+							<Button
+								mode="contained"
+								icon="content-save-outline"
+								onPress={onChangePassword}
+								disabled={saving || !password || !repeatPassword || hasPasswordErrors}
+								style={ui.primaryButton}
+							>
+								Guardar clave
+							</Button>
+						</View>
 					</Card.Content>
-					<Card.Actions style={ui.passwordActions}>
-						<Button mode="outlined" icon="close-circle-outline" onPress={handleCancelPassword} disabled={saving} style={ui.secondaryButton}>Cancelar</Button>
-						<Button mode="contained" icon="content-save-outline" onPress={onChangePassword} disabled={saving || !password || !repeatPassword || hasPasswordErrors} style={ui.primaryButton}>Guardar contraseña</Button>
-					</Card.Actions>
 				</Card>
 			) : null}
 
@@ -432,7 +512,7 @@ const UserDataCard = ({ item, styles, edit, setEdit }) => {
 				visible={feedback.visible}
 				onDismiss={() => setFeedback((previous) => ({ ...previous, visible: false }))}
 				duration={3000}
-				style={feedback.type === 'error' ? { backgroundColor: '#d9534f' } : feedback.type === 'success' ? { backgroundColor: '#5cb85c' } : undefined}
+				style={feedback.type === 'error' ? { backgroundColor: '#dc2626' } : feedback.type === 'success' ? { backgroundColor: '#16a34a' } : undefined}
 			>
 				{feedback.message}
 			</Snackbar>
@@ -440,102 +520,230 @@ const UserDataCard = ({ item, styles, edit, setEdit }) => {
 	);
 };
 
-const ui = {
-	accentBar: { height: 4, width: '100%' },
-	accountTitle: { fontSize: 20, fontWeight: '900', lineHeight: 25 },
-	cardBody: { gap: 14 },
-	content: { gap: 14, paddingBottom: 18, paddingTop: 16 },
-	divider: { marginVertical: 4, opacity: 0.16 },
+const ui = StyleSheet.create({
+	accountTitle: {
+		fontSize: 20,
+		fontWeight: '900',
+		letterSpacing: -0.3,
+		lineHeight: 25,
+	},
+	avatarText: {
+		fontSize: 20,
+		fontWeight: '800',
+	},
+	card: {
+		borderWidth: 1,
+		overflow: 'hidden',
+	},
+	content: {
+		gap: 14,
+		paddingHorizontal: 16,
+		paddingVertical: 18,
+	},
+	divider: {
+		marginVertical: 2,
+		opacity: 0.14,
+	},
+	editContainer: {
+		gap: 10,
+	},
 	eyebrow: {
 		fontSize: 11,
-		fontWeight: '900',
+		fontWeight: '800',
 		letterSpacing: 0.6,
 		textTransform: 'uppercase',
+	},
+	eyebrowRow: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 4,
+		justifyContent: 'space-between',
+		width: '100%',
 	},
 	formActions: {
 		flexDirection: 'row',
 		gap: 10,
 		justifyContent: 'flex-end',
-		marginTop: 14,
+		marginTop: 8,
 	},
-	headerCopy: { flex: 1, gap: 4, minWidth: 0 },
-	headerRow: { alignItems: 'center', flexDirection: 'row', gap: 12, marginBottom: 2 },
-	input: { height: 50, marginBottom: 2 },
+	headerCopy: {
+		flex: 1,
+		gap: 3,
+		minWidth: 0,
+	},
+	headerRow: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		gap: 14,
+	},
+	helper: {
+		fontSize: 11.5,
+		marginTop: -4,
+		paddingHorizontal: 2,
+	},
 	infoLabel: {
-		fontSize: 10,
-		fontWeight: '900',
-		letterSpacing: 0.4,
+		fontSize: 10.5,
+		fontWeight: '800',
+		letterSpacing: 0.3,
 		textTransform: 'uppercase',
 	},
-	infoValue: { fontSize: 13, fontWeight: '800', marginTop: 5 },
+	infoValue: {
+		fontSize: 14,
+		fontWeight: '700',
+	},
+	input: {
+		borderRadius: 12,
+		height: 48,
+	},
 	passwordActions: {
-		alignItems: 'stretch',
+		flexDirection: 'row',
 		gap: 10,
 		justifyContent: 'flex-end',
-		paddingBottom: 18,
-		paddingHorizontal: 16,
-		paddingTop: 0,
+		marginTop: 6,
 	},
 	passwordCard: {
-		width: '100%',
-		paddingBottom: 4,
-		paddingTop: 0,
+		marginTop: 12,
 	},
-	passwordContent: { gap: 12, paddingBottom: 10, paddingTop: 16 },
-	passwordError: { fontSize: 12, fontWeight: '700', marginTop: -6 },
-	passwordHelper: { fontSize: 12, fontWeight: '800', marginTop: -6 },
+	passwordContent: {
+		gap: 12,
+		paddingHorizontal: 16,
+		paddingVertical: 18,
+	},
+	passwordError: {
+		fontSize: 12,
+		fontWeight: '700',
+		marginTop: -4,
+	},
+	passwordHelper: {
+		fontSize: 11.5,
+		fontWeight: '800',
+	},
 	passwordNotice: {
 		alignItems: 'center',
-		borderRadius: 16,
+		borderRadius: 14,
 		borderWidth: 1,
 		flexDirection: 'row',
 		gap: 8,
 		paddingHorizontal: 12,
 		paddingVertical: 10,
 	},
-	passwordNoticeText: { flex: 1, fontSize: 12, fontWeight: '700', lineHeight: 17 },
-	primaryButton: { borderRadius: 14 },
-	quickActionButton: { borderRadius: 14, flex: 1, minWidth: 150 },
-	quickActionContent: { minHeight: 44 },
-	quickActionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 2 },
-	readOnlyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
-	readOnlyItem: {
-		borderRadius: 16,
-		borderWidth: 1,
-		flexBasis: '47%',
-		flexGrow: 1,
-		minWidth: 160,
-		paddingHorizontal: 12,
-		paddingVertical: 10,
+	passwordNoticeText: {
+		flex: 1,
+		fontSize: 12,
+		fontWeight: '600',
+		lineHeight: 17,
 	},
-	roleChip: { alignSelf: 'flex-start', borderRadius: 999 },
-	roleChipText: { fontSize: 11, fontWeight: '800' },
-	rolePanel: {
+	primaryButton: {
+		borderRadius: 14,
+	},
+	quickActionButton: {
+		borderRadius: 14,
+		flex: 1,
+		minWidth: 140,
+	},
+	quickActionContent: {
+		minHeight: 44,
+	},
+	quickActionsRow: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 10,
+		marginTop: 4,
+	},
+	readOnlyGrid: {
+		gap: 8,
+	},
+	readOnlyItem: {
 		alignItems: 'center',
-		borderRadius: 16,
+		borderRadius: 14,
 		borderWidth: 1,
 		flexDirection: 'row',
-		paddingHorizontal: 12,
-		paddingVertical: 8,
+		justifyContent: 'space-between',
+		paddingHorizontal: 14,
+		paddingVertical: 12,
 	},
-	secondaryButton: { borderRadius: 14 },
-	securityHeader: { alignItems: 'center', flexDirection: 'row', gap: 12 },
-	securityIconWrap: {
-		alignItems: 'center',
-		borderRadius: 18,
-		height: 48,
+	roleChip: {
+		borderRadius: 999,
 		justifyContent: 'center',
-		width: 48,
+		minHeight: 36,
 	},
-	securitySubtitle: { fontSize: 13, lineHeight: 18 },
-	securityTitle: { fontSize: 20, fontWeight: '900', lineHeight: 24, marginBottom: 0 },
+	roleChipText: {
+		fontSize: 10.5,
+		fontWeight: '800',
+	},
+	roleInfo: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		gap: 10,
+	},
+	rolePanel: {
+		alignItems: 'center',
+		borderRadius: 14,
+		borderWidth: 1,
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		paddingHorizontal: 14,
+		paddingVertical: 10,
+	},
+	roleSubtitle: {
+		fontSize: 11.5,
+		fontWeight: '500',
+	},
+	roleTitle: {
+		fontSize: 13.5,
+		fontWeight: '800',
+	},
+	secondaryButton: {
+		borderRadius: 14,
+	},
 	sectionLabel: {
 		fontSize: 11,
-		fontWeight: '900',
-		letterSpacing: 0.5,
-		marginBottom: 6,
+		fontWeight: '800',
+		letterSpacing: 0.4,
 		textTransform: 'uppercase',
 	},
-};
+	securityHeader: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		gap: 12,
+	},
+	securityIconWrap: {
+		alignItems: 'center',
+		borderRadius: 16,
+		height: 46,
+		justifyContent: 'center',
+		width: 46,
+	},
+	securitySubtitle: {
+		fontSize: 12.5,
+		lineHeight: 17,
+	},
+	securityTitle: {
+		fontSize: 18,
+		fontWeight: '900',
+	},
+	strengthBars: {
+		flex: 1,
+		flexDirection: 'row',
+		gap: 6,
+	},
+	strengthBar: {
+		borderRadius: 999,
+		flex: 1,
+		height: 4,
+	},
+	strengthMeter: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		gap: 12,
+		marginTop: -2,
+	},
+	tileHeader: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		gap: 6,
+	},
+});
 
 export default memo(UserDataCard);

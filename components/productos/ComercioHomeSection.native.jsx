@@ -342,7 +342,8 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
         return;
       }
 
-      setLocationError(error?.message || "No pudimos obtener tu ubicación.");
+      console.warn("[ComercioHomeSection] No se pudo obtener la ubicación:", error?.code || "LOCATION_UNAVAILABLE");
+      setLocationError("No pudimos obtener tu ubicación. Intenta de nuevo para buscar comercios cercanos.");
     } finally {
       locationRequestInProgressRef.current = false;
       setLocationPermissionLoading(false);
@@ -700,6 +701,7 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
         <CommerceLocationAccessCard
           blocked={locationPermissionBlocked}
           compact
+          locationFailed={Boolean(locationError) && !locationUnavailable}
           loading={locationPermissionLoading || loadingTiendas}
           onOpenSettings={() => Linking.openSettings()}
           onRequestLocation={obtenerUbicacion}
@@ -740,8 +742,8 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
         </View>
       ) : shouldShowLocationEmptyState ? (
         <View style={styles.emptyState}>
-          <Text variant="titleSmall" style={[styles.emptyTitle, { color: palette.title }]}>Ubicación apagada</Text>
-          <Text variant="bodySmall" style={[styles.emptyCopy, { color: palette.copy }]}>No podemos buscar comercios cercanos si la ubicación no está activa para Vidkar. Actívala para actualizar la búsqueda.</Text>
+          <Text variant="titleSmall" style={[styles.emptyTitle, { color: palette.title }]}>{locationUnavailable ? "Ubicación apagada" : "Sin ubicación disponible"}</Text>
+          <Text variant="bodySmall" style={[styles.emptyCopy, { color: palette.copy }]}>{locationUnavailable ? "No podemos buscar comercios cercanos si la ubicación no está activa para Vidkar. Actívala para actualizar la búsqueda." : "No pudimos obtener tu ubicación. Intenta de nuevo para buscar comercios cercanos."}</Text>
         </View>
       ) : (
         <View style={styles.emptyState}>

@@ -191,7 +191,6 @@ export default function SeriesDetail({ idSerie }) {
         overlapContent
         showBackButton
         title={serie.nombre || "Detalles de la Serie"}
-        transparent
         onBackPress={() => router.back()}
       />
 

@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Meteor from '@meteorrn/core';
 import { router } from 'expo-router';
 import { clearMCPConfiguration } from '../../../services/mcp/mcpClient';
@@ -76,71 +76,103 @@ const DeleteAccountCard = ({ userId, username }) => {
 	};
 
 	const palette = {
-		border: theme.dark ? 'rgba(248, 113, 113, 0.28)' : 'rgba(220, 38, 38, 0.18)',
-		copy: theme.dark ? '#fecaca' : '#7f1d1d',
-		muted: theme.dark ? '#fca5a5' : '#991b1b',
-		panel: theme.dark ? 'rgba(127, 29, 29, 0.28)' : 'rgba(254, 242, 242, 0.96)',
-		surface: theme.dark ? 'rgba(69, 10, 10, 0.76)' : '#ffffff',
-		title: theme.dark ? '#fee2e2' : '#991b1b',
-		warningPanel: theme.dark ? 'rgba(154, 52, 18, 0.26)' : 'rgba(255, 247, 237, 0.96)',
+		border: theme.dark ? 'rgba(239, 68, 68, 0.28)' : 'rgba(239, 68, 68, 0.18)',
+		copy: theme.dark ? '#fca5a5' : '#991b1b',
+		danger: theme.dark ? '#f87171' : '#dc2626',
+		iconBg: theme.dark ? 'rgba(239, 68, 68, 0.18)' : 'rgba(239, 68, 68, 0.10)',
+		label: theme.dark ? '#fca5a5' : '#b91c1c',
+		panel: theme.dark ? 'rgba(69, 10, 10, 0.35)' : 'rgba(254, 242, 242, 0.85)',
+		surface: theme.dark ? 'rgba(30, 41, 59, 0.55)' : 'rgba(255, 255, 255, 0.98)',
+		title: theme.dark ? '#fee2e2' : '#7f1d1d',
+		warningBg: theme.dark ? 'rgba(245, 158, 11, 0.18)' : 'rgba(254, 243, 199, 0.85)',
+		warningBorder: theme.dark ? 'rgba(245, 158, 11, 0.25)' : 'rgba(245, 158, 11, 0.20)',
+		warningText: theme.dark ? '#fbbf24' : '#b45309',
 	};
 
+	const itemsList = [
+		'Todos sus datos personales y credenciales',
+		'Historial de consumo de datos y registros',
+		'Mensajes y conversaciones en el sistema',
+		'Configuraciones y archivos asociados',
+	];
+
 	return (
-		<Card style={[ui.card, { backgroundColor: palette.surface, borderColor: palette.border }]} elevation={4}>
-			<View style={ui.accentBar} />
+		<Card elevation={0} style={[ui.card, { backgroundColor: palette.surface, borderColor: palette.border }]}>
 			<Card.Content style={ui.content}>
+				{/* Header */}
 				<View style={ui.header}>
-					<View style={ui.iconWrap}>
-						<MaterialCommunityIcons name="account-remove" size={26} color="#EF4444" />
+					<View style={[ui.iconWrap, { backgroundColor: palette.iconBg }]}>
+						<MaterialCommunityIcons name="shield-alert-outline" size={24} color={palette.danger} />
 					</View>
 					<View style={ui.headerCopy}>
-						<Text style={ui.eyebrow}>Acción irreversible</Text>
-						<Text style={[ui.title, { color: palette.title }]}>Zona peligrosa</Text>
+						<Text style={[ui.eyebrow, { color: palette.label }]}>Acción irreversible</Text>
+						<Text style={[ui.title, { color: palette.title }]}>Zona de peligro</Text>
 					</View>
 				</View>
 
-				<View style={[ui.warningBox, { backgroundColor: palette.warningPanel, borderColor: palette.border }]}>
-					<MaterialCommunityIcons name="alert-circle" size={20} color="#F57C00" />
-					<Text style={[ui.warningText, { color: palette.muted }]}>Esta acción es <Text style={ui.bold}>irreversible</Text></Text>
+				{/* Warning Notice */}
+				<View style={[ui.warningBox, { backgroundColor: palette.warningBg, borderColor: palette.warningBorder }]}>
+					<MaterialCommunityIcons name="alert-triangle-outline" size={20} color={palette.warningText} />
+					<Text style={[ui.warningText, { color: palette.warningText }]}>
+						Esta acción es definitiva y no se puede recuperar.
+					</Text>
 				</View>
 
-				<Paragraph style={[ui.description, { color: palette.copy }]}>Al eliminar su cuenta se borrarán <Text style={ui.bold}>permanentemente</Text> todos sus datos y configuraciones.</Paragraph>
+				<Paragraph style={[ui.description, { color: palette.copy }]}>
+					Al eliminar esta cuenta se suprimirán permanentemente todos los datos, permisos y registros vinculados.
+				</Paragraph>
 
+				{/* Deletion Scope List */}
 				<View style={[ui.listContainer, { backgroundColor: palette.panel, borderColor: palette.border }]}>
-					{['Todos sus datos personales', 'Historial de consumo y registros', 'Mensajes y conversaciones', 'Archivos y configuraciones'].map((text) => (
+					{itemsList.map((text) => (
 						<View style={ui.listItem} key={text}>
-							<MaterialCommunityIcons name="check-circle" size={18} color="#EF4444" />
+							<MaterialCommunityIcons name="close-circle-outline" size={17} color={palette.danger} />
 							<Text style={[ui.listText, { color: palette.copy }]}>{text}</Text>
 						</View>
 					))}
 				</View>
 
-				<Button mode="contained" onPress={showConfirmDialog} loading={loading} disabled={loading} buttonColor="#D32F2F" icon="delete-forever" style={ui.deleteButton} labelStyle={ui.deleteButtonLabel}>
-					{loading ? 'Eliminando...' : 'Eliminar Mi Cuenta'}
+				{/* Delete Button */}
+				<Button
+					mode="contained"
+					onPress={showConfirmDialog}
+					loading={loading}
+					disabled={loading}
+					buttonColor={palette.danger}
+					icon="delete-forever-outline"
+					style={ui.deleteButton}
+					contentStyle={ui.deleteButtonContent}
+				>
+					{loading ? 'Eliminando cuenta...' : 'Eliminar mi cuenta'}
 				</Button>
 			</Card.Content>
 
+			{/* Safe Confirmation Dialog */}
 			<Portal>
 				<Dialog visible={dialogVisible} onDismiss={hideDialog} style={[ui.dialog, keyboardHeight > 0 && { marginTop: -keyboardHeight }]}>
-					<Dialog.Title style={ui.dialogTitle}>¿Está completamente seguro?</Dialog.Title>
+					<Dialog.Title style={ui.dialogTitle}>¿Confirmas la eliminación?</Dialog.Title>
 					<ScrollView style={ui.scrollView} contentContainerStyle={ui.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-						<Dialog.Content>
-							<View style={ui.dialogWarning}>
-								<MaterialCommunityIcons name="alert-octagon" size={40} color="#D32F2F" />
-								<Text style={ui.dialogWarningText}>Esta acción no se puede deshacer</Text>
+						<Dialog.Content style={ui.dialogBody}>
+							<View style={ui.dialogWarningIcon}>
+								<MaterialCommunityIcons name="alert-octagon" size={42} color={palette.danger} />
+								<Text style={[ui.dialogWarningText, { color: palette.danger }]}>Esta acción no se puede deshacer</Text>
 							</View>
-							<Paragraph style={ui.dialogDescription}>Su cuenta <Text style={ui.bold}>{username}</Text> y todos los datos asociados serán <Text style={ui.bold}>eliminados permanentemente</Text>.</Paragraph>
-							<Paragraph style={ui.dialogDescription}>Para confirmar, escriba <Text style={ui.bold}>ELIMINAR</Text> en el campo:</Paragraph>
+							<Paragraph style={ui.dialogDescription}>
+								La cuenta <Text style={ui.bold}>@{username}</Text> y todos sus registros serán eliminados de manera permanente.
+							</Paragraph>
+							<Paragraph style={ui.dialogDescription}>
+								Para confirmar, escribe <Text style={ui.bold}>ELIMINAR</Text> en el siguiente campo:
+							</Paragraph>
 							<TextInput
 								mode="outlined"
-								placeholder="Escriba ELIMINAR aquí"
+								placeholder="Escribe ELIMINAR"
 								value={confirmText}
 								onChangeText={setConfirmText}
 								autoCapitalize="characters"
 								autoCorrect={false}
 								style={ui.input}
-								outlineColor="#D32F2F"
-								activeOutlineColor="#D32F2F"
+								outlineColor={palette.border}
+								activeOutlineColor={palette.danger}
 								error={!!confirmText && confirmText.trim().toUpperCase() !== 'ELIMINAR'}
 								returnKeyType="done"
 								onSubmitEditing={() => {
@@ -151,15 +183,22 @@ const DeleteAccountCard = ({ userId, username }) => {
 							/>
 							{confirmText && confirmText.trim().toUpperCase() !== 'ELIMINAR' ? (
 								<View style={ui.errorBox}>
-									<MaterialCommunityIcons name="close-circle" size={16} color="#D32F2F" />
-									<Text style={ui.errorText}>Debe escribir exactamente ELIMINAR</Text>
+									<MaterialCommunityIcons name="close-circle" size={16} color={palette.danger} />
+									<Text style={[ui.errorText, { color: palette.danger }]}>Debes escribir exactamente ELIMINAR</Text>
 								</View>
 							) : null}
 						</Dialog.Content>
 					</ScrollView>
 					<Dialog.Actions style={ui.dialogActions}>
-						<Button mode="text" onPress={hideDialog} textColor="#666">Cancelar</Button>
-						<Button mode="contained" onPress={handleDeleteAccount} buttonColor="#D32F2F" disabled={confirmText.trim().toUpperCase() !== 'ELIMINAR'}>Eliminar</Button>
+						<Button mode="text" onPress={hideDialog} textColor={palette.copy}>Cancelar</Button>
+						<Button
+							mode="contained"
+							onPress={handleDeleteAccount}
+							buttonColor={palette.danger}
+							disabled={confirmText.trim().toUpperCase() !== 'ELIMINAR'}
+						>
+							Eliminar definitivamente
+						</Button>
 					</Dialog.Actions>
 				</Dialog>
 			</Portal>
@@ -168,34 +207,145 @@ const DeleteAccountCard = ({ userId, username }) => {
 };
 
 const ui = StyleSheet.create({
-	accentBar: { backgroundColor: '#EF4444', height: 4, width: '100%' },
-	card: { borderRadius: 24, borderWidth: 1, overflow: 'hidden' },
-	content: { gap: 14, paddingBottom: 18, paddingTop: 16 },
-	eyebrow: { color: '#EF4444', fontSize: 11, fontWeight: '900', letterSpacing: 0.6, textTransform: 'uppercase' },
-	header: { alignItems: 'center', flexDirection: 'row', gap: 12 },
-	headerCopy: { flex: 1, gap: 2 },
-	iconWrap: { alignItems: 'center', backgroundColor: 'rgba(239, 68, 68, 0.14)', borderRadius: 18, height: 46, justifyContent: 'center', width: 46 },
-	title: { fontSize: 20, fontWeight: '900' },
-	warningBox: { alignItems: 'center', borderRadius: 16, borderWidth: 1, flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 10 },
-	warningText: { fontSize: 14, fontWeight: '700', marginLeft: 8 },
-	description: { fontSize: 14, lineHeight: 20, marginBottom: 0 },
-	listContainer: { borderRadius: 18, borderWidth: 1, gap: 10, padding: 12 },
-	listItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-	listText: { fontSize: 13, fontWeight: '700', marginLeft: 8 },
-	bold: { fontWeight: 'bold', color: '#D32F2F' },
-	deleteButton: { borderRadius: 8, marginTop: 8, marginBottom: 24, marginLeft: 24, marginRight: 24 },
-	deleteButtonLabel: { fontSize: 15, fontWeight: 'bold', letterSpacing: 0.5 },
-	dialog: { borderRadius: 16, maxWidth: 500, alignSelf: 'center' },
-	scrollView: { maxHeight: 250 },
-	scrollContent: { paddingBottom: 8 },
-	dialogTitle: { fontSize: 18, fontWeight: 'bold', color: '#D32F2F', textAlign: 'center', paddingVertical: 10 },
-	dialogWarning: { alignItems: 'center', marginBottom: 12 },
-	dialogWarningText: { fontSize: 14, fontWeight: 'bold', color: '#D32F2F', marginTop: 6, textAlign: 'center' },
-	dialogDescription: { fontSize: 13, color: '#333', marginBottom: 10, lineHeight: 18, textAlign: 'justify' },
-	input: { marginTop: 12, marginBottom: 8 },
-	errorBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFEBEE', padding: 8, borderRadius: 6, marginTop: 8 },
-	errorText: { fontSize: 12, color: '#D32F2F', marginLeft: 6 },
-	dialogActions: { paddingHorizontal: 16, paddingBottom: 16, justifyContent: 'space-between' },
+	bold: {
+		fontWeight: '800',
+	},
+	card: {
+		borderRadius: 22,
+		borderWidth: 1,
+		overflow: 'hidden',
+	},
+	content: {
+		gap: 14,
+		paddingHorizontal: 16,
+		paddingVertical: 18,
+	},
+	deleteButton: {
+		borderRadius: 14,
+		marginTop: 4,
+	},
+	deleteButtonContent: {
+		minHeight: 44,
+	},
+	description: {
+		fontSize: 12.5,
+		lineHeight: 18,
+	},
+	dialog: {
+		alignSelf: 'center',
+		borderRadius: 20,
+		maxWidth: 480,
+		width: '92%',
+	},
+	dialogActions: {
+		justifyContent: 'space-between',
+		paddingBottom: 16,
+		paddingHorizontal: 16,
+	},
+	dialogBody: {
+		gap: 8,
+		paddingHorizontal: 18,
+	},
+	dialogDescription: {
+		fontSize: 13,
+		lineHeight: 18,
+	},
+	dialogTitle: {
+		fontSize: 18,
+		fontWeight: '900',
+		textAlign: 'center',
+	},
+	dialogWarningIcon: {
+		alignItems: 'center',
+		gap: 6,
+		marginVertical: 4,
+	},
+	dialogWarningText: {
+		fontSize: 13.5,
+		fontWeight: '800',
+		textAlign: 'center',
+	},
+	errorBox: {
+		alignItems: 'center',
+		borderRadius: 8,
+		flexDirection: 'row',
+		gap: 6,
+		marginTop: 4,
+		padding: 6,
+	},
+	errorText: {
+		fontSize: 12,
+		fontWeight: '700',
+	},
+	eyebrow: {
+		fontSize: 11,
+		fontWeight: '800',
+		letterSpacing: 0.6,
+		textTransform: 'uppercase',
+	},
+	header: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		gap: 12,
+	},
+	headerCopy: {
+		flex: 1,
+		gap: 2,
+	},
+	iconWrap: {
+		alignItems: 'center',
+		borderRadius: 16,
+		height: 46,
+		justifyContent: 'center',
+		width: 46,
+	},
+	input: {
+		borderRadius: 12,
+		marginTop: 6,
+	},
+	listContainer: {
+		borderRadius: 14,
+		borderWidth: 1,
+		gap: 8,
+		paddingHorizontal: 14,
+		paddingVertical: 12,
+	},
+	listItem: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		gap: 8,
+	},
+	listText: {
+		flex: 1,
+		fontSize: 12.5,
+		fontWeight: '600',
+	},
+	scrollContent: {
+		paddingBottom: 8,
+	},
+	scrollView: {
+		maxHeight: 280,
+	},
+	title: {
+		fontSize: 18,
+		fontWeight: '900',
+		letterSpacing: -0.2,
+	},
+	warningBox: {
+		alignItems: 'center',
+		borderRadius: 12,
+		borderWidth: 1,
+		flexDirection: 'row',
+		gap: 8,
+		paddingHorizontal: 12,
+		paddingVertical: 10,
+	},
+	warningText: {
+		flex: 1,
+		fontSize: 12.5,
+		fontWeight: '700',
+		lineHeight: 17,
+	},
 });
 
 export default DeleteAccountCard;

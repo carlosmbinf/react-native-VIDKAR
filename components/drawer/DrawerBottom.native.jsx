@@ -1,4 +1,5 @@
 import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
     Animated,
@@ -23,6 +24,8 @@ import {
     useTheme,
 } from "react-native-paper";
 
+import { canStartDrawerDrag } from "./drawerGesturePolicy";
+
 const DrawerBottom = ({
   allowContentSwipeToClose = true,
   allowSwipeToClose = true,
@@ -40,6 +43,7 @@ const DrawerBottom = ({
   onClose,
   onCloseReason,
   open,
+  overlayHeader = false,
   overlayOpacity = 0.45,
   reducedMotion = false,
   scrollable = false,
@@ -66,10 +70,15 @@ const DrawerBottom = ({
   const allowSwipeToCloseRef = useRef(Boolean(allowSwipeToClose));
   allowSwipeToCloseRef.current = Boolean(allowSwipeToClose);
   const internalContentAtTopRef = useRef(true);
-  const drawerContentAtTopRef = allowContentSwipeToClose && allowSwipeToClose
-    ? contentAtTopRef || (scrollable ? internalContentAtTopRef : null)
-    : null;
+  const trackedContentAtTopRef = contentAtTopRef || (scrollable ? internalContentAtTopRef : null);
+  const trackedContentAtTopRefRef = useRef(trackedContentAtTopRef);
+  trackedContentAtTopRefRef.current = trackedContentAtTopRef;
+  const contentSwipeEnabled = allowContentSwipeToClose ? Boolean(allowSwipeToClose) : false;
+  const contentSwipeEnabledRef = useRef(contentSwipeEnabled);
+  contentSwipeEnabledRef.current = contentSwipeEnabled;
+  const drawerContentAtTopRef = contentSwipeEnabled ? trackedContentAtTopRef : null;
   const contentGestureStartedAtTopRef = useRef(false);
+  const headerGestureStartedAtTopRef = useRef(false);
   const [contentHeight, setContentHeight] = useState(0);
   const [chromeHeight, setChromeHeight] = useState(0);
   const [footerHeight, setFooterHeight] = useState(0);
@@ -85,9 +94,10 @@ const DrawerBottom = ({
   const portraitMaxHeightRatio = Math.max(0.82, Math.min(0.97, Number(maxHeightRatio) || 0.9));
   const maxSheetHeight = availableHeight * (isLandscape ? 0.96 : portraitMaxHeightRatio);
   const bottomSafeInset = keyboardFrame ? 0 : insets.bottom;
+  const occupiedChromeHeight = overlayHeader ? 0 : chromeHeight;
   const scrollViewportHeight = Math.max(
     120,
-    maxSheetHeight - chromeHeight - footerHeight,
+    maxSheetHeight - occupiedChromeHeight - footerHeight,
   );
   const measuredContentHeight = scrollable
     ? Math.min(contentHeight, scrollViewportHeight)
@@ -95,12 +105,22 @@ const DrawerBottom = ({
   const drawerHeight = chromeHeight > 0 && measuredContentHeight > 0
     ? Math.min(
         maxSheetHeight,
-        chromeHeight + measuredContentHeight + footerHeight,
+        Math.max(overlayHeader ? chromeHeight : 0, occupiedChromeHeight + measuredContentHeight) + footerHeight,
       )
     : maxSheetHeight;
   const sheetHeightRef = useRef(drawerHeight);
   sheetHeightRef.current = drawerHeight;
   const [mounted, setMounted] = useState(Boolean(open));
+
+  useEffect(() => {
+    if (!mounted) {
+      if (trackedContentAtTopRefRef.current) {
+        trackedContentAtTopRefRef.current.current = true;
+      }
+      contentGestureStartedAtTopRef.current = false;
+      headerGestureStartedAtTopRef.current = false;
+    }
+  }, [mounted]);
 
   useEffect(() => {
     if (debugLabel && process.env.NODE_ENV !== "production") {
@@ -192,8 +212,19 @@ const DrawerBottom = ({
 
   const panResponder = useRef(
     PanResponder.create({
+      onStartShouldSetPanResponder: () => {
+        headerGestureStartedAtTopRef.current = trackedContentAtTopRefRef.current?.current !== false;
+        return false;
+      },
       onMoveShouldSetPanResponder: (_, gestureState) =>
-        isBottom && allowSwipeToCloseRef.current && gestureState.dy > 4,
+        canStartDrawerDrag({
+          isBottom,
+          enabled: allowSwipeToCloseRef.current,
+          atTop: trackedContentAtTopRefRef.current?.current !== false,
+          startedAtTop: headerGestureStartedAtTopRef.current,
+          dx: gestureState.dx,
+          dy: gestureState.dy,
+        }),
       onPanResponderMove: (_, gestureState) => {
         if (!isBottom || !allowSwipeToCloseRef.current || gestureState.dy <= 0) {
           return;
@@ -217,25 +248,36 @@ const DrawerBottom = ({
           useNativeDriver: true,
         }).start();
       },
+      onPanResponderTerminate: () => {
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: reducedMotionRef.current ? 0 : 180,
+          useNativeDriver: true,
+        }).start();
+      },
     }),
   ).current;
 
   const contentPanResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponderCapture: (_, gestureState) =>
-        isBottom &&
-        allowSwipeToCloseRef.current &&
-        contentGestureStartedAtTopRef.current &&
-        drawerContentAtTopRef?.current === true &&
-        gestureState.dy > 4 &&
-        Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+        canStartDrawerDrag({
+          isBottom,
+          enabled: contentSwipeEnabledRef.current,
+          atTop: trackedContentAtTopRefRef.current?.current === true,
+          startedAtTop: contentGestureStartedAtTopRef.current,
+          dx: gestureState.dx,
+          dy: gestureState.dy,
+        }),
       onMoveShouldSetPanResponder: (_, gestureState) =>
-        isBottom &&
-        allowSwipeToCloseRef.current &&
-        contentGestureStartedAtTopRef.current &&
-        drawerContentAtTopRef?.current === true &&
-        gestureState.dy > 4 &&
-        Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+        canStartDrawerDrag({
+          isBottom,
+          enabled: contentSwipeEnabledRef.current,
+          atTop: trackedContentAtTopRefRef.current?.current === true,
+          startedAtTop: contentGestureStartedAtTopRef.current,
+          dx: gestureState.dx,
+          dy: gestureState.dy,
+        }),
       onPanResponderMove: (_, gestureState) => {
         if (!isBottom || !allowSwipeToCloseRef.current || gestureState.dy <= 0) {
           return;
@@ -253,6 +295,13 @@ const DrawerBottom = ({
           return;
         }
 
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: reducedMotionRef.current ? 0 : 180,
+          useNativeDriver: true,
+        }).start();
+      },
+      onPanResponderTerminate: () => {
         Animated.timing(translateY, {
           toValue: 0,
           duration: reducedMotionRef.current ? 0 : 180,
@@ -275,7 +324,7 @@ const DrawerBottom = ({
       ) : (
         <View style={[styles.header, headerStyle]}>
           <View style={styles.headerTitleContainer} {...panResponder.panHandlers}>
-            <Text style={styles.title} numberOfLines={1}>
+            <Text style={[styles.title, overlayHeader && styles.overlayHeaderTitle]} numberOfLines={1}>
               {title}
             </Text>
           </View>
@@ -284,16 +333,17 @@ const DrawerBottom = ({
               <IconButton
                 key={`${action.icon || "action"}-${index}`}
                 icon={action.icon}
+                iconColor={overlayHeader ? "#ffffff" : undefined}
                 size={20}
                 onPress={action.onPress}
                 disabled={action.disabled}
               />
             ))}
-            <IconButton icon="close" size={22} onPress={() => requestClose("header")} />
+            <IconButton accessibilityLabel="Cerrar" icon="close" iconColor={overlayHeader ? "#ffffff" : undefined} size={22} onPress={() => requestClose("header")} />
           </View>
         </View>
       )}
-      <Divider />
+      {!overlayHeader ? <Divider /> : null}
     </>
   ) : null;
   const footerNode = typeof footer === "function" ? footer() : footer;
@@ -366,13 +416,21 @@ const DrawerBottom = ({
             />
             <View
               onLayout={(event) => setChromeHeight(event.nativeEvent.layout.height)}
-              style={styles.drawerChrome}
+              style={[styles.drawerChrome, overlayHeader && styles.drawerChromeOverlay]}
             >
+              {overlayHeader ? (
+                <LinearGradient
+                  colors={["rgba(4, 8, 16, 0.78)", "rgba(4, 8, 16, 0.62)", "rgba(4, 8, 16, 0)"]}
+                  locations={[0, 0.65, 1]}
+                  pointerEvents="none"
+                  style={StyleSheet.absoluteFill}
+                />
+              ) : null}
               <View style={styles.handleZone} {...panResponder.panHandlers}>
                 <View
                   style={[
                     styles.handle,
-                    { backgroundColor: theme.colors.outlineVariant || "#ccc" },
+                    { backgroundColor: overlayHeader ? "#ffffff" : theme.colors.outlineVariant || "#ccc" },
                   ]}
                 />
               </View>
@@ -380,6 +438,7 @@ const DrawerBottom = ({
             </View>
             {scrollable ? (
               <ScrollView
+                alwaysBounceVertical={false}
                 bounces={false}
                 contentContainerStyle={[
                   styles.bottomScrollContent,
@@ -389,8 +448,11 @@ const DrawerBottom = ({
                 nestedScrollEnabled
                 onContentSizeChange={(_, height) => setContentHeight(height)}
                 onScroll={(event) => {
-                    if (drawerContentAtTopRef) {
-                      drawerContentAtTopRef.current = event.nativeEvent.contentOffset.y <= 0.5;
+                  if (trackedContentAtTopRef) {
+                    trackedContentAtTopRef.current = event.nativeEvent.contentOffset.y <= 0.5;
+                    if (!trackedContentAtTopRef.current) {
+                      contentGestureStartedAtTopRef.current = false;
+                    }
                   }
                 }}
                 onTouchCancel={() => {
@@ -402,6 +464,12 @@ const DrawerBottom = ({
                 onTouchStart={() => {
                   contentGestureStartedAtTopRef.current = drawerContentAtTopRef?.current === true;
                 }}
+                onTouchMove={() => {
+                  if (drawerContentAtTopRef?.current !== true) {
+                    contentGestureStartedAtTopRef.current = false;
+                  }
+                }}
+                overScrollMode="never"
                 scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
                 style={[
@@ -419,6 +487,20 @@ const DrawerBottom = ({
                   { paddingBottom: footerNode ? 0 : bottomSafeInset },
                 ]}
                 {...(drawerContentAtTopRef ? contentPanResponder.panHandlers : {})}
+                onTouchStart={() => {
+                  contentGestureStartedAtTopRef.current = drawerContentAtTopRef?.current === true;
+                }}
+                onTouchMove={() => {
+                  if (drawerContentAtTopRef?.current !== true) {
+                    contentGestureStartedAtTopRef.current = false;
+                  }
+                }}
+                onTouchEnd={() => {
+                  contentGestureStartedAtTopRef.current = false;
+                }}
+                onTouchCancel={() => {
+                  contentGestureStartedAtTopRef.current = false;
+                }}
                 onLayout={(event) => {
                   setContentHeight(event.nativeEvent.layout.height);
                 }}
@@ -496,6 +578,13 @@ const styles = StyleSheet.create({
   drawerChrome: {
     flexShrink: 0,
   },
+  drawerChromeOverlay: {
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    zIndex: 2,
+  },
   bottomSheetWrapper: {
     alignSelf: "center",
     bottom: 0,
@@ -550,6 +639,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 17,
     fontWeight: "600",
+  },
+  overlayHeaderTitle: {
+    color: "#ffffff",
   },
 });
 

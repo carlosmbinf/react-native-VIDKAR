@@ -1,3 +1,4 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Meteor from '@meteorrn/core';
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useMemo, useState } from 'react';
@@ -97,56 +98,100 @@ const TarjetaDebitoCard = ({ item, styles, accentColor }) => {
 		return null;
 	}
 
-	const headerAccent = accentColor || '#263238';
-  const palette = {
-    copy: theme.dark ? '#cbd5e1' : '#475569',
-    input: theme.dark ? 'rgba(30, 41, 59, 0.78)' : 'rgba(248, 250, 252, 0.96)',
-    title: theme.dark ? '#f8fafc' : '#0f172a',
-  };
+	const headerAccent = accentColor || (theme.dark ? '#60a5fa' : '#2563eb');
+	const palette = {
+		cardBorder: theme.dark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)',
+		copy: theme.dark ? '#cbd5e1' : '#475569',
+		iconBg: theme.dark ? 'rgba(59, 130, 246, 0.16)' : 'rgba(37, 99, 235, 0.08)',
+		input: theme.dark ? 'rgba(30, 41, 59, 0.78)' : 'rgba(248, 250, 252, 0.96)',
+		label: theme.dark ? '#94a3b8' : '#64748b',
+		title: theme.dark ? '#f8fafc' : '#0f172a',
+	};
 
 	return (
-		<Card elevation={4} style={styles.cards} testID="tarjeta-debito-card">
-			<View style={[ui.accentBar, { backgroundColor: headerAccent }]} />
+		<Card elevation={0} style={[styles.cards, ui.card, { borderColor: palette.cardBorder }]} testID="tarjeta-debito-card">
 			<Card.Content style={ui.content}>
-				<Text style={ui.eyebrow}>Datos de transferencia</Text>
-				<Text style={[styles.title, ui.title, { color: palette.title }]}>Tarjeta de Débito (CUP)</Text>
-				<Text style={[ui.subtitle, { color: palette.copy }]}>Destino usado para pagos y coordinación administrativa del usuario.</Text>
+				{/* Header */}
+				<View style={ui.headerRow}>
+					<View style={[ui.iconWrap, { backgroundColor: palette.iconBg }]}>
+						<MaterialCommunityIcons name="credit-card-outline" size={24} color={headerAccent} />
+					</View>
+					<View style={ui.headerCopy}>
+						<Text style={[ui.eyebrow, { color: palette.label }]}>Datos de transferencia</Text>
+						<Text style={[ui.title, { color: palette.title }]}>Tarjeta de Débito (CUP)</Text>
+						<Text style={[ui.subtitle, { color: palette.copy }]}>
+							Destino usado para pagos y cobros administrativos en CUP.
+						</Text>
+					</View>
+				</View>
+
 				{!tarjeta ? (
 					<View style={ui.formBlock}>
 						<TextInput
 							mode="outlined"
-							label="Número de tarjeta"
+							label="Número de tarjeta (16 dígitos)"
 							value={formatCardNumber(input)}
 							onChangeText={(value) => setInput(onlyDigits(value))}
 							keyboardType="number-pad"
 							maxLength={19}
+							outlineColor={palette.cardBorder}
+							activeOutlineColor={headerAccent}
 							style={[ui.input, { backgroundColor: palette.input }]}
 						/>
-						<Button mode="contained" onPress={handleSave} loading={saving} disabled={saving || onlyDigits(input).length !== 16} style={ui.saveBtn}>
+						<Button
+							mode="contained"
+							onPress={handleSave}
+							loading={saving}
+							disabled={saving || onlyDigits(input).length !== 16}
+							icon="content-save-outline"
+							style={ui.saveBtn}
+						>
 							Guardar tarjeta
 						</Button>
 					</View>
 				) : (
-					<>
+					<View style={ui.cardContainer}>
+						{/* Virtual Bank Card */}
 						<View style={ui.visualCard}>
-							<View style={ui.cardGlow} />
-							<Text style={ui.brand}>CUP</Text>
-							<Text style={ui.cardNumber}>{tarjeta}</Text>
-							<View style={ui.cardFooter}>
-								<View>
-									<Text style={ui.cardLabel}>Titular</Text>
-									<Text style={ui.cardValue}>{fullName}</Text>
+							<View style={ui.cardSheen} />
+							<View style={ui.cardTop}>
+								<View style={ui.chipRow}>
+									{/* EMV Chip Representation */}
+									<View style={ui.emvChip}>
+										<View style={ui.emvInner} />
+									</View>
+									<MaterialCommunityIcons name="contactless-payment" size={24} color="rgba(255,255,255,0.75)" />
 								</View>
-								<View>
+								<View style={ui.brandPill}>
+									<Text style={ui.brandText}>CUP • Transfermóvil</Text>
+								</View>
+							</View>
+
+							<Text style={ui.cardNumber}>{tarjeta}</Text>
+
+							<View style={ui.cardFooter}>
+								<View style={ui.cardMetaCol}>
+									<Text style={ui.cardLabel}>Titular</Text>
+									<Text style={ui.cardValue} numberOfLines={1}>{fullName}</Text>
+								</View>
+								<View style={[ui.cardMetaCol, { alignItems: 'flex-end' }]}>
 									<Text style={ui.cardLabel}>Banco</Text>
 									<Text style={ui.cardValue}>Transfermóvil</Text>
 								</View>
 							</View>
 						</View>
-						<Button icon="content-copy" mode="contained-tonal" onPress={handleCopy} style={ui.copyBtn} disabled={!tarjeta} compact>
-							Copiar número
+
+						<Button
+							icon="content-copy"
+							mode="contained-tonal"
+							onPress={handleCopy}
+							style={ui.copyBtn}
+							contentStyle={ui.copyBtnContent}
+							disabled={!tarjeta}
+						>
+							Copiar número de tarjeta
 						</Button>
-					</>
+					</View>
 				)}
 			</Card.Content>
 		</Card>
@@ -154,30 +199,151 @@ const TarjetaDebitoCard = ({ item, styles, accentColor }) => {
 };
 
 const ui = StyleSheet.create({
-	accentBar: { height: 4, width: '100%' },
-	content: { gap: 12, paddingBottom: 18, paddingTop: 16 },
-	eyebrow: { color: '#64748b', fontSize: 11, fontWeight: '900', letterSpacing: 0.6, textTransform: 'uppercase' },
-	title: { marginTop: -6 },
-	subtitle: { fontSize: 13, lineHeight: 18 },
-	formBlock: { gap: 12, marginTop: 4 },
-	input: { borderRadius: 16 },
-	saveBtn: { borderRadius: 14 },
-	visualCard: {
-		marginTop: 2,
-		padding: 18,
-		borderRadius: 18,
-		backgroundColor: '#0F172A',
-		minHeight: 190,
-		justifyContent: 'space-between',
+	brandPill: {
+		backgroundColor: 'rgba(255, 255, 255, 0.12)',
+		borderRadius: 999,
+		paddingHorizontal: 10,
+		paddingVertical: 4,
+	},
+	brandText: {
+		color: '#e2e8f0',
+		fontSize: 10.5,
+		fontWeight: '800',
+		letterSpacing: 0.5,
+	},
+	card: {
+		borderWidth: 1,
 		overflow: 'hidden',
 	},
-	cardGlow: { backgroundColor: 'rgba(59, 130, 246, 0.28)', borderRadius: 80, height: 140, position: 'absolute', right: -38, top: -48, width: 140 },
-	brand: { color: '#93C5FD', fontWeight: '800', letterSpacing: 1.2, fontSize: 16 },
-	cardNumber: { color: '#F8FAFC', fontSize: 24, fontWeight: '700', letterSpacing: 2.2, marginTop: 18 },
-	cardFooter: { flexDirection: 'row', justifyContent: 'space-between', gap: 16, marginTop: 24 },
-	cardLabel: { color: '#94A3B8', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 },
-	cardValue: { color: '#E2E8F0', fontSize: 14, fontWeight: '600', marginTop: 4, maxWidth: 160 },
-	copyBtn: { marginTop: 10, borderRadius: 12, alignSelf: 'center' },
+	cardContainer: {
+		gap: 12,
+	},
+	cardFooter: {
+		alignItems: 'flex-end',
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		marginTop: 16,
+	},
+	cardLabel: {
+		color: '#94a3b8',
+		fontSize: 9.5,
+		fontWeight: '800',
+		letterSpacing: 0.6,
+		textTransform: 'uppercase',
+	},
+	cardMetaCol: {
+		flex: 1,
+		gap: 2,
+	},
+	cardNumber: {
+		color: '#ffffff',
+		fontFamily: 'monospace',
+		fontSize: 21,
+		fontWeight: '700',
+		letterSpacing: 2,
+		marginTop: 16,
+		textShadowColor: 'rgba(0, 0, 0, 0.4)',
+		textShadowOffset: { width: 0, height: 1 },
+		textShadowRadius: 2,
+	},
+	cardSheen: {
+		backgroundColor: 'rgba(59, 130, 246, 0.18)',
+		borderRadius: 120,
+		height: 200,
+		position: 'absolute',
+		right: -60,
+		top: -60,
+		width: 200,
+	},
+	cardTop: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+	},
+	cardValue: {
+		color: '#f8fafc',
+		fontSize: 13,
+		fontWeight: '700',
+	},
+	chipRow: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		gap: 10,
+	},
+	content: {
+		gap: 14,
+		paddingHorizontal: 16,
+		paddingVertical: 18,
+	},
+	copyBtn: {
+		borderRadius: 14,
+	},
+	copyBtnContent: {
+		minHeight: 42,
+	},
+	emvChip: {
+		backgroundColor: '#eab308',
+		borderRadius: 5,
+		height: 24,
+		justifyContent: 'center',
+		padding: 3,
+		width: 32,
+	},
+	emvInner: {
+		borderColor: 'rgba(0, 0, 0, 0.25)',
+		borderRadius: 2,
+		borderWidth: 1,
+		flex: 1,
+	},
+	eyebrow: {
+		fontSize: 11,
+		fontWeight: '800',
+		letterSpacing: 0.6,
+		textTransform: 'uppercase',
+	},
+	formBlock: {
+		gap: 12,
+	},
+	headerCopy: {
+		flex: 1,
+		gap: 2,
+	},
+	headerRow: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		gap: 12,
+	},
+	iconWrap: {
+		alignItems: 'center',
+		borderRadius: 16,
+		height: 46,
+		justifyContent: 'center',
+		width: 46,
+	},
+	input: {
+		borderRadius: 12,
+	},
+	saveBtn: {
+		borderRadius: 14,
+	},
+	subtitle: {
+		fontSize: 12,
+		lineHeight: 16,
+	},
+	title: {
+		fontSize: 18,
+		fontWeight: '900',
+		letterSpacing: -0.2,
+	},
+	visualCard: {
+		backgroundColor: '#0f172a',
+		borderRadius: 18,
+		borderWidth: 1,
+		borderColor: 'rgba(255, 255, 255, 0.1)',
+		minHeight: 180,
+		overflow: 'hidden',
+		padding: 18,
+	},
 });
 
 export default TarjetaDebitoCard;

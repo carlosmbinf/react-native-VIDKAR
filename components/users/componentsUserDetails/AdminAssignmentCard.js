@@ -1,8 +1,9 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import MeteorBase from '@meteorrn/core';
 import { memo, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
-import { Button, Card, Chip, Divider, HelperText, Text, useTheme } from 'react-native-paper';
+import { Button, Card, Chip, HelperText, Text, useTheme } from 'react-native-paper';
 
 const Meteor =
 	/** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
@@ -35,12 +36,19 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 	const [isFocus, setIsFocus] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [feedback, setFeedback] = useState({ message: '', type: 'info' });
-	const headerAccent = accentColor || '#7c3aed';
+	const headerAccent = accentColor || (theme.dark ? '#a78bfa' : '#7c3aed');
+
 	const palette = {
-		chip: theme.dark ? 'rgba(124, 58, 237, 0.24)' : '#ede9fe',
-		chipText: theme.dark ? '#ddd6fe' : '#5b21b6',
+		cardBorder: theme.dark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.06)',
+		chip: theme.dark ? 'rgba(124, 58, 237, 0.22)' : 'rgba(124, 58, 237, 0.10)',
+		chipText: theme.dark ? '#ddd6fe' : '#6d28d9',
 		copy: theme.dark ? '#cbd5e1' : '#475569',
+		dropdownBg: theme.dark ? 'rgba(15, 23, 42, 0.90)' : '#ffffff',
+		dropdownBorder: theme.dark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(15, 23, 42, 0.12)',
+		iconBg: theme.dark ? 'rgba(124, 58, 237, 0.18)' : 'rgba(124, 58, 237, 0.08)',
 		label: theme.dark ? '#94a3b8' : '#64748b',
+		tileBg: theme.dark ? 'rgba(30, 41, 59, 0.55)' : 'rgba(241, 245, 249, 0.75)',
+		tileBorder: theme.dark ? 'rgba(148, 163, 184, 0.10)' : 'rgba(15, 23, 42, 0.05)',
 		title: theme.dark ? '#f8fafc' : '#0f172a',
 	};
 
@@ -119,7 +127,6 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 	);
 
 	const hasChanges = selectedAdmin !== (currentAdminId || EMPTY_ADMIN_VALUE);
-	const showFloatingLabel = (selectedAdmin && selectedAdmin !== EMPTY_ADMIN_VALUE) || isFocus;
 
 	const handleSave = () => {
 		if (!itemId || !canEditAssignment || !hasChanges) {
@@ -152,46 +159,58 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 	}
 
 	return (
-		<Card elevation={4} style={styles.cards} testID="admin-assignment-card">
-			<View style={[ui.accentBar, { backgroundColor: headerAccent }]} />
+		<Card elevation={0} style={[styles.cards, ui.card, { borderColor: palette.cardBorder }]} testID="admin-assignment-card">
 			<Card.Content style={ui.content}>
-				<Text style={[ui.eyebrow, { color: palette.label }]}>Asignación</Text>
-				<Text style={[ui.title, { color: palette.title }]}>Responsable operativo</Text>
-				<Divider style={ui.divider} />
+				{/* Header */}
+				<View style={ui.header}>
+					<View style={[ui.iconWrap, { backgroundColor: palette.iconBg }]}>
+						<MaterialCommunityIcons name="shield-account-outline" size={24} color={headerAccent} />
+					</View>
+					<View style={ui.headerCopy}>
+						<Text style={[ui.eyebrow, { color: palette.label }]}>Asignación operativa</Text>
+						<Text style={[ui.title, { color: palette.title }]}>Responsable de cuenta</Text>
+					</View>
+				</View>
 
-				<View style={ui.headerBlock}>
-					<Text style={[ui.label, { color: palette.label }]}>Asignado actualmente</Text>
-					<Chip compact icon="shield-account" style={[ui.currentChip, { backgroundColor: palette.chip }]} textStyle={{ color: palette.chipText, fontWeight: '800' }}>
+				{/* Current Admin Tile */}
+				<View style={[ui.currentTile, { backgroundColor: palette.tileBg, borderColor: palette.tileBorder }]}>
+					<View style={ui.currentTop}>
+						<Text style={[ui.currentLabel, { color: palette.label }]}>Asignado actualmente</Text>
+						<Chip compact icon="account-check" style={[ui.currentChip, { backgroundColor: palette.chip }]} textStyle={[ui.currentChipText, { color: palette.chipText }]}>
+							Activo
+						</Chip>
+					</View>
+					<Text style={[ui.currentAdminName, { color: palette.title }]}>
 						{buildAdminLabel(currentAdmin)}
-					</Chip>
+					</Text>
 					<Text style={[ui.helper, { color: palette.copy }]}>
-						Define quién dará seguimiento a este usuario dentro del sistema.
+						Define quién dará seguimiento y soporte a este usuario en el sistema.
 					</Text>
 				</View>
 
-				<Divider style={ui.dividerSection} />
-
+				{/* Selection Dropdown */}
 				{loading ? (
-					<Text style={[ui.loadingCopy, { color: palette.copy }]}>Cargando administradores del sistema...</Text>
+					<Text style={[ui.loadingCopy, { color: palette.copy }]}>Cargando administradores...</Text>
 				) : (
-					<>
-						{showFloatingLabel ? (
-							<Text style={[styles.label, isFocus && { color: headerAccent }]}>Responsable</Text>
-						) : null}
+					<View style={ui.dropdownSection}>
+						<Text style={[ui.inputLabel, { color: palette.label }]}>Seleccionar responsable</Text>
 						<Dropdown
-							style={[styles.dropdown, isFocus && { borderColor: headerAccent }]}
-							placeholderStyle={styles.placeholderStyle}
-							selectedTextStyle={styles.selectedTextStyle}
-							inputSearchStyle={styles.inputSearchStyle}
-							iconStyle={styles.iconStyle}
+							style={[
+								ui.dropdown,
+								{ backgroundColor: palette.dropdownBg, borderColor: isFocus ? headerAccent : palette.dropdownBorder },
+							]}
+							placeholderStyle={[ui.dropdownPlaceholder, { color: palette.label }]}
+							selectedTextStyle={[ui.dropdownSelectedText, { color: palette.title }]}
+							inputSearchStyle={[ui.inputSearchStyle, { color: palette.title, backgroundColor: palette.dropdownBg }]}
+							iconStyle={ui.iconStyle}
 							data={adminOptions}
 							search
 							maxHeight={260}
 							labelField="label"
 							valueField="value"
 							disable={!canEditAssignment || saving}
-							placeholder={!isFocus ? 'Cambiar responsable' : '...'}
-							searchPlaceholder="Buscar responsable..."
+							placeholder={!isFocus ? 'Seleccionar responsable...' : '...'}
+							searchPlaceholder="Buscar por nombre o usuario..."
 							value={selectedAdmin}
 							onFocus={() => setIsFocus(true)}
 							onBlur={() => setIsFocus(false)}
@@ -202,27 +221,28 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 							}}
 						/>
 
-						<HelperText type={feedback.type} visible={!!feedback.message} style={ui.feedback}>
-							{feedback.message}
-						</HelperText>
-					</>
+						{feedback.message ? (
+							<HelperText type={feedback.type} visible style={ui.feedback}>
+								{feedback.message}
+							</HelperText>
+						) : null}
+					</View>
 				)}
 
-				<View style={ui.actions}>
-					<Button
-						mode="contained"
-						icon="content-save-outline"
-						onPress={handleSave}
-						disabled={!canEditAssignment || !hasChanges || loading || saving}
-						loading={saving}
-						style={ui.actionButton}
-					>
-						Guardar cambios
-					</Button>
-				</View>
+				<Button
+					mode="contained"
+					icon="content-save-outline"
+					onPress={handleSave}
+					disabled={!canEditAssignment || !hasChanges || loading || saving}
+					loading={saving}
+					style={ui.actionButton}
+					contentStyle={ui.actionButtonContent}
+				>
+					Guardar asignación
+				</Button>
 
 				{!canEditAssignment ? (
-					<HelperText type="info" visible style={ui.feedback}>
+					<HelperText type="info" visible style={ui.permissionNotice}>
 						Solo los administradores del sistema o el propio usuario pueden modificar esta asignación.
 					</HelperText>
 				) : null}
@@ -232,24 +252,128 @@ const AdminAssignmentCard = ({ item, styles, accentColor }) => {
 };
 
 const ui = StyleSheet.create({
-	accentBar: { height: 4, width: '100%' },
-	content: { paddingBottom: 18, paddingTop: 16 },
-	eyebrow: { fontSize: 11, fontWeight: '900', letterSpacing: 0.6, textTransform: 'uppercase' },
-	title: {
-		fontSize: 20,
-		fontWeight: '800',
-		marginTop: 3,
+	actionButton: {
+		borderRadius: 14,
 	},
-	divider: { marginVertical: 8, opacity: 0.2 },
-	dividerSection: { marginVertical: 12, opacity: 0.12 },
-	headerBlock: { gap: 8 },
-	label: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
-	currentChip: { alignSelf: 'flex-start', borderRadius: 999 },
-	helper: { fontSize: 12, lineHeight: 18 },
-	loadingCopy: { fontSize: 13, textAlign: 'center', paddingVertical: 8 },
-	feedback: { marginTop: 6, marginBottom: 0 },
-	actions: { marginTop: 10 },
-	actionButton: { borderRadius: 18 },
+	actionButtonContent: {
+		minHeight: 44,
+	},
+	card: {
+		borderWidth: 1,
+		overflow: 'hidden',
+	},
+	content: {
+		gap: 14,
+		paddingHorizontal: 16,
+		paddingVertical: 18,
+	},
+	currentAdminName: {
+		fontSize: 15,
+		fontWeight: '800',
+	},
+	currentChip: {
+		borderRadius: 999,
+		justifyContent: 'center',
+		minHeight: 36,
+	},
+	currentChipText: {
+		fontSize: 10,
+		fontWeight: '900',
+	},
+	currentLabel: {
+		fontSize: 10.5,
+		fontWeight: '800',
+		letterSpacing: 0.3,
+		textTransform: 'uppercase',
+	},
+	currentTile: {
+		borderRadius: 14,
+		borderWidth: 1,
+		gap: 6,
+		paddingHorizontal: 14,
+		paddingVertical: 12,
+	},
+	currentTop: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+	},
+	dropdown: {
+		borderRadius: 14,
+		borderWidth: 1,
+		height: 48,
+		paddingHorizontal: 14,
+	},
+	dropdownPlaceholder: {
+		fontSize: 13.5,
+	},
+	dropdownSection: {
+		gap: 6,
+	},
+	dropdownSelectedText: {
+		fontSize: 13.5,
+		fontWeight: '700',
+	},
+	eyebrow: {
+		fontSize: 11,
+		fontWeight: '800',
+		letterSpacing: 0.6,
+		textTransform: 'uppercase',
+	},
+	feedback: {
+		marginBottom: 0,
+		marginTop: 2,
+	},
+	header: {
+		alignItems: 'center',
+		flexDirection: 'row',
+		gap: 12,
+	},
+	headerCopy: {
+		flex: 1,
+		gap: 2,
+	},
+	helper: {
+		fontSize: 12,
+		lineHeight: 16,
+	},
+	iconStyle: {
+		height: 20,
+		width: 20,
+	},
+	iconWrap: {
+		alignItems: 'center',
+		borderRadius: 16,
+		height: 46,
+		justifyContent: 'center',
+		width: 46,
+	},
+	inputLabel: {
+		fontSize: 11,
+		fontWeight: '800',
+		letterSpacing: 0.3,
+		textTransform: 'uppercase',
+	},
+	inputSearchStyle: {
+		borderRadius: 12,
+		fontSize: 13,
+		height: 42,
+	},
+	loadingCopy: {
+		fontSize: 13,
+		paddingVertical: 10,
+		textAlign: 'center',
+	},
+	permissionNotice: {
+		fontSize: 11,
+		margin: 0,
+		padding: 0,
+	},
+	title: {
+		fontSize: 18,
+		fontWeight: '900',
+		letterSpacing: -0.2,
+	},
 });
 
 export default memo(AdminAssignmentCard);
