@@ -6,6 +6,7 @@ import { ActivityIndicator, Button, Chip, Surface, Text, useTheme } from "react-
 
 import useCadeteLocationTracking from "../../../hooks/useCadeteLocationTracking";
 import useDeferredScreenData from "../../../hooks/useDeferredScreenData";
+import { confirmCadeteLocationDisclosure } from "../../../services/location/cadeteLocationDisclosure.native";
 import {
   ColaCadetesPorTiendasComercioCollection,
   PedidosAsignadosComercioCollection,
@@ -167,7 +168,7 @@ const HomePedidosComercio = () => {
         accent: "#dc2626",
         actionLabel: "Abrir ajustes",
         actionType: "settings",
-        copy: "Activa la ubicación para entrar en la cola automática de tiendas cercanas.",
+        copy: "Permite la ubicación en todo momento para mantener tu disponibilidad y recibir pedidos de tiendas cercanas.",
         icon: "map-marker-off-outline",
         title: "Ubicación requerida",
       };
@@ -210,9 +211,11 @@ const HomePedidosComercio = () => {
     };
   }, [queueStoreCount, tracking.error, tracking.status]);
 
-  const handleStatusAction = useCallback(() => {
+  const handleStatusAction = useCallback(async () => {
     if (trackingCard.actionType === "settings") {
-      tracking.openLocationSettings();
+      if (await confirmCadeteLocationDisclosure()) {
+        await tracking.openLocationSettings();
+      }
       return;
     }
 
@@ -284,6 +287,15 @@ const HomePedidosComercio = () => {
           </View>
         </View>
 
+        {tracking.status === "permission-denied" ? (
+          <View style={[styles.permissionInfo, { backgroundColor: `${trackingCard.accent}0D` }]}>
+            <MaterialCommunityIcons color={trackingCard.accent} name="information-outline" size={20} />
+            <Text style={[styles.permissionInfoText, { color: palette.statusCopy }]} variant="bodySmall">
+              VIDKAR usa tu ubicación en segundo plano, incluso cuando la app está cerrada o no se usa, mientras el modo cadete está activo.
+            </Text>
+          </View>
+        ) : null}
+
         <View style={styles.statusMetaRow}>
           <Chip compact icon="package-variant" style={[styles.statusChip, { backgroundColor: palette.chipBackground }]} textStyle={[styles.statusChipText, { color: palette.chipText }]}> 
             {cadeteData.pedidosConVentas.length} pedido{cadeteData.pedidosConVentas.length === 1 ? "" : "s"} activo{cadeteData.pedidosConVentas.length === 1 ? "" : "s"}
@@ -295,7 +307,7 @@ const HomePedidosComercio = () => {
             {formatLastSyncTime(tracking.lastSentAt || tracking.lastLocation?.timestamp)}
           </Chip>
           <Chip compact icon="cellphone-marker" style={[styles.statusChip, { backgroundColor: palette.chipBackground }]} textStyle={[styles.statusChipText, { color: palette.chipText }]}> 
-            {tracking.trackingMode === "background" ? "Segundo plano" : "Seguimiento activo"}
+            {tracking.trackingActive ? "Seguimiento activo" : "Seguimiento inactivo"}
           </Chip>
         </View>
 
@@ -416,6 +428,17 @@ const styles = StyleSheet.create({
   loadingTitle: {
     fontWeight: "800",
     textAlign: "center",
+  },
+  permissionInfo: {
+    alignItems: "flex-start",
+    borderRadius: 14,
+    flexDirection: "row",
+    gap: 10,
+    padding: 12,
+  },
+  permissionInfoText: {
+    flex: 1,
+    lineHeight: 20,
   },
   screen: {
     flex: 1,

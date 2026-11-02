@@ -355,7 +355,7 @@ const postCadeteLocation = async ({ config, location }) => {
   return response.body;
 };
 
-export const ensureCadeteLocationPermissions = async ({ request = true } = {}) => {
+export const ensureCadeteLocationPermissions = async ({ request = true, beforeBackgroundRequest } = {}) => {
   let foreground = await Location.getForegroundPermissionsAsync();
 
   if (foreground.status !== "granted" && request) {
@@ -364,7 +364,9 @@ export const ensureCadeteLocationPermissions = async ({ request = true } = {}) =
 
   let background = await Location.getBackgroundPermissionsAsync();
   if (background.status !== "granted" && request && foreground.status === "granted") {
-    background = await Location.requestBackgroundPermissionsAsync();
+    if (!beforeBackgroundRequest || await beforeBackgroundRequest()) {
+      background = await Location.requestBackgroundPermissionsAsync();
+    }
   }
 
   const permissionStatus =
@@ -609,7 +611,7 @@ export const stopCadeteBackgroundLocation = async ({ clearConfig = true } = {}) 
 
 export const startCadeteBackgroundLocation = async ({
   meteorUrl,
-  requestPermissions = true,
+  requestPermissions = false,
   userId,
 } = {}) => {
   if (!userId) {
@@ -731,7 +733,7 @@ export const startCadeteBackgroundLocation = async ({
  */
 export const syncCadeteBackgroundLocation = async ({
   enabled,
-  requestPermissions = true,
+  requestPermissions = false,
   userId,
 } = {}) => {
   if (hasNativeCadeteBackgroundTracking) {

@@ -7,6 +7,7 @@ import { Alert, AppState, Linking } from "react-native";
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { useCurrentSession } from "../../services/meteor/session.native";
 import { getAppVersionInfo } from "../../services/app/appVersion";
+import { confirmCadeteLocationDisclosure } from "../../services/location/cadeteLocationDisclosure.native";
 import {
     ensureCadeteLocationPermissions,
     sendCadeteLocationNow,
@@ -248,26 +249,6 @@ const showCadeteLocationErrorAlert = (
   );
 };
 
-const confirmCadeteLocationDisclosure = () =>
-  new Promise((resolve) => {
-    Alert.alert(
-      "Ubicación en segundo plano",
-      "Al activar el modo cadete, VIDKAR recopilará tu ubicación precisa, incluso con la app cerrada o en segundo plano, para mostrarte disponible, asignarte entregas y actualizar su estado. La ubicación se envía a VIDKAR solo mientras el modo cadete esté activo. Puedes detenerlo saliendo de este modo o revocando el permiso desde los ajustes.",
-      [
-        {
-          text: "Cancelar",
-          onPress: () => resolve(false),
-          style: "cancel",
-        },
-        {
-          text: "Continuar",
-          onPress: () => resolve(true),
-        },
-      ],
-      { cancelable: true, onDismiss: () => resolve(false) },
-    );
-  });
-
 const prepareCadeteRealtimeLocation = async (userId) => {
   if (!userId) {
     throw createCadeteLocationError(
@@ -283,7 +264,21 @@ const prepareCadeteRealtimeLocation = async (userId) => {
     );
   }
 
-  const permissions = await ensureCadeteLocationPermissions({ request: true });
+  let backgroundDisclosureDeclined = false;
+  const permissions = await ensureCadeteLocationPermissions({
+    request: true,
+    beforeBackgroundRequest: async () => {
+      const accepted = await confirmCadeteLocationDisclosure();
+      backgroundDisclosureDeclined = !accepted;
+      return accepted;
+    },
+  });
+
+  if (backgroundDisclosureDeclined) {
+    throw createCadeteLocationError("Aviso de ubicación cancelado.", {
+      code: "cadete-location-disclosure-declined",
+    });
+  }
 
   if (!permissions.granted) {
     throw createCadeteLocationError(
@@ -800,6 +795,7 @@ const MenuPrincipalNative = () => {
                 "No se pudo cambiar el modo cadete.";
 
               if (nextState) {
+                if (error?.code === "cadete-location-disclosure-declined") return;
                 showCadeteLocationErrorAlert(errorMessage, {
                   openSettings: error?.openSettings === true,
                 });
