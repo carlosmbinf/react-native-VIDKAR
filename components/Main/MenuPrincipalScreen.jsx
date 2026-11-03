@@ -1,11 +1,8 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import { usePathname, useRouter } from "expo-router";
-import { useIsFocused } from "expo-router/react-navigation";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import Reanimated, { useAnimatedScrollHandler, useSharedValue } from "react-native-reanimated";
+import React, { useEffect, useRef, useState } from "react";
 import {
-    AccessibilityInfo,
     Animated,
     Easing,
     ImageBackground,
@@ -15,14 +12,13 @@ import {
     Platform,
     Pressable,
     RefreshControl,
+    ScrollView,
     StatusBar,
     StyleSheet,
     View,
 } from "react-native";
   import { Chip, Portal, ProgressBar, Surface, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-import GenieEntrance, { createGenieCoordinator } from "./genie/GenieEntrance";
 
 import { getVisibleHomeServices } from "../../services/homeServices";
 import ComercioHomeOrdersSection from "../comercio/pedidos/ComercioHomeOrdersSection.native";
@@ -289,54 +285,6 @@ const MenuPrincipalScreen = ({
 }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const genieIsFocused = useIsFocused();
-  const [genieScreenReaderEnabled, setGenieScreenReaderEnabled] = useState(null);
-  const genieCoordinator = useMemo(() => createGenieCoordinator(), []);
-  const genieScrollY = useSharedValue(0);
-  const genieViewportHeight = useSharedValue(0);
-  const genieScrollActive = useSharedValue(false);
-  const genieScrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      genieScrollY.value = event.contentOffset.y;
-    },
-    onBeginDrag: () => {
-      genieScrollActive.value = true;
-    },
-    onEndDrag: () => {
-      genieScrollActive.value = false;
-    },
-    onMomentumBegin: () => {
-      genieScrollActive.value = true;
-    },
-    onMomentumEnd: () => {
-      genieScrollActive.value = false;
-    },
-  });
-  const genieProps = {
-    active: genieScreenReaderEnabled === false && genieIsFocused,
-    coordinator: genieCoordinator,
-    scrollY: genieScrollY,
-    viewportHeight: genieViewportHeight,
-    scrollActive: genieScrollActive,
-  };
-  useEffect(() => {
-    if (!genieIsFocused) genieCoordinator.cancelAll();
-  }, [genieCoordinator, genieIsFocused]);
-  useEffect(() => {
-    let mounted = true;
-    const subscription = AccessibilityInfo.addEventListener(
-      "screenReaderChanged",
-      setGenieScreenReaderEnabled,
-    );
-    AccessibilityInfo.isScreenReaderEnabled().then(
-      (enabled) => { if (mounted) setGenieScreenReaderEnabled(enabled); },
-      () => { if (mounted) setGenieScreenReaderEnabled(true); },
-    );
-    return () => {
-      mounted = false;
-      subscription.remove();
-    };
-  }, []);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMounted, setDrawerMounted] = useState(false);
   const [heavyContentReady, setHeavyContentReady] = useState(
@@ -665,31 +613,24 @@ const MenuPrincipalScreen = ({
           />
         </RenderTraceBlock>
 
-        <Reanimated.ScrollView
-          onLayout={({ nativeEvent }) => {
-            genieViewportHeight.value = nativeEvent.layout.height;
-          }}
-          onScroll={genieScrollHandler}
-          onScrollBeginDrag={genieCoordinator.cancelAll}
-          onMomentumScrollBegin={genieCoordinator.cancelAll}
-          scrollEventThrottle={16}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingTop: headerInset + 12 },
-          ]}
-          alwaysBounceVertical
-          bounces
-          overScrollMode="always"
-          refreshControl={
-            <RefreshControl
-              colors={["#f97316"]}
-              onRefresh={onRefresh}
-              progressViewOffset={headerInset + 12}
-              refreshing={normalHomeCatalogsLoading || homeRefreshing}
-              tintColor="#f97316"
-            />
-          }
-        >
+        <ScrollView
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingTop: headerInset + 12 },
+            ]}
+            alwaysBounceVertical
+            bounces
+            overScrollMode="always"
+            refreshControl={
+              <RefreshControl
+                colors={["#f97316"]}
+                onRefresh={onRefresh}
+                progressViewOffset={headerInset + 12}
+                refreshing={normalHomeCatalogsLoading || homeRefreshing}
+                tintColor="#f97316"
+              />
+            }
+          >
           {normalHomeCatalogsLoading || homeRefreshing ? (
             <Surface elevation={2} style={styles.homeLoadingCard}>
               <View style={styles.homeLoadingHeader}>
@@ -720,16 +661,7 @@ const MenuPrincipalScreen = ({
             </Surface>
           ) : (
             <>
-          <GenieEntrance
-            {...genieProps}
-            id="welcome"
-            origin={0.2}
-            direction="bottom"
-            intensity={0.9}
-            delay={0}
-            revision={`${user?._id || ""}:${pendingDebt}:${pendingVentasCount}:${appVersion}`}
-          >
-            <Surface
+          <Surface
             style={styles.heroCard}
             elevation={2}
             onLayout={({ nativeEvent }) => {
@@ -876,20 +808,10 @@ const MenuPrincipalScreen = ({
                 </View>
               </View>
             ) : null}
-            </Surface>
-          </GenieEntrance>
+          </Surface>
 
           {showEmpresaSuggestionCard ? (
-            <GenieEntrance
-              {...genieProps}
-              id="company"
-              origin={0.75}
-              direction="top"
-              intensity={0.72}
-              delay={40}
-              revision={`${user?.permiteEmpresa}:${user?.empresaBloqueada}:${user?.empresaTerminosCondicionesAcepted}:${user?.modoEmpresa}`}
-            >
-              <Surface style={styles.empresaSuggestionCard} elevation={2}>
+            <Surface style={styles.empresaSuggestionCard} elevation={2}>
               <LinearGradient
                 colors={["#123524f6", "#14395cf4", "#1d2357f2"]}
                 end={{ x: 1, y: 1 }}
@@ -971,21 +893,11 @@ const MenuPrincipalScreen = ({
                   </Pressable>
                 </View>
               </LinearGradient>
-              </Surface>
-            </GenieEntrance>
+            </Surface>
           ) : null}
 
           {showNotificationsCard ? (
-            <GenieEntrance
-              {...genieProps}
-              id="notifications"
-              origin={0.3}
-              direction="bottom"
-              intensity={0.82}
-              delay={70}
-              revision={`${notificationsPermissionGranted}:${notificationsPermissionLoading}:${notificationsPermissionBlocked}`}
-            >
-              <Surface
+            <Surface
               style={styles.notificationsCard}
               elevation={2}
               onLayout={({ nativeEvent }) => {
@@ -1125,21 +1037,11 @@ const MenuPrincipalScreen = ({
                   </Pressable>
                 </View>
               </LinearGradient>
-              </Surface>
-            </GenieEntrance>
+            </Surface>
           ) : null}
 
           {showPriceSetupCard ? (
-            <GenieEntrance
-              {...genieProps}
-              id="prices"
-              origin={0.7}
-              direction="top"
-              intensity={0.78}
-              delay={95}
-              revision={`${priceSetupLoading}:${missingPriceServices.map((service) => service.key).join(",")}`}
-            >
-              <Surface
+            <Surface
               style={styles.priceSetupCard}
               elevation={2}
               onLayout={({ nativeEvent }) => {
@@ -1271,21 +1173,11 @@ const MenuPrincipalScreen = ({
                   </Pressable>
                 </View>
               </LinearGradient>
-              </Surface>
-            </GenieEntrance>
+            </Surface>
           ) : null}
 
           {showPendingEvidenceCard ? (
-            <GenieEntrance
-              {...genieProps}
-              id="evidence"
-              origin={0.25}
-              direction="bottom"
-              intensity={0.75}
-              delay={120}
-              revision={`${pendingEvidenceCount}:${pendingEvidenceLoading}`}
-            >
-              <Surface
+            <Surface
               style={styles.evidenceHubCard}
               elevation={2}
               onLayout={({ nativeEvent }) => {
@@ -1398,21 +1290,11 @@ const MenuPrincipalScreen = ({
                   </View>
                 </Pressable>
               </View>
-              </Surface>
-            </GenieEntrance>
+            </Surface>
           ) : null}
 
           {showCashApprovalsCard ? (
-            <GenieEntrance
-              {...genieProps}
-              id="cash-approvals"
-              origin={0.72}
-              direction="top"
-              intensity={0.72}
-              delay={145}
-              revision={`${pendingCashApprovalsCount}:${pendingCashApprovalsLoading}:${pendingCashApprovalTypes.map((type) => type.key).join(",")}`}
-            >
-              <Surface
+            <Surface
               style={styles.cashApprovalsCard}
               elevation={2}
               onLayout={({ nativeEvent }) => {
@@ -1649,8 +1531,7 @@ const MenuPrincipalScreen = ({
                   </Pressable>
                 </View>
               </LinearGradient>
-              </Surface>
-            </GenieEntrance>
+            </Surface>
           ) : null}
 
           {heavyContentReady ? (
@@ -1659,99 +1540,59 @@ const MenuPrincipalScreen = ({
                 if (service.id === "COMERCIOS") {
                   return (
                     <React.Fragment key={service.id}>
-                      <GenieEntrance
-                        {...genieProps}
-                        id="commerce-orders"
-                        origin={0.3}
-                        direction="bottom"
-                        intensity={0.72}
-                        delay={35}
-                        revision={`${normalHomeCatalogsLoading}:${normalHomeCatalogs?.commerceOrders?.length || 0}`}
+                      <RenderTraceBlock
+                        name="ComercioHomeOrdersSection"
+                        payload={{ position: index }}
                       >
-                        <RenderTraceBlock
-                          name="ComercioHomeOrdersSection"
-                          payload={{ position: index }}
-                        >
-                          <ComercioHomeOrdersSection
-                            catalogLoading={normalHomeCatalogsLoading}
-                            catalogOrders={normalHomeCatalogs?.commerceOrders}
-                          />
-                        </RenderTraceBlock>
-                      </GenieEntrance>
-                      <GenieEntrance
-                        {...genieProps}
-                        id="commerce"
-                        origin={0.72}
-                        direction="top"
-                        intensity={0.7}
-                        delay={55}
-                        revision={`${normalHomeCatalogs?.commerceOrders?.length || 0}`}
+                        <ComercioHomeOrdersSection
+                          catalogLoading={normalHomeCatalogsLoading}
+                          catalogOrders={normalHomeCatalogs?.commerceOrders}
+                        />
+                      </RenderTraceBlock>
+                      <RenderTraceBlock
+                        name="ComercioHomeSection"
+                        payload={{ position: index }}
                       >
-                        <RenderTraceBlock
-                          name="ComercioHomeSection"
-                          payload={{ position: index }}
-                        >
-                          <ComercioHomeSection />
-                        </RenderTraceBlock>
-                      </GenieEntrance>
+                        <ComercioHomeSection />
+                      </RenderTraceBlock>
                     </React.Fragment>
                   );
                 }
 
                 if (service.id === "CUBACEL") {
                   return (
-                    <GenieEntrance
+                    <RenderTraceBlock
                       key={service.id}
-                      {...genieProps}
-                      id="cubacel"
-                      origin={0.25}
-                      direction="bottom"
-                      intensity={0.68}
-                      delay={75}
-                      revision={`${normalHomeCatalogsLoading}:${normalHomeCatalogs?.dtshopProducts?.length || 0}`}
+                      name="Productos"
+                      payload={{
+                        deferDelay: 0,
+                        isDegradado: false,
+                        position: index,
+                      }}
                     >
-                      <RenderTraceBlock
-                        name="Productos"
-                        payload={{
-                          deferDelay: 0,
-                          isDegradado: false,
-                          position: index,
-                        }}
-                      >
-                        <Productos
-                          catalogProducts={normalHomeCatalogs?.dtshopProducts}
-                          catalogLoading={normalHomeCatalogsLoading}
-                          deferData={false}
-                          deferDelay={0}
-                          isDegradado={false}
-                        />
-                      </RenderTraceBlock>
-                    </GenieEntrance>
+                      <Productos
+                        catalogProducts={normalHomeCatalogs?.dtshopProducts}
+                        catalogLoading={normalHomeCatalogsLoading}
+                        deferData={false}
+                        deferDelay={0}
+                        isDegradado={false}
+                      />
+                    </RenderTraceBlock>
                   );
                 }
 
                 if (service.id === "PROXY_VPN") {
                   return (
-                    <GenieEntrance
+                    <RenderTraceBlock
                       key={service.id}
-                      {...genieProps}
-                      id="proxy-vpn"
-                      origin={0.7}
-                      direction="top"
-                      intensity={0.68}
-                      delay={95}
-                      revision={`${normalHomeCatalogsLoading}:${normalHomeCatalogs?.proxyPackages?.length || 0}`}
+                      name="ProxyVPNPackagesHorizontal"
+                      payload={{ position: index }}
                     >
-                      <RenderTraceBlock
-                        name="ProxyVPNPackagesHorizontal"
-                        payload={{ position: index }}
-                      >
-                        <ProxyVPNPackagesHorizontal
-                          catalogPackages={normalHomeCatalogs}
-                          catalogLoading={normalHomeCatalogsLoading}
-                        />
-                      </RenderTraceBlock>
-                    </GenieEntrance>
+                      <ProxyVPNPackagesHorizontal
+                        catalogPackages={normalHomeCatalogs}
+                        catalogLoading={normalHomeCatalogsLoading}
+                      />
+                    </RenderTraceBlock>
                   );
                 }
 
@@ -1767,7 +1608,7 @@ const MenuPrincipalScreen = ({
           )}
             </>
           )}
-          </Reanimated.ScrollView>
+          </ScrollView>
 
         {Platform.OS === "ios" ? (
           drawerMounted ? (
