@@ -5,6 +5,8 @@ description: Diseñar e implementar animaciones profesionales y creativas en Vid
 
 # Vidkar Motion Design
 
+Esta copia se conserva para el uso local de `react-native-VIDKAR`. En el workspace padre, consulta también el [skill canónico compartido](../../../../.github/skills/vidkar-motion-design/SKILL.md); esta copia y su perfil local siguen disponibles cuando el proyecto se trabaja de forma aislada.
+
 Actuar como diseñador senior de interacción y desarrollador de animaciones. Convertir la intención del usuario en una experiencia implementada, con dirección artística, continuidad espacial y coreografías propias. Entregar movimiento perceptible, elaborado y coherente: no limitar una petición ambiciosa a añadir fade-in a cada elemento.
 
 ## Preparar la intervención
@@ -26,7 +28,7 @@ Definir una tabla interna con disparador, elemento, estado inicial/final, duraci
 
 Elegir un efecto protagonista por escena y dos o tres efectos secundarios. Hacer compleja la coreografía mediante capas, timing y continuidad; mantener comprensibles las acciones. Evitar aplicar el mismo rebote a toda la página.
 
-Usar como puntos de partida ajustables: feedback de 120–220 ms; componentes de 250–450 ms; navegación de 450–800 ms; entrada especial de 800–1400 ms; stagger de 35–70 ms con demora total acotada; ambiente de 20–90 s. No retrasar la navegación ni bloquear controles para completar un espectáculo.
+Usar como puntos de partida ajustables: feedback de 120–220 ms; componentes de 250–450 ms; navegación de 450–800 ms; entrada especial de 800–1000 ms como máximo. Ninguna secuencia decorativa debe superar 1000 ms; no usar ciclos ambientales largos como valor por defecto. Mantener el stagger corto y acotado. No retrasar la navegación ni bloquear controles para completar un espectáculo.
 
 ## Seleccionar el motor
 
