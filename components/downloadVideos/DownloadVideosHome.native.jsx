@@ -5,16 +5,12 @@ import { useRouter } from "expo-router";
 import React from "react";
 import {
     Alert,
-    Animated,
     FlatList,
     ImageBackground,
     KeyboardAvoidingView,
     Linking,
     ActivityIndicator as NativeActivityIndicator,
-    Modal,
-    PanResponder,
     Platform,
-    Pressable,
     ScrollView,
     StyleSheet,
     TextInput,
@@ -32,7 +28,15 @@ import {
     Text,
     useTheme,
 } from "react-native-paper";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Reanimated, {
+  cancelAnimation,
+  LinearTransition,
+  ReduceMotion,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 
 import { getMeteorHttpOriginUrl } from "../../services/appUrls";
 import AppHeader, {
@@ -42,6 +46,14 @@ import AppHeader, {
 import { PelisCollection } from "../collections/collections";
 import { syncMovieSpotlightIndex } from "../../services/spotlight/spotlight";
 import ModernBottomDrawer from "../cinema/ModernBottomDrawer";
+import {
+  CinemaDetailReveal,
+  CinemaEntrance,
+  CinemaHeroAtmosphere,
+  CinemaMotionProvider,
+  CinemaPosterPressable,
+  useCinemaReducedMotion,
+} from "../cinema/CinemaMotion.native";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */ (
@@ -211,7 +223,7 @@ const useProgressiveCatalogValue = (value, loading) => {
   return loading && value.length < stableRef.current.length ? stableRef.current : value;
 };
 
-const CachedMovieImageBackground = ({ children, imageStyle, source, style }) => {
+const CachedMovieImageBackground = ({ children, imageStyle, animatedImageStyle, source, style }) => {
   const uri = source?.uri;
   const [imageState, setImageState] = React.useState(uri ? "loading" : "empty");
 
@@ -230,6 +242,7 @@ const CachedMovieImageBackground = ({ children, imageStyle, source, style }) => 
         style={[StyleSheet.absoluteFill, imageStyle]}
       />
       {uri ? (
+        <Reanimated.View pointerEvents="none" style={[StyleSheet.absoluteFill, animatedImageStyle]}>
         <ImageBackground
           source={{ uri }}
           resizeMode="cover"
@@ -238,6 +251,7 @@ const CachedMovieImageBackground = ({ children, imageStyle, source, style }) => 
           onLoad={(e) => {setImageState("loaded")}}
           onError={() => {console.log("Error loading image"); setImageState("error")}}
         />
+        </Reanimated.View>
       ) : null}
       {showLoading ? (
         <View style={styles.movieImageLoadingOverlay} pointerEvents="none">
@@ -425,16 +439,44 @@ const getPalette = (theme) => {
   };
 };
 
-const HeroBackdrop = ({ movie, palette, children, contentTopInset = 0 }) => {
+const HeroBackdrop = ({ movie, palette, children, contentTopInset = 0, scrollY }) => {
   const imageUrl = getMovieImageUrl(movie?._id, "mid");
+  const reducedMotion = useCinemaReducedMotion();
+  const entranceProgress = useSharedValue(reducedMotion ? 1 : 0);
+
+  React.useEffect(() => {
+    cancelAnimation(entranceProgress);
+    entranceProgress.set(reducedMotion ? 1 : 0);
+    if (!reducedMotion) {
+      entranceProgress.set(withSpring(1, {
+        stiffness: 150,
+        damping: 20,
+        mass: 1,
+        reduceMotion: ReduceMotion.System,
+      }));
+    }
+    return () => cancelAnimation(entranceProgress);
+  }, [entranceProgress, movie?._id, reducedMotion]);
+
+  const imageEntranceStyle = useAnimatedStyle(() => {
+    const progress = entranceProgress.get();
+    return {
+      opacity: reducedMotion ? 1 : 0.58 + progress * 0.42,
+      transform: [
+        { translateY: (reducedMotion ? 0 : (1 - progress) * 22) + Math.min(72, Math.max(0, scrollY.get()) * 0.18) },
+        { scale: reducedMotion ? 1 : 1.16 - progress * 0.16 },
+      ],
+    };
+  });
 
   return (
-    <CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.hero} imageStyle={styles.heroImage} >
+    <CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.hero} imageStyle={styles.heroImage} animatedImageStyle={imageEntranceStyle}>
       <LinearGradient
         colors={["rgba(0,0,0,0.12)", "rgba(0,0,0,0.62)", palette.background]}
         locations={[0, 0.58, 1]}
         style={StyleSheet.absoluteFill}
       />
+      <CinemaHeroAtmosphere entranceProgress={entranceProgress} scrollY={scrollY} />
       <View style={[styles.heroContent, { paddingTop: contentTopInset }]}>{children}</View>
     </CachedMovieImageBackground>
   );
@@ -462,7 +504,7 @@ export const MoviePosterCard = ({ movie, palette, onPress, compact }) => {
   const genres = normalizeGenres(movie?.clasificacion);
 
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Abrir ${getMovieTitle(movie)}`} onPress={() => onPress?.(movie)} style={({ pressed }) => [styles.posterPressable, pressed && styles.pressed]}>
+    <CinemaPosterPressable height={compact ? 222 : 238} accessibilityRole="button" accessibilityLabel={`Abrir ${getMovieTitle(movie)}`} onPress={() => onPress?.(movie)} style={styles.posterPressable}>
       <Surface style={[styles.posterCard, compact && styles.posterCardCompact, { backgroundColor: palette.surfaceElevated }]} elevation={1}>
         <CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.posterImage} imageStyle={styles.posterImageStyle}>
           <LinearGradient colors={["transparent", "rgba(0,0,0,0.16)", "rgba(0,0,0,0.92)"]} style={StyleSheet.absoluteFill} />
@@ -487,17 +529,18 @@ export const MoviePosterCard = ({ movie, palette, onPress, compact }) => {
           </View>
         </CachedMovieImageBackground>
       </Surface>
-    </Pressable>
+    </CinemaPosterPressable>
   );
 };
 
 const MovieRow = ({ title, movies, palette, onPress, compact }) => {
+  const reducedMotion = useCinemaReducedMotion();
   if (!movies.length) {
     return null;
   }
 
   return (
-    <View style={styles.rowSection}>
+    <Reanimated.View layout={reducedMotion ? undefined : LinearTransition.duration(240)} style={styles.rowSection}>
       <View style={styles.rowHeader}>
         <Text variant="titleLarge" style={[styles.rowTitle, { color: palette.text }]}>{title}</Text>
         <Text variant="labelMedium" style={[styles.rowCount, { color: palette.subtle }]}>{movies.length}</Text>
@@ -513,7 +556,7 @@ const MovieRow = ({ title, movies, palette, onPress, compact }) => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.horizontalList}
       />
-    </View>
+    </Reanimated.View>
   );
 };
 
@@ -802,8 +845,9 @@ const HeroMovieFilters = ({
   </View>
 );
 
-const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onDismiss, onPlay, onTrailer }) => {
+const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onDismiss, onClosed, onPlay, onTrailer }) => {
   const { width, height } = useWindowDimensions();
+  const reducedMotion = useCinemaReducedMotion();
   const isLandscape = width > height;
   const resolvedMovie = detail || movie;
   const genres = normalizeGenres(resolvedMovie?.clasificacion);
@@ -819,6 +863,9 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
     <ModernBottomDrawer
       visible={visible}
       onDismiss={onDismiss}
+      onClosed={onClosed}
+      motionPreset="cinema"
+      reducedMotion={reducedMotion}
       palette={{
         surface: palette.surfaceElevated || palette.surface,
         border: palette.border,
@@ -833,10 +880,11 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
               {getMovieTitle(resolvedMovie)}
             </Text>
           </View>
-          <IconButton icon="close" size={20} iconColor={palette.muted} onPress={onDismiss} style={{ margin: 0 }} />
+          <IconButton accessibilityLabel="Cerrar detalle" icon="close" size={20} iconColor={palette.muted} onPress={onDismiss} style={{ margin: 0 }} />
         </View>
       }
     >
+      <CinemaDetailReveal key={`${resolvedMovie?._id}-hero`}>
       <CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={[styles.drawerHero, isLandscape && styles.drawerHeroLandscape]} imageStyle={styles.drawerHeroImage}>
         <LinearGradient colors={["rgba(0,0,0,0.04)", "rgba(0,0,0,0.88)"]} style={StyleSheet.absoluteFill} />
         <View style={styles.drawerHeroContent}>
@@ -848,6 +896,7 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
           </View>
         </View>
       </CachedMovieImageBackground>
+      </CinemaDetailReveal>
 
       {loading ? (
         <View style={styles.detailLoadingRow}>
@@ -856,7 +905,7 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
         </View>
       ) : null}
 
-      <View style={styles.drawerBody}>
+      <CinemaDetailReveal key={`${resolvedMovie?._id}-body`} delay={70} style={styles.drawerBody}>
         <View style={styles.dialogActions}>
           <Button mode="contained" icon="play" buttonColor={palette.accent} textColor={palette.onAccent} style={styles.dialogActionButton} disabled={!streamUrl} onPress={() => onPlay?.(resolvedMovie)}>
             Reproducir
@@ -892,7 +941,7 @@ const MovieDetailBottomDrawer = ({ visible, movie, detail, loading, palette, onD
           <Text variant="bodyMedium" style={[styles.detailBlockCopy, { color: palette.text }]}>Formato: {resolvedMovie?.extension ? String(resolvedMovie.extension).toUpperCase() : "No registrado"}</Text>
           <Text variant="bodyMedium" style={[styles.detailBlockCopy, { color: palette.text }]}>Tamano: {resolvedMovie?.tamano || "No registrado"}</Text>
         </Surface>
-      </View>
+      </CinemaDetailReveal>
     </ModernBottomDrawer>
   );
 };
@@ -904,10 +953,16 @@ const DownloadVideosHome = ({ searchResultIds } = {}) => {
   const headerInset = useAppHeaderContentInset();
   const { width } = useWindowDimensions();
   const compact = width < 390;
+  const scrollY = useSharedValue(0);
+  const onCatalogScroll = useAnimatedScrollHandler((event) => {
+    scrollY.set(event.contentOffset.y);
+  });
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedGenre, setSelectedGenre] = React.useState(ALL_GENRES);
   const debouncedSearchQuery = useDebouncedValue(searchQuery);
   const [selectedMovie, setSelectedMovie] = React.useState(null);
+  const [detailOpen, setDetailOpen] = React.useState(false);
+  const detailOpenRef = React.useRef(false);
   const [movieDetail, setMovieDetail] = React.useState(null);
   const [detailLoading, setDetailLoading] = React.useState(false);
   const [addMovieOpen, setAddMovieOpen] = React.useState(false);
@@ -1109,6 +1164,8 @@ const DownloadVideosHome = ({ searchResultIds } = {}) => {
   }, [displayGenreOptions, displayMovies, searchQuery, selectedGenre]);
 
   const openMovieDetail = React.useCallback((movie) => {
+    detailOpenRef.current = true;
+    setDetailOpen(true);
     setSelectedMovie(movie);
     activeDetailMovieIdRef.current = movie._id;
     const cachedMovieDetail = movieDetailsCacheRef.current.get(movie._id);
@@ -1124,7 +1181,7 @@ const DownloadVideosHome = ({ searchResultIds } = {}) => {
   }, []);
 
   React.useEffect(() => {
-    if (!selectedMovie?._id) {
+    if (!selectedMovie?._id || !detailOpen) {
       return undefined;
     }
 
@@ -1164,13 +1221,19 @@ const DownloadVideosHome = ({ searchResultIds } = {}) => {
       cancelled = true;
       cancelAnimationFrame(requestId);
     };
-  }, [selectedMovie]);
+  }, [detailOpen, selectedMovie]);
 
   const closeMovieDetail = React.useCallback(() => {
     activeDetailMovieIdRef.current = null;
+    detailOpenRef.current = false;
+    setDetailOpen(false);
+    setDetailLoading(false);
+  }, []);
+
+  const finishClosingMovieDetail = React.useCallback(() => {
+    if (detailOpenRef.current) return;
     setSelectedMovie(null);
     setMovieDetail(null);
-    setDetailLoading(false);
   }, []);
 
   const openStream = React.useCallback((movie) => {
@@ -1277,17 +1340,21 @@ const DownloadVideosHome = ({ searchResultIds } = {}) => {
         transparent
         actions={canAddMovies ? <IconButton icon="plus" iconColor="#ffffff" onPress={() => setAddMovieOpen(true)} /> : null}
       />
-      <ScrollView
+      <Reanimated.ScrollView
         alwaysBounceVertical={false}
         bounces={false}
         showsVerticalScrollIndicator={false}
         overScrollMode="never"
+        onScroll={onCatalogScroll}
+        scrollEventThrottle={16}
         contentContainerStyle={styles.scrollContent}
       >
         {featuredMovie ? (
-          <HeroBackdrop movie={featuredMovie} palette={palette} contentTopInset={headerInset + 20}>
+          <HeroBackdrop movie={featuredMovie} palette={palette} contentTopInset={headerInset + 20} scrollY={scrollY}>
             <View style={styles.heroMetaBlock}>
-              <Text variant="labelLarge" style={[styles.heroEyebrow, { color: "#ffb4ba" }]}>VIDKAR CINEMA</Text>
+              <CinemaEntrance key={`${featuredMovie._id}-eyebrow`} delay={45}>
+                <Text variant="labelLarge" style={[styles.heroEyebrow, { color: "#ffb4ba" }]}>VIDKAR CINEMA</Text>
+              </CinemaEntrance>
               <HeroMovieFilters
                 genreOptions={displayGenreOptions}
                 loadingCatalog={loading}
@@ -1297,25 +1364,33 @@ const DownloadVideosHome = ({ searchResultIds } = {}) => {
                 setSearchQuery={setSearchQuery}
                 setSelectedGenre={setSelectedGenre}
               />
-              <Text variant="displaySmall" style={styles.heroTitle} numberOfLines={3}>{getMovieTitle(featuredMovie)}</Text>
-              <View style={styles.metaRow}>
-                <MetaPill icon="calendar-blank-outline" label={getMovieYear(featuredMovie)} palette={palette} />
-                <MetaPill icon="eye-outline" label={`${getMovieViews(featuredMovie).toFixed(0)} vistas`} palette={palette} />
-                {normalizeGenres(featuredMovie.clasificacion)[0] ? (
-                  <MetaPill label={normalizeGenres(featuredMovie.clasificacion)[0]} palette={palette} strong />
-                ) : null}
-              </View>
-              <Text variant="bodyLarge" style={styles.heroDescription} numberOfLines={3}>
-                {getMovieSummary(featuredMovie)}
-              </Text>
-              <View style={styles.heroActions}>
-                <Button mode="contained" icon="play" buttonColor={palette.accent} textColor={palette.onAccent} onPress={() => openMovieDetail(featuredMovie)}>
-                  Ver ahora
-                </Button>
-                <Button mode="outlined" icon="information-outline" textColor={palette.heroText} style={{ borderColor: "rgba(255, 255, 255, 0.42)" }} onPress={() => openMovieDetail(featuredMovie)}>
-                  Detalles
-                </Button>
-              </View>
+              <CinemaEntrance key={`${featuredMovie._id}-title`} delay={100} variant="headline">
+                <Text variant="displaySmall" style={styles.heroTitle} numberOfLines={3}>{getMovieTitle(featuredMovie)}</Text>
+              </CinemaEntrance>
+              <CinemaEntrance key={`${featuredMovie._id}-meta`} delay={175}>
+                <View style={styles.metaRow}>
+                  <MetaPill icon="calendar-blank-outline" label={getMovieYear(featuredMovie)} palette={palette} />
+                  <MetaPill icon="eye-outline" label={`${getMovieViews(featuredMovie).toFixed(0)} vistas`} palette={palette} />
+                  {normalizeGenres(featuredMovie.clasificacion)[0] ? (
+                    <MetaPill label={normalizeGenres(featuredMovie.clasificacion)[0]} palette={palette} strong />
+                  ) : null}
+                </View>
+              </CinemaEntrance>
+              <CinemaEntrance key={`${featuredMovie._id}-description`} delay={235}>
+                <Text variant="bodyLarge" style={styles.heroDescription} numberOfLines={3}>
+                  {getMovieSummary(featuredMovie)}
+                </Text>
+              </CinemaEntrance>
+              <CinemaEntrance key={`${featuredMovie._id}-actions`} delay={300}>
+                <View style={styles.heroActions}>
+                  <Button mode="contained" icon="play" buttonColor={palette.accent} textColor={palette.onAccent} onPress={() => openMovieDetail(featuredMovie)}>
+                    Ver ahora
+                  </Button>
+                  <Button mode="outlined" icon="information-outline" textColor={palette.heroText} style={{ borderColor: "rgba(255, 255, 255, 0.42)" }} onPress={() => openMovieDetail(featuredMovie)}>
+                    Detalles
+                  </Button>
+                </View>
+              </CinemaEntrance>
             </View>
           </HeroBackdrop>
         ) : (
@@ -1337,16 +1412,17 @@ const DownloadVideosHome = ({ searchResultIds } = {}) => {
             <MovieRow key={row.title} title={row.title} movies={row.data} palette={palette} onPress={openMovieDetail} compact={compact} />
           ))}
         </View>
-      </ScrollView>
+      </Reanimated.ScrollView>
       </>}
 
       <MovieDetailBottomDrawer
-        visible={Boolean(selectedMovie)}
+        visible={Boolean(selectedMovie) && detailOpen}
         movie={selectedMovie}
         detail={movieDetail}
         loading={detailLoading}
         palette={palette}
         onDismiss={closeMovieDetail}
+        onClosed={finishClosingMovieDetail}
         onPlay={openStream}
         onTrailer={openTrailer}
       />
@@ -1999,4 +2075,6 @@ const styles = StyleSheet.create({
   },
 });
 
-export default DownloadVideosHome;
+export default function DownloadVideosHomeWithMotion(props) {
+  return <CinemaMotionProvider><DownloadVideosHome {...props} /></CinemaMotionProvider>;
+}

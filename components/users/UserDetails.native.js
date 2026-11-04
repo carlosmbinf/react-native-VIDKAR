@@ -24,6 +24,7 @@ import {
 } from "../collections/collections";
 import { EMPRESA_BRAND } from "../empresa/styles/empresaTheme";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
+import { ServiceAtmosphere, ServiceEntrance, ServiceMotionProvider, ServiceScrollViewport } from "../motion/ServiceMotion";
 import McpSettingsLinkCard from "./componentsUserDetails/McpSettingsLinkCard.native";
 import WelcomeServicesLinkCard from "./componentsUserDetails/WelcomeServicesLinkCard.native";
 import AdminAssignmentCard from "./componentsUserDetails/AdminAssignmentCard";
@@ -96,8 +97,15 @@ const USER_PENDING_VENTAS_FIELDS = {
   precio: 1,
 };
 
-const SectionHeading = ({ title, subtitle, palette }) => (
-  <View style={styles.sectionHeading}>
+const ProfileEntrance = ({ children, enabled, style, delay, variant }) =>
+  enabled ? (
+    <ServiceEntrance delay={delay} style={style} variant={variant}>{children}</ServiceEntrance>
+  ) : (
+    <View style={style}>{children}</View>
+  );
+
+const SectionHeading = ({ title, subtitle, palette, motionEnabled, delay }) => (
+  <ProfileEntrance enabled={motionEnabled} delay={delay} style={styles.sectionHeading}>
     <View style={[styles.sectionIndicatorWrap, { backgroundColor: palette.cardAlt }]}>
       <View style={[styles.sectionDot, { backgroundColor: palette.accent }]} />
     </View>
@@ -105,7 +113,7 @@ const SectionHeading = ({ title, subtitle, palette }) => (
       <Text style={[styles.sectionTitle, { color: palette.title }]}>{title}</Text>
       <Text style={[styles.sectionSubtitle, { color: palette.label }]}>{subtitle}</Text>
     </View>
-  </View>
+  </ProfileEntrance>
 );
 
 const UserDetails = () => {
@@ -113,6 +121,7 @@ const UserDetails = () => {
   const headerInset = useAppHeaderContentInset();
   const params = useLocalSearchParams();
   const pathname = usePathname();
+  const motionEnabled = !theme.empresaAppearance && !pathname?.startsWith("/(empresa)");
   const routeItemId = Array.isArray(params.item) ? params.item[0] : params.item;
   const currentUserId = Meteor.useTracker(() => Meteor.userId());
   const currentUser = Meteor.useTracker(() => Meteor.user());
@@ -507,6 +516,7 @@ const UserDetails = () => {
   }
 
   return (
+    <ServiceMotionProvider>
     <Surface
       style={[styles.background, { backgroundColor: profilePalette.screen }]}
     >
@@ -519,6 +529,7 @@ const UserDetails = () => {
         subtitleStyle={styles.headerSubtitle}
         overlapContent
       />
+      <ServiceScrollViewport topInset={headerInset}>
       <NestableScrollContainer
         contentContainerStyle={{
           paddingTop: headerInset + 12,
@@ -537,11 +548,11 @@ const UserDetails = () => {
           </View>
         ) : item ? (
           <View style={[styles.root, isTablet && styles.rootTablet]}>
-            <SectionHeading title="Resumen de la cuenta" subtitle="Identidad, acceso y actividad" palette={{ ...profilePalette, accent: accentColor }} />
-            <View style={[styles.cardItem, computedCardWidth]}>
+            <SectionHeading title="Resumen de la cuenta" subtitle="Identidad, acceso y actividad" palette={{ ...profilePalette, accent: accentColor }} motionEnabled={motionEnabled} delay={0} />
+            <ProfileEntrance enabled={motionEnabled} delay={50} variant="hero" style={[styles.cardItem, computedCardWidth]}>
               <PersonalDataCard item={item} styles={profileStyles} />
-            </View>
-            <View style={[styles.cardItem, computedCardWidth]}>
+            </ProfileEntrance>
+            <ProfileEntrance enabled={motionEnabled} delay={100} style={[styles.cardItem, computedCardWidth]}>
               <UserDataCard
                 item={item}
                 styles={profileStyles}
@@ -549,7 +560,7 @@ const UserDetails = () => {
                 setEdit={setEdit}
                 accentColor={accentColor}
               />
-            </View>
+            </ProfileEntrance>
             {Meteor.user()?.profile?.role === "admin" ? (
               <View style={[styles.cardItem, computedCardWidth]}>
                 <VentasCard
@@ -569,7 +580,7 @@ const UserDetails = () => {
                 />
               </View>
             ) : null}
-            <SectionHeading title="Herramientas y actividad" subtitle="Configuración y seguimiento del usuario" palette={{ ...profilePalette, accent: accentColor }} />
+            <SectionHeading title="Herramientas y actividad" subtitle="Configuración y seguimiento del usuario" palette={{ ...profilePalette, accent: accentColor }} motionEnabled={motionEnabled} delay={150} />
             {isAdminUser ? (
               <View style={[styles.cardItem, computedCardWidth]}>
                 <WelcomeServicesLinkCard
@@ -589,7 +600,7 @@ const UserDetails = () => {
                 />
               </View>
             ) : null}
-            <View style={[styles.cardItem, computedCardWidth]}>
+            <ProfileEntrance enabled={motionEnabled} style={[styles.cardItem, computedCardWidth]}>
               <Surface
                 elevation={0}
                 style={[
@@ -599,6 +610,7 @@ const UserDetails = () => {
                 ]}
                 testID="user-logs-timeline-card"
               >
+                {motionEnabled ? <ServiceAtmosphere color={accentColor} /> : null}
                 <View style={styles.timelineLinkContent}>
                   <View style={styles.timelineLinkHeader}>
                     <View
@@ -652,7 +664,7 @@ const UserDetails = () => {
                   </Button>
                 </View>
               </Surface>
-            </View>
+            </ProfileEntrance>
             {Meteor.user()?.username === "carlosmbinf" ? (
               <View style={[styles.cardItem, computedCardWidth]}>
                 <AdminAssignmentCard
@@ -680,10 +692,10 @@ const UserDetails = () => {
                 />
               </View>
             ) : null}
-            <SectionHeading title="Conectividad" subtitle="Planes, consumo y configuración" palette={{ ...profilePalette, accent: accentColor }} />
+            <SectionHeading title="Conectividad" subtitle="Planes, consumo y configuración" palette={{ ...profilePalette, accent: accentColor }} motionEnabled={motionEnabled} delay={200} />
             {isTablet ? (
               <View style={styles.rowPairFull}>
-                <View style={[styles.cardItem, styles.pairItemWidth]}>
+                <ProfileEntrance enabled={motionEnabled} style={[styles.cardItem, styles.pairItemWidth]}>
                   <ProxyCard
                     item={item}
                     styles={profileStyles}
@@ -692,8 +704,8 @@ const UserDetails = () => {
                     handleReiniciarConsumo={handleReiniciarConsumo}
                     addVenta={addVenta}
                   />
-                </View>
-                <View style={[styles.cardItem, styles.pairItemWidth]}>
+                </ProfileEntrance>
+                <ProfileEntrance enabled={motionEnabled} style={[styles.cardItem, styles.pairItemWidth]}>
                   <VpnCard
                     item={item}
                     styles={profileStyles}
@@ -702,11 +714,11 @@ const UserDetails = () => {
                     handleReiniciarConsumoVPN={handleReiniciarConsumoVPN}
                     handleVPNStatus={handleVPNStatus}
                   />
-                </View>
+                </ProfileEntrance>
               </View>
             ) : (
               <>
-                <View style={[styles.cardItem, computedCardWidth]}>
+                <ProfileEntrance enabled={motionEnabled} style={[styles.cardItem, computedCardWidth]}>
                   <ProxyCard
                     item={item}
                     styles={profileStyles}
@@ -715,8 +727,8 @@ const UserDetails = () => {
                     handleReiniciarConsumo={handleReiniciarConsumo}
                     addVenta={addVenta}
                   />
-                </View>
-                <View style={[styles.cardItem, computedCardWidth]}>
+                </ProfileEntrance>
+                <ProfileEntrance enabled={motionEnabled} style={[styles.cardItem, computedCardWidth]}>
                   <VpnCard
                     item={item}
                     styles={profileStyles}
@@ -725,21 +737,21 @@ const UserDetails = () => {
                     handleReiniciarConsumoVPN={handleReiniciarConsumoVPN}
                     handleVPNStatus={handleVPNStatus}
                   />
-                </View>
+                </ProfileEntrance>
               </>
             )}
-            <SectionHeading title="Administración" subtitle="Opciones disponibles para esta cuenta" palette={{ ...profilePalette, accent: accentColor }} />
-            <View style={[styles.cardItem, computedCardWidth]}>
+            <SectionHeading title="Administración" subtitle="Opciones disponibles para esta cuenta" palette={{ ...profilePalette, accent: accentColor }} motionEnabled={motionEnabled} delay={250} />
+            <ProfileEntrance enabled={motionEnabled} style={[styles.cardItem, computedCardWidth]}>
               <OptionsCardAdmin
                 item={item}
                 styles={profileStyles}
                 accentColor={accentColor}
               />
-            </View>
+            </ProfileEntrance>
             {item?._id === currentUserId ? (
-              <View style={[styles.cardItem, computedCardWidth]}>
+              <ProfileEntrance enabled={motionEnabled} style={[styles.cardItem, computedCardWidth]}>
                 <DeleteAccountCard userId={item._id} username={item.username} />
-              </View>
+              </ProfileEntrance>
             ) : null}
           </View>
         ) : (
@@ -750,7 +762,9 @@ const UserDetails = () => {
           </View>
         )}
       </NestableScrollContainer>
+      </ServiceScrollViewport>
     </Surface>
+    </ServiceMotionProvider>
   );
 };
 

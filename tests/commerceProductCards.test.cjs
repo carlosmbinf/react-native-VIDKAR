@@ -429,6 +429,7 @@ function cardFixture(extraProps = {}) {
   const component = load("components/productos/ProductoCard.native.jsx", {
     react: h.React, "react-native": native, "react-native-paper": paper,
     "@expo/vector-icons/MaterialCommunityIcons": "MaterialCommunityIcons",
+    "../motion/ServiceMotion": { ServicePressable: "Pressable" },
     "./AddToCartDialog": "AddToCartDialog",
     "./ProductImageCarousel": "ProductImageCarousel",
   });
@@ -504,6 +505,10 @@ function categoryFixture({ ready = true, products = [], extraProps = {} } = {}) 
       getCommerceCategorySelectionProducts: (items) => items,
     },
     "./ProductoCard": "ProductoCard",
+    "../motion/ServiceMotion": {
+      ServiceEntrance: "ServiceEntrance",
+      ServiceScrollViewport: "ServiceScrollViewport",
+    },
   }, {
     setTimeout: (callback) => { timers.set(++timerId, callback); return timerId; },
     clearTimeout: (id) => timers.delete(id),
@@ -555,6 +560,27 @@ test("una categoría vacía reaparece con productos y se oculta si se retiran", 
   h.state.products = [];
   h.render();
   assert.equal(h.tree, null);
+});
+
+test("cada tarjeta del carrusel de categoría entra al ganar visibilidad y conserva el foco al reciclar", () => {
+  const products = [
+    { ...product, _id: "product-first", idTienda: store._id },
+    { ...product, _id: "product-second", idTienda: store._id },
+  ];
+  const h = categoryFixture({ products });
+  const viewport = only(h.tree, "ServiceScrollViewport");
+  assert.equal(viewport.props.horizontal, true);
+  const list = only(h.tree, "FlatList");
+  const first = list.props.renderItem({ item: list.props.data[0], index: 0 });
+  const second = list.props.renderItem({ item: list.props.data[1], index: 1 });
+  assert.equal(first.type, "ServiceEntrance");
+  assert.equal(first.props.initiallyRevealed, false);
+  assert.equal(second.props.delay, 35);
+  first.props.onReveal();
+  h.render();
+  const rerenderedList = only(h.tree, "FlatList");
+  const rerendered = rerenderedList.props.renderItem({ item: rerenderedList.props.data[0], index: 0 });
+  assert.equal(rerendered.props.initiallyRevealed, true);
 });
 
 test("productos fuera del alcance de tiendas no mantienen una categoría vacía visible", () => {

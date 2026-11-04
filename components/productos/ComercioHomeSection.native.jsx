@@ -3,7 +3,7 @@ import MeteorBase from "@meteorrn/core";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import React, { useMemo, useRef, useState } from "react";
-import { AppState, FlatList, Linking, Pressable, StyleSheet, View } from "react-native";
+import { AppState, FlatList, Linking, StyleSheet, View } from "react-native";
 import {
   ActivityIndicator,
   Button,
@@ -34,6 +34,7 @@ import {
   ProductosComercioCollection,
   TiendasComercioCollection,
 } from "../collections/collections";
+import { ServiceEntrance, ServiceMotionProvider, ServicePressable } from "../motion/ServiceMotion";
 import CommerceLocationAccessCard from "./CommerceLocationAccessCard";
 import ComercioCategorySelection from "./ComercioCategorySelection.native";
 import TiendaCard from "./TiendaCard";
@@ -584,7 +585,9 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
     });
   }, [debouncedSearch, router]);
   return (
+    <ServiceMotionProvider>
     <Surface elevation={0} style={styles.section}>
+      <ServiceEntrance variant="hero">
       <View style={styles.headerRow}>
         <View style={styles.titleWrap}>
           <View style={styles.eyebrowRow}>
@@ -599,19 +602,20 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
           <Text variant="bodySmall" style={[styles.subtitle, { color: palette.subtitle }]}>Compra en comercios disponibles y agrega productos al carrito sin salir del inicio.</Text>
         </View>
 
-        <Pressable
+        <ServicePressable
           accessibilityRole="button"
           onPress={() => openCatalog()}
-          style={({ pressed }) => [
+          style={[
             styles.openButton,
             { borderColor: palette.actionBorder },
-            pressed ? styles.openButtonPressed : null,
           ]}
         >
           <Text variant="labelLarge" style={[styles.openButtonText, { color: palette.actionText }]}>Abrir</Text>
-        </Pressable>
+        </ServicePressable>
       </View>
+      </ServiceEntrance>
 
+      <ServiceEntrance delay={60}>
       <View style={styles.controlsRow}>
         <Searchbar
           icon="magnify"
@@ -657,6 +661,7 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
               : `${tiendasFiltradas.length} tienda${tiendasFiltradas.length === 1 ? "" : "s"}`}
         </Chip>
       </View>
+      </ServiceEntrance>
 
       {featuredParentCategories.length ? (
         <View style={styles.categoryShortcuts}>
@@ -731,13 +736,14 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
         <View style={styles.tiendasList}>
           <Text style={[styles.listHeading, { color: palette.title }]} variant="titleMedium">Por tiendas</Text>
           {visibleTiendas.map((tienda) => (
+            <ServiceEntrance key={tienda._id}>
             <TiendaCard
-              key={tienda._id}
               searchQuery={searchQuery}
               tienda={tienda}
               userLocation={userLocation}
               onSeeAll={() => openCatalog({ store: tienda._id })}
             />
+            </ServiceEntrance>
           ))}
         </View>
       ) : shouldShowLocationEmptyState ? (
@@ -781,14 +787,15 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
             Productos por categoría principal
           </Text>
           {featuredParentCategories.map((category) => (
+            <ServiceEntrance key={category.id}>
             <ComercioCategorySelection
               category={category}
-              key={category.id}
               onSeeAll={() => openCatalog({ category: category.id })}
               searchQuery={searchQuery}
               storeIds={nearbyStoreIds}
               storesById={storesById}
               />
+            </ServiceEntrance>
           ))}
         </View>
       ) : null}
@@ -814,6 +821,7 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
         </Button>
       </View>
     </Surface>
+    </ServiceMotionProvider>
   );
 };
 
@@ -911,10 +919,6 @@ const styles = StyleSheet.create({
     minHeight: 38,
     paddingHorizontal: 16,
     justifyContent: "center",
-  },
-  openButtonPressed: {
-    opacity: 0.72,
-    transform: [{ scale: 0.98 }],
   },
   openButtonText: {
     fontWeight: "800",

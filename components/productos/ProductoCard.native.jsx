@@ -3,6 +3,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Surface, Text, useTheme } from "react-native-paper";
 
+import { ServicePressable } from "../motion/ServiceMotion";
 import AddToCartDialog from "./AddToCartDialog";
 import ProductImageCarousel from "./ProductImageCarousel";
 
@@ -10,6 +11,7 @@ const ProductoCardNative = ({
   containerStyle,
   images,
   innerStyle,
+  motionEnabled = false,
   onPress,
   producto,
   searchQuery,
@@ -17,6 +19,7 @@ const ProductoCardNative = ({
 }) => {
   const theme = useTheme();
   const [dialogVisible, setDialogVisible] = useState(false);
+  const CardPressable = motionEnabled ? ServicePressable : Pressable;
 
   const estaDisponible = producto.productoDeElaboracion || producto.count > 0;
   const precioFormateado = `${Number(producto.precio || 0).toFixed(2)} ${producto.monedaPrecio || "USD"}`;
@@ -41,7 +44,7 @@ const ProductoCardNative = ({
 
   return (
     <>
-      <Pressable
+      <CardPressable
         accessibilityLabel={`Ver detalles de ${producto.name || "producto"}`}
         accessibilityRole="button"
         android_ripple={{ color: "rgba(0, 0, 0, 0.1)" }}
@@ -109,7 +112,7 @@ const ProductoCardNative = ({
             </View>
           </Surface>
         </View>
-      </Pressable>
+      </CardPressable>
 
       {!onPress ? <AddToCartDialog
         onDismiss={() => setDialogVisible(false)}

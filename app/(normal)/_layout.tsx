@@ -1,6 +1,14 @@
 import { Stack } from "expo-router";
+import useSystemReducedMotion from "../../hooks/useSystemReducedMotion";
 
 export default function NormalLayout() {
+  const reducedMotion = useSystemReducedMotion();
+  const cinemaOptions = {
+    animation: reducedMotion ? "none" : "slide_from_right",
+    animationDuration: 300,
+    gestureEnabled: true,
+  } as const;
+
   return (
     <Stack initialRouteName="Main" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Main" />
@@ -13,12 +21,12 @@ export default function NormalLayout() {
       <Stack.Screen name="UserPushTokens" />
       <Stack.Screen name="PushTokens" />
       <Stack.Screen name="CampanasOfertas" />
-      <Stack.Screen name="PeliculasVideos" />
+      <Stack.Screen name="PeliculasVideos" options={cinemaOptions} />
       <Stack.Screen name="PeliculaPlayer" />
       <Stack.Screen name="Series" />
       <Stack.Screen name="SeriesDetail" options={{ animation: "slide_from_right" }} />
       <Stack.Screen name="SeriesPlayer" options={{ animation: "slide_from_right" }} />
-      <Stack.Screen name="Cinema" />
+      <Stack.Screen name="Cinema" options={cinemaOptions} />
       <Stack.Screen name="Cursos" />
       <Stack.Screen name="CursoDetalle" />
       <Stack.Screen name="GestionCursos" />

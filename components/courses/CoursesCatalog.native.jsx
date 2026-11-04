@@ -9,6 +9,7 @@ import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { syncCourseSpotlightIndex } from "../../services/spotlight/spotlight";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { SuscripcionesCursoCollection } from "../collections/collections";
+import { ServiceEntrance, ServiceMotionProvider, ServicePressable, ServiceScrollViewport } from "../motion/ServiceMotion";
 
 const Meteor = MeteorBase;
 const callMethod = (name, ...args) => new Promise((resolve, reject) => {
@@ -22,13 +23,14 @@ const isPrincipalAdmin = (user) => ["carlosmbinf"].includes(String(user?.usernam
 export function CourseCard({ item, active = false, accessWithoutSubscription = false, locked = false, onPress, onEvaluate, width }) {
   const theme = useTheme();
   const palette = getCoursePalette(theme);
+  const CardPressable = locked ? Pressable : ServicePressable;
   return (
-    <Pressable
+    <CardPressable
       accessibilityRole="button"
       accessibilityLabel={`Abrir curso ${item.titulo}`}
       accessibilityState={{ disabled: locked }}
       onPress={locked ? undefined : onPress}
-      style={({ pressed }) => [styles.card, { backgroundColor: palette.card, borderColor: locked ? palette.primary : palette.border, opacity: pressed ? 0.92 : 1, width }]}
+      style={[styles.card, { backgroundColor: palette.card, borderColor: locked ? palette.primary : palette.border, width }]}
     >
       <View style={styles.coverFrame}>
         {item.portadaUrl ? (
@@ -50,7 +52,7 @@ export function CourseCard({ item, active = false, accessWithoutSubscription = f
         </View>
         {locked && onEvaluate ? <Pressable accessibilityRole="button" onPress={onEvaluate} style={[styles.reEvaluateButton, { borderColor: palette.primary }]}><Icon source="school-outline" color={palette.primary} size={17} /><Text style={[styles.reEvaluateText, { color: palette.primary }]}>Reevaluarme</Text></Pressable> : null}
       </View>
-    </Pressable>
+    </CardPressable>
   );
 }
 
@@ -78,6 +80,7 @@ export default function CoursesCatalog({ searchResultIds } = {}) {
   const [refreshing, setRefreshing] = React.useState(false);
   const [coursesError, setCoursesError] = React.useState("");
   const requestRef = React.useRef(0);
+  const revealedCategories = React.useRef(new Set());
   const palette = getCoursePalette(theme);
 
   const { subscriptions, subscriptionsLoading } = Meteor.useTracker(() => {
@@ -169,7 +172,11 @@ export default function CoursesCatalog({ searchResultIds } = {}) {
   };
 
   const renderCategory = ({ item }) => (
-    <View style={styles.categorySection}>
+    <ServiceEntrance
+      initiallyRevealed={revealedCategories.current.has(item.key)}
+      onReveal={() => revealedCategories.current.add(item.key)}
+      style={styles.categorySection}
+    >
       <Text variant="titleLarge" style={[styles.categoryTitle, { color: palette.text }]}>{item.name}</Text>
       <FlatList
         contentContainerStyle={styles.courseRail}
@@ -179,10 +186,11 @@ export default function CoursesCatalog({ searchResultIds } = {}) {
         renderItem={renderCourse}
         showsHorizontalScrollIndicator={false}
       />
-    </View>
+    </ServiceEntrance>
   );
 
   if (searchResultIds) return (
+    <ServiceMotionProvider>
     <View>
       {coursesError ? <Text accessibilityRole="alert">{coursesError}</Text> : null}
       <FlatList
@@ -195,9 +203,11 @@ export default function CoursesCatalog({ searchResultIds } = {}) {
         ListEmptyComponent={coursesLoading || subscriptionsLoading ? <ActivityIndicator style={styles.empty} /> : <Text>No hay cursos disponibles para estos resultados.</Text>}
       />
     </View>
+    </ServiceMotionProvider>
   );
 
   return (
+    <ServiceMotionProvider>
     <View style={[styles.root, { backgroundColor: palette.background }]}>
       <LinearGradient colors={theme.dark ? ["rgba(8,47,73,0.42)", "transparent"] : ["rgba(165,243,252,0.48)", "transparent"]} style={styles.backgroundWash} />
       <AppHeader title="Cursos" subtitle="Aprende con profesores VIDKAR" showBackButton backHref="/(normal)/Main" overlapContent />
@@ -207,27 +217,28 @@ export default function CoursesCatalog({ searchResultIds } = {}) {
           <ActivityIndicator color={palette.accent} size="large" />
           <Text style={[styles.loadingText, { color: palette.muted }]}>Cargando cursos...</Text>
         </View>
-      ) : <FlatList
+      ) : <ServiceScrollViewport topInset={headerInset}><FlatList
         contentContainerStyle={[styles.content, { paddingTop: headerInset + 16 }]}
         data={groupedCourses}
         keyExtractor={(item) => item.key}
         refreshControl={<RefreshControl onRefresh={() => loadCourses(true)} progressViewOffset={headerInset + 14} refreshing={refreshing} />}
         renderItem={renderCategory}
         ListHeaderComponent={
-          <View style={styles.headerBlock}>
+          <ServiceEntrance style={styles.headerBlock} variant="hero">
             <Text style={[styles.eyebrow, { color: palette.accent }]}>VIDKAR ACADEMY</Text>
             <Text variant="headlineMedium" style={[styles.heading, { color: palette.text }]}>Conocimiento que avanza contigo</Text>
             <Text style={[styles.subheading, { color: palette.muted }]}>Explora clases creadas por especialistas y aprende a tu ritmo.</Text>
             <View style={[styles.search, { backgroundColor: palette.card, borderColor: palette.border }]}><Icon source="magnify" color={palette.muted} size={21} /><TextInput accessibilityLabel="Buscar cursos o profesores" cursorColor={palette.accent} placeholder="Buscar por tema, nivel o profesor" placeholderTextColor={palette.muted} style={[styles.searchInput, { color: palette.text }]} value={query} onChangeText={setQuery} />{query ? <Pressable accessibilityRole="button" accessibilityLabel="Limpiar búsqueda" onPress={() => setQuery("")}><Icon source="close-circle" color={palette.muted} size={20} /></Pressable> : null}</View>
             <View style={styles.resultRow}><Text style={[styles.resultCount, { color: palette.text }]}>{filteredCourses.length} {filteredCourses.length === 1 ? "curso" : "cursos"}</Text><Text style={[styles.resultHint, { color: palette.muted }]}>Catálogo actualizado</Text></View>
-          </View>
+          </ServiceEntrance>
         }
         ListEmptyComponent={coursesLoading || subscriptionsLoading ? <ActivityIndicator style={styles.empty} /> : (
           <View style={styles.empty}><Text style={{ color: palette.muted }}>No hay cursos que coincidan con la búsqueda.</Text></View>
         )}
-      />
+      /></ServiceScrollViewport>
       }
     </View>
+    </ServiceMotionProvider>
   );
 }
 

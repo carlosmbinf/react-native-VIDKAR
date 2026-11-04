@@ -4,7 +4,6 @@ import { usePathname, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
     Animated,
-    Easing,
     ImageBackground,
     InteractionManager,
     Modal,
@@ -29,6 +28,7 @@ import {
   useAppHeaderContentInset,
 } from "../Header/AppHeader";
 import MenuHeader from "../Header/MenuHeader";
+import { ServiceAtmosphere, ServiceEntrance, ServiceMotionProvider, ServicePressable, ServiceScrollViewport } from "../motion/ServiceMotion";
 import ComercioHomeSection from "../productos/ComercioHomeSection";
 import ProxyVPNPackagesHorizontal from "../proxyVPN/ProxyVPNPackagesHorizontal";
 
@@ -450,46 +450,6 @@ const MenuPrincipalScreen = ({
     }),
   ).current;
 
-  useEffect(() => {
-    if (!heroCardSize.width || !heroCardSize.height) {
-      return undefined;
-    }
-
-    const primaryLoop = Animated.loop(
-      Animated.timing(heroGlowPrimaryProgress, {
-        toValue: 1,
-        duration: 18000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    );
-    const secondaryLoop = Animated.loop(
-      Animated.timing(heroGlowSecondaryProgress, {
-        toValue: 1,
-        duration: 21000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    );
-
-    heroGlowPrimaryProgress.setValue(0);
-    heroGlowSecondaryProgress.setValue(0);
-    primaryLoop.start();
-    secondaryLoop.start();
-
-    return () => {
-      primaryLoop.stop();
-      secondaryLoop.stop();
-      heroGlowPrimaryProgress.stopAnimation();
-      heroGlowSecondaryProgress.stopAnimation();
-    };
-  }, [
-    heroCardSize.height,
-    heroCardSize.width,
-    heroGlowPrimaryProgress,
-    heroGlowSecondaryProgress,
-  ]);
-
   const heroPrimaryGlowMotion = buildGlowMotion(
     heroGlowPrimaryProgress,
     heroCardSize,
@@ -580,6 +540,7 @@ const MenuPrincipalScreen = ({
     formatMissingPriceServicesText(missingPriceServices);
 
   return (
+    <ServiceMotionProvider>
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <Surface style={styles.screen}>
         <ImageBackground
@@ -613,6 +574,7 @@ const MenuPrincipalScreen = ({
           />
         </RenderTraceBlock>
 
+        <ServiceScrollViewport topInset={headerInset}>
         <ScrollView
             contentContainerStyle={[
               styles.scrollContent,
@@ -661,6 +623,7 @@ const MenuPrincipalScreen = ({
             </Surface>
           ) : (
             <>
+          <ServiceEntrance variant="hero">
           <Surface
             style={styles.heroCard}
             elevation={2}
@@ -676,6 +639,7 @@ const MenuPrincipalScreen = ({
               });
             }}
           >
+            <ServiceAtmosphere color="#818cf8" />
             <Animated.View
               pointerEvents="none"
               style={[
@@ -782,13 +746,10 @@ const MenuPrincipalScreen = ({
                   </View>
 
                   <View style={styles.debtBannerAction}>
-                    <Pressable
+                    <ServicePressable
                       accessibilityRole="button"
                       onPress={onOpenPendingVentas}
-                      style={({ pressed }) => [
-                        styles.debtBannerActionButton,
-                        pressed ? styles.debtBannerActionButtonPressed : null,
-                      ]}
+                      style={styles.debtBannerActionButton}
                     >
                       <Text
                         variant="labelLarge"
@@ -803,14 +764,16 @@ const MenuPrincipalScreen = ({
                           size={18}
                         />
                       </View>
-                    </Pressable>
+                    </ServicePressable>
                   </View>
                 </View>
               </View>
             ) : null}
           </Surface>
+          </ServiceEntrance>
 
           {showEmpresaSuggestionCard ? (
+            <ServiceEntrance delay={50}>
             <Surface style={styles.empresaSuggestionCard} elevation={2}>
               <LinearGradient
                 colors={["#123524f6", "#14395cf4", "#1d2357f2"]}
@@ -894,9 +857,11 @@ const MenuPrincipalScreen = ({
                 </View>
               </LinearGradient>
             </Surface>
+            </ServiceEntrance>
           ) : null}
 
           {showNotificationsCard ? (
+            <ServiceEntrance delay={100}>
             <Surface
               style={styles.notificationsCard}
               elevation={2}
@@ -1007,13 +972,10 @@ const MenuPrincipalScreen = ({
                     </Text>
                   </View>
 
-                  <Pressable
+                  <ServicePressable
                     accessibilityRole="button"
                     onPress={onEnableNotifications}
-                    style={({ pressed }) => [
-                      styles.notificationsActionButton,
-                      pressed ? styles.notificationsActionButtonPressed : null,
-                    ]}
+                    style={styles.notificationsActionButton}
                   >
                     <Text
                       variant="labelLarge"
@@ -1034,13 +996,15 @@ const MenuPrincipalScreen = ({
                         size={18}
                       />
                     </View>
-                  </Pressable>
+                  </ServicePressable>
                 </View>
               </LinearGradient>
             </Surface>
+            </ServiceEntrance>
           ) : null}
 
           {showPriceSetupCard ? (
+            <ServiceEntrance delay={150}>
             <Surface
               style={styles.priceSetupCard}
               elevation={2}
@@ -1174,9 +1138,11 @@ const MenuPrincipalScreen = ({
                 </View>
               </LinearGradient>
             </Surface>
+            </ServiceEntrance>
           ) : null}
 
           {showPendingEvidenceCard ? (
+            <ServiceEntrance delay={200}>
             <Surface
               style={styles.evidenceHubCard}
               elevation={2}
@@ -1267,13 +1233,10 @@ const MenuPrincipalScreen = ({
                   </Text>
                 </View>
 
-                <Pressable
+                <ServicePressable
                   accessibilityRole="button"
                   onPress={onOpenPendingEvidence}
-                  style={({ pressed }) => [
-                    styles.evidenceHubActionButton,
-                    pressed ? styles.evidenceHubActionButtonPressed : null,
-                  ]}
+                  style={styles.evidenceHubActionButton}
                 >
                   <Text
                     variant="labelLarge"
@@ -1288,12 +1251,14 @@ const MenuPrincipalScreen = ({
                       size={18}
                     />
                   </View>
-                </Pressable>
+                </ServicePressable>
               </View>
             </Surface>
+            </ServiceEntrance>
           ) : null}
 
           {showCashApprovalsCard ? (
+            <ServiceEntrance delay={250}>
             <Surface
               style={styles.cashApprovalsCard}
               elevation={2}
@@ -1532,6 +1497,7 @@ const MenuPrincipalScreen = ({
                 </View>
               </LinearGradient>
             </Surface>
+            </ServiceEntrance>
           ) : null}
 
           {heavyContentReady ? (
@@ -1561,8 +1527,8 @@ const MenuPrincipalScreen = ({
 
                 if (service.id === "CUBACEL") {
                   return (
+                    <ServiceEntrance key={service.id} delay={Math.min(index * 50, 200)}>
                     <RenderTraceBlock
-                      key={service.id}
                       name="Productos"
                       payload={{
                         deferDelay: 0,
@@ -1578,13 +1544,14 @@ const MenuPrincipalScreen = ({
                         isDegradado={false}
                       />
                     </RenderTraceBlock>
+                    </ServiceEntrance>
                   );
                 }
 
                 if (service.id === "PROXY_VPN") {
                   return (
+                    <ServiceEntrance key={service.id} delay={Math.min(index * 50, 200)}>
                     <RenderTraceBlock
-                      key={service.id}
                       name="ProxyVPNPackagesHorizontal"
                       payload={{ position: index }}
                     >
@@ -1593,6 +1560,7 @@ const MenuPrincipalScreen = ({
                         catalogLoading={normalHomeCatalogsLoading}
                       />
                     </RenderTraceBlock>
+                    </ServiceEntrance>
                   );
                 }
 
@@ -1609,6 +1577,7 @@ const MenuPrincipalScreen = ({
             </>
           )}
           </ScrollView>
+          </ServiceScrollViewport>
 
         {Platform.OS === "ios" ? (
           drawerMounted ? (
@@ -1679,6 +1648,7 @@ const MenuPrincipalScreen = ({
         )}
       </Surface>
     </SafeAreaView>
+    </ServiceMotionProvider>
   );
 };
 

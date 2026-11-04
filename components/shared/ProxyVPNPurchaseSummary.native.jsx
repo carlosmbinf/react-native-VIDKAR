@@ -13,6 +13,7 @@ import {
 } from "react-native-paper";
 
 import AppHeader from "../Header/AppHeader";
+import { ServiceEntrance, ServiceMotionProvider, ServiceScrollViewport } from "../motion/ServiceMotion";
 import { megasToGB } from "./MegasConverter";
 
 const formatPrice = (value) => {
@@ -51,6 +52,7 @@ const ProxyVPNPurchaseSummary = ({
   const infoColor = theme.dark ? "#FFE082" : "#6D4C00";
 
   return (
+    <ServiceMotionProvider>
     <Surface
       style={[styles.surface, { backgroundColor: theme.colors.background }]}
     >
@@ -61,10 +63,12 @@ const ProxyVPNPurchaseSummary = ({
         showBackButton
       />
 
+      <ServiceScrollViewport>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <ServiceEntrance style={styles.summaryEntrance} variant="hero">
         <Card
           mode="contained"
           style={[
@@ -326,15 +330,20 @@ const ProxyVPNPurchaseSummary = ({
             </Button>
           </Card.Actions>
         </Card>
+        </ServiceEntrance>
 
+        <ServiceEntrance delay={60}>
         <Text
           variant="bodySmall"
           style={[styles.footerText, { color: mutedColor }]}
         >
           Compra protegida · Verifica los detalles antes de continuar
         </Text>
+        </ServiceEntrance>
       </ScrollView>
+      </ServiceScrollViewport>
     </Surface>
+    </ServiceMotionProvider>
   );
 };
 
@@ -480,6 +489,10 @@ const styles = StyleSheet.create({
   },
   surface: {
     flex: 1,
+  },
+  summaryEntrance: {
+    maxWidth: 680,
+    width: "100%",
   },
   totalContainer: {
     alignItems: "center",

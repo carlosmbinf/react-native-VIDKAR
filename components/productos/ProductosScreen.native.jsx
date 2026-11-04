@@ -74,6 +74,7 @@ import AppHeader, {
     useAppHeaderContentInset,
 } from "../Header/AppHeader";
 import BlurMenuSurface, { blurMenuContentStyle } from "../Header/BlurMenuSurface";
+import { ServiceEntrance, ServiceMotionProvider, ServiceScrollViewport } from "../motion/ServiceMotion";
 import useSafeBack, { useCanNavigateBack } from "../navigation/useSafeBack";
 import CommerceLocationAccessCard from "./CommerceLocationAccessCard";
 import CommerceCategoryFilter from "./CommerceCategoryFilter.native";
@@ -192,6 +193,15 @@ const ProductosScreenNative = () => {
   const locationPermissionRequestIdRef = React.useRef(0);
   const locationRequestInProgressRef = React.useRef(false);
   const lastSearchSignatureRef = React.useRef(null);
+  const revealedCatalogRows = React.useRef(new Set());
+  const revealedCatalogProductsByRow = React.useRef(new Map());
+  const getRevealedCatalogProducts = React.useCallback((rowId) => {
+    const key = String(rowId);
+    if (!revealedCatalogProductsByRow.current.has(key)) {
+      revealedCatalogProductsByRow.current.set(key, new Set());
+    }
+    return revealedCatalogProductsByRow.current.get(key);
+  }, []);
   const dataReady = useDeferredScreenData();
   const { categories, categoriesReady, preferences } = Meteor.useTracker(() => {
     if (!dataReady) return { categories: [], categoriesReady: false, preferences: [] };
@@ -845,6 +855,7 @@ const ProductosScreenNative = () => {
 
       return (
         <>
+          <ServiceEntrance variant="hero">
           <Surface
             elevation={theme.dark ? 0 : 1}
             style={[
@@ -1021,7 +1032,9 @@ const ProductosScreenNative = () => {
                 </View>
               ) : null}
           </Surface>
+          </ServiceEntrance>
 
+          <ServiceEntrance delay={60}>
           <View style={styles.catalogSummary}>
             <View style={styles.catalogSummaryTitleRow}>
               <MaterialCommunityIcons
@@ -1048,6 +1061,7 @@ const ProductosScreenNative = () => {
               </Button>
             ) : null}
           </View>
+          </ServiceEntrance>
 
           {showLocationAccessCard ? (
             <CommerceLocationAccessCard
@@ -1196,19 +1210,22 @@ const ProductosScreenNative = () => {
   const renderCatalogItem = React.useCallback(({ item }) => {
     if (item.kind === "selection") {
       return (
+        <ServiceEntrance initiallyRevealed={revealedCatalogRows.current.has(item.id)} onReveal={() => revealedCatalogRows.current.add(item.id)}>
         <ComercioCategorySelection
           category={item.category}
           onSeeAll={() => setSelectedCategory(item.category.id)}
           searchQuery={searchQuery}
+          revealedProductIds={getRevealedCatalogProducts(item.id)}
           storeIds={nearbyStoreIds}
           storesById={storesById}
         />
+        </ServiceEntrance>
       );
     }
     if (item.kind === "category") {
       const category = item.category;
       return (
-        <View style={styles.categoryResults}>
+        <ServiceEntrance initiallyRevealed={revealedCatalogRows.current.has(item.id)} onReveal={() => revealedCatalogRows.current.add(item.id)} style={styles.categoryResults}>
           <View style={styles.categoryResultsHeading}>
             <Text accessibilityRole="header" style={styles.filterGroupTitle} variant="titleMedium">
               {category.label || category.nombre}
@@ -1217,6 +1234,7 @@ const ProductosScreenNative = () => {
               {category.matches.length} productos cargados · desliza para explorar
             </Text>
           </View>
+          <ServiceScrollViewport horizontal>
           <FlatList
             accessibilityLabel={`Productos de ${category.label || category.nombre}`}
             contentContainerStyle={styles.categoryProductsContent}
@@ -1225,17 +1243,28 @@ const ProductosScreenNative = () => {
             initialNumToRender={5}
             keyExtractor={({ producto }) => String(producto._id)}
             maxToRenderPerBatch={5}
-            renderItem={({ item: match }) => (
-              <ProductoCard producto={match.producto} searchQuery={searchQuery} tienda={match.tienda} />
-            )}
+            renderItem={({ item: match, index }) => {
+              const productId = String(match.producto._id);
+              return (
+                <ServiceEntrance
+                  delay={index * 35}
+                  initiallyRevealed={getRevealedCatalogProducts(item.id).has(productId)}
+                  onReveal={() => getRevealedCatalogProducts(item.id).add(productId)}
+                >
+                  <ProductoCard motionEnabled producto={match.producto} searchQuery={searchQuery} tienda={match.tienda} />
+                </ServiceEntrance>
+              );
+            }}
             showsHorizontalScrollIndicator={false}
             windowSize={5}
           />
-        </View>
+          </ServiceScrollViewport>
+        </ServiceEntrance>
       );
     }
     const tienda = item.tienda;
     return (
+      <ServiceEntrance initiallyRevealed={revealedCatalogRows.current.has(item.id)} onReveal={() => revealedCatalogRows.current.add(item.id)}>
       <TiendaCard
         layoutMode="carousel"
         showLoadedProducts
@@ -1247,13 +1276,16 @@ const ProductosScreenNative = () => {
             : undefined
         }
         searchQuery={searchQuery}
+        revealedProductIds={getRevealedCatalogProducts(item.id)}
         tienda={tienda}
         userLocation={userLocation}
       />
+      </ServiceEntrance>
     );
-  }, [catalogLimit, nearbyStoreIds, searchQuery, storesById, theme.colors.onSurfaceVariant, userLocation]);
+  }, [catalogLimit, getRevealedCatalogProducts, nearbyStoreIds, searchQuery, storesById, theme.colors.onSurfaceVariant, userLocation]);
 
   return (
+    <ServiceMotionProvider>
     <Surface style={styles.container}>
       <AppHeader
         backgroundColor={DEFAULT_HEADER_COLOR}
@@ -1360,6 +1392,7 @@ const ProductosScreenNative = () => {
         </View>
       ) : null}
 
+      <ServiceScrollViewport topInset={showSearchbar ? 0 : headerInset}>
       <FlatList
         ListEmptyComponent={!categoriesReady || loadingProducts
           ? <ActivityIndicator style={{ marginTop: 28 }} />
@@ -1383,6 +1416,7 @@ const ProductosScreenNative = () => {
         updateCellsBatchingPeriod={50}
         windowSize={10}
       />
+      </ServiceScrollViewport>
 
       <FAB.Group
         actions={radioOptions.map((option) => ({
@@ -1587,6 +1621,7 @@ const ProductosScreenNative = () => {
         </View>
       </DrawerBottom>
     </Surface>
+    </ServiceMotionProvider>
   );
 };
 

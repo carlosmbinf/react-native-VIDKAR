@@ -39,8 +39,10 @@ const DrawerBottom = ({
   headerStyle,
   maxHeightRatio = 0.9,
   keyboardShouldPersistTaps = "never",
+  motionPreset,
   onBackdropPress,
   onClose,
+  onClosed,
   onCloseReason,
   open,
   overlayHeader = false,
@@ -61,10 +63,20 @@ const DrawerBottom = ({
   const screenHeightRef = useRef(screenHeight);
   screenHeightRef.current = screenHeight;
   const translateY = useRef(new Animated.Value(screenHeight)).current;
+  const cinemaWipeProgress = useRef(new Animated.Value(1)).current;
   const reducedMotionRef = useRef(Boolean(reducedMotion));
   reducedMotionRef.current = Boolean(reducedMotion);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const onClosedRef = useRef(onClosed);
+  onClosedRef.current = onClosed;
+  const cinematicRef = useRef(motionPreset === "cinema");
+  cinematicRef.current = motionPreset === "cinema";
+  const openRef = useRef(Boolean(open));
+  openRef.current = Boolean(open);
+  const mountedRef = useRef(Boolean(open));
+  const dragOriginRef = useRef(0);
+  const closingFromGestureRef = useRef(false);
   const onCloseReasonRef = useRef(onCloseReason);
   onCloseReasonRef.current = onCloseReason;
   const allowSwipeToCloseRef = useRef(Boolean(allowSwipeToClose));
@@ -111,6 +123,37 @@ const DrawerBottom = ({
   const sheetHeightRef = useRef(drawerHeight);
   sheetHeightRef.current = drawerHeight;
   const [mounted, setMounted] = useState(Boolean(open));
+
+  // Mantiene la velocidad al soltar el panel; los demás drawers conservan su timing.
+  const animateTo = (toValue, duration, velocity = 0) => (
+    cinematicRef.current && !reducedMotionRef.current
+      ? Animated.spring(translateY, {
+          toValue,
+          stiffness: 340,
+          damping: 36,
+          mass: 0.9,
+          velocity: Math.max(-2400, Math.min(2400, velocity)),
+          overshootClamping: true,
+          restDisplacementThreshold: 0.5,
+          restSpeedThreshold: 5,
+          useNativeDriver: true,
+        })
+      : Animated.timing(translateY, {
+          toValue,
+          duration: reducedMotionRef.current ? 0 : duration,
+          useNativeDriver: true,
+        })
+  );
+  const animateToRef = useRef(animateTo);
+  animateToRef.current = animateTo;
+
+  const finishClose = () => {
+    mountedRef.current = false;
+    setMounted(false);
+    onClosedRef.current?.();
+  };
+  const finishCloseRef = useRef(finishClose);
+  finishCloseRef.current = finishClose;
 
   useEffect(() => {
     if (!mounted) {
@@ -163,12 +206,20 @@ const DrawerBottom = ({
         console.info(`[DrawerBottom:${debugLabel}] animation-open:start`);
       }
       setMounted(true);
-      translateY.setValue(screenHeightRef.current);
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: reducedMotion ? 0 : 260,
-        useNativeDriver: true,
-      }).start(({ finished }) => {
+      if (!mountedRef.current) translateY.setValue(screenHeightRef.current);
+      mountedRef.current = true;
+      closingFromGestureRef.current = false;
+      if (motionPreset === "cinema" && !reducedMotion) {
+        cinemaWipeProgress.setValue(0);
+        Animated.timing(cinemaWipeProgress, {
+          toValue: 1,
+          duration: 480,
+          useNativeDriver: true,
+        }).start();
+      } else {
+        cinemaWipeProgress.setValue(1);
+      }
+      animateToRef.current(0, 260).start(({ finished }) => {
         if (debugLabel && process.env.NODE_ENV !== "production") {
           console.info(`[DrawerBottom:${debugLabel}] animation-open:end finished=${finished}`);
         }
@@ -177,29 +228,33 @@ const DrawerBottom = ({
       if (debugLabel && process.env.NODE_ENV !== "production") {
         console.info(`[DrawerBottom:${debugLabel}] animation-close:start`);
       }
-      Animated.timing(translateY, {
-        toValue: screenHeightRef.current,
-        duration: reducedMotion ? 0 : 220,
-        useNativeDriver: true,
-      }).start(({ finished }) => {
+      if (!mountedRef.current) return undefined;
+      cinemaWipeProgress.stopAnimation();
+      if (closingFromGestureRef.current) {
+        closingFromGestureRef.current = false;
+        finishCloseRef.current();
+        return undefined;
+      }
+      animateToRef.current(screenHeightRef.current, 220).start(({ finished }) => {
         if (debugLabel && process.env.NODE_ENV !== "production") {
           console.info(`[DrawerBottom:${debugLabel}] animation-close:end finished=${finished}`);
         }
-        if (finished) {
-          setMounted(false);
+        if (finished && !openRef.current) {
+          finishCloseRef.current();
         }
       });
     }
 
-    return () => translateY.stopAnimation();
-  }, [debugLabel, isBottom, open, reducedMotion, translateY]);
+    return () => {
+      translateY.stopAnimation();
+      cinemaWipeProgress.stopAnimation();
+    };
+  }, [cinemaWipeProgress, debugLabel, isBottom, motionPreset, open, reducedMotion, translateY]);
 
-  const animateCloseFromGesture = () => {
-    Animated.timing(translateY, {
-      toValue: screenHeightRef.current,
-      duration: reducedMotionRef.current ? 0 : 180,
-      useNativeDriver: true,
-    }).start(() => {
+  const animateCloseFromGesture = (velocity) => {
+    animateToRef.current(screenHeightRef.current, 180, velocity).start(({ finished }) => {
+      if (!finished || !openRef.current) return;
+      closingFromGestureRef.current = true;
       onCloseReasonRef.current?.("gesture");
       onCloseRef.current?.();
     });
@@ -219,41 +274,38 @@ const DrawerBottom = ({
       onMoveShouldSetPanResponder: (_, gestureState) =>
         canStartDrawerDrag({
           isBottom,
-          enabled: allowSwipeToCloseRef.current,
+          enabled: allowSwipeToCloseRef.current && openRef.current,
           atTop: trackedContentAtTopRefRef.current?.current !== false,
           startedAtTop: headerGestureStartedAtTopRef.current,
           dx: gestureState.dx,
           dy: gestureState.dy,
         }),
+      onPanResponderGrant: () => {
+        if (!openRef.current) return;
+        translateY.stopAnimation((value) => { dragOriginRef.current = value; });
+      },
       onPanResponderMove: (_, gestureState) => {
-        if (!isBottom || !allowSwipeToCloseRef.current || gestureState.dy <= 0) {
+        if (!isBottom || !allowSwipeToCloseRef.current || !openRef.current) {
           return;
         }
 
-        translateY.setValue(gestureState.dy);
+        translateY.setValue(Math.max(0, dragOriginRef.current + gestureState.dy));
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (!isBottom || !allowSwipeToCloseRef.current) {
+        if (!isBottom || !allowSwipeToCloseRef.current || !openRef.current) {
           return;
         }
 
-        if (gestureState.dy > sheetHeightRef.current * 0.25 || gestureState.vy > 1.1) {
-          animateCloseFromGesture();
+        if (dragOriginRef.current + gestureState.dy > sheetHeightRef.current * 0.25 || gestureState.vy > 1.1) {
+          animateCloseFromGesture(gestureState.vy * 1000);
           return;
         }
 
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: reducedMotionRef.current ? 0 : 180,
-          useNativeDriver: true,
-        }).start();
+        animateToRef.current(0, 180, gestureState.vy * 1000).start();
       },
       onPanResponderTerminate: () => {
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: reducedMotionRef.current ? 0 : 180,
-          useNativeDriver: true,
-        }).start();
+        if (!openRef.current) return;
+        animateToRef.current(0, 180).start();
       },
     }),
   ).current;
@@ -263,7 +315,7 @@ const DrawerBottom = ({
       onMoveShouldSetPanResponderCapture: (_, gestureState) =>
         canStartDrawerDrag({
           isBottom,
-          enabled: contentSwipeEnabledRef.current,
+          enabled: contentSwipeEnabledRef.current && openRef.current,
           atTop: trackedContentAtTopRefRef.current?.current === true,
           startedAtTop: contentGestureStartedAtTopRef.current,
           dx: gestureState.dx,
@@ -272,41 +324,38 @@ const DrawerBottom = ({
       onMoveShouldSetPanResponder: (_, gestureState) =>
         canStartDrawerDrag({
           isBottom,
-          enabled: contentSwipeEnabledRef.current,
+          enabled: contentSwipeEnabledRef.current && openRef.current,
           atTop: trackedContentAtTopRefRef.current?.current === true,
           startedAtTop: contentGestureStartedAtTopRef.current,
           dx: gestureState.dx,
           dy: gestureState.dy,
         }),
+      onPanResponderGrant: () => {
+        if (!openRef.current) return;
+        translateY.stopAnimation((value) => { dragOriginRef.current = value; });
+      },
       onPanResponderMove: (_, gestureState) => {
-        if (!isBottom || !allowSwipeToCloseRef.current || gestureState.dy <= 0) {
+        if (!isBottom || !allowSwipeToCloseRef.current || !openRef.current) {
           return;
         }
 
-        translateY.setValue(gestureState.dy);
+        translateY.setValue(Math.max(0, dragOriginRef.current + gestureState.dy));
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (!isBottom || !allowSwipeToCloseRef.current) {
+        if (!isBottom || !allowSwipeToCloseRef.current || !openRef.current) {
           return;
         }
 
-        if (gestureState.dy > sheetHeightRef.current * 0.25 || gestureState.vy > 1.1) {
-          animateCloseFromGesture();
+        if (dragOriginRef.current + gestureState.dy > sheetHeightRef.current * 0.25 || gestureState.vy > 1.1) {
+          animateCloseFromGesture(gestureState.vy * 1000);
           return;
         }
 
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: reducedMotionRef.current ? 0 : 180,
-          useNativeDriver: true,
-        }).start();
+        animateToRef.current(0, 180, gestureState.vy * 1000).start();
       },
       onPanResponderTerminate: () => {
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: reducedMotionRef.current ? 0 : 180,
-          useNativeDriver: true,
-        }).start();
+        if (!openRef.current) return;
+        animateToRef.current(0, 180).start();
       },
     }),
   ).current;
@@ -358,17 +407,65 @@ const DrawerBottom = ({
       }}
       style={styles.portalContainer}
     >
-      <Pressable
+      <Animated.View
+        pointerEvents="box-none"
         style={[
           styles.backdropPressable,
-            { backgroundColor: `rgba(0,0,0,${overlayOpacity})` },
+            {
+              opacity: motionPreset === "cinema" ? translateY.interpolate({
+                inputRange: [0, Math.max(1, drawerHeight)],
+                outputRange: [1, 0],
+                extrapolate: "clamp",
+              }) : 1,
+            },
           ]}
+      >
+        <Pressable
+          accessible={closeOnBackdropPress}
+          accessibilityRole={closeOnBackdropPress ? "button" : undefined}
+          accessibilityLabel={closeOnBackdropPress ? "Cerrar panel" : undefined}
+          style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(0,0,0,${overlayOpacity})` }]}
           onPress={() => {
             onBackdropPress?.();
             if (closeOnBackdropPress) requestClose("backdrop");
           }}
         />
+      </Animated.View>
+        {motionPreset === "cinema" ? (
+          <Animated.View
+            accessible={false}
+            pointerEvents="none"
+            style={[
+              styles.cinemaWipe,
+              {
+                height: screenHeight * 1.6,
+                opacity: reducedMotion ? 0 : cinemaWipeProgress.interpolate({
+                  inputRange: [0, 0.24, 0.68, 1],
+                  outputRange: [0, 0.68, 0.32, 0],
+                  extrapolate: "clamp",
+                }),
+                transform: [
+                  { translateX: cinemaWipeProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-screenWidth * 1.35, screenWidth * 1.35],
+                    extrapolate: "clamp",
+                  }) },
+                  { rotateZ: "-18deg" },
+                ],
+              },
+            ]}
+          >
+            <LinearGradient
+              colors={["rgba(99,102,241,0)", "rgba(167,139,250,0.36)", "rgba(244,114,182,0.28)", "rgba(56,189,248,0)"]}
+              locations={[0, 0.36, 0.62, 1]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
+        ) : null}
         <Animated.View
+          accessibilityViewIsModal
           style={[
             styles.bottomSheetWrapper,
             {
@@ -553,6 +650,13 @@ const styles = StyleSheet.create({
   },
   backdropPressable: {
     ...StyleSheet.absoluteFill,
+    zIndex: 1000,
+  },
+  cinemaWipe: {
+    left: 0,
+    position: "absolute",
+    top: "-30%",
+    width: "100%",
     zIndex: 1000,
   },
   bottomContent: {

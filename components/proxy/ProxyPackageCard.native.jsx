@@ -1,9 +1,8 @@
 import MeteorBase from "@meteorrn/core";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     Alert,
-    Animated,
     Dimensions,
     ScrollView,
     StyleSheet,
@@ -21,6 +20,7 @@ import {
 } from "react-native-paper";
 
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
+import { ServiceEntrance, ServiceMotionProvider, ServiceScrollViewport } from "../motion/ServiceMotion";
 import { megasToGB } from "../shared/MegasConverter";
 
 const Meteor =
@@ -46,10 +46,6 @@ const ProxyPackageCard = () => {
   const proxyColor = theme.dark ? "#42A5F5" : "#2196F3";
   const headerInset = useAppHeaderContentInset();
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const skeletonAnim = useRef(new Animated.Value(0)).current;
-
   const [containerWidth, setContainerWidth] = useState(
     Dimensions.get("window").width,
   );
@@ -59,25 +55,6 @@ const ProxyPackageCard = () => {
   const [megasActuales, setMegasActuales] = useState(0);
   const [paquetePorTiempo, setPaquetePorTiempo] = useState(null);
   const [paquetesDisponibles, setPaquetesDisponibles] = useState([]);
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(skeletonAnim, {
-          duration: 1000,
-          toValue: 1,
-          useNativeDriver: true,
-        }),
-        Animated.timing(skeletonAnim, {
-          duration: 1000,
-          toValue: 0,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [skeletonAnim]);
 
   useEffect(() => {
     const loadUserProxyData = async () => {
@@ -113,22 +90,8 @@ const ProxyPackageCard = () => {
       setPaquetesDisponibles(paquetesPorMegas);
       setPaquetePorTiempo(premiumPackage);
       setLoading(false);
-
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          duration: 600,
-          toValue: 1,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          friction: 7,
-          tension: 50,
-          toValue: 0,
-          useNativeDriver: true,
-        }),
-      ]).start();
     });
-  }, [fadeAnim, slideAnim]);
+  }, []);
 
   const columnsCount = useMemo(
     () => getColumnsCount(screenWidth, screenHeight),
@@ -163,10 +126,6 @@ const ProxyPackageCard = () => {
   };
 
   const renderSkeleton = () => {
-    const opacity = skeletonAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.3, 0.7],
-    });
     const gutter = 12;
     const cols = Math.max(1, columnsCount);
     const totalGutter = gutter * (cols - 1);
@@ -184,13 +143,13 @@ const ProxyPackageCard = () => {
           const marginRight =
             cols > 1 && index % cols !== cols - 1 ? gutter : 0;
           return (
-            <Animated.View
+            <View
               key={item}
               style={{
                 height: isTablet ? 236 : 220,
                 marginBottom: gutter,
                 marginRight,
-                opacity,
+                opacity: 0.7,
                 width: cardWidthPx,
               }}
             >
@@ -227,7 +186,7 @@ const ProxyPackageCard = () => {
                   ]}
                 />
               </Surface>
-            </Animated.View>
+            </View>
           );
         })}
       </View>
@@ -235,11 +194,6 @@ const ProxyPackageCard = () => {
   };
 
   const renderPackageCard = (paquete, index) => {
-    const animatedStyle = {
-      opacity: fadeAnim,
-      transform: [{ translateY: slideAnim }],
-    };
-
     const isRecommended = index === 1;
     const proxyColor = theme.dark ? "#42A5F5" : "#2196F3";
     const gutter = 12;
@@ -249,17 +203,14 @@ const ProxyPackageCard = () => {
     const marginRight = cols > 1 && index % cols !== cols - 1 ? gutter : 0;
 
     return (
-      <Animated.View
+      <ServiceEntrance
         key={paquete._id || `${paquete.megas}-${index}`}
-        style={[
-          animatedStyle,
-          {
-            height: isTablet ? 236 : 220,
-            marginBottom: gutter,
-            marginRight,
-            width: cardWidthPx,
-          },
-        ]}
+        style={{
+          height: isTablet ? 236 : 220,
+          marginBottom: gutter,
+          marginRight,
+          width: cardWidthPx,
+        }}
       >
         <Surface
           style={[
@@ -439,7 +390,7 @@ const ProxyPackageCard = () => {
             </View>
           </View>
         </Surface>
-      </Animated.View>
+      </ServiceEntrance>
     );
   };
 
@@ -448,10 +399,6 @@ const ProxyPackageCard = () => {
       return null;
     }
 
-    const animatedStyle = {
-      opacity: fadeAnim,
-      transform: [{ translateY: slideAnim }],
-    };
     const goldColor = "#FFD700";
     const gutter = 12;
     const cols = Math.max(1, columnsCount);
@@ -464,16 +411,13 @@ const ProxyPackageCard = () => {
     );
 
     return (
-      <Animated.View
-        style={[
-          animatedStyle,
-          {
-            alignSelf: "flex-start",
-            height: isTablet ? 252 : 232,
-            marginBottom: gutter,
-            width: cardWidthPx,
-          },
-        ]}
+      <ServiceEntrance
+        style={{
+          alignSelf: "flex-start",
+          height: isTablet ? 252 : 232,
+          marginBottom: gutter,
+          width: cardWidthPx,
+        }}
       >
         <Surface
           style={[
@@ -636,11 +580,12 @@ const ProxyPackageCard = () => {
             </View>
           </View>
         </Surface>
-      </Animated.View>
+      </ServiceEntrance>
     );
   };
 
   return (
+    <ServiceMotionProvider>
     <Surface
       style={[styles.screen, { backgroundColor: theme.colors.background }]}
     >
@@ -651,6 +596,7 @@ const ProxyPackageCard = () => {
         overlapContent
         showBackButton
       />
+      <ServiceScrollViewport topInset={headerInset}>
       <ScrollView
         style={[
           styles.scrollContainer,
@@ -670,6 +616,7 @@ const ProxyPackageCard = () => {
             isLargeTablet && styles.cardContentLargeTablet,
           ]}
         >
+          <ServiceEntrance variant="hero">
           <View style={styles.header}>
             <View style={styles.titleContainer}>
               <IconButton
@@ -712,6 +659,7 @@ const ProxyPackageCard = () => {
               Saldo: {isIlimitado ? "Ilimitado" : megasToGB(megasActuales)}
             </Chip>
           </View>
+          </ServiceEntrance>
 
           {loading ? (
             renderSkeleton()
@@ -761,7 +709,9 @@ const ProxyPackageCard = () => {
           </Button>
         </View>
       </ScrollView>
+      </ServiceScrollViewport>
     </Surface>
+    </ServiceMotionProvider>
   );
 };
 

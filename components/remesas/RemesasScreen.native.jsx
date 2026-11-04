@@ -1,6 +1,6 @@
 import MeteorBase from "@meteorrn/core";
 import React, { useMemo, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet } from "react-native";
 import {
     IconButton,
     SegmentedButtons,
@@ -10,6 +10,7 @@ import {
 } from "react-native-paper";
 
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
+import { ServiceEntrance, ServiceMotionProvider, ServiceScrollViewport } from "../motion/ServiceMotion";
 import FormularioRemesa from "./FormularioRemesa.native";
 
 const Meteor =
@@ -49,13 +50,14 @@ const RemesasScreen = () => {
         overlapContent
       />
 
+      <ServiceScrollViewport>
       <ScrollView
         contentContainerStyle={styles.content}
         style={{ marginTop: headerInset + 8 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Selector de pestañas para organizar la vista en pantallas pequeñas */}
-        <View style={styles.tabContainer}>
+        <ServiceEntrance style={styles.tabContainer}>
           <SegmentedButtons
             value={selectedTab}
             onValueChange={setSelectedTab}
@@ -73,9 +75,10 @@ const RemesasScreen = () => {
               },
             ]}
           />
-        </View>
+        </ServiceEntrance>
 
         {/* Sección Enviar Remesa */}
+        <ServiceEntrance delay={60} variant="hero">
         {selectedTab === "all" || selectedTab === "send" ? (
           user?.permiteRemesas ? (
             <FormularioRemesa />
@@ -104,8 +107,10 @@ const RemesasScreen = () => {
             </Surface>
           )
         ) : null}
+        </ServiceEntrance>
 
       </ScrollView>
+      </ServiceScrollViewport>
     </Surface>
   );
 };
@@ -143,4 +148,10 @@ const styles = StyleSheet.create({
   },
 });
 
-export default RemesasScreen;
+export default function RemesasWithMotion() {
+  return (
+    <ServiceMotionProvider>
+      <RemesasScreen />
+    </ServiceMotionProvider>
+  );
+}

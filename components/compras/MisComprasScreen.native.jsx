@@ -24,6 +24,7 @@ import {
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
+import { ServiceEntrance, ServiceMotionProvider, ServiceScrollViewport } from "../motion/ServiceMotion";
 import {
   EvidenciasVentasEfectivoCollection,
   TransaccionRecargasCollection,
@@ -214,7 +215,7 @@ const EVIDENCIA_METADATA_FIELDS = {
   ventaId: 1,
 };
 
-export default function MisComprasScreen() {
+function MisComprasScreen() {
   const theme = useTheme();
   const headerInset = useAppHeaderContentInset();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
@@ -780,6 +781,7 @@ export default function MisComprasScreen() {
         }
       />
 
+      <ServiceScrollViewport topInset={headerInset}>
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingTop: headerInset + 12 }]}
         refreshControl={
@@ -807,6 +809,7 @@ export default function MisComprasScreen() {
         ) : null}
 
         {/* KPI METRICS STRIP */}
+        <ServiceEntrance variant="hero">
         <Surface style={[styles.kpiContainer, { backgroundColor: panelBg, borderColor: borderCol }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.kpiScroll}>
             <View style={styles.kpiItem}>
@@ -865,8 +868,10 @@ export default function MisComprasScreen() {
             </View>
           </ScrollView>
         </Surface>
+        </ServiceEntrance>
 
         {/* SERVICE CATEGORIES TABS */}
+        <ServiceEntrance delay={60}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -898,6 +903,7 @@ export default function MisComprasScreen() {
             );
           })}
         </ScrollView>
+        </ServiceEntrance>
 
         {/* SEARCH & FILTERS PANEL */}
         <Surface style={[styles.searchPanel, { backgroundColor: panelBg, borderColor: borderCol }]}>
@@ -1402,6 +1408,7 @@ export default function MisComprasScreen() {
           </View>
         )}
       </ScrollView>
+      </ServiceScrollViewport>
 
       {/* DETAIL & EVIDENCE MODAL (With real image, AI analysis, package breakdown and upload support) */}
       <VentaDetailModal
@@ -1416,6 +1423,14 @@ export default function MisComprasScreen() {
         visible={detailModalVisible}
       />
     </View>
+  );
+}
+
+export default function MisComprasWithMotion() {
+  return (
+    <ServiceMotionProvider>
+      <MisComprasScreen />
+    </ServiceMotionProvider>
   );
 }
 

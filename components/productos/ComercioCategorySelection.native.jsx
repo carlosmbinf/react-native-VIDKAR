@@ -11,6 +11,7 @@ import {
   COMMERCE_CATEGORY_SELECTION_LIMIT,
   getCommerceCategorySelectionProducts,
 } from "../../services/commerceProductCatalog";
+import { ServiceEntrance, ServiceScrollViewport } from "../motion/ServiceMotion";
 import ProductoCard from "./ProductoCard";
 
 const Meteor =
@@ -43,12 +44,15 @@ const getStoreScopeKey = (value) => {
 const ComercioCategorySelectionNative = ({
   category,
   onSeeAll,
+  revealedProductIds,
   searchQuery = "",
   storeIds = [],
   storesById,
 }) => {
   const theme = useTheme();
   const instanceId = React.useId();
+  const localRevealedProductIds = React.useRef(new Set());
+  const revealedProducts = revealedProductIds || localRevealedProductIds.current;
   const [revision, setRevision] = useState(0);
   const [failure, setFailure] = useState(null);
   const ownerId = String(category.creadaPor || "");
@@ -164,22 +168,34 @@ const ComercioCategorySelectionNative = ({
           </Text>
         </View>
       ) : (
+        <ServiceScrollViewport horizontal>
         <FlatList
           accessibilityLabel={`Productos aleatorios de ${category.nombre || category.label}`}
           contentContainerStyle={styles.productsContent}
           data={state.products}
           horizontal
           keyExtractor={({ producto }) => String(producto._id)}
-          renderItem={({ item }) => (
-            <ProductoCard
-              producto={item.producto}
-              searchQuery={searchQuery}
-              tienda={item.tienda}
-            />
-          )}
+          renderItem={({ item, index }) => {
+            const productId = String(item.producto._id);
+            return (
+              <ServiceEntrance
+                delay={index * 35}
+                initiallyRevealed={revealedProducts.has(productId)}
+                onReveal={() => revealedProducts.add(productId)}
+              >
+                <ProductoCard
+                  motionEnabled
+                  producto={item.producto}
+                  searchQuery={searchQuery}
+                  tienda={item.tienda}
+                />
+              </ServiceEntrance>
+            );
+          }}
           showsHorizontalScrollIndicator={false}
           windowSize={5}
         />
+        </ServiceScrollViewport>
       )}
     </Surface>
   );

@@ -1,9 +1,10 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { Surface, Text, useTheme } from "react-native-paper";
 
+import { ServiceEntrance, ServiceMotionProvider, ServicePressable } from "../../motion/ServiceMotion";
 import {
   getCommerceOrderStep,
   hasCommerceItems,
@@ -74,6 +75,8 @@ const ComercioHomeOrdersSection = ({ catalogOrders = [], catalogLoading = true }
   }
 
   return (
+    <ServiceMotionProvider>
+    <ServiceEntrance>
     <Surface
       elevation={5}
       style={[
@@ -126,13 +129,12 @@ const ComercioHomeOrdersSection = ({ catalogOrders = [], catalogLoading = true }
           </Text>
         </View>
 
-        <Pressable
+        <ServicePressable
           accessibilityRole="button"
           onPress={openAllOrders}
-          style={({ pressed }) => [
+          style={[
             styles.viewAllButton,
             !theme.dark ? styles.viewAllButtonLight : null,
-            pressed ? styles.viewAllButtonPressed : null,
           ]}
         >
           <Text style={[styles.viewAllText, !theme.dark ? styles.viewAllTextLight : null]}>
@@ -143,7 +145,7 @@ const ComercioHomeOrdersSection = ({ catalogOrders = [], catalogLoading = true }
             name="chevron-right"
             size={18}
           />
-        </Pressable>
+        </ServicePressable>
       </View>
 
       <View style={styles.ordersList}>
@@ -159,6 +161,8 @@ const ComercioHomeOrdersSection = ({ catalogOrders = [], catalogLoading = true }
         ))}
       </View>
     </Surface>
+    </ServiceEntrance>
+    </ServiceMotionProvider>
   );
 };
 
@@ -276,10 +280,6 @@ const styles = StyleSheet.create({
   viewAllButtonLight: {
     backgroundColor: "rgba(249, 115, 22, 0.08)",
     borderColor: "rgba(194, 65, 12, 0.2)",
-  },
-  viewAllButtonPressed: {
-    opacity: 0.78,
-    transform: [{ scale: 0.98 }],
   },
   viewAllText: {
     color: "#fed7aa",

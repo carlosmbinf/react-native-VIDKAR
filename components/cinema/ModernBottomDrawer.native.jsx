@@ -9,6 +9,9 @@ export default function ModernBottomDrawer({
   footer,
   header,
   onDismiss,
+  onClosed,
+  motionPreset,
+  reducedMotion,
   palette,
   visible,
 }) {
@@ -16,6 +19,9 @@ export default function ModernBottomDrawer({
     <DrawerBottom
       headerContent={header}
       onClose={onDismiss}
+      onClosed={onClosed}
+      motionPreset={motionPreset}
+      reducedMotion={reducedMotion}
       open={visible}
       footer={footer}
       scrollable

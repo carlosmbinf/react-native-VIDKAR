@@ -9,7 +9,6 @@ import {
   KeyboardAvoidingView,
   LayoutAnimation,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   UIManager,
@@ -32,6 +31,7 @@ import { useReducedMotion } from "react-native-reanimated";
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { DTShopProductosCollection } from "../collections/collections";
 import AppHeader, { APP_HEADER_HEIGHT } from "../Header/AppHeader";
+import { ServiceEntrance, ServiceMotionProvider, ServicePressable, ServiceScrollViewport } from "../motion/ServiceMotion";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -448,6 +448,7 @@ const CubacelOfertaScreen = () => {
           keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
           style={styles.keyboardView}
         >
+          <ServiceScrollViewport topInset={headerInset} bottomInset={footerHeight}>
           <ScrollView
             style={styles.scroll}
             contentContainerStyle={[
@@ -471,7 +472,7 @@ const CubacelOfertaScreen = () => {
               <View style={styles.heroBadge}>
                 <Text style={styles.heroBadgeText}>Oferta Cubacel</Text>
               </View>
-              <View style={styles.heroCopy}>
+              <ServiceEntrance style={styles.heroCopy} variant="hero">
                 <Text style={styles.heroTitle}>
                   {product?.name || "Oferta Cubacel"}
                 </Text>
@@ -492,10 +493,10 @@ const CubacelOfertaScreen = () => {
                     </View>
                   ) : null}
                 </View>
-              </View>
+              </ServiceEntrance>
             </ImageBackground>
 
-            <View style={styles.summaryCard}>
+            <ServiceEntrance delay={60} style={styles.summaryCard}>
               <Text style={styles.summaryEyebrow}>Resumen de la oferta</Text>
               <Text style={styles.summaryTitle}>{promoTitle}</Text>
               {promoTerms ? (
@@ -506,7 +507,7 @@ const CubacelOfertaScreen = () => {
                   >
                     {promoTerms}
                   </Text>
-                  <Pressable
+                  <ServicePressable
                     accessibilityLabel={
                       isPromoDescriptionExpanded
                         ? "Ver menos de la descripción"
@@ -539,7 +540,7 @@ const CubacelOfertaScreen = () => {
                       }
                       size={17}
                     />
-                  </Pressable>
+                  </ServicePressable>
                 </>
               ) : null}
               {promoStartDate && promoEndDate ? (
@@ -549,9 +550,10 @@ const CubacelOfertaScreen = () => {
                   >{`Vigencia ${promoStartDate} - ${promoEndDate}`}</Text>
                 </View>
               ) : null}
-            </View>
+            </ServiceEntrance>
 
             {benefitsText ? (
+              <ServiceEntrance>
               <Card style={styles.sectionCard}>
                 <Card.Content>
                   <Text style={styles.sectionEyebrow}>
@@ -560,10 +562,11 @@ const CubacelOfertaScreen = () => {
                   <Text style={styles.sectionBody}>{benefitsText.trim()}</Text>
                 </Card.Content>
               </Card>
+              </ServiceEntrance>
             ) : null}
 
             {additionalPromotions.length > 0 ? (
-              <View style={styles.additionalSection}>
+              <ServiceEntrance style={styles.additionalSection}>
                 <Text style={styles.sectionEyebrowDark}>
                   Promociones adicionales
                 </Text>
@@ -587,9 +590,10 @@ const CubacelOfertaScreen = () => {
                     ) : null}
                   </View>
                 ))}
-              </View>
+              </ServiceEntrance>
             ) : null}
 
+            <ServiceEntrance>
             <Card style={styles.sectionCard}>
               <Card.Content>
                 <Text style={styles.sectionEyebrow}>
@@ -646,7 +650,9 @@ const CubacelOfertaScreen = () => {
                 })}
               </Card.Content>
             </Card>
+            </ServiceEntrance>
           </ScrollView>
+          </ServiceScrollViewport>
 
           <View
             onLayout={({ nativeEvent }) => {
@@ -849,7 +855,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 3,
     marginTop: 8,
-    minHeight: 32,
+    minHeight: 48,
+    minWidth: 48,
   },
   summaryExpandLabel: {
     color: "#ffffff",
@@ -989,4 +996,10 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CubacelOfertaScreen;
+export default function CubacelOfertaWithMotion() {
+  return (
+    <ServiceMotionProvider>
+      <CubacelOfertaScreen />
+    </ServiceMotionProvider>
+  );
+}

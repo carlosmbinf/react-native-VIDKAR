@@ -10,6 +10,7 @@ import { ActivityIndicator, Button, Divider, Icon, IconButton, Surface, Text, us
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { SuscripcionesCursoCollection } from "../collections/collections";
 import { getHlsServerUrl } from "../../services/meteor/client.native";
+import { ServiceEntrance, ServiceMotionProvider, ServiceScrollViewport } from "../motion/ServiceMotion";
 import AirPlayVideoPlayer from "../shared/AirPlayVideoPlayer.native";
 
 const { VLCPlayer } = require("react-native-vlc-media-player");
@@ -561,10 +562,13 @@ export default function CourseDetail() {
       {!player?.url ? (
         <AppHeader title="Detalle del curso" subtitle={data.course.profesorNombre} showBackButton backHref="/(normal)/Cursos" overlapContent showBottomBorder={false} />
       ) : null}
+      <ServiceMotionProvider>
+      <ServiceScrollViewport topInset={headerInset}>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: headerInset }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadCourseDetail(true)} />}
       >
+        <ServiceEntrance variant="hero">
         <View style={[styles.hero, { borderColor: palette.border }]}>
           {data.course.portadaUrl ? <Image source={{ uri: data.course.portadaUrl }} style={styles.cover} /> : <LinearGradient colors={theme.dark ? ["#113344", "#172554", "#3b2a0d"] : ["#cffafe", "#dbeafe", "#fef3c7"]} style={styles.coverFallback}><Icon source="book-education-outline" color={palette.accent} size={72} /></LinearGradient>}
           <LinearGradient colors={["rgba(2,8,13,0.02)", "rgba(2,8,13,0.32)", "rgba(2,8,13,0.94)"]} locations={[0, 0.46, 1]} style={StyleSheet.absoluteFill} />
@@ -577,13 +581,15 @@ export default function CourseDetail() {
             <View style={styles.professorRow}><View style={styles.professorAvatar}><Text style={styles.professorInitial}>{data.course.profesorNombre?.slice(0, 1)?.toUpperCase() || "V"}</Text></View><View><Text style={styles.professorLabel}>Impartido por</Text><Text style={styles.professorName}>{data.course.profesorNombre}</Text></View></View>
           </View>
         </View>
+        </ServiceEntrance>
 
-        <View style={styles.titleBlock}>
+        <ServiceEntrance delay={50} style={styles.titleBlock} variant="section">
           <Text style={[styles.sectionEyebrow, { color: palette.accent }]}>SOBRE ESTE CURSO</Text>
           <Text style={[styles.description, { color: palette.muted }]}>{data.course.descripcion}</Text>
-        </View>
+        </ServiceEntrance>
 
         {!isManager ? (
+          <ServiceEntrance delay={100} variant="section">
           <LinearGradient colors={active ? (theme.dark ? ["#0d2c24", "#10271f"] : ["#e6f8ee", "#ffffff"]) : (theme.dark ? ["#102b3a", "#211d0e"] : ["#e0f4fb", "#fff7df"])} style={[styles.subscriptionPanel, { borderColor: palette.border }]}>
             <View style={styles.subscriptionCopy}>
               <View style={styles.subscriptionLabelRow}><Icon source={active ? "check-decagram" : "calendar-sync"} color={active ? "#22c55e" : palette.accent} size={19} /><Text style={[styles.subscriptionLabel, { color: palette.text }]}>{active ? "Acceso vigente" : "Suscripción mensual"}</Text></View>
@@ -602,8 +608,10 @@ export default function CourseDetail() {
               </Button>
             ) : null}
           </LinearGradient>
+          </ServiceEntrance>
         ) : null}
 
+        <ServiceEntrance delay={100} variant="section">
         <View style={styles.sectionHeader}>
           <View><Text style={[styles.sectionEyebrow, { color: palette.accent }]}>PROGRAMA</Text><Text variant="titleLarge" style={[styles.sectionTitle, { color: palette.text }]}>Contenido del curso</Text></View>
           <View style={[styles.classCount, { backgroundColor: theme.dark ? "rgba(103,232,249,0.09)" : "rgba(14,116,144,0.08)" }]}><Text style={[styles.classCountText, { color: palette.accent }]}>{data.lessons.length} clases</Text></View>
@@ -624,7 +632,10 @@ export default function CourseDetail() {
           ))}
           {data.lessons.length === 0 ? <Text style={[styles.empty, { color: palette.muted }]}>Aún no hay clases publicadas.</Text> : null}
         </Surface>
+        </ServiceEntrance>
       </ScrollView>
+      </ServiceScrollViewport>
+      </ServiceMotionProvider>
 
       {player?.url ? (
         <CourseVideoPlayer

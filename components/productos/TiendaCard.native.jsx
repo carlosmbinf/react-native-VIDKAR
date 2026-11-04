@@ -12,6 +12,8 @@ import {
 } from "react-native";
 import { Button, Card, Chip, Divider, IconButton, Text, useTheme } from "react-native-paper";
 
+import useSystemReducedMotion from "../../hooks/useSystemReducedMotion";
+import { ServiceEntrance, ServiceScrollViewport } from "../motion/ServiceMotion";
 import ProductoCard from "./ProductoCard";
 
 const Meteor =
@@ -29,12 +31,16 @@ if (
 const TiendaCardNative = ({
   layoutMode = "carousel",
   onSeeAll,
+  revealedProductIds,
   searchQuery,
   showLoadedProducts = false,
   tienda,
   userLocation,
 }) => {
   const theme = useTheme();
+  const reducedMotion = useSystemReducedMotion();
+  const localRevealedProductIds = React.useRef(new Set());
+  const revealedProducts = revealedProductIds || localRevealedProductIds.current;
   const { width: windowWidth } = useWindowDimensions();
   const [expanded, setExpanded] = useState(true);
   const [showAll, setShowAll] = useState(false);
@@ -118,8 +124,16 @@ const TiendaCardNative = ({
   ]);
 
   const toggleExpand = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (!reducedMotion) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
     setExpanded((current) => !current);
+
+    if (reducedMotion) {
+      rotateAnim.stopAnimation();
+      rotateAnim.setValue(expanded ? 0 : 1);
+      return;
+    }
 
     Animated.timing(rotateAnim, {
       toValue: expanded ? 0 : 1,
@@ -214,6 +228,8 @@ const TiendaCardNative = ({
 
           <Animated.View style={{ transform: [{ rotate }] }}>
             <IconButton
+              accessibilityLabel={expanded ? "Contraer tienda" : "Expandir tienda"}
+              accessibilityState={{ expanded }}
               icon="chevron-down"
               onPress={toggleExpand}
               size={28}
@@ -239,7 +255,7 @@ const TiendaCardNative = ({
           {isGridMode ? (
             visibleProductos.length ? (
               <View style={styles.productosGrid}>
-                {visibleProductos.map((item) => (
+                {visibleProductos.map((item, index) => (
                   <View
                     key={item._id}
                     style={[
@@ -247,13 +263,21 @@ const TiendaCardNative = ({
                       { width: `${100 / gridColumns}%` },
                     ]}
                   >
+                      <ServiceEntrance
+                        delay={index * 35}
+                        initiallyRevealed={revealedProducts.has(String(item._id))}
+                        onReveal={() => revealedProducts.add(String(item._id))}
+                        style={styles.gridEntrance}
+                      >
                     <ProductoCard
                       containerStyle={styles.gridCardContainer}
                       innerStyle={styles.gridCardInner}
+                      motionEnabled
                       producto={item}
                       searchQuery={searchQuery}
                       tienda={tienda}
                     />
+                    </ServiceEntrance>
                   </View>
                 ))}
               </View>
@@ -270,6 +294,7 @@ const TiendaCardNative = ({
               </View>
             )
           ) : (
+            <ServiceScrollViewport horizontal>
             <FlatList
               ListEmptyComponent={
                 <View style={styles.emptyProductos}>
@@ -289,17 +314,28 @@ const TiendaCardNative = ({
               horizontal
               keyExtractor={(item) => item._id}
               pagingEnabled={false}
-              renderItem={({ item }) => (
-                <ProductoCard
-                  producto={item}
-                  searchQuery={searchQuery}
-                  tienda={tienda}
-                />
-              )}
+              renderItem={({ item, index }) => {
+                const productId = String(item._id);
+                return (
+                  <ServiceEntrance
+                    delay={index * 35}
+                    initiallyRevealed={revealedProducts.has(productId)}
+                    onReveal={() => revealedProducts.add(productId)}
+                  >
+                    <ProductoCard
+                      motionEnabled
+                      producto={item}
+                      searchQuery={searchQuery}
+                      tienda={tienda}
+                    />
+                  </ServiceEntrance>
+                );
+              }}
               showsHorizontalScrollIndicator={false}
               snapToInterval={192}
               windowSize={5}
             />
+            </ServiceScrollViewport>
           )}
 
           {((tienda.catalogoParcial && onSeeAll) || tienda.productos.length > visibleProductos.length) && !showAll ? (
@@ -386,6 +422,9 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   gridCardInner: {
+    width: "100%",
+  },
+  gridEntrance: {
     width: "100%",
   },
   emptyText: {
