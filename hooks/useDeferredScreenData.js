@@ -1,6 +1,5 @@
 import { useFocusEffect } from "expo-router/react-navigation";
 import { useCallback, useState } from "react";
-import { InteractionManager } from "react-native";
 
 const useDeferredScreenData = ({ delay = 0, enabled = true, keepReadyOnBlur = false } = {}) => {
   const [ready, setReady] = useState(false);
@@ -8,6 +7,7 @@ const useDeferredScreenData = ({ delay = 0, enabled = true, keepReadyOnBlur = fa
   useFocusEffect(
     useCallback(() => {
       let active = true;
+      let frameId = null;
       let timeoutId = null;
 
       if (!enabled) {
@@ -21,7 +21,7 @@ const useDeferredScreenData = ({ delay = 0, enabled = true, keepReadyOnBlur = fa
         setReady(false);
       }
 
-      const interactionTask = InteractionManager.runAfterInteractions(() => {
+      const scheduleReady = () => {
         if (!active) {
           return;
         }
@@ -36,11 +36,20 @@ const useDeferredScreenData = ({ delay = 0, enabled = true, keepReadyOnBlur = fa
         }
 
         setReady(true);
-      });
+      };
+
+      if (typeof requestAnimationFrame === "function") {
+        frameId = requestAnimationFrame(scheduleReady);
+      } else {
+        timeoutId = setTimeout(scheduleReady, 0);
+      }
 
       return () => {
         active = false;
-        interactionTask?.cancel?.();
+
+        if (frameId !== null && typeof cancelAnimationFrame === "function") {
+          cancelAnimationFrame(frameId);
+        }
 
         if (timeoutId) {
           clearTimeout(timeoutId);

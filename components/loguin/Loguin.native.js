@@ -15,7 +15,6 @@ import {
     KeyboardAvoidingView,
     NativeModules,
     Platform,
-    ScrollView,
     StyleSheet,
     useWindowDimensions,
     View,
@@ -33,7 +32,10 @@ import { registerPushTokenForActiveSession } from "../../services/notifications/
 import { WATCH_ROOT_USER_FIELDS } from "../../services/watch/watchDashboard";
 import { ConfigCollection } from "../collections/collections";
 import { resolveSessionRoute } from "../navigator/sessionRoute";
+import useSystemReducedMotion from "../../hooks/useSystemReducedMotion";
+import LoginAtmosphere from "./LoginAtmosphere.native";
 import { getLoginPalette, loginScreenStyles as styles } from "./Loguin.styles";
+import LoginRocketFlight from "./LoginRocketFlight.native";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker, _startLoggingIn?: () => Promise<void> | void, _endLoggingIn?: () => Promise<void> | void, _handleLoginCallback?: (error: any, response: any) => void }} */ (
@@ -50,8 +52,6 @@ const LOGIN_CONFIG_FIELDS = {
   type: 1,
   valor: 1,
 };
-const IOS_LOGIN_KEYBOARD_OFFSET = 120;
-const ANDROID_LOGIN_KEYBOARD_OFFSET = 96;
 let cachedGoogleSignInModulePromise = null;
 
 const loadGoogleSignInModule = async () => {
@@ -76,6 +76,14 @@ const loadGoogleSignInModule = async () => {
 
 const isGoogleCancelledResponse = (response) => response?.type === "cancelled";
 const isGoogleSuccessResponse = (response) => response?.type === "success";
+const isValidMeteorEndpoint = (endpoint) => {
+  try {
+    const url = new URL(endpoint);
+    return ["ws:", "wss:"].includes(url.protocol) && Boolean(url.hostname) && !url.username && !url.password;
+  } catch (_error) {
+    return false;
+  }
+};
 
 const buildAppleFullName = (fullName) => {
   if (!fullName) {
@@ -94,12 +102,19 @@ const buildAppleFullName = (fullName) => {
   return Object.values(normalized).some(Boolean) ? normalized : undefined;
 };
 
-const LoginBlurCard = ({ children, palette }) => {
+const LoginBlurCard = ({ active = true, children, palette, reducedMotion = false }) => {
   const glowPrimaryProgress = React.useRef(new Animated.Value(0)).current;
   const glowSecondaryProgress = React.useRef(new Animated.Value(0)).current;
   const sheenProgress = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (reducedMotion || !active) {
+      glowPrimaryProgress.setValue(0);
+      glowSecondaryProgress.setValue(0);
+      sheenProgress.setValue(0);
+      return undefined;
+    }
+
     const primaryLoop = Animated.loop(
       Animated.timing(glowPrimaryProgress, {
         toValue: 1,
@@ -140,7 +155,7 @@ const LoginBlurCard = ({ children, palette }) => {
       glowSecondaryProgress.stopAnimation();
       sheenProgress.stopAnimation();
     };
-  }, [glowPrimaryProgress, glowSecondaryProgress, sheenProgress]);
+  }, [active, glowPrimaryProgress, glowSecondaryProgress, reducedMotion, sheenProgress]);
 
   const glowPrimaryTranslateX = glowPrimaryProgress.interpolate({
     inputRange: [0, 0.25, 0.5, 0.75, 1],
@@ -236,24 +251,68 @@ const LoginBlurCard = ({ children, palette }) => {
   );
 };
 
-const Loguin = ({ deferSessionRedirect = false } = {}) => {
+const Loguin = ({
+  deferSessionRedirect = false,
+  onLaunchComplete,
+  reducedMotion = false,
+} = {}) => {
   const isFocused = useIsFocused();
+  const systemReducedMotion = useSystemReducedMotion();
+  const shouldReduceMotion = Boolean(reducedMotion || systemReducedMotion);
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const [ipserver, setIpserver] = useState(() => getMeteorHost() || "");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const isLandscape = screenWidth > screenHeight;
   const [showServerInput, setShowServerInput] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [connectingToServer, setConnectingToServer] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingApple, setLoadingApple] = useState(false);
   const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
-  const scrollViewRef = React.useRef(null);
-  const scrollContentRef = React.useRef(null);
+  const [availableHeight, setAvailableHeight] = useState(0);
+  const [localLaunching, setLocalLaunching] = useState(false);
+  const [redirectFlightCompleted, setRedirectFlightCompleted] = useState(false);
+  const redirectedUserIdRef = React.useRef(null);
   const passwordInputRef = React.useRef(null);
-  const loginButtonAnchorRef = React.useRef(null);
+  const effectiveIsLaunching = localLaunching;
+  const rawCompactLogin = keyboardVisible || (availableHeight > 0 && availableHeight < 640) || screenHeight < 700 || screenWidth > screenHeight;
+  const rawUltraCompactLogin = availableHeight > 0 && availableHeight < 440;
+  const compactSnapshotRef = React.useRef({
+    compact: rawCompactLogin,
+    ultraCompact: rawUltraCompactLogin,
+  });
+  if (!effectiveIsLaunching) {
+    compactSnapshotRef.current = {
+      compact: rawCompactLogin,
+      ultraCompact: rawUltraCompactLogin,
+    };
+  }
+  const compactLogin = effectiveIsLaunching
+    ? compactSnapshotRef.current.compact
+    : rawCompactLogin;
+  const ultraCompactLogin = effectiveIsLaunching
+    ? compactSnapshotRef.current.ultraCompact
+    : rawUltraCompactLogin;
+  const handleLoginShellLayout = (event) => {
+    if (effectiveIsLaunching) {
+      return;
+    }
+    const nextHeight = Math.round(event.nativeEvent.layout.height);
+    setAvailableHeight((current) => current === nextHeight ? current : nextHeight);
+  };
   const openPrivacyPolicy = () => WebBrowser.openBrowserAsync(getPrivacyPolicyUrl());
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = "keyboardDidHide";
+    const showSubscription = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSubscription = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   const theme = useTheme();
   const isDarkMode = theme.dark;
@@ -426,9 +485,65 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
   }, []);
 
   useEffect(() => {
-    if (!isFocused || deferSessionRedirect || !userId || !loginRouteReady) return;
+    if (!userId) {
+      redirectedUserIdRef.current = null;
+      setLocalLaunching(false);
+      setRedirectFlightCompleted(false);
+      return;
+    }
+
+    if (!isFocused || !loginRouteReady || localLaunching || redirectFlightCompleted) {
+      return;
+    }
+
+    Keyboard.dismiss();
+    if (keyboardVisible) {
+      return;
+    }
+
+    // Deja que KeyboardAvoidingView estabilice la tarjeta antes del despegue.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setLocalLaunching(true));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [
+    isFocused,
+    keyboardVisible,
+    loginRouteReady,
+    localLaunching,
+    redirectFlightCompleted,
+    userId,
+  ]);
+
+  const handleLaunchComplete = React.useCallback(() => {
+    if (!userId || Meteor.userId() !== userId) {
+      return;
+    }
+    setRedirectFlightCompleted(true);
+    onLaunchComplete?.(userId);
+  }, [onLaunchComplete, userId]);
+
+  useEffect(() => {
+    if (
+      !isFocused ||
+      deferSessionRedirect ||
+      !userId ||
+      !loginRouteReady ||
+      !redirectFlightCompleted ||
+      redirectedUserIdRef.current === userId
+    ) {
+      return;
+    }
+    redirectedUserIdRef.current = userId;
     router.replace(resolveSessionRoute(userId, user));
-  }, [isFocused, deferSessionRedirect, loginRouteReady, user, userId]);
+  }, [
+    isFocused,
+    deferSessionRedirect,
+    loginRouteReady,
+    redirectFlightCompleted,
+    user,
+    userId,
+  ]);
 
   const handleUsernameChange = (text) => {
     setUsername(text);
@@ -439,11 +554,13 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
 
   const reconnectToServer = async () => {
     try {
+      const manualEndpoint = buildManualMeteorUrl(ipserver);
+      if (!manualEndpoint || !isValidMeteorEndpoint(manualEndpoint)) {
+        throw new Error("Escribe un host o una URL Meteor válida.");
+      }
       setConnectingToServer(true);
       await Meteor.disconnect();
       await new Promise((resolve) => setTimeout(resolve, 500));
-      const manualEndpoint = buildManualMeteorUrl(ipserver);
-      if (!manualEndpoint) throw new Error("Escribe un host o una URL Meteor válida.");
       await connectToMeteor(manualEndpoint);
       Alert.alert("Conexión Exitosa", `Conectado exitosamente a: ${ipserver}`);
     } catch (error) {
@@ -457,6 +574,10 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
   };
 
   const handleLogin = async () => {
+    if (submitting || loadingGoogle || loadingApple || userId) {
+      return;
+    }
+    Keyboard.dismiss();
     try {
       setSubmitting(true);
       await new Promise((resolve, reject) => {
@@ -481,43 +602,6 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const scrollTargetIntoView = React.useCallback((targetRef, keyboardOffset) => {
-    requestAnimationFrame(() => {
-      const scrollView = scrollViewRef.current;
-      const scrollContent = scrollContentRef.current;
-      const targetNode = targetRef?.current;
-
-      if (
-        !scrollView ||
-        !scrollContent ||
-        !targetNode ||
-        typeof targetNode.measureLayout !== "function"
-      ) {
-        return;
-      }
-
-      targetNode.measureLayout(
-        scrollContent,
-        (_xPosition, yPosition) => {
-          scrollView.scrollTo({
-            animated: true,
-            y: Math.max(yPosition - keyboardOffset, 0),
-          });
-        },
-        () => null,
-      );
-    });
-  }, []);
-
-  const handleFieldFocus = () => {
-    scrollTargetIntoView(
-      loginButtonAnchorRef,
-      Platform.OS === "ios"
-        ? IOS_LOGIN_KEYBOARD_OFFSET
-        : ANDROID_LOGIN_KEYBOARD_OFFSET,
-    );
   };
 
   const handleUsernameSubmit = () => {
@@ -825,14 +909,6 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
     }
   };
 
-  const backgroundStyle = {
-    minHeight: "100%",
-    minWidth: "100%",
-  };
-
-  const isLargeScreen = screenWidth >= 980;
-  const shouldUseSplitLayout = isLandscape || isLargeScreen;
-
   return (
     <View style={styles.screen}>
       <ImageBackground
@@ -845,214 +921,43 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
         pointerEvents="none"
         style={[styles.backgroundOverlay, { backgroundColor: palette.backgroundOverlay }]}
       />
+      <LoginAtmosphere enabled={isFocused && !effectiveIsLaunching} reducedMotion={shouldReduceMotion} />
 
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
         <KeyboardAvoidingView
           style={styles.safeArea}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={Platform.OS === "ios" ? 16 : 0}
         >
-          <ScrollView
-            ref={scrollViewRef}
-            contentContainerStyle={[
-              styles.scrollContent,
-              shouldUseSplitLayout
-                ? styles.scrollContentCentered
-                : styles.scrollContentStacked,
-            ]}
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            style={styles.transparentContent}
-          >
-            <View
-              ref={scrollContentRef}
-              style={[
-                backgroundStyle,
-                styles.layoutShell,
-                shouldUseSplitLayout
-                  ? styles.layoutShellWide
-                  : styles.layoutShellStacked,
-              ]}
-            >
-            <View
-              style={[
-                styles.brandPanel,
-                shouldUseSplitLayout
-                  ? styles.brandPanelWide
-                  : styles.brandPanelStacked,
-              ]}
-            >
-              <View style={styles.brandBadge}>
-                <FontAwesome5
-                  name="house-user"
-                  size={shouldUseSplitLayout ? 42 : 34}
-                  color="#ffffff"
-                />
-              </View>
-              <Text
-                style={[styles.brandEyebrow, { color: palette.brandEyebrow }]}
-              >
-                Plataforma operativa
-              </Text>
-              <Text style={[styles.brandTitle, { color: palette.brandTitle }]}>
-                VIDKAR
-              </Text>
-              <Text
-                style={[
-                  styles.brandDescription,
-                  { color: palette.brandDescription },
-                ]}
-              >
-                Recargas, remesas, servicios digitales y gestión comercial en
-                una sola plataforma diseñada para operar con claridad y rapidez.
-              </Text>
-
-              <View style={styles.brandHighlights}>
-                <View
-                  style={[
-                    styles.brandHighlightCard,
-                    {
-                      backgroundColor: palette.brandHighlightSurface,
-                      borderColor: palette.brandHighlightBorder,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.brandHighlightLabel,
-                      { color: palette.brandHighlightLabel },
-                    ]}
-                  >
-                    Recargas
-                  </Text>
-                  <Text
-                    style={[
-                      styles.brandHighlightValue,
-                      { color: palette.brandHighlightValue },
-                    ]}
-                  >
-                    Cubacel y promos
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.brandHighlightCard,
-                    {
-                      backgroundColor: palette.brandHighlightSurface,
-                      borderColor: palette.brandHighlightBorder,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.brandHighlightLabel,
-                      { color: palette.brandHighlightLabel },
-                    ]}
-                  >
-                    Servicios
-                  </Text>
-                  <Text
-                    style={[
-                      styles.brandHighlightValue,
-                      { color: palette.brandHighlightValue },
-                    ]}
-                  >
-                    Proxy, VPN y más
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.brandHighlightCard,
-                    {
-                      backgroundColor: palette.brandHighlightSurface,
-                      borderColor: palette.brandHighlightBorder,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.brandHighlightLabel,
-                      { color: palette.brandHighlightLabel },
-                    ]}
-                  >
-                    Comercio
-                  </Text>
-                  <Text
-                    style={[
-                      styles.brandHighlightValue,
-                      { color: palette.brandHighlightValue },
-                    ]}
-                  >
-                    Pedidos y remesas
-                  </Text>
-                </View>
-              </View>
-            </View>
-
+          <View onLayout={handleLoginShellLayout} style={[styles.loginShell, compactLogin && styles.loginShellCompact]}>
             <View style={styles.formPanel}>
-              <LoginBlurCard palette={palette}>
-                <View style={styles.blurCardContent}>
-                  <View style={styles.formHeader}>
-                    <Text
-                      style={[
-                        styles.formEyebrow,
-                        { color: palette.formEyebrow },
-                      ]}
-                    >
-                      Inicio de sesión
-                    </Text>
-                    <Text style={[styles.title, { color: palette.formTitle }]}>
-                      Entra a tu cuenta
-                    </Text>
-                    <Text
-                      style={[
-                        styles.formDescription,
-                        { color: palette.formDescription },
-                      ]}
-                    >
-                      Accede a tus herramientas, promociones y operaciones
-                      diarias desde una experiencia más clara y cómoda.
-                    </Text>
-
-                    <View style={styles.formMetaRow}>
-                      <View
-                        style={[
-                          styles.formMetaPill,
-                          { backgroundColor: palette.formMetaSurface },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.formMetaPillText,
-                            { color: palette.formMetaText },
-                          ]}
-                        >
-                          Acceso seguro
-                        </Text>
-                      </View>
-                      <View
-                        style={[
-                          styles.formMetaPill,
-                          { backgroundColor: palette.formMetaSurface },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.formMetaPillText,
-                            { color: palette.formMetaText },
-                          ]}
-                        >
-                          Operación centralizada
-                        </Text>
-                      </View>
+              <LoginRocketFlight
+                isLaunching={effectiveIsLaunching}
+                onLaunchComplete={handleLaunchComplete}
+                reducedMotion={shouldReduceMotion}
+                showRocket={!compactLogin || effectiveIsLaunching}
+              >
+                <LoginBlurCard active={isFocused && !effectiveIsLaunching} palette={palette} reducedMotion={shouldReduceMotion}>
+                  <View style={[styles.blurCardContent, compactLogin && styles.blurCardContentCompact, ultraCompactLogin && styles.blurCardContentUltraCompact]}>
+                  {!keyboardVisible ? (
+                    <View style={[styles.formHeader, compactLogin && styles.formHeaderCompact]}>
+                      {!compactLogin ? (
+                        <View style={styles.loginBrandMark}>
+                          <FontAwesome5 color={palette.brandEyebrow} name="house-user" size={22} />
+                          <Text style={[styles.loginBrandName, { color: palette.brandTitle }]}>VIDKAR</Text>
+                        </View>
+                      ) : null}
+                      {!ultraCompactLogin ? <Text style={[styles.formEyebrow, { color: palette.formEyebrow }]}>Inicio de sesión</Text> : null}
+                      <Text style={[styles.title, ultraCompactLogin && styles.titleUltraCompact, { color: palette.formTitle }]}>Entra a tu cuenta</Text>
                     </View>
-                  </View>
+                  ) : null}
 
                   {showServerInput ? (
-                    <View
+                      <View
                       style={[
                         styles.serverCard,
+                        compactLogin && styles.serverCardCompact,
+                          ultraCompactLogin && styles.serverCardUltraCompact,
                         {
                           backgroundColor: palette.serverCardSurface,
                           borderColor: palette.serverCardBorder,
@@ -1062,6 +967,8 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
                       <Text
                         style={[
                           styles.serverLabel,
+                          compactLogin && styles.serverLabelCompact,
+                          ultraCompactLogin && styles.serverLabelUltraCompact,
                           { color: palette.serverLabel },
                         ]}
                       >
@@ -1072,12 +979,12 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
                           mode="flat"
                           value={ipserver}
                           onChangeText={setIpserver}
-                          onFocus={handleFieldFocus}
                           label="Host, IP o URL del servidor"
                           returnKeyType="done"
                           dense
                           style={[
                             styles.serverInput,
+                            ultraCompactLogin ? styles.inputUltraCompact : compactLogin ? styles.inputCompact : null,
                             { backgroundColor: palette.inputBackground },
                           ]}
                           textColor={palette.inputText}
@@ -1090,8 +997,8 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
                           onPress={reconnectToServer}
                           disabled={connectingToServer}
                           loading={connectingToServer}
-                          style={styles.reconnectButton}
-                          contentStyle={styles.reconnectButtonContent}
+                          style={[styles.reconnectButton, compactLogin && styles.reconnectButtonCompact, ultraCompactLogin && styles.reconnectButtonUltraCompact]}
+                          contentStyle={[styles.reconnectButtonContent, compactLogin && styles.reconnectButtonContentCompact, ultraCompactLogin && styles.reconnectButtonContentUltraCompact]}
                           buttonColor={theme.colors.primary}
                           textColor="#ffffff"
                           compact
@@ -1102,12 +1009,11 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
                     </View>
                   ) : null}
 
-                  <View style={styles.fieldsBlock}>
+                  <View style={[styles.fieldsBlock, compactLogin && styles.fieldsBlockCompact, ultraCompactLogin && styles.fieldsBlockUltraCompact]}>
                     <TextInput
                       mode="flat"
                       value={username}
                       onChangeText={handleUsernameChange}
-                      onFocus={handleFieldFocus}
                       onSubmitEditing={handleUsernameSubmit}
                       blurOnSubmit={false}
                       label="Usuario"
@@ -1115,6 +1021,7 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
                       dense
                       style={[
                         styles.input,
+                        ultraCompactLogin ? styles.inputUltraCompact : compactLogin ? styles.inputCompact : null,
                         {
                           backgroundColor: palette.inputBackground,
                           borderColor: palette.inputBorder,
@@ -1134,7 +1041,6 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
                       mode="flat"
                       value={password}
                       onChangeText={setPassword}
-                      onFocus={handleFieldFocus}
                       onSubmitEditing={handlePasswordSubmit}
                       label="Contraseña"
                       returnKeyType="done"
@@ -1142,6 +1048,7 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
                       dense
                       style={[
                         styles.input,
+                        ultraCompactLogin ? styles.inputUltraCompact : compactLogin ? styles.inputCompact : null,
                         {
                           backgroundColor: palette.inputBackground,
                           borderColor: palette.inputBorder,
@@ -1158,52 +1065,40 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
                     />
                   </View>
 
-                  {/* Android needs this view as a stable measurement anchor for scroll positioning. */}
-                  <View
-                    ref={loginButtonAnchorRef}
-                    collapsable={false}
-                  >
                     <Button
                       mode="contained"
                       onPress={handleLogin}
                       loading={submitting}
                       disabled={submitting}
                       style={styles.primaryButton}
-                      contentStyle={styles.primaryButtonContent}
+                      contentStyle={[styles.primaryButtonContent, compactLogin && styles.primaryButtonContentCompact, ultraCompactLogin && styles.primaryButtonContentUltraCompact]}
                       labelStyle={styles.primaryButtonLabel}
                       buttonColor={theme.colors.primary}
                       textColor={palette.inputText}
                     >
                       Iniciar sesión
                     </Button>
-                  </View>
 
-                  {permitirLoginWithGoogle?.valor === "true" ||
+                  {keyboardVisible ? (
+                    <Button compact icon="keyboard-off" onPress={Keyboard.dismiss} style={styles.keyboardDismissAction}>
+                      Ocultar teclado
+                    </Button>
+                  ) : null}
+
+                  {!keyboardVisible && (permitirLoginWithGoogle?.valor === "true" ||
                   (permitirLoginWithApple?.valor === "true" &&
                     Platform.OS === "ios" &&
-                    appleAuthAvailable) ? (
-                    <View style={styles.socialSection}>
-                      <View style={styles.dividerRow}>
-                        <View
-                          style={[
-                            styles.dividerLine,
-                            { backgroundColor: palette.divider },
-                          ]}
-                        />
-                        <Text
-                          style={[styles.altText, { color: palette.altText }]}
-                        >
-                          o continúa con
-                        </Text>
-                        <View
-                          style={[
-                            styles.dividerLine,
-                            { backgroundColor: palette.divider },
-                          ]}
-                        />
-                      </View>
+                    appleAuthAvailable)) ? (
+                    <View style={[styles.socialSection, compactLogin && styles.socialSectionCompact]}>
+                      {!compactLogin ? (
+                        <View style={styles.dividerRow}>
+                          <View style={[styles.dividerLine, { backgroundColor: palette.divider }]} />
+                          <Text style={[styles.altText, { color: palette.altText }]}>o continúa con</Text>
+                          <View style={[styles.dividerLine, { backgroundColor: palette.divider }]} />
+                        </View>
+                      ) : null}
 
-                      <View style={styles.socialButtons}>
+                      <View style={[styles.socialButtons, compactLogin && styles.socialButtonsCompact]}>
                         {permitirLoginWithGoogle?.valor === "true" ? (
                           <Button
                             mode="outlined"
@@ -1213,12 +1108,13 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
                             loading={loadingGoogle}
                             style={[
                               styles.secondaryButton,
+                              compactLogin && styles.secondaryButtonCompact,
                               { borderColor: palette.secondaryButtonBorder },
                             ]}
-                            contentStyle={styles.secondaryButtonContent}
+                            contentStyle={[styles.secondaryButtonContent, compactLogin && styles.secondaryButtonContentCompact]}
                             textColor={palette.secondaryButtonText}
                           >
-                            Entrar con Google
+                            {compactLogin ? "Google" : "Entrar con Google"}
                           </Button>
                         ) : null}
 
@@ -1233,52 +1129,48 @@ const Loguin = ({ deferSessionRedirect = false } = {}) => {
                             loading={loadingApple}
                             style={[
                               styles.secondaryButton,
+                              compactLogin && styles.secondaryButtonCompact,
                               { borderColor: palette.secondaryButtonBorder },
                             ]}
-                            contentStyle={styles.secondaryButtonContent}
+                            contentStyle={[styles.secondaryButtonContent, compactLogin && styles.secondaryButtonContentCompact]}
                             textColor={palette.secondaryButtonText}
                           >
-                            Entrar con Apple
+                            {compactLogin ? "Apple" : "Entrar con Apple"}
                           </Button>
                         ) : null}
                       </View>
                     </View>
                   ) : null}
 
-                  <View style={styles.footerPanel}>
-                    <Text
-                      style={[styles.footerText, { color: palette.footerText }]}
-                    >
-                      Gestiona lo que vendes y atiendes cada día desde un solo
-                      lugar.
-                    </Text>
-
-                    <Button
-                      mode="text"
-                      compact
-                      onPress={openPrivacyPolicy}
-                      textColor={palette.secondaryButtonText}
-                      accessibilityLabel="Abrir política de privacidad"
-                    >
-                      Política de privacidad
-                    </Button>
-
-                    {connectingToServer ? (
-                      <Text
-                        style={[
-                          styles.statusText,
-                          { color: palette.statusText },
-                        ]}
+                  {!keyboardVisible && !ultraCompactLogin ? (
+                    <View style={[styles.footerPanel, compactLogin && styles.footerPanelCompact]}>
+                      <Button
+                        mode="text"
+                        compact
+                        onPress={openPrivacyPolicy}
+                        textColor={palette.secondaryButtonText}
+                        accessibilityLabel="Abrir política de privacidad"
                       >
-                        Preparando acceso...
-                      </Text>
-                    ) : null}
-                  </View>
+                        Política de privacidad
+                      </Button>
+
+                      {connectingToServer ? (
+                        <Text
+                          style={[
+                            styles.statusText,
+                            { color: palette.statusText },
+                          ]}
+                        >
+                          Preparando acceso...
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
                 </View>
-              </LoginBlurCard>
+                </LoginBlurCard>
+              </LoginRocketFlight>
             </View>
-            </View>
-          </ScrollView>
+          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>

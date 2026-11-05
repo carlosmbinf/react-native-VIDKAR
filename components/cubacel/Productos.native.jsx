@@ -4,6 +4,7 @@ import { FlatList, StyleSheet, useWindowDimensions, View } from "react-native";
 import { ActivityIndicator, Text, useTheme } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
+import { ServiceEntrance } from "../motion/ServiceMotion";
 import CubaCelCard from "./CubaCelCard.native";
 
 const getGradientColors = (isDarkMode) => {
@@ -149,7 +150,14 @@ const Productos = ({
         {hasProductos ? (
           <FlatList
             data={sortedProductos}
-            renderItem={({ item }) => <CubaCelCard product={item} />}
+            renderItem={({ item, index }) => (
+              <ServiceEntrance
+                delay={Math.min(index * 90, 450)}
+                duration={780}
+              >
+                <CubaCelCard product={item} />
+              </ServiceEntrance>
+            )}
             style={styles.list}
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -162,23 +170,27 @@ const Productos = ({
             windowSize={3}
           />
         ) : ready ? (
-          <View style={styles.loaderContainer}>
-            <Text style={{ color: theme.colors.onSurfaceVariant }}>
-              No hay productos de Cubacel disponibles ahora mismo.
-            </Text>
-          </View>
+          <ServiceEntrance delay={0} duration={650} conversionKey="cubacel-empty">
+            <View style={styles.loaderContainer}>
+              <Text style={{ color: theme.colors.onSurfaceVariant }}>
+                No hay productos de Cubacel disponibles ahora mismo.
+              </Text>
+            </View>
+          </ServiceEntrance>
         ) : (
-          <View style={styles.loaderContainer}>
-            <ActivityIndicator animating size="large" />
-            <Text
-              style={{
-                color: theme.colors.onSurfaceVariant,
-                marginTop: 12,
-              }}
-            >
-              Cargando Productos de Cubacel...
-            </Text>
-          </View>
+          <ServiceEntrance delay={0} duration={650} conversionKey="cubacel-loading">
+            <View style={styles.loaderContainer}>
+              <ActivityIndicator animating size="large" />
+              <Text
+                style={{
+                  color: theme.colors.onSurfaceVariant,
+                  marginTop: 12,
+                }}
+              >
+                Cargando Productos de Cubacel...
+              </Text>
+            </View>
+          </ServiceEntrance>
         )}
       </LinearGradient>
     );
@@ -196,7 +208,7 @@ const Productos = ({
     >
       {hasProductos ? (
         <View style={[styles.grid, { gap: GRID_GAP }]}>
-          {sortedProductos.map((item) => (
+          {sortedProductos.map((item, index) => (
             <View
               key={item._id || item.id}
               style={[
@@ -206,7 +218,12 @@ const Productos = ({
                 },
               ]}
             >
-              <CubaCelCard fullWidth product={item} />
+              <ServiceEntrance
+                delay={Math.min(index * 80, 400)}
+                duration={760}
+              >
+                <CubaCelCard fullWidth product={item} />
+              </ServiceEntrance>
             </View>
           ))}
         </View>

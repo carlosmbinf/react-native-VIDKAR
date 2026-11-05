@@ -76,7 +76,11 @@ const ComercioHomeOrdersSection = ({ catalogOrders = [], catalogLoading = true }
 
   return (
     <ServiceMotionProvider>
-    <ServiceEntrance>
+    <ServiceEntrance
+      variant="hero"
+      duration={860}
+      conversionKey={`orders-${totalPedidos}-${ventas.map((v) => `${v._id}:${v.estado}`).join("|")}`}
+    >
     <Surface
       elevation={5}
       style={[
@@ -149,15 +153,21 @@ const ComercioHomeOrdersSection = ({ catalogOrders = [], catalogLoading = true }
       </View>
 
       <View style={styles.ordersList}>
-        {ventas.map((venta) => (
-          <PedidoCard
-            currentStep={getCommerceOrderStep(venta)}
-            isExpanded={Boolean(expandedVentas[venta._id])}
+        {ventas.map((venta, index) => (
+          <ServiceEntrance
             key={venta._id}
-            onToggleExpand={() => toggleExpanded(venta._id)}
-            tone={theme.dark ? "dark" : "light"}
-            venta={venta}
-          />
+            delay={index * 110}
+            duration={780}
+            conversionKey={`order-${venta._id}-${venta.estado}-${Boolean(expandedVentas[venta._id])}`}
+          >
+            <PedidoCard
+              currentStep={getCommerceOrderStep(venta)}
+              isExpanded={Boolean(expandedVentas[venta._id])}
+              onToggleExpand={() => toggleExpanded(venta._id)}
+              tone={theme.dark ? "dark" : "light"}
+              venta={venta}
+            />
+          </ServiceEntrance>
         ))}
       </View>
     </Surface>

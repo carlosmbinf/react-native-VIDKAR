@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Title, useTheme } from "react-native-paper";
 
+import { ServiceEntrance } from "../motion/ServiceMotion";
 import ProxyPackageCardItem from "../proxy/ProxyPackageCardItem.native";
 import ServiceProgressPill from "../shared/ServiceProgressPill";
 import VPNPackageCardItem from "../vpn/VPNPackageCardItem.native";
@@ -190,13 +191,19 @@ const ProxyVPNPackagesHorizontal = ({
           ref={flatListProxyRef}
           data={allPackages}
           renderItem={({ index, item }) => (
-            <ProxyPackageCardItem
-              paquete={item}
-              isRecommended={index === 2 && !item.esPorTiempo}
-              onPress={() => handleComprarProxy(item, item.esPorTiempo)}
-              isHorizontal={true}
-              theme={theme}
-            />
+            <ServiceEntrance
+              delay={Math.min(index * 90, 450)}
+              duration={780}
+              conversionKey={`proxy-${item._id || index}-${item.precio}`}
+            >
+              <ProxyPackageCardItem
+                paquete={item}
+                isRecommended={index === 2 && !item.esPorTiempo}
+                onPress={() => handleComprarProxy(item, item.esPorTiempo)}
+                isHorizontal={true}
+                theme={theme}
+              />
+            </ServiceEntrance>
           )}
           horizontal={true}
           showsHorizontalScrollIndicator={false}
@@ -252,13 +259,19 @@ const ProxyVPNPackagesHorizontal = ({
           ref={flatListVPNRef}
           data={allPackages}
           renderItem={({ index, item }) => (
-            <VPNPackageCardItem
-              paquete={item}
-              isRecommended={index === 2 && !item.esPorTiempo}
-              onPress={() => handleComprarVPN(item, item.esPorTiempo)}
-              isHorizontal={true}
-              theme={theme}
-            />
+            <ServiceEntrance
+              delay={Math.min(index * 90, 450)}
+              duration={780}
+              conversionKey={`vpn-${item._id || index}-${item.precio}`}
+            >
+              <VPNPackageCardItem
+                paquete={item}
+                isRecommended={index === 2 && !item.esPorTiempo}
+                onPress={() => handleComprarVPN(item, item.esPorTiempo)}
+                isHorizontal={true}
+                theme={theme}
+              />
+            </ServiceEntrance>
           )}
           horizontal={true}
           showsHorizontalScrollIndicator={false}

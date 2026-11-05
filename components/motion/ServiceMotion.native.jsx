@@ -19,7 +19,7 @@ import useSystemReducedMotion from "../../hooks/useSystemReducedMotion";
 
 const MotionContext = createContext(true);
 const ViewportContext = createContext(null);
-const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
+const EASE_OUT = Easing.bezier(0.16, 1, 0.3, 1);
 
 export function ServiceMotionProvider({ children }) {
   const reducedMotion = useSystemReducedMotion();
@@ -32,6 +32,12 @@ export function ServiceScrollViewport({ children, horizontal = false, topInset =
   const parentViewport = useContext(ViewportContext);
   const scrollRef = useAnimatedRef();
   const viewportRef = useAnimatedRef();
+  if (!Object.prototype.hasOwnProperty.call(scrollRef, "getTag")) {
+    scrollRef.getTag = () => null;
+  }
+  if (!Object.prototype.hasOwnProperty.call(viewportRef, "getTag")) {
+    viewportRef.getTag = () => null;
+  }
   const offset = useScrollOffset(scrollRef);
   const layoutVersion = useSharedValue(0);
   const child = React.Children.only(children);
@@ -88,10 +94,23 @@ export function isServiceEntranceVisible(viewport, item) {
   return true;
 }
 
-function useConfirmedEntrance(progress, reducedMotion, delay, duration, enabled = true) {
+function useConfirmedEntrance(progress, reducedMotion, delay, duration, enabled = true, conversionKey) {
   const completed = useRef(reducedMotion);
+  const previousConversionKey = useRef(conversionKey);
 
   useEffect(() => {
+    const conversionChanged =
+      conversionKey !== undefined &&
+      previousConversionKey.current !== undefined &&
+      !Object.is(previousConversionKey.current, conversionKey);
+    previousConversionKey.current = conversionKey;
+
+    if (conversionChanged && !reducedMotion && enabled) {
+      completed.current = false;
+      cancelAnimation(progress);
+      progress.set(0.18);
+    }
+
     if (!enabled && !reducedMotion) return undefined;
     let active = true;
     let preferenceChanged = false;
@@ -108,13 +127,14 @@ function useConfirmedEntrance(progress, reducedMotion, delay, duration, enabled 
     } else if (!completed.current) {
       // Reanimated puede conservar la preferencia del arranque; confirmar la actual
       // antes de iniciar movimiento tras volver de ajustes del sistema.
-      AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      AccessibilityInfo.isReduceMotionEnabled().then((isReduced) => {
         if (!active || preferenceChanged) return;
         completed.current = true;
-        if (enabled) {
+        if (isReduced) {
           progress.set(1);
         } else {
-          progress.set(withDelay(delay, withTiming(1, {
+          const effectiveDelay = conversionChanged ? 0 : delay;
+          progress.set(withDelay(effectiveDelay, withTiming(1, {
             duration,
             easing: EASE_OUT,
             reduceMotion: ReduceMotion.Never,
@@ -132,19 +152,50 @@ function useConfirmedEntrance(progress, reducedMotion, delay, duration, enabled 
       subscription.remove();
       cancelAnimation(progress);
     };
-  }, [delay, duration, enabled, progress, reducedMotion]);
+  }, [conversionKey, delay, duration, enabled, progress, reducedMotion]);
 }
 
-export function ServiceEntrance({ children, delay = 0, initiallyRevealed = false, onReveal, style, variant }) {
+export function ServiceEntrance({
+  children,
+  conversionKey,
+  delay = 0,
+  duration,
+  initiallyRevealed = false,
+  onReveal,
+  style,
+  variant,
+}) {
   const reducedMotion = useContext(MotionContext);
   const viewport = useContext(ViewportContext);
   const entranceRef = useAnimatedRef();
+  if (!Object.prototype.hasOwnProperty.call(entranceRef, "getTag")) {
+    entranceRef.getTag = () => null;
+  }
   const layoutVersion = useSharedValue(0);
-  const initial = useRef({ delay: Math.max(0, Math.min(Number(delay) || 0, 600)), reducedMotion: reducedMotion || initiallyRevealed, revealed: initiallyRevealed });
+  const resolvedDuration = useMemo(() => {
+    if (Number.isFinite(Number(duration)) && Number(duration) > 0) {
+      return Math.max(500, Math.min(1000, Number(duration)));
+    }
+    if (variant === "hero") return 880;
+    if (variant === "conversion") return 720;
+    return 760;
+  }, [duration, variant]);
+  const initial = useRef({
+    delay: Math.max(0, Math.min(Number(delay) || 0, 600)),
+    reducedMotion: reducedMotion || initiallyRevealed,
+    revealed: initiallyRevealed,
+  });
   const triggered = useSharedValue(initial.current.revealed);
   const [visible, setVisible] = useState(!viewport);
   const progress = useSharedValue(initial.current.reducedMotion ? 1 : 0);
-  useConfirmedEntrance(progress, reducedMotion || initial.current.revealed, viewport ? Math.min(initial.current.delay, 60) : initial.current.delay, 300, visible);
+  useConfirmedEntrance(
+    progress,
+    reducedMotion || initial.current.revealed,
+    viewport ? Math.min(initial.current.delay, 180) : initial.current.delay,
+    resolvedDuration,
+    visible,
+    conversionKey,
+  );
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -179,11 +230,18 @@ export function ServiceEntrance({ children, delay = 0, initiallyRevealed = false
 
   const animatedStyle = useAnimatedStyle(() => {
     const value = progress.get();
+    const isHero = variant === "hero";
+    const isConversion = variant === "conversion";
+    const translateYDistance = isHero ? 36 : isConversion ? 24 : 28;
+    const minScale = isHero ? 0.88 : isConversion ? 0.91 : 0.9;
+    const maxTiltDeg = isHero ? 9 : isConversion ? 6 : 7;
     return {
-      opacity: 0.7 + value * 0.3,
+      opacity: 0.08 + value * 0.92,
       transform: [
-        { translateY: (1 - value) * (variant === "hero" ? 16 : 10) },
-        { scale: 0.98 + value * 0.02 },
+        { translateY: (1 - value) * translateYDistance },
+        { perspective: 1100 },
+        { scale: minScale + value * (1 - minScale) },
+        { rotateX: `${(1 - value) * maxTiltDeg}deg` },
       ],
     };
   }, [variant]);
@@ -191,10 +249,41 @@ export function ServiceEntrance({ children, delay = 0, initiallyRevealed = false
   return <Animated.View collapsable={false} ref={entranceRef} onLayout={() => layoutVersion.set((value) => value + 1)} style={[style, animatedStyle]}>{children}</Animated.View>;
 }
 
+export function ServiceConversion({
+  children,
+  conversionKey,
+  delay = 0,
+  duration = 720,
+  style,
+}) {
+  return (
+    <ServiceEntrance
+      conversionKey={conversionKey}
+      delay={delay}
+      duration={duration}
+      style={style}
+      variant="conversion"
+    >
+      {children}
+    </ServiceEntrance>
+  );
+}
+
 export function ServicePressable({ children, style, onPress, onPressIn, onPressOut, disabled, ...props }) {
   const reducedMotion = useContext(MotionContext);
   const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.get() }] }));
+  const animatedStyle = useAnimatedStyle(() => {
+    const currentScale = scale.get();
+    const pressDepth = Math.max(0, (1 - currentScale) / 0.03);
+    return {
+      transform: [
+        { perspective: 1000 },
+        { scale: currentScale },
+        { translateY: pressDepth * 2.5 },
+        { rotateX: `${pressDepth * 3.2}deg` },
+      ],
+    };
+  });
 
   useEffect(() => {
     if (reducedMotion || disabled) {
@@ -212,11 +301,11 @@ export function ServicePressable({ children, style, onPress, onPressIn, onPressO
         disabled={disabled}
         onPress={onPress}
         onPressIn={(event) => {
-          if (!reducedMotion) scale.set(withTiming(0.97, { duration: 120, easing: EASE_OUT, reduceMotion: ReduceMotion.Never }));
+          if (!reducedMotion) scale.set(withTiming(0.97, { duration: 180, easing: EASE_OUT, reduceMotion: ReduceMotion.Never }));
           onPressIn?.(event);
         }}
         onPressOut={(event) => {
-          if (!reducedMotion) scale.set(withTiming(1, { duration: 120, easing: EASE_OUT, reduceMotion: ReduceMotion.Never }));
+          if (!reducedMotion) scale.set(withTiming(1, { duration: 560, easing: EASE_OUT, reduceMotion: ReduceMotion.Never }));
           onPressOut?.(event);
         }}
         style={(state) => [
@@ -234,11 +323,14 @@ export function ServiceAtmosphere({ color = "#818cf8" }) {
   const reducedMotion = useContext(MotionContext);
   const initialReduced = useRef(reducedMotion);
   const progress = useSharedValue(initialReduced.current ? 1 : 0);
-  useConfirmedEntrance(progress, reducedMotion, 0, 600);
+  useConfirmedEntrance(progress, reducedMotion, 0, 860);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    opacity: 0.12 * progress.get(),
-    transform: [{ scale: 0.88 + 0.12 * progress.get() }],
+    opacity: 0.16 * progress.get(),
+    transform: [
+      { scale: 0.78 + 0.22 * progress.get() },
+      { translateY: (1 - progress.get()) * -14 },
+    ],
   }));
 
   return (

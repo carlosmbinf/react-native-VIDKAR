@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { StyleSheet, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Animated, Easing, StyleSheet, View } from "react-native";
 import { Text, useTheme } from "react-native-paper";
 
 const steps = [
@@ -16,21 +17,54 @@ const PedidoStepperNative = ({ currentStep, tone }) => {
   const resolvedCurrentStep = Number.isFinite(Number(currentStep))
     ? Number(currentStep)
     : 1;
+  const stepConversion = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    stepConversion.setValue(0);
+    Animated.timing(stepConversion, {
+      duration: 760,
+      easing: Easing.bezier(0.16, 1, 0.3, 1),
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  }, [resolvedCurrentStep, stepConversion]);
+
+  const currentNodeScale = stepConversion.interpolate({
+    inputRange: [0, 0.55, 1],
+    outputRange: [0.82, 1.18, 1.1],
+  });
+
+  const activeNodeScale = stepConversion.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.92, 1],
+  });
 
   return (
     <View style={styles.stepperContainer}>
       {steps.map((step, index) => {
         const isActive = resolvedCurrentStep >= step.key;
+        const isCurrent = resolvedCurrentStep === step.key;
         const isLast = index === steps.length - 1;
 
         return (
           <View key={step.key} style={styles.stepWrapper}>
             <View style={styles.stepCircleContainer}>
-              <View
+              <Animated.View
                 style={[
                   styles.stepCircle,
                   isActive ? styles.stepCircleActive : null,
-                  resolvedCurrentStep === step.key ? styles.stepCircleCurrent : null,
+                  isCurrent ? styles.stepCircleCurrent : null,
+                  {
+                    transform: [
+                      {
+                        scale: isCurrent
+                          ? currentNodeScale
+                          : isActive
+                            ? activeNodeScale
+                            : 1,
+                      },
+                    ],
+                  },
                 ]}
               >
                 <MaterialCommunityIcons
@@ -38,7 +72,7 @@ const PedidoStepperNative = ({ currentStep, tone }) => {
                   name={step.icon}
                   size={20}
                 />
-              </View>
+              </Animated.View>
 
               {!isLast ? (
                 <View

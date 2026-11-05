@@ -1,8 +1,8 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import MeteorBase from "@meteorrn/core";
 import { LinearGradient } from "expo-linear-gradient";
-import { memo } from "react";
-import { StyleSheet, View } from "react-native";
+import { memo, useEffect, useRef } from "react";
+import { Animated, Easing, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Card, Divider, IconButton, Surface, Text, useTheme } from "react-native-paper";
 
 import SubidaArchivos from "../../../archivos/SubidaArchivos.native";
@@ -513,6 +513,42 @@ const PedidoCardNative = ({
   const necesitaEvidencia =
     !venta?.isCobrado && !isCanceled && venta?.metodoPago === "EFECTIVO";
 
+  const expandProgress = useRef(new Animated.Value(isExpanded ? 1 : 0)).current;
+  const contentConversion = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    contentConversion.setValue(0);
+    Animated.parallel([
+      Animated.timing(expandProgress, {
+        duration: 620,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+        toValue: isExpanded ? 1 : 0,
+        useNativeDriver: true,
+      }),
+      Animated.timing(contentConversion, {
+        duration: 720,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+        toValue: 1,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [contentConversion, currentStep, expandProgress, isExpanded]);
+
+  const chevronRotate = expandProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "180deg"],
+  });
+
+  const bodyTranslateY = contentConversion.interpolate({
+    inputRange: [0, 1],
+    outputRange: [18, 0],
+  });
+
+  const bodyScale = contentConversion.interpolate({
+    inputRange: [0, 0.65, 1],
+    outputRange: [0.94, 1.01, 1],
+  });
+
   return (
     <Surface
       elevation={8}
@@ -538,12 +574,14 @@ const PedidoCardNative = ({
 
       <Card.Title
         right={(props) => (
-          <IconButton
-            {...props}
-            icon={isExpanded ? "chevron-up" : "chevron-down"}
-            onPress={onToggleExpand}
-            style={styles.toggleButton}
-          />
+          <Animated.View style={{ transform: [{ rotate: chevronRotate }] }}>
+            <IconButton
+              {...props}
+              icon="chevron-down"
+              onPress={onToggleExpand}
+              style={styles.toggleButton}
+            />
+          </Animated.View>
         )}
         subtitle={formatFecha(venta?.createdAt)}
         subtitleStyle={isDarkTone ? styles.cardSubtitleDark : null}
@@ -553,7 +591,16 @@ const PedidoCardNative = ({
 
       <Divider style={isDarkTone ? styles.dividerDark : null} />
 
-      <View>
+      <Animated.View
+        style={{
+          opacity: contentConversion,
+          transform: [
+            { perspective: 1000 },
+            { translateY: bodyTranslateY },
+            { scale: bodyScale },
+          ],
+        }}
+      >
         {!isExpanded ? (
           <PedidoStepper
             currentStep={currentStep}
@@ -572,7 +619,7 @@ const PedidoCardNative = ({
             venta={venta}
           />
         ) : null}
-      </View>
+      </Animated.View>
     </Surface>
   );
 };

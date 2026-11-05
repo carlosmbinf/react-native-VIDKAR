@@ -1,4 +1,12 @@
-import { StyleSheet, useWindowDimensions, View } from "react-native";
+import { useEffect, useRef } from "react";
+import {
+    Animated,
+    Easing,
+    Pressable,
+    StyleSheet,
+    useWindowDimensions,
+    View,
+} from "react-native";
 import {
     Button,
     IconButton,
@@ -18,6 +26,61 @@ const VPNPackageCardItem = ({
 }) => {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
+  const pressScale = useRef(new Animated.Value(1)).current;
+  const pressDepth = useRef(new Animated.Value(0)).current;
+  const conversionProgress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    conversionProgress.setValue(0);
+    Animated.timing(conversionProgress, {
+      duration: 740,
+      easing: Easing.bezier(0.16, 1, 0.3, 1),
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  }, [conversionProgress, paquete?.megas, paquete?.precio]);
+
+  const animatePress = (pressed) => {
+    Animated.parallel([
+      Animated.timing(pressScale, {
+        duration: pressed ? 180 : 560,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+        toValue: pressed ? 0.95 : 1,
+        useNativeDriver: true,
+      }),
+      Animated.timing(pressDepth, {
+        duration: pressed ? 180 : 560,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+        toValue: pressed ? 1 : 0,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const pressTranslateY = pressDepth.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 3.5],
+  });
+
+  const pressRotateX = pressDepth.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "-2.5deg"],
+  });
+
+  const conversionScale = conversionProgress.interpolate({
+    inputRange: [0, 0.65, 1],
+    outputRange: [0.86, 1.03, 1],
+  });
+
+  const conversionOpacity = conversionProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.2, 1],
+  });
+
+  const conversionTranslateY = conversionProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [10, 0],
+  });
   const vpnColor = theme.dark ? "#66BB6A" : "#4CAF50";
   const isIlimitado =
     paquete?.esPorTiempo ||
@@ -41,26 +104,41 @@ const VPNPackageCardItem = ({
       : "#EAF6EC";
 
   return (
-    <Surface
-      style={[
-        styles.packageCard,
-        {
-          backgroundColor: cardBackground,
-          borderColor: isIlimitado
-            ? theme.dark
-              ? "rgba(255, 215, 0, 0.34)"
-              : "rgba(184, 134, 11, 0.25)"
-            : theme.dark
-              ? "rgba(102, 187, 106, 0.30)"
-              : "rgba(76, 175, 80, 0.20)",
-        },
-        isHorizontal && styles.packageCardHorizontal,
-        isTablet && styles.packageCardTablet,
-        isRecommended && !isIlimitado && styles.recommendedCard,
-        isIlimitado && styles.unlimitedCard,
-      ]}
-      elevation={3}
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => animatePress(true)}
+      onPressOut={() => animatePress(false)}
     >
+      <Animated.View
+        style={{
+          transform: [
+            { perspective: 1000 },
+            { translateY: pressTranslateY },
+            { scale: pressScale },
+            { rotateX: pressRotateX },
+          ],
+        }}
+      >
+        <Surface
+          style={[
+            styles.packageCard,
+            {
+              backgroundColor: cardBackground,
+              borderColor: isIlimitado
+                ? theme.dark
+                  ? "rgba(255, 215, 0, 0.34)"
+                  : "rgba(184, 134, 11, 0.25)"
+                : theme.dark
+                  ? "rgba(102, 187, 106, 0.30)"
+                  : "rgba(76, 175, 80, 0.20)",
+            },
+            isHorizontal && styles.packageCardHorizontal,
+            isTablet && styles.packageCardTablet,
+            isRecommended && !isIlimitado && styles.recommendedCard,
+            isIlimitado && styles.unlimitedCard,
+          ]}
+          elevation={3}
+        >
       <View
         pointerEvents="none"
         style={[styles.accentOrb, { backgroundColor: accentColor }]}
@@ -129,7 +207,18 @@ const VPNPackageCardItem = ({
                 style={styles.packageIcon}
               />
             </View>
-            <View style={styles.packageTitleCopy}>
+            <Animated.View
+              style={[
+                styles.packageTitleCopy,
+                {
+                  opacity: conversionOpacity,
+                  transform: [
+                    { translateY: conversionTranslateY },
+                    { scale: conversionScale },
+                  ],
+                },
+              ]}
+            >
               <Paragraph style={styles.packageEyebrow}>
                 {isIlimitado ? "30 DÍAS" : "CAPACIDAD"}
               </Paragraph>
@@ -144,14 +233,19 @@ const VPNPackageCardItem = ({
               >
                 {isIlimitado ? "Ilimitado" : megasToGB(paquete?.megas)}
               </Title>
-            </View>
+            </Animated.View>
           </View>
 
-          <View
+          <Animated.View
             style={[
               styles.priceContainer,
               {
                 backgroundColor: tonalBackground,
+                opacity: conversionOpacity,
+                transform: [
+                  { translateY: conversionTranslateY },
+                  { scale: conversionScale },
+                ],
               },
             ]}
           >
@@ -174,7 +268,7 @@ const VPNPackageCardItem = ({
             >
               CUP
             </Paragraph>
-          </View>
+          </Animated.View>
         </View>
 
         {!!paquete?.detalles ? (
@@ -223,6 +317,8 @@ const VPNPackageCardItem = ({
         </View>
       </View>
     </Surface>
+      </Animated.View>
+    </Pressable>
   );
 };
 

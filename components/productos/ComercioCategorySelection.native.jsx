@@ -161,12 +161,17 @@ const ComercioCategorySelectionNative = ({
           {error}
         </Text>
       ) : state.loading ? (
-        <View style={styles.loadingState}>
-          <ActivityIndicator animating size="small" />
-          <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
-            Cargando selección aleatoria…
-          </Text>
-        </View>
+        <ServiceEntrance
+          conversionKey={`category-loading-${selectionKey}`}
+          duration={640}
+        >
+          <View style={styles.loadingState}>
+            <ActivityIndicator animating size="small" />
+            <Text style={{ color: theme.colors.onSurfaceVariant }} variant="bodySmall">
+              Cargando selección aleatoria…
+            </Text>
+          </View>
+        </ServiceEntrance>
       ) : (
         <ServiceScrollViewport horizontal>
         <FlatList
@@ -180,6 +185,8 @@ const ComercioCategorySelectionNative = ({
             return (
               <ServiceEntrance
                 delay={index * 35}
+                duration={760}
+                conversionKey={`${selectionKey}-${productId}`}
                 initiallyRevealed={revealedProducts.has(productId)}
                 onReveal={() => revealedProducts.add(productId)}
               >

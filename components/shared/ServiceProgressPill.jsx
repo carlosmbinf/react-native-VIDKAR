@@ -1,4 +1,5 @@
-import { StyleSheet, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Animated, Easing, StyleSheet, View } from "react-native";
 import { Chip, Text, useTheme } from "react-native-paper";
 
 const clamp01 = (value) =>
@@ -122,6 +123,43 @@ const ServiceProgressPill = ({
 }) => {
   const theme = useTheme();
   const safeRatio = clamp01(ratio);
+  const animatedRatio = useRef(new Animated.Value(0)).current;
+  const textConversion = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(animatedRatio, {
+      duration: 840,
+      easing: Easing.bezier(0.16, 1, 0.3, 1),
+      toValue: safeRatio,
+      useNativeDriver: false,
+    }).start();
+  }, [animatedRatio, safeRatio]);
+
+  useEffect(() => {
+    textConversion.setValue(0);
+    Animated.timing(textConversion, {
+      duration: 680,
+      easing: Easing.bezier(0.16, 1, 0.3, 1),
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  }, [centerText, label, rightText, textConversion]);
+
+  const fillWidth = animatedRatio.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0%", "100%"],
+  });
+
+  const textTranslateY = textConversion.interpolate({
+    inputRange: [0, 1],
+    outputRange: [8, 0],
+  });
+
+  const textScale = textConversion.interpolate({
+    inputRange: [0, 0.65, 1],
+    outputRange: [0.88, 1.03, 1],
+  });
+
   const tone = getUsageTone(safeRatio, palette);
   const fillColor = tone.fill;
   const trackBackground = theme.dark
@@ -160,16 +198,27 @@ const ServiceProgressPill = ({
           },
         ]}
       /> */}
-      <View
+      <Animated.View
         style={[
           styles.pillFill,
           {
-            width: `${safeRatio * 100}%`,
+            width: fillWidth,
             backgroundColor: fillColor,
           },
         ]}
       />
-      <View style={styles.pillContent}>
+      <Animated.View
+        style={[
+          styles.pillContent,
+          {
+            opacity: textConversion,
+            transform: [
+              { translateY: textTranslateY },
+              { scale: textScale },
+            ],
+          },
+        ]}
+      >
         <Chip
           compact
           style={[
@@ -225,7 +274,7 @@ const ServiceProgressPill = ({
             {rightText}
           </Text>
         )}
-      </View>
+      </Animated.View>
     </View>
   );
 };

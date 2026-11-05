@@ -728,57 +728,77 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
       ) : null}
 
       {isLoading && visibleTiendas.length === 0 ? (
-        <View style={styles.loadingState}>
-          <ActivityIndicator animating size="small" />
-          <Text variant="bodySmall" style={[styles.loadingText, { color: palette.copy }]}>Buscando comercios cercanos...</Text>
-        </View>
+        <ServiceEntrance
+          conversionKey={`comercio-loading-${radioKm}`}
+          duration={680}
+        >
+          <View style={styles.loadingState}>
+            <ActivityIndicator animating size="small" />
+            <Text variant="bodySmall" style={[styles.loadingText, { color: palette.copy }]}>Buscando comercios cercanos...</Text>
+          </View>
+        </ServiceEntrance>
       ) : visibleTiendas.length > 0 ? (
         <View style={styles.tiendasList}>
           <Text style={[styles.listHeading, { color: palette.title }]} variant="titleMedium">Por tiendas</Text>
-          {visibleTiendas.map((tienda) => (
-            <ServiceEntrance key={tienda._id}>
-            <TiendaCard
-              searchQuery={searchQuery}
-              tienda={tienda}
-              userLocation={userLocation}
-              onSeeAll={() => openCatalog({ store: tienda._id })}
-            />
+          {visibleTiendas.map((tienda, index) => (
+            <ServiceEntrance
+              key={tienda._id}
+              delay={Math.min(index * 90, 360)}
+              duration={780}
+              conversionKey={`${tienda._id}-${radioKm}-${debouncedSearch}`}
+            >
+              <TiendaCard
+                searchQuery={searchQuery}
+                tienda={tienda}
+                userLocation={userLocation}
+                onSeeAll={() => openCatalog({ store: tienda._id })}
+              />
             </ServiceEntrance>
           ))}
         </View>
       ) : shouldShowLocationEmptyState ? (
-        <View style={styles.emptyState}>
-          <Text variant="titleSmall" style={[styles.emptyTitle, { color: palette.title }]}>{locationUnavailable ? "Ubicación apagada" : "Sin ubicación disponible"}</Text>
-          <Text variant="bodySmall" style={[styles.emptyCopy, { color: palette.copy }]}>{locationUnavailable ? "No podemos buscar comercios cercanos si la ubicación no está activa para Vidkar. Actívala para actualizar la búsqueda." : "No pudimos obtener tu ubicación. Intenta de nuevo para buscar comercios cercanos."}</Text>
-        </View>
+        <ServiceEntrance
+          conversionKey={`comercio-location-empty-${locationUnavailable}`}
+          duration={700}
+        >
+          <View style={styles.emptyState}>
+            <Text variant="titleSmall" style={[styles.emptyTitle, { color: palette.title }]}>{locationUnavailable ? "Ubicación apagada" : "Sin ubicación disponible"}</Text>
+            <Text variant="bodySmall" style={[styles.emptyCopy, { color: palette.copy }]}>{locationUnavailable ? "No podemos buscar comercios cercanos si la ubicación no está activa para Vidkar. Actívala para actualizar la búsqueda." : "No pudimos obtener tu ubicación. Intenta de nuevo para buscar comercios cercanos."}</Text>
+          </View>
+        </ServiceEntrance>
       ) : (
-        <View style={styles.emptyState}>
-          <Text variant="titleSmall" style={[styles.emptyTitle, { color: palette.title }]}>
-            {searchQuery.trim()
-              ? "No se encontraron resultados"
-              : storeSearchStatus === "error"
-                ? "No pudimos cargar las tiendas"
-                : locationUnavailable
-              ? "Ubicación apagada"
-              : userLocation
-                ? "No hay comercios cerca"
-                : "Ubicación pendiente"}
-          </Text>
-          <Text variant="bodySmall" style={[styles.emptyCopy, { color: palette.copy }]}> 
-            {searchQuery.trim()
-              ? "Prueba con otro nombre de tienda o producto."
-              : storeSearchStatus === "error"
-                ? "Comprueba tu conexión e intenta buscar las tiendas nuevamente."
-                : locationUnavailable
-              ? "Activa la ubicación para Vidkar desde los ajustes del dispositivo para poder buscar comercios cercanos."
+        <ServiceEntrance
+          conversionKey={`comercio-empty-${radioKm}-${debouncedSearch}-${storeSearchStatus}`}
+          duration={700}
+        >
+          <View style={styles.emptyState}>
+            <Text variant="titleSmall" style={[styles.emptyTitle, { color: palette.title }]}>
+              {searchQuery.trim()
+                ? "No se encontraron resultados"
+                : storeSearchStatus === "error"
+                  ? "No pudimos cargar las tiendas"
+                  : locationUnavailable
+                ? "Ubicación apagada"
                 : userLocation
-                  ? "Prueba ampliando el radio o abre el listado completo para actualizar la búsqueda."
-                : "Activa tu ubicación para encontrar tiendas disponibles en tu zona."}
-          </Text>
-          <Button mode="contained-tonal" onPress={obtenerUbicacion} style={styles.emptyButton}>
-            Actualizar ubicación
-          </Button>
-        </View>
+                  ? "No hay comercios cerca"
+                  : "Ubicación pendiente"}
+            </Text>
+            <Text variant="bodySmall" style={[styles.emptyCopy, { color: palette.copy }]}> 
+              {searchQuery.trim()
+                ? "Prueba con otro nombre de tienda o producto."
+                : storeSearchStatus === "error"
+                  ? "Comprueba tu conexión e intenta buscar las tiendas nuevamente."
+                  : locationUnavailable
+                ? "Activa la ubicación para Vidkar desde los ajustes del dispositivo para poder buscar comercios cercanos."
+                  : userLocation
+                    ? "Prueba ampliando el radio o abre el listado completo para actualizar la búsqueda."
+                  : "Activa tu ubicación para encontrar tiendas disponibles en tu zona."}
+            </Text>
+            <Button mode="contained-tonal" onPress={obtenerUbicacion} style={styles.emptyButton}>
+              Actualizar ubicación
+            </Button>
+          </View>
+        </ServiceEntrance>
       )}
 
       {!debouncedSearch && featuredParentCategories.length ? (
@@ -787,13 +807,17 @@ const ComercioHomeSection = ({ deferDelay = 120 }) => {
             Productos por categoría principal
           </Text>
           {featuredParentCategories.map((category) => (
-            <ServiceEntrance key={category.id}>
-            <ComercioCategorySelection
-              category={category}
-              onSeeAll={() => openCatalog({ category: category.id })}
-              searchQuery={searchQuery}
-              storeIds={nearbyStoreIds}
-              storesById={storesById}
+            <ServiceEntrance
+              key={category.id}
+              duration={780}
+              conversionKey={`${category.id}-${radioKm}`}
+            >
+              <ComercioCategorySelection
+                category={category}
+                onSeeAll={() => openCatalog({ category: category.id })}
+                searchQuery={searchQuery}
+                storeIds={nearbyStoreIds}
+                storesById={storesById}
               />
             </ServiceEntrance>
           ))}

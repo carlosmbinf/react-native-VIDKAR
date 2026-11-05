@@ -55,8 +55,9 @@ export function loginHarness(state) {
       Platform: { OS: "android" }, NativeModules: {},
       useWindowDimensions: () => ({ width: 400, height: 800 }),
       View: "View", ImageBackground: "ImageBackground", ScrollView: "ScrollView",
-      KeyboardAvoidingView: "KeyboardAvoidingView", Keyboard: { dismiss() {} },
+      KeyboardAvoidingView: "KeyboardAvoidingView",
       Alert: { alert: () => assert.fail("No se esperaba alerta de login") },
+      Keyboard: { addListener: () => ({ remove() {} }), dismiss() {} },
     },
     "react-native-paper": {
       useTheme: () => ({ colors: {} }), Button: "Button", Text: "Text", TextInput: "TextInput",
@@ -73,6 +74,9 @@ export function loginHarness(state) {
     "../collections/collections": { ConfigCollection: { findOne: () => null } },
     "../navigator/sessionRoute": { resolveSessionRoute },
     "./Loguin.styles": { getLoginPalette: () => ({}), loginScreenStyles: {} },
+    "./LoginAtmosphere.native": "LoginAtmosphere",
+    "./LoginRocketFlight.native": "LoginRocketFlight",
+    "../../hooks/useSystemReducedMotion": { __esModule: true, default: () => Boolean(state.reducedMotion) },
     "../files/space-bg-shadowcodex.jpg": "fixture-image",
   };
   const exports = {};

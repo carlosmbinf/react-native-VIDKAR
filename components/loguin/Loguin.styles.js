@@ -217,6 +217,10 @@ export const loginScreenStyles = StyleSheet.create({
     marginBottom: 16,
     marginTop: 4,
   },
+  dividerRowCompact: {
+    marginBottom: 6,
+    marginTop: 0,
+  },
   fieldsBlock: {
     gap: 12,
     marginBottom: 20,
@@ -287,6 +291,118 @@ export const loginScreenStyles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     maxWidth: 1180,
+  },
+  loginShell: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    width: "100%",
+  },
+  loginShellCompact: {
+    paddingVertical: 4,
+  },
+  loginBrandMark: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  loginBrandName: {
+    fontSize: 18,
+    fontWeight: "900",
+    letterSpacing: 3,
+  },
+  blurCardContentCompact: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  blurCardContentUltraCompact: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  formHeaderCompact: {
+    marginBottom: 12,
+  },
+  titleUltraCompact: {
+    fontSize: 24,
+    lineHeight: 28,
+    marginBottom: 6,
+  },
+  fieldsBlockCompact: {
+    gap: 8,
+    marginBottom: 10,
+  },
+  fieldsBlockUltraCompact: {
+    gap: 4,
+    marginBottom: 8,
+  },
+  inputCompact: {
+    minHeight: 44,
+  },
+  primaryButtonContentCompact: {
+    height: 44,
+  },
+  primaryButtonContentUltraCompact: {
+    height: 40,
+  },
+  serverCardCompact: {
+    marginBottom: 10,
+    padding: 10,
+  },
+  serverCardUltraCompact: {
+    marginBottom: 6,
+    padding: 6,
+  },
+  reconnectButtonCompact: {
+    height: 44,
+  },
+  reconnectButtonContentCompact: {
+    height: 44,
+    paddingHorizontal: 4,
+  },
+  reconnectButtonContentUltraCompact: {
+    height: 40,
+    paddingHorizontal: 4,
+  },
+  reconnectButtonUltraCompact: {
+    height: 40,
+  },
+  serverLabelCompact: {
+    fontSize: 11,
+    marginBottom: 6,
+  },
+  serverLabelUltraCompact: {
+    fontSize: 10,
+    marginBottom: 4,
+  },
+  inputUltraCompact: {
+    minHeight: 40,
+  },
+  keyboardDismissAction: {
+    alignSelf: "center",
+    marginTop: 2,
+    minHeight: 32,
+  },
+  socialSectionCompact: {
+    marginTop: 8,
+  },
+  socialButtonsCompact: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  secondaryButtonCompact: {
+    flex: 1,
+    minWidth: 0,
+  },
+  secondaryButtonContentCompact: {
+    height: 40,
+    paddingHorizontal: 4,
+  },
+  footerPanelCompact: {
+    marginTop: 4,
   },
   mainLandscape: {
     alignItems: "center",

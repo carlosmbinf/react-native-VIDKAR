@@ -2,6 +2,7 @@ import MeteorBase from "@meteorrn/core";
 import React, { useEffect, useState } from "react";
 import {
     Animated,
+    Easing,
     FlatList,
     LayoutAnimation,
     Platform,
@@ -125,7 +126,13 @@ const TiendaCardNative = ({
 
   const toggleExpand = () => {
     if (!reducedMotion) {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      LayoutAnimation.configureNext(
+        LayoutAnimation.create(
+          560,
+          LayoutAnimation.Types.easeInEaseOut,
+          LayoutAnimation.Properties.opacity,
+        ),
+      );
     }
     setExpanded((current) => !current);
 
@@ -137,7 +144,8 @@ const TiendaCardNative = ({
 
     Animated.timing(rotateAnim, {
       toValue: expanded ? 0 : 1,
-      duration: 300,
+      duration: 580,
+      easing: Easing.bezier(0.16, 1, 0.3, 1),
       useNativeDriver: true,
     }).start();
   };
@@ -240,7 +248,10 @@ const TiendaCardNative = ({
       </Card.Content>
 
       {expanded ? (
-        <>
+        <ServiceEntrance
+          conversionKey={`tienda-expand-${tienda._id}-${expanded}-${showAll}`}
+          duration={720}
+        >
           <Divider style={styles.divider} />
 
           <View style={styles.productosHeader}>
@@ -352,7 +363,7 @@ const TiendaCardNative = ({
           ) : null}
 
           <View style={styles.footerSpace} />
-        </>
+        </ServiceEntrance>
       ) : null}
     </View>
   );

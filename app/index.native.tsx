@@ -8,6 +8,7 @@ import { ActivityIndicator, Surface, Text, useTheme } from "react-native-paper";
 
 import CadeteNavigator from "../components/cadete/CadeteNavigator";
 import EmpresaNavigator from "../components/empresa/EmpresaNavigator";
+import LoginArrivalScene from "../components/loguin/LoginArrivalScene.native";
 import Loguin from "../components/loguin/Loguin.native";
 import MenuPrincipal from "../components/Main/MenuPrincipal.native";
 import { userHasEmpresaRole } from "../components/navigator/sessionRoute";
@@ -34,6 +35,7 @@ import {
   getUniversalLinkKey,
   resolveUniversalLink,
 } from "../services/navigation/universalLinks";
+import useSystemReducedMotion from "../hooks/useSystemReducedMotion";
 
 const Meteor = MeteorBase as unknown as {
   useTracker: <T>(reactiveFn: () => T) => T;
@@ -155,6 +157,7 @@ const getRequiredBuildNumber = async (propertyKey: string) => {
 
 export default function IndexScreen() {
   const theme = useTheme();
+  const reducedMotion = useSystemReducedMotion();
   const statusBarStyle =
     Platform.OS === "android" || theme.dark ? "light-content" : "dark-content";
   const pushCleanupRef = React.useRef<null | (() => void)>(null);
@@ -169,6 +172,10 @@ export default function IndexScreen() {
     currentBuildNumber: null as number | null,
     requiredBuildNumber: null as number | null,
   });
+  const [loginArrivalPending, setLoginArrivalPending] = React.useState(false);
+  const [loginFlightCompletedFor, setLoginFlightCompletedFor] = React.useState<string | null>(
+    () => Meteor.userId(),
+  );
   const { connected, ready, user, userId } = Meteor.useTracker(
     (): {
       connected: boolean;
@@ -202,6 +209,47 @@ export default function IndexScreen() {
       };
     },
   );
+  const startingLoginTransition = Boolean(
+    userId && loginFlightCompletedFor !== userId,
+  );
+
+  React.useEffect(() => {
+    if (!userId) {
+      setLoginFlightCompletedFor(null);
+      setLoginArrivalPending(false);
+    }
+  }, [userId]);
+
+  const handleLoginLaunchComplete = React.useCallback((completedUserId: string) => {
+    if (Meteor.userId() !== completedUserId) {
+      return;
+    }
+    setLoginFlightCompletedFor(completedUserId);
+    setLoginArrivalPending(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (
+      !loginArrivalPending ||
+      !userId ||
+      !ready ||
+      versionGate.updateRequired
+    ) {
+      return;
+    }
+
+    const timeout = setTimeout(
+      () => setLoginArrivalPending(false),
+      reducedMotion ? 160 : 320,
+    );
+    return () => clearTimeout(timeout);
+  }, [
+    loginArrivalPending,
+    ready,
+    reducedMotion,
+    userId,
+    versionGate.updateRequired,
+  ]);
 
   React.useEffect(() => {
     if (userId && !ready) {
@@ -671,6 +719,24 @@ export default function IndexScreen() {
     });
   }, [userId]);
 
+  if (!userId || startingLoginTransition) {
+    return (
+      <>
+        <PushNotificationDialogHost />
+        <StatusBar
+          translucent
+          backgroundColor="transparent"
+          barStyle={statusBarStyle}
+        />
+        <Loguin
+          deferSessionRedirect
+          onLaunchComplete={handleLoginLaunchComplete}
+          reducedMotion={reducedMotion}
+        />
+      </>
+    );
+  }
+
   if (userId && !ready) {
     return (
       <>
@@ -723,7 +789,12 @@ export default function IndexScreen() {
           backgroundColor="transparent"
           barStyle={statusBarStyle}
         />
-        <CadeteNavigator />
+        <LoginArrivalScene
+          enabled={loginArrivalPending}
+          reducedMotion={reducedMotion}
+        >
+          <CadeteNavigator />
+        </LoginArrivalScene>
       </>
     );
   }
@@ -741,7 +812,12 @@ export default function IndexScreen() {
           backgroundColor="transparent"
           barStyle={statusBarStyle}
         />
-        <EmpresaNavigator />
+        <LoginArrivalScene
+          enabled={loginArrivalPending}
+          reducedMotion={reducedMotion}
+        >
+          <EmpresaNavigator />
+        </LoginArrivalScene>
       </>
     );
   }
@@ -755,7 +831,12 @@ export default function IndexScreen() {
           // backgroundColor="transparent"
           barStyle={statusBarStyle}
         />
-        <MenuPrincipal />
+        <LoginArrivalScene
+          enabled={loginArrivalPending}
+          reducedMotion={reducedMotion}
+        >
+          <MenuPrincipal />
+        </LoginArrivalScene>
       </>
     );
   }

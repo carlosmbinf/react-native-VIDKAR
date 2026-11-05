@@ -13,6 +13,10 @@ export function ServiceEntrance({ children, style }) {
   return <View style={style}>{children}</View>;
 }
 
+export function ServiceConversion({ children, style }) {
+  return <View style={style}>{children}</View>;
+}
+
 export function ServicePressable({ children, style, onPress, ...props }) {
   return (
     <Pressable

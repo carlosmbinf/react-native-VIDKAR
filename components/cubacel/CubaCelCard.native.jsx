@@ -5,7 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
     Animated,
     Dimensions,
-      Image,
+    Easing,
+    Image,
     ImageBackground,
     InteractionManager,
     Platform,
@@ -257,7 +258,9 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
   const [precioUYU, setPrecioUYU] = useState(null);
   const cardRef = useRef(null);
   const pressScale = useRef(new Animated.Value(1)).current;
+  const pressDepth = useRef(new Animated.Value(0)).current;
   const peekProgress = useRef(new Animated.Value(0)).current;
+  const conversionProgress = useRef(new Animated.Value(0)).current;
 
   const precioUSD = prices?.retail?.amount || "---";
   const windowWidth = Dimensions.get("window").width;
@@ -320,6 +323,7 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
       try {
         if (cancelled) return;
         setLoadingPrecios(true);
+        conversionProgress.setValue(0);
 
         const [cup, uyu] = await Promise.all([
           getCachedConvertedPrice(precioUSD, "CUP"),
@@ -334,6 +338,12 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
       } finally {
         if (!cancelled) {
           setLoadingPrecios(false);
+          Animated.timing(conversionProgress, {
+            duration: 720,
+            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            toValue: 1,
+            useNativeDriver: true,
+          }).start();
         }
       }
     };
@@ -346,30 +356,43 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
       cancelled = true;
       interactionTask?.cancel?.();
     };
-  }, [precioUSD]);
+  }, [conversionProgress, precioUSD]);
 
   const animatePressState = (pressed) => {
-    Animated.spring(pressScale, {
-      damping: 18,
-      mass: 0.8,
-      stiffness: 260,
-      toValue: pressed ? 0.985 : 1,
-      useNativeDriver: true,
-    }).start();
+    Animated.parallel([
+      Animated.timing(pressScale, {
+        duration: pressed ? 180 : 580,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+        toValue: pressed ? 0.945 : 1,
+        useNativeDriver: true,
+      }),
+      Animated.timing(pressDepth, {
+        duration: pressed ? 180 : 580,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+        toValue: pressed ? 1 : 0,
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
 
   const closePeek = (callback) => {
     Animated.parallel([
       Animated.timing(peekProgress, {
-        duration: 180,
+        duration: 520,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
         toValue: 0,
         useNativeDriver: true,
       }),
-      Animated.spring(pressScale, {
-        damping: 18,
-        mass: 0.8,
-        stiffness: 260,
+      Animated.timing(pressScale, {
+        duration: 540,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
         toValue: 1,
+        useNativeDriver: true,
+      }),
+      Animated.timing(pressDepth, {
+        duration: 540,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+        toValue: 0,
         useNativeDriver: true,
       }),
     ]).start(({ finished }) => {
@@ -419,15 +442,21 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
 
       Animated.parallel([
         Animated.timing(peekProgress, {
-          duration: 240,
+          duration: 640,
+          easing: Easing.bezier(0.16, 1, 0.3, 1),
           toValue: 1,
           useNativeDriver: true,
         }),
-        Animated.spring(pressScale, {
-          damping: 18,
-          mass: 0.8,
-          stiffness: 260,
+        Animated.timing(pressScale, {
+          duration: 560,
+          easing: Easing.bezier(0.16, 1, 0.3, 1),
           toValue: 1,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pressDepth, {
+          duration: 560,
+          easing: Easing.bezier(0.16, 1, 0.3, 1),
+          toValue: 0,
           useNativeDriver: true,
         }),
       ]).start();
@@ -469,6 +498,46 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
     inputRange: [0, 1],
     outputRange: [-18, 0],
   });
+
+  const pressTranslateY = pressDepth.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 4],
+  });
+
+  const pressRotateX = pressDepth.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "-2.5deg"],
+  });
+
+  const conversionOpacity = conversionProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.12, 1],
+  });
+
+  const conversionScale = conversionProgress.interpolate({
+    inputRange: [0, 0.65, 1],
+    outputRange: [0.84, 1.03, 1],
+  });
+
+  const conversionTranslateY = conversionProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [12, 0],
+  });
+
+  const conversionRotateX = conversionProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["14deg", "0deg"],
+  });
+
+  const conversionAnimatedStyle = {
+    opacity: conversionOpacity,
+    transform: [
+      { perspective: 900 },
+      { translateY: conversionTranslateY },
+      { scale: conversionScale },
+      { rotateX: conversionRotateX },
+    ],
+  };
 
   const renderCardVisual = ({ showPeekHint = false, overlayMode = false }) => (
     <Card
@@ -579,25 +648,35 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
 
                 <View style={styles.noPromoSecondaryPriceWrap}>
                   {!loadingPrecios && precioCUP !== null ? (
-                    <View style={styles.noPromoSecondaryPricePillBlue}>
+                    <Animated.View
+                      style={[
+                        styles.noPromoSecondaryPricePillBlue,
+                        conversionAnimatedStyle,
+                      ]}
+                    >
                       <Text
                         style={styles.noPromoSecondaryPriceText}
                         numberOfLines={1}
                       >
                         {toMoneyLabel(precioCUP, "CUP")}
                       </Text>
-                    </View>
+                    </Animated.View>
                   ) : null}
 
                   {!loadingPrecios && precioUYU !== null ? (
-                    <View style={styles.noPromoSecondaryPricePillOrange}>
+                    <Animated.View
+                      style={[
+                        styles.noPromoSecondaryPricePillOrange,
+                        conversionAnimatedStyle,
+                      ]}
+                    >
                       <Text
                         style={styles.noPromoSecondaryPriceText}
                         numberOfLines={1}
                       >
                         {toMoneyLabel(precioUYU, "UYU")}
                       </Text>
-                    </View>
+                    </Animated.View>
                   ) : null}
 
                   {loadingPrecios ? (
@@ -675,25 +754,35 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
 
                 <View style={styles.noPromoSecondaryPriceWrap}>
                   {!loadingPrecios && precioCUP !== null ? (
-                    <View style={styles.noPromoSecondaryPricePillBlue}>
+                    <Animated.View
+                      style={[
+                        styles.noPromoSecondaryPricePillBlue,
+                        conversionAnimatedStyle,
+                      ]}
+                    >
                       <Text
                         style={styles.noPromoSecondaryPriceText}
                         numberOfLines={1}
                       >
                         {toMoneyLabel(precioCUP, "CUP")}
                       </Text>
-                    </View>
+                    </Animated.View>
                   ) : null}
 
                   {!loadingPrecios && precioUYU !== null ? (
-                    <View style={styles.noPromoSecondaryPricePillOrange}>
+                    <Animated.View
+                      style={[
+                        styles.noPromoSecondaryPricePillOrange,
+                        conversionAnimatedStyle,
+                      ]}
+                    >
                       <Text
                         style={styles.noPromoSecondaryPriceText}
                         numberOfLines={1}
                       >
                         {toMoneyLabel(precioUYU, "UYU")}
                       </Text>
-                    </View>
+                    </Animated.View>
                   ) : null}
 
                   {loadingPrecios ? (
@@ -734,7 +823,12 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
             fullWidth ? styles.fullWidth : null,
             peekVisible ? styles.cardWrapperHidden : null,
             {
-              transform: [{ scale: pressScale }],
+              transform: [
+                { perspective: 1000 },
+                { translateY: pressTranslateY },
+                { scale: pressScale },
+                { rotateX: pressRotateX },
+              ],
             },
           ]}
         >

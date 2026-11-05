@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "react-native-reanimated": {
+      "source": "TerminalSkills/skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-native-reanimated/SKILL.md",
+      "computedHash": "6a26eebe90f499044c00b88c95ca91220cb3136730671c8455bfe28a2119b47f"
+    }
+  }
+}

@@ -4,8 +4,8 @@ import { usePathname, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
     Animated,
+    Easing,
     ImageBackground,
-    InteractionManager,
     Modal,
     PanResponder,
     Platform,
@@ -19,6 +19,7 @@ import {
   import { Chip, Portal, ProgressBar, Surface, Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import useSystemReducedMotion from "../../hooks/useSystemReducedMotion";
 import { getVisibleHomeServices } from "../../services/homeServices";
 import ComercioHomeOrdersSection from "../comercio/pedidos/ComercioHomeOrdersSection.native";
 import Productos from "../cubacel/Productos";
@@ -311,9 +312,63 @@ const MenuPrincipalScreen = ({
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const heroGlowPrimaryProgress = useRef(new Animated.Value(0)).current;
   const heroGlowSecondaryProgress = useRef(new Animated.Value(0)).current;
+  const reducedMotion = useSystemReducedMotion();
   const headerInset = useAppHeaderContentInset();
   const visibleHomeServices = getVisibleHomeServices(user?.serviciosInicio);
   const initialPathnameRef = useRef(pathname);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      heroGlowPrimaryProgress.stopAnimation();
+      heroGlowSecondaryProgress.stopAnimation();
+      heroGlowPrimaryProgress.setValue(0.35);
+      heroGlowSecondaryProgress.setValue(0.65);
+      return undefined;
+    }
+
+    const primaryPulse = Animated.sequence([
+      Animated.timing(heroGlowPrimaryProgress, {
+        toValue: 1,
+        duration: 920,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+        useNativeDriver: true,
+      }),
+      Animated.timing(heroGlowPrimaryProgress, {
+        toValue: 0.28,
+        duration: 860,
+        easing: Easing.bezier(0.22, 1, 0.36, 1),
+        useNativeDriver: true,
+      }),
+    ]);
+    const secondaryPulse = Animated.sequence([
+      Animated.timing(heroGlowSecondaryProgress, {
+        toValue: 1,
+        duration: 980,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+        useNativeDriver: true,
+      }),
+      Animated.timing(heroGlowSecondaryProgress, {
+        toValue: 0.42,
+        duration: 840,
+        easing: Easing.bezier(0.22, 1, 0.36, 1),
+        useNativeDriver: true,
+      }),
+    ]);
+
+    primaryPulse.start();
+    secondaryPulse.start();
+
+    return () => {
+      primaryPulse.stop();
+      secondaryPulse.stop();
+    };
+  }, [
+    heroGlowPrimaryProgress,
+    heroGlowSecondaryProgress,
+    normalHomeCatalogsLoading,
+    homeRefreshing,
+    reducedMotion,
+  ]);
 
   useEffect(() => {
     logMenuPrincipalDebug("screen:mounted", {
@@ -334,29 +389,46 @@ const MenuPrincipalScreen = ({
     }
 
     let mounted = true;
+    let frameId = null;
+    let timeoutId = null;
     const interactionScheduledAt =
       typeof performance?.now === "function" ? performance.now() : Date.now();
     logMenuPrincipalDebug("heavy-content:waiting-for-interactions", {
       pathname: initialPathnameRef.current,
     });
-    const interactionTask = InteractionManager.runAfterInteractions(() => {
-      if (mounted) {
-        hasPreparedHeavyContent = true;
-        const now =
-          typeof performance?.now === "function"
-            ? performance.now()
-            : Date.now();
-        logMenuPrincipalDebug("heavy-content:ready", {
-          elapsedMs: Number((now - interactionScheduledAt).toFixed(1)),
-          pathname: initialPathnameRef.current,
-        });
-        setHeavyContentReady(true);
+    const markHeavyContentReady = () => {
+      if (!mounted) {
+        return;
       }
-    });
+
+      hasPreparedHeavyContent = true;
+      const now =
+        typeof performance?.now === "function"
+          ? performance.now()
+          : Date.now();
+      logMenuPrincipalDebug("heavy-content:ready", {
+        elapsedMs: Number((now - interactionScheduledAt).toFixed(1)),
+        pathname: initialPathnameRef.current,
+      });
+      setHeavyContentReady(true);
+    };
+
+    if (typeof requestAnimationFrame === "function") {
+      frameId = requestAnimationFrame(() => {
+        timeoutId = setTimeout(markHeavyContentReady, 16);
+      });
+    } else {
+      timeoutId = setTimeout(markHeavyContentReady, 16);
+    }
 
     return () => {
       mounted = false;
-      interactionTask?.cancel?.();
+      if (frameId !== null && typeof cancelAnimationFrame === "function") {
+        cancelAnimationFrame(frameId);
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
   }, []);
 
@@ -374,15 +446,18 @@ const MenuPrincipalScreen = ({
 
     translateX.stopAnimation();
     overlayOpacity.stopAnimation();
+    const drawerDuration = reducedMotion ? 160 : drawerOpen ? 640 : 540;
     const animation = Animated.parallel([
       Animated.timing(translateX, {
         toValue: drawerOpen ? 0 : -DRAWER_WIDTH,
-        duration: drawerOpen ? 240 : 200,
+        duration: drawerDuration,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
         useNativeDriver: true,
       }),
       Animated.timing(overlayOpacity, {
         toValue: drawerOpen ? 1 : 0,
-        duration: drawerOpen ? 220 : 180,
+        duration: drawerDuration,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
         useNativeDriver: true,
       }),
     ]);
@@ -393,7 +468,7 @@ const MenuPrincipalScreen = ({
     });
 
     return () => animation.stop();
-  }, [drawerMounted, drawerOpen, overlayOpacity, translateX]);
+  }, [drawerMounted, drawerOpen, overlayOpacity, reducedMotion, translateX]);
 
   const openDrawer = () => {
     translateX.stopAnimation();
@@ -433,12 +508,14 @@ const MenuPrincipalScreen = ({
         Animated.parallel([
           Animated.timing(translateX, {
             toValue: shouldClose ? -DRAWER_WIDTH : 0,
-            duration: shouldClose ? 180 : 200,
+            duration: shouldClose ? 520 : 580,
+            easing: Easing.bezier(0.16, 1, 0.3, 1),
             useNativeDriver: true,
           }),
           Animated.timing(overlayOpacity, {
             toValue: shouldClose ? 0 : 1,
-            duration: shouldClose ? 160 : 180,
+            duration: shouldClose ? 500 : 560,
+            easing: Easing.bezier(0.16, 1, 0.3, 1),
             useNativeDriver: true,
           }),
         ]).start(({ finished }) => {
@@ -594,6 +671,11 @@ const MenuPrincipalScreen = ({
             }
           >
           {normalHomeCatalogsLoading || homeRefreshing ? (
+            <ServiceEntrance
+              delay={0}
+              duration={680}
+              conversionKey={`loading-${homeLoadProgress.completed}-${homeLoadProgress.total}`}
+            >
             <Surface elevation={2} style={styles.homeLoadingCard}>
               <View style={styles.homeLoadingHeader}>
                 <View style={styles.homeLoadingTitleGroup}>
@@ -621,9 +703,10 @@ const MenuPrincipalScreen = ({
                 {homeLoadProgress.completed} de {homeLoadProgress.total} bloques cargados
               </Text>
             </Surface>
+            </ServiceEntrance>
           ) : (
             <>
-          <ServiceEntrance variant="hero">
+          <ServiceEntrance delay={0} variant="hero">
           <Surface
             style={styles.heroCard}
             elevation={2}
@@ -830,15 +913,10 @@ const MenuPrincipalScreen = ({
                     </Text>
                   </View>
 
-                  <Pressable
+                  <ServicePressable
                     accessibilityRole="button"
                     onPress={onToggleModoEmpresa}
-                    style={({ pressed }) => [
-                      styles.empresaSuggestionActionButton,
-                      pressed
-                        ? styles.empresaSuggestionActionButtonPressed
-                        : null,
-                    ]}
+                    style={styles.empresaSuggestionActionButton}
                   >
                     <Text
                       variant="labelLarge"
@@ -853,7 +931,7 @@ const MenuPrincipalScreen = ({
                         size={18}
                       />
                     </View>
-                  </Pressable>
+                  </ServicePressable>
                 </View>
               </LinearGradient>
             </Surface>
@@ -1113,13 +1191,10 @@ const MenuPrincipalScreen = ({
                     </Text>
                   </View>
 
-                  <Pressable
+                  <ServicePressable
                     accessibilityRole="button"
                     onPress={onOpenPrices}
-                    style={({ pressed }) => [
-                      styles.priceSetupActionButton,
-                      pressed ? styles.priceSetupActionButtonPressed : null,
-                    ]}
+                    style={styles.priceSetupActionButton}
                   >
                     <Text
                       variant="labelLarge"
@@ -1134,7 +1209,7 @@ const MenuPrincipalScreen = ({
                         size={18}
                       />
                     </View>
-                  </Pressable>
+                  </ServicePressable>
                 </View>
               </LinearGradient>
             </Surface>
@@ -1142,7 +1217,10 @@ const MenuPrincipalScreen = ({
           ) : null}
 
           {showPendingEvidenceCard ? (
-            <ServiceEntrance delay={200}>
+            <ServiceEntrance
+              delay={200}
+              conversionKey={`evidence-${pendingEvidenceLoading ? "loading" : pendingEvidenceCount}`}
+            >
             <Surface
               style={styles.evidenceHubCard}
               elevation={2}
@@ -1258,7 +1336,10 @@ const MenuPrincipalScreen = ({
           ) : null}
 
           {showCashApprovalsCard ? (
-            <ServiceEntrance delay={250}>
+            <ServiceEntrance
+              delay={250}
+              conversionKey={`cash-${pendingCashApprovalsLoading ? "loading" : pendingCashApprovalsCount}`}
+            >
             <Surface
               style={styles.cashApprovalsCard}
               elevation={2}
@@ -1472,13 +1553,10 @@ const MenuPrincipalScreen = ({
                     </Text>
                   </View>
 
-                  <Pressable
+                  <ServicePressable
                     accessibilityRole="button"
                     onPress={onOpenCashApprovals}
-                    style={({ pressed }) => [
-                      styles.cashApprovalsActionButton,
-                      pressed ? styles.cashApprovalsActionButtonPressed : null,
-                    ]}
+                    style={styles.cashApprovalsActionButton}
                   >
                     <Text
                       variant="labelLarge"
@@ -1493,7 +1571,7 @@ const MenuPrincipalScreen = ({
                         size={18}
                       />
                     </View>
-                  </Pressable>
+                  </ServicePressable>
                 </View>
               </LinearGradient>
             </Surface>

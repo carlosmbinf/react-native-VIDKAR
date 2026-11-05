@@ -261,14 +261,17 @@ test("las entradas son visibles y movimiento reducido evita espera y desplazamie
     const motion = motionHarness(reduced);
     const tree = motion.ServiceEntrance({ delay: 60, variant: "hero" });
     const initialStyle = tree.props.style[1]();
-    assert.equal(initialStyle.opacity, reduced ? 1 : 0.7);
-    assert.equal(initialStyle.transform[0].translateY, reduced ? 0 : 16);
+    assert.equal(initialStyle.opacity, reduced ? 1 : 0.08);
+    assert.equal(initialStyle.transform[0].translateY, reduced ? 0 : 36);
+    assert.equal(initialStyle.transform[1].perspective, 1100);
+    assert.equal(initialStyle.transform[2].scale, reduced ? 1 : 0.88);
+    assert.equal(initialStyle.transform[3].rotateX, reduced ? "0deg" : "9deg");
     const cleanup = motion.effects[0]();
     await Promise.resolve();
     assert.equal(tree.props.style[1]().opacity, 1);
     assert.deepEqual(motion.delays, reduced ? [] : [60]);
     if (!reduced) {
-      assert.equal(motion.timings[0].duration, 300);
+      assert.equal(motion.timings[0].duration, 880);
       assert.equal(motion.timings[0].reduceMotion, "never");
     }
     cleanup();
