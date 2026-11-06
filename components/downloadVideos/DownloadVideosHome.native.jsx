@@ -1,7 +1,7 @@
 import MeteorBase from "@meteorrn/core";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import React from "react";
 import {
     Alert,
@@ -500,13 +500,15 @@ const MetaPill = ({ icon, label, palette, strong = false }) => (
 );
 
 export const MoviePosterCard = ({ movie, palette, onPress, compact }) => {
+  const zoomEnabled = Platform.OS === "ios";
   const imageUrl = getMovieImageUrl(movie?._id, "mid");
   const genres = normalizeGenres(movie?.clasificacion);
 
   return (
     <CinemaPosterPressable height={compact ? 222 : 238} accessibilityRole="button" accessibilityLabel={`Abrir ${getMovieTitle(movie)}`} onPress={() => onPress?.(movie)} style={styles.posterPressable}>
       <Surface style={[styles.posterCard, compact && styles.posterCardCompact, { backgroundColor: palette.surfaceElevated }]} elevation={1}>
-        <CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.posterImage} imageStyle={styles.posterImageStyle}>
+        {zoomEnabled ? <Link.AppleZoom><CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.posterImage} imageStyle={styles.posterImageStyle} /></Link.AppleZoom> : <CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.posterImage} imageStyle={styles.posterImageStyle} />}
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           <LinearGradient colors={["transparent", "rgba(0,0,0,0.16)", "rgba(0,0,0,0.92)"]} style={StyleSheet.absoluteFill} />
           <View style={styles.posterTopRow}>
             <View style={[styles.posterBadge, { backgroundColor: palette.accent }]}> 
@@ -527,7 +529,7 @@ export const MoviePosterCard = ({ movie, palette, onPress, compact }) => {
               {getMovieYear(movie)}{genres[0] ? `  |  ${genres[0]}` : ""}
             </Text>
           </View>
-        </CachedMovieImageBackground>
+        </View>
       </Surface>
     </CinemaPosterPressable>
   );
@@ -1164,21 +1166,9 @@ const DownloadVideosHome = ({ searchResultIds } = {}) => {
   }, [displayGenreOptions, displayMovies, searchQuery, selectedGenre]);
 
   const openMovieDetail = React.useCallback((movie) => {
-    detailOpenRef.current = true;
-    setDetailOpen(true);
-    setSelectedMovie(movie);
-    activeDetailMovieIdRef.current = movie._id;
-    const cachedMovieDetail = movieDetailsCacheRef.current.get(movie._id);
-
-    if (cachedMovieDetail) {
-      setMovieDetail(cachedMovieDetail);
-      setDetailLoading(false);
-      return;
-    }
-
-    setMovieDetail(movie);
-    setDetailLoading(false);
-  }, []);
+    if (!movie?._id) return;
+    router.push({ pathname: "/(normal)/PeliculaDetalle", params: { id: movie._id } });
+  }, [router]);
 
   React.useEffect(() => {
     if (!selectedMovie?._id || !detailOpen) {

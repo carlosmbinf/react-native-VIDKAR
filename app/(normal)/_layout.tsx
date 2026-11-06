@@ -23,6 +23,7 @@ export default function NormalLayout() {
       <Stack.Screen name="CampanasOfertas" />
       <Stack.Screen name="PeliculasVideos" options={cinemaOptions} />
       <Stack.Screen name="PeliculaPlayer" />
+      <Stack.Screen name="PeliculaDetalle" options={cinemaOptions} />
       <Stack.Screen name="Series" />
       <Stack.Screen name="SeriesDetail" options={{ animation: "slide_from_right" }} />
       <Stack.Screen name="SeriesPlayer" options={{ animation: "slide_from_right" }} />

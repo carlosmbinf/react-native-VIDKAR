@@ -99,26 +99,9 @@ export default function SeriesCatalog({ searchResultIds } = {}) {
   }, [connected, currentUser, currentUserId, router, userReady]);
 
   const openDetails = React.useCallback((item) => {
-    const requestId = ++detailRequestRef.current;
-    setSelected(item);
-    setDetail(item);
-    setSeasons([]);
-    setDetailLoading(true);
-    Promise.all([getSeriesSeasons(item._id), getSeries(item._id)])
-      .then(([nextSeasons, nextDetail]) => {
-        if (detailRequestRef.current !== requestId) return;
-        setSeasons(Array.isArray(nextSeasons) ? nextSeasons : []);
-        if (nextDetail) setDetail(nextDetail);
-      })
-      .catch((error) => {
-        if (detailRequestRef.current !== requestId) return;
-        console.warn("[Series] No se pudo cargar el detalle:", error);
-        Alert.alert("Series", error?.reason || error?.message || "No se pudo cargar la información de la serie.");
-      })
-      .finally(() => {
-        if (detailRequestRef.current === requestId) setDetailLoading(false);
-      });
-  }, []);
+    if (!item?._id) return;
+    router.push({ pathname: "/(normal)/SeriesDetail", params: { id: item._id } });
+  }, [router]);
 
   const goToDetail = React.useCallback((item) => {
     const target = item || detail || selected;

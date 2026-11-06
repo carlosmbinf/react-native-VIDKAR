@@ -168,6 +168,7 @@ export default function CoursesCatalog({ searchResultIds } = {}) {
   const [refreshing, setRefreshing] = React.useState(false);
   const [coursesError, setCoursesError] = React.useState("");
   const requestRef = React.useRef(0);
+  const hasLoadedCoursesRef = React.useRef(false);
   const revealedCategories = React.useRef(new Set());
   const palette = getCoursePalette(theme);
 
@@ -188,7 +189,7 @@ export default function CoursesCatalog({ searchResultIds } = {}) {
     }
 
     if (isRefresh) setRefreshing(true);
-    else setCoursesLoading(true);
+    else if (!hasLoadedCoursesRef.current) setCoursesLoading(true);
     const requestId = ++requestRef.current;
     setCoursesError("");
     try {
@@ -196,6 +197,7 @@ export default function CoursesCatalog({ searchResultIds } = {}) {
       if (requestRef.current !== requestId) return;
       const nextCourses = Array.isArray(result?.courses) ? result.courses : [];
       setCourses(nextCourses);
+      hasLoadedCoursesRef.current = true;
       syncCourseSpotlightIndex(nextCourses).catch((error) => {
         console.warn("[Spotlight] No se pudo sincronizar el catálogo de cursos:", error);
       });
@@ -300,7 +302,7 @@ export default function CoursesCatalog({ searchResultIds } = {}) {
       <LinearGradient colors={theme.dark ? ["rgba(8,47,73,0.42)", "transparent"] : ["rgba(165,243,252,0.48)", "transparent"]} style={styles.backgroundWash} />
       <AppHeader title="Cursos" subtitle="Aprende con profesores VIDKAR" showBackButton backHref="/(normal)/Main" overlapContent />
       {coursesError ? <Text accessibilityRole="alert" style={{ marginTop: headerInset }}>{coursesError}</Text> : null}
-      {coursesLoading || subscriptionsLoading ? (
+      {coursesLoading || (subscriptionsLoading && !hasLoadedCoursesRef.current) ? (
         <View style={[styles.loadingScreen, { marginTop: headerInset + 14 }]}>
           <ActivityIndicator color={palette.accent} size="large" />
           <Text style={[styles.loadingText, { color: palette.muted }]}>Cargando cursos...</Text>
