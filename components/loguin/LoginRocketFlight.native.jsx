@@ -18,7 +18,7 @@ export const LOGIN_ROCKET_REDUCED_DURATION_MS = 180;
 const EASE_OUT = Easing.bezier(0.16, 1, 0.3, 1);
 const EASE_ANTICIPATION = Easing.out(Easing.quad);
 const EASE_BOOST = Easing.bezier(0.22, 1, 0.36, 1);
-const EASE_EXIT = Easing.in(Easing.cubic);
+const EASE_FLIGHT = Easing.in(Easing.quad);
 
 function RocketIllustration({ isLaunching = false, reducedMotion = false }) {
   const flameBoost = useSharedValue(1);
@@ -191,97 +191,36 @@ export default function LoginRocketFlight({
       };
     }
 
-    const stage1Duration = Math.round(LOGIN_ROCKET_LAUNCH_DURATION_MS * 0.18);
-    const stage2Duration = Math.round(LOGIN_ROCKET_LAUNCH_DURATION_MS * 0.52);
-    const stage3Duration =
-      LOGIN_ROCKET_LAUNCH_DURATION_MS - stage1Duration - stage2Duration;
+    const fadeStart = Math.round(LOGIN_ROCKET_LAUNCH_DURATION_MS * 0.7);
+    const fadeDuration = LOGIN_ROCKET_LAUNCH_DURATION_MS - fadeStart;
+    const flightTiming = {
+      duration: LOGIN_ROCKET_LAUNCH_DURATION_MS,
+      easing: EASE_FLIGHT,
+      reduceMotion: ReduceMotion.Never,
+    };
 
     flightTranslateX.set(
-      withSequence(
-        withTiming(-4, {
-          duration: stage1Duration,
-          easing: EASE_ANTICIPATION,
-          reduceMotion: ReduceMotion.Never,
-        }),
-        withTiming(width * 0.12, {
-          duration: stage2Duration,
-          easing: EASE_BOOST,
-          reduceMotion: ReduceMotion.Never,
-        }),
-        withTiming(width * 0.42, {
-          duration: stage3Duration,
-          easing: EASE_EXIT,
-          reduceMotion: ReduceMotion.Never,
-        }),
-      ),
+      withTiming(width * 0.42, flightTiming),
     );
     flightTranslateY.set(
-      withSequence(
-        withTiming(8, {
-          duration: stage1Duration,
-          easing: EASE_ANTICIPATION,
-          reduceMotion: ReduceMotion.Never,
-        }),
-        withTiming(-height * 0.38, {
-          duration: stage2Duration,
-          easing: EASE_BOOST,
-          reduceMotion: ReduceMotion.Never,
-        }),
-        withTiming(-height * 1.25, {
-          duration: stage3Duration,
-          easing: EASE_EXIT,
-          reduceMotion: ReduceMotion.Never,
-        }),
-      ),
+      withTiming(-height * 1.25, flightTiming),
     );
     flightRotateDeg.set(
-      withSequence(
-        withTiming(-1, {
-          duration: stage1Duration,
-          easing: EASE_ANTICIPATION,
-          reduceMotion: ReduceMotion.Never,
-        }),
-        withTiming(3, {
-          duration: stage2Duration,
-          easing: EASE_BOOST,
-          reduceMotion: ReduceMotion.Never,
-        }),
-        withTiming(8, {
-          duration: stage3Duration,
-          easing: EASE_EXIT,
-          reduceMotion: ReduceMotion.Never,
-        }),
-      ),
+      withTiming(8, flightTiming),
     );
     flightScale.set(
-      withSequence(
-        withTiming(1, {
-          duration: stage1Duration,
-          easing: EASE_ANTICIPATION,
-          reduceMotion: ReduceMotion.Never,
-        }),
-        withTiming(0.9, {
-          duration: stage2Duration,
-          easing: EASE_BOOST,
-          reduceMotion: ReduceMotion.Never,
-        }),
-        withTiming(0.72, {
-          duration: stage3Duration,
-          easing: EASE_EXIT,
-          reduceMotion: ReduceMotion.Never,
-        }),
-      ),
+      withTiming(0.72, flightTiming),
     );
     flightOpacity.set(
       withSequence(
         withTiming(1, {
-          duration: stage1Duration + stage2Duration,
+          duration: fadeStart,
           easing: Easing.linear,
           reduceMotion: ReduceMotion.Never,
         }),
         withTiming(0, {
-          duration: stage3Duration,
-          easing: EASE_EXIT,
+          duration: fadeDuration,
+          easing: Easing.linear,
           reduceMotion: ReduceMotion.Never,
         }, notifyCompletion),
       ),
