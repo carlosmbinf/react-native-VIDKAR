@@ -294,11 +294,15 @@ export const loginScreenStyles = StyleSheet.create({
   },
   loginShell: {
     alignItems: "center",
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
     width: "100%",
+  },
+  loginScrollContent: {
+    flexGrow: 1,
+    paddingTop: 20,
   },
   loginShellCompact: {
     paddingVertical: 4,

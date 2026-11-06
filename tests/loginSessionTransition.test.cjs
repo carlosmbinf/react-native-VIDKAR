@@ -20,7 +20,12 @@ const compiled = ts.transpileModule(
 ).outputText;
 
 // Ejecuta Loguin real; los hijos son nodos observables, no vistas nativas.
-function sessionHarness(t, { platform = "ios", ...initialProps } = {}) {
+function sessionHarness(t, {
+  platform = "ios",
+  socialEnabled = false,
+  dimensions = { width: 390, height: 844 },
+  ...initialProps
+} = {}) {
   const hooks = [];
   const listeners = new Map();
   const frames = new Map();
@@ -109,7 +114,10 @@ function sessionHarness(t, { platform = "ios", ...initialProps } = {}) {
     react: { __esModule: true, default: React, ...React },
     "@expo/vector-icons/FontAwesome5": "FontAwesome5",
     "@meteorrn/core": Meteor,
-    "expo-apple-authentication": { isAvailableAsync: async () => false },
+    "expo-apple-authentication": {
+      isAvailableAsync: async () => socialEnabled,
+      addRevokeListener: () => ({ remove() {} }),
+    },
     "expo-blur": { BlurView: "BlurView" },
     "expo-web-browser": { openBrowserAsync: unexpected },
     "expo-router": { router: { replace: (target) => replacements.push(target) } },
@@ -130,8 +138,9 @@ function sessionHarness(t, { platform = "ios", ...initialProps } = {}) {
       KeyboardAvoidingView: "KeyboardAvoidingView",
       NativeModules: {},
       Platform: { OS: platform },
+      ScrollView: "ScrollView",
       StyleSheet: { create: (styles) => styles },
-      useWindowDimensions: () => ({ width: 390, height: 844 }),
+      useWindowDimensions: () => dimensions,
       View: "View",
     },
     "react-native-paper": {
@@ -152,7 +161,9 @@ function sessionHarness(t, { platform = "ios", ...initialProps } = {}) {
       registerPushTokenForActiveSession: unexpected,
     },
     "../../services/watch/watchDashboard": { WATCH_ROOT_USER_FIELDS: { _id: 1 } },
-    "../collections/collections": { ConfigCollection: { findOne: () => null } },
+    "../collections/collections": {
+      ConfigCollection: { findOne: () => socialEnabled ? { valor: "true" } : null },
+    },
     "../navigator/sessionRoute": {
       resolveSessionRoute(userId, user) {
         resolutions.push({ userId, user });
@@ -231,6 +242,61 @@ function sessionHarness(t, { platform = "ios", ...initialProps } = {}) {
     },
   };
 }
+
+function findNodes(node, predicate) {
+  if (Array.isArray(node)) return node.flatMap((child) => findNodes(child, predicate));
+  if (!node || typeof node !== "object") return [];
+  return [
+    ...(predicate(node) ? [node] : []),
+    ...findNodes(node.props?.children, predicate),
+  ];
+}
+
+test("el login horizontal conserva los accesos sociales y desplaza las credenciales con teclado", async (t) => {
+  const harness = sessionHarness(t, {
+    socialEnabled: true,
+    dimensions: { width: 844, height: 390 },
+  });
+  harness.render();
+  await new Promise((resolve) => setImmediate(resolve));
+  let tree = harness.render();
+  const buttons = () => findNodes(tree, (node) => node.type === "Button")
+    .map((node) => node.props.children.join(""));
+  assert.ok(buttons().includes("Entrar con Google"));
+  assert.ok(buttons().includes("Entrar con Apple"));
+
+  const scroll = findNodes(tree, (node) => node.type === "ScrollView")[0];
+  const credentials = findNodes(tree, (node) =>
+    node.type === "View" && node.props.ref && findNodes(node, (child) =>
+      child.type === "Button" && child.props.children.includes("Iniciar sesión")).length > 0,
+  )[0];
+  const username = findNodes(tree, (node) => node.type === "TextInput" && node.props.label === "Usuario")[0];
+  const usernameContainer = findNodes(credentials, (node) =>
+    node.type === "View" && node.props.ref && node.props.children.includes(username),
+  )[0];
+  const offsets = [];
+  scroll.props.ref.current = {
+    measureInWindow: (callback) => callback(0, 0, 390, 240),
+    scrollTo: ({ y }) => offsets.push(y),
+  };
+  credentials.props.ref.current = { measureInWindow: (callback) => callback(0, 200, 320, 180) };
+  usernameContainer.props.ref.current = { measureInWindow: (callback) => callback(0, 200, 320, 52) };
+  username.props.onFocus();
+  harness.keyboard("keyboardWillShow");
+  assert.equal(offsets.at(-1), 148);
+  tree = harness.render();
+  assert.ok(buttons().includes("Iniciar sesión"));
+  assert.ok(buttons().includes("Entrar con Google"));
+  assert.ok(buttons().includes("Entrar con Apple"));
+  const password = findNodes(tree, (node) => node.type === "TextInput" && node.props.label === "Contraseña")[0];
+  const passwordContainer = findNodes(tree, (node) =>
+    node.type === "View" && node.props.ref && node.props.children.includes(password),
+  )[0];
+  passwordContainer.props.ref.current = { measureInWindow: (callback) => callback(0, 300, 320, 52) };
+  scroll.props.ref.current.measureInWindow = (callback) => callback(0, 0, 390, 100);
+  password.props.onFocus();
+  assert.equal(offsets.at(-1), 260);
+});
 
 function authenticate(harness, loginRouteReady = true) {
   const user = { _id: "session-user-test" };
