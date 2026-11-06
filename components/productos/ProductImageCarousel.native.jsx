@@ -22,6 +22,8 @@ const normalizeImages = (value) => (Array.isArray(value) ? value : [])
 const ProductImageCarousel = ({
   fill = false,
   images: suppliedImages,
+  initialVisual,
+  onVisualChange,
   productId,
   resizeMode = "cover",
   showControls = true,
@@ -37,12 +39,15 @@ const ProductImageCarousel = ({
   const [activeIndex, setActiveIndex] = useState(0);
   const listRef = useRef(null);
   const targetIndexRef = useRef(0);
+  const initialUrlRef = useRef(initialVisual?.url || null);
+  const initialFailedRef = useRef(Boolean(initialVisual?.failed));
   const images = useMemo(
     () => normalizeImages(suppliedImages || remoteImages),
     [remoteImages, suppliedImages],
   );
   const pageWidth = frameWidth || (fill ? windowWidth : size);
-  const imagesKey = JSON.stringify(images.map((image) => image.url));
+  const imagesKey = JSON.stringify(images);
+  const imageKeys = useMemo(() => JSON.parse(imagesKey), [imagesKey]);
   const frameStyle = fill
     ? [StyleSheet.absoluteFill, styles.frame, style]
     : [styles.frame, { height: size, width: size }, style];
@@ -90,11 +95,24 @@ const ProductImageCarousel = ({
   }, [productId, suppliedImages]);
 
   useEffect(() => {
-    setActiveIndex(0);
-    targetIndexRef.current = 0;
-    setFailedIds({});
-    listRef.current?.scrollTo({ x: 0, animated: false });
-  }, [imagesKey, pageWidth, productId]);
+    const initialIndex = Math.max(0, imageKeys.findIndex((image) => image.url === initialUrlRef.current));
+    setActiveIndex(initialIndex);
+    targetIndexRef.current = initialIndex;
+    setFailedIds(initialFailedRef.current && imageKeys[initialIndex]?.url === initialUrlRef.current
+      ? { [imageKeys[initialIndex].id]: true }
+      : {});
+    listRef.current?.scrollTo({ x: initialIndex * pageWidth, animated: false });
+  }, [imageKeys, pageWidth, productId]);
+
+  useEffect(() => {
+    if (!onVisualChange) return;
+    const image = images[activeIndex];
+    onVisualChange({
+      url: image?.url || null,
+      failed: Boolean(image && failedIds[image.id]),
+      loading,
+    });
+  }, [activeIndex, failedIds, images, loading, onVisualChange]);
 
   const moveTo = (nextIndex) => {
     if (images.length < 2 || !pageWidth) return;
@@ -137,7 +155,13 @@ const ProductImageCarousel = ({
       }}
       style={frameStyle}
     >
-      {loading ? (
+      {loading && initialVisual?.url && !initialVisual.failed ? (
+        <Image accessibilityLabel="Imagen del producto" resizeMode={resizeMode} source={{ uri: initialVisual.url }} style={styles.image} />
+      ) : loading && initialVisual && !initialVisual.loading ? (
+        <View style={[styles.placeholder, { backgroundColor: theme.colors.surfaceVariant || theme.colors.surface }]}>
+          <Text style={{ color: theme.colors.onSurfaceVariant }} variant="labelSmall">{initialVisual.failed ? "Imagen no disponible" : "Sin imagen"}</Text>
+        </View>
+      ) : loading ? (
         <View style={[styles.placeholder, { backgroundColor: theme.colors.surfaceVariant || theme.colors.surface }]}>
           <ActivityIndicator size="small" />
         </View>

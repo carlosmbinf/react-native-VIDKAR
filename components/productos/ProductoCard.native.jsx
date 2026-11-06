@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useCallback, useRef } from "react";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Link, useRouter } from "expo-router";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { Surface, Text, useTheme } from "react-native-paper";
 
+import useSystemReducedMotion from "../../hooks/useSystemReducedMotion";
 import { ServicePressable } from "../motion/ServiceMotion";
-import AddToCartDialog from "./AddToCartDialog";
+import { saveCommerceZoomSnapshot } from "./commerceZoomSnapshot";
 import ProductImageCarousel from "./ProductImageCarousel";
 
 const ProductoCardNative = ({
@@ -18,8 +20,13 @@ const ProductoCardNative = ({
   tienda,
 }) => {
   const theme = useTheme();
-  const [dialogVisible, setDialogVisible] = useState(false);
+  const router = useRouter();
+  const reducedMotion = useSystemReducedMotion();
+  const zoomEnabled = !onPress && Platform.OS === "ios" && parseInt(String(Platform.Version), 10) >= 18 && !reducedMotion;
+  const visualRef = useRef({ url: null, failed: false, loading: true });
+  const handleVisualChange = useCallback((visual) => { visualRef.current = visual; }, []);
   const CardPressable = motionEnabled ? ServicePressable : Pressable;
+  const href = { pathname: "/(normal)/ProductoComercio", params: { productId: producto._id } };
 
   const estaDisponible = producto.productoDeElaboracion || producto.count > 0;
   const precioFormateado = `${Number(producto.precio || 0).toFixed(2)} ${producto.monedaPrecio || "USD"}`;
@@ -42,14 +49,23 @@ const ProductoCardNative = ({
     );
   };
 
-  return (
-    <>
+  const gallery = (
+    <ProductImageCarousel
+      images={images}
+      onVisualChange={handleVisualChange}
+      productId={producto._id}
+      resizeMode="cover"
+      size={180}
+      style={styles.imageCarousel}
+    />
+  );
+  const card = (
       <CardPressable
         accessibilityLabel={`Ver detalles de ${producto.name || "producto"}`}
         accessibilityRole="button"
         android_ripple={{ color: "rgba(0, 0, 0, 0.1)" }}
-        onPress={onPress || (() => setDialogVisible(true))}
-        style={[styles.cardContainer, containerStyle]}
+        onPress={zoomEnabled ? undefined : onPress || (() => router.push(href))}
+        style={StyleSheet.flatten([styles.cardContainer, containerStyle])}
       >
         <View style={[styles.cardInner, innerStyle]}>
           <Surface
@@ -57,13 +73,7 @@ const ProductoCardNative = ({
             style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}
           >
             <View style={styles.imageContainer}>
-              <ProductImageCarousel
-                images={images}
-                productId={producto._id}
-                resizeMode="cover"
-                size={180}
-                style={styles.imageCarousel}
-              />
+              {zoomEnabled ? <Link.AppleZoom><View collapsable={false} style={styles.imageCarousel}>{gallery}</View></Link.AppleZoom> : gallery}
 
               {producto.productoDeElaboracion || producto.count <= 5 ? (
                 <View pointerEvents="none" style={styles.stockBadge}>
@@ -113,15 +123,12 @@ const ProductoCardNative = ({
           </Surface>
         </View>
       </CardPressable>
-
-      {!onPress ? <AddToCartDialog
-        onDismiss={() => setDialogVisible(false)}
-        producto={producto}
-        tienda={tienda}
-        visible={dialogVisible}
-      /> : null}
-    </>
   );
+  return zoomEnabled ? (
+    <Link href={href} asChild push onPress={() => saveCommerceZoomSnapshot(producto._id, visualRef.current)}>
+      <Link.Trigger>{card}</Link.Trigger>
+    </Link>
+  ) : card;
 };
 
 const styles = StyleSheet.create({

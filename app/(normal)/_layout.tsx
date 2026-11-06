@@ -36,6 +36,7 @@ export default function NormalLayout() {
       <Stack.Screen name="EmpresaWelcome" />
       <Stack.Screen name="ProductosCubacelCards" />
       <Stack.Screen name="CubacelOferta" />
+      <Stack.Screen name="ProductoComercio" />
       <Stack.Screen name="ProxyPackages" />
       <Stack.Screen name="ProxyPurchase" />
       <Stack.Screen name="VPNPackages" />

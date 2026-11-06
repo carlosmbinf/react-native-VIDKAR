@@ -1,17 +1,23 @@
 import MeteorBase from "@meteorrn/core";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ScreenOrientation from "expo-screen-orientation";
 import * as SecureStore from "expo-secure-store";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { Alert, Image, Modal as NativeModal, Platform, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, View } from "react-native";
+import { Alert, Modal as NativeModal, Platform, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Button, Divider, Icon, IconButton, Surface, Text, useTheme } from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import useSystemReducedMotion from "../../hooks/useSystemReducedMotion";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { SuscripcionesCursoCollection } from "../collections/collections";
 import { getHlsServerUrl } from "../../services/meteor/client.native";
 import { ServiceEntrance, ServiceMotionProvider, ServiceScrollViewport } from "../motion/ServiceMotion";
 import AirPlayVideoPlayer from "../shared/AirPlayVideoPlayer.native";
+import useSafeBack from "../navigation/useSafeBack";
+import CourseCover from "./CourseCover.native";
+import { clearCourseZoomSnapshot, getCourseZoomSnapshot } from "./courseZoomSnapshot";
 
 const { VLCPlayer } = require("react-native-vlc-media-player");
 const Meteor = MeteorBase;
@@ -367,6 +373,10 @@ export default function CourseDetail() {
   const router = useRouter();
   const { courseId, lessonId: requestedLessonId } = useLocalSearchParams();
   const headerInset = useAppHeaderContentInset();
+  const insets = useSafeAreaInsets();
+  const safeBack = useSafeBack("/(normal)/Cursos");
+  const reducedMotion = useSystemReducedMotion();
+  const zoomEnabled = Platform.OS === "ios" && parseInt(String(Platform.Version), 10) >= 18 && !reducedMotion;
   const [working, setWorking] = React.useState(false);
   const [player, setPlayer] = React.useState(null);
   const [accessCheck, setAccessCheck] = React.useState(null);
@@ -374,10 +384,15 @@ export default function CourseDetail() {
   const [lessons, setLessons] = React.useState([]);
   const [courseLoading, setCourseLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [courseError, setCourseError] = React.useState("");
+  const [footerHeight, setFooterHeight] = React.useState(0);
+  const [failedCoverUrl, setFailedCoverUrl] = React.useState(null);
   const normalizedCourseId = Array.isArray(courseId) ? courseId[0] : courseId;
+  const [zoomSnapshot] = React.useState(() => zoomEnabled ? getCourseZoomSnapshot(normalizedCourseId) : null);
   const currentUserId = Meteor.userId();
   const normalizedRequestedLessonId = Array.isArray(requestedLessonId) ? requestedLessonId[0] : requestedLessonId;
   const startedDeepLinkLessonRef = React.useRef(null);
+  const courseRequestRef = React.useRef(0);
   const palette = {
     accent: theme.dark ? "#67e8f9" : "#0e7490",
     background: theme.dark ? "#071018" : "#edf5f7",
@@ -389,7 +404,7 @@ export default function CourseDetail() {
   };
 
   const { subscription, subscriptionLoading } = Meteor.useTracker(() => {
-    if (!normalizedCourseId || !currentUserId) return { subscription: null, subscriptionLoading: true };
+    if (!normalizedCourseId || !currentUserId) return { subscription: null, subscriptionLoading: Boolean(normalizedCourseId) };
     const subscriptions = Meteor.subscribe("cursos.suscripciones.propias");
     return {
       subscription: SuscripcionesCursoCollection.findOne({ cursoId: normalizedCourseId, userId: currentUserId }),
@@ -398,6 +413,7 @@ export default function CourseDetail() {
   }, [currentUserId, normalizedCourseId]);
 
   const loadCourseDetail = React.useCallback(async (isRefresh = false) => {
+    const requestId = ++courseRequestRef.current;
     if (!normalizedCourseId || !currentUserId) {
       setCourse(null);
       setLessons([]);
@@ -407,29 +423,42 @@ export default function CourseDetail() {
 
     if (isRefresh) setRefreshing(true);
     else setCourseLoading(true);
+    setCourseError("");
     try {
       const result = await callMethod("cursos.detalle.obtener", normalizedCourseId);
+      if (courseRequestRef.current !== requestId) return;
       setCourse(result?.course || null);
       setLessons(Array.isArray(result?.lessons) ? result.lessons : []);
-    } catch (_error) {
+    } catch (error) {
+      if (courseRequestRef.current !== requestId) return;
+      console.warn("[Cursos] No se pudo cargar el detalle:", error);
+      setCourseError(error?.reason || error?.message || "No se pudo cargar el curso.");
       if (!isRefresh) {
         setCourse(null);
         setLessons([]);
       }
     } finally {
-      if (isRefresh) setRefreshing(false);
-      else setCourseLoading(false);
+      if (courseRequestRef.current === requestId) {
+        if (isRefresh) setRefreshing(false);
+        else setCourseLoading(false);
+      }
     }
   }, [currentUserId, normalizedCourseId]);
 
   React.useEffect(() => {
     loadCourseDetail();
+    return () => { courseRequestRef.current += 1; };
   }, [loadCourseDetail]);
 
+  React.useEffect(() => {
+    clearCourseZoomSnapshot(zoomSnapshot);
+  }, [zoomSnapshot]);
+
+  const currentCourse = course?._id === normalizedCourseId ? course : null;
   const data = {
-    course,
-    lessons,
-    loading: courseLoading || subscriptionLoading,
+    course: currentCourse,
+    lessons: currentCourse ? lessons : [],
+    loading: courseLoading || subscriptionLoading || Boolean(course && !currentCourse),
     subscription,
   };
 
@@ -440,7 +469,7 @@ export default function CourseDetail() {
   }, [data.course]);
 
   const currentUser = Meteor.user();
-  const isOwner = data.course?.profesorId === Meteor.userId();
+  const isOwner = Boolean(data.course && data.course.profesorId === Meteor.userId());
   const isManager = data.course && (
     isOwner ||
     currentUser?.username === "carlosmbinf" ||
@@ -542,7 +571,12 @@ export default function CourseDetail() {
     setPlayer(null);
   };
 
-  if (data.loading && !data.course) {
+  const visualSnapshot = zoomSnapshot?.courseId === normalizedCourseId ? zoomSnapshot.visual : null;
+  const coverUrl = data.course ? data.course.portadaUrl : visualSnapshot?.url;
+  const coverInitial = data.course ? data.course.titulo?.slice(0, 1)?.toUpperCase() || "C" : visualSnapshot?.initial;
+  const coverFailed = Boolean(coverUrl && (failedCoverUrl === coverUrl || (visualSnapshot?.url === coverUrl && visualSnapshot.failed)));
+
+  if (data.loading && !data.course && !visualSnapshot) {
     return (
       <View style={[styles.root, { backgroundColor: palette.background }]}>
         <AppHeader title="Detalle del curso" showBackButton backHref="/(normal)/Cursos" showBottomBorder={false} />
@@ -553,41 +587,56 @@ export default function CourseDetail() {
       </View>
     );
   }
-  if (!data.course) {
-    return <View style={[styles.center, { backgroundColor: palette.background }]}><Text>Curso no encontrado.</Text></View>;
+  if (!data.course && !data.loading) {
+    return (
+      <View style={[styles.root, { backgroundColor: palette.background }]}>
+        <AppHeader title="Detalle del curso" showBackButton backHref="/(normal)/Cursos" overlapContent />
+        <View style={[styles.center, { paddingTop: headerInset, gap: 12 }]}>
+          <Text accessibilityRole={courseError ? "alert" : undefined}>{courseError || "Curso no encontrado."}</Text>
+          {courseError ? <Button onPress={() => loadCourseDetail()}>Reintentar</Button> : null}
+          <Button onPress={safeBack}>Volver</Button>
+        </View>
+      </View>
+    );
   }
+
+  const hero = (
+    <View style={styles.hero}>
+      <CourseCover failed={coverFailed} initial={coverInitial} onError={() => setFailedCoverUrl(coverUrl)} url={coverUrl} />
+    </View>
+  );
+  const showSubscribe = data.course && !data.loading && !isManager && !hasAccess && accessCheck !== null;
 
   return (
     <View style={[styles.root, { backgroundColor: palette.background }]}>
       {!player?.url ? (
-        <AppHeader title="Detalle del curso" subtitle={data.course.profesorNombre} showBackButton backHref="/(normal)/Cursos" overlapContent showBottomBorder={false} />
+        <AppHeader title="Detalle del curso" subtitle={data.course?.profesorNombre} showBackButton backHref="/(normal)/Cursos" overlapContent showBottomBorder={false} />
       ) : null}
       <ServiceMotionProvider>
-      <ServiceScrollViewport topInset={headerInset}>
+      <ServiceScrollViewport topInset={headerInset} bottomInset={player?.url ? 0 : footerHeight}>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: headerInset }]}
+        bounces={false}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.content, { paddingBottom: footerHeight + 20 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadCourseDetail(true)} />}
       >
-        <ServiceEntrance variant="hero">
-        <View style={[styles.hero, { borderColor: palette.border }]}>
-          {data.course.portadaUrl ? <Image source={{ uri: data.course.portadaUrl }} style={styles.cover} /> : <LinearGradient colors={theme.dark ? ["#113344", "#172554", "#3b2a0d"] : ["#cffafe", "#dbeafe", "#fef3c7"]} style={styles.coverFallback}><Icon source="book-education-outline" color={palette.accent} size={72} /></LinearGradient>}
-          <LinearGradient colors={["rgba(2,8,13,0.02)", "rgba(2,8,13,0.32)", "rgba(2,8,13,0.94)"]} locations={[0, 0.46, 1]} style={StyleSheet.absoluteFill} />
-          <View style={styles.heroContent}>
-            <View style={styles.tagRow}>
-              <View style={styles.heroTag}><Icon source="shape-outline" color="#ffffff" size={14} /><Text style={styles.heroTagText}>{data.course.categoria}</Text></View>
-              <View style={styles.heroTag}><Icon source="signal" color="#ffffff" size={14} /><Text style={styles.heroTagText}>{data.course.nivel}</Text></View>
-            </View>
-            <Text variant="headlineMedium" style={styles.heroTitle}>{data.course.titulo}</Text>
-            <View style={styles.professorRow}><View style={styles.professorAvatar}><Text style={styles.professorInitial}>{data.course.profesorNombre?.slice(0, 1)?.toUpperCase() || "V"}</Text></View><View><Text style={styles.professorLabel}>Impartido por</Text><Text style={styles.professorName}>{data.course.profesorNombre}</Text></View></View>
-          </View>
-        </View>
-        </ServiceEntrance>
-
-        <ServiceEntrance delay={50} style={styles.titleBlock} variant="section">
+        {zoomEnabled ? <Link.AppleZoomTarget>{hero}</Link.AppleZoomTarget> : hero}
+        {data.course ? (
+        <>
+        <View style={[styles.summaryCard, { backgroundColor: palette.card, borderColor: palette.border }]}>
+        <ServiceEntrance delay={50} variant="section">
+          <Text variant="headlineSmall" style={[styles.summaryTitle, { color: palette.text }]}>{data.course.titulo}</Text>
+          <Text style={{ color: palette.muted }}>{data.course.profesorNombre || (data.course.profesorUsername ? `@${data.course.profesorUsername}` : "Profesor VIDKAR")}</Text>
+          <Text style={[styles.summaryMeta, { color: palette.accent }]}>{[data.course.categoria, data.course.nivel].filter(Boolean).join(" · ")}</Text>
           <Text style={[styles.sectionEyebrow, { color: palette.accent }]}>SOBRE ESTE CURSO</Text>
           <Text style={[styles.description, { color: palette.muted }]}>{data.course.descripcion}</Text>
         </ServiceEntrance>
+        </View>
 
+        <View style={styles.body}>
+        {courseError ? <Text accessibilityRole="alert" style={{ color: theme.colors.error, marginTop: 16 }}>{courseError}</Text> : null}
         {!isManager ? (
           <ServiceEntrance delay={100} variant="section">
           <LinearGradient colors={active ? (theme.dark ? ["#0d2c24", "#10271f"] : ["#e6f8ee", "#ffffff"]) : (theme.dark ? ["#102b3a", "#211d0e"] : ["#e0f4fb", "#fff7df"])} style={[styles.subscriptionPanel, { borderColor: palette.border }]}>
@@ -602,11 +651,6 @@ export default function CourseDetail() {
               </Text>
               {!hasAccess ? <View style={styles.priceRow}><Text style={[styles.detailPrice, { color: palette.primary }]}>{Number(data.course.precioMensual).toFixed(2)}</Text><View><Text style={[styles.currency, { color: palette.text }]}>{data.course.moneda}</Text><Text style={[styles.pricePeriod, { color: palette.muted }]}>por mes</Text></View></View> : null}
             </View>
-            {!hasAccess && accessCheck !== null ? (
-              <Button mode="contained" contentStyle={styles.subscribeButtonContent} icon={data.subscription ? "calendar-refresh" : "cart-plus"} onPress={addToCart} loading={working} disabled={working}>
-                {data.subscription ? "Renovar" : "Suscribirme"}
-              </Button>
-            ) : null}
           </LinearGradient>
           </ServiceEntrance>
         ) : null}
@@ -633,9 +677,29 @@ export default function CourseDetail() {
           {data.lessons.length === 0 ? <Text style={[styles.empty, { color: palette.muted }]}>Aún no hay clases publicadas.</Text> : null}
         </Surface>
         </ServiceEntrance>
+        </View>
+        </>
+        ) : <View style={styles.loadingScreen}><ActivityIndicator color={palette.accent} size="large" /><Text style={{ color: palette.muted }}>Cargando curso...</Text></View>}
       </ScrollView>
       </ServiceScrollViewport>
       </ServiceMotionProvider>
+
+      {data.course && !player?.url ? (
+        <View
+          onLayout={({ nativeEvent }) => setFooterHeight(nativeEvent.layout.height)}
+          style={[styles.footer, { backgroundColor: palette.card, borderColor: palette.border, paddingBottom: Math.max(insets.bottom, 18) }]}
+        >
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            <BlurView intensity={22} tint={theme.dark ? "dark" : "light"} style={StyleSheet.absoluteFill} />
+          </View>
+          <Button mode="outlined" disabled={working} onPress={safeBack} style={styles.footerButton}>Volver</Button>
+          {showSubscribe ? (
+            <Button mode="contained" contentStyle={styles.subscribeButtonContent} icon={data.subscription ? "calendar-refresh" : "cart-plus"} onPress={addToCart} loading={working} disabled={working} style={styles.footerButton}>
+              {data.subscription ? "Renovar" : "Suscribirme"}
+            </Button>
+          ) : null}
+        </View>
+      ) : null}
 
       {player?.url ? (
         <CourseVideoPlayer
@@ -658,8 +722,17 @@ export default function CourseDetail() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 }, center: { alignItems: "center", flex: 1, justifyContent: "center" },
-  content: { padding: 16, paddingBottom: 40 }, hero: { aspectRatio: 16 / 10, borderRadius: 8, borderWidth: 1, overflow: "hidden", position: "relative", width: "100%" }, cover: { height: "100%", width: "100%" }, coverFallback: { alignItems: "center", height: "100%", justifyContent: "center", width: "100%" }, heroContent: { bottom: 0, gap: 9, left: 0, padding: 18, position: "absolute", right: 0 }, tagRow: { flexDirection: "row", gap: 7 }, heroTag: { alignItems: "center", backgroundColor: "rgba(255,255,255,0.13)", borderColor: "rgba(255,255,255,0.18)", borderRadius: 6, borderWidth: 1, flexDirection: "row", gap: 5, paddingHorizontal: 8, paddingVertical: 5 }, heroTagText: { color: "#ffffff", fontSize: 10, fontWeight: "800" }, heroTitle: { color: "#ffffff", fontWeight: "900", lineHeight: 34 }, professorRow: { alignItems: "center", flexDirection: "row", gap: 9 }, professorAvatar: { alignItems: "center", backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 8, height: 34, justifyContent: "center", width: 34 }, professorInitial: { color: "#ffffff", fontWeight: "900" }, professorLabel: { color: "rgba(255,255,255,0.62)", fontSize: 9 }, professorName: { color: "#ffffff", fontSize: 12, fontWeight: "800" },
-  titleBlock: { gap: 7, paddingTop: 19 }, sectionEyebrow: { fontSize: 10, fontWeight: "900" }, description: { fontSize: 15, lineHeight: 23 },
+  content: { paddingBottom: 40 },
+  hero: { height: 320, borderBottomLeftRadius: 28, borderBottomRightRadius: 28, overflow: "hidden", width: "100%" },
+  summaryCard: { borderRadius: 20, borderWidth: 1, marginHorizontal: 16, marginTop: -30, padding: 18, zIndex: 1 },
+  summaryTitle: { fontWeight: "900", marginBottom: 4 },
+  summaryMeta: { fontWeight: "700", marginBottom: 16, marginTop: 8 },
+  body: { paddingHorizontal: 16 },
+  loadingScreen: { alignItems: "center", justifyContent: "center", padding: 28, gap: 12, flex: 1 },
+  loadingText: { textAlign: "center" },
+  footer: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
+  footerButton: { flex: 1, borderRadius: 999 },
+  sectionEyebrow: { fontSize: 10, fontWeight: "900" }, description: { fontSize: 15, lineHeight: 23 },
   subscriptionPanel: { alignItems: "center", borderRadius: 8, borderWidth: 1, flexDirection: "row", gap: 12, marginTop: 20, padding: 16 },
   subscriptionCopy: { flex: 1, gap: 6 }, subscriptionLabelRow: { alignItems: "center", flexDirection: "row", gap: 7 }, subscriptionLabel: { fontSize: 16, fontWeight: "900" }, priceRow: { alignItems: "center", flexDirection: "row", gap: 7, marginTop: 4 }, detailPrice: { fontSize: 27, fontWeight: "900" }, currency: { fontSize: 12, fontWeight: "900" }, pricePeriod: { fontSize: 9 }, subscribeButtonContent: { minHeight: 44 }, sectionHeader: { alignItems: "flex-end", flexDirection: "row", justifyContent: "space-between", marginBottom: 10, marginTop: 28 },
   sectionTitle: { fontWeight: "850" }, classCount: { borderRadius: 6, paddingHorizontal: 9, paddingVertical: 6 }, classCountText: { fontSize: 11, fontWeight: "800" }, lessonList: { borderRadius: 8, borderWidth: 1, overflow: "hidden" },

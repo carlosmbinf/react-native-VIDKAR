@@ -106,6 +106,14 @@ function createHarness() {
       }
       return memo.value;
     },
+    useCallback(callback, deps) {
+      const memo = slot("callback", () => ({}));
+      if (!sameDeps(memo.deps, deps)) {
+        memo.value = callback;
+        memo.deps = deps?.slice();
+      }
+      return memo.value;
+    },
     useEffect(effect, deps) {
       const state = slot("effect", () => ({}));
       if (!sameDeps(state.deps, deps)) {
@@ -177,7 +185,14 @@ const theme = { colors: {
 } };
 const native = {
   Image: "Image", ScrollView: "ScrollView", View: "View", Pressable: "Pressable",
-  StyleSheet: { create: (styles) => styles, hairlineWidth: 1, absoluteFill: {} },
+  StyleSheet: {
+    create: (styles) => styles,
+    flatten: (style) => Array.isArray(style)
+      ? Object.assign({}, ...style.filter(Boolean).map((value) => native.StyleSheet.flatten(value)))
+      : style,
+    hairlineWidth: 1,
+    absoluteFill: {},
+  },
   useWindowDimensions: () => ({ width: 390 }),
 };
 const paper = {
@@ -424,17 +439,22 @@ test("galería vacía, sin producto o imágenes provistas no consulta Meteor", (
   }
 });
 
-function cardFixture(extraProps = {}) {
+function cardFixture(extraProps = {}, { platform = "android", version = 18, reducedMotion = false } = {}) {
   const h = createHarness();
+  const pushes = [];
+  const snapshots = [];
+  const Link = Object.assign(function Link() {}, { Trigger: "Link.Trigger", AppleZoom: "Link.AppleZoom" });
   const component = load("components/productos/ProductoCard.native.jsx", {
-    react: h.React, "react-native": native, "react-native-paper": paper,
+    react: h.React, "react-native": { ...native, Platform: { OS: platform, Version: version } }, "react-native-paper": paper,
+    "expo-router": { Link, useRouter: () => ({ push: (href) => pushes.push(href) }) },
     "@expo/vector-icons/MaterialCommunityIcons": "MaterialCommunityIcons",
+    "../../hooks/useSystemReducedMotion": () => reducedMotion,
     "../motion/ServiceMotion": { ServicePressable: "Pressable" },
-    "./AddToCartDialog": "AddToCartDialog",
+    "./commerceZoomSnapshot": { saveCommerceZoomSnapshot: (id, visual) => snapshots.push({ id, visual }) },
     "./ProductImageCarousel": "ProductImageCarousel",
   });
   h.mount(component, { producto: product, tienda: store, ...extraProps });
-  return h;
+  return Object.assign(h, { Link, pushes, snapshots });
 }
 
 test("tarjeta respeta onPress custom sin montar drawer/carrito", () => {
@@ -449,16 +469,195 @@ test("tarjeta respeta onPress custom sin montar drawer/carrito", () => {
   assert.equal(byType(h.tree, "AddToCartDialog").length, 0);
 });
 
-test("tarjeta abre carrito por defecto y onDismiss vuelve a ocultarlo", () => {
+test("tarjeta navega al detalle por defecto sin abrir el drawer", () => {
   const h = cardFixture();
-  assert.equal(only(h.tree, "AddToCartDialog").props.visible, false);
   h.act(() => only(h.tree, "Pressable").props.onPress());
-  const dialog = only(h.tree, "AddToCartDialog");
-  assert.equal(dialog.props.visible, true);
-  assert.equal(dialog.props.producto, product);
-  assert.equal(dialog.props.tienda, store);
-  h.act(() => dialog.props.onDismiss());
-  assert.equal(only(h.tree, "AddToCartDialog").props.visible, false);
+  assert.equal(h.pushes.length, 1);
+  assert.equal(h.pushes[0].pathname, "/(normal)/ProductoComercio");
+  assert.equal(h.pushes[0].params.productId, product._id);
+  assert.equal(byType(h.tree, "AddToCartDialog").length, 0);
+});
+
+test("iOS compatible guarda la imagen visible y usa zoom solo en la galería", () => {
+  const h = cardFixture({}, { platform: "ios" });
+  const visual = { url: urls[1], failed: false, loading: false };
+  only(h.tree, "ProductImageCarousel").props.onVisualChange(visual);
+  const link = only(h.tree, h.Link);
+  link.props.onPress();
+  assert.equal(h.snapshots[0].id, product._id);
+  assert.equal(h.snapshots[0].visual, visual);
+  assert.equal(link.props.href.params.productId, product._id);
+  assert.equal(byType(h.tree, "Link.AppleZoom").length, 1);
+});
+
+test("Link.Trigger recibe estilos aplanados y conserva las personalizaciones de la tarjeta", () => {
+  for (const motionEnabled of [false, true]) {
+    const h = cardFixture({ motionEnabled, containerStyle: { marginRight: 7 } }, { platform: "ios" });
+    const trigger = only(h.tree, "Link.Trigger");
+    const card = trigger.props.children[0];
+    assert.equal(Array.isArray(card.props.style), false, "Expo Router rechaza arrays en hijos de Slot");
+    assert.equal(card.props.style.marginRight, 7);
+    assert.equal(card.props.style.marginVertical, 8);
+  }
+});
+
+test("iOS anterior o movimiento reducido navegan sin zoom", () => {
+  for (const options of [{ platform: "ios", version: 17 }, { platform: "ios", reducedMotion: true }]) {
+    const h = cardFixture({}, options);
+    h.act(() => only(h.tree, "Pressable").props.onPress());
+    assert.equal(h.pushes.length, 1);
+    assert.equal(byType(h.tree, "Link.AppleZoom").length, 0);
+  }
+});
+
+test("galería del detalle conserva imagen seleccionada mientras carga y al recibir imágenes", () => {
+  const h = carouselFixture({ productId: product._id, initialVisual: { url: urls[1], failed: false, loading: false } });
+  assert.deepEqual(imageUrls(h), [urls[1]]);
+  h.layout(300);
+  h.reply(0, null, urls);
+  assert.deepEqual(imageUrls(h), urls);
+  counter(h, "2 / 3");
+  assert.ok(h.scrollCalls.some((call) => call.x === 300 && call.animated === false));
+});
+
+test("galería conserva el fallo visual de la imagen seleccionada", () => {
+  const h = carouselFixture({ productId: product._id, initialVisual: { url: urls[1], failed: true, loading: false } });
+  assert.ok(texts(h.tree).includes("Imagen no disponible"));
+  h.reply(0, null, urls);
+  assert.ok(texts(h.tree).includes("Imagen no disponible"));
+  counter(h, "2 / 3");
+});
+
+test("detalle espera la publicación antes de habilitar los datos de compra", () => {
+  const h = createHarness();
+  const state = { ready: false, product, productId: product._id };
+  const subscriptions = [];
+  const cleared = [];
+  const snapshot = { productId: product._id, visual: { url: urls[1] } };
+  const meteor = {
+    useTracker: (callback) => callback(),
+    subscribe: (name, selector) => {
+      subscriptions.push({ name, selector });
+      return { ready: () => state.ready };
+    },
+  };
+  const component = load("components/productos/ProductoComercioScreen.native.jsx", {
+    "@meteorrn/core": meteor,
+    "expo-router": { useLocalSearchParams: () => ({ productId: state.productId }) },
+    react: h.React,
+    "react-native": { ...native, Platform: { OS: "ios", Version: 18 } },
+    "react-native-paper": { ...paper, Button: "Button" },
+    "../../hooks/useSystemReducedMotion": () => false,
+    "../collections/collections": {
+      ProductosComercioCollection: { findOne: () => state.product },
+      TiendasComercioCollection: { findOne: () => store },
+    },
+    "../Header/AppHeader": { default: "AppHeader", useAppHeaderContentInset: () => 80 },
+    "../navigation/useSafeBack": () => () => {},
+    "./AddToCartDialog": "AddToCartDialog",
+    "./commerceZoomSnapshot": {
+      getCommerceZoomSnapshot: () => snapshot,
+      clearCommerceZoomSnapshot: (value) => cleared.push(value),
+    },
+  }, { React: h.React });
+  h.mount(component, {});
+  assert.equal(only(h.tree, "AddToCartDialog").props.producto, null);
+  assert.equal(only(h.tree, "AddToCartDialog").props.initialVisual, snapshot.visual);
+  assert.equal(cleared[0], snapshot);
+  assert.equal(subscriptions[0].name, "productosComercio");
+  state.ready = true;
+  h.render();
+  assert.equal(only(h.tree, "AddToCartDialog").props.producto, product);
+  state.product = null;
+  h.render();
+  assert.equal(byType(h.tree, "AddToCartDialog").length, 0);
+  assert.ok(texts(h.tree).includes("Este producto ya no está disponible."));
+});
+
+test("detalle conserva validación, comentario y método de agregar al carrito", async () => {
+  const h = createHarness();
+  const calls = [];
+  const alerts = [];
+  const state = { user: { _id: "synthetic-user" }, dismissed: 0 };
+  const meteor = {
+    user: () => state.user,
+    useTracker: (callback) => callback(),
+    call: (...args) => calls.push(args),
+  };
+  const component = load("components/productos/AddToCartDialog.native.jsx", {
+    "@meteorrn/core": meteor,
+    "expo-blur": { BlurView: "BlurView" },
+    "expo-router": { Link: { AppleZoomTarget: "Link.AppleZoomTarget" } },
+    react: h.React,
+    "react-native": {
+      ...native, Alert: { alert: (...args) => alerts.push(args) },
+      KeyboardAvoidingView: "KeyboardAvoidingView", Platform: { OS: "android" },
+    },
+    "react-native-safe-area-context": { useSafeAreaInsets: () => ({ bottom: 20 }) },
+    "react-native-paper": {
+      ...paper, Button: "Button", Divider: "Divider", HelperText: "HelperText",
+      IconButton: "IconButton", TextInput: "TextInput",
+    },
+    "../Header/AppHeader": { default: "AppHeader", useAppHeaderContentInset: () => 80 },
+    "../motion/ServiceMotion": { ServiceEntrance: "ServiceEntrance", ServiceMotionProvider: "ServiceMotionProvider", ServiceScrollViewport: "ServiceScrollViewport" },
+    "./ProductImageCarousel": "ProductImageCarousel",
+  }, { React: h.React, console });
+  h.mount(component, { productId: product._id, producto: product, tienda: store, onDismiss: () => { state.dismissed += 1; } });
+  assert.equal(calls[0][0], "comercio.getProductSpecifications");
+  h.act(() => calls[0][2](null, [{ label: "Color", value: "Azul" }]));
+  assert.ok(texts(h.tree).includes("Azul"));
+  const inputs = byType(h.tree, "TextInput");
+  h.act(() => inputs[0].props.onChangeText("9"));
+  let add = byType(h.tree, "Button").find((node) => text(node) === "Agregar");
+  assert.equal(add.props.disabled, true);
+  h.act(() => inputs[0].props.onChangeText("2"));
+  h.act(() => inputs[1].props.onChangeText("  Prueba  "));
+  add = byType(h.tree, "Button").find((node) => text(node) === "Agregar");
+  h.act(() => { add.props.onPress(); });
+  assert.equal(calls[1][0], "addAlCarrito");
+  assert.deepEqual(calls[1].slice(1, 6), [state.user._id, product._id, 2, false, "Prueba"]);
+  assert.equal(byType(h.tree, "Button").find((node) => text(node) === "Agregando...").props.disabled, true);
+  calls[1][6](null, true);
+  await Promise.resolve();
+  await Promise.resolve();
+  h.render();
+  assert.equal(alerts[0][0], "¡Éxito!");
+  alerts[0][2][0].onPress();
+  assert.equal(state.dismissed, 1);
+  state.user = null;
+  h.render();
+  add = byType(h.tree, "Button").find((node) => text(node) === "Agregar");
+  h.act(() => { add.props.onPress(); });
+  assert.equal(alerts[1][0], "Error");
+  assert.equal(calls.length, 2);
+});
+
+test("instantánea visual caduca y no borra una transición más reciente", () => {
+  let now = 100;
+  let timerId = 0;
+  const timers = new Map();
+  const exports = {};
+  const file = path.join(__dirname, "../components/productos/commerceZoomSnapshot.js");
+  const output = ts.transpileModule(fs.readFileSync(file, "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS },
+  });
+  vm.runInNewContext(output.outputText, {
+    exports,
+    Date: class extends Date { static now() { return now; } },
+    setTimeout: (callback) => { const id = ++timerId; timers.set(id, callback); return id; },
+    clearTimeout: (id) => timers.delete(id),
+  });
+  exports.saveCommerceZoomSnapshot("a", { url: urls[0] });
+  const first = exports.getCommerceZoomSnapshot("a");
+  exports.saveCommerceZoomSnapshot("b", { url: urls[1] });
+  const second = exports.getCommerceZoomSnapshot("b");
+  exports.clearCommerceZoomSnapshot(first);
+  assert.equal(exports.getCommerceZoomSnapshot("b"), second);
+  assert.equal(exports.getCommerceZoomSnapshot("a"), null);
+  now += 5001;
+  assert.equal(exports.getCommerceZoomSnapshot("b"), null);
+  timers.get(timerId)();
+  assert.equal(exports.getCommerceZoomSnapshot("b"), null);
 });
 
 test("tarjeta mantiene nombre de dos líneas y galería cover con producto e imágenes originales", () => {

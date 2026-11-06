@@ -1,7 +1,9 @@
 import MeteorBase from "@meteorrn/core";
-import { useEffect, useRef, useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
-import { useReducedMotion } from "react-native-reanimated";
+import { BlurView } from "expo-blur";
+import { Link } from "expo-router";
+import { useEffect, useState } from "react";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Button,
   Divider,
@@ -12,7 +14,8 @@ import {
   useTheme,
 } from "react-native-paper";
 
-import DrawerBottom from "../drawer/DrawerBottom.native";
+import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
+import { ServiceEntrance, ServiceMotionProvider, ServiceScrollViewport } from "../motion/ServiceMotion";
 import ProductImageCarousel from "./ProductImageCarousel";
 
 const Meteor =
@@ -20,39 +23,42 @@ const Meteor =
     MeteorBase
   );
 
-const AddToCartDialogNative = ({ onDismiss, producto, tienda, visible }) => {
+const AddToCartDialogNative = ({ initialVisual, onDismiss, productId, producto, tienda, zoomEnabled }) => {
   const [cantidad, setCantidad] = useState("1");
   const [comentario, setComentario] = useState("");
   const [loading, setLoading] = useState(false);
   const [specifications, setSpecifications] = useState([]);
   const [loadingSpecifications, setLoadingSpecifications] = useState(false);
-  const contentAtTopRef = useRef(true);
-  const reducedMotion = useReducedMotion();
+  const [specificationsError, setSpecificationsError] = useState(false);
+  const [footerHeight, setFooterHeight] = useState(0);
+  const insets = useSafeAreaInsets();
+  const headerInset = useAppHeaderContentInset();
   const theme = useTheme();
   const user = Meteor.useTracker(() => Meteor.user());
 
   useEffect(() => {
-    if (!visible) {
-      return;
-    }
-
     setCantidad("1");
     setComentario("");
-  }, [user, visible]);
+  }, [productId]);
 
   useEffect(() => {
     let active = true;
     setSpecifications([]);
-    setLoadingSpecifications(Boolean(visible && producto?._id));
-    if (visible && producto?._id) {
+    setSpecificationsError(false);
+    setLoadingSpecifications(Boolean(producto?._id));
+    if (producto?._id) {
       Meteor.call("comercio.getProductSpecifications", producto._id, (error, result) => {
         if (!active) return;
+        if (error || !Array.isArray(result)) {
+          console.warn("No se pudieron cargar las características del producto.", error);
+          setSpecificationsError(true);
+        }
         setSpecifications(!error && Array.isArray(result) ? result : []);
         setLoadingSpecifications(false);
       });
     }
     return () => { active = false; };
-  }, [visible, producto?._id]);
+  }, [producto?._id]);
 
   const cantidadNum = parseInt(cantidad, 10) || 0;
   const precioUnitario = Number(producto?.precio || 0);
@@ -60,7 +66,7 @@ const AddToCartDialogNative = ({ onDismiss, producto, tienda, visible }) => {
   const stockDisponible = producto?.productoDeElaboracion
     ? 999
     : producto?.count;
-  const cantidadValida = cantidadNum > 0 && cantidadNum <= stockDisponible;
+  const cantidadValida = Boolean(producto) && cantidadNum > 0 && cantidadNum <= stockDisponible;
 
   const handleAgregarAlCarrito = async () => {
     if (!cantidadValida) {
@@ -118,58 +124,56 @@ const AddToCartDialogNative = ({ onDismiss, producto, tienda, visible }) => {
     }
   };
 
-  return (
-    <DrawerBottom
-      contentAtTopRef={contentAtTopRef}
-      footer={(
-        <View style={styles.drawerActions}>
-          <Button disabled={loading} onPress={onDismiss}>
-            Cancelar
-          </Button>
-          <Button
-            disabled={!cantidadValida || loading}
-            loading={loading}
-            mode="contained"
-            onPress={handleAgregarAlCarrito}
-          >
-            {loading ? "Agregando..." : "Agregar"}
-          </Button>
-        </View>
-      )}
-      onClose={onDismiss}
-      maxHeightRatio={0.95}
-      open={visible}
-      overlayHeader
-      reducedMotion={reducedMotion}
-      scrollable
-      surfaceStyle={styles.drawerSurface}
-      title="Agregar al carrito"
-    >
-      {visible ? (
+  const hero = (
         <View style={styles.productGalleryContainer}>
           <ProductImageCarousel
-            productId={producto?._id}
+            initialVisual={initialVisual}
+            productId={productId}
             resizeMode="cover"
-            size={300}
+            size={320}
             style={styles.productGallery}
           />
         </View>
-      ) : null}
+  );
 
-      <View style={styles.productoInfo}>
+  return (
+    <ServiceMotionProvider>
+    <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+      <AppHeader title="Producto de comercio" backHref="/(normal)/Main" overlapContent showBackButton />
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "height" : undefined} style={styles.keyboardView}>
+      <ServiceScrollViewport topInset={headerInset} bottomInset={footerHeight}>
+      <ScrollView
+        bounces={false}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
+        contentContainerStyle={{ paddingBottom: footerHeight + 20 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        showsVerticalScrollIndicator={false}
+      >
+      {zoomEnabled ? <Link.AppleZoomTarget>{hero}</Link.AppleZoomTarget> : hero}
+      {producto ? (
+      <>
+      <View style={[styles.productoInfo, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}>
+        <ServiceEntrance>
         <Text style={styles.productoNombre} variant="titleMedium">
           {producto?.name || "Producto de comercio"}
         </Text>
         <Text style={styles.tiendaNombre} variant="bodySmall">
           📍 {tienda?.title || "Tienda"}
         </Text>
+        {producto.descripcion ? <Text style={styles.description} variant="bodyMedium">{producto.descripcion}</Text> : null}
+        </ServiceEntrance>
       </View>
 
-      {loadingSpecifications || specifications.length > 0 ? (
+      <View style={styles.content}>
+      {loadingSpecifications || specificationsError || specifications.length > 0 ? (
         <View style={styles.section} accessibilityLiveRegion="polite">
           <Text style={styles.sectionLabel} variant="titleSmall">Características del producto</Text>
           {loadingSpecifications ? (
             <Text variant="bodySmall">Cargando características…</Text>
+          ) : specificationsError ? (
+            <Text variant="bodySmall">No se pudieron cargar las características.</Text>
           ) : specifications.map(({ label, value }) => (
             <View key={label} style={styles.specificationRow}>
               <Text style={styles.specificationLabel} variant="bodySmall">{label}</Text>
@@ -296,7 +300,36 @@ const AddToCartDialogNative = ({ onDismiss, producto, tienda, visible }) => {
           </Text>
         </View>
       </View>
-    </DrawerBottom>
+      </View>
+      </>
+      ) : <View style={styles.loadingState}><Text>Cargando producto...</Text></View>}
+      </ScrollView>
+      </ServiceScrollViewport>
+      {producto ? (
+        <View
+          onLayout={({ nativeEvent }) => setFooterHeight(nativeEvent.layout.height)}
+          style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 18), backgroundColor: theme.colors.surface }]}
+        >
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            <BlurView intensity={22} tint="default" style={StyleSheet.absoluteFill} />
+          </View>
+          <View style={styles.footerSummary}>
+            <Text variant="labelMedium">Total</Text>
+            <Text style={{ color: theme.colors.primary, fontWeight: "800" }} variant="titleMedium">
+              {precioTotal} {producto.monedaPrecio || "USD"}
+            </Text>
+          </View>
+          <View style={styles.drawerActions}>
+            <Button disabled={loading} mode="outlined" onPress={onDismiss} style={styles.footerButton}>Cancelar</Button>
+            <Button disabled={!cantidadValida || loading} loading={loading} mode="contained" onPress={handleAgregarAlCarrito} style={styles.footerButton}>
+              {loading ? "Agregando..." : "Agregar"}
+            </Button>
+          </View>
+        </View>
+      ) : null}
+      </KeyboardAvoidingView>
+    </View>
+    </ServiceMotionProvider>
   );
 };
 
@@ -325,16 +358,14 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: "flex-end",
   },
-  drawerSurface: {
-    backgroundColor: "transparent",
-  },
   productGallery: {
-    height: 300,
+    height: 320,
     width: "100%",
   },
   productGalleryContainer: {
-    marginHorizontal: -16,
-    marginTop: -4,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    overflow: "hidden",
   },
   precioResumen: {
     borderRadius: 12,
@@ -356,14 +387,25 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   productoInfo: {
-    alignItems: "center",
-    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginHorizontal: 16,
+    marginTop: -30,
+    padding: 18,
+    zIndex: 1,
   },
   productoNombre: {
     fontWeight: "600",
     marginBottom: 4,
-    textAlign: "center",
   },
+  description: { marginTop: 10 },
+  screen: { flex: 1 },
+  keyboardView: { flex: 1, position: "relative" },
+  content: { paddingHorizontal: 16, paddingTop: 20 },
+  loadingState: { alignItems: "center", padding: 28 },
+  footer: { position: "absolute", bottom: 0, left: 0, right: 0, paddingHorizontal: 16, paddingTop: 12, overflow: "hidden", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(120,120,120,0.3)" },
+  footerSummary: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+  footerButton: { flex: 1, borderRadius: 999 },
   section: {
     marginBottom: 16,
   },

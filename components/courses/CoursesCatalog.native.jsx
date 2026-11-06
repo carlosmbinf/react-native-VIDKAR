@@ -1,15 +1,18 @@
 import MeteorBase from "@meteorrn/core";
 import { LinearGradient } from "expo-linear-gradient";
-import { useFocusEffect, useRouter } from "expo-router";
+import { Link, useFocusEffect, useRouter } from "expo-router";
 import React from "react";
-import { FlatList, Image, Pressable, RefreshControl, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
+import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
 import { ActivityIndicator, Icon, Text, useTheme } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
+import useSystemReducedMotion from "../../hooks/useSystemReducedMotion";
 import { syncCourseSpotlightIndex } from "../../services/spotlight/spotlight";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { SuscripcionesCursoCollection } from "../collections/collections";
 import { ServiceEntrance, ServiceMotionProvider, ServicePressable, ServiceScrollViewport } from "../motion/ServiceMotion";
+import CourseCover from "./CourseCover.native";
+import { saveCourseZoomSnapshot } from "./courseZoomSnapshot";
 
 const Meteor = MeteorBase;
 const callMethod = (name, ...args) => new Promise((resolve, reject) => {
@@ -24,36 +27,121 @@ export function CourseCard({ item, active = false, accessWithoutSubscription = f
   const theme = useTheme();
   const palette = getCoursePalette(theme);
   const CardPressable = locked ? Pressable : ServicePressable;
-  return (
+  const reducedMotion = useSystemReducedMotion();
+  const zoomEnabled = !locked && Platform.OS === "ios" && parseInt(String(Platform.Version), 10) >= 18 && !reducedMotion;
+  const [failedUrl, setFailedUrl] = React.useState(null);
+  const url = typeof item.portadaUrl === "string" && item.portadaUrl.trim() ? item.portadaUrl : null;
+  const initial = item.titulo?.slice(0, 1)?.toUpperCase() || "C";
+  const visual = { url, failed: Boolean(url && failedUrl === url), initial };
+  const cover = <View collapsable={false} style={styles.cover}><CourseCover {...visual} onError={() => setFailedUrl(url)} /></View>;
+  const card = (
     <CardPressable
       accessibilityRole="button"
       accessibilityLabel={`Abrir curso ${item.titulo}`}
       accessibilityState={{ disabled: locked }}
-      onPress={locked ? undefined : onPress}
-      style={[styles.card, { backgroundColor: palette.card, borderColor: locked ? palette.primary : palette.border, width }]}
+      onPress={locked || zoomEnabled ? undefined : onPress}
+      style={StyleSheet.flatten([
+        styles.card,
+        {
+          backgroundColor: palette.card,
+          borderColor: locked ? palette.primary : palette.border,
+          shadowColor: theme.dark ? "#000000" : "#0f172a",
+          width,
+        },
+      ])}
     >
       <View style={styles.coverFrame}>
-        {item.portadaUrl ? (
-          <Image source={{ uri: item.portadaUrl }} style={styles.cover} resizeMode="cover" />
-        ) : (
-          <LinearGradient colors={theme.dark ? ["#113344", "#172554", "#3b2a0d"] : ["#cffafe", "#dbeafe", "#fef3c7"]} style={styles.coverFallback}><Text style={[styles.coverInitial, { color: palette.accent }]}>{item.titulo?.slice(0, 1)?.toUpperCase() || "C"}</Text></LinearGradient>
-        )}
-        <LinearGradient colors={["transparent", "rgba(2,8,13,0.78)"]} style={StyleSheet.absoluteFill} />
-        <View style={styles.coverTopRow}><View style={styles.categoryBadge}><Icon source="school-outline" color="#ffffff" size={14} /><Text style={styles.categoryText}>{item.categoria || "Curso"}</Text></View>{active ? <View style={styles.activeBadge}><Icon source="check-decagram" color="#bbf7d0" size={14} /><Text style={styles.activeText}>{accessWithoutSubscription ? "Acceso sin suscripción" : "Activo"}</Text></View> : null}</View>
-        <View style={styles.coverBottom}><Text style={styles.teacher} numberOfLines={1}>{item.profesorNombre || (item.profesorUsername ? `@${item.profesorUsername}` : "Profesor VIDKAR")}</Text></View>
-        {locked ? <View style={styles.lockOverlay}><Icon source="lock-outline" color="#ffffff" size={28} /><Text style={styles.lockTitle}>Requiere nivel {item.nivelRequerido}</Text><Text style={styles.lockCaption}>Tu nivel: {item.nivelUsuario === null ? "sin evaluar" : item.nivelUsuario}</Text></View> : null}
-      </View>
-      <View style={styles.cardBody}>
-        <Text variant="titleLarge" style={[styles.title, { color: palette.text }]} numberOfLines={2}>{item.titulo}</Text>
-        <Text style={[styles.description, { color: palette.muted }]} numberOfLines={3}>{item.descripcion}</Text>
-        <View style={styles.footerRow}>
-          <View style={styles.levelRow}><Icon source="signal" color={palette.muted} size={15} /><Text style={[styles.level, { color: palette.muted }]}>{item.nivel}</Text></View>
-          {item.precioMensual != null ? <View style={styles.priceBlock}><Text style={[styles.price, { color: palette.primary }]}>{Number(item.precioMensual).toFixed(2)} {item.moneda}</Text><Text style={[styles.period, { color: palette.muted }]}>por mes</Text></View> : null}
+        {zoomEnabled ? <Link.AppleZoom>{cover}</Link.AppleZoom> : cover}
+        <LinearGradient
+          colors={["rgba(2,8,13,0.45)", "transparent", "rgba(2,8,13,0.85)"]}
+          locations={[0, 0.45, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.coverTopRow}>
+          <View style={styles.categoryBadge}>
+            <Icon source="school-outline" color="#ffffff" size={13} />
+            <Text style={styles.categoryText}>{item.categoria || "Curso"}</Text>
+          </View>
+          {active ? (
+            <View style={styles.activeBadge}>
+              <Icon source="check-decagram" color="#bbf7d0" size={13} />
+              <Text style={styles.activeText}>{accessWithoutSubscription ? "Acceso libre" : "Activo"}</Text>
+            </View>
+          ) : null}
         </View>
-        {locked && onEvaluate ? <Pressable accessibilityRole="button" onPress={onEvaluate} style={[styles.reEvaluateButton, { borderColor: palette.primary }]}><Icon source="school-outline" color={palette.primary} size={17} /><Text style={[styles.reEvaluateText, { color: palette.primary }]}>Reevaluarme</Text></Pressable> : null}
+
+        <View style={styles.coverBottom}>
+          <View style={styles.teacherBadge}>
+            <Icon source="account-circle-outline" color="rgba(255,255,255,0.9)" size={14} />
+            <Text style={styles.teacher} numberOfLines={1}>
+              {item.profesorNombre || (item.profesorUsername ? `@${item.profesorUsername}` : "Profesor VIDKAR")}
+            </Text>
+          </View>
+        </View>
+
+        {locked ? (
+          <View style={styles.lockOverlay}>
+            <View style={styles.lockIconBox}>
+              <Icon source="lock-outline" color="#ffffff" size={26} />
+            </View>
+            <Text style={styles.lockTitle}>Requiere nivel {item.nivelRequerido}</Text>
+            <Text style={styles.lockCaption}>Tu nivel: {item.nivelUsuario === null ? "sin evaluar" : item.nivelUsuario}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.cardBody}>
+        <Text variant="titleMedium" style={[styles.title, { color: palette.text }]} numberOfLines={2}>
+          {item.titulo}
+        </Text>
+        <Text style={[styles.description, { color: palette.muted }]} numberOfLines={2}>
+          {item.descripcion}
+        </Text>
+
+        <View style={[styles.footerRow, { borderTopColor: palette.border }]}>
+          <View style={[styles.levelBadge, { backgroundColor: theme.dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" }]}>
+            <Icon source="signal" color={palette.accent} size={13} />
+            <Text style={[styles.level, { color: palette.text }]}>{item.nivel || "Todos los niveles"}</Text>
+          </View>
+
+          {item.precioMensual != null ? (
+            <View style={styles.priceContainer}>
+              <View style={styles.priceBlock}>
+                <Text style={[styles.price, { color: palette.primary }]}>
+                  {Number(item.precioMensual).toFixed(2)} {item.moneda}
+                </Text>
+                <Text style={[styles.period, { color: palette.muted }]}>/ mes</Text>
+              </View>
+              <View style={[styles.actionIconBox, { backgroundColor: palette.accent + "18" }]}>
+                <Icon source="arrow-top-right" color={palette.accent} size={15} />
+              </View>
+            </View>
+          ) : null}
+        </View>
+
+        {locked && onEvaluate ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onEvaluate}
+            style={[styles.reEvaluateButton, { borderColor: palette.primary, backgroundColor: palette.primary + "12" }]}
+          >
+            <Icon source="school-outline" color={palette.primary} size={16} />
+            <Text style={[styles.reEvaluateText, { color: palette.primary }]}>Reevaluarme</Text>
+          </Pressable>
+        ) : null}
       </View>
     </CardPressable>
   );
+  return zoomEnabled ? (
+    <Link
+      href={{ pathname: "/(normal)/CursoDetalle", params: { courseId: item._id } }}
+      asChild
+      push
+      onPress={() => saveCourseZoomSnapshot(item._id, visual)}
+    >
+      <Link.Trigger>{card}</Link.Trigger>
+    </Link>
+  ) : card;
 }
 
 const getCoursePalette = (theme) => ({
@@ -256,22 +344,177 @@ const styles = StyleSheet.create({
   categorySection: { gap: 9, marginBottom: 22 },
   categoryTitle: { fontWeight: "900" },
   courseRail: { gap: 12, paddingRight: 16 },
-  card: { borderRadius: 8, borderWidth: 1, overflow: "hidden" },
-  coverFrame: { aspectRatio: 16 / 7, position: "relative", width: "100%" },
+  card: {
+    borderRadius: 20,
+    borderCurve: "continuous",
+    borderWidth: 1,
+    elevation: 3,
+    overflow: "hidden",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.09,
+    shadowRadius: 14,
+  },
+  coverFrame: {
+    aspectRatio: 16 / 9,
+    position: "relative",
+    width: "100%",
+  },
   cover: { height: "100%", width: "100%" },
   coverFallback: { alignItems: "center", height: "100%", justifyContent: "center", width: "100%" },
   coverInitial: { fontSize: 46, fontWeight: "900" },
-  coverTopRow: { flexDirection: "row", justifyContent: "space-between", left: 12, position: "absolute", right: 12, top: 12 }, categoryBadge: { alignItems: "center", backgroundColor: "rgba(2,8,13,0.58)", borderRadius: 6, flexDirection: "row", gap: 5, paddingHorizontal: 9, paddingVertical: 5 }, categoryText: { color: "#ffffff", fontSize: 10, fontWeight: "800" }, activeBadge: { alignItems: "center", backgroundColor: "rgba(20,83,45,0.72)", borderRadius: 6, flexDirection: "row", gap: 5, paddingHorizontal: 9, paddingVertical: 5 }, activeText: { color: "#dcfce7", fontSize: 10, fontWeight: "800" },
-  coverBottom: { bottom: 10, left: 12, position: "absolute", right: 12 },
-  lockOverlay: { alignItems: "center", backgroundColor: "rgba(2,8,13,0.78)", bottom: 0, gap: 3, justifyContent: "center", left: 0, position: "absolute", right: 0, top: 0 },
+  coverTopRow: {
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "space-between",
+    left: 12,
+    position: "absolute",
+    right: 12,
+    top: 12,
+    zIndex: 2,
+  },
+  categoryBadge: {
+    alignItems: "center",
+    backgroundColor: "rgba(2,8,13,0.68)",
+    borderColor: "rgba(255,255,255,0.18)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  categoryText: { color: "#ffffff", fontSize: 11, fontWeight: "700" },
+  activeBadge: {
+    alignItems: "center",
+    backgroundColor: "rgba(16,185,129,0.85)",
+    borderColor: "rgba(255,255,255,0.22)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  activeText: { color: "#ffffff", fontSize: 11, fontWeight: "800" },
+  coverBottom: {
+    bottom: 12,
+    left: 12,
+    position: "absolute",
+    right: 12,
+    zIndex: 2,
+  },
+  teacherBadge: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(2,8,13,0.65)",
+    borderColor: "rgba(255,255,255,0.14)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    maxWidth: "85%",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  teacher: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  lockOverlay: {
+    alignItems: "center",
+    backgroundColor: "rgba(2,8,13,0.82)",
+    bottom: 0,
+    gap: 4,
+    justifyContent: "center",
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    zIndex: 3,
+  },
+  lockIconBox: {
+    alignItems: "center",
+    backgroundColor: "rgba(251,191,36,0.2)",
+    borderColor: "rgba(251,191,36,0.45)",
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 48,
+    justifyContent: "center",
+    marginBottom: 4,
+    width: 48,
+  },
   lockTitle: { color: "#ffffff", fontSize: 14, fontWeight: "900" },
   lockCaption: { color: "rgba(255,255,255,0.8)", fontSize: 11 },
-  cardBody: { gap: 8, padding: 15 },
-  title: { fontWeight: "800", letterSpacing: 0 },
-  teacher: { color: "rgba(255,255,255,0.86)", fontSize: 12, fontWeight: "700" },
-  description: { fontSize: 13, lineHeight: 19 },
-  footerRow: { alignItems: "flex-end", flexDirection: "row", justifyContent: "space-between", marginTop: 3 }, levelRow: { alignItems: "center", flexDirection: "row", flex: 1, gap: 5 }, level: { fontSize: 12 }, priceBlock: { alignItems: "flex-end" }, price: { fontSize: 17, fontWeight: "900" }, period: { fontSize: 10 },
-  reEvaluateButton: { alignItems: "center", borderRadius: 8, borderWidth: 1, flexDirection: "row", gap: 7, justifyContent: "center", marginTop: 4, minHeight: 40 },
-  reEvaluateText: { fontSize: 12, fontWeight: "900" },
+  cardBody: {
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  title: {
+    fontWeight: "800",
+    letterSpacing: -0.2,
+    lineHeight: 22,
+  },
+  description: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  footerRow: {
+    alignItems: "center",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 4,
+    paddingTop: 12,
+  },
+  levelBadge: {
+    alignItems: "center",
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  level: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  priceContainer: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  priceBlock: {
+    alignItems: "flex-end",
+  },
+  price: {
+    fontSize: 16,
+    fontWeight: "900",
+    fontVariant: ["tabular-nums"],
+  },
+  period: {
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: -2,
+  },
+  actionIconBox: {
+    alignItems: "center",
+    borderRadius: 8,
+    height: 28,
+    justifyContent: "center",
+    width: 28,
+  },
+  reEvaluateButton: {
+    alignItems: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 7,
+    justifyContent: "center",
+    marginTop: 6,
+    minHeight: 40,
+  },
+  reEvaluateText: { fontSize: 12, fontWeight: "800" },
   empty: { alignItems: "center", justifyContent: "center", minHeight: 180 },
 });
