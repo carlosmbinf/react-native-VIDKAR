@@ -159,6 +159,39 @@ test("una tarjeta del carrusel reevalúa su foco al desplazarse el viewport padr
   assert.equal(motion.stateChanges.length, 1);
 });
 
+test("la tarjeta lateral se revela al desplazar el carrusel sin scroll vertical", () => {
+  const shared = (value) => ({ value, get() { return this.value; }, set(next) { this.value = next; } });
+  const parent = {
+    viewportRef: { measurement: { pageX: 0, pageY: 0, width: 390, height: 844 } },
+    offset: shared(0), layoutVersion: shared(0), parent: null,
+  };
+  const horizontal = {
+    viewportRef: { measurement: { pageX: 0, pageY: 260, width: 390, height: 235 } },
+    offset: shared(0), layoutVersion: shared(0), parent,
+  };
+  const motion = motionHarness(false, false, horizontal);
+  let revealed = 0;
+  const entry = motion.ServiceEntrance({ onReveal: () => { revealed += 1; } });
+  entry.props.ref.measurement = { pageX: 405, pageY: 275, width: 315, height: 205 };
+  const reaction = motion.reactions[0];
+  const before = reaction.prepare();
+  reaction();
+  assert.equal(revealed, 0);
+  horizontal.offset.set(315);
+  entry.props.ref.measurement.pageX = 90;
+  assert.notDeepEqual(reaction.prepare(), before);
+  assert.equal(parent.offset.get(), 0);
+  reaction();
+  assert.equal(revealed, 1);
+  horizontal.offset.set(0);
+  entry.props.ref.measurement.pageX = 405;
+  reaction();
+  horizontal.offset.set(315);
+  entry.props.ref.measurement.pageX = 90;
+  reaction();
+  assert.equal(revealed, 1);
+});
+
 test("las secciones se activan al entrar y no se repiten al regresar", () => {
   const shared = (value) => ({ get: () => value });
   const viewportRef = { measurement: { pageX: 0, pageY: 0, width: 300, height: 400 } };

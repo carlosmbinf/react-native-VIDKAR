@@ -1,10 +1,10 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { FlatList, StyleSheet, useWindowDimensions, View } from "react-native";
 import { ActivityIndicator, Text, useTheme } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
-import { ServiceEntrance } from "../motion/ServiceMotion";
+import { ServiceEntrance, ServiceScrollViewport } from "../motion/ServiceMotion";
 import CubaCelCard from "./CubaCelCard.native";
 
 const getGradientColors = (isDarkMode) => {
@@ -50,6 +50,7 @@ const Productos = ({
   const theme = useTheme();
   const { width: windowWidth } = useWindowDimensions();
   const [containerWidth, setContainerWidth] = useState(0);
+  const revealedProductIds = useRef(new Set());
 
   const deferredDataReady = useDeferredScreenData({
     delay: deferDelay,
@@ -148,27 +149,34 @@ const Productos = ({
         ]}
       >
         {hasProductos ? (
+          <ServiceScrollViewport horizontal>
           <FlatList
             data={sortedProductos}
-            renderItem={({ item, index }) => (
-              <ServiceEntrance
-                delay={Math.min(index * 90, 450)}
-                duration={780}
-              >
-                <CubaCelCard product={item} />
-              </ServiceEntrance>
-            )}
+            renderItem={({ item, index }) => {
+              const productId = String(item._id || item.id);
+              return (
+                <ServiceEntrance
+                  delay={Math.min(index * 90, 450)}
+                  duration={780}
+                  initiallyRevealed={revealedProductIds.current.has(productId)}
+                  onReveal={() => revealedProductIds.current.add(productId)}
+                >
+                  <CubaCelCard product={item} />
+                </ServiceEntrance>
+              );
+            }}
             style={styles.list}
             horizontal
             showsHorizontalScrollIndicator={false}
             scrollEnabled
-            keyExtractor={(item) => item._id}
+            keyExtractor={(item) => String(item._id || item.id)}
             initialNumToRender={3}
             maxToRenderPerBatch={4}
-            removeClippedSubviews
+            removeClippedSubviews={false}
             updateCellsBatchingPeriod={80}
             windowSize={3}
           />
+          </ServiceScrollViewport>
         ) : ready ? (
           <ServiceEntrance delay={0} duration={650} conversionKey="cubacel-empty">
             <View style={styles.loaderContainer}>

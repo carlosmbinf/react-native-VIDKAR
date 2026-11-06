@@ -1,8 +1,8 @@
 import MeteorBase from "@meteorrn/core";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { BlurView } from "expo-blur";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   ImageBackground,
@@ -26,12 +26,12 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { useReducedMotion } from "react-native-reanimated";
-
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
+import useSystemReducedMotion from "../../hooks/useSystemReducedMotion";
 import { DTShopProductosCollection } from "../collections/collections";
 import AppHeader, { APP_HEADER_HEIGHT } from "../Header/AppHeader";
 import { ServiceEntrance, ServiceMotionProvider, ServicePressable, ServiceScrollViewport } from "../motion/ServiceMotion";
+import { clearCubacelZoomSnapshot, getCubacelZoomSnapshot } from "./cubacelZoomSnapshot";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -219,8 +219,11 @@ const CubacelOfertaScreen = () => {
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const headerInset = insets.top + APP_HEADER_HEIGHT;
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = useSystemReducedMotion();
+  const zoomEnabled =
+    Platform.OS === "ios" && parseInt(String(Platform.Version), 10) >= 18 && !reducedMotion;
   const [extraFields, setExtraFields] = useState({});
+  const [failedImageAttempt, setFailedImageAttempt] = useState(null);
   const [nombre, setNombre] = useState("");
   const [isPromoDescriptionExpanded, setIsPromoDescriptionExpanded] =
     useState(false);
@@ -230,22 +233,31 @@ const CubacelOfertaScreen = () => {
 
   const productId =
     typeof params.productId === "string" ? params.productId : "";
+  const [zoomSnapshot, setZoomSnapshot] = useState(() =>
+    zoomEnabled ? getCubacelZoomSnapshot(productId) : null,
+  );
+
+  useEffect(() => {
+    clearCubacelZoomSnapshot(zoomSnapshot);
+  }, [zoomSnapshot]);
 
   const { product, ready, user } = Meteor.useTracker(() => {
-    if (!dataReady) {
-      return { product: null, ready: false };
-    }
-
-    const handler = Meteor.subscribe("productosDtShop");
+    const handler = dataReady ? Meteor.subscribe("productosDtShop") : null;
 
     return {
       product: productId
         ? DTShopProductosCollection.findOne({ _id: productId })
         : null,
       user: Meteor.user(),
-      ready: handler.ready(),
+      ready: handler ? handler.ready() : false,
     };
   }, [dataReady, productId]);
+
+  useEffect(() => {
+    if (zoomSnapshot && (product || ready || zoomSnapshot.productId !== productId)) {
+      setZoomSnapshot(null);
+    }
+  }, [product, productId, ready, zoomSnapshot]);
 
   const normalizedPromotions = useMemo(
     () => normalizeToArray(product?.promotions),
@@ -260,8 +272,28 @@ const CubacelOfertaScreen = () => {
   );
 
   const localFallback = require("./Gemini_Generated_Image_rtg44brtg44brtg4.png");
-  const backgroundSource = promoImageUrl
-    ? { uri: promoImageUrl }
+  const visualSnapshot = !product && zoomSnapshot?.productId === productId
+    ? zoomSnapshot
+    : null;
+  const [sourceFallback, setSourceFallback] = useState(() =>
+    zoomSnapshot?.imageUrl && !zoomSnapshot.imageSource?.uri
+      ? { productId, url: zoomSnapshot.imageUrl }
+      : null,
+  );
+  useEffect(() => {
+    if (sourceFallback && (sourceFallback.productId !== productId || (product && sourceFallback.url !== promoImageUrl))) {
+      setSourceFallback(null);
+    }
+  }, [product, productId, promoImageUrl, sourceFallback]);
+  const imageUrl = product ? promoImageUrl : visualSnapshot?.imageSource?.uri;
+  const imageAttempt = useMemo(() => ({ url: imageUrl }), [imageUrl]);
+  const activeImageAttempt = useRef(imageAttempt);
+  useLayoutEffect(() => {
+    activeImageAttempt.current = imageAttempt;
+  }, [imageAttempt]);
+  const backgroundSource = imageUrl && failedImageAttempt !== imageAttempt &&
+    !(sourceFallback?.productId === productId && sourceFallback.url === imageUrl)
+    ? { uri: imageUrl }
     : localFallback;
 
   const precioUSD = product?.prices?.retail?.amount || "---";
@@ -310,7 +342,7 @@ const CubacelOfertaScreen = () => {
   };
 
   const handleSubmit = () => {
-    if (!product) {
+    if (!product || !ready) {
       return;
     }
 
@@ -387,7 +419,7 @@ const CubacelOfertaScreen = () => {
     );
   }
 
-  if (!ready && !product) {
+  if (!ready && !product && !(zoomEnabled && visualSnapshot)) {
     return (
       <SafeAreaView style={styles.safeArea} edges={[]}>
         <Surface style={styles.screen}>
@@ -432,6 +464,49 @@ const CubacelOfertaScreen = () => {
     );
   }
 
+  const hero = (
+    <ImageBackground
+      source={backgroundSource}
+      defaultSource={Platform.OS === "ios" ? localFallback : undefined}
+      onError={() => {
+        if (imageUrl && backgroundSource !== localFallback && activeImageAttempt.current === imageAttempt) {
+          setFailedImageAttempt(imageAttempt);
+        }
+      }}
+      blurRadius={(product ? product.ocultarFondo : visualSnapshot?.blur) ? 35 : 0}
+      resizeMode="cover"
+      imageStyle={styles.heroImageBorder}
+      style={[styles.heroImage, { paddingTop: headerInset + 18 }]}
+    >
+      <View style={styles.heroScrim} />
+      <View style={styles.heroBadge}>
+        <Text style={styles.heroBadgeText}>Oferta Cubacel</Text>
+      </View>
+      <ServiceEntrance style={styles.heroCopy} variant="hero">
+        <Text style={styles.heroTitle}>
+          {product ? product.name || "Oferta Cubacel" : visualSnapshot?.name}
+        </Text>
+        {/* <Text style={styles.heroSubtitle}>{operadorNombre}</Text> */}
+        <View style={styles.heroPriceRow}>
+          <View style={styles.heroPricePill}>
+            <Text style={styles.heroPriceLabel}>Costo</Text>
+            <Text style={styles.heroPriceValue}>
+              {product ? toMoneyLabel(precioUSD, "USD") : visualSnapshot?.priceLabel}
+            </Text>
+          </View>
+          {mostrarCostoOficial ? (
+            <View style={styles.heroPricePill}>
+              <Text style={styles.heroPriceLabel}>Costo oficial</Text>
+              <Text style={styles.heroPriceValue}>
+                {`${costoOficial.toFixed(2)} ${unidadCostoOficial}`}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      </ServiceEntrance>
+    </ImageBackground>
+  );
+
   return (
     <SafeAreaView style={styles.safeArea} edges={[]}>
       <Surface style={styles.screen}>
@@ -451,6 +526,9 @@ const CubacelOfertaScreen = () => {
           <ServiceScrollViewport topInset={headerInset} bottomInset={footerHeight}>
           <ScrollView
             style={styles.scroll}
+            bounces={false}
+            alwaysBounceVertical={false}
+            overScrollMode="never"
             contentContainerStyle={[
               styles.scrollContent,
               { paddingBottom: footerHeight + 20 },
@@ -461,42 +539,12 @@ const CubacelOfertaScreen = () => {
             }
             showsVerticalScrollIndicator={false}
           >
-            <ImageBackground
-              source={backgroundSource}
-              defaultSource={Platform.OS === "ios" ? localFallback : undefined}
-              resizeMode="cover"
-              imageStyle={styles.heroImageBorder}
-              style={[styles.heroImage, { paddingTop: headerInset + 18 }]}
-            >
-              <View style={styles.heroScrim} />
-              <View style={styles.heroBadge}>
-                <Text style={styles.heroBadgeText}>Oferta Cubacel</Text>
-              </View>
-              <ServiceEntrance style={styles.heroCopy} variant="hero">
-                <Text style={styles.heroTitle}>
-                  {product?.name || "Oferta Cubacel"}
-                </Text>
-                {/* <Text style={styles.heroSubtitle}>{operadorNombre}</Text> */}
-                <View style={styles.heroPriceRow}>
-                  <View style={styles.heroPricePill}>
-                    <Text style={styles.heroPriceLabel}>Costo</Text>
-                    <Text style={styles.heroPriceValue}>
-                      {toMoneyLabel(precioUSD, "USD")}
-                    </Text>
-                  </View>
-                  {mostrarCostoOficial ? (
-                    <View style={styles.heroPricePill}>
-                      <Text style={styles.heroPriceLabel}>Costo oficial</Text>
-                      <Text style={styles.heroPriceValue}>
-                        {`${costoOficial.toFixed(2)} ${unidadCostoOficial}`}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-              </ServiceEntrance>
-            </ImageBackground>
+            {zoomEnabled ? <Link.AppleZoomTarget>{hero}</Link.AppleZoomTarget> : hero}
 
-            <ServiceEntrance delay={60} style={styles.summaryCard}>
+            {product && ready ? (
+            <>
+            <View style={styles.summaryCard}>
+            <ServiceEntrance delay={60}>
               <Text style={styles.summaryEyebrow}>Resumen de la oferta</Text>
               <Text style={styles.summaryTitle}>{promoTitle}</Text>
               {promoTerms ? (
@@ -551,6 +599,7 @@ const CubacelOfertaScreen = () => {
                 </View>
               ) : null}
             </ServiceEntrance>
+            </View>
 
             {benefitsText ? (
               <ServiceEntrance>
@@ -651,9 +700,17 @@ const CubacelOfertaScreen = () => {
               </Card.Content>
             </Card>
             </ServiceEntrance>
+            </>
+            ) : (
+              <View style={styles.centerState}>
+                <ActivityIndicator size="large" />
+                <Text style={styles.stateTitle}>Cargando oferta Cubacel...</Text>
+              </View>
+            )}
           </ScrollView>
           </ServiceScrollViewport>
 
+          {product && ready ? (
           <View
             onLayout={({ nativeEvent }) => {
               const nextHeight = nativeEvent.layout.height;
@@ -705,6 +762,7 @@ const CubacelOfertaScreen = () => {
               </Button>
             </View>
           </View>
+          ) : null}
         </KeyboardAvoidingView>
       </Surface>
     </SafeAreaView>
@@ -828,6 +886,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 18,
     marginTop: -30,
+    zIndex: 1,
   },
   summaryEyebrow: {
     color: "rgba(255,255,255,0.72)",

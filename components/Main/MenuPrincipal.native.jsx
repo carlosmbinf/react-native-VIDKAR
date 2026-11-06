@@ -318,7 +318,7 @@ const MenuPrincipalNative = () => {
   const { user, userId: currentUserId } = useCurrentSession();
   const isAdmin = isAdminUser(user);
   const isAdminPrincipal = isPrincipalAdmin(user);
-  const dataReady = useDeferredScreenData();
+  const dataReady = useDeferredScreenData({ keepReadyOnBlur: true });
   const [normalHomeCatalogs, setNormalHomeCatalogs] = useState(null);
   const [normalHomeCatalogsLoading, setNormalHomeCatalogsLoading] = useState(
     true,

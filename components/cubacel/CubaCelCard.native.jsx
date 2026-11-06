@@ -1,7 +1,7 @@
 import MeteorBase from "@meteorrn/core";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, router } from "expo-router";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
     Animated,
     Dimensions,
@@ -15,6 +15,9 @@ import {
     View,
 } from "react-native";
 import { Button, Card, IconButton, Portal, Text } from "react-native-paper";
+
+import useSystemReducedMotion from "../../hooks/useSystemReducedMotion";
+import { saveCubacelZoomSnapshot } from "./cubacelZoomSnapshot";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -235,6 +238,9 @@ const getCachedConvertedPrice = (amount, currency) => {
 };
 
 const CubaCelCard = ({ product, fullWidth = false, style }) => {
+  const reducedMotion = useSystemReducedMotion();
+  const zoomEnabled =
+    Platform.OS === "ios" && parseInt(String(Platform.Version), 10) >= 18 && !reducedMotion;
   const {
     benefits,
     description,
@@ -245,7 +251,7 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
     promotions,
   } = product || {};
 
-  const [bgLoadError, setBgLoadError] = useState(false);
+  const [failedImageAttempt, setFailedImageAttempt] = useState(null);
   const [loadingPrecios, setLoadingPrecios] = useState(true);
   const [peekVisible, setPeekVisible] = useState(false);
   const [peekLayout, setPeekLayout] = useState({
@@ -257,6 +263,7 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
   const [precioCUP, setPrecioCUP] = useState(null);
   const [precioUYU, setPrecioUYU] = useState(null);
   const cardRef = useRef(null);
+  const longPressRef = useRef(false);
   const pressScale = useRef(new Animated.Value(1)).current;
   const pressDepth = useRef(new Animated.Value(0)).current;
   const peekProgress = useRef(new Animated.Value(0)).current;
@@ -302,13 +309,20 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
   const promoStartDate = formatPromoDate(promotion?.startDate);
   const promoEndDate = formatPromoDate(promotion?.endDate);
   const localFallback = require("./Gemini_Generated_Image_rtg44brtg44brtg4.png");
+  const imageAttempt = useMemo(() => ({ url: promoImageUrl }), [promoImageUrl]);
+  const activeImageAttempt = useRef(imageAttempt);
+  useLayoutEffect(() => {
+    activeImageAttempt.current = imageAttempt;
+  }, [imageAttempt]);
   const promoImageSource =
-    promoImageUrl && !bgLoadError ? { uri: promoImageUrl }  : localFallback;
+    promoImageUrl && failedImageAttempt !== imageAttempt ? { uri: promoImageUrl } : localFallback;
   const contextPromoTitle = promotion?.title || name || operadorNombre;
 
-  useEffect(() => {
-    setBgLoadError(false);
-  }, [promoImageUrl]);
+  const handleImageError = () => {
+    if (promoImageUrl && promoImageSource !== localFallback && activeImageAttempt.current === imageAttempt) {
+      setFailedImageAttempt(imageAttempt);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -401,6 +415,7 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
       }
 
       setPeekVisible(false);
+      longPressRef.current = false;
       callback?.();
     });
   };
@@ -419,6 +434,7 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
   };
 
   const openPeek = () => {
+    if (zoomEnabled) longPressRef.current = true;
     if (!cardRef.current || peekVisible) {
       return;
     }
@@ -539,7 +555,19 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
     ],
   };
 
-  const renderCardVisual = ({ showPeekHint = false, overlayMode = false }) => (
+  const renderCardVisual = ({ showPeekHint = false, overlayMode = false }) => {
+    const background = (
+      <ImageBackground
+        source={promoImageSource}
+        defaultSource={Platform.OS === "ios" ? localFallback : undefined}
+        onError={handleImageError}
+        resizeMode="cover"
+        style={styles.imageLayer}
+        blurRadius={ocultarFondo ? 35 : 0}
+      />
+    );
+
+    return (
     <Card
       style={[
         styles.card,
@@ -548,14 +576,9 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
         overlayMode ? styles.overlayCard : null,
       ]}
     >
-      <ImageBackground
-        source={promoImageSource}
-        defaultSource={Platform.OS === "ios" ? localFallback : undefined}
-        onError={() => setBgLoadError(true)}
-        resizeMode="cover"
-        style={styles.imageLayer}
-        blurRadius={ocultarFondo ? 35 : 0}
-      />
+      {zoomEnabled && !overlayMode ? (
+        <Link.AppleZoom>{background}</Link.AppleZoom>
+      ) : background}
       <View style={styles.cardSurface}>
         
 
@@ -799,11 +822,29 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
         </View>
       </View>
     </Card>
-  );
+    );
+  };
 
   if (precioUSD === "---") {
     return null;
   }
+
+  const cardPressable = (
+    <Pressable
+      disabled={peekVisible}
+      onLongPress={openPeek}
+      onPress={zoomEnabled ? undefined : handleCardPress}
+      onPressIn={() => {
+        if (zoomEnabled && !peekVisible) longPressRef.current = false;
+        animatePressState(true);
+      }}
+      onPressOut={() => animatePressState(false)}
+      delayLongPress={500}
+      style={fullWidth ? styles.fullWidth : null}
+    >
+      {renderCardVisual({ showPeekHint: true })}
+    </Pressable>
+  );
 
   return (
     <View
@@ -832,16 +873,31 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
             },
           ]}
         >
-          <Pressable
-            onLongPress={openPeek}
-            onPress={handleCardPress}
-            onPressIn={() => animatePressState(true)}
-            onPressOut={() => animatePressState(false)}
-            delayLongPress={500}
-            style={fullWidth ? styles.fullWidth : null}
-          >
-            {renderCardVisual({ showPeekHint: true })}
-          </Pressable>
+          {zoomEnabled ? (
+            <Link
+              onPress={(event) => {
+                if (peekVisible || longPressRef.current) {
+                  event.preventDefault();
+                  return;
+                }
+                saveCubacelZoomSnapshot(product?._id, {
+                  name: name || "Oferta Cubacel",
+                  priceLabel: toMoneyLabel(precioUSD, "USD"),
+                  blur: Boolean(ocultarFondo),
+                  imageSource: promoImageSource,
+                  imageUrl: promoImageUrl,
+                });
+              }}
+              href={{
+                pathname: "/(normal)/CubacelOferta",
+                params: { productId: product?._id },
+              }}
+              asChild
+              push
+            >
+              <Link.Trigger>{cardPressable}</Link.Trigger>
+            </Link>
+          ) : cardPressable}
         </Animated.View>
       </View>
 
@@ -901,7 +957,7 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
                       defaultSource={
                         Platform.OS === "ios" ? localFallback : undefined
                       }
-                      onError={() => setBgLoadError(true)}
+                      onError={handleImageError}
                       resizeMode="cover"
                       style={styles.peekTrayThumbImage}
                     />
