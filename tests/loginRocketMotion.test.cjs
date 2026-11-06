@@ -54,20 +54,21 @@ test("la llegada usa valores compartidos sin Layout Animations y respeta movimie
   assert.doesNotMatch(arrival, /entering=\{/);
 });
 
-test("el login nativo conserva acceso y fondo animado, sin scroll ni textos promocionales", () => {
+test("el login nativo conserva acceso, desplazamiento y fondo animado sin textos promocionales", () => {
   const login = source("components/loguin/Loguin.native.js");
 
   assert.match(login, /<LoginAtmosphere enabled=\{isFocused && !effectiveIsLaunching\}/);
-  assert.match(login, /showRocket=\{!compactLogin \|\| effectiveIsLaunching\}/);
+  assert.match(login, /showRocket/);
   assert.match(login, /redirectFlightCompleted/);
   assert.match(login, /onLaunchComplete=\{handleLaunchComplete\}/);
   assert.match(login, /const hideEvent = "keyboardDidHide"/);
   assert.doesNotMatch(login, /redirectFlightTimerRef|LOGIN_ROCKET_LAUNCH_DURATION_MS/);
   assert.match(login, /useSystemReducedMotion/);
   assert.match(login, /<KeyboardAvoidingView/);
-  assert.match(login, /availableHeight/);
+  assert.match(login, /<ScrollView/);
+  assert.match(login, /revealCredentials/);
+  assert.match(login, /scrollEnabled=\{!effectiveIsLaunching\}/);
   assert.match(login, /Ocultar teclado/);
-  assert.doesNotMatch(login, /<ScrollView|scrollTargetIntoView|scrollViewRef/);
   assert.doesNotMatch(login, /brandDescription|brandHighlights|Cubacel y promos|Proxy, VPN y más|Pedidos y remesas/);
   assert.doesNotMatch(login, /formMetaRow|Operación centralizada|Gestiona lo que vendes/);
   assert.match(login, /label="Usuario"/);

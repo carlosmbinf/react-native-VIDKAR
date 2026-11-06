@@ -15,8 +15,8 @@ import {
     KeyboardAvoidingView,
     NativeModules,
     Platform,
+    ScrollView,
     StyleSheet,
-    useWindowDimensions,
     View,
 } from "react-native";
 import { Button, Text, TextInput, useTheme } from "react-native-paper";
@@ -259,7 +259,6 @@ const Loguin = ({
   const isFocused = useIsFocused();
   const systemReducedMotion = useSystemReducedMotion();
   const shouldReduceMotion = Boolean(reducedMotion || systemReducedMotion);
-  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const [ipserver, setIpserver] = useState(() => getMeteorHost() || "");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -270,49 +269,55 @@ const Loguin = ({
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingApple, setLoadingApple] = useState(false);
   const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
-  const [availableHeight, setAvailableHeight] = useState(0);
   const [localLaunching, setLocalLaunching] = useState(false);
   const [redirectFlightCompleted, setRedirectFlightCompleted] = useState(false);
   const redirectedUserIdRef = React.useRef(null);
   const passwordInputRef = React.useRef(null);
+  const scrollRef = React.useRef(null);
+  const credentialsRef = React.useRef(null);
+  const usernameFieldRef = React.useRef(null);
+  const passwordFieldRef = React.useRef(null);
+  const serverFieldRef = React.useRef(null);
+  const focusedFieldRef = React.useRef(null);
+  const scrollOffsetRef = React.useRef(0);
   const effectiveIsLaunching = localLaunching;
-  const rawCompactLogin = keyboardVisible || (availableHeight > 0 && availableHeight < 640) || screenHeight < 700 || screenWidth > screenHeight;
-  const rawUltraCompactLogin = availableHeight > 0 && availableHeight < 440;
-  const compactSnapshotRef = React.useRef({
-    compact: rawCompactLogin,
-    ultraCompact: rawUltraCompactLogin,
-  });
-  if (!effectiveIsLaunching) {
-    compactSnapshotRef.current = {
-      compact: rawCompactLogin,
-      ultraCompact: rawUltraCompactLogin,
-    };
-  }
-  const compactLogin = effectiveIsLaunching
-    ? compactSnapshotRef.current.compact
-    : rawCompactLogin;
-  const ultraCompactLogin = effectiveIsLaunching
-    ? compactSnapshotRef.current.ultraCompact
-    : rawUltraCompactLogin;
-  const handleLoginShellLayout = (event) => {
-    if (effectiveIsLaunching) {
-      return;
-    }
-    const nextHeight = Math.round(event.nativeEvent.layout.height);
-    setAvailableHeight((current) => current === nextHeight ? current : nextHeight);
-  };
+  const revealCredentials = React.useCallback(() => {
+    scrollRef.current?.measureInWindow((_x, viewportTop, _width, viewportHeight) => {
+      credentialsRef.current?.measureInWindow((_x, _top, _width, height) => {
+        const target = focusedFieldRef.current === serverFieldRef.current || height > viewportHeight
+          ? focusedFieldRef.current
+          : credentialsRef.current;
+        target?.measureInWindow((_x, targetTop, _width, targetHeight) => {
+          const viewportBottom = viewportTop + viewportHeight;
+          const offset = targetTop < viewportTop + 8
+            ? targetTop - viewportTop - 8
+            : Math.max(0, targetTop + targetHeight - viewportBottom + 8);
+          if (offset !== 0) {
+            scrollRef.current?.scrollTo({ y: Math.max(0, scrollOffsetRef.current + offset), animated: true });
+          }
+        });
+      });
+    });
+  }, []);
   const openPrivacyPolicy = () => WebBrowser.openBrowserAsync(getPrivacyPolicyUrl());
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = "keyboardDidHide";
-    const showSubscription = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const showSubscription = Keyboard.addListener(showEvent, () => {
+      setKeyboardVisible(true);
+      revealCredentials();
+    });
     const hideSubscription = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
     return () => {
       showSubscription.remove();
       hideSubscription.remove();
     };
-  }, []);
+  }, [revealCredentials]);
+
+  useEffect(() => {
+    if (keyboardVisible) revealCredentials();
+  }, [keyboardVisible, revealCredentials]);
 
   const theme = useTheme();
   const isDarkMode = theme.dark;
@@ -929,35 +934,43 @@ const Loguin = ({
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={Platform.OS === "ios" ? 16 : 0}
         >
-          <View onLayout={handleLoginShellLayout} style={[styles.loginShell, compactLogin && styles.loginShellCompact]}>
+          <ScrollView
+            ref={scrollRef}
+            style={styles.safeArea}
+            contentContainerStyle={styles.loginScrollContent}
+            keyboardShouldPersistTaps="handled"
+            onLayout={() => {
+              if (keyboardVisible) revealCredentials();
+            }}
+            onScroll={(event) => {
+              scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+            }}
+            scrollEventThrottle={16}
+            scrollEnabled={!effectiveIsLaunching}
+          >
+          <View style={styles.loginShell}>
             <View style={styles.formPanel}>
               <LoginRocketFlight
                 isLaunching={effectiveIsLaunching}
                 onLaunchComplete={handleLaunchComplete}
                 reducedMotion={shouldReduceMotion}
-                showRocket={!compactLogin || effectiveIsLaunching}
+                showRocket
               >
                 <LoginBlurCard active={isFocused && !effectiveIsLaunching} palette={palette} reducedMotion={shouldReduceMotion}>
-                  <View style={[styles.blurCardContent, compactLogin && styles.blurCardContentCompact, ultraCompactLogin && styles.blurCardContentUltraCompact]}>
-                  {!keyboardVisible ? (
-                    <View style={[styles.formHeader, compactLogin && styles.formHeaderCompact]}>
-                      {!compactLogin ? (
+                  <View style={styles.blurCardContent}>
+                    <View style={styles.formHeader}>
                         <View style={styles.loginBrandMark}>
                           <FontAwesome5 color={palette.brandEyebrow} name="house-user" size={22} />
                           <Text style={[styles.loginBrandName, { color: palette.brandTitle }]}>VIDKAR</Text>
                         </View>
-                      ) : null}
-                      {!ultraCompactLogin ? <Text style={[styles.formEyebrow, { color: palette.formEyebrow }]}>Inicio de sesión</Text> : null}
-                      <Text style={[styles.title, ultraCompactLogin && styles.titleUltraCompact, { color: palette.formTitle }]}>Entra a tu cuenta</Text>
+                      <Text style={[styles.formEyebrow, { color: palette.formEyebrow }]}>Inicio de sesión</Text>
+                      <Text style={[styles.title, { color: palette.formTitle }]}>Entra a tu cuenta</Text>
                     </View>
-                  ) : null}
 
                   {showServerInput ? (
                       <View
                       style={[
                         styles.serverCard,
-                        compactLogin && styles.serverCardCompact,
-                          ultraCompactLogin && styles.serverCardUltraCompact,
                         {
                           backgroundColor: palette.serverCardSurface,
                           borderColor: palette.serverCardBorder,
@@ -967,24 +980,26 @@ const Loguin = ({
                       <Text
                         style={[
                           styles.serverLabel,
-                          compactLogin && styles.serverLabelCompact,
-                          ultraCompactLogin && styles.serverLabelUltraCompact,
                           { color: palette.serverLabel },
                         ]}
                       >
                         Servidor personalizado
                       </Text>
                       <View style={styles.serverRow}>
+                        <View ref={serverFieldRef} collapsable={false} style={styles.serverInput}>
                         <TextInput
                           mode="flat"
                           value={ipserver}
                           onChangeText={setIpserver}
+                          onFocus={() => {
+                            focusedFieldRef.current = serverFieldRef.current;
+                            if (keyboardVisible) revealCredentials();
+                          }}
                           label="Host, IP o URL del servidor"
                           returnKeyType="done"
                           dense
                           style={[
-                            styles.serverInput,
-                            ultraCompactLogin ? styles.inputUltraCompact : compactLogin ? styles.inputCompact : null,
+                            styles.input,
                             { backgroundColor: palette.inputBackground },
                           ]}
                           textColor={palette.inputText}
@@ -992,13 +1007,14 @@ const Loguin = ({
                           selectionColor={palette.inputTint}
                           theme={inputTheme}
                         />
+                        </View>
                         <Button
                           mode="contained"
                           onPress={reconnectToServer}
                           disabled={connectingToServer}
                           loading={connectingToServer}
-                          style={[styles.reconnectButton, compactLogin && styles.reconnectButtonCompact, ultraCompactLogin && styles.reconnectButtonUltraCompact]}
-                          contentStyle={[styles.reconnectButtonContent, compactLogin && styles.reconnectButtonContentCompact, ultraCompactLogin && styles.reconnectButtonContentUltraCompact]}
+                          style={styles.reconnectButton}
+                          contentStyle={styles.reconnectButtonContent}
                           buttonColor={theme.colors.primary}
                           textColor="#ffffff"
                           compact
@@ -1009,11 +1025,17 @@ const Loguin = ({
                     </View>
                   ) : null}
 
-                  <View style={[styles.fieldsBlock, compactLogin && styles.fieldsBlockCompact, ultraCompactLogin && styles.fieldsBlockUltraCompact]}>
+                  <View ref={credentialsRef} collapsable={false}>
+                  <View style={styles.fieldsBlock}>
+                    <View ref={usernameFieldRef} collapsable={false}>
                     <TextInput
                       mode="flat"
                       value={username}
                       onChangeText={handleUsernameChange}
+                      onFocus={() => {
+                        focusedFieldRef.current = usernameFieldRef.current;
+                        if (keyboardVisible) revealCredentials();
+                      }}
                       onSubmitEditing={handleUsernameSubmit}
                       blurOnSubmit={false}
                       label="Usuario"
@@ -1021,7 +1043,6 @@ const Loguin = ({
                       dense
                       style={[
                         styles.input,
-                        ultraCompactLogin ? styles.inputUltraCompact : compactLogin ? styles.inputCompact : null,
                         {
                           backgroundColor: palette.inputBackground,
                           borderColor: palette.inputBorder,
@@ -1036,11 +1057,17 @@ const Loguin = ({
                       activeUnderlineColor="transparent"
                       theme={inputTheme}
                     />
+                    </View>
+                    <View ref={passwordFieldRef} collapsable={false}>
                     <TextInput
                       ref={passwordInputRef}
                       mode="flat"
                       value={password}
                       onChangeText={setPassword}
+                      onFocus={() => {
+                        focusedFieldRef.current = passwordFieldRef.current;
+                        if (keyboardVisible) revealCredentials();
+                      }}
                       onSubmitEditing={handlePasswordSubmit}
                       label="Contraseña"
                       returnKeyType="done"
@@ -1048,7 +1075,6 @@ const Loguin = ({
                       dense
                       style={[
                         styles.input,
-                        ultraCompactLogin ? styles.inputUltraCompact : compactLogin ? styles.inputCompact : null,
                         {
                           backgroundColor: palette.inputBackground,
                           borderColor: palette.inputBorder,
@@ -1063,6 +1089,7 @@ const Loguin = ({
                       activeUnderlineColor="transparent"
                       theme={inputTheme}
                     />
+                    </View>
                   </View>
 
                     <Button
@@ -1071,13 +1098,14 @@ const Loguin = ({
                       loading={submitting}
                       disabled={submitting}
                       style={styles.primaryButton}
-                      contentStyle={[styles.primaryButtonContent, compactLogin && styles.primaryButtonContentCompact, ultraCompactLogin && styles.primaryButtonContentUltraCompact]}
+                      contentStyle={styles.primaryButtonContent}
                       labelStyle={styles.primaryButtonLabel}
                       buttonColor={theme.colors.primary}
                       textColor={palette.inputText}
                     >
                       Iniciar sesión
                     </Button>
+                  </View>
 
                   {keyboardVisible ? (
                     <Button compact icon="keyboard-off" onPress={Keyboard.dismiss} style={styles.keyboardDismissAction}>
@@ -1085,20 +1113,18 @@ const Loguin = ({
                     </Button>
                   ) : null}
 
-                  {!keyboardVisible && (permitirLoginWithGoogle?.valor === "true" ||
+                  {(permitirLoginWithGoogle?.valor === "true" ||
                   (permitirLoginWithApple?.valor === "true" &&
                     Platform.OS === "ios" &&
                     appleAuthAvailable)) ? (
-                    <View style={[styles.socialSection, compactLogin && styles.socialSectionCompact]}>
-                      {!compactLogin ? (
+                    <View style={styles.socialSection}>
                         <View style={styles.dividerRow}>
                           <View style={[styles.dividerLine, { backgroundColor: palette.divider }]} />
                           <Text style={[styles.altText, { color: palette.altText }]}>o continúa con</Text>
                           <View style={[styles.dividerLine, { backgroundColor: palette.divider }]} />
                         </View>
-                      ) : null}
 
-                      <View style={[styles.socialButtons, compactLogin && styles.socialButtonsCompact]}>
+                      <View style={styles.socialButtons}>
                         {permitirLoginWithGoogle?.valor === "true" ? (
                           <Button
                             mode="outlined"
@@ -1108,13 +1134,12 @@ const Loguin = ({
                             loading={loadingGoogle}
                             style={[
                               styles.secondaryButton,
-                              compactLogin && styles.secondaryButtonCompact,
                               { borderColor: palette.secondaryButtonBorder },
                             ]}
-                            contentStyle={[styles.secondaryButtonContent, compactLogin && styles.secondaryButtonContentCompact]}
+                            contentStyle={styles.secondaryButtonContent}
                             textColor={palette.secondaryButtonText}
                           >
-                            {compactLogin ? "Google" : "Entrar con Google"}
+                            Entrar con Google
                           </Button>
                         ) : null}
 
@@ -1129,21 +1154,19 @@ const Loguin = ({
                             loading={loadingApple}
                             style={[
                               styles.secondaryButton,
-                              compactLogin && styles.secondaryButtonCompact,
                               { borderColor: palette.secondaryButtonBorder },
                             ]}
-                            contentStyle={[styles.secondaryButtonContent, compactLogin && styles.secondaryButtonContentCompact]}
+                            contentStyle={styles.secondaryButtonContent}
                             textColor={palette.secondaryButtonText}
                           >
-                            {compactLogin ? "Apple" : "Entrar con Apple"}
+                            Entrar con Apple
                           </Button>
                         ) : null}
                       </View>
                     </View>
                   ) : null}
 
-                  {!keyboardVisible && !ultraCompactLogin ? (
-                    <View style={[styles.footerPanel, compactLogin && styles.footerPanelCompact]}>
+                    <View style={styles.footerPanel}>
                       <Button
                         mode="text"
                         compact
@@ -1165,12 +1188,12 @@ const Loguin = ({
                         </Text>
                       ) : null}
                     </View>
-                  ) : null}
                 </View>
                 </LoginBlurCard>
               </LoginRocketFlight>
             </View>
           </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
