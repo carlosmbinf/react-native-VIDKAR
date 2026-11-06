@@ -22,16 +22,14 @@ test("el cohete mantiene el mismo contenedor sin remounts ni Layout Animations d
   );
 });
 
-test("el vuelo tiene anticipación, aceleración y salida fuera de pantalla", () => {
+test("el vuelo usa una curva continua de aceleración hasta salir de pantalla", () => {
   const flight = source("components/loguin/LoginRocketFlight.native.jsx");
 
-  assert.match(flight, /LOGIN_ROCKET_LAUNCH_DURATION_MS \* 0\.18/);
-  assert.match(flight, /LOGIN_ROCKET_LAUNCH_DURATION_MS \* 0\.52/);
-  assert.match(flight, /withTiming\(-4,/);
-  assert.match(flight, /withTiming\(width \* 0\.12,/);
-  assert.match(flight, /withTiming\(width \* 0\.42,/);
-  assert.match(flight, /withTiming\(-height \* 0\.38,/);
-  assert.match(flight, /withTiming\(-height \* 1\.25,/);
+  assert.match(flight, /const EASE_FLIGHT = Easing\.in\(Easing\.quad\)/);
+  assert.match(flight, /withTiming\(width \* 0\.42, flightTiming\)/);
+  assert.match(flight, /withTiming\(-height \* 1\.25, flightTiming\)/);
+  assert.match(flight, /withTiming\(8, flightTiming\)/);
+  assert.match(flight, /withTiming\(0\.72, flightTiming\)/);
 });
 
 test("la raíz mantiene el login durante el vuelo y anima la llegada por rol", () => {

@@ -84,8 +84,8 @@ function flightHarness() {
     Easing: {
       bezier: () => "bezier",
       out: () => "out",
-      in: () => "in",
-      quad: "quad",
+      in: (easing) => easing,
+      quad: (value) => value * value,
       cubic: "cubic",
       linear: "linear",
     },
@@ -207,6 +207,33 @@ function flightHarness() {
     cardStyle: () => tree.props.children[1].props.style[1](),
   };
 }
+
+test("el vuelo acelera continuamente sin reiniciar la velocidad a mitad", () => {
+  const harness = flightHarness();
+  harness.render({ isLaunching: true });
+  const [, , x, y, rotation, scale] = harness.values;
+  for (const [shared, target] of [
+    [x, 390 * 0.42],
+    [y, -844 * 1.25],
+    [rotation, 8],
+    [scale, 0.72],
+  ]) {
+    const animation = shared.animation;
+    assert.equal(animation.kind, "timing");
+    assert.equal(animation.toValue, target);
+    assert.equal(animation.config.duration, 740);
+    const easing = animation.config.easing;
+    assert.equal(easing(0), 0);
+    assert.equal(easing(1), 1);
+    let previousDelta = 0;
+    for (let step = 1; step <= 20; step += 1) {
+      const delta = easing(step / 20) - easing((step - 1) / 20);
+      assert.ok(delta > previousDelta, `La velocidad debe crecer en el tramo ${step}`);
+      previousDelta = delta;
+    }
+  }
+  harness.unmount();
+});
 
 function onlyCompletion(harness) {
   const completions = harness.completions();
