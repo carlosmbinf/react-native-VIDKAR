@@ -449,7 +449,7 @@ function cardFixture(extraProps = {}, { platform = "android", version = 18, redu
     "expo-router": { Link, useRouter: () => ({ push: (href) => pushes.push(href) }) },
     "@expo/vector-icons/MaterialCommunityIcons": "MaterialCommunityIcons",
     "../../hooks/useSystemReducedMotion": () => reducedMotion,
-    "../motion/ServiceMotion": { ServicePressable: "Pressable" },
+    "../motion/ServiceMotion": { ServicePressable: "ServicePressable" },
     "./commerceZoomSnapshot": { saveCommerceZoomSnapshot: (id, visual) => snapshots.push({ id, visual }) },
     "./ProductImageCarousel": "ProductImageCarousel",
   });
@@ -461,7 +461,7 @@ test("tarjeta respeta onPress custom sin montar drawer/carrito", () => {
   let calls = 0;
   const onPress = () => { calls += 1; };
   const h = cardFixture({ onPress });
-  const button = only(h.tree, "Pressable");
+  const button = only(h.tree, "ServicePressable");
   assert.equal(button.props.onPress, onPress);
   assert.equal(button.props.accessibilityRole, "button");
   h.act(() => button.props.onPress());
@@ -471,11 +471,16 @@ test("tarjeta respeta onPress custom sin montar drawer/carrito", () => {
 
 test("tarjeta navega al detalle por defecto sin abrir el drawer", () => {
   const h = cardFixture();
-  h.act(() => only(h.tree, "Pressable").props.onPress());
+  h.act(() => only(h.tree, "ServicePressable").props.onPress());
   assert.equal(h.pushes.length, 1);
   assert.equal(h.pushes[0].pathname, "/(normal)/ProductoComercio");
   assert.equal(h.pushes[0].params.productId, product._id);
   assert.equal(byType(h.tree, "AddToCartDialog").length, 0);
+});
+
+test("tarjeta de comercio activa la presión por defecto", () => {
+  const h = cardFixture();
+  assert.equal(byType(h.tree, "ServicePressable").length, 1);
 });
 
 test("iOS compatible guarda la imagen visible y usa zoom solo en la galería", () => {
@@ -495,6 +500,7 @@ test("Link.Trigger recibe estilos aplanados y conserva las personalizaciones de 
     const h = cardFixture({ motionEnabled, containerStyle: { marginRight: 7 } }, { platform: "ios" });
     const trigger = only(h.tree, "Link.Trigger");
     const card = trigger.props.children[0];
+    assert.equal(card.type, motionEnabled ? "ServicePressable" : "Pressable");
     assert.equal(Array.isArray(card.props.style), false, "Expo Router rechaza arrays en hijos de Slot");
     assert.equal(card.props.style.marginRight, 7);
     assert.equal(card.props.style.marginVertical, 8);
@@ -504,7 +510,7 @@ test("Link.Trigger recibe estilos aplanados y conserva las personalizaciones de 
 test("iOS anterior o movimiento reducido navegan sin zoom", () => {
   for (const options of [{ platform: "ios", version: 17 }, { platform: "ios", reducedMotion: true }]) {
     const h = cardFixture({}, options);
-    h.act(() => only(h.tree, "Pressable").props.onPress());
+    h.act(() => only(h.tree, "ServicePressable").props.onPress());
     assert.equal(h.pushes.length, 1);
     assert.equal(byType(h.tree, "Link.AppleZoom").length, 0);
   }
@@ -552,7 +558,7 @@ test("detalle espera la publicación antes de habilitar los datos de compra", ()
       ProductosComercioCollection: { findOne: () => state.product },
       TiendasComercioCollection: { findOne: () => store },
     },
-    "../Header/AppHeader": { default: "AppHeader", useAppHeaderContentInset: () => 80 },
+    "../Header/AppHeader": { __esModule: true, default: "AppHeader", useAppHeaderContentInset: () => 80 },
     "../navigation/useSafeBack": () => () => {},
     "./AddToCartDialog": "AddToCartDialog",
     "./commerceZoomSnapshot": {
@@ -584,6 +590,7 @@ test("detalle conserva validación, comentario y método de agregar al carrito",
     useTracker: (callback) => callback(),
     call: (...args) => calls.push(args),
   };
+  const onDismiss = () => { state.dismissed += 1; };
   const component = load("components/productos/AddToCartDialog.native.jsx", {
     "@meteorrn/core": meteor,
     "expo-blur": { BlurView: "BlurView" },
@@ -602,7 +609,13 @@ test("detalle conserva validación, comentario y método de agregar al carrito",
     "../motion/ServiceMotion": { ServiceEntrance: "ServiceEntrance", ServiceMotionProvider: "ServiceMotionProvider", ServiceScrollViewport: "ServiceScrollViewport" },
     "./ProductImageCarousel": "ProductImageCarousel",
   }, { React: h.React, console });
-  h.mount(component, { productId: product._id, producto: product, tienda: store, onDismiss: () => { state.dismissed += 1; } });
+  h.mount(component, { productId: product._id, producto: product, tienda: store, onDismiss });
+  const header = nodes(h.tree).find((node) => node.props?.title === "Producto de comercio");
+  assert.ok(header, JSON.stringify(nodes(h.tree).map((node) => ({ type: String(node.type), props: node.props }))));
+  assert.equal(header.props.onBack, onDismiss);
+  assert.equal(header.props.backHref, undefined);
+  header.props.onBack();
+  assert.equal(state.dismissed, 1);
   assert.equal(calls[0][0], "comercio.getProductSpecifications");
   h.act(() => calls[0][2](null, [{ label: "Color", value: "Azul" }]));
   assert.ok(texts(h.tree).includes("Azul"));
@@ -623,7 +636,7 @@ test("detalle conserva validación, comentario y método de agregar al carrito",
   h.render();
   assert.equal(alerts[0][0], "¡Éxito!");
   alerts[0][2][0].onPress();
-  assert.equal(state.dismissed, 1);
+  assert.equal(state.dismissed, 2);
   state.user = null;
   h.render();
   add = byType(h.tree, "Button").find((node) => text(node) === "Agregar");

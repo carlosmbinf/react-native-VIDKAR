@@ -61,7 +61,7 @@ function atmosphereHarness(duration, systemReducedMotion = false) {
   };
   const common = { SHOULD_BE_USE_WEB: false, logger: { warn() {} } };
   const { ReduceMotion } = load(`${library}commonTypes.ts`);
-  const util = load(`${library}animation/util.ts`, {
+  const utilCommon = load(`${library}animation/utilCommon.ts`, {
     "react-native-worklets": worklets,
     "../common": common,
     "../commonTypes": { ReduceMotion },
@@ -75,6 +75,10 @@ function atmosphereHarness(duration, systemReducedMotion = false) {
     "../Colors": { isColor: () => false },
     "./transformationMatrix/matrixUtils": { isAffineMatrixFlat: () => false },
   });
+  const util = load(`${library}animation/util.ts`, {
+    "react-native-worklets": worklets,
+    "./utilCommon": utilCommon,
+  });
   const { Easing } = load(`${library}Easing.ts`, {
     "./Bezier": load(`${library}Bezier.ts`),
   });
@@ -84,10 +88,8 @@ function atmosphereHarness(duration, systemReducedMotion = false) {
   });
   const { withRepeat } = load(`${library}animation/repeat.ts`, { "./util": util });
   const { valueSetter } = load(`${library}valueSetter.ts`);
-  const { makeMutableUI } = load(`${library}mutables.ts`, {
-    "react-native-worklets": worklets,
+  const { mutableHostDecorator } = load(`${library}mutablesCommon.ts`, {
     "./common": common,
-    "./featureFlags": { getStaticFeatureFlag: () => false },
     "./reactUtils": { isReactRendering: () => false, isFirstReactRender: () => false },
     "./valueSetter": { valueSetter },
   });
@@ -108,7 +110,7 @@ function atmosphereHarness(duration, systemReducedMotion = false) {
       __esModule: true, default: { View: "AnimatedView" },
       Easing, ReduceMotion, withTiming, withRepeat,
       cancelAnimation: util.cancelAnimation,
-      useSharedValue: (initial) => (progress ??= makeMutableUI(initial)),
+      useSharedValue: (initial) => (progress ??= mutableHostDecorator({ value: initial })),
       useAnimatedStyle: (updater) => updater,
     },
   });

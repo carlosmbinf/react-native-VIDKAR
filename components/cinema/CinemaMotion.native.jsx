@@ -26,7 +26,7 @@ const PRESS_SPRING = { stiffness: 600, damping: 42, mass: 0.65, reduceMotion: Re
 const RELEASE_SPRING = { stiffness: 420, damping: 27, mass: 0.7, reduceMotion: ReduceMotion.System };
 const CINEMA_SPRING = { stiffness: 220, damping: 22, mass: 0.78, reduceMotion: ReduceMotion.System };
 
-export function CinemaPosterPressable({ children, height, style, ...props }) {
+export function CinemaPosterPressable({ children, height, motionEnabled = true, style, ...props }) {
   const reducedMotion = useCinemaReducedMotion();
   const pressure = useSharedValue(0);
   const tiltX = useSharedValue(0);
@@ -38,7 +38,7 @@ export function CinemaPosterPressable({ children, height, style, ...props }) {
     cancelAnimation(tiltY);
   }, [pressure, tiltX, tiltY]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
+  const animatedStyle = useAnimatedStyle(() => motionEnabled ? ({
     transform: [
       { perspective: 850 },
       { scale: reducedMotion ? 1 : 1 - pressure.get() * 0.04 },
@@ -46,14 +46,14 @@ export function CinemaPosterPressable({ children, height, style, ...props }) {
       { rotateY: `${reducedMotion ? 0 : tiltY.get()}deg` },
       { translateY: reducedMotion ? 0 : pressure.get() * 2 },
     ],
-  }));
+  }) : {});
 
   return (
     <Pressable
       {...props}
       style={({ pressed }) => [style, pressed && styles.pressed]}
       onPressIn={({ nativeEvent }) => {
-        if (reducedMotion) return;
+        if (reducedMotion || !motionEnabled) return;
         const x = Math.max(-1, Math.min(1, nativeEvent.locationX / 158 * 2 - 1));
         const y = Math.max(-1, Math.min(1, nativeEvent.locationY / height * 2 - 1));
         pressure.set(withSpring(1, PRESS_SPRING));
@@ -61,6 +61,7 @@ export function CinemaPosterPressable({ children, height, style, ...props }) {
         tiltY.set(withSpring(x * 5, PRESS_SPRING));
       }}
       onPressOut={() => {
+        if (!motionEnabled) return;
         pressure.set(withSpring(0, RELEASE_SPRING));
         tiltX.set(withSpring(0, RELEASE_SPRING));
         tiltY.set(withSpring(0, RELEASE_SPRING));

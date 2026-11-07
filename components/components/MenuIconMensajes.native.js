@@ -2,7 +2,6 @@ import MeteorBase from "@meteorrn/core";
 import { BlurView } from "expo-blur";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    InteractionManager,
     ScrollView,
     StyleSheet,
     View,
@@ -109,15 +108,15 @@ const MenuIconMensajesNative = ({ onOpenMessages }) => {
 
   useEffect(() => {
     let mounted = true;
-    const interactionTask = InteractionManager.runAfterInteractions(() => {
+    const idleTask = requestIdleCallback(() => {
       if (mounted) {
         setReadyToSubscribe(true);
       }
-    });
+    }, { timeout: 100 });
 
     return () => {
       mounted = false;
-      interactionTask?.cancel?.();
+      cancelIdleCallback(idleTask);
     };
   }, []);
 

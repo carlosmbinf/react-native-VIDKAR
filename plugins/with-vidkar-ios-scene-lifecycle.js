@@ -9,7 +9,7 @@ const {
 
 const pkg = {
   name: "with-vidkar-ios-scene-lifecycle",
-  version: "1.1.0",
+  version: "1.2.0",
 };
 
 const sceneDelegateSource = `internal import Expo
@@ -17,10 +17,8 @@ import React
 import UIKit
 import UserNotifications
 
-final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
-  var window: UIWindow?
-
-  func scene(
+final class SceneDelegate: ExpoAppSceneDelegate {
+  override func scene(
     _ scene: UIScene,
     willConnectTo session: UISceneSession,
     options connectionOptions: UIScene.ConnectionOptions
@@ -85,26 +83,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     let window = UIWindow(windowScene: windowScene)
     self.window = window
+    appDelegate.window = window
     factory.startReactNative(
       withModuleName: "main",
       in: window,
+      initialProperties: initialProperties,
       launchOptions: launchOptions.isEmpty ? nil : launchOptions
-    )
-  }
-
-  func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
-    guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { return }
-    for context in URLContexts {
-      _ = appDelegate.application(UIApplication.shared, open: context.url, options: [:])
-    }
-  }
-
-  func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
-    guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { return }
-    _ = appDelegate.application(
-      UIApplication.shared,
-      continue: userActivity,
-      restorationHandler: { _ in }
     )
   }
 }
@@ -141,7 +125,7 @@ const withSceneDelegateFile = (config) => withDangerousMod(config, ["ios", (conf
     throw new Error("Bootstrap AppDelegate no reconocido; no se genera un segundo arranque de React Native.");
   }
   if (!nextSource.includes("// VIDKAR_SCENE_LAUNCH_OPTIONS")) {
-    const classPattern = /class AppDelegate: ExpoAppDelegate \{/;
+    const classPattern = /class AppDelegate: ExpoAppDelegate(?:, ExpoReactNativeFactoryProvider)? \{/;
     const launchPattern = /(didFinishLaunchingWithOptions launchOptions: \[UIApplication\.LaunchOptionsKey: Any\]\?\s*(?:= nil\s*)?\) -> Bool \{)/;
     if (!classPattern.test(nextSource) || !launchPattern.test(nextSource)) {
       throw new Error("AppDelegate no reconocido; no se pueden conservar las opciones de lanzamiento.");

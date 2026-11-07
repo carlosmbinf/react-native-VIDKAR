@@ -30,6 +30,67 @@ Se reutilizan la colección `COMERCIO_webAppearance` y la publicación existente
 
 ### Arranque local
 
+La app usa Expo SDK 58, React Native 0.88.1 y React 19.3.0. Mantener los
+modulos Expo, Expo Router, Reanimated y Worklets alineados con el SDK; actualizar
+solo `expo` puede romper Metro con errores como
+`Unable to resolve "react-native/asset-registry"`.
+
+Despues de cambiar dependencias, ejecutar `npx expo install --check`. Metro usa
+el registro de assets del SDK sin aliases ni parches de React Native. La
+resolucion personalizada del contexto web usa el export publico
+`expo-router/_ctx` y sigue excluyendo rutas nativas.
+
+Al actualizar desde SDK 57, reconstruir el development build; un binario anterior
+no incorpora los nuevos modulos nativos. En macOS, ejecutar
+`npx expo prebuild --platform ios` y `npx expo run:ios`. El plugin de escenas
+conserva las opciones del arranque en frio y hereda de `ExpoAppSceneDelegate`
+los eventos de ciclo de vida y los enlaces en caliente de SDK 58/React Native
+0.88. Windows permite validar bundles, pero no generar ni compilar el proyecto
+iOS con Expo/Xcode.
+
+Validacion enfocada: `node --test tests/metroConfig.test.cjs tests/iosSceneLifecycle.test.cjs`.
+La prueba Swift requiere macOS/Xcode.
+
+React Native 0.88 elimina `InteractionManager`. Los trabajos diferidos de la app
+usan `requestIdleCallback` y cancelan la tarea al desmontar cuando corresponde.
+`postinstall` aplica `scripts/patch-meteorrn-scheduler.js` a `@meteorrn/core`
+2.9.1 para usar el batching publico y el scheduler idle, sin acceder a APIs
+eliminadas. El parche es idempotente y falla si cambia el bloque esperado.
+Despues de aplicarlo, reiniciar Metro con `--clear`.
+Validacion: `node --test tests/meteorScheduler.test.cjs tests/metroConfig.test.cjs`.
+
+Peliculas, productos de comercio y Cubacel usan el zoom nativo compartido de
+Expo en iOS 18 o posterior: solo la imagen es el origen en la tarjeta y solo
+la imagen principal es el destino en el detalle. El texto y los controles quedan
+fuera de la transicion. Las tarjetas conservan su respuesta de presion al tocar.
+Inicio reutiliza las mismas tarjetas que los catalogos. Sus contenedores de entrada
+eliminan las transformaciones al terminar, para no acumular perspectivas 3D sobre
+la presion ni sobre el marco de la imagen durante el zoom de apertura y regreso.
+Android, iOS anteriores y movimiento reducido mantienen la navegacion normal.
+El catalogo de Comercio conserva sus suscripciones al abrir un producto y volver:
+no vacia las filas ni reconstruye las selecciones por el cambio de foco.
+Las actualizaciones reactivas de Meteor y el refresco manual siguen activos.
+Validacion: `node --test tests/commerceCatalogFocus.test.cjs`.
+En desarrollo, `[CatalogImageZoom]` registra origen/destino y si el enlace llevo
+la referencia de zoom hasta la ruta correcta. No registra identificadores ni datos
+del producto y no se ejecuta en produccion. Para comparar Inicio y catalogos,
+abrir el mismo producto desde ambos y revisar `hasImageSource` y
+`matchesDestination`: ambos deben ser `true`. Esto comprueba el contrato de
+navegacion, no el resultado visual de UIKit.
+Validacion: `node --test tests/moviePosterZoom.test.cjs tests/commerceProductCards.test.cjs tests/cubacelZoomTransition.test.cjs tests/cinemaMotion.test.cjs`.
+El contenedor de capas del poster usa `collapsable={false}`: el zoom nativo solo
+acepta un hijo y el aplanado de Fabric no debe separar fondo, imagen e indicadores.
+El detalle de pelicula muestra Reproducir y Trailer en un footer fijo con blur,
+como Cubacel, sin duplicarlas en el header ni el cuerpo. Se respeta el area segura
+y se reserva la altura medida del footer al final del scroll. Se deshabilitan durante
+la carga o cuando falta el enlace. Validacion: `node --test tests/movieDetailFooter.test.cjs`.
+Los datos de año, formato, tamaño, generos y reparto usan capsulas translucidas
+con etiqueta y valor como los precios de Cubacel; el texto largo se ajusta sin
+truncarse y la sinopsis conserva su bloque multilinea.
+La tarjeta de sinopsis usa los colores de superficie y texto del tema activo.
+En modo claro, las capsulas del cuerpo tambien se adaptan; las de la imagen
+mantienen fondo translucido y texto blanco para conservar el contraste.
+
 1. Install dependencies
 
    ```bash
@@ -39,7 +100,7 @@ Se reutilizan la colección `COMERCIO_webAppearance` y la publicación existente
 2. Start the app
 
    ```bash
-   npx expo start
+   npx expo start --clear
    ```
 
 In the output, you'll find options to open the app in a

@@ -249,7 +249,13 @@ function fixture(options = {}) {
     "./Gemini_Generated_Image_rtg44brtg44brtg4.png": "fallback-image",
   };
   let submit;
-  const globals = { React: h.React, __captureSubmit: (handler) => { submit = handler; }, console };
+  const globals = {
+    React: h.React,
+    __captureSubmit: (handler) => { submit = handler; },
+    requestIdleCallback: () => 1,
+    cancelIdleCallback() {},
+    console,
+  };
   const card = load("components/cubacel/CubaCelCard.native.jsx", dependencies, globals).default;
   const screen = load("components/cubacel/CubacelOfertaScreen.native.jsx", dependencies, globals, true).default;
   // El export real monta el provider y entrega la función de la pantalla como hijo.
@@ -334,6 +340,11 @@ test("iOS 18: Link push guarda snapshot antes de navegar y solo la imagen es sou
   assert.equal(saved.imageSource.uri, product.imageUrl);
   assert.equal(saved.imageUrl, product.imageUrl);
   assert.equal(f.state.navigations.length, 0, "La navegación la realiza Link, no router.push");
+  const animatedCard = only(f.tree, "Animated.View");
+  const animatedTransform = animatedCard.props.style.find((style) => style?.transform)?.transform;
+  assert.equal(animatedTransform.length, 4, "el card conserva su efecto de presión al iniciar el zoom");
+  only(f.tree, "Pressable").props.onPressIn();
+  only(f.tree, "Pressable").props.onPressOut();
 });
 
 test("el detalle conserva el fondo alternativo cuando la imagen de origen falló", () => {
@@ -400,8 +411,9 @@ test("render descartado no consume snapshot; commit muestra target y carga sin f
   const hero = only(target, "ImageBackground");
   assert.equal(hero.props.source.uri, visual.imageSource.uri);
   assert.equal(hero.props.blurRadius, 35);
-  assert.ok(text(target).includes(visual.name));
-  assert.ok(text(target).includes(visual.priceLabel));
+  assert.equal(text(target), "", "solo la imagen del hero es el destino de zoom");
+  assert.ok(text(f.tree).includes(visual.name));
+  assert.ok(text(f.tree).includes(visual.priceLabel));
   assert.ok(text(f.tree).includes("Cargando oferta Cubacel..."));
   assert.equal(byType(f.tree, "ActivityIndicator").length, 1);
   assert.equal(byType(f.tree, TextInput).length, 0);

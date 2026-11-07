@@ -139,7 +139,7 @@ const AddToCartDialogNative = ({ initialVisual, onDismiss, productId, producto, 
   return (
     <ServiceMotionProvider>
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
-      <AppHeader title="Producto de comercio" backHref="/(normal)/Main" overlapContent showBackButton />
+      <AppHeader title="Producto de comercio" onBack={onDismiss} overlapContent showBackButton />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "height" : undefined} style={styles.keyboardView}>
       <ServiceScrollViewport topInset={headerInset} bottomInset={footerHeight}>
       <ScrollView

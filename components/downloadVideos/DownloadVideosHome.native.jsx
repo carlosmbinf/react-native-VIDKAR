@@ -223,7 +223,7 @@ const useProgressiveCatalogValue = (value, loading) => {
   return loading && value.length < stableRef.current.length ? stableRef.current : value;
 };
 
-const CachedMovieImageBackground = ({ children, imageStyle, animatedImageStyle, source, style }) => {
+const CachedMovieImageBackground = ({ children, imageStyle, animatedImageStyle, source, style, zoomEnabled = false }) => {
   const uri = source?.uri;
   const [imageState, setImageState] = React.useState(uri ? "loading" : "empty");
 
@@ -234,7 +234,7 @@ const CachedMovieImageBackground = ({ children, imageStyle, animatedImageStyle, 
   const showLoading = imageState === "loading";
   const showError = imageState === "error" || imageState === "empty";
   return (
-    <View style={style}>
+    <View collapsable={false} style={style}>
       <LinearGradient
         colors={["#111827", "#1f2937", "#020617"]}
         start={{ x: 0, y: 0 }}
@@ -243,14 +243,27 @@ const CachedMovieImageBackground = ({ children, imageStyle, animatedImageStyle, 
       />
       {uri ? (
         <Reanimated.View pointerEvents="none" style={[StyleSheet.absoluteFill, animatedImageStyle]}>
-        <ImageBackground
-          source={{ uri }}
-          resizeMode="cover"
-          imageStyle={imageStyle}
-          style={StyleSheet.absoluteFill}
-          onLoad={(e) => {setImageState("loaded")}}
-          onError={() => {console.log("Error loading image"); setImageState("error")}}
-        />
+          {zoomEnabled ? (
+            <Link.AppleZoom>
+              <ImageBackground
+                source={{ uri }}
+                resizeMode="cover"
+                imageStyle={imageStyle}
+                style={StyleSheet.absoluteFill}
+                onLoad={() => setImageState("loaded")}
+                onError={() => { console.log("Error loading image"); setImageState("error"); }}
+              />
+            </Link.AppleZoom>
+          ) : (
+            <ImageBackground
+              source={{ uri }}
+              resizeMode="cover"
+              imageStyle={imageStyle}
+              style={StyleSheet.absoluteFill}
+              onLoad={() => setImageState("loaded")}
+              onError={() => { console.log("Error loading image"); setImageState("error"); }}
+            />
+          )}
         </Reanimated.View>
       ) : null}
       {showLoading ? (
@@ -500,14 +513,20 @@ const MetaPill = ({ icon, label, palette, strong = false }) => (
 );
 
 export const MoviePosterCard = ({ movie, palette, onPress, compact }) => {
-  const zoomEnabled = Platform.OS === "ios";
+  const reducedMotion = useCinemaReducedMotion();
+  const zoomEnabled = Platform.OS === "ios" && parseInt(String(Platform.Version), 10) >= 18 && !reducedMotion;
   const imageUrl = getMovieImageUrl(movie?._id, "mid");
   const genres = normalizeGenres(movie?.clasificacion);
 
-  return (
-    <CinemaPosterPressable height={compact ? 222 : 238} accessibilityRole="button" accessibilityLabel={`Abrir ${getMovieTitle(movie)}`} onPress={() => onPress?.(movie)} style={styles.posterPressable}>
+  const card = (
+    <CinemaPosterPressable height={compact ? 222 : 238} accessibilityRole="button" accessibilityLabel={`Abrir ${getMovieTitle(movie)}`} onPress={zoomEnabled ? undefined : () => onPress?.(movie)} style={styles.posterPressable}>
       <Surface style={[styles.posterCard, compact && styles.posterCardCompact, { backgroundColor: palette.surfaceElevated }]} elevation={1}>
-        {zoomEnabled ? <Link.AppleZoom><CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.posterImage} imageStyle={styles.posterImageStyle} /></Link.AppleZoom> : <CachedMovieImageBackground source={imageUrl ? { uri: imageUrl } : undefined} style={styles.posterImage} imageStyle={styles.posterImageStyle} />}
+        <CachedMovieImageBackground
+          source={imageUrl ? { uri: imageUrl } : undefined}
+          style={styles.posterImage}
+          imageStyle={styles.posterImageStyle}
+          zoomEnabled={zoomEnabled}
+        />
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           <LinearGradient colors={["transparent", "rgba(0,0,0,0.16)", "rgba(0,0,0,0.92)"]} style={StyleSheet.absoluteFill} />
           <View style={styles.posterTopRow}>
@@ -533,6 +552,15 @@ export const MoviePosterCard = ({ movie, palette, onPress, compact }) => {
       </Surface>
     </CinemaPosterPressable>
   );
+  return zoomEnabled ? (
+    <Link
+      href={{ pathname: "/(normal)/PeliculaDetalle", params: { id: movie._id } }}
+      asChild
+      push
+    >
+      <Link.Trigger>{card}</Link.Trigger>
+    </Link>
+  ) : card;
 };
 
 const MovieRow = ({ title, movies, palette, onPress, compact }) => {

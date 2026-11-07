@@ -1,6 +1,8 @@
 import { Stack } from "expo-router";
 import useSystemReducedMotion from "../../hooks/useSystemReducedMotion";
 
+export const unstable_settings = { initialRouteName: "Main" };
+
 export default function NormalLayout() {
   const reducedMotion = useSystemReducedMotion();
   const cinemaOptions = {
@@ -10,7 +12,26 @@ export default function NormalLayout() {
   } as const;
 
   return (
-    <Stack initialRouteName="Main" screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{ headerShown: false }}
+      screenListeners={({ route, navigation }) => ({
+        transitionStart: (event) => {
+          if (!__DEV__ || !["PeliculaDetalle", "CubacelOferta", "ProductoComercio"].includes(route.name)) {
+            return;
+          }
+          const params = route.params as Record<string, unknown> | undefined;
+          const state = navigation.getState();
+          const destinationIndex = state.routes.findIndex((entry) => entry.key === route.key);
+          console.info("[CatalogImageZoom]", {
+            destination: route.name,
+            origin: destinationIndex > 0 ? state.routes[destinationIndex - 1]?.name : null,
+            closing: event.data.closing,
+            hasImageSource: typeof params?.__internal_expo_router_zoom_transition_source_id === "string",
+            matchesDestination: params?.__internal_expo_router_zoom_transition_screen_id === route.key,
+          });
+        },
+      })}
+    >
       <Stack.Screen name="Main" />
       <Stack.Screen name="User" />
       <Stack.Screen name="UserServices" options={{ animation: "slide_from_right" }} />

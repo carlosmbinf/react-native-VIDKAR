@@ -295,13 +295,18 @@ test("las entradas son visibles y movimiento reducido evita espera y desplazamie
     const tree = motion.ServiceEntrance({ delay: 60, variant: "hero" });
     const initialStyle = tree.props.style[1]();
     assert.equal(initialStyle.opacity, reduced ? 1 : 0.08);
-    assert.equal(initialStyle.transform[0].translateY, reduced ? 0 : 36);
-    assert.equal(initialStyle.transform[1].perspective, 1100);
-    assert.equal(initialStyle.transform[2].scale, reduced ? 1 : 0.88);
-    assert.equal(initialStyle.transform[3].rotateX, reduced ? "0deg" : "9deg");
+    if (reduced) {
+      assert.equal(initialStyle.transform.length, 0);
+    } else {
+      assert.equal(initialStyle.transform[0].translateY, 36);
+      assert.equal(initialStyle.transform[1].perspective, 1100);
+      assert.equal(initialStyle.transform[2].scale, 0.88);
+      assert.equal(initialStyle.transform[3].rotateX, "9deg");
+    }
     const cleanup = motion.effects[0]();
     await Promise.resolve();
     assert.equal(tree.props.style[1]().opacity, 1);
+    assert.equal(tree.props.style[1]().transform.length, 0);
     assert.deepEqual(motion.delays, reduced ? [] : [60]);
     if (!reduced) {
       assert.equal(motion.timings[0].duration, 880);
@@ -317,7 +322,7 @@ test("no inicia movimiento si la preferencia actual difiere del estado de arranq
   const tree = motion.ServiceEntrance({ variant: "hero" });
   motion.effects[0]();
   await Promise.resolve();
-  assert.equal(tree.props.style[1]().transform[0].translateY, 0);
+  assert.equal(tree.props.style[1]().transform.length, 0);
   assert.equal(motion.timings.length, 0);
 });
 
@@ -331,7 +336,7 @@ test("descarta una consulta anterior a un cambio de accesibilidad", async () => 
   resolvePreference(false);
   await pending;
   await Promise.resolve();
-  assert.equal(tree.props.style[1]().transform[0].translateY, 0);
+  assert.equal(tree.props.style[1]().transform.length, 0);
   assert.equal(motion.timings.length, 0);
   cleanup();
 });
@@ -350,6 +355,37 @@ test("la pulsación conserva la acción y su feedback con movimiento reducido", 
     button.props.onPressOut({});
     assert.equal(motion.values[0].value, 1);
   }
+});
+
+test("las entradas anidadas de Inicio no alteran la presión ni el marco del zoom al terminar", async () => {
+  const motion = motionHarness(false);
+  const card = motion.ServicePressable({});
+  const row = motion.ServiceEntrance({ children: card });
+  const section = motion.ServiceEntrance({ children: row });
+  motion.effects.forEach((effect) => effect());
+  await Promise.resolve();
+  assert.equal(row.props.style[1]().transform.length, 0);
+  assert.equal(section.props.style[1]().transform.length, 0);
+  const button = card.props.children[0];
+  button.props.onPressIn({});
+  assert.equal(card.props.style().transform[1].scale, 0.97);
+  button.props.onPressOut({});
+  assert.equal(card.props.style().transform[1].scale, 1);
+});
+
+test("Inicio reutiliza el catálogo Cubacel sin añadir una transformación de sección", () => {
+  const filename = "components/Main/MenuPrincipalScreen.jsx";
+  const ast = ts.createSourceFile(filename, source(filename), ts.ScriptTarget.Latest, true, ts.ScriptKind.JSX);
+  let products;
+  const visit = (node) => {
+    if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(ast) === "Productos") products = node;
+    ts.forEachChild(node, visit);
+  };
+  visit(ast);
+  assert.ok(products);
+  assert.equal(products.parent.openingElement.tagName.getText(ast), "RenderTraceBlock");
+  assert.equal(ts.isJsxElement(products.parent.parent), false,
+    "la sección no debe duplicar la entrada que ya aplica Productos a cada card");
 });
 
 test("la pulsación conserva callbacks y limita la decoración a la preferencia actual", () => {

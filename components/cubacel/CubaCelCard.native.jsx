@@ -8,7 +8,6 @@ import {
     Easing,
     Image,
     ImageBackground,
-    InteractionManager,
     Platform,
     Pressable,
     StyleSheet,
@@ -326,7 +325,6 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
 
   useEffect(() => {
     let cancelled = false;
-    let interactionTask = null;
 
     const cargarPreciosConvertidos = async () => {
       if (precioUSD === "---" || typeof precioUSD !== "number") {
@@ -362,13 +360,13 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
       }
     };
 
-    interactionTask = InteractionManager.runAfterInteractions(() => {
+    const idleTask = requestIdleCallback(() => {
       cargarPreciosConvertidos();
-    });
+    }, { timeout: 100 });
 
     return () => {
       cancelled = true;
-      interactionTask?.cancel?.();
+      cancelIdleCallback(idleTask);
     };
   }, [conversionProgress, precioUSD]);
 

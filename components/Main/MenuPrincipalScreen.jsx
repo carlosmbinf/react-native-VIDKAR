@@ -1605,8 +1605,8 @@ const MenuPrincipalScreen = ({
 
                 if (service.id === "CUBACEL") {
                   return (
-                    <ServiceEntrance key={service.id} delay={Math.min(index * 50, 200)}>
                     <RenderTraceBlock
+                      key={service.id}
                       name="Productos"
                       payload={{
                         deferDelay: 0,
@@ -1622,7 +1622,6 @@ const MenuPrincipalScreen = ({
                         isDegradado={false}
                       />
                     </RenderTraceBlock>
-                    </ServiceEntrance>
                   );
                 }
 

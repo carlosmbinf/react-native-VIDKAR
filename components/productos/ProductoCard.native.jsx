@@ -13,7 +13,7 @@ const ProductoCardNative = ({
   containerStyle,
   images,
   innerStyle,
-  motionEnabled = false,
+  motionEnabled = true,
   onPress,
   producto,
   searchQuery,

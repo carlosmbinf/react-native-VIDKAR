@@ -1,10 +1,12 @@
 import { Stack } from 'expo-router';
 import EmpresaAppearanceProvider from '../../components/empresa/EmpresaAppearanceProvider';
 
+export const unstable_settings = { initialRouteName: "EmpresaNavigator" };
+
 export default function EmpresaLayout() {
   return (
     <EmpresaAppearanceProvider>
-      <Stack initialRouteName="EmpresaNavigator" screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
         <Stack.Screen name="EmpresaNavigator" />
         <Stack.Screen name="PedidosPreparacion" />
         <Stack.Screen name="MisTiendas" />

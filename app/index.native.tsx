@@ -380,7 +380,7 @@ export default function IndexScreen() {
   React.useEffect(() => {
     let active = true;
 
-    const queueUniversalLink = (url: string | null) => {
+    const queueUniversalLink = (url: string | null | undefined) => {
       if (!active || !url) {
         return;
       }
@@ -724,8 +724,6 @@ export default function IndexScreen() {
       <>
         <PushNotificationDialogHost />
         <StatusBar
-          translucent
-          backgroundColor="transparent"
           barStyle={statusBarStyle}
         />
         <Loguin
@@ -748,8 +746,6 @@ export default function IndexScreen() {
           ]}
         >
           <StatusBar
-            translucent
-            backgroundColor="transparent"
             barStyle={statusBarStyle}
           />
           <ActivityIndicator
@@ -768,8 +764,6 @@ export default function IndexScreen() {
       <>
         <PushNotificationDialogHost />
         <StatusBar
-          translucent
-          backgroundColor="transparent"
           barStyle={statusBarStyle}
         />
         <UpdateRequired
@@ -785,8 +779,6 @@ export default function IndexScreen() {
       <>
         <PushNotificationDialogHost />
         <StatusBar
-          translucent
-          backgroundColor="transparent"
           barStyle={statusBarStyle}
         />
         <LoginArrivalScene
@@ -808,8 +800,6 @@ export default function IndexScreen() {
       <>
         <PushNotificationDialogHost />
         <StatusBar
-          translucent
-          backgroundColor="transparent"
           barStyle={statusBarStyle}
         />
         <LoginArrivalScene
@@ -827,8 +817,6 @@ export default function IndexScreen() {
       <>
         <PushNotificationDialogHost />
         <StatusBar
-          // translucent
-          // backgroundColor="transparent"
           barStyle={statusBarStyle}
         />
         <LoginArrivalScene
@@ -845,8 +833,6 @@ export default function IndexScreen() {
     <>
       <PushNotificationDialogHost />
       <StatusBar
-        translucent
-        backgroundColor="transparent"
         barStyle={statusBarStyle}
       />
       <Loguin deferSessionRedirect />

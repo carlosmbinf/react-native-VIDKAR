@@ -93,6 +93,16 @@ test("movimiento reducido conserva feedback estático y acción sin inclinación
   assert.equal(transform.find((entry) => "rotateX" in entry).rotateX, "0deg");
 });
 
+test("el zoom compartido conserva la presión y la inclinación de la tarjeta", () => {
+  const harness = createHarness();
+  const tree = harness.CinemaPosterPressable({ height: 238 });
+  tree.props.onPressIn({ nativeEvent: { locationX: 10, locationY: 10 } });
+  assert.equal(harness.values[0].value, 1);
+  assert.ok(harness.values[1].value > 0);
+  tree.props.onPressOut();
+  assert.ok(harness.springs.length > 0);
+});
+
 test("el revelado es acotado y reducir movimiento elimina desplazamiento y espera", () => {
   for (const reducedMotion of [false, true]) {
     const harness = createHarness(reducedMotion);

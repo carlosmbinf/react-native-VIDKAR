@@ -24,6 +24,18 @@ const temporary = (t) => {
   return directory;
 };
 const template = () => run("tar", ["-xOzf", path.join(root, "node_modules/expo/template.tgz"), "package/ios/HelloWorld/AppDelegate.swift"]);
+const legacyTemplate = () => template()
+  .replace(", ExpoReactNativeFactoryProvider", "")
+  .replace("    return super.application", `
+#if os(iOS) || os(tvOS)
+    window = UIWindow(frame: UIScreen.main.bounds)
+    factory.startReactNative(
+      withModuleName: "main",
+      in: window,
+      launchOptions: launchOptions
+    )
+#endif
+    return super.application`);
 const apply = async (plugin, directory, mod = "dangerous", modResults = {}) => {
   const config = plugin({ name: "Vidkar", slug: "vidkar" });
   return config.mods.ios[mod]({ ...config, modRequest: { platformProjectRoot: directory }, modResults });
@@ -36,7 +48,7 @@ const generate = async (t, input = template()) => {
   return { directory, appPath, scenePath: path.join(directory, "Vidkar/SceneDelegate.swift") };
 };
 
-test("plugin real: template instalado, proyecto existente e idempotencia sin borrar orientación ni catálogo", async (t) => {
+test("plugin real: templates SDK 58 y legacy e idempotencia sin borrar orientacion ni catalogo", async (t) => {
   const orientation = `
 #if os(iOS) || os(tvOS)
   // Fixture ajena al bootstrap: debe sobrevivir aunque sea el primer #if.
@@ -45,7 +57,7 @@ test("plugin real: template instalado, proyecto existente e idempotencia sin bor
   }
 #endif
 `;
-  for (const input of [template(), read("ios/Vidkar/AppDelegate.swift")]) {
+  for (const input of [template(), legacyTemplate()]) {
     const { directory, appPath, scenePath } = await generate(t, input.replace("  var window:", `${orientation}\n  var window:`));
     // Orden real app.json: Scene lifecycle, después App Intents (acción background incluida).
     await apply(withAppIntents, directory);
@@ -61,10 +73,10 @@ test("plugin real: template instalado, proyecto existente e idempotencia sin bor
     assert.equal((firstApp.match(/vidkarSceneLaunchOptions = launchOptions/g) || []).length, 1);
     assert.equal((firstApp.match(/return super\.application\(application, didFinishLaunchingWithOptions: launchOptions\)/g) || []).length, 1);
     assert.doesNotMatch(firstApp, /startReactNative\(/);
-    // Los callbacks warm deben conservarse literalmente, no recrearse con otros defaults.
-    const previousScene = run("git", ["-C", root, "show", "HEAD:plugins/with-vidkar-ios-scene-lifecycle.js"]);
-    const warm = previousScene.slice(previousScene.indexOf("  func scene(_ scene: UIScene, openURLContexts"), previousScene.indexOf("\n`;"));
-    assert.ok(firstScene.includes(warm));
+    assert.match(firstScene, /final class SceneDelegate: ExpoAppSceneDelegate/);
+    assert.match(firstScene, /appDelegate\.window = window/);
+    assert.match(firstScene, /initialProperties: initialProperties/);
+    assert.doesNotMatch(firstScene, /func scene\(_ scene: UIScene, (?:openURLContexts|continue)/);
   }
   let manifest = { UIApplicationSceneManifest: { UIApplicationSupportsMultipleScenes: false, custom: "preserved", UISceneConfigurations: { otherRole: [] } } };
   for (let i = 0; i < 2; i++) manifest = (await apply(withSceneLifecycle, "unused", "infoPlist", manifest)).modResults;
@@ -88,7 +100,7 @@ test("plugin falla sin sobrescribir archivos ante un bootstrap no reconocido", a
   const directory = temporary(t);
   const appPath = path.join(directory, "Vidkar/AppDelegate.swift");
   const scenePath = path.join(directory, "Vidkar/SceneDelegate.swift");
-  const source = template().replace('withModuleName: "main"', 'withModuleName: "custom"');
+  const source = legacyTemplate().replace('withModuleName: "main"', 'withModuleName: "custom"');
   fs.writeFileSync(appPath, source);
   fs.writeFileSync(scenePath, "preserved");
   await assert.rejects(apply(withSceneLifecycle, directory), /Bootstrap AppDelegate no reconocido/);
@@ -161,7 +173,7 @@ open class RCTReactNativeFactory {
   public static var options: [UIApplication.LaunchOptionsKey: Any]?
   public static var onStart: (() -> Void)?
   public init(delegate: Any) {}
-  public func startReactNative(withModuleName: String, in window: UIWindow?, launchOptions: [UIApplication.LaunchOptionsKey: Any]?) {
+  public func startReactNative(withModuleName: String, in window: UIWindow?, initialProperties: [AnyHashable: Any]? = nil, launchOptions: [UIApplication.LaunchOptionsKey: Any]?) {
     Self.starts += 1
     Self.options = launchOptions
     Self.onStart?()
@@ -182,6 +194,22 @@ const expoMock = `
 import React
 public func sceneTestInitialURL() -> URL? { ExpoLinkingRegistry.shared.initialURL }
 public func sceneTestResetURL() { ExpoLinkingRegistry.shared.initialURL = nil }
+public protocol ExpoReactNativeFactoryProvider {}
+open class ExpoAppSceneDelegate: UIResponder, UIWindowSceneDelegate {
+  open var window: UIWindow?
+  open var initialProperties: [AnyHashable: Any]? { nil }
+  open func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {}
+  open func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
+    guard let appDelegate = UIApplication.shared.delegate as? ExpoAppDelegate else { return }
+    for context in contexts {
+      _ = appDelegate.application(UIApplication.shared, open: context.url, options: [:])
+    }
+  }
+  open func scene(_ scene: UIScene, continue activity: NSUserActivity) {
+    guard let appDelegate = UIApplication.shared.delegate as? ExpoAppDelegate else { return }
+    _ = appDelegate.application(UIApplication.shared, continue: activity, restorationHandler: { _ in })
+  }
+}
 open class ExpoAppDelegate: UIResponder, UIApplicationDelegate {
   private let linking = LinkingAppDelegateSubscriber()
   public var launches = 0
@@ -304,7 +332,13 @@ test("contratos SDK: suscriptor registrado, lectura Expo Router y claves RCT act
   assert.match(read("node_modules/expo-linking/ios/ExpoLinkingModule.swift"), /Function\("getLinkingURL"\)\s*\{\s*return ExpoLinkingRegistry.shared.initialURL\?\.absoluteString/);
   const rct = read("node_modules/react-native/Libraries/LinkingIOS/RCTLinkingManager.mm");
   for (const key of ["UIApplicationLaunchOptionsURLKey", "UIApplicationLaunchOptionsUserActivityDictionaryKey", "UIApplicationLaunchOptionsUserActivityTypeKey", "UIApplicationLaunchOptionsUserActivityKey", "NSUserActivityTypeBrowsingWeb"]) assert.ok(rct.includes(key), key);
-  const appDelegate = read("node_modules/expo/ios/AppDelegates/ExpoAppDelegate.swift");
+  const appDelegate = read("node_modules/expo/ios/Expo/ExpoAppDelegate.swift");
   assert.match(appDelegate, /return ExpoAppDelegateSubscriberManager.application\(app, open: url, options: options\)/);
   assert.match(appDelegate, /return ExpoAppDelegateSubscriberManager.application\(application, continue: userActivity, restorationHandler: restorationHandler\)/);
+  const sceneDelegate = read("node_modules/expo/ios/Expo/ExpoAppSceneDelegate.swift");
+  assert.match(sceneDelegate, /NSSelectorFromString\("scene:openURLContexts:"\)/);
+  assert.match(sceneDelegate, /NSSelectorFromString\("scene:continueUserActivity:"\)/);
+  for (const callback of ["sceneDidBecomeActive", "sceneWillResignActive", "sceneWillEnterForeground", "sceneDidEnterBackground"]) {
+    assert.ok(sceneDelegate.includes(callback), callback);
+  }
 });

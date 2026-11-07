@@ -230,6 +230,7 @@ export function ServiceEntrance({
 
   const animatedStyle = useAnimatedStyle(() => {
     const value = progress.get();
+    if (value >= 1) return { opacity: 1, transform: [] };
     const isHero = variant === "hero";
     const isConversion = variant === "conversion";
     const translateYDistance = isHero ? 36 : isConversion ? 24 : 28;

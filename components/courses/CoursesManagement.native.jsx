@@ -4,7 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Alert, Image, InteractionManager, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { NestableDraggableFlatList, NestableScrollContainer } from "react-native-draggable-flatlist";
 import { Dropdown } from "react-native-element-dropdown";
 import { ActivityIndicator, Button, Dialog, FAB, IconButton, Portal, Surface, Switch, Text, TextInput, useTheme } from "react-native-paper";
@@ -197,7 +197,7 @@ export default function CoursesManagement() {
       setCourseDialog(false);
       if (savedCourseId) setSelectedCourseId(savedCourseId);
       setEditingCourseId(null);
-      InteractionManager.runAfterInteractions(() => Alert.alert("Listo", courseIdBeingSaved ? "Curso actualizado." : "Curso creado como borrador."));
+      requestIdleCallback(() => Alert.alert("Listo", courseIdBeingSaved ? "Curso actualizado." : "Curso creado como borrador."), { timeout: 100 });
     }
   };
 

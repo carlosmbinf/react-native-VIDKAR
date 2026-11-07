@@ -1,4 +1,4 @@
-// Expo 57 incluye las rutas nativas en el contexto web antes de elegir variantes.
+// Expo Router incluye las rutas nativas en el contexto web antes de elegir variantes.
 export const ctx = require.context(
   "../../app",
   true,

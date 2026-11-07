@@ -464,7 +464,7 @@ const CubacelOfertaScreen = () => {
     );
   }
 
-  const hero = (
+  const heroBackground = (
     <ImageBackground
       source={backgroundSource}
       defaultSource={Platform.OS === "ios" ? localFallback : undefined}
@@ -476,8 +476,12 @@ const CubacelOfertaScreen = () => {
       blurRadius={(product ? product.ocultarFondo : visualSnapshot?.blur) ? 35 : 0}
       resizeMode="cover"
       imageStyle={styles.heroImageBorder}
-      style={[styles.heroImage, { paddingTop: headerInset + 18 }]}
-    >
+      style={StyleSheet.absoluteFill}
+    />
+  );
+  const hero = (
+    <View style={[styles.heroImage, { paddingTop: headerInset + 18 }]}>
+      {zoomEnabled ? <Link.AppleZoomTarget>{heroBackground}</Link.AppleZoomTarget> : heroBackground}
       <View style={styles.heroScrim} />
       <View style={styles.heroBadge}>
         <Text style={styles.heroBadgeText}>Oferta Cubacel</Text>
@@ -504,7 +508,7 @@ const CubacelOfertaScreen = () => {
           ) : null}
         </View>
       </ServiceEntrance>
-    </ImageBackground>
+    </View>
   );
 
   return (
@@ -539,7 +543,7 @@ const CubacelOfertaScreen = () => {
             }
             showsVerticalScrollIndicator={false}
           >
-            {zoomEnabled ? <Link.AppleZoomTarget>{hero}</Link.AppleZoomTarget> : hero}
+            {hero}
 
             {product && ready ? (
             <>

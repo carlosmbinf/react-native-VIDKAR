@@ -202,7 +202,7 @@ const ProductosScreenNative = () => {
     }
     return revealedCatalogProductsByRow.current.get(key);
   }, []);
-  const dataReady = useDeferredScreenData();
+  const dataReady = useDeferredScreenData({ keepReadyOnBlur: true });
   const { categories, categoriesReady, preferences } = Meteor.useTracker(() => {
     if (!dataReady) return { categories: [], categoriesReady: false, preferences: [] };
     const categoriesHandle = Meteor.subscribe("categoriasComercioCatalogo");

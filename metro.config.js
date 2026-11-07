@@ -2,9 +2,10 @@ const path = require("node:path");
 const { getDefaultConfig } = require("expo/metro-config");
 
 const config = getDefaultConfig(__dirname);
+const routerContext = require.resolve("expo-router/_ctx");
 const routerContexts = new Set([
-  require.resolve("expo-router/_ctx.js"),
-  require.resolve("expo-router/_ctx.web.js"),
+  routerContext,
+  path.join(path.dirname(routerContext), "_ctx.web.js"),
 ]);
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
