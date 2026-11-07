@@ -555,14 +555,16 @@ const CubaCelCard = ({ product, fullWidth = false, style }) => {
 
   const renderCardVisual = ({ showPeekHint = false, overlayMode = false }) => {
     const background = (
-      <ImageBackground
-        source={promoImageSource}
-        defaultSource={Platform.OS === "ios" ? localFallback : undefined}
-        onError={handleImageError}
-        resizeMode="cover"
-        style={styles.imageLayer}
-        blurRadius={ocultarFondo ? 35 : 0}
-      />
+      <View collapsable={false} style={styles.imageLayer}>
+        <ImageBackground
+          source={promoImageSource}
+          defaultSource={Platform.OS === "ios" ? localFallback : undefined}
+          onError={handleImageError}
+          resizeMode="cover"
+          style={StyleSheet.absoluteFill}
+          blurRadius={ocultarFondo ? 35 : 0}
+        />
+      </View>
     );
 
     return (
@@ -1076,12 +1078,10 @@ const styles = StyleSheet.create({
     opacity: 0.0,
   },
   imageLayer: {
-    // ...StyleSheet.absoluteFill,
     borderRadius: 20,
-    height: "100%",
+    height: 200,
     overflow: "hidden",
-    // width: "100%",
-    maxHeight: 200,
+    width: "100%",
   },
   peekOverlayScrim: {
     ...StyleSheet.absoluteFill,

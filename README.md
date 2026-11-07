@@ -67,6 +67,10 @@ Inicio reutiliza las mismas tarjetas que los catalogos. Sus contenedores de entr
 eliminan las transformaciones al terminar, para no acumular perspectivas 3D sobre
 la presion ni sobre el marco de la imagen durante el zoom de apertura y regreso.
 Android, iOS anteriores y movimiento reducido mantienen la navegacion normal.
+En Cubacel, el origen de zoom es un marco nativo no aplanable, de ancho completo
+y 200 puntos de alto, tanto en el carrusel de Inicio como en el catalogo. La imagen
+rellena ese marco sin depender de alturas porcentuales dentro de la lista horizontal;
+el texto, los precios y el menu contextual permanecen fuera del origen de zoom.
 El catalogo de Comercio conserva sus suscripciones al abrir un producto y volver:
 no vacia las filas ni reconstruye las selecciones por el cambio de foco.
 Las actualizaciones reactivas de Meteor y el refresco manual siguen activos.

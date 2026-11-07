@@ -267,7 +267,7 @@ function fixture(options = {}) {
   };
   return {
     ...h, state, clock, renderScreen,
-    mountCard: () => h.mount(() => card({ product })),
+    mountCard: (props = {}) => h.mount(() => card({ product, ...props })),
     mountScreen: () => h.mount(renderScreen),
     submit: () => submit(),
     get tree() { return h.tree; },
@@ -327,7 +327,9 @@ test("iOS 18: Link push guarda snapshot antes de navegar y solo la imagen es sou
   assert.equal(only(link, "Link.Trigger").props.children[0].type, "Pressable");
   const zoom = only(link, "Link.AppleZoom");
   assert.equal(zoom.props.children.length, 1);
-  assert.equal(zoom.props.children[0].type, "ImageBackground");
+  assert.equal(zoom.props.children[0].type, "View");
+  assert.equal(zoom.props.children[0].props.collapsable, false);
+  assert.equal(only(zoom, "ImageBackground").props.source.uri, product.imageUrl);
   assert.equal(byType(zoom, "Text").length, 0);
   assert.equal(f.clock.store.getCubacelZoomSnapshot(product._id), null);
   let prevented = false;
@@ -345,6 +347,33 @@ test("iOS 18: Link push guarda snapshot antes de navegar y solo la imagen es sou
   assert.equal(animatedTransform.length, 4, "el card conserva su efecto de presión al iniciar el zoom");
   only(f.tree, "Pressable").props.onPressIn();
   only(f.tree, "Pressable").props.onPressOut();
+});
+
+test("carrusel y catálogo usan un único marco nativo con las mismas dimensiones de imagen", () => {
+  for (const fullWidth of [false, true]) {
+    const f = fixture();
+    f.mountCard({ fullWidth });
+    const link = only(f.tree, Link);
+    const zoom = only(link, "Link.AppleZoom");
+    const frame = zoom.props.children[0];
+    assert.equal(frame.type, "View");
+    assert.equal(frame.props.collapsable, false, "Fabric no debe sustituir el marco por sus capas");
+    assert.equal(frame.props.style.width, "100%");
+    assert.equal(frame.props.style.height, 200, "No depende de porcentajes en una lista horizontal");
+    assert.equal(frame.props.style.borderRadius, 20);
+    assert.equal(frame.props.style.overflow, "hidden");
+    assert.equal(frame.props.children.length, 1);
+    const image = only(frame, "ImageBackground");
+    assert.equal(image.props.source.uri, product.imageUrl);
+    assert.equal(image.props.blurRadius, 35);
+    assert.equal(byType(frame, "Text").length, 0);
+    link.props.onPress({ preventDefault: () => assert.fail("Un toque normal debe iniciar el zoom") });
+    const saved = f.clock.store.getCubacelZoomSnapshot(product._id);
+    assert.equal(saved.imageSource.uri, image.props.source.uri);
+    assert.equal(link.props.href.pathname, "/(normal)/CubacelOferta");
+    assert.equal(link.props.href.params.productId, product._id);
+    assert.equal(f.state.navigations.length, 0);
+  }
 });
 
 test("el detalle conserva el fondo alternativo cuando la imagen de origen falló", () => {
