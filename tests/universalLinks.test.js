@@ -188,7 +188,7 @@ test("retiene el destino de usuario hasta que la sesión y las suscripciones est
 
 test("OpenURLIntent devuelve el Universal Link asociado para que Expo Router reciba la búsqueda", async () => {
   const url = "https://www.vidkar.com/search?q=pel%C3%ADcula%20Transformer&entity=all";
-  const index = await fs.readFile(new URL("../app/index.native.tsx", import.meta.url), "utf8");
+  const index = await fs.readFile(new URL("../app/(normal)/Main.native.tsx", import.meta.url), "utf8");
   const swift = await fs.readFile(new URL("../modules/vidkar-mcp/ios/VidkarMCPModule.swift", import.meta.url), "utf8");
   const searchURL = await fs.readFile(new URL("../modules/vidkar-mcp/ios/MCPInAppSearch.swift", import.meta.url), "utf8");
   const appConfig = JSON.parse(await fs.readFile(new URL("../app.json", import.meta.url), "utf8"));

@@ -32,8 +32,8 @@ test("el vuelo usa una curva continua de aceleración hasta salir de pantalla", 
   assert.match(flight, /withTiming\(0\.72, flightTiming\)/);
 });
 
-test("la raíz mantiene el login durante el vuelo y anima la llegada por rol", () => {
-  const index = source("app/index.native.tsx");
+test("el inicio nativo mantiene el login durante el vuelo y anima la llegada por rol", () => {
+  const index = source("app/(normal)/Main.native.tsx");
 
   assert.match(index, /loginFlightCompletedFor !== userId/);
   assert.match(index, /if \(!userId \|\| startingLoginTransition\)/);

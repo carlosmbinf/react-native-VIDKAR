@@ -66,6 +66,13 @@ fuera de la transicion. Las tarjetas conservan su respuesta de presion al tocar.
 Inicio reutiliza las mismas tarjetas que los catalogos. Sus contenedores de entrada
 eliminan las transformaciones al terminar, para no acumular perspectivas 3D sobre
 la presion ni sobre el marco de la imagen durante el zoom de apertura y regreso.
+En nativo, `/` redirige a `/(normal)/Main`: el inicio y los detalles deben vivir
+en el mismo Stack para que Expo asocie el zoom a la pantalla de destino, no al
+grupo padre. `app/(normal)/Main.native.tsx` conserva el arranque de sesion, login,
+control de version, modos por rol, notificaciones y enlaces; estos servicios
+permanecen montados debajo del detalle al abrirlo y regresar. Web conserva su
+entrada y su variante de Main. Validacion del Stack con el reducer de Expo:
+`node --test tests/homeStackNavigation.test.cjs`.
 Android, iOS anteriores y movimiento reducido mantienen la navegacion normal.
 El catalogo de Comercio conserva sus suscripciones al abrir un producto y volver:
 no vacia las filas ni reconstruye las selecciones por el cambio de foco.
