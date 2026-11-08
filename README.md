@@ -53,6 +53,13 @@ La prueba Swift requiere macOS/Xcode.
 
 ### Compilacion Android en Codemagic
 
+`expo-build-properties` configura `compileSdkVersion: 37` y Build Tools `37.0.0`,
+alineados con React Native 0.88 y los AAR de Expo SDK 58/Compose que requieren API
+37. Se conservan `targetSdkVersion: 36` y `minSdkVersion: 26`: este cambio no
+activa comportamientos nuevos de Android ni excluye dispositivos adicionales.
+La configuracion se aplica a las propiedades compartidas de Gradle durante
+prebuild, incluido el modulo `:expo`; no basta con cambiar solo `:app`.
+
 AGP 9 no admite `getDefaultProguardFile('proguard-android.txt')`. El script
 `scripts/patch-vlc-media-player.js`, ejecutado por `postinstall` y `npm run build`,
 sustituye esa referencia en el Gradle de VLC por `proguard-android-optimize.txt`.
@@ -62,7 +69,7 @@ idempotente y falla explicitamente si falta el archivo o cambia el bloque espera
 Codemagic lo reaplica durante la instalacion, incluso con `node_modules` en cache,
 antes de regenerar Android con Expo prebuild.
 
-Validacion: `node --test tests/vlcAndroidGradle.test.cjs`.
+Validacion: `node --test tests/androidBuildProperties.test.cjs tests/vlcAndroidGradle.test.cjs`.
 La compilacion completa requiere el SDK Android: ejecutar `bundleRelease` con
 el wrapper de Gradle del proyecto generado, o repetir el workflow de Codemagic.
 
