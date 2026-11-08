@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import React from "react";
 import { Alert, Animated, Easing, FlatList, ImageBackground, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from "react-native";
 import { ActivityIndicator, Button, Chip, IconButton, Surface, Text, useTheme } from "react-native-paper";
@@ -12,6 +12,7 @@ import { Meteor } from "../../services/meteor/client.native";
 import { useCurrentSession } from "../../services/meteor/session.native";
 import { getSeries, getSeriesSeasons } from "../../services/series/seriesPlayback.native";
 import ModernBottomDrawer from "../cinema/ModernBottomDrawer";
+import useSystemReducedMotion from "../../hooks/useSystemReducedMotion";
 
 const ALL_GENRES = "Todos";
 const isVisible = (item) => item?.mostrar === true || item?.mostrar === "true";
@@ -36,17 +37,37 @@ const usePalette = (theme) => ({
   accentSoft: theme.dark ? "rgba(99,102,241,0.2)" : "rgba(79,70,229,0.12)",
 });
 
-export const SeriesPoster = ({ item, onPress, compact, palette }) => (
-  <Pressable accessibilityRole="button" accessibilityLabel={`Abrir ${titleOf(item)}`} onPress={() => onPress(item)} style={({ pressed }) => [styles.posterPressable, compact && styles.posterPressableCompact, pressed && styles.pressed]}>
+export const SeriesPoster = ({ item, onPress, compact, palette }) => {
+  const reducedMotion = useSystemReducedMotion();
+  const [pressed, setPressed] = React.useState(false);
+  const imageUri = imageOf(item);
+  const zoomEnabled = Platform.OS === "ios" && parseInt(String(Platform.Version), 10) >= 18 && !reducedMotion && Boolean(imageUri);
+  const poster = <ImageBackground source={imageUri ? { uri: imageUri } : undefined} style={styles.posterImage} imageStyle={styles.posterImageStyle} />;
+  const card = (
+  <Pressable
+    accessibilityRole="button"
+    accessibilityLabel={`Abrir ${titleOf(item)}`}
+    onPress={zoomEnabled ? undefined : () => onPress(item)}
+    onPressIn={() => setPressed(true)}
+    onPressOut={() => setPressed(false)}
+    style={StyleSheet.flatten([styles.posterPressable, compact && styles.posterPressableCompact, pressed && styles.pressed])}
+  >
     <Surface elevation={1} style={[styles.posterCard, { backgroundColor: palette.elevated, borderColor: palette.border }]}>
-      <ImageBackground source={imageOf(item) ? { uri: imageOf(item) } : undefined} style={styles.posterImage} imageStyle={styles.posterImageStyle}>
+      {zoomEnabled ? <Link.AppleZoom>{poster}</Link.AppleZoom> : poster}
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         <LinearGradient colors={["transparent", "rgba(2,6,23,0.9)"]} style={StyleSheet.absoluteFill} />
         <View style={styles.posterBadge}><Text style={styles.posterBadgeText}>SERIE</Text></View>
         <View style={styles.posterFooter}><Text numberOfLines={2} style={styles.posterTitle}>{titleOf(item)}</Text><Text numberOfLines={1} style={styles.posterMeta}>{yearOf(item)}  ·  {listOf(item?.clasificacion)[0] || "Catálogo"}</Text></View>
-      </ImageBackground>
+      </View>
     </Surface>
   </Pressable>
-);
+  );
+  return zoomEnabled ? (
+    <Link href={{ pathname: "/(normal)/SeriesDetail", params: { id: item._id, poster: imageUri } }} asChild push>
+      <Link.Trigger>{card}</Link.Trigger>
+    </Link>
+  ) : card;
+};
 
 const SeriesRow = ({ items, onPress, palette, title }) => !items.length ? null : <View style={styles.row}><View style={styles.rowHeader}><Text variant="titleLarge" style={[styles.rowTitle, { color: palette.text }]}>{title}</Text><Text variant="labelMedium" style={{ color: palette.muted }}>{items.length}</Text></View><FlatList data={items} horizontal keyExtractor={(item) => item._id} renderItem={({ item }) => <SeriesPoster compact item={item} onPress={onPress} palette={palette} />} showsHorizontalScrollIndicator={false} bounces={false} alwaysBounceHorizontal={false} overScrollMode="never" contentContainerStyle={styles.rowContent} /></View>;
 
@@ -100,7 +121,7 @@ export default function SeriesCatalog({ searchResultIds } = {}) {
 
   const openDetails = React.useCallback((item) => {
     if (!item?._id) return;
-    router.push({ pathname: "/(normal)/SeriesDetail", params: { id: item._id } });
+    router.push({ pathname: "/(normal)/SeriesDetail", params: { id: item._id, poster: imageOf(item) || "" } });
   }, [router]);
 
   const goToDetail = React.useCallback((item) => {

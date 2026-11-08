@@ -55,7 +55,7 @@ const AppHeader = ({
   onBack,
   overlapContent = false,
   portal = true,
-  showBottomBorder = true,
+  showBottomBorder = false,
   showBackButton,
   statusBarHeight = 0,
   subtitle,

@@ -5,6 +5,7 @@ import {
   Image,
   ImageBackground,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,9 +14,10 @@ import {
 } from "react-native";
 import { Button, Chip, IconButton, Surface, Text, useTheme } from "react-native-paper";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppHeader, { DEFAULT_HEADER_COLOR } from "../Header/AppHeader";
+import useSystemReducedMotion from "../../hooks/useSystemReducedMotion";
 import {
   getSeasonChapters,
   getSeries,
@@ -37,9 +39,11 @@ const chapterImageOf = (chapter, fallback) => (
   chapter?.urlBackgroundHTTPS || chapter?.urlBackground || chapter?.poster || fallback || null
 );
 
-export default function SeriesDetail({ idSerie }) {
+export default function SeriesDetail({ idSerie, initialPosterUri }) {
   const theme = useTheme();
   const router = useRouter();
+  const reducedMotion = useSystemReducedMotion();
+  const zoomEnabled = Platform.OS === "ios" && parseInt(String(Platform.Version), 10) >= 18 && !reducedMotion;
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isLandscape = windowWidth > windowHeight;
@@ -155,21 +159,12 @@ export default function SeriesDetail({ idSerie }) {
     }
   }, [serie]);
 
-  const posterUri = serie?.poster || serie?.urlBackground || serie?.imagen;
+  const posterUri = initialPosterUri || serie?.urlBackgroundHTTPS || serie?.urlBackground || serie?.poster || serie?.imagen;
   const genres = listOf(serie?.clasificacion);
   const actors = listOf(serie?.actors);
   const directors = listOf(serie?.directors);
 
-  if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: palette.background }]}>
-        <ActivityIndicator color={palette.accent} size="large" />
-        <Text style={{ color: palette.muted, marginTop: 12 }}>Cargando serie...</Text>
-      </View>
-    );
-  }
-
-  if (!serie) {
+  if (!loading && !serie) {
     return (
       <View style={[styles.center, { backgroundColor: palette.background }]}>
         <IconButton icon="television-off" iconColor={palette.muted} size={48} />
@@ -190,7 +185,7 @@ export default function SeriesDetail({ idSerie }) {
         elevated={false}
         overlapContent
         showBackButton
-        title={serie.nombre || "Detalles de la Serie"}
+        title={serie?.nombre || "Detalles de la Serie"}
         onBackPress={() => router.back()}
       />
 
@@ -207,11 +202,14 @@ export default function SeriesDetail({ idSerie }) {
       >
         {/* HERO BANNER */}
         <View style={styles.heroContainer}>
-          <ImageBackground
-            source={posterUri ? { uri: posterUri } : undefined}
-            style={[styles.heroBanner, { height: heroHeight }]}
-            imageStyle={styles.heroImageStyle}
-          >
+          <View style={[styles.heroBanner, { height: heroHeight }]}>
+            {zoomEnabled ? (
+              <Link.AppleZoomTarget>
+                <ImageBackground source={posterUri ? { uri: posterUri } : undefined} style={StyleSheet.absoluteFill} imageStyle={styles.heroImageStyle} />
+              </Link.AppleZoomTarget>
+            ) : (
+              <ImageBackground source={posterUri ? { uri: posterUri } : undefined} style={StyleSheet.absoluteFill} imageStyle={styles.heroImageStyle} />
+            )}
             <LinearGradient
               colors={["rgba(9,13,22,0.1)", "rgba(9,13,22,0.75)", palette.background]}
               locations={[0, 0.55, 1]}
@@ -219,11 +217,11 @@ export default function SeriesDetail({ idSerie }) {
             />
             <View style={styles.heroContent}>
               <Text style={styles.heroEyebrow}>SERIE VIDKAR</Text>
-              <Text style={styles.heroTitle}>{serie.nombre}</Text>
+              <Text style={styles.heroTitle}>{serie?.nombre || "Cargando serie..."}</Text>
 
               {/* METADATA PILLS */}
               <View style={styles.metaRow}>
-                {serie.anoLanzamiento || serie.year ? (
+                {serie?.anoLanzamiento || serie?.year ? (
                   <Surface style={styles.metaPill} elevation={0}>
                     <Text style={styles.metaPillText}>
                       {serie.anoLanzamiento || serie.year}
@@ -250,12 +248,13 @@ export default function SeriesDetail({ idSerie }) {
                   textColor="#fff"
                   icon="play"
                   onPress={playFirstAvailable}
+                  disabled={loading}
                   style={styles.primaryBtn}
                   contentStyle={styles.btnContent}
                 >
                   Reproducir
                 </Button>
-                {serie.trailer || serie.urlTrailer ? (
+                {serie?.trailer || serie?.urlTrailer ? (
                   <Button
                     mode="outlined"
                     textColor="#fff"
@@ -269,11 +268,17 @@ export default function SeriesDetail({ idSerie }) {
                 ) : null}
               </View>
             </View>
-          </ImageBackground>
+          </View>
         </View>
 
         {/* BODY CONTAINER */}
         <View style={styles.body}>
+          {loading ? (
+            <View style={styles.chaptersLoading}>
+              <ActivityIndicator color={palette.accent} size="large" />
+              <Text style={{ color: palette.muted, marginTop: 12 }}>Cargando serie...</Text>
+            </View>
+          ) : <>
           {/* SYNOPSIS */}
           {serie.descripcion || serie.sinopsis ? (
             <Surface style={[styles.sectionCard, { backgroundColor: palette.surface, borderColor: palette.border }]} elevation={0}>
@@ -419,6 +424,7 @@ export default function SeriesDetail({ idSerie }) {
               </Text>
             </View>
           </Surface>
+          </>}
         </View>
       </ScrollView>
     </View>
