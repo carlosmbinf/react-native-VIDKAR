@@ -12,6 +12,15 @@ Las variables `EXPO_PUBLIC_*` son públicas y se incluyen en el bundle: aquí so
 
 ## Get started
 
+### Excepciones por producto
+
+**Opciones privadas → Excepciones** está disponible únicamente para el Administrador Principal, también al abrir la ruta directamente. La tabla muestra el producto, la cantidad de errores y la fecha del último registro. Tocar un agrupamiento abre una tabla paginada de sus registros; tocar una fila muestra contexto, validaciones, ubicación del error y causas, con la misma información sanitizada del FE web. La búsqueda por identificador de producto, publicación, pedido, evento, usuario o error conserva los filtros al abrir un agrupamiento.
+
+Requiere desplegar primero el backend `react-download` con `integraciones.excepciones.productos` y `integraciones.excepciones.registrosProducto`; el detalle reutiliza `integraciones.excepciones.detalle`. Los métodos verifican el permiso en el servidor y agrupan **antes** de paginar. Las publicaciones asociadas se resuelven al producto local, incluyendo sus distintos `mercadoLibre.itemIds`. Cuando no hay un producto importado se agrupa por publicación o por identificador local; las incidencias sin producto quedan en **Sin producto identificado**, sin descartarse. El listado de tarjetas del FE web no cambia.
+
+Validación enfocada: `node --test tests/integrationExceptions.test.js` y `npm run lint`.
+En `react-download`: `node --test tests/integracionExcepciones.test.mjs tests/integracionExcepcionesGroups.test.mjs tests/mercadoLibreExceptions.test.mjs`. Para ejecutar también la prueba real de agregación, definir `EXCEPTIONS_MONGO_CONTAINER` con el nombre de un contenedor MongoDB 7 en ejecución con `mongosh` y acceso local sin autenticación; la prueba crea y elimina únicamente su base temporal.
+
 ### Direcciones guardadas en el carrito
 
 El paso Ubicación de las compras COMERCIO comparte la libreta privada de direcciones de la cuenta con `comercio-web` y el MCP. Permite elegir una guardada o crear una con el buscador, mapa o ubicación actual, guardarla opcionalmente con un nombre, marcarla como predeterminada y eliminarla con confirmación. El carrito conserva su entrega actual al abrirse; si no tiene una configurada, preselecciona la predeterminada.

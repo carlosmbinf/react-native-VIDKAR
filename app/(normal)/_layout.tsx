@@ -73,6 +73,7 @@ export default function NormalLayout() {
       <Stack.Screen name="ListaArchivos" />
       <Stack.Screen name="CreateUsers" />
       <Stack.Screen name="Logs" />
+      <Stack.Screen name="Excepciones" />
       <Stack.Screen name="ComerciosList" />
       <Stack.Screen name="remesas" />
       <Stack.Screen name="ListaPropertys" />

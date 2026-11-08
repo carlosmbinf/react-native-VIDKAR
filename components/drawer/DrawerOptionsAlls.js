@@ -315,6 +315,11 @@ const buildProfessorItems = () => [
 
 const buildPrivateItems = () => [
   {
+    label: "Excepciones",
+    icon: "alert-circle-outline",
+    href: "/(normal)/Excepciones",
+  },
+  {
     label: "Actualización de comercios",
     icon: "store-sync-outline",
     href: "/(normal)/CommerceProvisioning",
