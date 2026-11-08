@@ -6,8 +6,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
 import { isPrincipalAdmin } from "../../services/mcp/mcpAccess";
 import {
-  EXCEPTION_CONTEXT_LABELS, EXCEPTION_METHODS, exceptionDate, exceptionErrorLabel,
-  exceptionFailure, exceptionGroupKey, exceptionGroupLabel, exceptionValue,
+  EXCEPTION_CONTEXT_LABELS, EXCEPTION_METHODS, EXCEPTION_PAGE_SIZE, exceptionDate, exceptionErrorLabel,
+  exceptionFailure, exceptionGroupKey, exceptionGroupLabel, exceptionValue, loadExceptionGroups,
 } from "../../services/integrationExceptions";
 
 const call = (method, ...args) => new Promise((resolve, reject) => {
@@ -101,39 +101,42 @@ function ExceptionsBrowser() {
   const [search, setSearch] = useState("");
   const [groupPage, setGroupPage] = useState(1);
   const [recordPage, setRecordPage] = useState(1);
-  const [selected, setSelected] = useState(null);
+  const [selectedKey, setSelectedKey] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [refresh, setRefresh] = useState(0);
-  const [list, setList] = useState({ items: [], total: 0, pageSize: 20 });
+  const [groups, setGroups] = useState([]);
+  const [progress, setProgress] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const page = selected ? recordPage : groupPage;
+  const selected = groups.find((entry) => exceptionGroupKey(entry.group) === selectedKey);
+  const entries = selected ? selected.records : groups;
+  const pages = Math.max(1, Math.ceil(entries.length / EXCEPTION_PAGE_SIZE));
+  const page = Math.min(selected ? recordPage : groupPage, pages);
+  const items = entries.slice((page - 1) * EXCEPTION_PAGE_SIZE, page * EXCEPTION_PAGE_SIZE);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError("");
-    setList({ items: [], total: 0, pageSize: 20 });
-    const request = selected
-      ? call(EXCEPTION_METHODS.records, selected.group, { page, search })
-      : call(EXCEPTION_METHODS.groups, { page, search });
-    request.then((result) => { if (active) setList(result); })
+    setProgress("");
+    loadExceptionGroups(call, { search, isActive: () => active,
+      onProgress: (value) => { if (active) setProgress(value); } })
+      .then((result) => { if (active && result) setGroups(result); })
       .catch((failure) => { if (active) setError(exceptionFailure(failure, "No se pudieron cargar las excepciones.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [page, search, selected, refresh]);
+  }, [search, refresh]);
 
   const submitSearch = () => {
-    setSelected(null);
+    setSelectedKey("");
     setGroupPage(1);
     setSearch(searchInput.trim());
     setRefresh((value) => value + 1);
   };
-  const pages = Math.max(1, Math.ceil(list.total / list.pageSize));
   return <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
     <AppHeader title="Excepciones" subtitle="Administración principal · Integraciones"
       showBackButton backHref="/(normal)/Main" overlapContent
-      onBack={selected ? () => setSelected(null) : undefined}
+      onBack={selected ? () => setSelectedKey("") : undefined}
       actions={<IconButton icon="refresh" iconColor="#ffffff" accessibilityLabel="Actualizar excepciones"
         disabled={loading} onPress={() => setRefresh((value) => value + 1)} />} />
     <ScrollView contentContainerStyle={[styles.content, { paddingTop: headerInset + 16 }]}
@@ -145,12 +148,14 @@ function ExceptionsBrowser() {
         <Button mode="contained" disabled={loading} onPress={submitSearch}>Buscar</Button>
       </View>}
       {selected && <>
-        <Button icon="arrow-left" onPress={() => setSelected(null)}>Volver a productos</Button>
+        <Button icon="arrow-left" onPress={() => setSelectedKey("")}>Volver a productos</Button>
         <Text variant="titleMedium">{exceptionGroupLabel(selected)}</Text>
         <Text variant="bodySmall">{selected.group.id || "Sin producto identificado"} · {selected.group.integration === "mercadolibre" ? "Mercado Libre" : selected.group.integration}</Text>
       </>}
       {search !== "" && <Text variant="bodySmall">Registros que coinciden con: {search}</Text>}
-      {loading ? <View style={styles.status}><ActivityIndicator accessibilityLabel="Cargando excepciones" /></View>
+      {loading ? <View style={styles.status}><ActivityIndicator accessibilityLabel="Cargando excepciones" />
+        <Text accessibilityLiveRegion="polite">{progress || "Cargando excepciones..."}</Text>
+      </View>
         : error ? <Failure message={error} retry={() => setRefresh((value) => value + 1)} />
           : <>
             <ScrollView horizontal>
@@ -160,7 +165,7 @@ function ExceptionsBrowser() {
                   <DataTable.Title style={styles.countColumn}>{selected ? "HTTP" : "Errores"}</DataTable.Title>
                   <DataTable.Title style={styles.dateColumn}>{selected ? "Fecha" : "Último error"}</DataTable.Title>
                 </DataTable.Header>
-                {list.items.map((entry) => <DataTable.Row
+                {items.map((entry) => <DataTable.Row
                   key={selected ? entry._id : exceptionGroupKey(entry.group)}
                   accessibilityRole="button"
                   accessibilityLabel={selected
@@ -168,7 +173,7 @@ function ExceptionsBrowser() {
                     : `Ver ${entry.count} errores de ${exceptionGroupLabel(entry)}`}
                   onPress={() => {
                     if (selected) setSelectedId(entry._id);
-                    else { setRecordPage(1); setSelected(entry); }
+                    else { setRecordPage(1); setSelectedKey(exceptionGroupKey(entry.group)); }
                   }} style={styles.row}>
                   <View style={styles.mainColumn}>
                     <Text numberOfLines={2} variant="bodyMedium">{selected ? exceptionErrorLabel(entry.error) : exceptionGroupLabel(entry)}</Text>
@@ -181,12 +186,12 @@ function ExceptionsBrowser() {
                 </DataTable.Row>)}
               </DataTable>
             </ScrollView>
-            {!list.items.length && <Text style={styles.status}>No se encontraron {selected ? "registros para este producto" : "excepciones"}.</Text>}
+            {!items.length && <Text style={styles.status}>No se encontraron {selected ? "registros para este producto" : "excepciones"}.</Text>}
             <View style={styles.pagination}>
-              <Text variant="bodySmall">{list.total} {selected ? "registros" : "agrupamientos"} · Página {page} de {pages}</Text>
+              <Text variant="bodySmall">{entries.length} {selected ? "registros" : "agrupamientos"} · Página {page} de {pages}</Text>
               <View style={styles.heading}>
                 <Button disabled={page <= 1} onPress={() => (selected ? setRecordPage : setGroupPage)(page - 1)}>Anterior</Button>
-                <Button disabled={page >= pages || page >= 10000}
+                <Button disabled={page >= pages}
                   onPress={() => (selected ? setRecordPage : setGroupPage)(page + 1)}>Siguiente</Button>
               </View>
             </View>
