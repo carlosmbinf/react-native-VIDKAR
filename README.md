@@ -51,6 +51,23 @@ iOS con Expo/Xcode.
 Validacion enfocada: `node --test tests/metroConfig.test.cjs tests/iosSceneLifecycle.test.cjs`.
 La prueba Swift requiere macOS/Xcode.
 
+### Compilacion Android en Codemagic
+
+AGP 9 no admite `getDefaultProguardFile('proguard-android.txt')`. El script
+`scripts/patch-vlc-media-player.js`, ejecutado por `postinstall` y `npm run build`,
+sustituye esa referencia en el Gradle de VLC por `proguard-android-optimize.txt`.
+Conserva `minifyEnabled` y las reglas propias de VLC; no cambia las versiones de
+Gradle ni AGP. El parche Android es independiente del parche JavaScript, es
+idempotente y falla explicitamente si falta el archivo o cambia el bloque esperado.
+Codemagic lo reaplica durante la instalacion, incluso con `node_modules` en cache,
+antes de regenerar Android con Expo prebuild.
+
+Validacion: `node --test tests/vlcAndroidGradle.test.cjs`.
+La compilacion completa requiere el SDK Android: ejecutar `bundleRelease` con
+el wrapper de Gradle del proyecto generado, o repetir el workflow de Codemagic.
+
+### Compatibilidad de React Native
+
 React Native 0.88 elimina `InteractionManager`. Los trabajos diferidos de la app
 usan `requestIdleCallback` y cancelan la tarea al desmontar cuando corresponde.
 `postinstall` aplica `scripts/patch-meteorrn-scheduler.js` a `@meteorrn/core`

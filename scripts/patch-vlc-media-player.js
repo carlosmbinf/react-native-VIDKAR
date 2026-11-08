@@ -3,6 +3,33 @@
 const fs = require("fs");
 const path = require("path");
 
+const androidGradleFile = path.join(
+  __dirname,
+  "..",
+  "node_modules",
+  "react-native-vlc-media-player",
+  "android",
+  "build.gradle"
+);
+const androidGradleContent = fs.readFileSync(androidGradleFile, "utf8");
+const legacyProguard = /getDefaultProguardFile\(\s*(["'])proguard-android\.txt\1\s*\)/g;
+const optimizedProguard = /getDefaultProguardFile\(\s*(["'])proguard-android-optimize\.txt\1\s*\)/;
+
+if (legacyProguard.test(androidGradleContent)) {
+  const patchedGradle = androidGradleContent.replace(
+    legacyProguard,
+    (match) => match.replace("proguard-android.txt", "proguard-android-optimize.txt")
+  );
+  fs.writeFileSync(androidGradleFile, patchedGradle, "utf8");
+  console.log("[patch-vlc-media-player] Parche ProGuard para AGP 9 aplicado.");
+} else if (optimizedProguard.test(androidGradleContent)) {
+  console.log("[patch-vlc-media-player] Parche ProGuard ya aplicado.");
+} else {
+  throw new Error(
+    "[patch-vlc-media-player] No se encontro getDefaultProguardFile esperado en android/build.gradle."
+  );
+}
+
 const targetFile = path.join(
   __dirname,
   "..",
