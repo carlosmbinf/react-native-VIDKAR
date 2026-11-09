@@ -4,7 +4,7 @@ import test from "node:test";
 import { isPrincipalAdmin } from "../services/mcp/mcpAccess.js";
 import {
   EXCEPTION_METHODS, exceptionDate, exceptionErrorLabel, exceptionFailure,
-  exceptionGroupKey, exceptionGroupLabel, exceptionValue, groupExceptionRecords, loadExceptionGroups,
+  exceptionGroupKey, exceptionGroupLabel, exceptionValue, groupExceptionRecords, loadExceptionGroups, loadExceptionProduct,
 } from "../services/integrationExceptions.js";
 
 test("solo el administrador principal tiene acceso, no otros administradores", () => {
@@ -20,19 +20,39 @@ test("solo el administrador principal tiene acceso, no otros administradores", (
   assert.match(screen, /key=\{selectedId\} id=\{selectedId\}/);
 });
 
-test("usa solo métodos existentes, filas seleccionables y paginación local independiente", () => {
-  assert.deepEqual(Object.keys(EXCEPTION_METHODS).sort(), ["detail", "list"]);
+test("usa los métodos esperados, filas seleccionables y paginación local independiente", () => {
+  assert.deepEqual(Object.keys(EXCEPTION_METHODS).sort(), ["detail", "list", "product"]);
   assert.equal(EXCEPTION_METHODS.list, "integraciones.excepciones.listar");
   assert.equal(EXCEPTION_METHODS.detail, "integraciones.excepciones.detalle");
+  assert.equal(EXCEPTION_METHODS.product, "integraciones.excepciones.productoDetalle");
   const screen = readFileSync(new URL("../components/exceptions/ExceptionsScreen.jsx", import.meta.url), "utf8");
   assert.match(screen, /loadExceptionGroups\(call, \{ search, isActive: \(\) => active/);
   assert.match(screen, /entries.slice\(\(page - 1\) \* EXCEPTION_PAGE_SIZE, page \* EXCEPTION_PAGE_SIZE\)/);
   assert.match(screen, /}, \[search, refresh\]\)/);
   assert.doesNotMatch(screen, /EXCEPTION_METHODS.(records|groups)/);
-  assert.match(screen, /<DataTable.Row/);
+  assert.match(screen, /<TouchableOpacity[\s\S]*?accessibilityRole="button"/);
   assert.match(screen, /if \(selected\) setSelectedId\(entry._id\)/);
   assert.match(screen, /setRecordPage\(1\); setSelectedKey\(exceptionGroupKey\(entry.group\)\)/);
   assert.match(screen, /return \(\) => \{ active = false; \}/);
+});
+
+test("consulta y valida el producto relacionado y sus imágenes", async () => {
+  const group = { integration: "mercadolibre", type: "product", id: "product1" };
+  const result = { status: "found", product: {
+    _id: "product1", name: "Producto", descripcion: "", images: [{ id: "image1", url: "https://example.test/image.jpg" }],
+  } };
+  assert.deepEqual(await loadExceptionProduct(async (method, input) => {
+    assert.equal(method, EXCEPTION_METHODS.product);
+    assert.deepEqual(input, group);
+    return result;
+  }, group), result);
+  for (const status of ["not-found", "ambiguous", "unassigned", "unsupported"]) {
+    assert.deepEqual(await loadExceptionProduct(async () => ({ status }), group), { status });
+  }
+  for (const invalid of [null, {}, { status: "found" }, { ...result, product: { ...result.product, images: [{ url: "" }] } }]) {
+    await assert.rejects(loadExceptionProduct(async () => invalid, group), /no es válida/);
+  }
+  await assert.rejects(loadExceptionProduct(async () => { throw new Error("Sin conexión"); }, group), /Sin conexión/);
 });
 
 test("etiquetas y claves distinguen productos, publicaciones y registros sin producto", () => {

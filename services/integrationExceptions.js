@@ -1,11 +1,31 @@
 export const EXCEPTION_METHODS = {
   list: "integraciones.excepciones.listar",
   detail: "integraciones.excepciones.detalle",
+  product: "integraciones.excepciones.productoDetalle",
 };
 
 export const EXCEPTION_PAGE_SIZE = 20;
 const MAX_SERVER_PAGE = 10000;
 const DETAIL_CONCURRENCY = 4;
+
+export const loadExceptionProduct = async (call, group) => {
+  const result = await call(EXCEPTION_METHODS.product, group);
+  if (!result || typeof result !== "object"
+    || !["found", "not-found", "ambiguous", "unassigned", "unsupported"].includes(result.status)) {
+    throw new Error("La información del producto recibida no es válida.");
+  }
+  if (result.status === "found") {
+    const product = result.product;
+    if (!product || typeof product._id !== "string" || !product._id
+      || typeof product.name !== "string" || typeof product.descripcion !== "string"
+      || !Array.isArray(product.images)
+      || product.images.some((image) => !image || typeof image.id !== "string"
+        || typeof image.url !== "string" || !image.url.trim())) {
+      throw new Error("La información del producto recibida no es válida.");
+    }
+  }
+  return result;
+};
 
 export const exceptionGroupKey = (group) => JSON.stringify([group.integration, group.type, group.id]);
 
