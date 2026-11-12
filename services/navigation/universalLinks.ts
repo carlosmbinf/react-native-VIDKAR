@@ -24,6 +24,110 @@ const getConfiguredWebHost = () => {
     return null;
   }
 };
+export function isSupportedWebHost(hostname: string): boolean {
+  const normalizedHost = hostname.toLowerCase();
+  return SUPPORTED_HOSTS.has(normalizedHost) || normalizedHost === getConfiguredWebHost();
+}
+
+const MAIN_ROUTE = "/(normal)/Main";
+const FRONTEND_ROUTES: Record<string, string> = {
+  "": MAIN_ROUTE,
+  "admin/aprobaciones-efectivo": "/(normal)/ListaArchivos",
+  "admin/centro-antifraude": "/(normal)/CentroAntifraude",
+  "admin/comercio-provisioning": "/(normal)/CommerceProvisioning",
+  "admin/crones": MAIN_ROUTE,
+  "admin/excepciones": "/(normal)/Excepciones",
+  dashboard: "/(normal)/Dashboard",
+  "evaluaciones-ia": "/(normal)/EvaluacionesIA",
+  "ganancias-cursos": "/(normal)/GananciasCursos",
+  "saldos-pagos": "/(normal)/LiquidacionesAdmin",
+  cursos: "/(normal)/Cursos",
+  "cursos/gestion": "/(normal)/GestionCursos",
+  "evidencias-pendientes": "/(normal)/EvidenciasPendientes",
+  home: MAIN_ROUTE,
+  hls: "/(normal)/HlsAdmin",
+  cubacel: "/(normal)/ProductosCubacelCards",
+  peliculas: "/(normal)/PeliculasVideos",
+  series: "/(normal)/Series",
+  comercio: "/(normal)/ComerciosList",
+  empresa: "/(normal)/EmpresaWelcome",
+  "comercio/compras": "/(normal)/Ventas",
+  remesas: "/(normal)/remesas",
+  proxy: "/(normal)/ProxyPackages",
+  vpn: "/(normal)/VPNPackages",
+  precios: "/(normal)/Precios",
+  propertys: "/(normal)/PropertyList",
+  logs: "/(normal)/Logs",
+  "mapa-usuarios": "/(normal)/MapaUsuarios",
+  mensajes: "/(normal)/Mensajes",
+  mcp: "/(normal)/MCPSettings",
+  "mcp/authorize": MAIN_ROUTE,
+  "notificaciones-vpn": "/(normal)/NotificacionUsersConnectionVPN",
+  "lista-compras": "/(normal)/Ventas",
+  ventas: "/(normal)/Ventas",
+  users: "/(normal)/Users",
+};
+
+function resolveFrontendRoute(
+  segments: string[],
+  searchParams: URLSearchParams,
+): UniversalLinkTarget | null {
+  const normalizedSegments = segments.map((segment) => segment.toLowerCase());
+  const routeKey = normalizedSegments.join("/");
+  const staticRoute = FRONTEND_ROUTES[routeKey];
+
+  if (staticRoute) {
+    if (staticRoute === "/(normal)/Ventas") {
+      const params: Record<string, string> = {};
+      const id = searchParams.get("id");
+      const pago = searchParams.get("pago");
+      if (id) params.id = id;
+      if (pago === "PAGADO" || pago === "PENDIENTE") params.pago = pago;
+      return { pathname: staticRoute, ...(Object.keys(params).length ? { params } : {}) };
+    }
+
+    if (staticRoute === "/(normal)/Mensajes") {
+      const userId = searchParams.get("id");
+      return {
+        pathname: staticRoute,
+        ...(userId ? { params: { item: userId } } : {}),
+      };
+    }
+
+    return { pathname: staticRoute };
+  }
+
+  const [section, value, subsection] = normalizedSegments;
+  const [, rawValue, rawSubsection] = segments;
+
+  if (section === "peliculas" && value === "reproducir" && rawSubsection && segments.length === 3) {
+    return { pathname: "/(normal)/PeliculaPlayer", params: { id: rawSubsection } };
+  }
+  if (section === "series" && value === "reproducir" && rawSubsection && segments.length === 3) {
+    return { pathname: "/(normal)/SeriesPlayer", params: { id: rawSubsection } };
+  }
+  if (section === "series" && rawValue && segments.length === 2) {
+    return { pathname: "/(normal)/SeriesDetail", params: { id: rawValue } };
+  }
+  if (section === "cursos" && rawValue && segments.length === 2) {
+    return { pathname: "/(normal)/CursoDetalle", params: { courseId: rawValue } };
+  }
+  if (section === "mensajes" && rawValue && segments.length === 2) {
+    return { pathname: "/(normal)/Mensajes", params: { item: rawValue } };
+  }
+  if (section === "users" && rawValue && value && subsection === "services" && segments.length === 3) {
+    return { pathname: "/(normal)/UserServices", params: { item: rawValue } };
+  }
+  if (section === "users" && rawValue && value && subsection === "commerce-categories" && segments.length === 3) {
+    return { pathname: "/(normal)/UserCommerceCategories", params: { item: rawValue } };
+  }
+  if (section === "users" && rawValue && segments.length === 2) {
+    return { pathname: "/(normal)/User", params: { item: rawValue } };
+  }
+
+  return null;
+}
+
 const SUPPORTED_ENTITY_LINKS = new Set([
   "search", "movie", "series", "episode", "course", "lesson", "user",
   "purchase", "sale", "order", "product", "message", "messages", "subscription",
@@ -45,8 +149,7 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
 
   const isVIDKARScheme = parsedUrl.protocol === "vidkar:";
   const isVIDKARWebLink = parsedUrl.protocol === "https:" &&
-    (SUPPORTED_HOSTS.has(parsedUrl.hostname.toLowerCase())
-      || parsedUrl.hostname.toLowerCase() === getConfiguredWebHost());
+    isSupportedWebHost(parsedUrl.hostname);
   if (!isVIDKARScheme && !isVIDKARWebLink) {
     return null;
   }
@@ -60,13 +163,13 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
   } catch {
     return null;
   }
+  const schemeSegments = parsedUrl.hostname
+    ? [parsedUrl.hostname, ...segments]
+    : segments;
+  const routeSegments = isVIDKARScheme ? schemeSegments : segments;
   const [pathSection, pathValue] = segments;
-  const section = (isVIDKARScheme ? parsedUrl.hostname : pathSection || "").toLowerCase();
-  const value = isVIDKARScheme ? pathSection : pathValue;
-
-  if (isVIDKARScheme && !SUPPORTED_ENTITY_LINKS.has(section)) {
-    return null;
-  }
+  const section = (isVIDKARScheme ? schemeSegments[0] : pathSection || "").toLowerCase();
+  const value = isVIDKARScheme ? schemeSegments[1] : pathValue;
 
   if (parsedUrl.searchParams.has("resultId") && section !== "search") return null;
 
@@ -89,6 +192,13 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
       pathname: "/siri-search",
       params: { query, entityType },
     };
+  }
+
+  const frontendTarget = resolveFrontendRoute(routeSegments, parsedUrl.searchParams);
+  if (frontendTarget) return frontendTarget;
+
+  if (isVIDKARScheme && !SUPPORTED_ENTITY_LINKS.has(section)) {
+    return null;
   }
 
   if (isVIDKARScheme) {
@@ -139,7 +249,7 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
       case "messages":
         return { pathname: "/(normal)/Mensajes" };
       default:
-        return null;
+        return isVIDKARWebLink ? { pathname: MAIN_ROUTE } : null;
     }
   }
 
@@ -169,7 +279,7 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
     case "mensajes":
       return { pathname: "/(normal)/Mensajes" };
     default:
-      return null;
+      return isVIDKARWebLink ? { pathname: MAIN_ROUTE } : null;
   }
 }
 

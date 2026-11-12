@@ -764,17 +764,23 @@ const WizardConStepper = ({ initialLocation = null }) => {
     if (!visible || activeStep !== STEP_PAY || !metodoPago) return;
 
     setPreparingCheckout(true);
+    const finishPreparing = (error) => {
+      if (error) {
+        console.error("Error preparando la orden de pago:", error);
+        Alert.alert(
+          "No se pudo preparar el pago",
+          error.reason || error.message || "Intenta nuevamente en unos minutos.",
+        );
+      }
+      setPreparingCheckout(false);
+    };
+
     Meteor.call("cancelarOrdenesPaypalIncompletas", userId, (cancelError) => {
       if (cancelError) {
         console.error("Error cancelando órdenes PayPal:", cancelError);
+        finishPreparing(cancelError);
+        return;
       }
-
-      const finishPreparing = (error) => {
-        if (error) {
-          console.error("Error creando orden de pago:", error);
-        }
-        setPreparingCheckout(false);
-      };
 
       if (metodoPago === "paypal") {
         Meteor.call(

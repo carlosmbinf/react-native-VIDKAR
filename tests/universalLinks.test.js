@@ -113,6 +113,81 @@ test("mantiene las rutas históricas de Universal Links", () => {
   });
 });
 
+test("mapea las rutas del FE web a pantallas móviles existentes", async () => {
+  const cases = [
+    ["/", "/(normal)/Main"],
+    ["/admin/aprobaciones-efectivo", "/(normal)/ListaArchivos"],
+    ["/admin/centro-antifraude", "/(normal)/CentroAntifraude"],
+    ["/admin/comercio-provisioning", "/(normal)/CommerceProvisioning"],
+    ["/admin/crones", "/(normal)/Main"],
+    ["/admin/excepciones", "/(normal)/Excepciones"],
+    ["/dashboard", "/(normal)/Dashboard"],
+    ["/evaluaciones-ia", "/(normal)/EvaluacionesIA"],
+    ["/ganancias-cursos", "/(normal)/GananciasCursos"],
+    ["/saldos-pagos", "/(normal)/LiquidacionesAdmin"],
+    ["/cursos", "/(normal)/Cursos"],
+    ["/cursos/gestion", "/(normal)/GestionCursos"],
+    ["/cursos/course-1", "/(normal)/CursoDetalle", { courseId: "course-1" }],
+    ["/evidencias-pendientes", "/(normal)/EvidenciasPendientes"],
+    ["/home", "/(normal)/Main"],
+    ["/hls", "/(normal)/HlsAdmin"],
+    ["/cubacel", "/(normal)/ProductosCubacelCards"],
+    ["/peliculas", "/(normal)/PeliculasVideos"],
+    ["/peliculas/reproducir/movie-1", "/(normal)/PeliculaPlayer", { id: "movie-1" }],
+    ["/series", "/(normal)/Series"],
+    ["/series/series-1", "/(normal)/SeriesDetail", { id: "series-1" }],
+    ["/series/reproducir/episode-1", "/(normal)/SeriesPlayer", { id: "episode-1" }],
+    ["/comercio", "/(normal)/ComerciosList"],
+    ["/empresa", "/(normal)/EmpresaWelcome"],
+    ["/comercio/compras", "/(normal)/Ventas"],
+    ["/remesas", "/(normal)/remesas"],
+    ["/proxy", "/(normal)/ProxyPackages"],
+    ["/vpn", "/(normal)/VPNPackages"],
+    ["/precios", "/(normal)/Precios"],
+    ["/propertys", "/(normal)/PropertyList"],
+    ["/logs", "/(normal)/Logs"],
+    ["/mapa-usuarios", "/(normal)/MapaUsuarios"],
+    ["/mensajes", "/(normal)/Mensajes"],
+    ["/mensajes/user-1", "/(normal)/Mensajes", { item: "user-1" }],
+    ["/mcp", "/(normal)/MCPSettings"],
+    ["/mcp/authorize", "/(normal)/Main"],
+    ["/notificaciones-vpn", "/(normal)/NotificacionUsersConnectionVPN"],
+    ["/lista-compras", "/(normal)/Ventas"],
+    ["/ventas", "/(normal)/Ventas"],
+    ["/users", "/(normal)/Users"],
+    ["/users/user-1/services", "/(normal)/UserServices", { item: "user-1" }],
+    ["/users/user-1/commerce-categories", "/(normal)/UserCommerceCategories", { item: "user-1" }],
+    ["/users/user-1", "/(normal)/User", { item: "user-1" }],
+  ];
+
+  for (const [path, pathname, params] of cases) {
+    const target = { pathname, ...(params ? { params } : {}) };
+    assert.deepEqual(resolveUniversalLink(`https://www.vidkar.com${path}`), target, path);
+    await fs.access(new URL(`../app/${pathname.slice(1)}.tsx`, import.meta.url));
+  }
+});
+
+test("resuelve links con esquema y conserva únicamente parámetros de pantalla conocidos", () => {
+  assert.deepEqual(resolveUniversalLink("vidkar://lista-compras"), {
+    pathname: "/(normal)/Ventas",
+  });
+  assert.deepEqual(resolveUniversalLink("vidkar://users/user-1/services"), {
+    pathname: "/(normal)/UserServices",
+    params: { item: "user-1" },
+  });
+  assert.deepEqual(resolveUniversalLink("https://www.vidkar.com/lista-compras?id=user-1&pago=PENDIENTE"), {
+    pathname: "/(normal)/Ventas",
+    params: { id: "user-1", pago: "PENDIENTE" },
+  });
+  assert.deepEqual(resolveUniversalLink("https://www.vidkar.com/mensajes?id=user-1"), {
+    pathname: "/(normal)/Mensajes",
+    params: { item: "user-1" },
+  });
+  assert.deepEqual(resolveUniversalLink("https://www.vidkar.com/ruta-nueva"), {
+    pathname: "/(normal)/Main",
+  });
+});
+
 test("acepta el host HTTPS configurado para esta instalación", () => {
   const previousBaseUrl = process.env.EXPO_PUBLIC_VIDKAR_BASE_URL;
   process.env.EXPO_PUBLIC_VIDKAR_BASE_URL = "https://preview.example.test";
@@ -252,6 +327,26 @@ test("entrada nativa Expo entrega la misma búsqueda en frío y caliente sin dep
     assert.equal(
       redirectSystemPath({ path: "vidkar://course/course-1", initial }),
       "/(normal)/CursoDetalle?courseId=course-1",
+    );
+    assert.equal(
+      redirectSystemPath({ path: "vidkar://lista-compras", initial }),
+      "/(normal)/Ventas",
+    );
+    assert.equal(
+      redirectSystemPath({ path: "https://www.vidkar.com/users/user-1/services", initial }),
+      "/(normal)/UserServices?item=user-1",
+    );
+    assert.equal(
+      redirectSystemPath({ path: "/series/reproducir/episode-1", initial }),
+      "/(normal)/SeriesPlayer?id=episode-1",
+    );
+    assert.equal(
+      redirectSystemPath({ path: "https://www.vidkar.com/ruta-nueva", initial }),
+      "/(normal)/Main",
+    );
+    assert.equal(
+      redirectSystemPath({ path: "https://untrusted.example/lista-compras", initial }),
+      "https://untrusted.example/lista-compras",
     );
     assert.equal(redirectSystemPath({ path: "vidkar://movie/fixture?play=true", initial }), "vidkar://movie/fixture?play=true");
     assert.equal(redirectSystemPath({ path: "vidkar://unknown/fixture", initial }), "vidkar://unknown/fixture");
