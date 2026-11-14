@@ -70,7 +70,6 @@ const HOME_LOAD_STEPS = [
   { label: "Cargando configuración de precios", method: "home.getPriceSetup" },
   { label: "Cargando evidencias pendientes", method: "home.getPendingEvidence" },
   { label: "Cargando aprobaciones de efectivo", method: "home.getCashApprovals" },
-  { label: "Cargando entregas de comercio", method: "home.getCommerceOrders" },
 ];
 
 const logMenuPrincipalDebug = (label, payload) => {

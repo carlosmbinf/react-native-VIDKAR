@@ -1,9 +1,11 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import MeteorBase from "@meteorrn/core";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Surface, Text, useTheme } from "react-native-paper";
 
+import { VentasRechargeCollection } from "../../collections/collections";
 import { ServiceEntrance, ServiceMotionProvider, ServicePressable } from "../../motion/ServiceMotion";
 import {
   getCommerceOrderStep,
@@ -11,10 +13,14 @@ import {
 } from "../../ventas/ventasUtils";
 import PedidoCard from "./components/PedidoCard";
 
-const HOME_COMMERCE_ORDERS_LIMIT = 2;
+const Meteor =
+  /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
+    MeteorBase
+  );
 
 const HOME_COMMERCE_ORDER_FIELDS = {
   _id: 1,
+  cadeteid: 1,
   createdAt: 1,
   estado: 1,
   isCancelada: 1,
@@ -36,16 +42,39 @@ const isActiveCommerceOrder = (venta) => {
   return venta?.estado !== "ENTREGADO";
 };
 
-const ComercioHomeOrdersSection = ({ catalogOrders = [], catalogLoading = true }) => {
+const ComercioHomeOrdersSection = () => {
   const router = useRouter();
   const theme = useTheme();
   const [expandedVentas, setExpandedVentas] = useState({});
 
+  const { catalogOrders, catalogLoading } = Meteor.useTracker(() => {
+    const userId = Meteor.userId();
+    if (!userId) return { catalogOrders: [], catalogLoading: true };
+
+    const selector = {
+      userId,
+      "producto.carritos.type": "COMERCIO",
+      estado: { $ne: "ENTREGADO" },
+      isCancelada: { $ne: true },
+    };
+    const options = {
+      fields: HOME_COMMERCE_ORDER_FIELDS,
+      sort: { createdAt: -1 },
+    };
+    const subscription = Meteor.subscribe("ventasRecharge", selector, options);
+
+    return {
+      // @meteorrn/core invalida por el documento actualizado; observar solo
+      // el usuario permite detectar pedidos que dejan de estar activos.
+      catalogOrders: VentasRechargeCollection.find({ userId }, options).fetch(),
+      catalogLoading: !subscription.ready(),
+    };
+  }, []);
+
   const ventas = useMemo(
     () =>
       (Array.isArray(catalogOrders) ? catalogOrders : [])
-      .filter(isActiveCommerceOrder)
-      .slice(0, HOME_COMMERCE_ORDERS_LIMIT),
+      .filter(isActiveCommerceOrder),
     [catalogOrders],
   );
 
@@ -156,7 +185,7 @@ const ComercioHomeOrdersSection = ({ catalogOrders = [], catalogLoading = true }
         {ventas.map((venta, index) => (
           <ServiceEntrance
             key={venta._id}
-            delay={index * 110}
+            delay={Math.min(index, 4) * 50}
             duration={780}
             conversionKey={`order-${venta._id}-${venta.estado}-${Boolean(expandedVentas[venta._id])}`}
           >

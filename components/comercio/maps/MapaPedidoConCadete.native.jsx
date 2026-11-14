@@ -1,6 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import MeteorBase from "@meteorrn/core";
-import { useEffect, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import MapView, {
   Marker,
@@ -31,13 +30,28 @@ const MARKER_WIDTH = 44;
 const MARKER_ANCHOR = { x: 0.5, y: 1 };
 const MARKER_CENTER_OFFSET = { x: 0, y: -MARKER_HEIGHT / 2 };
 
+const resolveCoordinates = (source) => {
+  if (!source) return null;
+
+  const parseCoordinate = (value) => {
+    if (typeof value !== "number" && typeof value !== "string") return null;
+    if (typeof value === "string" && !value.trim()) return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  };
+  const latitude = parseCoordinate(source.latitude ?? source.latitud);
+  const longitude = parseCoordinate(source.longitude ?? source.longitud);
+  if (latitude == null || longitude == null || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+    return null;
+  }
+  return { latitude, longitude };
+};
+
 const MapaPedidoConCadeteNative = ({
   cadeteId,
   coordenadasDestino,
   idTienda,
 }) => {
-  const [region, setRegion] = useState(null);
-
   const { tienda, tiendaReady } = Meteor.useTracker(() => {
     if (!idTienda) {
       return { tienda: null, tiendaReady: false };
@@ -59,17 +73,17 @@ const MapaPedidoConCadeteNative = ({
 
   const { cadete, cadeteReady } = Meteor.useTracker(() => {
     if (!cadeteId) {
-      return { cadete: null, cadeteReady: false };
+      return { cadete: null, cadeteReady: true };
     }
 
     const sub = Meteor.subscribe(
       "user",
       { _id: cadeteId },
-      { fields: { cordenadas: 1, username: 1 } },
+      { fields: { cordenadas: 1, coordenadas: 1, username: 1 } },
     );
     const cadeteData = Meteor.users.findOne(
       { _id: cadeteId },
-      { fields: { cordenadas: 1, username: 1 } },
+      { fields: { cordenadas: 1, coordenadas: 1, username: 1 } },
     );
 
     return {
@@ -78,58 +92,17 @@ const MapaPedidoConCadeteNative = ({
     };
   }, [cadeteId]);
 
-  useEffect(() => {
-    const coordsTienda = tienda?.coordenadas;
-    const coordsCadete = cadete?.cordenadas;
+  const tiendaMarker =
+    resolveCoordinates(tienda?.ubicacion) ||
+    resolveCoordinates(tienda?.coordenadas) ||
+    resolveCoordinates(tienda?.cordenadas);
+  const cadeteMarker = cadeteReady
+    ? resolveCoordinates(cadete?.cordenadas) || resolveCoordinates(cadete?.coordenadas)
+    : null;
+  const destinoMarker = resolveCoordinates(coordenadasDestino);
+  const rutaPuntos = [tiendaMarker, cadeteMarker, destinoMarker].filter(Boolean);
 
-    if (!coordsTienda && !coordenadasDestino) {
-      setRegion(null);
-      return;
-    }
-
-    const puntos = [];
-
-    if (coordsTienda?.latitude && coordsTienda?.longitude) {
-      puntos.push({
-        latitude: parseFloat(coordsTienda.latitude),
-        longitude: parseFloat(coordsTienda.longitude),
-      });
-    }
-
-    if (coordsCadete?.latitude && coordsCadete?.longitude) {
-      puntos.push({
-        latitude: parseFloat(coordsCadete.latitude),
-        longitude: parseFloat(coordsCadete.longitude),
-      });
-    }
-
-    if (coordenadasDestino?.latitude && coordenadasDestino?.longitude) {
-      puntos.push({
-        latitude: parseFloat(coordenadasDestino.latitude),
-        longitude: parseFloat(coordenadasDestino.longitude),
-      });
-    }
-
-    if (puntos.length > 0) {
-      const latitudes = puntos.map((point) => point.latitude);
-      const longitudes = puntos.map((point) => point.longitude);
-      const minLat = Math.min(...latitudes);
-      const maxLat = Math.max(...latitudes);
-      const minLng = Math.min(...longitudes);
-      const maxLng = Math.max(...longitudes);
-      const latDelta = (maxLat - minLat) * 1.8;
-      const lngDelta = (maxLng - minLng) * 1.8;
-
-      setRegion({
-        latitude: (minLat + maxLat) / 2,
-        latitudeDelta: Math.max(latDelta, 0.01),
-        longitude: (minLng + maxLng) / 2,
-        longitudeDelta: Math.max(lngDelta, 0.01),
-      });
-    }
-  }, [cadete, coordenadasDestino, tienda]);
-
-  if (!tiendaReady || !cadeteReady) {
+  if (!tiendaReady || (!cadeteReady && rutaPuntos.length === 0)) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator color="#FF6F00" size="large" />
@@ -138,7 +111,7 @@ const MapaPedidoConCadeteNative = ({
     );
   }
 
-  if (!region) {
+  if (rutaPuntos.length === 0) {
     return (
       <View style={styles.errorContainer}>
         <MaterialCommunityIcons
@@ -153,41 +126,19 @@ const MapaPedidoConCadeteNative = ({
     );
   }
 
-  const coordsTienda =
-    tienda?.ubicacion || tienda?.coordenadas || tienda?.cordenadas;
-  const tiendaMarker =
-    coordsTienda?.latitude && coordsTienda?.longitude
-      ? {
-          latitude: parseFloat(coordsTienda.latitude),
-          longitude: parseFloat(coordsTienda.longitude),
-        }
-      : coordsTienda?.latitud && coordsTienda?.longitud
-        ? {
-            latitude: parseFloat(coordsTienda.latitud),
-            longitude: parseFloat(coordsTienda.longitud),
-          }
-        : null;
-
-  const cadeteMarker =
-    cadete?.cordenadas?.latitude && cadete?.cordenadas?.longitude
-      ? {
-          latitude: parseFloat(cadete.cordenadas.latitude),
-          longitude: parseFloat(cadete.cordenadas.longitude),
-        }
-      : null;
-
-  const destinoMarker =
-    coordenadasDestino?.latitude && coordenadasDestino?.longitude
-      ? {
-          latitude: parseFloat(coordenadasDestino.latitude),
-          longitude: parseFloat(coordenadasDestino.longitude),
-        }
-      : null;
-
-  const rutaPuntos = [];
-  if (tiendaMarker) rutaPuntos.push(tiendaMarker);
-  if (cadeteMarker) rutaPuntos.push(cadeteMarker);
-  if (destinoMarker) rutaPuntos.push(destinoMarker);
+  const latitudes = rutaPuntos.map((point) => point.latitude);
+  const longitudes = rutaPuntos.map((point) => point.longitude);
+  const minLat = Math.min(...latitudes);
+  const maxLat = Math.max(...latitudes);
+  const minLng = Math.min(...longitudes);
+  const maxLng = Math.max(...longitudes);
+  // initialRegion solo encuadra al montar; no interfiere con el zoom del usuario.
+  const region = {
+    latitude: (minLat + maxLat) / 2,
+    latitudeDelta: Math.max((maxLat - minLat) * 1.8, 0.01),
+    longitude: (minLng + maxLng) / 2,
+    longitudeDelta: Math.max((maxLng - minLng) * 1.8, 0.01),
+  };
 
   return (
     <View style={styles.container}>
@@ -196,7 +147,6 @@ const MapaPedidoConCadeteNative = ({
           { featureType: "poi", stylers: [{ visibility: "off" }] },
         ]}
         initialRegion={region}
-        liteMode={Platform.OS === "android"}
         provider={
           Platform.OS === "android" ? PROVIDER_GOOGLE : PROVIDER_DEFAULT
         }

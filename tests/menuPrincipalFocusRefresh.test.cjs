@@ -13,7 +13,6 @@ const methods = [
   "home.getPriceSetup",
   "home.getPendingEvidence",
   "home.getCashApprovals",
-  "home.getCommerceOrders",
 ];
 
 function responses(revision) {
@@ -27,7 +26,6 @@ function responses(revision) {
     [methods[3]]: { ownServicePrices: [{ type: "megas" }] },
     [methods[4]]: { pendingEvidenceVentas: [{ _id: `evidence-${revision}` }] },
     [methods[5]]: { cashApprovalVentas: [{ type: "PROXY" }] },
-    [methods[6]]: { commerceOrders: [{ _id: `order-${revision}` }] },
   };
 }
 
@@ -185,7 +183,7 @@ function createHarness() {
     }
   }
   async function flush() {
-    // Las siete llamadas se resuelven secuencialmente mediante promesas.
+    // Las seis llamadas se resuelven secuencialmente mediante promesas.
     for (let i = 0; i < 50; i += 1) {
       render();
       await Promise.resolve();
@@ -238,7 +236,8 @@ async function initialLoad(t) {
   const harness = createHarness();
   t.after(() => harness.unmount());
   await harness.mount();
-  assert.deepEqual(harness.calls, methods, "la carga inicial solicita los siete métodos en orden");
+  assert.deepEqual(harness.calls, methods, "la carga inicial solicita los seis métodos en orden");
+  assert.ok(!harness.calls.includes("home.getCommerceOrders"));
   assertCatalogs(harness.props.normalHomeCatalogs, 1);
   assert.equal(harness.props.homeRefreshing, true);
   await harness.advance(699);
@@ -249,7 +248,7 @@ async function initialLoad(t) {
   return harness;
 }
 
-test("la primera carga obtiene los siete catálogos y respeta el tiempo mínimo", async (t) => {
+test("la primera carga obtiene los seis catálogos y respeta el tiempo mínimo", async (t) => {
   await initialLoad(t);
 });
 
@@ -262,10 +261,10 @@ test("blur y focus ordinarios conservan los catálogos sin volver a solicitarlos
   await harness.advance(700);
   assertCatalogs(harness.props.normalHomeCatalogs, 1);
   assert.equal(harness.props.homeRefreshing, false);
-  assert.deepEqual(harness.calls, methods, "volver a enfocar no debe repetir las siete llamadas");
+  assert.deepEqual(harness.calls, methods, "volver a enfocar no debe repetir las seis llamadas");
 });
 
-test("el refresco manual vuelve a solicitar los siete métodos y actualiza los catálogos", async (t) => {
+test("el refresco manual vuelve a solicitar los seis métodos y actualiza los catálogos", async (t) => {
   const harness = await initialLoad(t);
   harness.setRevision(2);
   const { promise } = await harness.refresh();

@@ -1588,10 +1588,7 @@ const MenuPrincipalScreen = ({
                         name="ComercioHomeOrdersSection"
                         payload={{ position: index }}
                       >
-                        <ComercioHomeOrdersSection
-                          catalogLoading={normalHomeCatalogsLoading}
-                          catalogOrders={normalHomeCatalogs?.commerceOrders}
-                        />
+                        <ComercioHomeOrdersSection />
                       </RenderTraceBlock>
                       <RenderTraceBlock
                         name="ComercioHomeSection"

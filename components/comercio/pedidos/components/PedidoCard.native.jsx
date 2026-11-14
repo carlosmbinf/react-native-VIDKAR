@@ -46,6 +46,7 @@ const mergeVentaWithDetail = (ventaBase, ventaDetalle) => {
   return {
     ...ventaBase,
     ...ventaDetalle,
+    cadeteid: ventaDetalle.cadeteid,
     producto: {
       ...(ventaBase?.producto || {}),
       ...(ventaDetalle?.producto || {}),
@@ -101,7 +102,7 @@ const PedidoCardExpandedContent = ({
       { _id: ventaId },
       { fields: PEDIDO_CARD_DETAIL_FIELDS },
     );
-    const resolvedCadeteId = ventaDoc?.cadeteid || assignedCadeteId;
+    const resolvedCadeteId = ventaDoc ? ventaDoc.cadeteid : assignedCadeteId;
 
     if (resolvedCadeteId) {
       Meteor.subscribe("user", { _id: resolvedCadeteId }, {
@@ -650,6 +651,7 @@ const arePedidoCardPropsEqual = (prevProps, nextProps) => {
 
     if (
       prevVenta._id !== nextVenta._id ||
+      prevVenta.cadeteid !== nextVenta.cadeteid ||
       prevVenta.createdAt !== nextVenta.createdAt ||
       prevVenta.estado !== nextVenta.estado ||
       prevVenta.isCancelada !== nextVenta.isCancelada ||
