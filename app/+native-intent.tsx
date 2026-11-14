@@ -1,11 +1,16 @@
-import { isSupportedWebHost, resolveUniversalLink } from "../services/navigation/universalLinks";
+import { getPaymentReturnUrl, isSupportedWebHost, resolveUniversalLink } from "../services/navigation/universalLinks";
 import { getVidkarBaseUrl } from "../services/appUrls";
 
 // Expo Router procesa búsquedas incluso cuando index.native no está montado.
 // No sustituir los flujos históricos de otros enlaces/autenticación.
 export function redirectSystemPath({ path }: { path: string; initial: boolean }): string {
   try {
-    if (/^\/(?:\(normal\)|\(auth\)|siri-search)(?:\/|\?|$)/.test(path)) return path;
+    if (/^\/(?:\(normal\)|\(auth\)|siri-search|payment-return)(?:\/|\?|$)/.test(path)) return path;
+
+    const paymentReturnUrl = getPaymentReturnUrl(path, getVidkarBaseUrl());
+    if (paymentReturnUrl) {
+      return `/payment-return?${new URLSearchParams({ url: paymentReturnUrl })}`;
+    }
 
     const url = new URL(path, getVidkarBaseUrl());
     const isVIDKARLink = url.protocol === "vidkar:";

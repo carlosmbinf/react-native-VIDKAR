@@ -10,6 +10,31 @@ HLS es un servicio separado y usa `EXPO_PUBLIC_HLS_SERVER_URL`. Los overrides `E
 
 Las variables `EXPO_PUBLIC_*` son públicas y se incluyen en el bundle: aquí solo deben ir URLs, nunca tokens, contraseñas ni claves privadas. Expo las sustituye al iniciar Metro/compilar; después de editar `.env`, reinicia Metro. Para builds EAS/Codemagic configura las mismas variables en el entorno de build, porque el `.env` local está ignorado por Git. El dominio de Universal Links/AASA también debe estar configurado en Apple para el host publicado.
 
+## Retornos de pagos en iPhone
+
+El servidor excluye `/capture-order`, `/cancel-order` y los tres retornos
+`/pago/success`, `/pago/failure`, `/pago/pending` de la asociación AASA.
+Si iOS todavía entrega uno de esos enlaces a la app, `app/+native-intent.tsx`
+lo envía a `payment-return` en lugar de descartarlo o abrir el inicio.
+La pantalla carga el endpoint HTTPS en Safari integrado mediante
+`expo-web-browser`; no usa `Linking.openURL`, que puede activar otra vez la app.
+Conserva el token de PayPal, valida dominio/ruta y evita repetir la apertura
+de la misma confirmación durante la sesión.
+
+Esto no confirma el pago en JavaScript ni genera una nueva orden: la captura
+sigue ejecutándose en el backend de PayPal y Mercado Pago sigue usando su
+webhook. Cerrar Safari no significa que el pago haya sido confirmado.
+Un error requiere consultar las compras antes de volver a pagar.
+La app instalada debe incorporar estos cambios; actualizar únicamente AASA
+no cambia el manejo de enlaces de una versión anterior. Mantener también
+el backend que muestra el resultado de PayPal sin redirigir automáticamente
+a la portada.
+
+Validación: `node --experimental-default-type=module --test tests/universalLinks.test.js tests/paymentReturn.test.js`
+y `npm run lint`. La prueba final requiere abrir el retorno desde fuera de la
+app en un iPhone, tanto con la app cerrada como abierta, y verificar el estado
+del pedido en el servidor.
+
 ## Get started
 
 ### Excepciones por producto

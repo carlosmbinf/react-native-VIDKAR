@@ -29,6 +29,28 @@ export function isSupportedWebHost(hostname: string): boolean {
   return SUPPORTED_HOSTS.has(normalizedHost) || normalizedHost === getConfiguredWebHost();
 }
 
+export function getPaymentReturnUrl(path: string, baseUrl: string): string | null {
+  try {
+    if (path.length > 4096 || /[\u0000-\u001f\u007f]/.test(path)) return null;
+    const url = new URL(path, baseUrl);
+    if (url.protocol !== "https:" || !isSupportedWebHost(url.hostname)
+        || url.username || url.password || url.port || url.hash) return null;
+    const paypal = url.pathname === "/capture-order" || url.pathname === "/cancel-order";
+    const mercadoPago = ["/pago/success", "/pago/failure", "/pago/pending"].includes(url.pathname);
+    if (!paypal && !mercadoPago) return null;
+    if (paypal) {
+      const tokens = url.searchParams.getAll("token");
+      if (tokens.length !== 1 || !/^[A-Za-z0-9_-]{1,128}$/.test(tokens[0])) return null;
+    }
+    // El dominio sin www redirige actualmente a HTTP: usar el host HTTPS canónico.
+    if (url.hostname === "vidkar.com") url.hostname = "www.vidkar.com";
+    url.searchParams.delete("cerrarPestana");
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 const MAIN_ROUTE = "/(normal)/Main";
 const FRONTEND_ROUTES: Record<string, string> = {
   "": MAIN_ROUTE,

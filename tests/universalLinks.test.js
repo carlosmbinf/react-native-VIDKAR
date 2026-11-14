@@ -9,7 +9,7 @@ const source = await fs.readFile(new URL("../services/navigation/universalLinks.
 const javascript = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const { canConsumeUniversalLink, resolveUniversalLink } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
+const { canConsumeUniversalLink, getPaymentReturnUrl, resolveUniversalLink } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
 
 const RESULT_ID = "7cebedbd-865d-4e3a-9136-08e663bf5f34";
 
@@ -301,6 +301,20 @@ test("entrada nativa Expo entrega la misma búsqueda en frío y caliente sin dep
   }).outputText;
   const { redirectSystemPath } = await import(`data:text/javascript;base64,${Buffer.from(`${javascript}\n${nativeJS}`).toString("base64")}`);
   for (const initial of [true, false]) {
+    for (const path of [
+      "https://www.vidkar.com/capture-order?token=FIXTURE_1&PayerID=FIXTURE_2",
+      "https://vidkar.com/cancel-order?token=FIXTURE_1",
+      "/capture-order?token=FIXTURE_1&cerrarPestana=1",
+      "https://www.vidkar.com/pago/success?payment_id=fixture",
+      "https://www.vidkar.com/pago/failure?payment_id=fixture",
+      "https://www.vidkar.com/pago/pending?payment_id=fixture",
+    ]) {
+      const target = redirectSystemPath({ path, initial });
+      assert.match(target, /^\/payment-return\?/);
+      const returnedUrl = new URL(target, "https://fixture.example").searchParams.get("url");
+      assert.equal(returnedUrl, getPaymentReturnUrl(path, "https://www.vidkar.com"));
+      assert.equal(redirectSystemPath({ path: target, initial }), target);
+    }
     for (const path of ["vidkar://search?q=C%2B%2B%20%26%20Swift&entity=all", "/search?q=C%2B%2B%20%26%20Swift&entity=all", "https://www.vidkar.com/search?q=C%2B%2B%20%26%20Swift&entity=all"]) {
       const target = redirectSystemPath({ path, initial });
       assert.match(target, /^\/siri-search\?/);
@@ -355,6 +369,24 @@ test("entrada nativa Expo entrega la misma búsqueda en frío y caliente sin dep
       assert.equal(target, `/siri-search?${new URLSearchParams({ query: term, entityType: "all" })}`);
     }
   }
+});
+
+test("el retorno web conserva el token sin aceptar otros hosts, esquemas ni tokens ambiguos", () => {
+  const base = "https://www.vidkar.com";
+  assert.equal(
+    getPaymentReturnUrl("https://vidkar.com/capture-order?token=FIXTURE&PayerID=PAYER&cerrarPestana=1", base),
+    "https://www.vidkar.com/capture-order?token=FIXTURE&PayerID=PAYER",
+  );
+  for (const path of [
+    "https://other.example/capture-order?token=FIXTURE",
+    "https://www.vidkar.com.evil.example/capture-order?token=FIXTURE",
+    "http://www.vidkar.com/capture-order?token=FIXTURE",
+    "https://user@www.vidkar.com/capture-order?token=FIXTURE",
+    "https://www.vidkar.com:8443/capture-order?token=FIXTURE",
+    "/capture-order", "/capture-order?token=", "/capture-order?token=a&token=b",
+    "/capture-order?token=%0A", "/capture-order?token=FIXTURE#fragment",
+    "vidkar://capture-order?token=FIXTURE", "/search?q=FIXTURE",
+  ]) assert.equal(getPaymentReturnUrl(path, base), null, path);
 });
 
 test("ruta raíz reutiliza pantalla por plataforma y alias legacy conserva query e IDs", async () => {
