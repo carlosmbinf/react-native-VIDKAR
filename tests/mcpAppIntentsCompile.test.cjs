@@ -93,6 +93,72 @@ test("plugin migra provider histórico conservando código anterior/posterior", 
   assert.equal(fs.readFileSync(file, "utf8"), unknown);
 });
 
+test("plugin incluye Siri AI Preview solo con opt-in y lo retira en el prebuild siguiente", async (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "vidkar-siri-preview-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const previous = process.env.VIDKAR_SIRI_AI_PREVIEW;
+  t.after(() => {
+    if (previous === undefined) delete process.env.VIDKAR_SIRI_AI_PREVIEW;
+    else process.env.VIDKAR_SIRI_AI_PREVIEW = previous;
+  });
+  const appDirectory = path.join(directory, "Vidkar");
+  const file = path.join(appDirectory, "AppDelegate.swift");
+  fs.mkdirSync(appDirectory);
+  fs.writeFileSync(file, "import Foundation\n");
+  const project = require("xcode").project(path.join(directory, "fixture.pbxproj"));
+  const debug = { name: "Debug", buildSettings: {} };
+  const release = { name: "Release", buildSettings: {} };
+  project.hash = { project: { objects: {
+    PBXProject: { ROOT: { mainGroup: "GROUP", targets: [{ value: "APP" }] } },
+    PBXNativeTarget: { APP: { name: "Vidkar", productType: "com.apple.product-type.application", buildConfigurationList: "CONFIGS", buildPhases: [{ value: "RES", comment: "Resources" }] } },
+    XCConfigurationList: { CONFIGS: { buildConfigurations: [{ value: "D" }, { value: "R" }] } },
+    XCBuildConfiguration: { D: debug, R: release },
+    PBXResourcesBuildPhase: { RES: { isa: "PBXResourcesBuildPhase", files: [] }, RES_comment: "Resources" },
+    PBXGroup: { GROUP: { isa: "PBXGroup", children: [] } },
+    PBXFileReference: {}, PBXBuildFile: {},
+  } } };
+
+  const apply = async () => {
+    const config = withVidkarAppIntents({ name: "Vidkar", slug: "vidkar" });
+    const modRequest = { platformProjectRoot: directory };
+    await config.mods.ios.xcodeproj({ ...config, modRequest, modResults: project });
+    await config.mods.ios.dangerous({
+      ...config,
+      modRequest,
+      modResults: {},
+    });
+    return fs.readFileSync(file, "utf8");
+  };
+  delete process.env.VIDKAR_SIRI_AI_PREVIEW;
+  const stable = await apply();
+  assert.doesNotMatch(stable, /SIRI_AI_PREVIEW|@AppIntent\(\.tool\)/);
+  assert.deepEqual(debug.buildSettings, {});
+
+  process.env.VIDKAR_SIRI_AI_PREVIEW = "1";
+  const preview = await apply();
+  assert.ok(preview.startsWith(stable));
+  assert.match(preview, /#if VIDKAR_SIRI_AI_PREVIEW/);
+  assert.equal((preview.match(/@AppIntent\(\.tool\)/g) || []).length, 2);
+  assert.equal(debug.buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS, '"$(inherited) VIDKAR_SIRI_AI_PREVIEW"');
+  assert.deepEqual(release.buildSettings, {});
+  assert.equal(await apply(), preview);
+  assert.equal(debug.buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS, '"$(inherited) VIDKAR_SIRI_AI_PREVIEW"');
+
+  const suffix = "\n// Cambio ajeno al plugin\n";
+  fs.appendFileSync(file, suffix);
+  process.env.VIDKAR_SIRI_AI_PREVIEW = "0";
+  assert.equal(await apply(), stable + suffix);
+  assert.deepEqual(debug.buildSettings, {});
+
+  debug.buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS = '"$(inherited) OTHER_FLAG"';
+  process.env.VIDKAR_SIRI_AI_PREVIEW = "1";
+  await apply();
+  assert.equal(debug.buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS, '"$(inherited) OTHER_FLAG VIDKAR_SIRI_AI_PREVIEW"');
+  delete process.env.VIDKAR_SIRI_AI_PREVIEW;
+  assert.equal(await apply(), stable + suffix);
+  assert.equal(debug.buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS, '"$(inherited) OTHER_FLAG"');
+});
+
 test("los App Intents y el provider compilan en módulos separados", {
   skip: process.platform !== "darwin" && "Requiere Xcode y el SDK iOS",
 }, async (t) => {
@@ -143,6 +209,14 @@ test("los App Intents y el provider compilan en módulos separados", {
         "-emit-module-path", path.join(outputDirectory, "VidkarMCP.swiftmodule"),
         "-o", path.join(outputDirectory, "VidkarMCP.o")]);
       run(["swiftc", ...flags, "-typecheck", "-module-name", "VidkarApp", "-I", outputDirectory, appDelegatePath]);
+      const [major, minor] = run(["--sdk", sdkName, "--show-sdk-version"]).split(".").map(Number);
+      if (major > 27 || (major === 27 && minor >= 3)) {
+        const template = fs.readFileSync(path.join(__dirname, "../plugins/resources/vidkar-app-intents/SiriAIPreview.swift"), "utf8");
+        const previewPath = path.join(outputDirectory, "SiriAIPreview.swift");
+        const stable = generated.replace(/\n\/\/ VIDKAR_SIRI_AI_PREVIEW_BEGIN\n[\s\S]*?\n\/\/ VIDKAR_SIRI_AI_PREVIEW_END\n/, "");
+        fs.writeFileSync(previewPath, `${stable}\n${template}`);
+        run(["swiftc", ...flags, "-D", "VIDKAR_SIRI_AI_PREVIEW", "-typecheck", "-module-name", "VidkarApp", "-I", outputDirectory, previewPath]);
+      }
       // El prototipo restante sigue compilando solo mediante opt-in explícito.
       run(["swiftc", ...flags, "-D", "VIDKAR_EXPERIMENTAL_NATURAL_LANGUAGE", "-typecheck", modulePath, ...helpers]);
     });

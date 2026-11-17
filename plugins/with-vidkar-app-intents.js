@@ -60,15 +60,59 @@ function migrateShortcutsProvider(source) {
 }
 
 const resourceNames = ["AppShortcuts.xcstrings", "Localizable.xcstrings"];
+const previewFlag = "VIDKAR_SIRI_AI_PREVIEW";
+const previewStart = "\n// VIDKAR_SIRI_AI_PREVIEW_BEGIN\n";
+const previewEnd = "\n// VIDKAR_SIRI_AI_PREVIEW_END\n";
+const unquote = (value) => String(value).replace(/^"|"$/g, "");
+
+function syncSiriAIPreview(source, enabled) {
+  const start = source.indexOf(previewStart);
+  if (start !== -1) {
+    const end = source.indexOf(previewEnd, start + previewStart.length);
+    if (end === -1) throw new Error("Bloque Siri AI Preview incompleto en AppDelegate.swift.");
+    source = source.slice(0, start) + source.slice(end + previewEnd.length);
+  }
+  if (!enabled) return source;
+
+  const template = path.join(__dirname, "resources", "vidkar-app-intents", "SiriAIPreview.swift");
+  return `${source}${previewStart}${fs.readFileSync(template, "utf8").trimEnd()}${previewEnd}`;
+}
+
+function syncPreviewBuildSetting(project, target, enabled) {
+  const configurations = project.pbxXCConfigurationList()?.[target.buildConfigurationList];
+  const settings = configurations?.buildConfigurations
+    .map(({ value }) => project.pbxXCBuildConfigurationSection()[value])
+    .find(({ name }) => unquote(name) === "Debug")?.buildSettings;
+  if (!settings) {
+    if (enabled) throw new Error("No se encontró la configuración Debug de Vidkar para Siri AI Preview.");
+    return;
+  }
+
+  const key = "SWIFT_ACTIVE_COMPILATION_CONDITIONS";
+  const original = settings[key];
+  const conditions = Array.isArray(original) ? original : unquote(original ?? "").split(/\s+/).filter(Boolean);
+  const next = conditions.filter((value) => unquote(value) !== previewFlag);
+  if (enabled) next.push(previewFlag);
+  else if (next.length === conditions.length) return;
+
+  // Let a target inherit the project and CocoaPods settings when adding its first condition.
+  if (enabled && next.length === 1) next.unshift("$(inherited)");
+  if (!enabled && (next.length === 0 || (next.length === 1 && unquote(next[0]) === "$(inherited)"))) {
+    delete settings[key];
+  } else {
+    settings[key] = Array.isArray(original) ? next : `"${next.join(" ")}"`;
+  }
+}
 
 const withVidkarAppIntents = (config) => {
+  const previewEnabled = process.env[previewFlag] === "1";
   config = withXcodeProject(config, (config) => {
     const project = config.modResults;
-    const unquote = (value) => String(value).replace(/^"|"$/g, "");
     const target = Object.entries(project.pbxNativeTargetSection()).find(([key, value]) =>
       !key.endsWith("_comment") && unquote(value.name) === "Vidkar"
       && unquote(value.productType) === "com.apple.product-type.application");
     if (!target) throw new Error("No se encontró el target principal Vidkar para localizar App Intents.");
+    syncPreviewBuildSetting(project, target[1], previewEnabled);
     const root = project.getFirstProject().firstProject;
     root.knownRegions = [...new Set([...(root.knownRegions || []).map(unquote), "en", "Base", "es"])];
     if (!project.pbxGroupByName("Resources")) {
@@ -103,6 +147,7 @@ const withVidkarAppIntents = (config) => {
     source = `${source.trimEnd()}\n${packageDeclaration}`;
   }
   source = migrateShortcutsProvider(source);
+  source = syncSiriAIPreview(source, previewEnabled);
   fs.writeFileSync(appDelegatePath, source);
   const resourcesPath = path.join(path.dirname(appDelegatePath), "AppIntents");
   fs.mkdirSync(resourcesPath, { recursive: true });
