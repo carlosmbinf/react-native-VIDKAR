@@ -1,13 +1,21 @@
-# App Skill de catálogo para Siri AI Developer Preview
+# Consultas de VIDKAR en Siri AI
 
-La guía fuente `plugins/resources/vidkar-app-intents/Skills.skillsbundle/Skills/vidkar-catalogo/SKILL.md` complementa el tool intent de catálogo existente. Propone búsquedas alternativas y respuestas basadas en los resultados, sin navegación ni compras. Es una guía probabilística: el backend y los intents siguen siendo responsables de permisos y comportamiento.
+Siri recibe una sola entidad con una `CardSnippet` por consulta. La tarjeta de Comercio muestra hasta cinco productos, con precio y moneda, tienda, descripción e imagen cuando está disponible. Las consultas de cuenta usan autenticación local del iPhone y los permisos del token MCP. Los diálogos de respaldo para datos privados omiten su contenido.
 
-## Integración en el build
+| Consulta | Ejemplo |
+| --- | --- |
+| Comercio | «Busca mandos de PS5 en VIDKAR» |
+| Películas, series, capítulos, cursos, lecciones y recargas | «¿Qué cursos hay en VIDKAR?» |
+| Perfil propio o usuario autorizado | «Busca a @usuario en VIDKAR» |
+| Consumo actual, límites y estado de Proxy y VPN | «¿Cuánto ha consumido @usuario en VIDKAR?» |
+| Compras, órdenes y ventas asociadas | «Muéstrame mis compras del mes pasado en VIDKAR» |
+| Mensajes y suscripciones propios | «Muéstrame mis suscripciones de VIDKAR» |
+| Ventas, pagos, costos y rentabilidad del negocio | «¿Cómo van las ventas este mes en VIDKAR?» |
 
-El plugin `with-vidkar-app-intents.js` copia el recurso y lo registra en Copy Bundle Resources del target Vidkar como `wrapper.skillsbundle` cuando se activa `VIDKAR_SIRI_AI_PREVIEW`. Al desactivar la vista previa retira el recurso generado y su referencia. El workflow `expo_ios_internal` valida que `Metadata.appintents/Skills.skillsc` exista en el archive y en la IPA; el workflow de publicación normal deja desactivada la vista previa. Es necesaria una compilación real en Xcode 27.3 para confirmar la integración completa.
+El recurso `Skills.skillsbundle` orienta a Siri en consultas de varios pasos, como resolver un usuario y continuar con su consumo. El plugin de Expo lo incorpora al target Vidkar cuando se activa `VIDKAR_SIRI_AI_PREVIEW`. El workflow `expo_ios_internal` usa Xcode 27.3 y verifica en el archive y en la IPA la presencia de los intents y el recurso `Skills.skillsc`. La vista previa se prueba en desarrollo o TestFlight interno y requiere un iPhone compatible con Siri AI.
 
-Probar en iPhone compatible con un build firmado de desarrollo o TestFlight interno; la vista previa no funciona en TestFlight externo ni App Store. Abrir la app una vez, colocarla en segundo plano e incluir VIDKAR en la primera solicitud. Probar «busca un mando de PS5 en VIDKAR», «compara los precios», una búsqueda sin resultados y un error de red. Usar Siri Integration Advisor y Siri Evaluations para medir selección y resultados. La documentación no garantiza que Siri seleccione la skill ni muestre siempre todas las tarjetas.
+En el iPhone, inicia sesión y verifica la configuración de MCP. Coloca VIDKAR en segundo plano y nómbralo en la primera solicitud. Prueba también «¿y el consumo de VPN?» tras elegir un usuario, las coincidencias múltiples, una cuenta fuera de alcance, un catálogo vacío y un error de red. Comprueba que la app siga en segundo plano y que en la conversación aparezca la tarjeta. Siri controla cuándo presenta la tarjeta y puede usar el diálogo como respaldo.
 
-El proyecto actual expone solo un tool intent para Siri AI Preview: buscar productos. Añadir un tool intent hace que App Shortcuts no estén disponibles para Siri en ese build, aunque siguen disponibles en otras superficies. No asumir que los demás atajos de VIDKAR están cubiertos por esta prueba.
-
-Fuentes: [App Skills](https://developer.apple.com/documentation/appintents/orchestrating-complex-actions-with-app-skills), [Siri AI Developer Preview](https://developer.apple.com/documentation/appintents/siri-ai-developer-preview), [acciones y contenido personalizados](https://developer.apple.com/documentation/appintents/bringing-custom-actions-and-content-to-siri).
+- [Siri AI Developer Preview](https://developer.apple.com/documentation/appintents/siri-ai-developer-preview)
+- [CardSnippet](https://developer.apple.com/documentation/appintents/cardsnippet)
+- [App Skills](https://developer.apple.com/documentation/appintents/orchestrating-complex-actions-with-app-skills)

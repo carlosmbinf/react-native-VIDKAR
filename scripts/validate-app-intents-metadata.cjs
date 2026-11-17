@@ -37,7 +37,16 @@ const expectedIntents = [
   "VIDKARGetUserProfileIntent",
   "VIDKARGetCapabilitiesIntent",
 ];
-const catalogToolIntent = "VIDKARSiriPreviewProductSearchIntent";
+const siriPreviewParameters = {
+  VIDKARSiriPreviewProductSearchIntent: { query: true },
+  VIDKARSiriPreviewContentSearchIntent: { kind: false, query: true },
+  VIDKARSiriPreviewUserSearchIntent: { query: true },
+  VIDKARSiriPreviewServiceUsageIntent: { username: true, service: true },
+  VIDKARSiriPreviewUserActivityIntent: { activity: false, username: true, period: false },
+  VIDKARSiriPreviewPersonalRecordsIntent: { records: false, query: true, period: true },
+  VIDKARSiriPreviewBusinessIntent: { report: false, period: false },
+  VIDKARSiriPreviewCapabilitiesIntent: {},
+};
 const userProfileProperties = [
   "account", "fullName", "username", "role", "memberSince", "registeredEmailCount", "isBanned",
   "proxyActive", "proxyUsedBytes", "proxyLimitMB", "proxyUnlimited", "proxyExpiresAt",
@@ -55,15 +64,26 @@ function validateMetadata(metadata, { siriPreview = false } = {}) {
       throw new Error(`Intent experimental habilitado: ${identifier}.`);
     }
   }
-  const catalogTool = actions[catalogToolIntent];
-  if (!siriPreview && catalogTool) throw new Error(`Herramienta Siri AI fuera del build de prueba: ${catalogToolIntent}.`);
+  const previewIntents = Object.keys(actions).filter((id) => id.startsWith("VIDKARSiriPreview"));
+  if (!siriPreview && previewIntents.length) {
+    throw new Error(`Herramienta Siri AI fuera del build de prueba: ${previewIntents[0]}.`);
+  }
   if (siriPreview) {
-    if (!catalogTool) throw new Error(`Falta la herramienta Siri AI ${catalogToolIntent}.`);
-    const parameter = catalogTool.parameters?.[0];
-    if (catalogTool.parameters?.length !== 1 || parameter?.name !== "query" || parameter.isOptional !== true ||
-        catalogTool.openAppWhenRun === true || catalogTool.authenticationPolicy !== 2 ||
-        catalogTool.outputType?.array?.wrapper?.memberValueType?.entity?.wrapper?.typeName !== "VIDKARSiriCatalogProduct") {
-      throw new Error("El catálogo Siri AI requiere búsqueda opcional, autenticación local y productos tipados en segundo plano.");
+    for (const [id, parameters] of Object.entries(siriPreviewParameters)) {
+      const action = actions[id];
+      if (!action) throw new Error(`Falta la herramienta Siri AI ${id}.`);
+      const inputs = action.parameters ?? [];
+      if (inputs.length !== Object.keys(parameters).length ||
+          Object.entries(parameters).some(([name, optional]) => !inputs.some((p) => p.name === name && p.isOptional === optional)) ||
+          action.openAppWhenRun === true || action.authenticationPolicy !== 2 ||
+          action.outputType?.entity?.wrapper?.typeName !== "VIDKARSiriResult") {
+        throw new Error(`La herramienta Siri AI ${id} requiere parámetros tipados, autenticación local y una tarjeta en segundo plano.`);
+      }
+    }
+    const result = metadata.entities?.VIDKARSiriResult;
+    const properties = result?.properties?.map((property) => property.identifier).sort();
+    if (result?.transient !== true || JSON.stringify(properties) !== JSON.stringify(["state", "summary", "title"])) {
+      throw new Error("Falta la entidad transitoria de la tarjeta Siri AI.");
     }
   }
   const phrasesMatch = (shortcut) => {
@@ -162,7 +182,7 @@ function validateMetadata(metadata, { siriPreview = false } = {}) {
   if (!Array.isArray(scopes) || JSON.stringify([...scopes].sort()) !== JSON.stringify(["general", "movies", "tv"])) {
     throw new Error("Scopes de búsqueda inesperados: solo general, movies y tv.");
   }
-  return { actions: Object.keys(actions).length, shortcuts: shortcuts.length, verifiedIntents: siriPreview ? [...expectedIntents, catalogToolIntent] : expectedIntents };
+  return { actions: Object.keys(actions).length, shortcuts: shortcuts.length, verifiedIntents: siriPreview ? [...expectedIntents, ...Object.keys(siriPreviewParameters)] : expectedIntents };
 }
 
 function validateAppBundle(appPath, options) {
@@ -232,4 +252,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { expectedIntents, shortcutIntents, shortcutPhrases, shortcutPhraseVariants, userProfileProperties, validateMetadata, validateAppBundle, validateSpanishResources };
+module.exports = { expectedIntents, siriPreviewParameters, shortcutIntents, shortcutPhrases, shortcutPhraseVariants, userProfileProperties, validateMetadata, validateAppBundle, validateSpanishResources };

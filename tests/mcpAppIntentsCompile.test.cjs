@@ -6,6 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const withVidkarAppIntents = require("../plugins/with-vidkar-app-intents");
+const { siriPreviewParameters } = require("../scripts/validate-app-intents-metadata.cjs");
 
 test("plugin: recursos solo en el target principal, idempotencia y regiones conservadas", async (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "vidkar-plugin-"));
@@ -137,9 +138,12 @@ test("plugin activa Siri AI en Debug y Release mediante la configuración Expo y
   const preview = await apply();
   assert.ok(preview.startsWith(stable));
   assert.match(preview, /#if VIDKAR_SIRI_AI_PREVIEW/);
-  assert.equal((preview.match(/@AppIntent\(\.tool\)/g) || []).length, 1);
-  assert.match(preview, /var query: String\?/);
-  assert.match(preview, /VIDKARCommerceCatalog\.products\(matching: query\)/);
+  const toolIntents = [...preview.matchAll(/@AppIntent\(\.tool\)\s+struct (\w+)/g)].map((match) => match[1]);
+  assert.deepEqual(toolIntents.sort(), Object.keys(siriPreviewParameters).sort());
+  assert.match(preview, /struct VIDKARSiriResult: TransientAppEntity, SnippetRepresentableEntity/);
+  assert.match(preview, /CardSnippet\(supportedFamilies: \[\.standard\]\)/);
+  assert.match(preview, /VIDKARCommerceCatalog\.products\(matching: query, includeThumbnails: true\)/);
+  assert.doesNotMatch(preview, /offerVIDKARInAppSearch|OpenURLIntent|requestToContinueInForeground/);
   const skillRef = project.hasFile("Vidkar/AppIntents/Skills.skillsbundle");
   assert.ok(skillRef);
   assert.equal(skillRef.lastKnownFileType, "wrapper.skillsbundle");

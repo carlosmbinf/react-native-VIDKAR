@@ -45,12 +45,15 @@ private struct MCPCatalogIntentTests {
     }
     try await configure()
     let commerce = """
-      {"products":[{"id":"p1","name":"  Cable USB-C  ","storeName":"Tienda de prueba","price":250,"currency":"UYU"},
+      {"products":[{"id":"p1","name":"  Cable USB-C  ","storeName":"Tienda de prueba","price":250,"currency":"UYU","description":"  Cable trenzado  ","imageUrls":["https://attacker.example/cable.png","https://vidkar.com/cable.png"]},
       {"id":"p1","name":"Duplicado"},{"id":"p2","name":"   "}],"pagination":{"returned":3}}
       """
     await network.response(commerce)
     let browsed = try await VIDKARCommerceCatalog.products(matching: nil)
     precondition(browsed.count == 1 && browsed[0].name == "Cable USB-C" && browsed[0].price == 250 && browsed[0].currency == "UYU")
+    precondition(browsed[0].description == "Cable trenzado" && browsed[0].thumbnailData == nil)
+    let pictured = try await VIDKARCommerceCatalog.products(matching: nil, includeThumbnails: true)
+    precondition(pictured.first?.thumbnailData != nil)
     let browseArguments = await network.lastArguments
     precondition(browseArguments["query"] == nil && browseArguments["limit"] as? Int == 5)
     _ = try await VIDKARCommerceCatalog.products(matching: "  cable USB-C  ")
@@ -79,6 +82,21 @@ private struct MCPCatalogIntentTests {
     precondition(args["entity"] as? String == "all" && args["query"] as? String == "C++ & café" && args["limit"] as? Int == 5)
     let spoken = MCPCatalogQuery.summary(one.map { ($0.title, $0.subtitle, $0.description) })
     precondition(spoken.contains("Título de prueba") && spoken.contains("Descripción de prueba") && !spoken.contains("NO_EXPORTAR"))
+    let episode: [String: Any] = ["id": "fixture-episode", "type": "episode", "title": "Capítulo 1",
+      "subtitle": "Serie de prueba", "deepLink": "vidkar://episode/fixture-episode"]
+    await network.response(try json([episode]))
+    let episodes = try await VIDKARSiriContentCatalog.search(.episode, matching: "  Capítulo 1  ")
+    precondition(episodes.first?.title == "Capítulo 1" && episodes.first?.subtitle == "Serie de prueba")
+    let episodeArgs = await network.lastArguments
+    precondition(episodeArgs["entity"] as? String == "episode" && episodeArgs["query"] as? String == "Capítulo 1")
+    do {
+      _ = try await VIDKARSiriContentCatalog.search(.lesson, matching: "Capítulo 1")
+      preconditionFailure("No aceptar resultados de un tipo distinto al pedido")
+    } catch MCPError.invalidResponse {}
+    await network.response()
+    let courses = try await VIDKARSiriContentCatalog.search(.course, matching: nil)
+    let courseArgs = await network.lastArguments
+    precondition(courses.isEmpty && courseArgs["entity"] as? String == "course" && courseArgs["query"] == nil)
     let products = ["RECARGA", "DT_SHOP", "COMERCIO"].map { source in
       ["id": "\(source):same-id", "type": "product", "title": "Producto \(source)", "subtitle": source]
     }
@@ -219,6 +237,16 @@ private struct MCPCatalogIntentTests {
     await network.response(try json(multiUsers))
     let matchedByFullName = try await profileQuery.entities(matching: "Carlos Medina")
     precondition(matchedByFullName.count == 2 && matchedByFullName[0].username == "carlosmbinf" && matchedByFullName[1].username == "carlosjr")
+    let previewMatches = try await VIDKARSiriUserDirectory.search("Carlos Medina")
+    precondition(previewMatches.map(\.username) == ["carlosmbinf", "carlosjr"])
+    do {
+      _ = try await VIDKARSiriUserDirectory.account(matching: "Carlos Medina")
+      preconditionFailure("No debe elegir una cuenta ambigua para una consulta privada")
+    } catch VIDKARUserSearchFailure.ambiguous {}
+    do {
+      _ = try await VIDKARSiriUserDirectory.account(matching: "@usuario-ausente")
+      preconditionFailure("No debe usar mi cuenta cuando se pidió otra")
+    } catch VIDKARUserSearchFailure.notFound {}
     var fullNameIntent = VIDKARSearchUserByUsernameIntent()
     fullNameIntent.username = "Carlos Medina"
     await network.response(try json(multiUsers))
@@ -232,6 +260,15 @@ private struct MCPCatalogIntentTests {
     catch MCPError.ownerMismatch {}
     let callsAfterOtherOwner = await network.calls
     precondition(callsBeforeOtherOwner == callsAfterOtherOwner)
+    let previewAccount = try await VIDKARSiriUserDirectory.account(matching: " @carlosmbinf ")
+    precondition(previewAccount?.id == mainEntity.id)
+    await network.response(String(decoding: profileData, as: UTF8.self))
+    let usage = try await VIDKARGetUserServiceUsageIntent.read(user: previewAccount, service: nil)
+    let usageCalls = await network.calls
+    precondition(usageCalls == 1 && usage.subtitle == "@carlosmbinf")
+    precondition(usage.summary.contains("Proxy") && usage.summary.contains("VPN") && !usage.summary.contains("fixture.example"))
+    await network.response(try json([userPayload]))
+    await network.profileResponse(String(decoding: profileData, as: UTF8.self))
     var profileIntent = VIDKARGetUserProfileIntent()
     profileIntent.user = mainEntity
     let profileResult = try await profileIntent.perform()

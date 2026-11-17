@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { expectedIntents, shortcutIntents, shortcutPhrases, shortcutPhraseVariants, userProfileProperties, validateMetadata, validateAppBundle } = require("../scripts/validate-app-intents-metadata.cjs");
+const { expectedIntents, shortcutIntents, shortcutPhrases, shortcutPhraseVariants, userProfileProperties, siriPreviewParameters, validateMetadata, validateAppBundle } = require("../scripts/validate-app-intents-metadata.cjs");
 
 const fixture = () => ({
   actions: {
@@ -62,18 +62,32 @@ test("acepta diecisiete acciones, búsqueda foreground oculta y diez shortcuts d
   assert.equal(shortcutIntents.length, 10);
 });
 
-test("TestFlight exige un catálogo Siri AI con consulta opcional y producción lo excluye", () => {
+test("TestFlight exige las consultas Siri AI con una tarjeta tipada y producción las excluye", () => {
   const metadata = fixture();
-  const id = "VIDKARSiriPreviewProductSearchIntent";
-  assert.throws(() => validateMetadata(metadata, { siriPreview: true }), new RegExp(id));
-  metadata.actions[id] = {
-    parameters: [{ name: "query", isOptional: true }], openAppWhenRun: false, authenticationPolicy: 2,
-    outputType: { array: { wrapper: { memberValueType: { entity: { wrapper: { typeName: "VIDKARSiriCatalogProduct" } } } } } },
+  const productId = "VIDKARSiriPreviewProductSearchIntent";
+  assert.throws(() => validateMetadata(metadata, { siriPreview: true }), new RegExp(productId));
+  for (const [id, parameters] of Object.entries(siriPreviewParameters)) {
+    metadata.actions[id] = {
+      parameters: Object.entries(parameters).map(([name, isOptional]) => ({ name, isOptional })),
+      openAppWhenRun: false, authenticationPolicy: 2,
+      outputType: { entity: { wrapper: { typeName: "VIDKARSiriResult" } } },
+    };
+  }
+  metadata.entities.VIDKARSiriResult = {
+    transient: true, properties: ["state", "summary", "title"].map((identifier) => ({ identifier })),
   };
-  assert.equal(validateMetadata(metadata, { siriPreview: true }).actions, 18);
+  assert.equal(validateMetadata(metadata, { siriPreview: true }).actions, 25);
   assert.throws(() => validateMetadata(metadata), /fuera del build de prueba/);
-  metadata.actions[id].parameters[0].isOptional = false;
-  assert.throws(() => validateMetadata(metadata, { siriPreview: true }), /búsqueda opcional/);
+
+  const invalid = structuredClone(metadata);
+  invalid.actions[productId].parameters[0].isOptional = false;
+  assert.throws(() => validateMetadata(invalid, { siriPreview: true }), new RegExp(productId));
+  const noCard = structuredClone(metadata);
+  noCard.actions[productId].outputType = { primitive: { wrapper: { typeIdentifier: 0 } } };
+  assert.throws(() => validateMetadata(noCard, { siriPreview: true }), /una tarjeta en segundo plano/);
+  const noAuthentication = structuredClone(metadata);
+  noAuthentication.actions.VIDKARSiriPreviewServiceUsageIntent.authenticationPolicy = 0;
+  assert.throws(() => validateMetadata(noAuthentication, { siriPreview: true }), /autenticación local/);
   metadata.actions.VIDKARSiriPreviewDiagnosticIntent = {};
   assert.throws(() => validateMetadata(metadata, { siriPreview: true }), /VIDKARSiriPreviewDiagnosticIntent/);
 });
