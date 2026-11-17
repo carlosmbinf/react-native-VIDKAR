@@ -63,7 +63,7 @@ struct VIDKARSiriCatalogProductQuery: EntityQuery {
 struct VIDKARSiriPreviewProductSearchIntent: AppIntent {
   static let title: LocalizedStringResource = "Explora el catálogo de productos de VIDKAR"
   static let description = IntentDescription(
-    "Muestra productos reales del catálogo de Comercio de VIDKAR dentro de Siri. Sirve para ver qué hay en la tienda o buscar un artículo. Devuelve hasta cinco productos con nombre, tienda y precio disponible."
+    "Muestra productos reales del catálogo de Comercio de VIDKAR sin abrir la app. Sirve para ver qué hay en la tienda o buscar un artículo. Devuelve hasta cinco productos con nombre, tienda y precio disponible."
   )
   static let supportedModes: IntentModes = .background
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
