@@ -61,6 +61,7 @@ function migrateShortcutsProvider(source) {
 
 const resourceNames = ["AppShortcuts.xcstrings", "Localizable.xcstrings"];
 const previewFlag = "VIDKAR_SIRI_AI_PREVIEW";
+const skillsResource = "Vidkar/AppIntents/Skills.skillsbundle";
 const previewStart = "\n// VIDKAR_SIRI_AI_PREVIEW_BEGIN\n";
 const previewEnd = "\n// VIDKAR_SIRI_AI_PREVIEW_END\n";
 const unquote = (value) => String(value).replace(/^"|"$/g, "");
@@ -126,6 +127,11 @@ const withVidkarAppIntents = (config, { siriAIPreview = false } = {}) => {
       project.removeResourceFile(oldShortcuts, { target: target[0] }, root.mainGroup);
     }
     project.addResourceFile("Vidkar/AppIntents/Localizable.xcstrings", { target: target[0], lastKnownFileType: "text.json.xcstrings" }, root.mainGroup);
+    if (previewEnabled) {
+      project.addResourceFile(skillsResource, { target: target[0], lastKnownFileType: "wrapper.skillsbundle" }, root.mainGroup);
+    } else if (project.hasFile(skillsResource)) {
+      project.removeResourceFile(skillsResource, { target: target[0] }, root.mainGroup);
+    }
     for (const locale of ["en", "es"]) {
       project.addResourceFile(`Vidkar/AppIntents/${locale}.lproj/AppShortcuts.strings`, { target: target[0], lastKnownFileType: "text.plist.strings" }, root.mainGroup);
     }
@@ -149,6 +155,12 @@ const withVidkarAppIntents = (config, { siriAIPreview = false } = {}) => {
   fs.writeFileSync(appDelegatePath, source);
   const resourcesPath = path.join(path.dirname(appDelegatePath), "AppIntents");
   fs.mkdirSync(resourcesPath, { recursive: true });
+  const skillsPath = path.join(resourcesPath, "Skills.skillsbundle");
+  if (previewEnabled) {
+    fs.cpSync(path.join(__dirname, "resources", "vidkar-app-intents", "Skills.skillsbundle"), skillsPath, { recursive: true });
+  } else if (fs.existsSync(skillsPath)) {
+    fs.rmSync(skillsPath, { recursive: true, force: true });
+  }
   for (const name of resourceNames) {
     fs.copyFileSync(path.join(__dirname, "resources", "vidkar-app-intents", name), path.join(resourcesPath, name));
   }
