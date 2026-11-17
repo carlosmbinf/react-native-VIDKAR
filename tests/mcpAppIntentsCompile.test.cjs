@@ -140,6 +140,16 @@ test("plugin activa Siri AI en Debug y Release mediante la configuración Expo y
   assert.equal((preview.match(/@AppIntent\(\.tool\)/g) || []).length, 1);
   assert.match(preview, /var query: String\?/);
   assert.match(preview, /VIDKARCommerceCatalog\.products\(matching: query\)/);
+  const skillRef = project.hasFile("Vidkar/AppIntents/Skills.skillsbundle");
+  assert.ok(skillRef);
+  assert.equal(skillRef.lastKnownFileType, "wrapper.skillsbundle");
+  const skill = path.join(appDirectory, "AppIntents/Skills.skillsbundle/Skills/vidkar-catalogo/SKILL.md");
+  const content = fs.readFileSync(skill, "utf8");
+  const parts = /^---\nname: ([a-z0-9]+(?:-[a-z0-9]+)*)\ndescription: ([^\n]+)\n---\n([\s\S]*)$/.exec(content);
+  assert.ok(parts);
+  assert.equal(parts[1], "vidkar-catalogo");
+  assert.ok(parts[2].length <= 1024 && parts[3].length <= 10000);
+  assert.equal(project.hash.project.objects.PBXResourcesBuildPhase.RES.files.length, 4);
   assert.equal(debug.buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS, '"$(inherited) VIDKAR_SIRI_AI_PREVIEW"');
   assert.equal(release.buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS, '"$(inherited) VIDKAR_SIRI_AI_PREVIEW"');
   assert.equal(await apply(), preview);
@@ -151,6 +161,8 @@ test("plugin activa Siri AI en Debug y Release mediante la configuración Expo y
   assert.equal(await apply(), stable + suffix);
   assert.deepEqual(debug.buildSettings, {});
   assert.deepEqual(release.buildSettings, {});
+  assert.equal(project.hasFile("Vidkar/AppIntents/Skills.skillsbundle"), false);
+  assert.equal(fs.existsSync(skill), false);
 
   debug.buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS = '"$(inherited) OTHER_FLAG"';
   process.env.VIDKAR_SIRI_AI_PREVIEW = "1";
