@@ -78,16 +78,7 @@ function syncSiriAIPreview(source, enabled) {
   return `${source}${previewStart}${fs.readFileSync(template, "utf8").trimEnd()}${previewEnd}`;
 }
 
-function syncPreviewBuildSetting(project, target, enabled) {
-  const configurations = project.pbxXCConfigurationList()?.[target.buildConfigurationList];
-  const settings = configurations?.buildConfigurations
-    .map(({ value }) => project.pbxXCBuildConfigurationSection()[value])
-    .find(({ name }) => unquote(name) === "Debug")?.buildSettings;
-  if (!settings) {
-    if (enabled) throw new Error("No se encontró la configuración Debug de Vidkar para Siri AI Preview.");
-    return;
-  }
-
+function syncPreviewBuildSetting(settings, enabled) {
   const key = "SWIFT_ACTIVE_COMPILATION_CONDITIONS";
   const original = settings[key];
   const conditions = Array.isArray(original) ? original : unquote(original ?? "").split(/\s+/).filter(Boolean);
@@ -104,15 +95,22 @@ function syncPreviewBuildSetting(project, target, enabled) {
   }
 }
 
-const withVidkarAppIntents = (config) => {
-  const previewEnabled = process.env[previewFlag] === "1";
+const withVidkarAppIntents = (config, { siriAIPreview = false } = {}) => {
+  const override = process.env[previewFlag];
+  const previewEnabled = override === "1" || (siriAIPreview && override !== "0");
   config = withXcodeProject(config, (config) => {
     const project = config.modResults;
     const target = Object.entries(project.pbxNativeTargetSection()).find(([key, value]) =>
       !key.endsWith("_comment") && unquote(value.name) === "Vidkar"
       && unquote(value.productType) === "com.apple.product-type.application");
     if (!target) throw new Error("No se encontró el target principal Vidkar para localizar App Intents.");
-    syncPreviewBuildSetting(project, target[1], previewEnabled);
+    const configurations = project.pbxXCConfigurationList()?.[target[1].buildConfigurationList]
+      ?.buildConfigurations.map(({ value }) => project.pbxXCBuildConfigurationSection()[value]);
+    for (const name of ["Debug", "Release"]) {
+      const settings = configurations?.find((entry) => unquote(entry?.name) === name)?.buildSettings;
+      if (settings) syncPreviewBuildSetting(settings, previewEnabled);
+      else if (previewEnabled) throw new Error(`No se encontró la configuración ${name} de Vidkar para Siri AI Preview.`);
+    }
     const root = project.getFirstProject().firstProject;
     root.knownRegions = [...new Set([...(root.knownRegions || []).map(unquote), "en", "Base", "es"])];
     if (!project.pbxGroupByName("Resources")) {

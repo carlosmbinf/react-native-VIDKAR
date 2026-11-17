@@ -37,13 +37,17 @@ const expectedIntents = [
   "VIDKARGetUserProfileIntent",
   "VIDKARGetCapabilitiesIntent",
 ];
+const previewIntents = [
+  "VIDKARSiriPreviewDiagnosticIntent",
+  "VIDKARSiriPreviewProductSearchIntent",
+];
 const userProfileProperties = [
   "account", "fullName", "username", "role", "memberSince", "registeredEmailCount", "isBanned",
   "proxyActive", "proxyUsedBytes", "proxyLimitMB", "proxyUnlimited", "proxyExpiresAt",
   "vpnActive", "vpnConnected", "vpnUsedBytes", "vpnLimitMB", "vpnUnlimited", "vpnExpiresAt",
 ].sort();
 
-function validateMetadata(metadata) {
+function validateMetadata(metadata, { siriPreview = false } = {}) {
   const actions = metadata?.actions;
   const shortcuts = metadata?.autoShortcuts;
   if (!actions || Array.isArray(actions) || !Array.isArray(shortcuts)) {
@@ -53,6 +57,11 @@ function validateMetadata(metadata) {
     if (Object.hasOwn(actions, identifier) || shortcuts.some((shortcut) => shortcut.actionIdentifier === identifier)) {
       throw new Error(`Intent experimental habilitado: ${identifier}.`);
     }
+  }
+  for (const identifier of previewIntents) {
+    const present = Object.hasOwn(actions, identifier);
+    if (siriPreview && !present) throw new Error(`Falta la herramienta Siri AI ${identifier}.`);
+    if (!siriPreview && present) throw new Error(`Herramienta Siri AI fuera del build de prueba: ${identifier}.`);
   }
   const phrasesMatch = (shortcut) => {
     const keys = shortcut.phraseTemplates?.map((phrase) => phrase?.key);
@@ -150,16 +159,16 @@ function validateMetadata(metadata) {
   if (!Array.isArray(scopes) || JSON.stringify([...scopes].sort()) !== JSON.stringify(["general", "movies", "tv"])) {
     throw new Error("Scopes de búsqueda inesperados: solo general, movies y tv.");
   }
-  return { actions: Object.keys(actions).length, shortcuts: shortcuts.length, verifiedIntents: expectedIntents };
+  return { actions: Object.keys(actions).length, shortcuts: shortcuts.length, verifiedIntents: siriPreview ? [...expectedIntents, ...previewIntents] : expectedIntents };
 }
 
-function validateAppBundle(appPath) {
+function validateAppBundle(appPath, options) {
   if (!appPath || path.extname(appPath) !== ".app") throw new Error("Indica la ruta del .app principal, no el pod ni una extensión.");
   // Xcode 27: comprobar el bundle principal exacto, nunca aceptar metadata solo en Pods/PlugIns.
   const file = path.join(appPath, "Metadata.appintents", "extract.actionsdata");
   if (!fs.existsSync(file)) throw new Error(`Faltan metadatos en el bundle principal: ${file}`);
   const metadata = JSON.parse(fs.readFileSync(file, "utf8"));
-  return { ...validateMetadata(metadata), spanish: validateSpanishResources(appPath, metadata) };
+  return { ...validateMetadata(metadata, options), spanish: validateSpanishResources(appPath, metadata) };
 }
 
 function readStrings(file) {
@@ -213,7 +222,7 @@ function validateSpanishResources(appPath, metadata) {
 
 if (require.main === module) {
   try {
-    console.log(JSON.stringify(validateAppBundle(process.argv[2]), null, 2));
+    console.log(JSON.stringify(validateAppBundle(process.argv[2], { siriPreview: process.argv[3] === "--siri-preview" }), null, 2));
   } catch (error) {
     console.error(`App Intents: ${error.message}`);
     process.exitCode = 1;

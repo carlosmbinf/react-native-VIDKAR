@@ -62,6 +62,16 @@ test("acepta diecisiete acciones, búsqueda foreground oculta y diez shortcuts d
   assert.equal(shortcutIntents.length, 10);
 });
 
+test("TestFlight exige ambos intents de Siri AI y producción los excluye", () => {
+  const metadata = fixture();
+  assert.throws(() => validateMetadata(metadata, { siriPreview: true }), /VIDKARSiriPreviewDiagnosticIntent/);
+  metadata.actions.VIDKARSiriPreviewDiagnosticIntent = { isDiscoverable: true };
+  assert.throws(() => validateMetadata(metadata, { siriPreview: true }), /VIDKARSiriPreviewProductSearchIntent/);
+  metadata.actions.VIDKARSiriPreviewProductSearchIntent = { isDiscoverable: true };
+  assert.equal(validateMetadata(metadata, { siriPreview: true }).actions, 19);
+  assert.throws(() => validateMetadata(metadata), /fuera del build de prueba/);
+});
+
 test("cada shortcut tiene variantes de frase en español con la principal primero", () => {
   for (const id of shortcutIntents) {
     const variants = shortcutPhraseVariants[id];

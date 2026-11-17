@@ -81,7 +81,7 @@ workflows:
           failure: true
 
   expo_ios_internal:
-    name: Expo iOS (TestFlight)
+    name: Expo iOS (TestFlight interno · Siri AI)
 
     max_build_duration: 120
     instance_type: mac_mini_m2
@@ -102,7 +102,7 @@ workflows:
         bundle_identifier: com.vidkar
         # Codemagic también busca perfiles com.vidkar.*; deben existir perfiles App Store para cada extensión.
       node: 22
-      xcode: 27.0
+      xcode: 27.3
       cocoapods: default
       vars:
         BUNDLE_ID: "com.vidkar"
@@ -136,7 +136,7 @@ workflows:
 
       - name: Expo prebuild (iOS)
         script: |
-          npx expo prebuild --platform ios
+          VIDKAR_SIRI_AI_PREVIEW=1 npx expo prebuild --platform ios
 
       - name: Install CocoaPods
         script: |
@@ -199,7 +199,7 @@ workflows:
       # 🔐 Aplicar perfiles/certificados ya resueltos por Codemagic
       - name: Setup signing
         script: |
-          xcode-project use-profiles
+          xcode-project use-profiles --custom-export-options='{"testFlightInternalTestingOnly": true}'
 
           echo "Release signing settings after use-profiles:"
           xcodebuild \
@@ -228,7 +228,7 @@ workflows:
             CODE_SIGN_IDENTITY="Apple Distribution"
 
           node ./scripts/validate-app-intents-metadata.cjs \
-            "$ARCHIVE_PATH/Products/Applications/Vidkar.app"
+            "$ARCHIVE_PATH/Products/Applications/Vidkar.app" --siri-preview
 
           xcodebuild \
             -exportArchive \
@@ -242,7 +242,7 @@ workflows:
           test "$#" -eq 1 && test -f "$1"
           ditto -x -k "$1" "$IPA_CHECK_DIR"
           node ./scripts/validate-app-intents-metadata.cjs \
-            "$IPA_CHECK_DIR/Payload/Vidkar.app"
+            "$IPA_CHECK_DIR/Payload/Vidkar.app" --siri-preview
 
     artifacts:
       - build/ios/ipa/*.ipa
@@ -250,9 +250,6 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
-      # beta_groups:
-      #   - group PruebasVidkar
 
       email:
         recipients:
@@ -356,7 +353,7 @@ workflows:
 
       - name: Expo prebuild (iOS)
         script: |
-          npx expo prebuild --platform ios
+          VIDKAR_SIRI_AI_PREVIEW=0 npx expo prebuild --platform ios
 
       - name: Install CocoaPods
         script: |

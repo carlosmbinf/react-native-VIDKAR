@@ -1,16 +1,28 @@
 # Probar Siri AI Developer Preview en VIDKAR
 
 La prueba añade dos herramientas nativas de iOS 27.3 con `@AppIntent(.tool)`.
-El prebuild de iOS las genera al definir `VIDKAR_SIRI_AI_PREVIEW=1`. Solo se
-compilan en Debug y usan el target principal de VIDKAR. El flujo normal de
-Codemagic con Xcode 27.0 sigue usando los intents y recursos actuales.
+La configuración Expo de esta rama las activa en Debug y Release para el target
+principal de VIDKAR. Requiere el SDK de iOS 27.3 en Xcode. El workflow
+`expo_full_release` desactiva la prueba antes del prebuild.
 
 Apple indica que incluir cualquier tool intent desplaza los App Shortcuts
 existentes en Siri para esa compilación. Los atajos siguen disponibles en otras
-superficies como Spotlight. Usa esta variante de forma local para la prueba.
+superficies como Spotlight.
 [Documentación de Apple sobre tool intents](https://developer.apple.com/documentation/appintents/bringing-custom-actions-and-content-to-siri)
 
-## Instalar en iPhone
+## Probar desde TestFlight interno
+
+1. En Codemagic selecciona la rama `experiment/siri-ai-developer-preview` y ejecuta
+   **Expo iOS (TestFlight interno · Siri AI)**. Usa Xcode 27.3 y valida que el
+   archivo y la IPA exportada contengan las dos herramientas antes de subirla.
+2. En App Store Connect, agrega el build a tu grupo de **pruebas internas** si
+   el grupo no distribuye automáticamente. Apple habilita Siri AI Developer
+   Preview en TestFlight para testers internos.
+3. Instala el build con TestFlight en un iPhone compatible con Apple Intelligence
+   y iOS 27.3 beta. Activa Apple Intelligence y Siri en un idioma admitido.
+   Abre VIDKAR una vez, vuelve a Inicio y prueba las frases de abajo.
+
+## Alternativa con Xcode
 
 1. Instala [Xcode 27.3 beta 2](https://developer.apple.com/download/) en paralelo
    con tu Xcode habitual. Usa un iPhone compatible con Apple Intelligence y
@@ -25,7 +37,7 @@ superficies como Spotlight. Usa esta variante de forma local para la prueba.
    ```bash
    export DEVELOPER_DIR="/Applications/Xcode-beta.app/Contents/Developer"
    xcrun --sdk iphoneos --show-sdk-version
-   VIDKAR_SIRI_AI_PREVIEW=1 npx expo prebuild --platform ios --no-install
+   npx expo prebuild --platform ios --no-install
    (cd ios && pod install)
    open -a "${DEVELOPER_DIR%/Contents/Developer}" ios/Vidkar.xcworkspace
    ```
@@ -35,10 +47,13 @@ superficies como Spotlight. Usa esta variante de forma local para la prueba.
    desarrollo habitual de VIDKAR. La compilación usa `com.vidkar`, así que se
    instala sobre la app existente si la firma es compatible. Arranca Metro con
    `npx expo start` si lo necesita el build Debug y abre VIDKAR una vez.
-4. Para la búsqueda real, inicia sesión y revisa la configuración MCP existente.
-   Después vuelve a la pantalla de inicio del iPhone y menciona «VIDKAR» en la
-   petición para que Siri encuentre la herramienta con la app en segundo plano.
-   La prueba local de diagnóstico no necesita token ni conexión al backend.
+
+## Frases de prueba
+
+Para la búsqueda real, inicia sesión y revisa la configuración MCP existente.
+Vuelve a Inicio y menciona «VIDKAR» en la petición para que Siri encuentre la
+herramienta con la app en segundo plano. El diagnóstico no necesita cuenta ni
+conexión al backend.
 
 | Frase para Siri | Resultado esperado |
 | --- | --- |
@@ -53,9 +68,9 @@ el `perform()` correspondiente o revisa el diagnóstico en Siri Integration
 Advisor de Xcode. Para la búsqueda real, un error de red o de permisos debe
 mostrar un error de consulta en lugar de una lista vacía.
 
-Para retirar la prueba, repite `npx expo prebuild --platform ios --no-install`
-sin la variable y vuelve a compilar e instalar. El plugin retira su bloque
-generado sin requerir `--clean`.
+Para retirar la prueba de un build local, ejecuta
+`VIDKAR_SIRI_AI_PREVIEW=0 npx expo prebuild --platform ios --no-install`
+y vuelve a compilar e instalar.
 
 [Requisitos de Siri AI Developer Preview](https://developer.apple.com/documentation/appintents/siri-ai-developer-preview) ·
 [Verificación de App Intents](https://developer.apple.com/documentation/appintents/verifying-your-app-intents-implementation)

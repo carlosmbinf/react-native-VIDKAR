@@ -93,7 +93,7 @@ test("plugin migra provider histórico conservando código anterior/posterior", 
   assert.equal(fs.readFileSync(file, "utf8"), unknown);
 });
 
-test("plugin incluye Siri AI Preview solo con opt-in y lo retira en el prebuild siguiente", async (t) => {
+test("plugin activa Siri AI en Debug y Release mediante la configuración Expo y permite desactivarlo", async (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "vidkar-siri-preview-"));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const previous = process.env.VIDKAR_SIRI_AI_PREVIEW;
@@ -118,8 +118,8 @@ test("plugin incluye Siri AI Preview solo con opt-in y lo retira en el prebuild 
     PBXFileReference: {}, PBXBuildFile: {},
   } } };
 
-  const apply = async () => {
-    const config = withVidkarAppIntents({ name: "Vidkar", slug: "vidkar" });
+  const apply = async (siriAIPreview = true) => {
+    const config = withVidkarAppIntents({ name: "Vidkar", slug: "vidkar" }, { siriAIPreview });
     const modRequest = { platformProjectRoot: directory };
     await config.mods.ios.xcodeproj({ ...config, modRequest, modResults: project });
     await config.mods.ios.dangerous({
@@ -130,17 +130,16 @@ test("plugin incluye Siri AI Preview solo con opt-in y lo retira en el prebuild 
     return fs.readFileSync(file, "utf8");
   };
   delete process.env.VIDKAR_SIRI_AI_PREVIEW;
-  const stable = await apply();
+  const stable = await apply(false);
   assert.doesNotMatch(stable, /SIRI_AI_PREVIEW|@AppIntent\(\.tool\)/);
   assert.deepEqual(debug.buildSettings, {});
 
-  process.env.VIDKAR_SIRI_AI_PREVIEW = "1";
   const preview = await apply();
   assert.ok(preview.startsWith(stable));
   assert.match(preview, /#if VIDKAR_SIRI_AI_PREVIEW/);
   assert.equal((preview.match(/@AppIntent\(\.tool\)/g) || []).length, 2);
   assert.equal(debug.buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS, '"$(inherited) VIDKAR_SIRI_AI_PREVIEW"');
-  assert.deepEqual(release.buildSettings, {});
+  assert.equal(release.buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS, '"$(inherited) VIDKAR_SIRI_AI_PREVIEW"');
   assert.equal(await apply(), preview);
   assert.equal(debug.buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS, '"$(inherited) VIDKAR_SIRI_AI_PREVIEW"');
 
@@ -149,13 +148,14 @@ test("plugin incluye Siri AI Preview solo con opt-in y lo retira en el prebuild 
   process.env.VIDKAR_SIRI_AI_PREVIEW = "0";
   assert.equal(await apply(), stable + suffix);
   assert.deepEqual(debug.buildSettings, {});
+  assert.deepEqual(release.buildSettings, {});
 
   debug.buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS = '"$(inherited) OTHER_FLAG"';
   process.env.VIDKAR_SIRI_AI_PREVIEW = "1";
   await apply();
   assert.equal(debug.buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS, '"$(inherited) OTHER_FLAG VIDKAR_SIRI_AI_PREVIEW"');
   delete process.env.VIDKAR_SIRI_AI_PREVIEW;
-  assert.equal(await apply(), stable + suffix);
+  assert.equal(await apply(false), stable + suffix);
   assert.equal(debug.buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS, '"$(inherited) OTHER_FLAG"');
 });
 
