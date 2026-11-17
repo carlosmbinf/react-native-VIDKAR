@@ -229,6 +229,10 @@ workflows:
 
           node ./scripts/validate-app-intents-metadata.cjs \
             "$ARCHIVE_PATH/Products/Applications/Vidkar.app" --siri-preview
+          test -e "$ARCHIVE_PATH/Products/Applications/Vidkar.app/Metadata.appintents/Skills.skillsc" || {
+            echo "Error: Xcode no compiló Skills.skillsc en el archive de Siri AI."
+            exit 1
+          }
 
           xcodebuild \
             -exportArchive \
@@ -243,6 +247,10 @@ workflows:
           ditto -x -k "$1" "$IPA_CHECK_DIR"
           node ./scripts/validate-app-intents-metadata.cjs \
             "$IPA_CHECK_DIR/Payload/Vidkar.app" --siri-preview
+          test -e "$IPA_CHECK_DIR/Payload/Vidkar.app/Metadata.appintents/Skills.skillsc" || {
+            echo "Error: la IPA de Siri AI no contiene Skills.skillsc."
+            exit 1
+          }
 
     artifacts:
       - build/ios/ipa/*.ipa
