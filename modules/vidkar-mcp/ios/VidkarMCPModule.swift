@@ -1338,6 +1338,44 @@ public struct VIDKARCommerceProductEntityQuery: EntityStringQuery {
   public func suggestedEntities() async throws -> [Entity] { [] }
 }
 
+public enum VIDKARCommerceCatalog {
+  public struct Product: Decodable, Sendable {
+    let id: String
+    public let name: String
+    public let storeName: String?
+    public let price: Double?
+    public let currency: String?
+  }
+
+  private struct Response: Decodable {
+    let success: Bool?
+    let products: [Product]
+  }
+
+  public static func products(matching query: String?) async throws -> [Product] {
+    let term = query?.trimmingCharacters(in: .whitespaces) ?? ""
+    var arguments: [String: Any] = ["limit": MCPCatalogQuery.limit]
+    if !term.isEmpty { arguments["query"] = try MCPCatalogQuery.query(term) }
+
+    let transport = MCPTransport.shared
+    let session = try await transport.querySession()
+    let output = try await transport.execute(name: "list_commerce_products", arguments: arguments,
+      expectedRevision: session.revision)
+    guard let response = try? JSONDecoder().decode(Response.self, from: Data(output.utf8)),
+          response.success != false else { throw MCPError.invalidResponse }
+    var seen = Set<String>()
+    let products = response.products.compactMap { product -> Product? in
+      let name = MCPCatalogQuery.text(product.name, limit: 160)
+      guard !name.isEmpty, !product.id.isEmpty, seen.insert(product.id).inserted else { return nil }
+      return Product(id: product.id, name: name,
+        storeName: product.storeName.map { MCPCatalogQuery.text($0, limit: 100) },
+        price: product.price, currency: product.currency)
+    }
+    try await transport.assertQuerySession(session)
+    return Array(products.prefix(MCPCatalogQuery.limit))
+  }
+}
+
 public struct VIDKARCommerceProductAppEntity: VIDKARCatalogAppEntity {
   static let mcpType = "product"
   static let mcpCategory = "COMERCIO"

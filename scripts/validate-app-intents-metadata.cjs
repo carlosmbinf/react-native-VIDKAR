@@ -37,10 +37,7 @@ const expectedIntents = [
   "VIDKARGetUserProfileIntent",
   "VIDKARGetCapabilitiesIntent",
 ];
-const previewIntents = [
-  "VIDKARSiriPreviewDiagnosticIntent",
-  "VIDKARSiriPreviewProductSearchIntent",
-];
+const catalogToolIntent = "VIDKARSiriPreviewProductSearchIntent";
 const userProfileProperties = [
   "account", "fullName", "username", "role", "memberSince", "registeredEmailCount", "isBanned",
   "proxyActive", "proxyUsedBytes", "proxyLimitMB", "proxyUnlimited", "proxyExpiresAt",
@@ -53,15 +50,21 @@ function validateMetadata(metadata, { siriPreview = false } = {}) {
   if (!actions || Array.isArray(actions) || !Array.isArray(shortcuts)) {
     throw new Error("Formato App Intents inesperado: se requieren actions y autoShortcuts.");
   }
-  for (const identifier of ["VIDKARAskQuestionIntent"]) {
+  for (const identifier of ["VIDKARAskQuestionIntent", "VIDKARSiriPreviewDiagnosticIntent"]) {
     if (Object.hasOwn(actions, identifier) || shortcuts.some((shortcut) => shortcut.actionIdentifier === identifier)) {
       throw new Error(`Intent experimental habilitado: ${identifier}.`);
     }
   }
-  for (const identifier of previewIntents) {
-    const present = Object.hasOwn(actions, identifier);
-    if (siriPreview && !present) throw new Error(`Falta la herramienta Siri AI ${identifier}.`);
-    if (!siriPreview && present) throw new Error(`Herramienta Siri AI fuera del build de prueba: ${identifier}.`);
+  const catalogTool = actions[catalogToolIntent];
+  if (!siriPreview && catalogTool) throw new Error(`Herramienta Siri AI fuera del build de prueba: ${catalogToolIntent}.`);
+  if (siriPreview) {
+    if (!catalogTool) throw new Error(`Falta la herramienta Siri AI ${catalogToolIntent}.`);
+    const parameter = catalogTool.parameters?.[0];
+    if (catalogTool.parameters?.length !== 1 || parameter?.name !== "query" || parameter.isOptional !== true ||
+        catalogTool.openAppWhenRun === true || catalogTool.authenticationPolicy !== 2 ||
+        catalogTool.outputType?.array?.wrapper?.memberValueType?.entity?.wrapper?.typeName !== "VIDKARSiriCatalogProduct") {
+      throw new Error("El catálogo Siri AI requiere búsqueda opcional, autenticación local y productos tipados en segundo plano.");
+    }
   }
   const phrasesMatch = (shortcut) => {
     const keys = shortcut.phraseTemplates?.map((phrase) => phrase?.key);
@@ -159,7 +162,7 @@ function validateMetadata(metadata, { siriPreview = false } = {}) {
   if (!Array.isArray(scopes) || JSON.stringify([...scopes].sort()) !== JSON.stringify(["general", "movies", "tv"])) {
     throw new Error("Scopes de búsqueda inesperados: solo general, movies y tv.");
   }
-  return { actions: Object.keys(actions).length, shortcuts: shortcuts.length, verifiedIntents: siriPreview ? [...expectedIntents, ...previewIntents] : expectedIntents };
+  return { actions: Object.keys(actions).length, shortcuts: shortcuts.length, verifiedIntents: siriPreview ? [...expectedIntents, catalogToolIntent] : expectedIntents };
 }
 
 function validateAppBundle(appPath, options) {

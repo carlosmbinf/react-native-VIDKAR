@@ -1,8 +1,11 @@
 # Probar Siri AI Developer Preview en VIDKAR
 
-La prueba añade dos herramientas nativas de iOS 27.3 con `@AppIntent(.tool)`.
-La configuración Expo de esta rama las activa en Debug y Release para el target
-principal de VIDKAR. Requiere el SDK de iOS 27.3 en Xcode. El workflow
+La prueba usa `@AppIntent(.tool)` para que Siri seleccione el catálogo de
+Comercio por intención, con el artículo como parámetro opcional. Usa la sesión
+MCP configurada y la herramienta de lectura `list_commerce_products`. Cada
+consulta trae hasta cinco productos reales y devuelve entidades con tarjetas de
+Siri. La configuración de Expo la activa en Debug y Release para el target
+principal. Requiere el SDK de iOS 27.3 en Xcode. El workflow
 `expo_full_release` desactiva la prueba antes del prebuild.
 
 Apple indica que incluir cualquier tool intent desplaza los App Shortcuts
@@ -12,9 +15,9 @@ superficies como Spotlight.
 
 ## Probar desde TestFlight interno
 
-1. En Codemagic selecciona la rama `experiment/siri-ai-developer-preview` y ejecuta
+1. En Codemagic selecciona la rama `master` y ejecuta
    **Expo iOS (TestFlight interno · Siri AI)**. Usa Xcode 27.3 y valida que el
-   archivo y la IPA exportada contengan las dos herramientas antes de subirla.
+   archivo y la IPA exportada contengan la herramienta de catálogo antes de subirla.
 2. En App Store Connect, agrega el build a tu grupo de **pruebas internas** si
    el grupo no distribuye automáticamente. Apple habilita Siri AI Developer
    Preview en TestFlight para testers internos.
@@ -51,18 +54,19 @@ superficies como Spotlight.
 ## Frases de prueba
 
 Para la búsqueda real, inicia sesión y revisa la configuración MCP existente.
-Vuelve a Inicio y menciona «VIDKAR» en la petición para que Siri encuentre la
-herramienta con la app en segundo plano. El diagnóstico no necesita cuenta ni
-conexión al backend.
+Vuelve a Inicio y menciona «VIDKAR» en la primera petición si la app está
+en segundo plano. Siri interpreta la solicitud y extrae el término de búsqueda
+cuando corresponde. Estas frases son ejemplos, no atajos registrados.
 
 | Frase para Siri | Resultado esperado |
 | --- | --- |
-| «En VIDKAR, dime el código de diagnóstico de la integración con Siri» | Responde «Faro Azul 27». VIDKAR permanece en segundo plano. |
-| «En VIDKAR, ¿qué productos de Comercio coinciden con cable USB-C?» | Devuelve hasta cinco nombres del catálogo autorizado. Con el iPhone bloqueado, pide desbloquearlo. |
+| «Siri, ¿qué hay en la tienda de VIDKAR?» | Devuelve hasta cinco productos reales sin pedir un término. |
+| «Siri, ¿en VIDKAR tienen algún mando para PS5?» | Busca el artículo y devuelve hasta cinco productos con tienda y precio, si están disponibles. |
+| «¿Y algún cable USB-C?» en la misma conversación | Siri puede continuar con el contexto de VIDKAR. Si pierde el contexto, menciona la app en la petición. |
 | «En VIDKAR, busca productos de Comercio con el nombre ZZXQ-7793» | Informa que no hay coincidencias. VIDKAR permanece en segundo plano. |
 
-Si Siri no elige la herramienta, busca las dos acciones por título bajo VIDKAR
-en Atajos y ejecútalas con el iPhone desbloqueado. Eso ayuda a separar el registro
+Si Siri no elige la herramienta, busca **Explora el catálogo de productos de
+VIDKAR** en Atajos y ejecútala con el iPhone desbloqueado. Eso ayuda a separar el registro
 del intent de la selección por lenguaje natural. Después prueba un breakpoint en
 el `perform()` correspondiente o revisa el diagnóstico en Siri Integration
 Advisor de Xcode. Para la búsqueda real, un error de red o de permisos debe

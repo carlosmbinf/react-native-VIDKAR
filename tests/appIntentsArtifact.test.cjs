@@ -62,14 +62,20 @@ test("acepta diecisiete acciones, búsqueda foreground oculta y diez shortcuts d
   assert.equal(shortcutIntents.length, 10);
 });
 
-test("TestFlight exige ambos intents de Siri AI y producción los excluye", () => {
+test("TestFlight exige un catálogo Siri AI con consulta opcional y producción lo excluye", () => {
   const metadata = fixture();
-  assert.throws(() => validateMetadata(metadata, { siriPreview: true }), /VIDKARSiriPreviewDiagnosticIntent/);
-  metadata.actions.VIDKARSiriPreviewDiagnosticIntent = { isDiscoverable: true };
-  assert.throws(() => validateMetadata(metadata, { siriPreview: true }), /VIDKARSiriPreviewProductSearchIntent/);
-  metadata.actions.VIDKARSiriPreviewProductSearchIntent = { isDiscoverable: true };
-  assert.equal(validateMetadata(metadata, { siriPreview: true }).actions, 19);
+  const id = "VIDKARSiriPreviewProductSearchIntent";
+  assert.throws(() => validateMetadata(metadata, { siriPreview: true }), new RegExp(id));
+  metadata.actions[id] = {
+    parameters: [{ name: "query", isOptional: true }], openAppWhenRun: false, authenticationPolicy: 2,
+    outputType: { array: { wrapper: { memberValueType: { entity: { wrapper: { typeName: "VIDKARSiriCatalogProduct" } } } } } },
+  };
+  assert.equal(validateMetadata(metadata, { siriPreview: true }).actions, 18);
   assert.throws(() => validateMetadata(metadata), /fuera del build de prueba/);
+  metadata.actions[id].parameters[0].isOptional = false;
+  assert.throws(() => validateMetadata(metadata, { siriPreview: true }), /búsqueda opcional/);
+  metadata.actions.VIDKARSiriPreviewDiagnosticIntent = {};
+  assert.throws(() => validateMetadata(metadata, { siriPreview: true }), /VIDKARSiriPreviewDiagnosticIntent/);
 });
 
 test("cada shortcut tiene variantes de frase en español con la principal primero", () => {

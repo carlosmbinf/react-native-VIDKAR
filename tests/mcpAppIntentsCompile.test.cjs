@@ -137,7 +137,9 @@ test("plugin activa Siri AI en Debug y Release mediante la configuración Expo y
   const preview = await apply();
   assert.ok(preview.startsWith(stable));
   assert.match(preview, /#if VIDKAR_SIRI_AI_PREVIEW/);
-  assert.equal((preview.match(/@AppIntent\(\.tool\)/g) || []).length, 2);
+  assert.equal((preview.match(/@AppIntent\(\.tool\)/g) || []).length, 1);
+  assert.match(preview, /var query: String\?/);
+  assert.match(preview, /VIDKARCommerceCatalog\.products\(matching: query\)/);
   assert.equal(debug.buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS, '"$(inherited) VIDKAR_SIRI_AI_PREVIEW"');
   assert.equal(release.buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS, '"$(inherited) VIDKAR_SIRI_AI_PREVIEW"');
   assert.equal(await apply(), preview);

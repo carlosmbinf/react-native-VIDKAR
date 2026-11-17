@@ -44,6 +44,24 @@ private struct MCPCatalogIntentTests {
       String(decoding: try JSONSerialization.data(withJSONObject: ["success": true, "results": records]), as: UTF8.self)
     }
     try await configure()
+    let commerce = """
+      {"products":[{"id":"p1","name":"  Cable USB-C  ","storeName":"Tienda de prueba","price":250,"currency":"UYU"},
+      {"id":"p1","name":"Duplicado"},{"id":"p2","name":"   "}],"pagination":{"returned":3}}
+      """
+    await network.response(commerce)
+    let browsed = try await VIDKARCommerceCatalog.products(matching: nil)
+    precondition(browsed.count == 1 && browsed[0].name == "Cable USB-C" && browsed[0].price == 250 && browsed[0].currency == "UYU")
+    let browseArguments = await network.lastArguments
+    precondition(browseArguments["query"] == nil && browseArguments["limit"] as? Int == 5)
+    _ = try await VIDKARCommerceCatalog.products(matching: "  cable USB-C  ")
+    let searchArguments = await network.lastArguments
+    precondition(searchArguments["query"] as? String == "cable USB-C")
+    await network.response(commerce, readOnly: false)
+    do { _ = try await VIDKARCommerceCatalog.products(matching: nil); preconditionFailure("No debe aceptar una tool de escritura") }
+    catch MCPError.toolNotAllowed {}
+    let deniedCalls = await network.calls
+    precondition(deniedCalls == 0)
+    await network.response()
     for query in ["", "   ", "\nTema", "Tema\t", "Tema\u{0}", String(repeating: "a", count: 121), String(repeating: "😀", count: 61)] {
       await expect(.invalidQuery, query: query)
     }
