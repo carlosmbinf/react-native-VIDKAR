@@ -88,8 +88,8 @@ struct VIDKARSiriResult: TransientAppEntity, SnippetRepresentableEntity {
   }
 
   static var snippet: some EntitySnippetContent<Self> {
-    CardSnippet(supportedFamilies: [.compact, .standard]) { result, context in
-      VIDKARSiriCardView(result: result, compact: context.family == .compact)
+    CardSnippet(supportedFamilies: [.standard]) { result, _ in
+      VIDKARSiriCardView(result: result)
     }
   }
 
@@ -105,7 +105,6 @@ struct VIDKARSiriResultQuery: EntityQuery {
 @available(iOS 27.3, *)
 private struct VIDKARSiriCardView: View {
   let result: VIDKARSiriResult
-  var compact = false
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
@@ -130,7 +129,7 @@ private struct VIDKARSiriCardView: View {
       rows
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(compact ? 8 : 14)
+    .padding(14)
   }
 
   private var rows: some View {
@@ -159,7 +158,7 @@ private struct VIDKARSiriCardView: View {
             Image(systemName: result.symbol).font(.title3).foregroundStyle(.teal)
           }
         }
-        .frame(width: compact ? 36 : 60, height: compact ? 42 : (row.isPortrait ? 84 : 60))
+        .frame(width: 60, height: row.isPortrait ? 84 : 60)
         .background(Color.teal.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: row.isAvatar ? 30 : 10))
         .accessibilityHidden(true)
@@ -173,7 +172,7 @@ private struct VIDKARSiriCardView: View {
           Text(verbatim: row.subtitle).font(.caption).foregroundStyle(.secondary)
         }
         if !row.detail.isEmpty {
-          Text(verbatim: row.detail).font(.caption).foregroundStyle(.secondary).lineLimit(compact ? 2 : 4)
+          Text(verbatim: row.detail).font(.caption).foregroundStyle(.secondary).lineLimit(4)
         }
       }
       if row.detailURL != nil {
@@ -224,14 +223,14 @@ private func vidkarLookup<Entity>(empty: String, operation: () async throws -> [
 @available(iOS 27.3, *)
 extension VIDKARUserSearchAppEntity: @retroactive SnippetRepresentableEntity {
   public static var snippet: some EntitySnippetContent<Self> {
-    CardSnippet(supportedFamilies: [.compact, .standard]) { user, context in
+    CardSnippet(supportedFamilies: [.standard]) { user, _ in
       let membership = user.memberSince.map { "Miembro desde \($0.formatted(date: .abbreviated, time: .omitted))" }
       let status = user.isBanned.map { $0 ? "Cuenta bloqueada" : "Cuenta sin bloqueo" }
       let details = [user.role, membership, status].compactMap { $0 }.joined(separator: " · ")
       let row = VIDKARSiriCardRow(title: user.fullName, subtitle: "@\(user.username)", detail: details,
         thumbnail: user.avatarImageData, detailURL: user.detailURL, isAvatar: true)
       let result = VIDKARSiriResult(title: row.title, symbol: "person.crop.circle", rows: [row], emptyMessage: "")
-      VIDKARSiriCardView(result: result, compact: context.family == .compact).privacySensitive()
+      VIDKARSiriCardView(result: result).privacySensitive()
     }
   }
 }
@@ -272,11 +271,11 @@ struct VIDKARPreviewCatalogEntity: AppEntity, SnippetRepresentableEntity {
   }
 
   static var snippet: some EntitySnippetContent<Self> {
-    CardSnippet(supportedFamilies: [.compact, .standard]) { entity, context in
+    CardSnippet(supportedFamilies: [.standard]) { entity, _ in
       let row = VIDKARSiriCardRow(title: entity.title, subtitle: entity.subtitle, detail: entity.detail,
         thumbnail: entity.thumbnail, detailURL: entity.detailURL, isPortrait: entity.portrait)
       let result = VIDKARSiriResult(title: row.title, symbol: entity.symbol, rows: [row], emptyMessage: "")
-      VIDKARSiriCardView(result: result, compact: context.family == .compact)
+      VIDKARSiriCardView(result: result)
     }
   }
 }
@@ -320,11 +319,11 @@ struct VIDKARSiriPreviewProductSearchIntent: AppIntent {
 @available(iOS 27.3, *)
 extension VIDKARCommerceProductAppEntity: @retroactive SnippetRepresentableEntity {
   public static var snippet: some EntitySnippetContent<Self> {
-    CardSnippet(supportedFamilies: [.compact, .standard]) { product, context in
+    CardSnippet(supportedFamilies: [.standard]) { product, _ in
       let row = VIDKARSiriCardRow(title: product.title, subtitle: product.subtitle, detail: product.summary,
         badge: product.price ?? "", thumbnail: product.thumbnailImageData, detailURL: product.detailURL)
       let result = VIDKARSiriResult(title: row.title, symbol: "shippingbox", rows: [row], emptyMessage: "")
-      VIDKARSiriCardView(result: result, compact: context.family == .compact)
+      VIDKARSiriCardView(result: result)
     }
   }
 }
@@ -332,11 +331,11 @@ extension VIDKARCommerceProductAppEntity: @retroactive SnippetRepresentableEntit
 @available(iOS 27.3, *)
 extension VIDKARMovieAppEntity: @retroactive SnippetRepresentableEntity {
   public static var snippet: some EntitySnippetContent<Self> {
-    CardSnippet(supportedFamilies: [.compact, .standard]) { movie, context in
+    CardSnippet(supportedFamilies: [.standard]) { movie, _ in
       let row = VIDKARSiriCardRow(title: movie.title, subtitle: movie.subtitle, detail: movie.summary,
         thumbnail: movie.thumbnailImageData, detailURL: movie.detailURL, isPortrait: true)
       let result = VIDKARSiriResult(title: row.title, symbol: "film", rows: [row], emptyMessage: "")
-      VIDKARSiriCardView(result: result, compact: context.family == .compact)
+      VIDKARSiriCardView(result: result)
     }
   }
 }
@@ -437,11 +436,11 @@ struct VIDKARPreviewPlanEntity: TransientAppEntity, SnippetRepresentableEntity {
   }
 
   static var snippet: some EntitySnippetContent<Self> {
-    CardSnippet(supportedFamilies: [.compact, .standard]) { offer, context in
+    CardSnippet(supportedFamilies: [.standard]) { offer, _ in
       let row = VIDKARSiriCardRow(title: offer.title, subtitle: offer.kind.title, detail: offer.detail,
         badge: offer.priceLabel, detailURL: offer.detailURL)
       let result = VIDKARSiriResult(title: row.title, symbol: offer.kind.symbol, rows: [row], emptyMessage: "")
-      VIDKARSiriCardView(result: result, compact: context.family == .compact)
+      VIDKARSiriCardView(result: result)
     }
   }
 }
@@ -583,7 +582,7 @@ struct VIDKARPreviewUsageEntity: TransientAppEntity, SnippetRepresentableEntity 
   }
 
   static var snippet: some EntitySnippetContent<Self> {
-    CardSnippet(supportedFamilies: [.compact, .standard]) { usage, context in
+    CardSnippet(supportedFamilies: [.standard]) { usage, _ in
       VStack(alignment: .leading, spacing: 4) {
         Text(verbatim: usage.account).font(.caption).foregroundStyle(.secondary)
         if let metric = usage.metric {
@@ -592,7 +591,7 @@ struct VIDKARPreviewUsageEntity: TransientAppEntity, SnippetRepresentableEntity 
           Text(verbatim: usage.summary)
         }
       }
-      .padding(context.family == .compact ? 6 : 12)
+      .padding(12)
       .privacySensitive()
     }
   }

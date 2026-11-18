@@ -141,7 +141,10 @@ test("plugin activa Siri AI en Debug y Release mediante la configuración Expo y
   const toolIntents = [...preview.matchAll(/@AppIntent\(\.tool\)\s+struct (\w+)/g)].map((match) => match[1]);
   assert.deepEqual(toolIntents.sort(), Object.keys(siriPreviewParameters).sort());
   assert.match(preview, /struct VIDKARSiriResult: TransientAppEntity, SnippetRepresentableEntity/);
-  assert.match(preview, /CardSnippet\(supportedFamilies: \[\.compact, \.standard\]\)/);
+  const families = [...preview.matchAll(/CardSnippet\(supportedFamilies: \[([^\]]+)\]/g)];
+  assert.ok(families.length > 0);
+  assert.ok(families.every(([, family]) => family === ".standard"), "El SDK de Xcode 27.3 admite la familia estándar");
+  assert.doesNotMatch(preview, /\.family\s*==\s*\.compact\b/);
   assert.match(preview, /ReturnsValue<\[VIDKARUserSearchAppEntity\]> \{[\s\S]*?return \.result\(value: users\)/);
   for (const entity of ["VIDKARPreviewCatalogEntity", "VIDKARCommerceProductAppEntity", "VIDKARMovieAppEntity", "VIDKARPreviewUsageEntity", "VIDKARPreviewPlanEntity"]) {
     assert.ok(preview.includes(`ReturnsValue<[${entity}]>`), entity);
