@@ -1970,7 +1970,6 @@ public struct VIDKARUserSearchAppEntity: AppEntity {
   @Property(title: "Nombre y apellido") public var fullName: String
   @Property(title: "Username") public var username: String
   @Property(title: "Cuenta de usuario") public var account: VIDKARAccountUserAppEntity?
-  @Property(title: "Identificador del perfil") public var profileID: String
   @Property(title: "Rol") public var role: String?
   @Property(title: "Miembro desde") public var memberSince: Date?
   @Property(title: "Correos registrados") public var registeredEmailCount: Int?
@@ -1989,7 +1988,8 @@ public struct VIDKARUserSearchAppEntity: AppEntity {
   private let avatarImageURL: URL?
   public let avatarImageData: Data?
   public var detailURL: URL? {
-    vidkarSiriDetailLink(type: "user", id: profileID)
+    guard let userID = profileURL?.lastPathComponent else { return nil }
+    return vidkarSiriDetailLink(type: "user", id: userID)
   }
   public var profileURL: URL? { account?.profileURL }
 
@@ -2000,7 +2000,6 @@ public struct VIDKARUserSearchAppEntity: AppEntity {
     fullName = ""
     username = ""
     account = nil
-    profileID = ""
     role = nil
     memberSince = nil
     registeredEmailCount = nil
@@ -2026,7 +2025,6 @@ public struct VIDKARUserSearchAppEntity: AppEntity {
     self.fullName = fullName
     self.username = username
     self.account = account
-    profileID = account?.profileURL?.lastPathComponent ?? ""
     role = details?.role.map { MCPCatalogQuery.text($0, limit: 60) }
     memberSince = details?.memberSince
     registeredEmailCount = details?.emailCount
@@ -2069,13 +2067,6 @@ public struct VIDKARUserSearchAppEntity: AppEntity {
     }
     let subtitle = ["@\(username)", role ?? ""].filter { !$0.isEmpty }.joined(separator: " · ")
     return DisplayRepresentation(title: "\(fullName)", subtitle: "\(subtitle)", image: image)
-  }
-}
-
-@available(iOS 18.0, *)
-extension VIDKARUserSearchAppEntity: URLRepresentableEntity {
-  public static var urlRepresentation: URLRepresentation {
-    URLRepresentation("https://www.vidkar.com/users/\(.$profileID)")
   }
 }
 

@@ -150,9 +150,14 @@ test("plugin activa Siri AI en Debug y Release mediante la configuración Expo y
     assert.ok(preview.includes(`ReturnsValue<[${entity}]>`), entity);
   }
   assert.match(preview, /VIDKARCommerceProductEntityQuery\(\)\.search\(matching: query\)/);
-  assert.doesNotMatch(preview, /offerVIDKARInAppSearch|requestToContinueInForeground|\.result\(opensIntent:/);
+  assert.doesNotMatch(preview, /offerVIDKARInAppSearch|requestToContinueInForeground/);
   assert.match(preview, /detailURL: user\.profileURL/);
-  assert.match(preview, /struct VIDKARSiriPreviewOpenProfileIntent: OpenIntent[\s\S]*?var target: VIDKARUserSearchAppEntity/);
+  const openProfile = /struct VIDKARSiriPreviewOpenProfileIntent: OpenIntent \{[\s\S]*?\n\}/.exec(preview)?.[0];
+  assert.ok(openProfile);
+  assert.match(openProfile, /var target: VIDKARUserSearchAppEntity/);
+  assert.match(openProfile, /guard let url = target\.profileURL/);
+  assert.match(openProfile, /return \.result\(opensIntent: OpenURLIntent\(url\)\)/);
+  assert.doesNotMatch(preview.replace(openProfile, ""), /\.result\(opensIntent:/);
   assert.match(preview, /Button\(intent: OpenURLIntent\(profileURL\)\)/);
   assert.match(preview, /\.result\(value: card, snippetIntent: VIDKARSiriPreviewActivitySnippet\(card: card\)\)/);
   const skillRef = project.hasFile("Vidkar/AppIntents/Skills.skillsbundle");

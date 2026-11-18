@@ -241,7 +241,6 @@ private struct MCPCatalogIntentTests {
       precondition(result.value?.fullName == "Carlos Medina" && result.value?.username == "carlosmbinf")
       precondition(result.value?.account?.id == "fixture-owner|private-user-id")
       precondition(result.value?.id == "fixture-owner|private-user-id")
-      precondition(result.value?.profileID == "private-user-id")
       precondition(result.value?.profileURL?.absoluteString == "https://www.vidkar.com/users/private-user-id")
       precondition(result.value?.account?.profileURL == result.value?.profileURL)
       precondition(result.value?.role == "admin" && result.value?.registeredEmailCount == 1)

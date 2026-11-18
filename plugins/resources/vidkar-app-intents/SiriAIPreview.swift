@@ -264,11 +264,11 @@ struct VIDKARSiriPreviewOpenProfileIntent: OpenIntent {
 
   @Parameter(title: "Perfil") var target: VIDKARUserSearchAppEntity
 
-  func perform() async throws -> some IntentResult {
-    guard target.profileURL != nil else {
+  func perform() async throws -> some IntentResult & OpensIntent {
+    guard let url = target.profileURL else {
       throw VIDKARLookupError(message: "El perfil no tiene un enlace disponible.")
     }
-    return .result()
+    return .result(opensIntent: OpenURLIntent(url))
   }
 }
 
