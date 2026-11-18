@@ -46,6 +46,7 @@ struct VIDKARSiriResult: TransientAppEntity, SnippetRepresentableEntity {
   fileprivate var subtitle = ""
   fileprivate var symbol = "magnifyingglass"
   fileprivate var rows: [VIDKARSiriCardRow] = []
+  fileprivate var usageMetrics: [VIDKARServiceUsageMetric] = []
   fileprivate var message = ""
 
   init() {
@@ -70,6 +71,7 @@ struct VIDKARSiriResult: TransientAppEntity, SnippetRepresentableEntity {
     let lines = report.summary.split(separator: "\n").map { VIDKARSiriCardRow(title: String($0)) }
     self.init(title: report.title, subtitle: report.subtitle, symbol: symbol,
       rows: lines, emptyMessage: "VIDKAR no devolvió datos para esta consulta.")
+    usageMetrics = report.usageMetrics
   }
 
   fileprivate init(errorMessage: String) {
@@ -87,6 +89,10 @@ struct VIDKARSiriResult: TransientAppEntity, SnippetRepresentableEntity {
       image = row?.isAvatar == true ? .init(data: thumbnail, displayStyle: .circular) : .init(data: thumbnail)
     } else {
       image = .init(systemName: symbol, isTemplate: true)
+    }
+    if !usageMetrics.isEmpty {
+      let details = summary.replacingOccurrences(of: "\n", with: " · ")
+      return DisplayRepresentation(title: "\(title)", subtitle: "\(details)", image: image)
     }
     return DisplayRepresentation(title: "\(row?.title ?? title)", subtitle: "\(description)", image: image)
   }
@@ -144,22 +150,32 @@ private struct VIDKARSiriCardView: View {
         Text(verbatim: result.message).font(.subheadline).foregroundStyle(.secondary)
       }
 
-      ForEach(Array(result.rows.indices), id: \.self) { index in
-        if index > 0 { Divider() }
-        let item = result.rows[index]
-        if let url = item.detailURL {
-          Link(destination: url) {
-            row(item)
-          }
-          .buttonStyle(.plain)
-          .accessibilityHint("Abre el detalle en VIDKAR")
-        } else {
-          row(item)
+      if !result.usageMetrics.isEmpty {
+        ForEach(result.usageMetrics.indices, id: \.self) { index in
+          VIDKARServiceUsageChart(metric: result.usageMetrics[index])
         }
+      } else {
+        rows
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(14)
+  }
+
+  private var rows: some View {
+    ForEach(result.rows.indices, id: \.self) { index in
+      if index > 0 { Divider() }
+      let item = result.rows[index]
+      if let url = item.detailURL {
+        Link(destination: url) {
+          row(item)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Abre el detalle en VIDKAR")
+      } else {
+        row(item)
+      }
+    }
   }
 
   private func row(_ row: VIDKARSiriCardRow) -> some View {
@@ -335,7 +351,7 @@ struct VIDKARSiriPreviewUserSearchIntent: AppIntent {
 @AppIntent(.tool)
 struct VIDKARSiriPreviewServiceUsageIntent: AppIntent {
   static let title: LocalizedStringResource = "Consulta consumo de Proxy y VPN en VIDKAR"
-  static let description = IntentDescription("Muestra uso actual, estado, límite y vencimiento de Proxy y VPN para una cuenta autorizada.")
+  static let description = IntentDescription("Muestra el consumo actual de Proxy o VPN con un gráfico de cuota, saldo disponible, estado y vencimiento para una cuenta autorizada.")
   static let supportedModes: IntentModes = .background
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
 

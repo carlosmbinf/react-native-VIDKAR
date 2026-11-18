@@ -67,6 +67,12 @@ const formatUpdateTime = () =>
     minute: "2-digit",
   }).format(new Date());
 
+const makeQuota = (usedBytes: unknown, limitMegabytes: unknown, limitLabel: string, unlimited: boolean) => {
+  const limit = Number(limitMegabytes);
+  if (unlimited || !Number.isFinite(limit) || limit <= 0) return false as const;
+  return { limit: limitLabel, exceeded: Number(usedBytes) / 1_048_576 > limit };
+};
+
 const publishSnapshot = (snapshot: ProxyVpnUsageWidgetProps) => {
   try {
     ProxyVpnUsageWidget.updateSnapshot(snapshot);
@@ -127,6 +133,7 @@ export default function ProxyVpnWidgetSyncHost() {
       mcpOwnerId: null,
       proxyEnabled: usage.proxy.enabled,
       proxyProgress: usage.proxy.progress,
+      proxyQuota: makeQuota(user.megasGastadosinBytes, user.megas, usage.proxy.totalLabel, usage.proxy.isUnlimited),
       proxyStatus: usage.proxy.isUnlimited
         ? "Ilimitado"
         : usage.proxy.enabled
@@ -136,6 +143,7 @@ export default function ProxyVpnWidgetSyncHost() {
       updatedAt: formatUpdateTime(),
       vpnEnabled: usage.vpn.enabled,
       vpnProgress: usage.vpn.progress,
+      vpnQuota: makeQuota(user.vpnMbGastados, user.vpnmegas, usage.vpn.totalLabel, usage.vpn.isUnlimited),
       vpnStatus: usage.vpn.isUnlimited
         ? "Ilimitado"
         : usage.vpn.enabled
@@ -147,11 +155,14 @@ export default function ProxyVpnWidgetSyncHost() {
     latestSnapshotRef.current = snapshot;
     publishSnapshot(snapshot);
 
+    let active = true;
+    const isCurrent = () => active && Meteor.userId() === userId;
+
     if (isAdmin && VidkarMCP) {
       void VidkarMCP.getConfiguration()
         .then((configuration) => {
           if (
-            Meteor.userId() !== userId ||
+            !isCurrent() ||
             configuration.configured !== true ||
             String(configuration.ownerId) !== String(userId)
           ) {
@@ -170,7 +181,7 @@ export default function ProxyVpnWidgetSyncHost() {
     }
 
     Meteor.call("getWidgetDailyUsage", (error, result) => {
-      if (error || !Array.isArray(result)) {
+      if (!isCurrent() || error || !Array.isArray(result)) {
         return;
       }
 
@@ -185,10 +196,11 @@ export default function ProxyVpnWidgetSyncHost() {
           "vpn" in point &&
           Number.isFinite(Number(point.vpn)),
       );
-      const refreshedSnapshot = { ...latestSnapshotRef.current, dailyUsage };
+      const refreshedSnapshot = { ...latestSnapshotRef.current, dailyUsage, dailyUsageDate: Date.now() };
       latestSnapshotRef.current = refreshedSnapshot;
       publishSnapshot(refreshedSnapshot);
     });
+    return () => { active = false; };
   }, [ready, user, userId]);
 
   return null;

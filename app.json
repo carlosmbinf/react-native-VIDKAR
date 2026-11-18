@@ -140,7 +140,7 @@
               "ios": {
                 "configuration": {
                   "title": "Servicio",
-                  "description": "Elige qué servicio mostrar en el widget pequeño",
+                  "description": "Elige el servicio del widget pequeño y de la gráfica del widget grande",
                   "parameters": {
                     "service": {
                       "type": "enum",

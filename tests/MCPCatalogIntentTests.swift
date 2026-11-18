@@ -298,6 +298,13 @@ private struct MCPCatalogIntentTests {
     let usageCalls = await network.calls
     precondition(usageCalls == 1 && usage.subtitle == "@carlosmbinf")
     precondition(usage.summary.contains("Proxy") && usage.summary.contains("VPN") && !usage.summary.contains("fixture.example"))
+    precondition(usage.usageMetrics.map(\.title) == ["Proxy", "VPN"])
+    precondition(usage.usageMetrics[0].fraction == 512.0 / (1024 * 1_048_576))
+    precondition(usage.usageMetrics[1].fraction == nil && usage.usageMetrics[1].plan == "Plan ilimitado")
+    let overQuota = VIDKARServiceUsageMetric(isVPN: true, usage: .init(usedBytes: 2_097_152, limitMB: 1))
+    precondition(overQuota.fraction == 1 && overQuota.overLimit)
+    let unknownQuota = VIDKARServiceUsageMetric(isVPN: false, usage: .init(usedBytes: 0, limitMB: 0))
+    precondition(unknownQuota.fraction == nil && unknownQuota.remaining == nil)
     await network.response(try json([userPayload]))
     await network.profileResponse(String(decoding: profileData, as: UTF8.self))
     var profileIntent = VIDKARGetUserProfileIntent()

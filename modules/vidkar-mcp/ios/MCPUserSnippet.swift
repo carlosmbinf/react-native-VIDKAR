@@ -207,6 +207,121 @@ struct VIDKARUserProfileDetails: Decodable, Sendable {
   }
 }
 
+public struct VIDKARServiceUsageMetric: Sendable {
+  let isVPN: Bool
+  let usage: VIDKARUserProfileDetails.Usage?
+
+  var title: String { isVPN ? "VPN" : "Proxy" }
+  var icon: String { isVPN ? "shield.lefthalf.filled" : "globe" }
+  var tint: Color { isVPN ? .teal : .blue }
+  var used: String? { usage?.usedBytes.map(Self.formatBytes) }
+  var limit: String? { limitBytes.map(Self.formatBytes) }
+
+  private var limitBytes: Double? {
+    guard usage?.unlimited != true, let limitMB = usage?.limitMB, limitMB > 0 else { return nil }
+    let bytes = limitMB * 1_048_576
+    return bytes.isFinite ? bytes : nil
+  }
+
+  var fraction: Double? {
+    guard let limitBytes, let usedBytes = usage?.usedBytes else { return nil }
+    return min(1, usedBytes / limitBytes)
+  }
+
+  var percentage: String? {
+    guard let fraction else { return nil }
+    return fraction > 0 && fraction < 0.01 ? "<1%" : "\(Int(fraction * 100))%"
+  }
+  var overLimit: Bool {
+    guard let limitBytes, let usedBytes = usage?.usedBytes else { return false }
+    return usedBytes > limitBytes
+  }
+  var remaining: String? {
+    guard let limitBytes, let usedBytes = usage?.usedBytes else { return nil }
+    return Self.formatBytes(max(0, limitBytes - usedBytes))
+  }
+
+  var plan: String {
+    if usage?.unlimited == true { return "Plan ilimitado" }
+    return limit.map { "de \($0) de cuota" } ?? "Cuota sin datos"
+  }
+
+  var status: String? {
+    guard let active = usage?.active else { return nil }
+    if !active { return "Inactivo" }
+    return usage?.connected.map { $0 ? "Conectado" : "Sin conexión" } ?? "Activo"
+  }
+
+  var expiry: String? {
+    usage?.expirationDate.map { "Vence el \($0.formatted(date: .abbreviated, time: .omitted))" }
+  }
+
+  var summary: String {
+    guard let used else { return "\(title): sin datos de consumo." }
+    return ["\(title): \(used) usados", plan, overLimit ? "Cuota superada" : percentage, status, expiry]
+      .compactMap { $0 }.joined(separator: " · ")
+  }
+
+  private static func formatBytes(_ bytes: Double) -> String {
+    ByteCountFormatter.string(fromByteCount: Int64(min(bytes, Double(Int64.max / 2))), countStyle: .binary)
+  }
+}
+
+public struct VIDKARServiceUsageChart: View {
+  private let metric: VIDKARServiceUsageMetric
+
+  public init(metric: VIDKARServiceUsageMetric) { self.metric = metric }
+
+  public var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Label(metric.title, systemImage: metric.icon)
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(metric.tint)
+
+      HStack(alignment: .center, spacing: 12) {
+        VStack(alignment: .leading, spacing: 3) {
+          if let used = metric.used {
+            Text(verbatim: "\(used) usados")
+              .font(.title3.weight(.semibold)).monospacedDigit()
+            Text(verbatim: metric.plan).font(.caption).foregroundStyle(.secondary)
+          } else {
+            Text("Consumo sin datos").font(.subheadline).foregroundStyle(.secondary)
+          }
+        }
+        Spacer(minLength: 0)
+        if let fraction = metric.fraction, let percentage = metric.percentage {
+          let color = metric.overLimit ? Color.orange : metric.tint
+          ZStack {
+            Circle().stroke(color.opacity(0.16), lineWidth: 5)
+            Circle().trim(from: 0, to: CGFloat(fraction))
+              .stroke(color, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+              .rotationEffect(.degrees(-90))
+            Text(verbatim: percentage).font(.caption.weight(.bold)).monospacedDigit()
+          }
+          .frame(width: 51, height: 51)
+          .padding(3)
+        }
+      }
+
+      if metric.overLimit {
+        Label("Cuota superada", systemImage: "exclamationmark.circle.fill")
+          .font(.caption.weight(.semibold)).foregroundStyle(.orange)
+      } else if let remaining = metric.remaining {
+        Text(verbatim: "\(remaining) disponibles").font(.caption).foregroundStyle(.secondary)
+      }
+      let details = [metric.status, metric.expiry].compactMap { $0 }.joined(separator: " · ")
+      if !details.isEmpty {
+        Text(verbatim: details).font(.caption).foregroundStyle(.secondary)
+      }
+    }
+    .padding(12)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(metric.tint.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
+    .accessibilityElement(children: .combine)
+    .privacySensitive()
+  }
+}
+
 struct VIDKARSnippetItem: Sendable {
   let id: String
   let title: String

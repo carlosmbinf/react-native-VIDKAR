@@ -3,12 +3,52 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
+const vm = require("node:vm");
 const { spawnSync } = require("node:child_process");
 const plist = require("@expo/plist").default;
+const ts = require("typescript");
 
 const withWidgetMCPRefresh = require("../plugins/with-vidkar-widget-mcp-refresh");
 const withExpoWidgets = require("expo-widgets/app.plugin").default;
 const { applyRefreshIntentToWidgetSwift } = withWidgetMCPRefresh;
+
+test("el widget ajusta los servicios por tamaño y reserva el gráfico horario para el grande", () => {
+  const source = fs.readFileSync(path.join(__dirname, "../widgets/ProxyVpnUsageWidget.tsx"), "utf8");
+  const { outputText } = ts.transpileModule(source, {
+    compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  });
+  const exports = {};
+  vm.runInNewContext(outputText, {
+    exports,
+    require(name) {
+      if (name === "expo-widgets") return { createWidget: (_, render) => render };
+      if (name === "@expo/ui/swift-ui") return new Proxy({}, { get: (_, type) => type });
+      if (name === "@expo/ui/swift-ui/modifiers") {
+        return new Proxy({}, { get: (_, type) => (value) => ({ type, value }) });
+      }
+      return require(name);
+    },
+  });
+  const snapshot = {
+    authenticated: true, updatedAt: "14:00",
+    proxyUsed: "200 MB", proxyProgress: 0.2, proxyQuota: { limit: "1000 MB", exceeded: false },
+    vpnUsed: "70 MB", vpnQuota: false, vpnStatus: "Ilimitado",
+    dailyUsage: [{ label: "12h", proxy: 20, vpn: 12 }], dailyUsageDate: Date.now(),
+  };
+  const find = (node, type) => Array.isArray(node) ? node.flatMap((child) => find(child, type))
+    : node?.type === type ? [node.props] : node?.props ? find(node.props.children, type) : [];
+  const render = (widgetFamily, props = snapshot) => exports.default(props, { widgetFamily, configuration: { service: "vpn" } });
+  const small = render("systemSmall");
+  assert.equal(find(small, "ProgressView").length, 0);
+  assert.ok(find(small, "Text").some(({ children }) => children === "Plan ilimitado"));
+  const medium = render("systemMedium");
+  assert.equal(find(medium, "ProgressView")[0]?.value, 0.2);
+  assert.equal(find(medium, "Chart").length, 0);
+  const large = render("systemLarge");
+  assert.equal(find(large, "Chart")[0]?.data[0].y, 12);
+  assert.equal(find(render("systemLarge", { ...snapshot, dailyUsageDate: 1 }), "Chart").length, 0);
+  assert.equal(find(render("systemLarge", { ...snapshot, authenticated: false }), "Chart").length, 0);
+});
 
 const generatedWidgetSource = `import WidgetKit
 import SwiftUI

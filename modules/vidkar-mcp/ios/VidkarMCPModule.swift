@@ -350,20 +350,22 @@ private actor MCPTransport {
 
     func apply(_ service: [String: Any], prefix: String, into props: inout [String: Any]) throws {
       guard let active = service["active"] as? Bool,
-            let usedBytes = number(service["usedBytes"]),
-            let limitMB = number(service["limitMB"]) else {
+            let usedBytes = number(service["usedBytes"]) else {
         throw MCPError.invalidResponse
       }
       let usedMB = usedBytes / 1_048_576
       let unlimited = service["unlimited"] as? Bool == true
+      let limitMB = number(service["limitMB"]) ?? 0
+      let hasQuota = !unlimited && limitMB > 0
       props["\(prefix)Enabled"] = active
       props["\(prefix)Used"] = formatMegas(usedMB)
-      props["\(prefix)Progress"] = unlimited || limitMB == 0
-        ? 0
-        : min(1, max(0, usedMB / limitMB))
-      props["\(prefix)Status"] = active
-        ? (unlimited ? "Ilimitado" : "\(formatMegas(usedMB)) / \(formatMegas(limitMB))")
-        : "Inactivo"
+      props["\(prefix)Progress"] = hasQuota ? min(1, usedMB / limitMB) : 0
+      if hasQuota {
+        props["\(prefix)Quota"] = ["limit": formatMegas(limitMB), "exceeded": usedMB > limitMB] as [String: Any]
+      } else {
+        props["\(prefix)Quota"] = false
+      }
+      props["\(prefix)Status"] = unlimited ? "Ilimitado" : (active ? "Activo" : "Inactivo")
     }
 
     var refreshedProps = current.props
@@ -2269,7 +2271,8 @@ public enum VIDKARSiriUserDirectory {
       return try await queryVIDKARUsersByText(name, session: session, includeAvatars: includeAvatars,
         allowSingleWord: true, hydrateSingleProfile: includeAvatars).map(\.entity)
     }
-    switch try await queryVIDKARUserByUsername(name) {
+    let outcome = try await queryVIDKARUserByUsername(name)
+    switch outcome {
     case .found(let displayName, let username, let avatarURL, let resultId):
       let profile = try await readVIDKARStoredUserProfile(resultId: resultId, session: session)
       let account = try VIDKARAccountUserAppEntity(profile: profile, ownerId: session.ownerId)
@@ -2524,6 +2527,7 @@ public struct VIDKARReadReportEntity: TransientAppEntity {
   public static let defaultQuery = VIDKARReadReportQuery()
   public var id: String
   public let subtitle: String
+  public let usageMetrics: [VIDKARServiceUsageMetric]
   @Property(title: "Título") public var title: String
   @Property(title: "Resultado de consulta") public var summary: String
 
@@ -2531,9 +2535,10 @@ public struct VIDKARReadReportEntity: TransientAppEntity {
     self.init(title: "", lines: [])
   }
 
-  init(title: String, subtitle: String = "", lines: [String]) {
+  init(title: String, subtitle: String = "", lines: [String], usageMetrics: [VIDKARServiceUsageMetric] = []) {
     id = UUID().uuidString
     self.subtitle = subtitle
+    self.usageMetrics = usageMetrics
     self.title = title
     summary = lines.joined(separator: "\n")
   }
@@ -2558,8 +2563,13 @@ public struct VIDKARGetUserServiceUsageIntent: AppIntent {
   public func perform() async throws -> some IntentResult & ReturnsValue<VIDKARReadReportEntity> & ProvidesDialog & ShowsSnippetView {
     let report = try await Self.read(user: user, service: service)
     return .result(value: report, dialog: "El consumo está disponible en la tarjeta.",
-      view: VIDKARReadSnippetView(title: report.title, subtitle: report.subtitle,
-        lines: report.summary.components(separatedBy: "\n")))
+      view: VStack(alignment: .leading, spacing: 8) {
+        Text(verbatim: report.subtitle).font(.caption).foregroundStyle(.secondary)
+        ForEach(report.usageMetrics.indices, id: \.self) { index in
+          VIDKARServiceUsageChart(metric: report.usageMetrics[index])
+        }
+      }
+      .padding(12))
   }
 
   public static func read(user: VIDKARAccountUserAppEntity?, service: VIDKARAccountService?) async throws -> VIDKARReadReportEntity {
@@ -2568,33 +2578,17 @@ public struct VIDKARGetUserServiceUsageIntent: AppIntent {
     let payload = try await queryVIDKARReadTool("get_service_usage", arguments: ["userId": userId], session: session)
     guard payload["id"] as? String == userId,
           let username = payload["username"] as? String,
-          let services = payload["serviceUsage"] as? [String: Any] else { throw MCPError.invalidResponse }
+          let rawServices = payload["serviceUsage"] as? [String: Any] else { throw MCPError.invalidResponse }
 
     let requestedServices: [VIDKARAccountService] = service.map { [$0] } ?? [.proxy, .vpn]
-    let lines = try requestedServices.flatMap { requested -> [String] in
-      let label = requested == .proxy ? "Proxy" : "VPN"
-      guard let usage = services[requested.rawValue] as? [String: Any] else {
-        return ["\(label): sin datos de consumo disponibles."]
-      }
-      guard let active = usage["active"] as? Bool, let bytes = usage["usedBytes"] as? Double,
-            bytes.isFinite, bytes >= 0 else { throw MCPError.invalidResponse }
-      let used = ByteCountFormatter.string(fromByteCount: Int64(min(bytes, Double(Int64.max / 2))), countStyle: .binary)
-      var details = [active ? "Activo" : "Inactivo", "\(used) usados"]
-      if let connected = usage["connected"] as? Bool { details.append(connected ? "Conectado" : "Sin conexión") }
-      if usage["unlimited"] as? Bool == true { details.append("Sin límite") }
-      else if let limit = usage["limitMB"] as? Double, limit.isFinite, limit >= 0 {
-        details.append("Límite: \(limit.formatted(.number.precision(.fractionLength(0...2)))) MB")
-      }
-      if let rawDate = usage["expiresAt"] as? String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = formatter.date(from: rawDate) ?? ISO8601DateFormatter().date(from: rawDate)
-        if let date { details.append("Vencimiento: \(date.formatted(date: .abbreviated, time: .omitted))") }
-      }
-      return service == nil ? ["\(label) · " + details.joined(separator: " · ")] : details
+    let selectedServices = rawServices.filter { key, _ in requestedServices.contains { $0.rawValue == key } }
+    let services = try VIDKARUserProfileDetails.decode(["serviceUsage": selectedServices]).serviceUsage
+    let metrics = requestedServices.map { requested in
+      VIDKARServiceUsageMetric(isVPN: requested == .vpn, usage: requested == .vpn ? services?.vpn : services?.proxy)
     }
     let title = service.map { $0 == .proxy ? "Consumo Proxy" : "Consumo VPN" } ?? "Consumo Proxy y VPN"
-    return VIDKARReadReportEntity(title: title, subtitle: "@\(MCPCatalogQuery.text(username, limit: 120))", lines: lines)
+    return VIDKARReadReportEntity(title: title, subtitle: "@\(MCPCatalogQuery.text(username, limit: 120))",
+      lines: metrics.map(\.summary), usageMetrics: metrics)
   }
 }
 
