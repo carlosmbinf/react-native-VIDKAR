@@ -31,6 +31,32 @@ func validatedVIDKAROpenLink(_ rawValue: String?) -> URL? {
   return url
 }
 
+func vidkarSiriDetailLink(type: String, id: String, originalLink: String? = nil, source: String? = nil) -> URL? {
+  guard ["movie", "series", "episode", "course", "lesson", "product", "user"].contains(type),
+        !id.isEmpty, id.utf8.count <= 256,
+        id.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil else { return nil }
+
+  var link = URLComponents()
+  link.scheme = "vidkar"
+  link.host = type
+  link.path = "/\(id)"
+  var parameters = [URLQueryItem(name: "detail", value: "true")]
+  if type == "product", let source, ["COMERCIO", "RECARGA", "DT_SHOP"].contains(source) {
+    parameters.append(URLQueryItem(name: "source", value: source))
+  }
+  if type == "episode" || type == "lesson" {
+    let key = type == "episode" ? "seriesId" : "courseId"
+    guard let original = validatedVIDKAROpenLink(originalLink),
+          original.host == type, original.path == link.path,
+          let parentID = URLComponents(url: original, resolvingAgainstBaseURL: false)?
+            .queryItems?.first(where: { $0.name == key })?.value,
+          parentID.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil else { return nil }
+    parameters.append(URLQueryItem(name: key, value: parentID))
+  }
+  link.queryItems = parameters
+  return validatedVIDKAROpenLink(link.string)
+}
+
 func validatedVIDKARInAppSearchLink(query: String, entityType: String = "all") -> URL? {
   let cleanQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
   guard cleanQuery.utf16.count <= 120,

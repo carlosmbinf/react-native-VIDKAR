@@ -80,6 +80,11 @@ enum MCPCatalogQuery {
     return clean.count > limit ? String(clean.prefix(limit - 1)) + "…" : clean
   }
 
+  static func cardText(_ value: String?, limit: Int) -> String {
+    let clean = text(value ?? "", limit: limit)
+    return ["n/a", "null", "undefined", "-"].contains(clean.lowercased()) ? "" : clean
+  }
+
   static func summary(_ rows: [(title: String, subtitle: String, description: String)]) -> String {
     guard !rows.isEmpty else { return String(localized: "No encontré coincidencias en el catálogo autorizado de VIDKAR.") }
     let details = rows.prefix(3).map { row in

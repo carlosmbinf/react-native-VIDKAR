@@ -57,6 +57,10 @@ private enum JSONValue: Codable, Sendable {
 }
 
 struct VIDKARCatalogEntityPayload: Decodable, Sendable {
+  struct CardData: Decodable, Sendable {
+    let clasificacion: [String]?
+  }
+
   let id: String
   let type: String
   let title: String
@@ -64,6 +68,7 @@ struct VIDKARCatalogEntityPayload: Decodable, Sendable {
   let description: String?
   let imageUrl: String?
   let deepLink: String
+  let cardData: CardData?
 
   init(id: String, type: String, title: String, subtitle: String? = nil, description: String? = nil, imageUrl: String? = nil, deepLink: String) {
     self.id = id
@@ -73,6 +78,7 @@ struct VIDKARCatalogEntityPayload: Decodable, Sendable {
     self.description = description
     self.imageUrl = imageUrl
     self.deepLink = deepLink
+    self.cardData = nil
   }
 }
 
@@ -1350,6 +1356,7 @@ public enum VIDKARCommerceCatalog {
     public let description: String?
     let imageUrls: [String]?
     public fileprivate(set) var thumbnailData: Data? = nil
+    public var detailURL: URL? { vidkarSiriDetailLink(type: "product", id: id, source: "COMERCIO") }
 
     private enum CodingKeys: String, CodingKey {
       case id, name, storeName, price, currency, description, imageUrls
@@ -1419,6 +1426,7 @@ public enum VIDKARSiriContentCatalog {
     public let subtitle: String
     public let detail: String
     public let imageData: Data?
+    public let detailURL: URL?
   }
 
   public static func search(_ kind: Kind, matching query: String?) async throws -> [Item] {
@@ -1441,9 +1449,16 @@ public enum VIDKARSiriContentCatalog {
     let matches = payloads.filter { seen.insert($0.id).inserted && !MCPCatalogQuery.text($0.title, limit: 160).isEmpty }
     let images = try await vidkarCatalogThumbnails(matches.map(\.imageUrl))
     let results = matches.enumerated().map { index, item in
-      Item(title: MCPCatalogQuery.text(item.title, limit: 160),
-        subtitle: MCPCatalogQuery.text(item.subtitle ?? "", limit: 120),
-        detail: MCPCatalogQuery.text(item.description ?? "", limit: 180), imageData: images[index])
+      let productID = kind == .product ? item.id.split(separator: ":", maxSplits: 1) : []
+      let source = productID.count == 2 ? String(productID[0]) : nil
+      let id = productID.count == 2 ? String(productID[1]) : item.id
+      let genres = (item.cardData?.clasificacion ?? []).prefix(3)
+        .map { MCPCatalogQuery.cardText($0, limit: 40) }
+      let subtitle = ([MCPCatalogQuery.cardText(item.subtitle, limit: 80)] + genres)
+        .filter { !$0.isEmpty }.joined(separator: " · ")
+      return Item(title: MCPCatalogQuery.text(item.title, limit: 160), subtitle: subtitle,
+        detail: MCPCatalogQuery.cardText(item.description, limit: 240), imageData: images[index],
+        detailURL: vidkarSiriDetailLink(type: item.type, id: id, originalLink: item.deepLink, source: source))
     }
     try await transport.assertQuerySession(session)
     return results
@@ -1848,6 +1863,10 @@ public struct VIDKARUserSearchAppEntity: AppEntity {
   @Property(title: "Vencimiento VPN") public var vpnExpiresAt: Date?
   private let avatarImageURL: URL?
   public let avatarImageData: Data?
+  public var detailURL: URL? {
+    guard let account, let userID = account.id.split(separator: "|", maxSplits: 1).dropFirst().first else { return nil }
+    return vidkarSiriDetailLink(type: "user", id: String(userID))
+  }
 
   public init() {
     avatarImageURL = nil

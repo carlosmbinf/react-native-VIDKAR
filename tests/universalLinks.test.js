@@ -81,6 +81,19 @@ test("resuelve búsqueda Siri sin abrir playback automáticamente", () => {
   });
 });
 
+test("abre el elemento exacto desde una ficha de Siri", () => {
+  const cases = [
+    ["movie/movie-1?detail=true", "/(normal)/PeliculaDetalle", { id: "movie-1" }],
+    ["series/series-1?detail=true", "/(normal)/SeriesDetail", { id: "series-1" }],
+    ["product/product-1?detail=true&source=COMERCIO", "/(normal)/ProductoComercio", { productId: "product-1" }],
+    ["product/product-2?detail=true&source=DT_SHOP", "/(normal)/CubacelOferta", { productId: "product-2" }],
+    ["user/user-1?detail=true", "/(normal)/User", { item: "user-1" }],
+  ];
+  for (const [suffix, pathname, params] of cases) {
+    assert.deepEqual(resolveUniversalLink(`vidkar://${suffix}`), { pathname, params });
+  }
+});
+
 test("solo inicia la ruta de película con el indicador de reproducción", () => {
   assert.deepEqual(resolveUniversalLink("vidkar://movie/movie-1?q=Avatar&play=true"), {
     pathname: "/(normal)/PeliculaPlayer",

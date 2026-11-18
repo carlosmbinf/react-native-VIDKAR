@@ -226,8 +226,10 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
   if (isVIDKARScheme) {
     if (!value && !["message", "messages"].includes(section)) return null;
     const shouldPlay = parsedUrl.searchParams.get("play") === "true";
+    const showDetail = parsedUrl.searchParams.get("detail") === "true";
     switch (section) {
       case "movie":
+        if (value && showDetail) return { pathname: "/(normal)/PeliculaDetalle", params: { id: value } };
         return shouldPlay
           ? { pathname: "/(normal)/PeliculaPlayer", params: { id: value } }
           : parsedUrl.searchParams.get("q")
@@ -261,11 +263,19 @@ export function resolveUniversalLink(url: string): UniversalLinkTarget | null {
         return { pathname: "/(normal)/MisCompras", params: { orderId: value } };
       case "subscription":
         return { pathname: "/(normal)/MisCompras", params: { subscriptionId: value } };
-      case "product":
+      case "product": {
+        const source = parsedUrl.searchParams.get("source");
+        if (value && showDetail && source === "COMERCIO") {
+          return { pathname: "/(normal)/ProductoComercio", params: { productId: value } };
+        }
+        if (value && showDetail && source === "DT_SHOP") {
+          return { pathname: "/(normal)/CubacelOferta", params: { productId: value } };
+        }
         return {
           pathname: "/siri-search",
           params: { query: parsedUrl.searchParams.get("q") || "", entityType: "product", productId: value },
         };
+      }
       case "message":
         return { pathname: "/(normal)/Mensajes", params: value ? { messageId: value } : undefined };
       case "messages":

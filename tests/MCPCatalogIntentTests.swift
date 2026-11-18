@@ -54,6 +54,7 @@ private struct MCPCatalogIntentTests {
     precondition(browsed[0].description == "Cable trenzado" && browsed[0].thumbnailData == nil)
     let pictured = try await VIDKARCommerceCatalog.products(matching: nil, includeThumbnails: true)
     precondition(pictured.first?.thumbnailData != nil)
+    precondition(pictured.first?.detailURL?.absoluteString == "vidkar://product/p1?detail=true&source=COMERCIO")
     let browseArguments = await network.lastArguments
     precondition(browseArguments["query"] == nil && browseArguments["limit"] as? Int == 5)
     _ = try await VIDKARCommerceCatalog.products(matching: "  cable USB-C  ")
@@ -82,6 +83,16 @@ private struct MCPCatalogIntentTests {
     precondition(args["entity"] as? String == "all" && args["query"] as? String == "C++ & café" && args["limit"] as? Int == 5)
     let spoken = MCPCatalogQuery.summary(one.map { ($0.title, $0.subtitle, $0.description) })
     precondition(spoken.contains("Título de prueba") && spoken.contains("Descripción de prueba") && !spoken.contains("NO_EXPORTAR"))
+    var filmCard = movie
+    filmCard["deepLink"] = "vidkar://movie/fixture-film?q=Prueba&play=true"
+    filmCard["imageUrl"] = "https://vidkar.com/fixture.png"
+    filmCard["description"] = " N/A "
+    filmCard["cardData"] = ["clasificacion": ["Drama", "N/A", "Acción"]]
+    await network.response(try json([filmCard]))
+    let films = try await VIDKARSiriContentCatalog.search(.movie, matching: "Prueba")
+    precondition(films.first?.detailURL?.absoluteString == "vidkar://movie/fixture-film?detail=true")
+    precondition(films.first?.imageData != nil && films.first?.detail.isEmpty == true)
+    precondition(films.first?.subtitle == "Año ficticio · Drama · Acción")
     let episode: [String: Any] = ["id": "fixture-episode", "type": "episode", "title": "Capítulo 1",
       "subtitle": "Serie de prueba", "deepLink": "vidkar://episode/fixture-episode"]
     await network.response(try json([episode]))

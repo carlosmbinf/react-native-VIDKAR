@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
-const { expectedIntents, shortcutIntents, shortcutPhrases, shortcutPhraseVariants, userProfileProperties, siriPreviewParameters, validateMetadata, validateAppBundle } = require("../scripts/validate-app-intents-metadata.cjs");
+const { expectedIntents, shortcutIntents, shortcutPhrases, shortcutPhraseVariants, userProfileProperties, siriPreviewParameters, siriPreviewCardLists, validateMetadata, validateAppBundle } = require("../scripts/validate-app-intents-metadata.cjs");
 
 const fixture = () => ({
   actions: {
@@ -67,10 +67,11 @@ test("TestFlight exige las consultas Siri AI con una tarjeta tipada y producció
   const productId = "VIDKARSiriPreviewProductSearchIntent";
   assert.throws(() => validateMetadata(metadata, { siriPreview: true }), new RegExp(productId));
   for (const [id, parameters] of Object.entries(siriPreviewParameters)) {
+    const entity = { entity: { wrapper: { typeName: "VIDKARSiriResult" } } };
     metadata.actions[id] = {
       parameters: Object.entries(parameters).map(([name, isOptional]) => ({ name, isOptional })),
       openAppWhenRun: false, authenticationPolicy: 2,
-      outputType: { entity: { wrapper: { typeName: "VIDKARSiriResult" } } },
+      outputType: siriPreviewCardLists.has(id) ? { array: { wrapper: { memberValueType: entity } } } : entity,
     };
   }
   metadata.entities.VIDKARSiriResult = {

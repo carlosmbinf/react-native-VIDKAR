@@ -20,6 +20,9 @@ private struct VIDKARSiriCardRow: Sendable {
   var detail = ""
   var badge = ""
   var thumbnail: Data?
+  var detailURL: URL?
+  var isPortrait = false
+  var isAvatar = false
 
   var summary: String {
     [title, subtitle, badge, detail].filter { !$0.isEmpty }.joined(separator: " · ")
@@ -75,9 +78,17 @@ struct VIDKARSiriResult: TransientAppEntity, SnippetRepresentableEntity {
   }
 
   var displayRepresentation: DisplayRepresentation {
-    DisplayRepresentation(title: "\(title)",
-      subtitle: "\(rows.first?.summary ?? message)",
-      image: .init(systemName: symbol, isTemplate: true))
+    let row = rows.count == 1 ? rows.first : nil
+    let description = row.map {
+      [$0.badge, $0.subtitle, $0.detail].filter { !$0.isEmpty }.joined(separator: " · ")
+    } ?? (rows.isEmpty ? summary : subtitle)
+    let image: DisplayRepresentation.Image
+    if let thumbnail = row?.thumbnail {
+      image = row?.isAvatar == true ? .init(data: thumbnail, displayStyle: .circular) : .init(data: thumbnail)
+    } else {
+      image = .init(systemName: symbol, isTemplate: true)
+    }
+    return DisplayRepresentation(title: "\(row?.title ?? title)", subtitle: "\(description)", image: image)
   }
 
   static var snippet: some EntitySnippetContent<Self> {
@@ -86,14 +97,20 @@ struct VIDKARSiriResult: TransientAppEntity, SnippetRepresentableEntity {
     }
   }
 
+  fileprivate var individualCards: [Self] {
+    guard state == .available else { return [self] }
+    return rows.map { row in
+      Self(title: row.title, subtitle: subtitle, symbol: symbol, rows: [row], emptyMessage: "")
+    }
+  }
+
   fileprivate func dialog(readDetails: Bool) -> IntentDialog {
     guard state == .available else { return IntentDialog(stringLiteral: message) }
     let supporting = "\(title)."
     guard readDetails else { return IntentDialog(stringLiteral: supporting) }
     let spokenRows = rows.prefix(3).map { [$0.title, $0.badge, $0.subtitle].filter { !$0.isEmpty }.joined(separator: ", ") }
-    let additional = rows.count > 3 ? " Hay más resultados en la tarjeta." : ""
-    return IntentDialog(full: "\(supporting) \(spokenRows.joined(separator: ". ")).\(additional)",
-      supporting: "\(supporting)")
+    return IntentDialog(full: "\(supporting) \(spokenRows.joined(separator: ". ")).",
+      supporting: "\(supporting) Encontré \(rows.count) coincidencias.")
   }
 }
 
@@ -109,25 +126,36 @@ private struct VIDKARSiriCardView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Label {
-        VStack(alignment: .leading, spacing: 3) {
-          Text(verbatim: result.title).font(.headline)
-          if !result.subtitle.isEmpty {
-            Text(verbatim: result.subtitle).font(.caption).foregroundStyle(.secondary)
+      if result.rows.count != 1 || result.rows.first?.title != result.title {
+        Label {
+          VStack(alignment: .leading, spacing: 3) {
+            Text(verbatim: result.title).font(.headline)
+            if !result.subtitle.isEmpty {
+              Text(verbatim: result.subtitle).font(.caption).foregroundStyle(.secondary)
+            }
           }
+        } icon: {
+          Image(systemName: result.symbol).foregroundStyle(.teal)
         }
-      } icon: {
-        Image(systemName: result.symbol).foregroundStyle(.teal)
+        .accessibilityAddTraits(.isHeader)
       }
-      .accessibilityAddTraits(.isHeader)
 
       if result.rows.isEmpty {
         Text(verbatim: result.message).font(.subheadline).foregroundStyle(.secondary)
       }
 
       ForEach(Array(result.rows.indices), id: \.self) { index in
-        Divider()
-        row(result.rows[index])
+        if index > 0 { Divider() }
+        let item = result.rows[index]
+        if let url = item.detailURL {
+          Link(destination: url) {
+            row(item)
+          }
+          .buttonStyle(.plain)
+          .accessibilityHint("Abre el detalle en VIDKAR")
+        } else {
+          row(item)
+        }
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
@@ -135,17 +163,22 @@ private struct VIDKARSiriCardView: View {
   }
 
   private func row(_ row: VIDKARSiriCardRow) -> some View {
-    HStack(alignment: .top, spacing: 10) {
-      if let data = row.thumbnail, let image = UIImage(data: data) {
-        Image(uiImage: image)
-          .resizable()
-          .scaledToFill()
-          .frame(width: 48, height: 48)
-          .clipShape(RoundedRectangle(cornerRadius: 9))
-          .accessibilityHidden(true)
+    HStack(alignment: .top, spacing: 12) {
+      if row.thumbnail != nil || row.detailURL != nil {
+        Group {
+          if let data = row.thumbnail, let image = UIImage(data: data) {
+            Image(uiImage: image).resizable().scaledToFill()
+          } else {
+            Image(systemName: result.symbol).font(.title3).foregroundStyle(.teal)
+          }
+        }
+        .frame(width: 60, height: row.isPortrait ? 84 : 60)
+        .background(Color.teal.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: row.isAvatar ? 30 : 10))
+        .accessibilityHidden(true)
       }
       VStack(alignment: .leading, spacing: 4) {
-        Text(verbatim: row.title).font(.subheadline.weight(.medium))
+        Text(verbatim: row.title).font(.headline).lineLimit(2)
         if !row.badge.isEmpty {
           Text(verbatim: row.badge).font(.subheadline.weight(.semibold)).foregroundStyle(.teal)
         }
@@ -153,10 +186,17 @@ private struct VIDKARSiriCardView: View {
           Text(verbatim: row.subtitle).font(.caption).foregroundStyle(.secondary)
         }
         if !row.detail.isEmpty {
-          Text(verbatim: row.detail).font(.caption).lineLimit(3)
+          Text(verbatim: row.detail).font(.caption).foregroundStyle(.secondary).lineLimit(4)
         }
       }
+      if row.detailURL != nil {
+        Spacer(minLength: 4)
+        Image(systemName: "chevron.right").font(.caption.weight(.semibold))
+          .foregroundStyle(.secondary).accessibilityHidden(true)
+      }
     }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .contentShape(Rectangle())
     .accessibilityElement(children: .combine)
   }
 }
@@ -178,29 +218,29 @@ private func vidkarSiriCard(_ operation: () async throws -> VIDKARSiriResult) as
 @AppIntent(.tool)
 struct VIDKARSiriPreviewProductSearchIntent: AppIntent {
   static let title: LocalizedStringResource = "Explora el catálogo de productos de VIDKAR"
-  static let description = IntentDescription("Busca o lista artículos de Comercio con precio, tienda e imagen disponible.")
+  static let description = IntentDescription("Busca o lista artículos de Comercio. Devuelve una tarjeta por producto con precio, tienda, imagen disponible y acceso a su detalle.")
   static let supportedModes: IntentModes = .background
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
 
   @Parameter(title: "Producto", description: "Tipo o modelo breve, como PS5 o USB-C. Omítelo para ver qué hay.")
   var query: String?
 
-  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSiriResult> & ProvidesDialog {
+  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSiriResult]> & ProvidesDialog {
     let card = try await vidkarSiriCard {
       let products = try await VIDKARCommerceCatalog.products(matching: query, includeThumbnails: true)
       let rows = products.map { product in
-        var price = "Precio no informado"
+        var price = ""
         if let amount = product.price, amount.isFinite, amount > 0,
            let currency = product.currency, currency.range(of: "^[A-Z]{3}$", options: .regularExpression) != nil {
           price = "\(amount.formatted(.number.precision(.fractionLength(2)))) \(currency)"
         }
         return VIDKARSiriCardRow(title: product.name, subtitle: product.storeName ?? "",
-          detail: product.description ?? "", badge: price, thumbnail: product.thumbnailData)
+          detail: product.description ?? "", badge: price, thumbnail: product.thumbnailData, detailURL: product.detailURL)
       }
       return VIDKARSiriResult(title: "Productos de Comercio", subtitle: query ?? "", symbol: "shippingbox",
         rows: rows, emptyMessage: "No encontré productos para esta consulta en VIDKAR.")
     }
-    return .result(value: card, dialog: card.dialog(readDetails: true))
+    return .result(value: card.individualCards, dialog: card.dialog(readDetails: true))
   }
 }
 
@@ -229,7 +269,7 @@ enum VIDKARSiriContentKind: String, AppEnum {
 @AppIntent(.tool)
 struct VIDKARSiriPreviewContentSearchIntent: AppIntent {
   static let title: LocalizedStringResource = "Busca contenido y recargas en VIDKAR"
-  static let description = IntentDescription("Consulta películas, series, capítulos, cursos, lecciones y productos o recargas del catálogo autorizado.")
+  static let description = IntentDescription("Consulta el catálogo autorizado de películas, series, capítulos, cursos, lecciones y recargas. Devuelve una tarjeta por coincidencia con los datos y la imagen disponibles.")
   static let supportedModes: IntentModes = .background
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
 
@@ -238,15 +278,22 @@ struct VIDKARSiriPreviewContentSearchIntent: AppIntent {
   @Parameter(title: "Título o término", description: "Nombre o término breve. Puedes omitirlo para listar cursos.")
   var query: String?
 
-  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSiriResult> & ProvidesDialog {
+  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSiriResult]> & ProvidesDialog {
     let card = try await vidkarSiriCard {
       let presentation = kind.presentation
-      let items = try await VIDKARSiriContentCatalog.search(presentation.kind, matching: query)
-      let rows = items.map { VIDKARSiriCardRow(title: $0.title, subtitle: $0.subtitle, detail: $0.detail, thumbnail: $0.imageData) }
+      let term = query?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      if term.isEmpty && kind != .course {
+        return VIDKARSiriResult(errorMessage: "¿Qué título o nombre quieres buscar en VIDKAR?")
+      }
+      let items = try await VIDKARSiriContentCatalog.search(presentation.kind, matching: term)
+      let rows = items.map {
+        VIDKARSiriCardRow(title: $0.title, subtitle: $0.subtitle, detail: $0.detail,
+          thumbnail: $0.imageData, detailURL: $0.detailURL, isPortrait: kind == .movie || kind == .series)
+      }
       return VIDKARSiriResult(title: presentation.title, subtitle: query ?? "", symbol: presentation.symbol,
         rows: rows, emptyMessage: "No encontré coincidencias en este catálogo de VIDKAR.")
     }
-    return .result(value: card, dialog: card.dialog(readDetails: true))
+    return .result(value: card.individualCards, dialog: card.dialog(readDetails: true))
   }
 }
 
@@ -254,14 +301,14 @@ struct VIDKARSiriPreviewContentSearchIntent: AppIntent {
 @AppIntent(.tool)
 struct VIDKARSiriPreviewUserSearchIntent: AppIntent {
   static let title: LocalizedStringResource = "Busca usuarios y muestra su perfil en VIDKAR"
-  static let description = IntentDescription("Encuentra usuarios autorizados por username o nombre completo. Localiza también el perfil propio.")
+  static let description = IntentDescription("Encuentra perfiles autorizados por username, nombre completo o cuenta propia. Devuelve una tarjeta por perfil con foto disponible y acceso a su ficha.")
   static let supportedModes: IntentModes = .background
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
 
   @Parameter(title: "Usuario", description: "Username o nombre completo. Omítelo solo cuando la persona pide su propio perfil.")
   var query: String?
 
-  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSiriResult> & ProvidesDialog {
+  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSiriResult]> & ProvidesDialog {
     let card = try await vidkarSiriCard {
       let users = try await VIDKARSiriUserDirectory.search(query)
       let rows = users.map { user in
@@ -269,14 +316,15 @@ struct VIDKARSiriPreviewUserSearchIntent: AppIntent {
         let account = user.isBanned.map { $0 ? "Cuenta bloqueada" : "Cuenta sin bloqueo" }
         let details = [user.role, membership, account].compactMap { $0 }.filter { !$0.isEmpty }
         return VIDKARSiriCardRow(title: user.fullName, subtitle: "@\(user.username)",
-          detail: details.joined(separator: " · "), thumbnail: user.avatarImageData)
+          detail: details.joined(separator: " · "), thumbnail: user.avatarImageData,
+          detailURL: user.detailURL, isAvatar: true)
       }
       let title = rows.count == 1 ? "Perfil VIDKAR" : "Usuarios de VIDKAR"
       let subtitle = rows.count > 1 ? "Usa el @usuario para consultar una cuenta" : ""
       return VIDKARSiriResult(title: title, subtitle: subtitle, symbol: "person.crop.circle",
         rows: rows, emptyMessage: "No encontré ese usuario dentro de tu acceso autorizado.")
     }
-    return .result(value: card, dialog: card.dialog(readDetails: false))
+    return .result(value: card.individualCards, dialog: card.dialog(readDetails: false))
   }
 }
 
