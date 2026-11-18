@@ -1,5 +1,3 @@
-import { Redirect } from "expo-router";
+import Loguin from '../../components/loguin/Loguin.native';
 
-export default function NativeLoginEntry() {
-  return <Redirect href={{ pathname: "/(normal)/Main", params: { authEntry: "1" } }} />;
-}
+export default Loguin;

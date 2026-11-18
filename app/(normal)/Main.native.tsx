@@ -1,18 +1,17 @@
 import MeteorBase from "@meteorrn/core";
 import * as Application from "expo-application";
 import Constants from "expo-constants";
-import { router, useLocalSearchParams } from "expo-router";
-import { useIsFocused } from "expo-router/react-navigation";
+import { router } from "expo-router";
 import React from "react";
-import { Alert, AppState, Keyboard, Linking, Platform, StatusBar, StyleSheet } from "react-native";
+import { Alert, Linking, Platform, StatusBar, StyleSheet } from "react-native";
 import { ActivityIndicator, Surface, Text, useTheme } from "react-native-paper";
 
 import CadeteNavigator from "../../components/cadete/CadeteNavigator";
 import EmpresaNavigator from "../../components/empresa/EmpresaNavigator";
-import CinematicScreenTransition from "../../components/loguin/CinematicScreenTransition.native";
+import LoginArrivalScene from "../../components/loguin/LoginArrivalScene.native";
 import Loguin from "../../components/loguin/Loguin.native";
 import MenuPrincipal from "../../components/Main/MenuPrincipal.native";
-import { resolveSessionRoute, userHasEmpresaRole } from "../../components/navigator/sessionRoute";
+import { userHasEmpresaRole } from "../../components/navigator/sessionRoute";
 import PushNotificationDialogHost from "../../components/shared/PushNotificationDialogHost.native";
 import UpdateRequired from "../../components/update/UpdateRequired";
 import { syncCadeteBackgroundLocation } from "../../services/location/cadeteBackgroundLocation.native";
@@ -159,7 +158,6 @@ const getRequiredBuildNumber = async (propertyKey: string) => {
 export default function IndexScreen() {
   const theme = useTheme();
   const reducedMotion = useSystemReducedMotion();
-  const isFocused = useIsFocused();
   const statusBarStyle =
     Platform.OS === "android" || theme.dark ? "light-content" : "dark-content";
   const pushCleanupRef = React.useRef<null | (() => void)>(null);
@@ -174,12 +172,10 @@ export default function IndexScreen() {
     currentBuildNumber: null as number | null,
     requiredBuildNumber: null as number | null,
   });
-  const { authEntry } = useLocalSearchParams<{ authEntry?: string }>();
-  const [appActive, setAppActive] = React.useState(() => !AppState.currentState || AppState.currentState === "active");
-  const [authentication, setAuthentication] = React.useState<{ pending: boolean; confirmedUserId: string | null }>({
-    pending: false,
-    confirmedUserId: null,
-  });
+  const [loginArrivalPending, setLoginArrivalPending] = React.useState(false);
+  const [loginFlightCompletedFor, setLoginFlightCompletedFor] = React.useState<string | null>(
+    () => Meteor.userId(),
+  );
   const { connected, ready, user, userId } = Meteor.useTracker(
     (): {
       connected: boolean;
@@ -213,47 +209,47 @@ export default function IndexScreen() {
       };
     },
   );
-  const confirmed = Boolean(userId && authentication.confirmedUserId === userId);
-  const sessionRoute = resolveSessionRoute(userId, user);
-  const roleRedirect = Boolean(
-    authEntry === "1" && userId && ready && !authentication.pending &&
-    !versionGate.updateRequired && sessionRoute !== "/(normal)/Main",
+  const startingLoginTransition = Boolean(
+    userId && loginFlightCompletedFor !== userId,
   );
-  const playCinematic = confirmed && ready && !roleRedirect && !versionGate.updateRequired;
-  const showLogin = !userId || authentication.pending ||
-    (confirmed && !roleRedirect && !versionGate.updateRequired);
-  const showMenu = Boolean(userId && ready && !authentication.pending && !roleRedirect && !versionGate.updateRequired);
-
-  const onAuthenticationStart = React.useCallback(() => {
-    setAuthentication({ pending: true, confirmedUserId: null });
-  }, []);
-
-  const onAuthenticationSettled = React.useCallback((confirmedUserId: string | null) => {
-    if (confirmedUserId) Keyboard.dismiss();
-    setAuthentication((current) => ({
-      pending: false,
-      confirmedUserId: confirmedUserId ?? current.confirmedUserId,
-    }));
-  }, []);
-
-  const completeCinematic = React.useCallback(() => {
-    setAuthentication({ pending: false, confirmedUserId: null });
-  }, []);
 
   React.useEffect(() => {
-    const subscription = AppState.addEventListener("change", (state) => setAppActive(state === "active"));
-    return () => subscription.remove();
-  }, []);
-
-  React.useEffect(() => {
-    if (isFocused && roleRedirect) router.replace(sessionRoute);
-  }, [isFocused, roleRedirect, sessionRoute]);
-
-  React.useEffect(() => {
-    if (authentication.confirmedUserId && authentication.confirmedUserId !== Meteor.userId()) {
-      completeCinematic();
+    if (!userId) {
+      setLoginFlightCompletedFor(null);
+      setLoginArrivalPending(false);
     }
-  }, [authentication.confirmedUserId, completeCinematic, userId]);
+  }, [userId]);
+
+  const handleLoginLaunchComplete = React.useCallback((completedUserId: string) => {
+    if (Meteor.userId() !== completedUserId) {
+      return;
+    }
+    setLoginFlightCompletedFor(completedUserId);
+    setLoginArrivalPending(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (
+      !loginArrivalPending ||
+      !userId ||
+      !ready ||
+      versionGate.updateRequired
+    ) {
+      return;
+    }
+
+    const timeout = setTimeout(
+      () => setLoginArrivalPending(false),
+      reducedMotion ? 160 : 320,
+    );
+    return () => clearTimeout(timeout);
+  }, [
+    loginArrivalPending,
+    ready,
+    reducedMotion,
+    userId,
+    versionGate.updateRequired,
+  ]);
 
   React.useEffect(() => {
     if (userId && !ready) {
@@ -723,43 +719,123 @@ export default function IndexScreen() {
     });
   }, [userId]);
 
-  const menu = showMenu ? (
-    user?.modoCadete ? <CadeteNavigator /> :
-      userHasEmpresaRole(user) && user?.modoEmpresa ? <EmpresaNavigator /> : <MenuPrincipal />
-  ) : null;
+  if (!userId || startingLoginTransition) {
+    return (
+      <>
+        <PushNotificationDialogHost />
+        <StatusBar
+          barStyle={statusBarStyle}
+        />
+        <Loguin
+          deferSessionRedirect
+          onLaunchComplete={handleLoginLaunchComplete}
+          reducedMotion={reducedMotion}
+        />
+      </>
+    );
+  }
+
+  if (userId && !ready) {
+    return (
+      <>
+        <PushNotificationDialogHost />
+        <Surface
+          style={[
+            styles.loadingContainer,
+            { backgroundColor: theme.colors.background },
+          ]}
+        >
+          <StatusBar
+            barStyle={statusBarStyle}
+          />
+          <ActivityIndicator
+            animating
+            size="large"
+            color={theme.colors.primary}
+          />
+          <Text style={styles.loadingText}>Cargando...</Text>
+        </Surface>
+      </>
+    );
+  }
+
+  if (versionGate.updateRequired) {
+    return (
+      <>
+        <PushNotificationDialogHost />
+        <StatusBar
+          barStyle={statusBarStyle}
+        />
+        <UpdateRequired
+          currentVersion={versionGate.currentBuildNumber ?? 0}
+          requiredVersion={versionGate.requiredBuildNumber ?? 0}
+        />
+      </>
+    );
+  }
+
+  if (ready && user?.modoCadete) {
+    return (
+      <>
+        <PushNotificationDialogHost />
+        <StatusBar
+          barStyle={statusBarStyle}
+        />
+        <LoginArrivalScene
+          enabled={loginArrivalPending}
+          reducedMotion={reducedMotion}
+        >
+          <CadeteNavigator />
+        </LoginArrivalScene>
+      </>
+    );
+  }
+
+  if (
+    ready &&
+    userHasEmpresaRole(user) &&
+    user?.modoEmpresa
+  ) {
+    return (
+      <>
+        <PushNotificationDialogHost />
+        <StatusBar
+          barStyle={statusBarStyle}
+        />
+        <LoginArrivalScene
+          enabled={loginArrivalPending}
+          reducedMotion={reducedMotion}
+        >
+          <EmpresaNavigator />
+        </LoginArrivalScene>
+      </>
+    );
+  }
+
+  if (Meteor.userId()) {
+    return (
+      <>
+        <PushNotificationDialogHost />
+        <StatusBar
+          barStyle={statusBarStyle}
+        />
+        <LoginArrivalScene
+          enabled={loginArrivalPending}
+          reducedMotion={reducedMotion}
+        >
+          <MenuPrincipal />
+        </LoginArrivalScene>
+      </>
+    );
+  }
 
   return (
     <>
       <PushNotificationDialogHost />
-      <StatusBar barStyle={statusBarStyle} />
-      <CinematicScreenTransition
-        active={playCinematic}
-        appActive={appActive}
-        reducedMotion={reducedMotion}
-        onComplete={completeCinematic}
-        login={showLogin ? (
-          <Loguin
-            appActive={appActive}
-            confirmed={confirmed}
-            onAuthenticationStart={onAuthenticationStart}
-            onAuthenticationSettled={onAuthenticationSettled}
-            reducedMotion={reducedMotion}
-          />
-        ) : null}
-        fallback={versionGate.updateRequired && userId ? (
-          <UpdateRequired
-            currentVersion={versionGate.currentBuildNumber ?? 0}
-            requiredVersion={versionGate.requiredBuildNumber ?? 0}
-          />
-        ) : !showLogin && !menu ? (
-          <Surface style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
-            <ActivityIndicator animating size="large" color={theme.colors.primary} />
-            <Text style={styles.loadingText}>Cargando...</Text>
-          </Surface>
-        ) : null}
-      >
-        {menu}
-      </CinematicScreenTransition>
+      <StatusBar
+        barStyle={statusBarStyle}
+      />
+      <Loguin deferSessionRedirect />
     </>
   );
 }

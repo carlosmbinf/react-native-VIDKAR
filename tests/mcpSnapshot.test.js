@@ -986,3 +986,16 @@ test("Siri fría/caliente: login real, restore tardío y logout nunca reemplazan
     }
   }
 });
+
+test("login normal solo resuelve sesión al recuperar foco y completar suscripción", () => {
+  const state = { userId: "fixture-owner", loginReady: false, navigations: [] };
+  const login = loginHarness(state);
+  login.render();
+  assert.deepEqual(state.navigations, []);
+  state.loginReady = true;
+  login.render({ isFocused: false });
+  assert.deepEqual(state.navigations, []);
+  login.render();
+  assert.deepEqual(state.navigations, ["/(normal)/Main"]);
+  login.unmount();
+});
