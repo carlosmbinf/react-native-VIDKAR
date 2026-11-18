@@ -1,15 +1,13 @@
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import MeteorBase from "@meteorrn/core";
 import * as AppleAuthentication from "expo-apple-authentication";
-import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
-import { router } from "expo-router";
 import { useIsFocused } from "expo-router/react-navigation";
 import React, { useEffect, useState } from "react";
 import {
     Alert,
-    Animated,
-    Easing,
+    AppState,
     ImageBackground,
     Keyboard,
     KeyboardAvoidingView,
@@ -17,6 +15,7 @@ import {
     Platform,
     ScrollView,
     StyleSheet,
+    useWindowDimensions,
     View,
 } from "react-native";
 import { Button, Text, TextInput, useTheme } from "react-native-paper";
@@ -29,13 +28,11 @@ import {
 } from "../../services/meteor/client";
 import { buildManualMeteorUrl, getMeteorHost, getPrivacyPolicyUrl } from "../../services/appUrls";
 import { registerPushTokenForActiveSession } from "../../services/notifications/PushMessaging.native";
-import { WATCH_ROOT_USER_FIELDS } from "../../services/watch/watchDashboard";
 import { ConfigCollection } from "../collections/collections";
-import { resolveSessionRoute } from "../navigator/sessionRoute";
 import useSystemReducedMotion from "../../hooks/useSystemReducedMotion";
 import LoginAtmosphere from "./LoginAtmosphere.native";
 import { getLoginPalette, loginScreenStyles as styles } from "./Loguin.styles";
-import LoginRocketFlight from "./LoginRocketFlight.native";
+import useLoginMotion, { Animated } from "./useLoginMotion.native";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker, _startLoggingIn?: () => Promise<void> | void, _endLoggingIn?: () => Promise<void> | void, _handleLoginCallback?: (error: any, response: any) => void }} */ (
@@ -102,163 +99,27 @@ const buildAppleFullName = (fullName) => {
   return Object.values(normalized).some(Boolean) ? normalized : undefined;
 };
 
-const LoginBlurCard = ({ active = true, children, palette, reducedMotion = false }) => {
-  const glowPrimaryProgress = React.useRef(new Animated.Value(0)).current;
-  const glowSecondaryProgress = React.useRef(new Animated.Value(0)).current;
-  const sheenProgress = React.useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (reducedMotion || !active) {
-      glowPrimaryProgress.setValue(0);
-      glowSecondaryProgress.setValue(0);
-      sheenProgress.setValue(0);
-      return undefined;
-    }
-
-    const primaryLoop = Animated.loop(
-      Animated.timing(glowPrimaryProgress, {
-        toValue: 1,
-        duration: 18000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    );
-    const secondaryLoop = Animated.loop(
-      Animated.timing(glowSecondaryProgress, {
-        toValue: 1,
-        duration: 22000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    );
-    const sheenLoop = Animated.loop(
-      Animated.timing(sheenProgress, {
-        toValue: 1,
-        duration: 26000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    );
-
-    glowPrimaryProgress.setValue(0);
-    glowSecondaryProgress.setValue(0);
-    sheenProgress.setValue(0);
-    primaryLoop.start();
-    secondaryLoop.start();
-    sheenLoop.start();
-
-    return () => {
-      primaryLoop.stop();
-      secondaryLoop.stop();
-      sheenLoop.stop();
-      glowPrimaryProgress.stopAnimation();
-      glowSecondaryProgress.stopAnimation();
-      sheenProgress.stopAnimation();
-    };
-  }, [active, glowPrimaryProgress, glowSecondaryProgress, reducedMotion, sheenProgress]);
-
-  const glowPrimaryTranslateX = glowPrimaryProgress.interpolate({
-    inputRange: [0, 0.25, 0.5, 0.75, 1],
-    outputRange: [0, -16, -30, -12, 0],
-  });
-  const glowPrimaryTranslateY = glowPrimaryProgress.interpolate({
-    inputRange: [0, 0.25, 0.5, 0.75, 1],
-    outputRange: [0, 24, 52, 18, 0],
-  });
-  const glowSecondaryTranslateX = glowSecondaryProgress.interpolate({
-    inputRange: [0, 0.25, 0.5, 0.75, 1],
-    outputRange: [0, 28, 12, -10, 0],
-  });
-  const glowSecondaryTranslateY = glowSecondaryProgress.interpolate({
-    inputRange: [0, 0.25, 0.5, 0.75, 1],
-    outputRange: [0, -18, -42, -14, 0],
-  });
-  const sheenTranslateX = sheenProgress.interpolate({
-    inputRange: [0, 0.25, 0.5, 0.75, 1],
-    outputRange: [0, 26, 54, 18, 0],
-  });
-  const sheenTranslateY = sheenProgress.interpolate({
-    inputRange: [0, 0.25, 0.5, 0.75, 1],
-    outputRange: [0, 12, -8, -24, 0],
-  });
-
-  return (
-    <BlurView
-      intensity={24}
-      tint="dark"
-      renderToHardwareTextureAndroid={false}
-      blurReductionFactor={2}
-      experimentalBlurMethod={
-        Platform.OS === "android" ? "dimezisBlurView" : undefined
-      }
-      style={[
-        styles.blurCard,
-        {
-          backgroundColor: "transparent",
-          borderColor: palette.blurCardBorder,
-        },
-      ]}
-    >
-      <View
-        pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: palette.blurCardOverlay },
-        ]}
-      />
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.blurGlowOrb,
-          {
-            backgroundColor: palette.blurCardGlow,
-            transform: [
-              { translateX: glowPrimaryTranslateX },
-              { translateY: glowPrimaryTranslateY },
-            ],
-          },
-        ]}
-      />
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.blurGlowOrbSecondary,
-          {
-            backgroundColor: palette.blurCardAccent,
-            transform: [
-              { translateX: glowSecondaryTranslateX },
-              { translateY: glowSecondaryTranslateY },
-            ],
-          },
-        ]}
-      />
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.blurSheen,
-          {
-            backgroundColor: palette.blurCardSheen,
-            transform: [
-              { translateX: sheenTranslateX },
-              { translateY: sheenTranslateY },
-              { rotate: "-8deg" },
-            ],
-          },
-        ]}
-      />
-      {children}
-    </BlurView>
-  );
-};
-
 const Loguin = ({
-  deferSessionRedirect = false,
-  onLaunchComplete,
+  appActive,
+  confirmed = false,
+  onAuthenticationStart,
+  onAuthenticationSettled,
   reducedMotion = false,
 } = {}) => {
   const isFocused = useIsFocused();
   const systemReducedMotion = useSystemReducedMotion();
-  const shouldReduceMotion = Boolean(reducedMotion || systemReducedMotion);
+  const shouldReduceMotion = reducedMotion || systemReducedMotion;
+  const [standaloneActive, setStandaloneActive] = useState(
+    () => !AppState.currentState || AppState.currentState === "active",
+  );
+  const motionActive = (appActive ?? standaloneActive) && isFocused;
+  useEffect(() => {
+    if (appActive !== undefined) return;
+    const subscription = AppState.addEventListener("change", (state) => setStandaloneActive(state === "active"));
+    return () => subscription.remove();
+  }, [appActive]);
+  const { width } = useWindowDimensions();
+  const compact = width < 360 || (Platform.OS === "android" && Number(Platform.Version) <= 28);
   const [ipserver, setIpserver] = useState(() => getMeteorHost() || "");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -269,9 +130,9 @@ const Loguin = ({
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingApple, setLoadingApple] = useState(false);
   const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
-  const [localLaunching, setLocalLaunching] = useState(false);
-  const [redirectFlightCompleted, setRedirectFlightCompleted] = useState(false);
-  const redirectedUserIdRef = React.useRef(null);
+  const [credentialsError, setCredentialsError] = useState(false);
+  const authenticationLock = React.useRef(false);
+  const mounted = React.useRef(false);
   const passwordInputRef = React.useRef(null);
   const scrollRef = React.useRef(null);
   const credentialsRef = React.useRef(null);
@@ -280,7 +141,35 @@ const Loguin = ({
   const serverFieldRef = React.useRef(null);
   const focusedFieldRef = React.useRef(null);
   const scrollOffsetRef = React.useRef(0);
-  const effectiveIsLaunching = localLaunching;
+  const authenticating = submitting || loadingGoogle || loadingApple;
+  const controlsLocked = authenticating || confirmed;
+  const motion = useLoginMotion({
+    enabled: motionActive && !shouldReduceMotion,
+    submitting,
+    confirmed,
+  });
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+
+  const beginAuthentication = () => {
+    if (authenticationLock.current || Meteor.userId()) return false;
+    authenticationLock.current = true;
+    setCredentialsError(false);
+    onAuthenticationStart?.();
+    return true;
+  };
+
+  const confirmAuthentication = () => {
+    if (mounted.current) onAuthenticationSettled?.(Meteor.userId());
+  };
+
+  const endAuthentication = () => {
+    authenticationLock.current = false;
+    if (mounted.current) onAuthenticationSettled?.(null);
+  };
   const revealCredentials = React.useCallback(() => {
     scrollRef.current?.measureInWindow((_x, viewportTop, _width, viewportHeight) => {
       credentialsRef.current?.measureInWindow((_x, _top, _width, height) => {
@@ -347,29 +236,6 @@ const Loguin = ({
     ],
   );
 
-  const { loginRouteReady, user, userId } = Meteor.useTracker(() => {
-    const currentUserId = Meteor.userId();
-
-    if (!currentUserId) {
-      return {
-        loginRouteReady: false,
-        user: null,
-        userId: null,
-      };
-    }
-
-    const subscription = Meteor.subscribe(
-      "user",
-      { _id: currentUserId },
-      { fields: WATCH_ROOT_USER_FIELDS },
-    );
-
-    return {
-      loginRouteReady: subscription.ready(),
-      user: Meteor.user(),
-      userId: currentUserId,
-    };
-  });
   const permitirLoginWithGoogle = Meteor.useTracker(() => {
     if (!Meteor.status()?.connected) return null;
     Meteor.subscribe("propertys", {
@@ -489,69 +355,9 @@ const Loguin = ({
     };
   }, []);
 
-  useEffect(() => {
-    if (!userId) {
-      redirectedUserIdRef.current = null;
-      setLocalLaunching(false);
-      setRedirectFlightCompleted(false);
-      return;
-    }
-
-    if (!isFocused || !loginRouteReady || localLaunching || redirectFlightCompleted) {
-      return;
-    }
-
-    Keyboard.dismiss();
-    if (keyboardVisible) {
-      return;
-    }
-
-    // Deja que KeyboardAvoidingView estabilice la tarjeta antes del despegue.
-    let frame = requestAnimationFrame(() => {
-      frame = requestAnimationFrame(() => setLocalLaunching(true));
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [
-    isFocused,
-    keyboardVisible,
-    loginRouteReady,
-    localLaunching,
-    redirectFlightCompleted,
-    userId,
-  ]);
-
-  const handleLaunchComplete = React.useCallback(() => {
-    if (!userId || Meteor.userId() !== userId) {
-      return;
-    }
-    setRedirectFlightCompleted(true);
-    onLaunchComplete?.(userId);
-  }, [onLaunchComplete, userId]);
-
-  useEffect(() => {
-    if (
-      !isFocused ||
-      deferSessionRedirect ||
-      !userId ||
-      !loginRouteReady ||
-      !redirectFlightCompleted ||
-      redirectedUserIdRef.current === userId
-    ) {
-      return;
-    }
-    redirectedUserIdRef.current = userId;
-    router.replace(resolveSessionRoute(userId, user));
-  }, [
-    isFocused,
-    deferSessionRedirect,
-    loginRouteReady,
-    redirectFlightCompleted,
-    user,
-    userId,
-  ]);
-
   const handleUsernameChange = (text) => {
     setUsername(text);
+    setCredentialsError(false);
     if (text.toLowerCase() === "change server") {
       setShowServerInput(true);
     }
@@ -579,9 +385,8 @@ const Loguin = ({
   };
 
   const handleLogin = async () => {
-    if (submitting || loadingGoogle || loadingApple || userId) {
-      return;
-    }
+    if (!beginAuthentication()) return;
+    motion.pulse();
     Keyboard.dismiss();
     try {
       setSubmitting(true);
@@ -596,16 +401,21 @@ const Loguin = ({
         });
       });
 
+      confirmAuthentication();
       await registerPushTokenForActiveSession().catch((error) => {
         console.warn(
           "[Loguin] Error registrando token push tras login:",
           error,
         );
       });
-    } catch (_error) {
-      Alert.alert("Credenciales incorrectas");
+    } catch {
+      if (mounted.current) {
+        setCredentialsError(true);
+        motion.reject();
+      }
     } finally {
-      setSubmitting(false);
+      endAuthentication();
+      if (mounted.current) setSubmitting(false);
     }
   };
 
@@ -614,14 +424,11 @@ const Loguin = ({
   };
 
   const handlePasswordSubmit = () => {
-    Keyboard.dismiss();
     handleLogin();
   };
 
   const onGoogleLogin = async () => {
-    if (loadingGoogle || submitting) {
-      return;
-    }
+    if (!beginAuthentication()) return;
 
     let googleStatusCodes = null;
 
@@ -725,6 +532,7 @@ const Loguin = ({
         );
       });
 
+      confirmAuthentication();
       await registerPushTokenForActiveSession().catch((error) => {
         console.warn(
           "[Loguin] Error registrando token push tras login Google:",
@@ -751,14 +559,13 @@ const Loguin = ({
             : "Error iniciando sesión con Google."),
       );
     } finally {
-      setLoadingGoogle(false);
+      endAuthentication();
+      if (mounted.current) setLoadingGoogle(false);
     }
   };
 
   const onAppleLogin = async () => {
-    if (loadingApple || submitting) {
-      return;
-    }
+    if (!beginAuthentication()) return;
 
     try {
       setLoadingApple(true);
@@ -894,6 +701,7 @@ const Loguin = ({
         }
       }
 
+      confirmAuthentication();
       await registerPushTokenForActiveSession().catch((error) => {
         console.warn(
           "[Loguin] Error registrando token push tras login Apple:",
@@ -910,7 +718,8 @@ const Loguin = ({
         error?.reason || error?.message || "Error iniciando sesión con Apple.",
       );
     } finally {
-      setLoadingApple(false);
+      endAuthentication();
+      if (mounted.current) setLoadingApple(false);
     }
   };
 
@@ -926,9 +735,15 @@ const Loguin = ({
         pointerEvents="none"
         style={[styles.backgroundOverlay, { backgroundColor: palette.backgroundOverlay }]}
       />
-      <LoginAtmosphere enabled={isFocused && !effectiveIsLaunching} reducedMotion={shouldReduceMotion} />
+      <LoginAtmosphere
+        enabled={motionActive}
+        reducedMotion={shouldReduceMotion}
+        compact={compact}
+        authenticating={authenticating}
+        confirmed={confirmed}
+      />
 
-      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+      <SafeAreaView style={styles.safeArea} edges={["top", "right", "bottom", "left"]}>
         <KeyboardAvoidingView
           style={styles.safeArea}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -946,17 +761,21 @@ const Loguin = ({
               scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
             }}
             scrollEventThrottle={16}
-            scrollEnabled={!effectiveIsLaunching}
+            scrollEnabled={!confirmed}
           >
           <View style={styles.loginShell}>
             <View style={styles.formPanel}>
-              <LoginRocketFlight
-                isLaunching={effectiveIsLaunching}
-                onLaunchComplete={handleLaunchComplete}
-                reducedMotion={shouldReduceMotion}
-                showRocket
-              >
-                <LoginBlurCard active={isFocused && !effectiveIsLaunching} palette={palette} reducedMotion={shouldReduceMotion}>
+              <Animated.View style={motion.cardStyle}>
+                <View style={[styles.blurCard, { borderColor: palette.blurCardBorder }]}>
+                  <LinearGradient
+                    pointerEvents="none"
+                    colors={["#1c3155eb", "#101c36f5", "#080e20fa"]}
+                    locations={[0, 0.55, 1]}
+                    start={{ x: 0.12, y: 0 }}
+                    end={{ x: 0.9, y: 1 }}
+                    style={StyleSheet.absoluteFill}
+                  />
+                  <Animated.View pointerEvents="none" style={[motionStyles.errorGlow, motion.errorStyle]} />
                   <View style={styles.blurCardContent}>
                     <View style={styles.formHeader}>
                         <View style={styles.loginBrandMark}>
@@ -1011,7 +830,7 @@ const Loguin = ({
                         <Button
                           mode="contained"
                           onPress={reconnectToServer}
-                          disabled={connectingToServer}
+                          disabled={connectingToServer || controlsLocked}
                           loading={connectingToServer}
                           style={styles.reconnectButton}
                           contentStyle={styles.reconnectButtonContent}
@@ -1031,6 +850,7 @@ const Loguin = ({
                     <TextInput
                       mode="flat"
                       value={username}
+                      editable={!controlsLocked}
                       onChangeText={handleUsernameChange}
                       onFocus={() => {
                         focusedFieldRef.current = usernameFieldRef.current;
@@ -1058,12 +878,17 @@ const Loguin = ({
                       theme={inputTheme}
                     />
                     </View>
-                    <View ref={passwordFieldRef} collapsable={false}>
+                    <Animated.View ref={passwordFieldRef} collapsable={false} style={motion.passwordStyle}>
                     <TextInput
                       ref={passwordInputRef}
                       mode="flat"
                       value={password}
-                      onChangeText={setPassword}
+                      editable={!controlsLocked}
+                      onChangeText={(text) => {
+                        setPassword(text);
+                        setCredentialsError(false);
+                      }}
+                      error={credentialsError}
                       onFocus={() => {
                         focusedFieldRef.current = passwordFieldRef.current;
                         if (keyboardVisible) revealCredentials();
@@ -1089,22 +914,43 @@ const Loguin = ({
                       activeUnderlineColor="transparent"
                       theme={inputTheme}
                     />
-                    </View>
+                    </Animated.View>
                   </View>
 
+                    {credentialsError ? (
+                      <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={motionStyles.errorText}>
+                        Credenciales incorrectas
+                      </Text>
+                    ) : null}
+
+                    <Animated.View style={[motionStyles.button, motion.buttonStyle]}>
                     <Button
                       mode="contained"
                       onPress={handleLogin}
-                      loading={submitting}
-                      disabled={submitting}
+                      accessibilityLabel="Iniciar sesión"
+                      onPressIn={motion.pressIn}
+                      onPressOut={motion.pressOut}
+                      loading={submitting && !confirmed}
+                      disabled={controlsLocked}
+                      accessibilityState={{ busy: submitting && !confirmed }}
                       style={styles.primaryButton}
                       contentStyle={styles.primaryButtonContent}
                       labelStyle={styles.primaryButtonLabel}
                       buttonColor={theme.colors.primary}
                       textColor={palette.inputText}
+                      theme={{ colors: { surfaceDisabled: "#303f83", onSurfaceDisabled: "#edf6ff" } }}
                     >
-                      Iniciar sesión
+                      {confirmed ? "Sesión confirmada" : submitting ? "Verificando acceso…" : "Iniciar sesión"}
                     </Button>
+                    <Animated.View pointerEvents="none" style={[motionStyles.buttonWave, motion.waveStyle]}>
+                      <LinearGradient
+                        colors={["#b7eaff00", "#c7f3ff", "#b7eaff00"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={StyleSheet.absoluteFill}
+                      />
+                    </Animated.View>
+                    </Animated.View>
                   </View>
 
                   {keyboardVisible ? (
@@ -1130,7 +976,7 @@ const Loguin = ({
                             mode="outlined"
                             icon="google"
                             onPress={onGoogleLogin}
-                            disabled={loadingGoogle || submitting}
+                            disabled={controlsLocked}
                             loading={loadingGoogle}
                             style={[
                               styles.secondaryButton,
@@ -1150,7 +996,7 @@ const Loguin = ({
                             mode="outlined"
                             icon="apple"
                             onPress={onAppleLogin}
-                            disabled={loadingApple || submitting}
+                            disabled={controlsLocked}
                             loading={loadingApple}
                             style={[
                               styles.secondaryButton,
@@ -1189,8 +1035,8 @@ const Loguin = ({
                       ) : null}
                     </View>
                 </View>
-                </LoginBlurCard>
-              </LoginRocketFlight>
+                </View>
+              </Animated.View>
             </View>
           </View>
           </ScrollView>
@@ -1199,5 +1045,15 @@ const Loguin = ({
     </View>
   );
 };
+
+const motionStyles = StyleSheet.create({
+  button: { borderRadius: 16, overflow: "hidden" },
+  buttonWave: { position: "absolute", top: 0, bottom: 0, left: "37%", width: "26%" },
+  errorGlow: {
+    ...StyleSheet.absoluteFillObject,
+    borderColor: "#fd879a", borderWidth: 1.5, borderRadius: 34, backgroundColor: "#fd50651f",
+  },
+  errorText: { color: "#ffc4cc", marginBottom: 8 },
+});
 
 export default Loguin;

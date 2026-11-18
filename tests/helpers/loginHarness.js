@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import vm from "node:vm";
 import ts from "typescript";
-import { resolveSessionRoute } from "../../components/navigator/sessionRoute.js";
 
 const source = ts.transpileModule(await fs.readFile(new URL("../../components/loguin/Loguin.native.js", import.meta.url), "utf8"), {
   fileName: "Loguin.jsx",
@@ -15,6 +14,7 @@ export function loginHarness(state) {
   let cursor = 0;
   let pending = [];
   let tree;
+  const listeners = new Map();
   const slots = [];
   const React = {
     createElement: (type, props, ...children) => ({ type, props: { ...props, children } }),
@@ -42,22 +42,35 @@ export function loginHarness(state) {
       user: () => state.user || { _id: state.userId },
       status: () => ({ connected: true }),
       subscribe: () => ({ ready: () => state.loginReady !== false }),
-      loginWithPassword: (_name, _password, callback) => {
+      loginWithPassword: (username, password, callback) => {
+        if (state.loginWithPassword) return state.loginWithPassword(username, password, callback);
         state.userId = "fixture-owner";
         state.loginReady = false;
         callback(null);
       },
     },
-    "expo-router": { router: { replace: (target) => state.navigations.push(target) } },
     "expo-router/react-navigation": { useIsFocused: () => focused },
-    "expo-apple-authentication": {}, "expo-blur": {}, "expo-web-browser": {},
+    "expo-apple-authentication": {
+      isAvailableAsync: async () => Boolean(state.socialEnabled),
+      addRevokeListener: () => ({ remove() {} }),
+    },
+    "expo-linear-gradient": { LinearGradient: "LinearGradient" },
+    "expo-web-browser": {},
     "react-native": {
-      Platform: { OS: "android" }, NativeModules: {},
-      useWindowDimensions: () => ({ width: 400, height: 800 }),
+      Platform: { OS: state.platform ?? "android", Version: 36 }, NativeModules: {},
+      AppState: { currentState: "active", addEventListener: () => ({ remove() {} }) },
+      StyleSheet: { create: (styles) => styles },
+      useWindowDimensions: () => state.dimensions ?? { width: 400, height: 800 },
       View: "View", ImageBackground: "ImageBackground", ScrollView: "ScrollView",
       KeyboardAvoidingView: "KeyboardAvoidingView",
       Alert: { alert: () => assert.fail("No se esperaba alerta de login") },
-      Keyboard: { addListener: () => ({ remove() {} }), dismiss() {} },
+      Keyboard: {
+        addListener(event, callback) {
+          listeners.set(event, callback);
+          return { remove: () => listeners.delete(event) };
+        },
+        dismiss() {},
+      },
     },
     "react-native-paper": {
       useTheme: () => ({ colors: {} }), Button: "Button", Text: "Text", TextInput: "TextInput",
@@ -69,13 +82,15 @@ export function loginHarness(state) {
       getMeteorHost: () => "fixture.invalid",
       getPrivacyPolicyUrl: () => "https://fixture.invalid/politica-privacidad",
     },
-    "../../services/notifications/PushMessaging.native": { registerPushTokenForActiveSession: async () => {} },
-    "../../services/watch/watchDashboard": { WATCH_ROOT_USER_FIELDS: {} },
-    "../collections/collections": { ConfigCollection: { findOne: () => null } },
-    "../navigator/sessionRoute": { resolveSessionRoute },
+    "../../services/notifications/PushMessaging.native": { registerPushTokenForActiveSession: state.registerPush ?? (async () => {}) },
+    "../collections/collections": { ConfigCollection: { findOne: () => state.socialEnabled ? { valor: "true" } : null } },
     "./Loguin.styles": { getLoginPalette: () => ({}), loginScreenStyles: {} },
     "./LoginAtmosphere.native": "LoginAtmosphere",
-    "./LoginRocketFlight.native": "LoginRocketFlight",
+    "./useLoginMotion.native": {
+      __esModule: true,
+      default: ({ enabled }) => ({ pulse() {}, reject: () => { if (enabled) state.rejectMotion?.(); } }),
+      Animated: { View: "AnimatedView" },
+    },
     "../../hooks/useSystemReducedMotion": { __esModule: true, default: () => Boolean(state.reducedMotion) },
     "../files/space-bg-shadowcodex.jpg": "fixture-image",
   };
@@ -85,17 +100,19 @@ export function loginHarness(state) {
     return dependencies[name];
   } });
   return {
-    render({ isFocused = true, deferSessionRedirect = false } = {}) {
+    render({ isFocused = true, ...props } = {}) {
       focused = isFocused;
       cursor = 0;
       pending = [];
-      tree = exports.default({ deferSessionRedirect });
+      tree = exports.default(props);
       pending.forEach((effect) => effect());
+      return tree;
     },
+    keyboard(event) { listeners.get(event)?.(); },
     async submit() {
       const find = (node) => {
         if (!node || typeof node !== "object") return null;
-        if (node.type === "Button" && node.props.children.includes("Iniciar sesión")) return node;
+        if (node.type === "Button" && node.props.accessibilityLabel === "Iniciar sesión") return node;
         return Object.values(node).flat().map(find).find(Boolean);
       };
       const button = find(tree);
