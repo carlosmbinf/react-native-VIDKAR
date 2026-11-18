@@ -1,5 +1,24 @@
 # Siri, App Intents y MCP de VIDKAR
 
+## App Skills del build interno
+
+Las skills usan los App Intents tipados de iOS. El registro de [herramientas del MCP principal de react-download](https://github.com/carlosmbinf/react-download/blob/d9b19de706276a62516280a2aacec1d59ce62f66/mcp/server.mjs#L171-L235) permite verificar el contrato que ejecuta cada intent.
+
+| Skill | Acción disponible | Herramienta del backend |
+| --- | --- | --- |
+| Catálogo | Buscar o listar artículos de Comercio | `list_commerce_products` |
+| Catálogo | Buscar películas; buscar series, capítulos, cursos, lecciones o productos generales | `search_entities` con la entidad elegida |
+| Catálogo | Listar recargas o promociones Cubacel | `list_recharge_products` |
+| Catálogo | Listar paquetes Proxy o VPN | `list_proxyvpn_packages` con el servicio elegido |
+| Perfiles y consumo | Buscar perfiles por nombre o @usuario, o consultar el propio | `search_entities` con `entity=user`; `get_user` para la ficha autorizada |
+| Perfiles y consumo | Consultar consumo actual, cuota y vencimiento | `get_service_usage` |
+| Actividad de cuenta | Consultar compras, órdenes o ventas asociadas | `get_user_purchase_history`, `get_orders` o `get_sales` según la actividad |
+| Actividad de cuenta | Consultar mensajes o suscripciones propias | `search_entities` con `entity=message` o `entity=subscription` |
+| Informes de negocio | Consultar resumen de ventas, pagos, costos o rentabilidad | `get_business_summary`, `get_payments`, `get_costs` o `get_profitability` según el informe |
+| Ayuda | Enumerar las consultas de VIDKAR | Acción local, sin consulta al backend |
+
+`get_current_user` se usa para validar el propietario del token. Las herramientas de carrito, direcciones, cotización, pago y los informes adicionales del servidor requieren acciones iOS propias para aparecer en la conversación. Las skills se empaquetan con `VIDKAR_SIRI_AI_PREVIEW=1` y llegan al dispositivo con un binario nuevo del workflow interno de iOS.
+
 ## Entrega de la búsqueda al abrir la app
 
 `VIDKARSearchInAppIntent` conserva en memoria nativa el destino validado antes
