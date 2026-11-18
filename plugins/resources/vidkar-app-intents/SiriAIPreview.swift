@@ -253,14 +253,15 @@ struct VIDKARPreviewCatalogEntity: AppEntity, SnippetRepresentableEntity {
 
   init(item: VIDKARSiriContentCatalog.Item, kind: VIDKARSiriContentKind) {
     id = "\(kind.rawValue):\(item.id)"
-    title = item.title
-    category = kind.presentation.title
-    subtitle = item.subtitle
-    detail = item.detail
     thumbnail = item.imageData
     detailURL = item.detailURL
     symbol = kind.presentation.symbol
     portrait = kind == .series
+    // Assign the App Intents property wrappers after all stored constants are initialized.
+    title = item.title
+    category = kind.presentation.title
+    subtitle = item.subtitle
+    detail = item.detail
   }
 
   var displayRepresentation: DisplayRepresentation {
