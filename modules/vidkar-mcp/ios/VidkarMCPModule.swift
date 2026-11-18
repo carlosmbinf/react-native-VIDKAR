@@ -2500,12 +2500,19 @@ public struct VIDKARReadReportEntity: TransientAppEntity {
   public static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Consulta VIDKAR")
   public static let defaultQuery = VIDKARReadReportQuery()
   public var id: String
-  public private(set) var subtitle: String
+  public let subtitle: String
   @Property(title: "Título") public var title: String
   @Property(title: "Resultado de consulta") public var summary: String
-  public init() { id = UUID().uuidString; title = ""; subtitle = ""; summary = "" }
+
+  public init() {
+    self.init(title: "", lines: [])
+  }
+
   init(title: String, subtitle: String = "", lines: [String]) {
-    id = UUID().uuidString; self.title = title; self.subtitle = subtitle; summary = lines.joined(separator: "\n")
+    id = UUID().uuidString
+    self.subtitle = subtitle
+    self.title = title
+    summary = lines.joined(separator: "\n")
   }
   public var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(title)", subtitle: "\(summary)") }
 }
