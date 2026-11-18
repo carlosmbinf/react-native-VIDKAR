@@ -29,6 +29,7 @@ import {
   useAppHeaderContentInset,
 } from "../Header/AppHeader";
 import MenuHeader from "../Header/MenuHeader";
+import { MainMenuEntranceMotion } from "../loguin/CinematicScreenTransition";
 import { ServiceAtmosphere, ServiceEntrance, ServiceMotionProvider, ServicePressable, ServiceScrollViewport } from "../motion/ServiceMotion";
 import ComercioHomeSection from "../productos/ComercioHomeSection";
 import ProxyVPNPackagesHorizontal from "../proxyVPN/ProxyVPNPackagesHorizontal";
@@ -629,7 +630,8 @@ const MenuPrincipalScreen = ({
           <View style={styles.backdrop} />
         </ImageBackground>
 
-        <RenderTraceBlock name="MenuHeader" style={styles.headerTraceBlock}>
+        <MainMenuEntranceMotion style={styles.headerTraceBlock} distance={-13}>
+        <RenderTraceBlock name="MenuHeader">
           <MenuHeader
             backgroundColor={MENU_PRINCIPAL_HEADER_COLOR}
             title="VIDKAR"
@@ -650,6 +652,7 @@ const MenuPrincipalScreen = ({
             onLogout={onLogout}
           />
         </RenderTraceBlock>
+        </MainMenuEntranceMotion>
 
         <ServiceScrollViewport topInset={headerInset}>
         <ScrollView
@@ -671,6 +674,7 @@ const MenuPrincipalScreen = ({
             }
           >
           {normalHomeCatalogsLoading || homeRefreshing ? (
+            <MainMenuEntranceMotion offset={85} distance={23}>
             <ServiceEntrance
               delay={0}
               duration={680}
@@ -704,8 +708,10 @@ const MenuPrincipalScreen = ({
               </Text>
             </Surface>
             </ServiceEntrance>
+            </MainMenuEntranceMotion>
           ) : (
             <>
+          <MainMenuEntranceMotion offset={85} distance={23}>
           <ServiceEntrance delay={0} variant="hero">
           <Surface
             style={styles.heroCard}
@@ -854,6 +860,7 @@ const MenuPrincipalScreen = ({
             ) : null}
           </Surface>
           </ServiceEntrance>
+          </MainMenuEntranceMotion>
 
           {showEmpresaSuggestionCard ? (
             <ServiceEntrance delay={50}>
@@ -1581,9 +1588,10 @@ const MenuPrincipalScreen = ({
           {heavyContentReady ? (
             <>
               {visibleHomeServices.map((service, index) => {
+                const offset = 135 + Math.min(index, 2) * 25;
                 if (service.id === "COMERCIOS") {
                   return (
-                    <React.Fragment key={service.id}>
+                    <MainMenuEntranceMotion key={service.id} offset={offset} distance={24}>
                       <RenderTraceBlock
                         name="ComercioHomeOrdersSection"
                         payload={{ position: index }}
@@ -1596,14 +1604,14 @@ const MenuPrincipalScreen = ({
                       >
                         <ComercioHomeSection />
                       </RenderTraceBlock>
-                    </React.Fragment>
+                    </MainMenuEntranceMotion>
                   );
                 }
 
                 if (service.id === "CUBACEL") {
                   return (
+                    <MainMenuEntranceMotion key={service.id} offset={offset} distance={26}>
                     <RenderTraceBlock
-                      key={service.id}
                       name="Productos"
                       payload={{
                         deferDelay: 0,
@@ -1619,12 +1627,14 @@ const MenuPrincipalScreen = ({
                         isDegradado={false}
                       />
                     </RenderTraceBlock>
+                    </MainMenuEntranceMotion>
                   );
                 }
 
                 if (service.id === "PROXY_VPN") {
                   return (
-                    <ServiceEntrance key={service.id} delay={Math.min(index * 50, 200)}>
+                    <MainMenuEntranceMotion key={service.id} offset={offset} distance={28}>
+                    <ServiceEntrance delay={Math.min(index * 50, 200)}>
                     <RenderTraceBlock
                       name="ProxyVPNPackagesHorizontal"
                       payload={{ position: index }}
@@ -1635,6 +1645,7 @@ const MenuPrincipalScreen = ({
                       />
                     </RenderTraceBlock>
                     </ServiceEntrance>
+                    </MainMenuEntranceMotion>
                   );
                 }
 
