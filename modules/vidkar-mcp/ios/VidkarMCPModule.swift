@@ -2113,41 +2113,32 @@ private struct VIDKARMatchedUserCandidate {
 private func queryVIDKARUsersByText(
   _ rawQuery: String,
   session: (revision: UUID, ownerId: String),
-  includeAvatars: Bool = true
+  includeAvatars: Bool = true,
+  allowSingleWord: Bool = false,
+  hydrateSingleProfile: Bool = false
 ) async throws -> [VIDKARMatchedUserCandidate] {
   let term = try MCPCatalogQuery.query(rawQuery)
-  guard term.contains(" ") else { return [] }
-  let tools = try await MCPTransport.shared.discover(force: true)
+  guard allowSingleWord || term.contains(where: \.isWhitespace) else { return [] }
+  let tools = try await MCPTransport.shared.discover(force: true, expectedRevision: session.revision)
   try await MCPTransport.shared.assertQuerySession(session)
   guard let tool = tools.first(where: { $0.name == "search_entities" }),
         case .bool(true)? = tool.annotations?["readOnlyHint"],
         tool.inputSchema["properties"]?.object?["query"] != nil else {
-    return []
+    throw MCPCatalogQuery.Failure.incompatibleSchema
   }
-  let output = try await MCPTransport.shared.executeForSession(
-    name: "search_entities",
-    arguments: ["entity": "user", "query": term, "limit": 5, "offset": 0],
-    ownerId: session.ownerId,
-    revision: session.revision.uuidString
-  )
-  try await MCPTransport.shared.assertQuerySession(session)
-  guard let data = output.data(using: .utf8),
-        let response = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-        response["success"] as? Bool == true,
-        let rows = response["results"] as? [[String: Any]] else {
-    return []
-  }
+  let response = try await queryVIDKARReadTool("search_entities",
+    arguments: ["entity": "user", "query": term, "limit": 5, "offset": 0], session: session)
+  let hasMore = (response["pagination"] as? [String: Any])?["hasMore"] as? Bool ?? false
+  guard let rows = response["results"] as? [[String: Any]], rows.count <= 5,
+        !hasMore || rows.count == 5 else { throw MCPError.invalidResponse }
   var candidates: [VIDKARMatchedUserCandidate] = []
-  for row in rows.prefix(5) {
+  for row in rows {
     guard row["type"] as? String == "user",
           let id = row["id"] as? String, !id.isEmpty,
-          let rawSub = row["subtitle"] as? String else { continue }
+          let rawSub = row["subtitle"] as? String, rawSub != "Usuario VIDKAR" else { continue }
     let uname = MCPCatalogQuery.text(rawSub.hasPrefix("@") ? String(rawSub.dropFirst()) : rawSub, limit: 120)
     guard !uname.isEmpty else { continue }
     let displayName = MCPCatalogQuery.text(row["title"] as? String ?? uname, limit: 120)
-    let rawAvatar = validatedVIDKARUserAvatarURL(row["imageUrl"] as? String)?.absoluteString
-    let (avatar, avatarUnavailable) = includeAvatars ? try await loadVIDKARProfileAvatar(rawAvatar) : (nil, false)
-    try await MCPTransport.shared.assertQuerySession(session)
     var profilePayload: [String: Any] = [
       "id": id,
       "username": uname,
@@ -2159,27 +2150,36 @@ private func queryVIDKARUsersByText(
     if let usage = row["serviceUsage"] as? [String: Any] {
       profilePayload["serviceUsage"] = usage
     }
+    if hydrateSingleProfile && rows.count == 1 {
+      let identity = try VIDKARAccountUserAppEntity(profile: profilePayload, ownerId: session.ownerId)
+      profilePayload = try await queryVIDKARUserProfile(identifier: identity.id, session: session)
+    }
     guard let account = try? VIDKARAccountUserAppEntity(profile: profilePayload, ownerId: session.ownerId),
           let details = try? VIDKARUserProfileDetails.decode(profilePayload) else { continue }
+    let rawAvatar = validatedVIDKARUserAvatarURL(profilePayload["picture"] as? String)?.absoluteString
+      ?? row["imageUrl"] as? String
+    let (avatar, avatarUnavailable) = includeAvatars ? try await loadVIDKARProfileAvatar(rawAvatar) : (nil, false)
+    try await MCPTransport.shared.assertQuerySession(session)
     let entity = VIDKARUserSearchAppEntity(
-      fullName: displayName,
-      username: uname,
+      fullName: account.fullName,
+      username: account.username,
       avatarURL: nil,
       avatarData: avatar?.data,
       account: account,
       details: details
     )
-    let openURL = validatedVIDKAROpenLink((row["deepLink"] as? String) ?? "vidkar://user/\(id)")
     let snippetRow = VIDKARUserSnippetRow(
-      fullName: displayName,
-      username: uname,
+      fullName: account.fullName,
+      username: account.username,
       avatar: avatar?.image,
       avatarUnavailable: avatarUnavailable,
       details: details,
-      openURL: openURL
+      openURL: entity.detailURL
     )
     candidates.append(VIDKARMatchedUserCandidate(entity: entity, details: details, row: snippetRow))
   }
+  if allowSingleWord && candidates.count != rows.count { throw MCPError.invalidResponse }
+  try await MCPTransport.shared.assertQuerySession(session)
   return candidates
 }
 
@@ -2262,10 +2262,14 @@ public enum VIDKARSiriUserDirectory {
 
   private static func candidates(matching query: String, includeAvatars: Bool) async throws -> [VIDKARUserSearchAppEntity] {
     let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
-    let name = term.hasPrefix("@") ? String(term.dropFirst()) : term
+    let exact = term.hasPrefix("@")
+    let name = try MCPCatalogQuery.query(exact ? String(term.dropFirst()) : term)
     let session = try await MCPTransport.shared.querySession()
-    let outcome = try await queryVIDKARUserByUsername(name)
-    switch outcome {
+    if !exact {
+      return try await queryVIDKARUsersByText(name, session: session, includeAvatars: includeAvatars,
+        allowSingleWord: true, hydrateSingleProfile: includeAvatars).map(\.entity)
+    }
+    switch try await queryVIDKARUserByUsername(name) {
     case .found(let displayName, let username, let avatarURL, let resultId):
       let profile = try await readVIDKARStoredUserProfile(resultId: resultId, session: session)
       let account = try VIDKARAccountUserAppEntity(profile: profile, ownerId: session.ownerId)
@@ -2275,7 +2279,7 @@ public enum VIDKARSiriUserDirectory {
       return [VIDKARUserSearchAppEntity(fullName: displayName, username: username, avatarURL: nil,
         avatarData: avatar, account: account, details: details)]
     case .notFound:
-      return try await queryVIDKARUsersByText(name, session: session, includeAvatars: includeAvatars).map(\.entity)
+      return []
     case .ambiguous:
       throw VIDKARUserSearchFailure.ambiguous
     }

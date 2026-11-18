@@ -301,11 +301,11 @@ struct VIDKARSiriPreviewContentSearchIntent: AppIntent {
 @AppIntent(.tool)
 struct VIDKARSiriPreviewUserSearchIntent: AppIntent {
   static let title: LocalizedStringResource = "Busca usuarios y muestra su perfil en VIDKAR"
-  static let description = IntentDescription("Encuentra perfiles autorizados por username, nombre completo o cuenta propia. Devuelve una tarjeta por perfil con foto disponible y acceso a su ficha.")
+  static let description = IntentDescription("Busca personas o clientes autorizados por @usuario, nombre o apellido. Muestra la ficha de perfil con foto, rol, alta y estado cuando están disponibles.")
   static let supportedModes: IntentModes = .background
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
 
-  @Parameter(title: "Usuario", description: "Username o nombre completo. Omítelo solo cuando la persona pide su propio perfil.")
+  @Parameter(title: "Usuario", description: "Envía solo el nombre, apellido o @usuario indicado, como «Carlos Medina» o «@carlos». Omítelo solo cuando la persona pide su propio perfil.")
   var query: String?
 
   func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSiriResult]> & ProvidesDialog {
@@ -324,7 +324,10 @@ struct VIDKARSiriPreviewUserSearchIntent: AppIntent {
       return VIDKARSiriResult(title: title, subtitle: subtitle, symbol: "person.crop.circle",
         rows: rows, emptyMessage: "No encontré ese usuario dentro de tu acceso autorizado.")
     }
-    return .result(value: card.individualCards, dialog: card.dialog(readDetails: false))
+    let dialog: IntentDialog = card.rows.count > 1
+      ? "Encontré varios perfiles. ¿Qué @usuario quieres consultar?"
+      : card.dialog(readDetails: false)
+    return .result(value: card.individualCards, dialog: dialog)
   }
 }
 

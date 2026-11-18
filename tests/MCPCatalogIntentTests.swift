@@ -250,6 +250,8 @@ private struct MCPCatalogIntentTests {
     precondition(matchedByFullName.count == 2 && matchedByFullName[0].username == "carlosmbinf" && matchedByFullName[1].username == "carlosjr")
     let previewMatches = try await VIDKARSiriUserDirectory.search("Carlos Medina")
     precondition(previewMatches.map(\.username) == ["carlosmbinf", "carlosjr"])
+    let fullNameArguments = await network.lastArguments
+    precondition(fullNameArguments["query"] as? String == "Carlos Medina" && fullNameArguments["username"] == nil)
     do {
       _ = try await VIDKARSiriUserDirectory.account(matching: "Carlos Medina")
       preconditionFailure("No debe elegir una cuenta ambigua para una consulta privada")
@@ -263,6 +265,24 @@ private struct MCPCatalogIntentTests {
     await network.response(try json(multiUsers))
     let fullNameResult = try await fullNameIntent.perform()
     precondition(fullNameResult.value?.fullName == "Carlos Medina" && fullNameResult.value?.username == "carlosmbinf")
+    await network.response(try json([userPayload]))
+    await network.profileResponse(String(decoding: profileData, as: UTF8.self))
+    let surnameMatches = try await VIDKARSiriUserDirectory.search("Medina")
+    precondition(surnameMatches.count == 1 && surnameMatches[0].registeredEmailCount == 1)
+    precondition(surnameMatches[0].memberSince != nil && surnameMatches[0].avatarImageData != nil)
+    let surnameArguments = await network.lastArguments
+    let surnameProfileArguments = await network.lastProfileArguments
+    precondition(surnameArguments["query"] as? String == "Medina")
+    precondition(surnameProfileArguments["userId"] as? String == "private-user-id")
+    await network.response(try json([userPayload]))
+    let exactMiss = try await VIDKARSiriUserDirectory.search("@Medina")
+    let exactSearchCalls = await network.calls
+    precondition(exactMiss.isEmpty && exactSearchCalls == 1)
+    await network.response("{\"success\":false,\"error\":{\"code\":\"MCP_FORBIDDEN\"}}")
+    do {
+      _ = try await VIDKARSiriUserDirectory.search("Carlos Medina")
+      preconditionFailure("Un rechazo del servidor no debe convertirse en cero coincidencias")
+    } catch MCPCatalogQuery.Failure.forbidden {}
     await network.response(try json([userPayload]))
     await network.profileResponse(String(data: profileData, encoding: .utf8))
     let otherUserEntity = try VIDKARUserSearchAppEntity(profile: profileFixture, ownerId: "other-owner")
