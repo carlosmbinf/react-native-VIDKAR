@@ -11,7 +11,7 @@ enum MCPCatalogQuery {
     var errorDescription: String? {
       switch self {
       case .invalidQuery: return String(localized: "Indica qué quieres consultar: de 1 a 120 caracteres, sin caracteres de control.")
-      case .notConfigured: return String(localized: "Configura primero MCP en VIDKAR para consultar el catálogo con Siri.")
+      case .notConfigured: return String(localized: "Configura primero MCP en VIDKAR para consultar el catálogo.")
       case .authentication: return String(localized: "La sesión MCP no es válida. Revisa tu sesión y token en VIDKAR.")
       case .forbidden: return String(localized: "No tienes permiso para consultar este catálogo en VIDKAR.")
       case .confirmationRequired: return String(localized: "Esta consulta requiere confirmación explícita en VIDKAR.")

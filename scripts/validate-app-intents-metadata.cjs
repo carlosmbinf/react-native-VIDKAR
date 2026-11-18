@@ -196,6 +196,10 @@ function validateAppBundle(appPath, options) {
   // Xcode 27: comprobar el bundle principal exacto, nunca aceptar metadata solo en Pods/PlugIns.
   const file = path.join(appPath, "Metadata.appintents", "extract.actionsdata");
   if (!fs.existsSync(file)) throw new Error(`Faltan metadatos en el bundle principal: ${file}`);
+  if (!options?.siriPreview && ["Metadata.appintents/Skills.skillsc", "Skills.skillsbundle"]
+    .some((resource) => fs.existsSync(path.join(appPath, resource)))) {
+    throw new Error("El bundle de producción contiene recursos de la vista previa de App Intents.");
+  }
   const metadata = JSON.parse(fs.readFileSync(file, "utf8"));
   return { ...validateMetadata(metadata, options), spanish: validateSpanishResources(appPath, metadata) };
 }

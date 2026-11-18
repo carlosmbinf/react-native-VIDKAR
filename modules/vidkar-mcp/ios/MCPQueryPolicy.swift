@@ -12,7 +12,7 @@ enum MCPQueryError: LocalizedError {
     case .invalidPlan: return "No pude preparar una consulta segura. Especifica qué información quieres consultar en VIDKAR."
     case .unavailable: return "La interpretación local requiere Apple Intelligence activado y su modelo descargado. Puedes usar las consultas específicas de VIDKAR."
     case .clarification(let message): return String(message.prefix(300))
-    case .expired: return "La consulta de Siri venció o la sesión cambió. Solicita una nueva consulta."
+    case .expired: return "La consulta venció o la sesión cambió. Solicita una nueva consulta."
     }
   }
 }

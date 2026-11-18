@@ -2191,7 +2191,7 @@ private func loadVIDKARProfileAvatar(_ rawURL: String?) async throws -> (VIDKARU
   catch {
     if error is CancellationError || (error as? URLError)?.code == .cancelled { throw CancellationError() }
     Logger(subsystem: "com.vidkar.mcp", category: "SiriUserAvatar")
-      .error("No se pudo cargar la foto para la ficha de Siri.")
+      .error("No se pudo cargar la foto para la ficha de usuario.")
     return (nil, true)
   }
 }
@@ -2293,7 +2293,7 @@ public func vidkarSiriFailureMessage(for error: Error) -> String {
   if let failure = error as? VIDKARUserSearchFailure { return failure.localizedDescription }
   let failure = catalogFailure(error)
   switch failure {
-  case .notConfigured: return String(localized: "Configura MCP en VIDKAR para hacer consultas con Siri.")
+  case .notConfigured: return String(localized: "Configura MCP en VIDKAR para hacer consultas.")
   case .forbidden: return String(localized: "Tu cuenta de VIDKAR no tiene permiso para esta consulta.")
   case .invalidResponse, .unavailable: return String(localized: "VIDKAR no pudo responder la consulta. Inténtalo de nuevo.")
   default: return failure.localizedDescription

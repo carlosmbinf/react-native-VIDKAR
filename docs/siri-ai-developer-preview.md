@@ -4,8 +4,8 @@ La prueba usa `@AppIntent(.tool)` para que Siri seleccione el catálogo de
 Comercio por intención, con el artículo como parámetro opcional. Usa la sesión
 MCP configurada y la herramienta de lectura `list_commerce_products`. Cada
 consulta trae hasta cinco productos reales y devuelve entidades con tarjetas de
-Siri. La configuración de Expo la activa en Debug y Release para el target
-principal. Requiere el SDK de iOS 27.3 en Xcode. El workflow
+Siri. El prebuild de Expo la activa en Debug y Release para el target
+principal con `VIDKAR_SIRI_AI_PREVIEW=1`. Requiere el SDK de iOS 27.3 en Xcode. El workflow
 `expo_full_release` desactiva la prueba antes del prebuild.
 
 Apple indica que incluir cualquier tool intent desplaza los App Shortcuts
@@ -40,7 +40,7 @@ superficies como Spotlight.
    ```bash
    export DEVELOPER_DIR="/Applications/Xcode-beta.app/Contents/Developer"
    xcrun --sdk iphoneos --show-sdk-version
-   npx expo prebuild --platform ios --no-install
+   VIDKAR_SIRI_AI_PREVIEW=1 npx expo prebuild --platform ios --no-install
    (cd ios && pod install)
    open -a "${DEVELOPER_DIR%/Contents/Developer}" ios/Vidkar.xcworkspace
    ```

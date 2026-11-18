@@ -149,6 +149,8 @@ test("plugin activa Siri AI en Debug y Release mediante la configuración Expo y
   assert.equal(skillRef.lastKnownFileType, "wrapper.skillsbundle");
   const skill = path.join(appDirectory, "AppIntents/Skills.skillsbundle/Skills/vidkar-catalogo/SKILL.md");
   const content = fs.readFileSync(skill, "utf8");
+  assert.doesNotMatch(content, /\bsiri(?:kit)?\b/i);
+  assert.doesNotMatch(preview, /"[^"\n]*\bsiri(?:kit)?\b[^"\n]*"/i);
   const parts = /^---\nname: ([a-z0-9]+(?:-[a-z0-9]+)*)\ndescription: ([^\n]+)\n---\n([\s\S]*)$/.exec(content);
   assert.ok(parts);
   assert.equal(parts[1], "vidkar-catalogo");

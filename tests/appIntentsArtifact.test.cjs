@@ -179,6 +179,11 @@ test("exige metadata del bundle principal, no solo la de un framework", (t) => {
   assert.throws(() => validateAppBundle(app), /evidencia española/);
   writeSpanishResources(app);
   assert.equal(validateAppBundle(app).shortcuts, 10);
+  for (const resource of [path.join(root, "Skills.skillsc"), path.join(app, "Skills.skillsbundle")]) {
+    fs.mkdirSync(resource);
+    assert.throws(() => validateAppBundle(app), /producción contiene recursos/);
+    fs.rmdirSync(resource);
+  }
   fs.writeFileSync(path.join(root, "extract.actionsdata"), "not JSON");
   assert.throws(() => validateAppBundle(app), SyntaxError);
 });
