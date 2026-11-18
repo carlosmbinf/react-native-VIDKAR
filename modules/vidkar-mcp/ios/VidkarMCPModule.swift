@@ -1970,6 +1970,7 @@ public struct VIDKARUserSearchAppEntity: AppEntity {
   @Property(title: "Nombre y apellido") public var fullName: String
   @Property(title: "Username") public var username: String
   @Property(title: "Cuenta de usuario") public var account: VIDKARAccountUserAppEntity?
+  @Property(title: "Identificador del perfil") public var profileID: String
   @Property(title: "Rol") public var role: String?
   @Property(title: "Miembro desde") public var memberSince: Date?
   @Property(title: "Correos registrados") public var registeredEmailCount: Int?
@@ -1988,9 +1989,9 @@ public struct VIDKARUserSearchAppEntity: AppEntity {
   private let avatarImageURL: URL?
   public let avatarImageData: Data?
   public var detailURL: URL? {
-    guard let account, let userID = account.id.split(separator: "|", maxSplits: 1).dropFirst().first else { return nil }
-    return vidkarSiriDetailLink(type: "user", id: String(userID))
+    vidkarSiriDetailLink(type: "user", id: profileID)
   }
+  public var profileURL: URL? { account?.profileURL }
 
   public init() {
     avatarImageURL = nil
@@ -1999,6 +2000,7 @@ public struct VIDKARUserSearchAppEntity: AppEntity {
     fullName = ""
     username = ""
     account = nil
+    profileID = ""
     role = nil
     memberSince = nil
     registeredEmailCount = nil
@@ -2024,6 +2026,7 @@ public struct VIDKARUserSearchAppEntity: AppEntity {
     self.fullName = fullName
     self.username = username
     self.account = account
+    profileID = account?.profileURL?.lastPathComponent ?? ""
     role = details?.role.map { MCPCatalogQuery.text($0, limit: 60) }
     memberSince = details?.memberSince
     registeredEmailCount = details?.emailCount
@@ -2066,6 +2069,13 @@ public struct VIDKARUserSearchAppEntity: AppEntity {
     }
     let subtitle = ["@\(username)", role ?? ""].filter { !$0.isEmpty }.joined(separator: " · ")
     return DisplayRepresentation(title: "\(fullName)", subtitle: "\(subtitle)", image: image)
+  }
+}
+
+@available(iOS 18.0, *)
+extension VIDKARUserSearchAppEntity: URLRepresentableEntity {
+  public static var urlRepresentation: URLRepresentation {
+    URLRepresentation("https://www.vidkar.com/users/\(.$profileID)")
   }
 }
 
@@ -2559,6 +2569,11 @@ public struct VIDKARAccountUserAppEntity: AppEntity {
   public let id: String
   @Property(title: "Nombre y apellido") public var fullName: String
   @Property(title: "Username") public var username: String
+  public var profileURL: URL? {
+    guard let userID = id.split(separator: "|", maxSplits: 1).dropFirst().first,
+          let path = vidkarSiriDetailLink(type: "user", id: String(userID))?.path else { return nil }
+    return URL(string: "https://www.vidkar.com/users\(path)")
+  }
 
   init(profile: [String: Any], ownerId: String) throws {
     guard let userId = profile["id"] as? String, !userId.isEmpty, userId.count <= 120,
@@ -2859,8 +2874,14 @@ private func vidkarFinancialRowsAndItems(_ payload: [String: Any], key: String, 
 
 private func vidkarReportPeriod(_ payload: [String: Any]) -> String {
   guard let period = payload["period"] as? [String: Any],
-        let from = period["from"] as? String, let to = period["to"] as? String else { return "" }
-  return "\(MCPCatalogQuery.text(from, limit: 40)) — \(MCPCatalogQuery.text(to, limit: 40)) · UTC"
+        let from = VIDKARUserProfileDetails.date(period["from"] as? String),
+        let to = VIDKARUserProfileDetails.date(period["to"] as? String), from <= to else { return "" }
+  let formatter = DateIntervalFormatter()
+  formatter.locale = Locale(identifier: "es")
+  formatter.timeZone = TimeZone(secondsFromGMT: 0)
+  formatter.dateStyle = .medium
+  formatter.timeStyle = .none
+  return formatter.string(from: from, to: to)
 }
 
 public enum VIDKARPersonalRecordKind: String, AppEnum {

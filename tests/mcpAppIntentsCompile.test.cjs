@@ -150,7 +150,11 @@ test("plugin activa Siri AI en Debug y Release mediante la configuración Expo y
     assert.ok(preview.includes(`ReturnsValue<[${entity}]>`), entity);
   }
   assert.match(preview, /VIDKARCommerceProductEntityQuery\(\)\.search\(matching: query\)/);
-  assert.doesNotMatch(preview, /offerVIDKARInAppSearch|OpenURLIntent|requestToContinueInForeground/);
+  assert.doesNotMatch(preview, /offerVIDKARInAppSearch|requestToContinueInForeground|\.result\(opensIntent:/);
+  assert.match(preview, /detailURL: user\.profileURL/);
+  assert.match(preview, /struct VIDKARSiriPreviewOpenProfileIntent: OpenIntent[\s\S]*?var target: VIDKARUserSearchAppEntity/);
+  assert.match(preview, /Button\(intent: OpenURLIntent\(profileURL\)\)/);
+  assert.match(preview, /\.result\(value: card, snippetIntent: VIDKARSiriPreviewActivitySnippet\(card: card\)\)/);
   const skillRef = project.hasFile("Vidkar/AppIntents/Skills.skillsbundle");
   assert.ok(skillRef);
   assert.equal(skillRef.lastKnownFileType, "wrapper.skillsbundle");
@@ -241,7 +245,7 @@ test("los App Intents y el provider compilan en módulos separados", {
         const template = fs.readFileSync(path.join(__dirname, "../plugins/resources/vidkar-app-intents/SiriAIPreview.swift"), "utf8");
         const previewPath = path.join(outputDirectory, "SiriAIPreview.swift");
         const stable = generated.replace(/\n\/\/ VIDKAR_SIRI_AI_PREVIEW_BEGIN\n[\s\S]*?\n\/\/ VIDKAR_SIRI_AI_PREVIEW_END\n/, "");
-        fs.writeFileSync(previewPath, `${stable}\n${template}`);
+        fs.writeFileSync(previewPath, `${stable.replace("internal import VidkarMCP", "public import VidkarMCP")}\n${template}`);
         run(["swiftc", ...flags, "-D", "VIDKAR_SIRI_AI_PREVIEW", "-typecheck", "-module-name", "VidkarApp", "-I", outputDirectory, previewPath]);
       }
       // El prototipo restante sigue compilando solo mediante opt-in explícito.

@@ -349,6 +349,10 @@ test("entrada nativa Expo entrega la misma búsqueda en frío y caliente sin dep
       "/(normal)/User?item=v2RLQM6CXKFBxQ2zQ",
     );
     assert.equal(
+      redirectSystemPath({ path: "https://www.vidkar.com/users/v2RLQM6CXKFBxQ2zQ", initial }),
+      "/(normal)/User?item=v2RLQM6CXKFBxQ2zQ",
+    );
+    assert.equal(
       redirectSystemPath({ path: "vidkar://series/series-1", initial }),
       "/(normal)/SeriesDetail?id=series-1",
     );

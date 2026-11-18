@@ -58,7 +58,7 @@ const siriPreviewCardLists = {
   VIDKARSiriPreviewUserSearchIntent: "VIDKARUserSearchAppEntity",
 };
 const userProfileProperties = [
-  "account", "fullName", "username", "role", "memberSince", "registeredEmailCount", "isBanned",
+  "account", "fullName", "username", "profileID", "role", "memberSince", "registeredEmailCount", "isBanned",
   "proxyActive", "proxyUsedBytes", "proxyLimitMB", "proxyUnlimited", "proxyExpiresAt",
   "vpnActive", "vpnConnected", "vpnUsedBytes", "vpnLimitMB", "vpnUnlimited", "vpnExpiresAt",
 ].sort();

@@ -44,6 +44,8 @@ struct VIDKARSiriResult: TransientAppEntity, SnippetRepresentableEntity {
   var state: VIDKARSiriResultState
 
   fileprivate var subtitle = ""
+  fileprivate var compactSubtitle = ""
+  fileprivate var profileURL: URL?
   fileprivate var symbol = "magnifyingglass"
   fileprivate var rows: [VIDKARSiriCardRow] = []
   fileprivate var message = ""
@@ -73,6 +75,10 @@ struct VIDKARSiriResult: TransientAppEntity, SnippetRepresentableEntity {
   }
 
   var displayRepresentation: DisplayRepresentation {
+    if !compactSubtitle.isEmpty {
+      return DisplayRepresentation(title: "\(title)", subtitle: "\(compactSubtitle)",
+        image: .init(systemName: symbol, isTemplate: true))
+    }
     let row = rows.count == 1 ? rows.first : nil
     let description = row.map {
       [$0.badge, $0.subtitle, $0.detail].filter { !$0.isEmpty }.joined(separator: " · ")
@@ -111,9 +117,10 @@ private struct VIDKARSiriCardView: View {
       if result.rows.count != 1 || result.rows.first?.title != result.title {
         Label {
           VStack(alignment: .leading, spacing: 3) {
-            Text(verbatim: result.title).font(.headline)
+            Text(verbatim: result.title).font(.headline).fixedSize(horizontal: false, vertical: true)
             if !result.subtitle.isEmpty {
-              Text(verbatim: result.subtitle).font(.caption).foregroundStyle(.secondary)
+              Text(verbatim: result.subtitle).font(.subheadline).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             }
           }
         } icon: {
@@ -127,6 +134,13 @@ private struct VIDKARSiriCardView: View {
       }
 
       rows
+
+      if let profileURL = result.profileURL {
+        Button(intent: OpenURLIntent(profileURL)) {
+          Label("Abrir perfil", systemImage: "person.crop.circle")
+        }
+        .buttonStyle(.bordered)
+      }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(14)
@@ -136,7 +150,13 @@ private struct VIDKARSiriCardView: View {
     ForEach(result.rows.indices, id: \.self) { index in
       if index > 0 { Divider() }
       let item = result.rows[index]
-      if let url = item.detailURL {
+      if let url = item.detailURL, url.scheme == "https" {
+        Button(intent: OpenURLIntent(url)) {
+          row(item)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Abre el detalle en VIDKAR")
+      } else if let url = item.detailURL {
         Link(destination: url) {
           row(item)
         }
@@ -164,7 +184,7 @@ private struct VIDKARSiriCardView: View {
         .accessibilityHidden(true)
       }
       VStack(alignment: .leading, spacing: 4) {
-        Text(verbatim: row.title).font(.headline).lineLimit(2)
+        Text(verbatim: row.title).font(.headline)
         if !row.badge.isEmpty {
           Text(verbatim: row.badge).font(.subheadline.weight(.semibold)).foregroundStyle(.teal)
         }
@@ -172,9 +192,11 @@ private struct VIDKARSiriCardView: View {
           Text(verbatim: row.subtitle).font(.caption).foregroundStyle(.secondary)
         }
         if !row.detail.isEmpty {
-          Text(verbatim: row.detail).font(.caption).foregroundStyle(.secondary).lineLimit(4)
+          Text(verbatim: row.detail).font(.caption).foregroundStyle(.secondary)
         }
       }
+      .fixedSize(horizontal: false, vertical: true)
+      .layoutPriority(1)
       if row.detailURL != nil {
         Spacer(minLength: 4)
         Image(systemName: "chevron.right").font(.caption.weight(.semibold))
@@ -228,10 +250,25 @@ extension VIDKARUserSearchAppEntity: @retroactive SnippetRepresentableEntity {
       let status = user.isBanned.map { $0 ? "Cuenta bloqueada" : "Cuenta sin bloqueo" }
       let details = [user.role, membership, status].compactMap { $0 }.joined(separator: " · ")
       let row = VIDKARSiriCardRow(title: user.fullName, subtitle: "@\(user.username)", detail: details,
-        thumbnail: user.avatarImageData, detailURL: user.detailURL, isAvatar: true)
+        thumbnail: user.avatarImageData, detailURL: user.profileURL, isAvatar: true)
       let result = VIDKARSiriResult(title: row.title, symbol: "person.crop.circle", rows: [row], emptyMessage: "")
       VIDKARSiriCardView(result: result).privacySensitive()
     }
+  }
+}
+
+@available(iOS 27.3, *)
+struct VIDKARSiriPreviewOpenProfileIntent: OpenIntent {
+  static let title: LocalizedStringResource = "Abrir perfil en VIDKAR"
+  static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
+
+  @Parameter(title: "Perfil") var target: VIDKARUserSearchAppEntity
+
+  func perform() async throws -> some IntentResult {
+    guard target.profileURL != nil else {
+      throw VIDKARLookupError(message: "El perfil no tiene un enlace disponible.")
+    }
+    return .result()
   }
 }
 
@@ -638,6 +675,35 @@ enum VIDKARSiriAccountActivity: String, AppEnum {
 }
 
 @available(iOS 27.3, *)
+struct VIDKARSiriPreviewActivitySnippet: SnippetIntent {
+  static let title: LocalizedStringResource = "Ficha de actividad VIDKAR"
+  static let isDiscoverable = false
+  static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
+
+  @Parameter(title: "Título") var reportTitle: String
+  @Parameter(title: "Cuenta y período") var context: String
+  @Parameter(title: "Actividad") var reportSummary: String
+  @Parameter(title: "Enlace del perfil") var profileURL: URL?
+
+  fileprivate init(card: VIDKARSiriResult) {
+    reportTitle = card.title
+    context = card.subtitle
+    reportSummary = card.summary
+    profileURL = card.profileURL
+  }
+
+  init() {}
+
+  func perform() async throws -> some IntentResult & ShowsSnippetView {
+    let rows = reportSummary.split(separator: "\n").map { VIDKARSiriCardRow(title: String($0)) }
+    var result = VIDKARSiriResult(title: reportTitle, subtitle: context, symbol: "list.bullet.rectangle",
+      rows: rows, emptyMessage: "VIDKAR no devolvió datos para esta consulta.")
+    result.profileURL = profileURL
+    return .result(view: VIDKARSiriCardView(result: result).privacySensitive())
+  }
+}
+
+@available(iOS 27.3, *)
 @AppIntent(.tool)
 struct VIDKARSiriPreviewUserActivityIntent: AppIntent {
   static let title: LocalizedStringResource = "Consulta compras, órdenes y ventas de una cuenta VIDKAR"
@@ -652,7 +718,7 @@ struct VIDKARSiriPreviewUserActivityIntent: AppIntent {
   @Parameter(title: "Período", description: "Período indicado por la persona. El valor por omisión es este mes.", default: .this_month)
   var period: VIDKARReadPeriod
 
-  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSiriResult> {
+  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSiriResult> & ShowsSnippetIntent {
     let card = try await vidkarSiriCard {
       let user = try await VIDKARSiriUserDirectory.account(matching: username)
       let report: VIDKARReadReportEntity?
@@ -671,10 +737,12 @@ struct VIDKARSiriPreviewUserActivityIntent: AppIntent {
       guard let report else { throw VIDKARLookupError(message: "VIDKAR no devolvió el informe solicitado.") }
       var result = VIDKARSiriResult(report: report, symbol: "list.bullet.rectangle")
       let account = user.map { "@\($0.username)" } ?? "Mi cuenta"
-      result.subtitle = [account, report.subtitle].filter { !$0.isEmpty }.joined(separator: " · ")
+      result.compactSubtitle = account
+      result.subtitle = [account, report.subtitle].filter { !$0.isEmpty }.joined(separator: "\n")
+      result.profileURL = user?.profileURL
       return result
     }
-    return .result(value: card)
+    return .result(value: card, snippetIntent: VIDKARSiriPreviewActivitySnippet(card: card))
   }
 }
 
