@@ -414,7 +414,7 @@ struct VIDKARSiriPreviewBusinessIntent: AppIntent {
 @AppIntent(.tool)
 struct VIDKARSiriPreviewCapabilitiesIntent: AppIntent {
   static let title: LocalizedStringResource = "Qué puedo hacer con VIDKAR en Siri"
-  static let description = IntentDescription("Enumera las consultas disponibles en Siri y el alcance de los datos de VIDKAR.")
+  static let description = IntentDescription("Enumera las consultas disponibles y el alcance de los datos de VIDKAR.")
   static let supportedModes: IntentModes = .background
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
 
