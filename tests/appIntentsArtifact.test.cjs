@@ -67,11 +67,12 @@ test("TestFlight exige las consultas Siri AI con una tarjeta tipada y producció
   const productId = "VIDKARSiriPreviewProductSearchIntent";
   assert.throws(() => validateMetadata(metadata, { siriPreview: true }), new RegExp(productId));
   for (const [id, parameters] of Object.entries(siriPreviewParameters)) {
-    const entity = { entity: { wrapper: { typeName: "VIDKARSiriResult" } } };
+    const listEntity = siriPreviewCardLists[id];
+    const entity = { entity: { wrapper: { typeName: listEntity ?? "VIDKARSiriResult" } } };
     metadata.actions[id] = {
       parameters: Object.entries(parameters).map(([name, isOptional]) => ({ name, isOptional })),
       openAppWhenRun: false, authenticationPolicy: 2,
-      outputType: siriPreviewCardLists.has(id) ? { array: { wrapper: { memberValueType: entity } } } : entity,
+      outputType: listEntity ? { array: { wrapper: { memberValueType: entity } } } : entity,
     };
   }
   metadata.entities.VIDKARSiriResult = {
@@ -86,6 +87,9 @@ test("TestFlight exige las consultas Siri AI con una tarjeta tipada y producció
   const noCard = structuredClone(metadata);
   noCard.actions[productId].outputType = { primitive: { wrapper: { typeIdentifier: 0 } } };
   assert.throws(() => validateMetadata(noCard, { siriPreview: true }), /una tarjeta en segundo plano/);
+  const summaryInsteadOfProfile = structuredClone(metadata);
+  summaryInsteadOfProfile.actions.VIDKARSiriPreviewUserSearchIntent.outputType.array.wrapper.memberValueType.entity.wrapper.typeName = "VIDKARSiriResult";
+  assert.throws(() => validateMetadata(summaryInsteadOfProfile, { siriPreview: true }), /VIDKARSiriPreviewUserSearchIntent/);
   const noAuthentication = structuredClone(metadata);
   noAuthentication.actions.VIDKARSiriPreviewServiceUsageIntent.authenticationPolicy = 0;
   assert.throws(() => validateMetadata(noAuthentication, { siriPreview: true }), /autenticación local/);

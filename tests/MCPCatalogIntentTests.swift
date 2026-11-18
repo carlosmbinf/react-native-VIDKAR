@@ -93,6 +93,10 @@ private struct MCPCatalogIntentTests {
     precondition(films.first?.detailURL?.absoluteString == "vidkar://movie/fixture-film?detail=true")
     precondition(films.first?.imageData != nil && films.first?.detail.isEmpty == true)
     precondition(films.first?.subtitle == "Año ficticio · Drama · Acción")
+    let resolvedFilms = try await VIDKARSiriContentCatalog.search(.movie, matching: nil, resultID: "fixture-film")
+    let resolvedFilmArgs = await network.lastArguments
+    precondition(resolvedFilms.first?.id == "fixture-film" && resolvedFilmArgs["id"] as? String == "fixture-film")
+    precondition(resolvedFilmArgs["query"] == nil)
     let episode: [String: Any] = ["id": "fixture-episode", "type": "episode", "title": "Capítulo 1",
       "subtitle": "Serie de prueba", "deepLink": "vidkar://episode/fixture-episode"]
     await network.response(try json([episode]))
@@ -236,7 +240,7 @@ private struct MCPCatalogIntentTests {
     let legacyResult = try await profileQuery.entities(for: [UUID().uuidString])
     precondition(legacyResult.isEmpty, "No convertir UUID transitorios antiguos en el usuario actual")
     let persistedUser = try await profileQuery.entities(for: [mainEntity.id])
-    precondition(persistedUser.count == 1 && persistedUser[0].vpnUsedBytes == 256)
+    precondition(persistedUser.count == 1 && persistedUser[0].vpnUsedBytes == 256 && persistedUser[0].avatarImageData != nil)
     let searchedUser = try await profileQuery.entities(matching: "carlosmbinf")
     precondition(searchedUser.count == 1 && searchedUser[0].id == mainEntity.id)
     let multiUsers = [

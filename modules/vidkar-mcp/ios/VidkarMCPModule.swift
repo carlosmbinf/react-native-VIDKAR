@@ -728,6 +728,11 @@ private actor MCPTransport {
     do {
       (data, response) = try await URLSession.shared.data(for: request)
     } catch {
+      if error is CancellationError || (error as? URLError)?.code == .cancelled { throw CancellationError() }
+      if let failure = error as? URLError {
+        Logger(subsystem: "com.vidkar.mcp", category: "Transport")
+          .error("Falló una solicitud MCP (URLError \(failure.code.rawValue, privacy: .public)).")
+      }
       throw MCPError.network
     }
     guard let http = response as? HTTPURLResponse else { throw MCPError.invalidResponse }
@@ -1350,7 +1355,7 @@ public struct VIDKARCommerceProductEntityQuery: EntityStringQuery {
 
 public enum VIDKARCommerceCatalog {
   public struct Product: Decodable, Sendable {
-    let id: String
+    public let id: String
     public let name: String
     public let storeName: String?
     public let price: Double?
@@ -1370,10 +1375,11 @@ public enum VIDKARCommerceCatalog {
     let products: [Product]
   }
 
-  public static func products(matching query: String?, includeThumbnails: Bool = false) async throws -> [Product] {
+  public static func products(matching query: String?, includeThumbnails: Bool = false, productID: String? = nil) async throws -> [Product] {
     let term = query?.trimmingCharacters(in: .whitespaces) ?? ""
     var arguments: [String: Any] = ["limit": MCPCatalogQuery.limit]
     if !term.isEmpty { arguments["query"] = try MCPCatalogQuery.query(term) }
+    if let productID { arguments["productId"] = try MCPCatalogQuery.query(productID) }
 
     let transport = MCPTransport.shared
     let session = try await transport.querySession()
@@ -1384,7 +1390,8 @@ public enum VIDKARCommerceCatalog {
     var seen = Set<String>()
     let products = response.products.compactMap { product -> Product? in
       let name = MCPCatalogQuery.text(product.name, limit: 160)
-      guard !name.isEmpty, !product.id.isEmpty, seen.insert(product.id).inserted else { return nil }
+      guard !name.isEmpty, !product.id.isEmpty, productID == nil || product.id == productID,
+            seen.insert(product.id).inserted else { return nil }
       return Product(id: product.id, name: name,
         storeName: product.storeName.map { MCPCatalogQuery.text($0, limit: 100) },
         price: product.price, currency: product.currency,
@@ -1424,6 +1431,7 @@ public enum VIDKARSiriContentCatalog {
   }
 
   public struct Item: Sendable {
+    public let id: String
     public let title: String
     public let subtitle: String
     public let detail: String
@@ -1431,16 +1439,20 @@ public enum VIDKARSiriContentCatalog {
     public let detailURL: URL?
   }
 
-  public static func search(_ kind: Kind, matching query: String?) async throws -> [Item] {
+  public static func search(_ kind: Kind, matching query: String?, resultID: String? = nil) async throws -> [Item] {
+    let productParts = kind == .product ? resultID?.split(separator: ":", maxSplits: 1) : nil
+    let category = productParts?.count == 2 ? productParts?.first.map { String($0) } : nil
+    let backendID = productParts?.count == 2 ? productParts?.last.map { String($0) } : resultID
+    if let backendID { _ = try MCPCatalogQuery.query(backendID) }
     let term: String
-    if kind == .course && (query ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+    if resultID != nil || (kind == .course && (query ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) {
       term = ""
     } else {
       term = try MCPCatalogQuery.query(query ?? "")
     }
     let transport = MCPTransport.shared
     let session = try await transport.querySession()
-    let payloads = try await transport.searchCatalogEntities(entity: kind.rawValue, query: term,
+    let payloads = try await transport.searchCatalogEntities(entity: kind.rawValue, query: term, id: backendID, category: category,
       limit: MCPCatalogQuery.limit, expectedRevision: session.revision)
     guard payloads.count <= MCPCatalogQuery.limit,
           payloads.allSatisfy({ $0.type == kind.rawValue && !$0.id.isEmpty }) else {
@@ -1448,7 +1460,9 @@ public enum VIDKARSiriContentCatalog {
     }
 
     var seen = Set<String>()
-    let matches = payloads.filter { seen.insert($0.id).inserted && !MCPCatalogQuery.text($0.title, limit: 160).isEmpty }
+    let matches = payloads.filter {
+      (resultID == nil || $0.id == resultID) && seen.insert($0.id).inserted && !MCPCatalogQuery.text($0.title, limit: 160).isEmpty
+    }
     let images = try await vidkarCatalogThumbnails(matches.map(\.imageUrl))
     let results = matches.enumerated().map { index, item in
       let productID = kind == .product ? item.id.split(separator: ":", maxSplits: 1) : []
@@ -1458,7 +1472,7 @@ public enum VIDKARSiriContentCatalog {
         .map { MCPCatalogQuery.cardText($0, limit: 40) }
       let subtitle = ([MCPCatalogQuery.cardText(item.subtitle, limit: 80)] + genres)
         .filter { !$0.isEmpty }.joined(separator: " · ")
-      return Item(title: MCPCatalogQuery.text(item.title, limit: 160), subtitle: subtitle,
+      return Item(id: item.id, title: MCPCatalogQuery.text(item.title, limit: 160), subtitle: subtitle,
         detail: MCPCatalogQuery.cardText(item.description, limit: 240), imageData: images[index],
         detailURL: vidkarSiriDetailLink(type: item.type, id: id, originalLink: item.deepLink, source: source))
     }
@@ -1843,6 +1857,7 @@ public struct VIDKARCatalogResultEntityQuery: EntityQuery {
 public struct VIDKARUserSearchAppEntity: AppEntity {
   public static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Usuario VIDKAR")
   public static let defaultQuery = VIDKARUserSearchAppEntityQuery()
+  public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
 
   public var id: String
   @Property(title: "Nombre y apellido") public var fullName: String
@@ -1919,10 +1934,10 @@ public struct VIDKARUserSearchAppEntity: AppEntity {
     vpnExpiresAt = details?.serviceUsage?.vpn?.expirationDate
   }
 
-  init(profile: [String: Any], ownerId: String) throws {
+  init(profile: [String: Any], ownerId: String, avatarData: Data? = nil) throws {
     let account = try VIDKARAccountUserAppEntity(profile: profile, ownerId: ownerId)
-    self.init(fullName: account.fullName, username: account.username, avatarURL: nil,
-      account: account, details: try VIDKARUserProfileDetails.decode(profile))
+    self.init(fullName: account.fullName, username: account.username, avatarURL: profile["picture"] as? String,
+      avatarData: avatarData, account: account, details: try VIDKARUserProfileDetails.decode(profile))
   }
 
   public var displayRepresentation: DisplayRepresentation {
@@ -1942,7 +1957,8 @@ public struct VIDKARUserSearchAppEntity: AppEntity {
     } else {
       image = DisplayRepresentation.Image(systemName: "person.crop.circle", isTemplate: true)
     }
-    return DisplayRepresentation(title: "\(fullName)", subtitle: "@\(username)", image: image)
+    let subtitle = ["@\(username)", role ?? ""].filter { !$0.isEmpty }.joined(separator: " · ")
+    return DisplayRepresentation(title: "\(fullName)", subtitle: "\(subtitle)", image: image)
   }
 }
 
@@ -1958,7 +1974,9 @@ public struct VIDKARUserSearchAppEntityQuery: EntityStringQuery {
     for identifier in resolvable {
       do {
         let profile = try await queryVIDKARUserProfile(identifier: identifier, session: session)
-        entities.append(try VIDKARUserSearchAppEntity(profile: profile, ownerId: session.ownerId))
+        let (avatar, _) = try await loadVIDKARProfileAvatar(profile["picture"] as? String)
+        try await MCPTransport.shared.assertQuerySession(session)
+        entities.append(try VIDKARUserSearchAppEntity(profile: profile, ownerId: session.ownerId, avatarData: avatar?.data))
       } catch MCPCatalogQuery.Failure.userNotFound {
         continue
       }

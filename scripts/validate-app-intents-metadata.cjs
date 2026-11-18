@@ -47,9 +47,11 @@ const siriPreviewParameters = {
   VIDKARSiriPreviewBusinessIntent: { report: false, period: false },
   VIDKARSiriPreviewCapabilitiesIntent: {},
 };
-const siriPreviewCardLists = new Set([
-  "VIDKARSiriPreviewProductSearchIntent", "VIDKARSiriPreviewContentSearchIntent", "VIDKARSiriPreviewUserSearchIntent",
-]);
+const siriPreviewCardLists = {
+  VIDKARSiriPreviewProductSearchIntent: "VIDKARPreviewCatalogEntity",
+  VIDKARSiriPreviewContentSearchIntent: "VIDKARPreviewCatalogEntity",
+  VIDKARSiriPreviewUserSearchIntent: "VIDKARUserSearchAppEntity",
+};
 const userProfileProperties = [
   "account", "fullName", "username", "role", "memberSince", "registeredEmailCount", "isBanned",
   "proxyActive", "proxyUsedBytes", "proxyLimitMB", "proxyUnlimited", "proxyExpiresAt",
@@ -76,13 +78,14 @@ function validateMetadata(metadata, { siriPreview = false } = {}) {
       const action = actions[id];
       if (!action) throw new Error(`Falta la herramienta Siri AI ${id}.`);
       const inputs = action.parameters ?? [];
-      const output = siriPreviewCardLists.has(id)
+      const listEntity = siriPreviewCardLists[id];
+      const output = listEntity
         ? action.outputType?.array?.wrapper?.memberValueType
         : action.outputType;
       if (inputs.length !== Object.keys(parameters).length ||
           Object.entries(parameters).some(([name, optional]) => !inputs.some((p) => p.name === name && p.isOptional === optional)) ||
           action.openAppWhenRun === true || action.authenticationPolicy !== 2 ||
-          output?.entity?.wrapper?.typeName !== "VIDKARSiriResult") {
+          output?.entity?.wrapper?.typeName !== (listEntity ?? "VIDKARSiriResult")) {
         throw new Error(`La herramienta Siri AI ${id} requiere parámetros tipados, autenticación local y una tarjeta en segundo plano.`);
       }
     }

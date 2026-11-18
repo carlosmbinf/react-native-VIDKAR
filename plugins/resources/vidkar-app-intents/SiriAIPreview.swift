@@ -74,16 +74,12 @@ struct VIDKARSiriResult: TransientAppEntity, SnippetRepresentableEntity {
     usageMetrics = report.usageMetrics
   }
 
-  fileprivate init(errorMessage: String) {
-    self.init(title: "Consulta VIDKAR", symbol: "exclamationmark.circle", rows: [], emptyMessage: errorMessage)
-    state = .unavailable
-  }
-
   var displayRepresentation: DisplayRepresentation {
     let row = rows.count == 1 ? rows.first : nil
     let description = row.map {
       [$0.badge, $0.subtitle, $0.detail].filter { !$0.isEmpty }.joined(separator: " · ")
-    } ?? (rows.isEmpty ? summary : subtitle)
+    } ?? (rows.isEmpty ? summary : [subtitle, rows.prefix(2).map(\.summary).joined(separator: " · ")]
+      .filter { !$0.isEmpty }.joined(separator: " · "))
     let image: DisplayRepresentation.Image
     if let thumbnail = row?.thumbnail {
       image = row?.isAvatar == true ? .init(data: thumbnail, displayStyle: .circular) : .init(data: thumbnail)
@@ -98,26 +94,12 @@ struct VIDKARSiriResult: TransientAppEntity, SnippetRepresentableEntity {
   }
 
   static var snippet: some EntitySnippetContent<Self> {
-    CardSnippet(supportedFamilies: [.standard]) { result, _ in
-      VIDKARSiriCardView(result: result)
+    CardSnippet(supportedFamilies: [.compact, .standard]) { result, context in
+      VIDKARSiriCardView(result: result, compact: context.family == .compact)
     }
   }
 
-  fileprivate var individualCards: [Self] {
-    guard state == .available else { return [self] }
-    return rows.map { row in
-      Self(title: row.title, subtitle: subtitle, symbol: symbol, rows: [row], emptyMessage: "")
-    }
-  }
 
-  fileprivate func dialog(readDetails: Bool) -> IntentDialog {
-    guard state == .available else { return IntentDialog(stringLiteral: message) }
-    let supporting = "\(title)."
-    guard readDetails else { return IntentDialog(stringLiteral: supporting) }
-    let spokenRows = rows.prefix(3).map { [$0.title, $0.badge, $0.subtitle].filter { !$0.isEmpty }.joined(separator: ", ") }
-    return IntentDialog(full: "\(supporting) \(spokenRows.joined(separator: ". ")).",
-      supporting: "\(supporting) Encontré \(rows.count) coincidencias.")
-  }
 }
 
 @available(iOS 27.3, *)
@@ -129,6 +111,7 @@ struct VIDKARSiriResultQuery: EntityQuery {
 @available(iOS 27.3, *)
 private struct VIDKARSiriCardView: View {
   let result: VIDKARSiriResult
+  var compact = false
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
@@ -159,7 +142,7 @@ private struct VIDKARSiriCardView: View {
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(14)
+    .padding(compact ? 8 : 14)
   }
 
   private var rows: some View {
@@ -188,7 +171,7 @@ private struct VIDKARSiriCardView: View {
             Image(systemName: result.symbol).font(.title3).foregroundStyle(.teal)
           }
         }
-        .frame(width: 60, height: row.isPortrait ? 84 : 60)
+        .frame(width: compact ? 36 : 60, height: compact ? 42 : (row.isPortrait ? 84 : 60))
         .background(Color.teal.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: row.isAvatar ? 30 : 10))
         .accessibilityHidden(true)
@@ -202,7 +185,7 @@ private struct VIDKARSiriCardView: View {
           Text(verbatim: row.subtitle).font(.caption).foregroundStyle(.secondary)
         }
         if !row.detail.isEmpty {
-          Text(verbatim: row.detail).font(.caption).foregroundStyle(.secondary).lineLimit(4)
+          Text(verbatim: row.detail).font(.caption).foregroundStyle(.secondary).lineLimit(compact ? 2 : 4)
         }
       }
       if row.detailURL != nil {
@@ -226,8 +209,129 @@ private func vidkarSiriCard(_ operation: () async throws -> VIDKARSiriResult) as
   } catch {
     if error is CancellationError || (error as? URLError)?.code == .cancelled { throw CancellationError() }
     try Task.checkCancellation()
-    return VIDKARSiriResult(errorMessage: vidkarSiriFailureMessage(for: error))
+    if let failure = error as? VIDKARLookupError { throw failure }
+    throw VIDKARLookupError(message: vidkarSiriFailureMessage(for: error))
   }
+}
+
+private struct VIDKARLookupError: LocalizedError {
+  let message: String
+  var errorDescription: String? { message }
+}
+
+private func vidkarLookup<Entity>(empty: String, operation: () async throws -> [Entity]) async throws -> [Entity] {
+  let results: [Entity]
+  do {
+    results = try await operation()
+    try Task.checkCancellation()
+  } catch {
+    if error is CancellationError || (error as? URLError)?.code == .cancelled { throw CancellationError() }
+    try Task.checkCancellation()
+    throw VIDKARLookupError(message: vidkarSiriFailureMessage(for: error))
+  }
+  guard !results.isEmpty else { throw VIDKARLookupError(message: empty) }
+  return results
+}
+
+@available(iOS 27.3, *)
+extension VIDKARUserSearchAppEntity: @retroactive SnippetRepresentableEntity {
+  public static var snippet: some EntitySnippetContent<Self> {
+    CardSnippet(supportedFamilies: [.compact, .standard]) { user, context in
+      let membership = user.memberSince.map { "Miembro desde \($0.formatted(date: .abbreviated, time: .omitted))" }
+      let status = user.isBanned.map { $0 ? "Cuenta bloqueada" : "Cuenta sin bloqueo" }
+      let details = [user.role, membership, status].compactMap { $0 }.joined(separator: " · ")
+      let row = VIDKARSiriCardRow(title: user.fullName, subtitle: "@\(user.username)", detail: details,
+        thumbnail: user.avatarImageData, detailURL: user.detailURL, isAvatar: true)
+      let result = VIDKARSiriResult(title: row.title, symbol: "person.crop.circle", rows: [row], emptyMessage: "")
+      VIDKARSiriCardView(result: result, compact: context.family == .compact).privacySensitive()
+    }
+  }
+}
+
+@available(iOS 27.3, *)
+struct VIDKARPreviewCatalogEntity: AppEntity, SnippetRepresentableEntity {
+  static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Artículo del catálogo VIDKAR")
+  static let defaultQuery = VIDKARPreviewCatalogQuery()
+  static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
+
+  let id: String
+  @Property(title: "Título", description: "Nombre del artículo en el catálogo") var title: String
+  @Property(title: "Categoría", description: "Tipo de contenido del catálogo") var category: String
+  @Property(title: "Información", description: "Año, género o tienda cuando corresponda") var subtitle: String
+  @Property(title: "Descripción", description: "Descripción o sinopsis disponible") var detail: String
+  @Property(title: "Precio", description: "Importe y moneda del producto, cuando existe") var price: String?
+  private let thumbnail: Data?
+  private let detailURL: URL?
+  private let symbol: String
+  private let portrait: Bool
+
+  init(item: VIDKARSiriContentCatalog.Item, kind: VIDKARSiriContentKind) {
+    id = "\(kind.rawValue):\(item.id)"
+    title = item.title
+    category = kind.presentation.title
+    subtitle = item.subtitle
+    detail = item.detail
+    price = nil
+    thumbnail = item.imageData
+    detailURL = item.detailURL
+    symbol = kind.presentation.symbol
+    portrait = kind == .movie || kind == .series
+  }
+
+  init(product: VIDKARCommerceCatalog.Product) {
+    id = "commerce:\(product.id)"
+    title = product.name
+    category = "Comercio"
+    subtitle = product.storeName ?? ""
+    detail = product.description ?? ""
+    if let amount = product.price, amount.isFinite, amount >= 0,
+       let currency = product.currency, currency.range(of: "^[A-Z]{3}$", options: .regularExpression) != nil {
+      price = "\(amount.formatted(.number.precision(.fractionLength(2)))) \(currency)"
+    } else {
+      price = nil
+    }
+    thumbnail = product.thumbnailData
+    detailURL = product.detailURL
+    symbol = "shippingbox"
+    portrait = false
+  }
+
+  var displayRepresentation: DisplayRepresentation {
+    let context = [price ?? "", subtitle, category].filter { !$0.isEmpty }.joined(separator: " · ")
+    let image = thumbnail.map { DisplayRepresentation.Image(data: $0) }
+      ?? DisplayRepresentation.Image(systemName: symbol, isTemplate: true)
+    return DisplayRepresentation(title: "\(title)", subtitle: "\(context)", image: image)
+  }
+
+  static var snippet: some EntitySnippetContent<Self> {
+    CardSnippet(supportedFamilies: [.compact, .standard]) { entity, context in
+      let row = VIDKARSiriCardRow(title: entity.title, subtitle: entity.subtitle, detail: entity.detail,
+        badge: entity.price ?? "", thumbnail: entity.thumbnail, detailURL: entity.detailURL, isPortrait: entity.portrait)
+      let result = VIDKARSiriResult(title: row.title, symbol: entity.symbol, rows: [row], emptyMessage: "")
+      VIDKARSiriCardView(result: result, compact: context.family == .compact)
+    }
+  }
+}
+
+@available(iOS 27.3, *)
+struct VIDKARPreviewCatalogQuery: EntityQuery {
+  func entities(for identifiers: [String]) async throws -> [VIDKARPreviewCatalogEntity] {
+    var results: [VIDKARPreviewCatalogEntity] = []
+    for identifier in identifiers.prefix(5) {
+      let parts = identifier.split(separator: ":", maxSplits: 1).map(String.init)
+      guard parts.count == 2 else { continue }
+      if parts[0] == "commerce" {
+        let products = try await VIDKARCommerceCatalog.products(matching: nil, includeThumbnails: true, productID: parts[1])
+        results.append(contentsOf: products.map(VIDKARPreviewCatalogEntity.init(product:)))
+      } else if let kind = VIDKARSiriContentKind(rawValue: parts[0]) {
+        let items = try await VIDKARSiriContentCatalog.search(kind.presentation.kind, matching: nil, resultID: parts[1])
+        results.append(contentsOf: items.map { VIDKARPreviewCatalogEntity(item: $0, kind: kind) })
+      }
+    }
+    return results
+  }
+
+  func suggestedEntities() async throws -> [VIDKARPreviewCatalogEntity] { [] }
 }
 
 @available(iOS 27.3, *)
@@ -241,22 +345,11 @@ struct VIDKARSiriPreviewProductSearchIntent: AppIntent {
   @Parameter(title: "Producto", description: "Tipo o modelo breve, como PS5 o USB-C. Omítelo para ver qué hay.")
   var query: String?
 
-  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSiriResult]> & ProvidesDialog {
-    let card = try await vidkarSiriCard {
-      let products = try await VIDKARCommerceCatalog.products(matching: query, includeThumbnails: true)
-      let rows = products.map { product in
-        var price = ""
-        if let amount = product.price, amount.isFinite, amount > 0,
-           let currency = product.currency, currency.range(of: "^[A-Z]{3}$", options: .regularExpression) != nil {
-          price = "\(amount.formatted(.number.precision(.fractionLength(2)))) \(currency)"
-        }
-        return VIDKARSiriCardRow(title: product.name, subtitle: product.storeName ?? "",
-          detail: product.description ?? "", badge: price, thumbnail: product.thumbnailData, detailURL: product.detailURL)
-      }
-      return VIDKARSiriResult(title: "Productos de Comercio", subtitle: query ?? "", symbol: "shippingbox",
-        rows: rows, emptyMessage: "No encontré productos para esta consulta en VIDKAR.")
+  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARPreviewCatalogEntity]> {
+    let products = try await vidkarLookup(empty: "No encontré productos para esta consulta en VIDKAR.") {
+      try await VIDKARCommerceCatalog.products(matching: query, includeThumbnails: true)
     }
-    return .result(value: card.individualCards, dialog: card.dialog(readDetails: true))
+    return .result(value: products.map(VIDKARPreviewCatalogEntity.init(product:)))
   }
 }
 
@@ -294,22 +387,15 @@ struct VIDKARSiriPreviewContentSearchIntent: AppIntent {
   @Parameter(title: "Título o término", description: "Nombre o término breve. Puedes omitirlo para listar cursos.")
   var query: String?
 
-  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSiriResult]> & ProvidesDialog {
-    let card = try await vidkarSiriCard {
-      let presentation = kind.presentation
-      let term = query?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-      if term.isEmpty && kind != .course {
-        return VIDKARSiriResult(errorMessage: "¿Qué título o nombre quieres buscar en VIDKAR?")
-      }
-      let items = try await VIDKARSiriContentCatalog.search(presentation.kind, matching: term)
-      let rows = items.map {
-        VIDKARSiriCardRow(title: $0.title, subtitle: $0.subtitle, detail: $0.detail,
-          thumbnail: $0.imageData, detailURL: $0.detailURL, isPortrait: kind == .movie || kind == .series)
-      }
-      return VIDKARSiriResult(title: presentation.title, subtitle: query ?? "", symbol: presentation.symbol,
-        rows: rows, emptyMessage: "No encontré coincidencias en este catálogo de VIDKAR.")
+  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARPreviewCatalogEntity]> {
+    let term = query?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    guard !term.isEmpty || kind == .course else {
+      throw VIDKARLookupError(message: "¿Qué título o nombre quieres buscar en VIDKAR?")
     }
-    return .result(value: card.individualCards, dialog: card.dialog(readDetails: true))
+    let items = try await vidkarLookup(empty: "No encontré coincidencias en este catálogo de VIDKAR.") {
+      try await VIDKARSiriContentCatalog.search(kind.presentation.kind, matching: term)
+    }
+    return .result(value: items.map { VIDKARPreviewCatalogEntity(item: $0, kind: kind) })
   }
 }
 
@@ -324,26 +410,11 @@ struct VIDKARSiriPreviewUserSearchIntent: AppIntent {
   @Parameter(title: "Usuario", description: "Envía solo el nombre, apellido o @usuario indicado, como «Carlos Medina» o «@carlos». Omítelo solo cuando la persona pide su propio perfil.")
   var query: String?
 
-  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARSiriResult]> & ProvidesDialog {
-    let card = try await vidkarSiriCard {
-      let users = try await VIDKARSiriUserDirectory.search(query)
-      let rows = users.map { user in
-        let membership = user.memberSince.map { "Miembro desde \($0.formatted(date: .abbreviated, time: .omitted))" }
-        let account = user.isBanned.map { $0 ? "Cuenta bloqueada" : "Cuenta sin bloqueo" }
-        let details = [user.role, membership, account].compactMap { $0 }.filter { !$0.isEmpty }
-        return VIDKARSiriCardRow(title: user.fullName, subtitle: "@\(user.username)",
-          detail: details.joined(separator: " · "), thumbnail: user.avatarImageData,
-          detailURL: user.detailURL, isAvatar: true)
-      }
-      let title = rows.count == 1 ? "Perfil VIDKAR" : "Usuarios de VIDKAR"
-      let subtitle = rows.count > 1 ? "Usa el @usuario para consultar una cuenta" : ""
-      return VIDKARSiriResult(title: title, subtitle: subtitle, symbol: "person.crop.circle",
-        rows: rows, emptyMessage: "No encontré ese usuario dentro de tu acceso autorizado.")
+  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARUserSearchAppEntity]> {
+    let users = try await vidkarLookup(empty: "No encontré ese usuario dentro de tu acceso autorizado.") {
+      try await VIDKARSiriUserDirectory.search(query)
     }
-    let dialog: IntentDialog = card.rows.count > 1
-      ? "Encontré varios perfiles. ¿Qué @usuario quieres consultar?"
-      : card.dialog(readDetails: false)
-    return .result(value: card.individualCards, dialog: dialog)
+    return .result(value: users)
   }
 }
 
@@ -360,13 +431,13 @@ struct VIDKARSiriPreviewServiceUsageIntent: AppIntent {
   @Parameter(title: "Servicio", description: "Proxy o VPN. Si la persona pide el consumo general, omite el servicio para ver ambos.")
   var service: VIDKARAccountService?
 
-  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSiriResult> & ProvidesDialog {
+  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSiriResult> {
     let card = try await vidkarSiriCard {
       let user = try await VIDKARSiriUserDirectory.account(matching: username)
       let report = try await VIDKARGetUserServiceUsageIntent.read(user: user, service: service)
       return VIDKARSiriResult(report: report, symbol: "gauge.with.dots.needle.33percent")
     }
-    return .result(value: card, dialog: card.dialog(readDetails: false))
+    return .result(value: card)
   }
 }
 
@@ -394,7 +465,7 @@ struct VIDKARSiriPreviewUserActivityIntent: AppIntent {
   @Parameter(title: "Período", description: "Período indicado por la persona. El valor por omisión es este mes.", default: .this_month)
   var period: VIDKARReadPeriod
 
-  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSiriResult> & ProvidesDialog {
+  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSiriResult> {
     let card = try await vidkarSiriCard {
       let user = try await VIDKARSiriUserDirectory.account(matching: username)
       let report: VIDKARReadReportEntity?
@@ -410,13 +481,13 @@ struct VIDKARSiriPreviewUserActivityIntent: AppIntent {
         intent.period = period
         report = try await intent.perform().value
       }
-      guard let report else { return VIDKARSiriResult(errorMessage: "VIDKAR no devolvió el informe solicitado.") }
+      guard let report else { throw VIDKARLookupError(message: "VIDKAR no devolvió el informe solicitado.") }
       var result = VIDKARSiriResult(report: report, symbol: "list.bullet.rectangle")
       let account = user.map { "@\($0.username)" } ?? "Mi cuenta"
       result.subtitle = [account, report.subtitle].filter { !$0.isEmpty }.joined(separator: " · ")
       return result
     }
-    return .result(value: card, dialog: card.dialog(readDetails: false))
+    return .result(value: card)
   }
 }
 
@@ -435,18 +506,18 @@ struct VIDKARSiriPreviewPersonalRecordsIntent: AppIntent {
   @Parameter(title: "Período", description: "Período solicitado. Omítelo si no se indicó fecha.")
   var period: VIDKARReadPeriod?
 
-  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSiriResult> & ProvidesDialog {
+  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSiriResult> {
     let card = try await vidkarSiriCard {
       let intent = VIDKARGetMyRecordsIntent()
       intent.records = records
       intent.query = query ?? ""
       intent.period = period
       guard let report = try await intent.perform().value else {
-        return VIDKARSiriResult(errorMessage: "VIDKAR no devolvió los datos solicitados.")
+        throw VIDKARLookupError(message: "VIDKAR no devolvió los datos solicitados.")
       }
       return VIDKARSiriResult(report: report, symbol: records == .message ? "bubble.left.and.bubble.right" : "checkmark.seal")
     }
-    return .result(value: card, dialog: card.dialog(readDetails: false))
+    return .result(value: card)
   }
 }
 
@@ -463,17 +534,17 @@ struct VIDKARSiriPreviewBusinessIntent: AppIntent {
   @Parameter(title: "Período", description: "Período solicitado. El valor por omisión es este mes.", default: .this_month)
   var period: VIDKARReadPeriod
 
-  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSiriResult> & ProvidesDialog {
+  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSiriResult> {
     let card = try await vidkarSiriCard {
       let intent = VIDKARGetBusinessReportIntent()
       intent.report = report
       intent.period = period
       guard let value = try await intent.perform().value else {
-        return VIDKARSiriResult(errorMessage: "VIDKAR no devolvió el informe solicitado.")
+        throw VIDKARLookupError(message: "VIDKAR no devolvió el informe solicitado.")
       }
       return VIDKARSiriResult(report: value, symbol: "chart.bar")
     }
-    return .result(value: card, dialog: card.dialog(readDetails: false))
+    return .result(value: card)
   }
 }
 
@@ -485,7 +556,7 @@ struct VIDKARSiriPreviewCapabilitiesIntent: AppIntent {
   static let supportedModes: IntentModes = .background
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
 
-  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSiriResult> & ProvidesDialog {
+  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSiriResult> {
     try Task.checkCancellation()
     let rows = [
       VIDKARSiriCardRow(title: "Catálogos", detail: "Comercio, recargas, películas, series, capítulos, cursos y lecciones."),
@@ -494,7 +565,7 @@ struct VIDKARSiriPreviewCapabilitiesIntent: AppIntent {
       VIDKARSiriCardRow(title: "Negocio", detail: "Ventas, pagos, costos registrados y rentabilidad según tus permisos."),
     ]
     let card = VIDKARSiriResult(title: "Qué puedes consultar", symbol: "list.bullet", rows: rows, emptyMessage: "")
-    return .result(value: card, dialog: "Puedes consultar catálogos, usuarios, consumo, actividad de tu cuenta e informes del negocio.")
+    return .result(value: card)
   }
 }
 #endif

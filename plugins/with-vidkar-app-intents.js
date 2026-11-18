@@ -144,9 +144,13 @@ const withVidkarAppIntents = (config, { siriAIPreview = false } = {}) => {
   }
 
   let source = fs.readFileSync(appDelegatePath, "utf8");
-  for (const importLine of ["import AppIntents", "internal import VidkarMCP"]) {
-    if (!source.includes(importLine)) source = `${importLine}\n${source}`;
-  }
+  if (!source.includes("import AppIntents")) source = `import AppIntents\n${source}`;
+  // The preview adds a public snippet conformance to the profile entity from the pod.
+  const mcpImport = previewEnabled ? "public import VidkarMCP" : "internal import VidkarMCP";
+  const existingMCPImport = /^(?:(?:internal|public) )?import VidkarMCP$/m;
+  source = existingMCPImport.test(source)
+    ? source.replace(existingMCPImport, mcpImport)
+    : `${mcpImport}\n${source}`;
   if (!source.includes("VIDKAR_APP_INTENTS_PACKAGE")) {
     source = `${source.trimEnd()}\n${packageDeclaration}`;
   }
