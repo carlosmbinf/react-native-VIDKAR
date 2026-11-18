@@ -55,6 +55,8 @@ private struct MCPCatalogIntentTests {
     let pictured = try await VIDKARCommerceCatalog.products(matching: nil, includeThumbnails: true)
     precondition(pictured.first?.thumbnailData != nil)
     precondition(pictured.first?.detailURL?.absoluteString == "vidkar://product/p1?detail=true&source=COMERCIO")
+    let commerceEntities = try await VIDKARCommerceProductEntityQuery().entities(for: ["product:COMERCIO:p1"])
+    precondition(commerceEntities.first?.id == "product:COMERCIO:p1" && commerceEntities.first?.price?.contains("UYU") == true)
     let browseArguments = await network.lastArguments
     precondition(browseArguments["query"] == nil && browseArguments["limit"] as? Int == 5)
     _ = try await VIDKARCommerceCatalog.products(matching: "  cable USB-C  ")
@@ -97,6 +99,22 @@ private struct MCPCatalogIntentTests {
     let resolvedFilmArgs = await network.lastArguments
     precondition(resolvedFilms.first?.id == "fixture-film" && resolvedFilmArgs["id"] as? String == "fixture-film")
     precondition(resolvedFilmArgs["query"] == nil)
+    let movieEntities = try await VIDKARMovieEntityQuery().entities(matching: "Prueba")
+    precondition(movieEntities.first?.id == "movie:fixture-film" && movieEntities.first?.detailURL == films.first?.detailURL)
+    await network.response("""
+      {"success":true,"products":[
+        {"productId":"35718","name":"Promo Cubacel","operator":"Cubacel","price":26.4,"currency":"USD"},
+        {"productId":"35719","name":"Nauta","operator":"Nauta","price":5,"currency":"USD"}]}
+      """)
+    let recharges = try await VIDKARPlanCatalog.list(.cubacel, matching: nil)
+    let rechargeArgs = await network.lastArguments
+    precondition(recharges.map(\.id) == ["35718"] && rechargeArgs["query"] as? String == "Cubacel")
+    await network.response("""
+      {"success":true,"packages":[{"packageId":"vpn-1","name":"VPN 10 GB","unitPrice":500,"currency":"CUP"}]}
+      """)
+    let plans = try await VIDKARPlanCatalog.list(.vpn, matching: nil)
+    let planArgs = await network.lastArguments
+    precondition(plans.first?.id == "vpn-1" && planArgs["type"] as? String == "VPN")
     let episode: [String: Any] = ["id": "fixture-episode", "type": "episode", "title": "Capítulo 1",
       "subtitle": "Serie de prueba", "deepLink": "vidkar://episode/fixture-episode"]
     await network.response(try json([episode]))

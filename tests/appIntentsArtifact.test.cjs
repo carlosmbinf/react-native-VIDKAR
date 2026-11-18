@@ -78,7 +78,7 @@ test("TestFlight exige las consultas Siri AI con una tarjeta tipada y producció
   metadata.entities.VIDKARSiriResult = {
     transient: true, properties: ["state", "summary", "title"].map((identifier) => ({ identifier })),
   };
-  assert.equal(validateMetadata(metadata, { siriPreview: true }).actions, 25);
+  assert.equal(validateMetadata(metadata, { siriPreview: true }).actions, 27);
   assert.throws(() => validateMetadata(metadata), /fuera del build de prueba/);
 
   const invalid = structuredClone(metadata);

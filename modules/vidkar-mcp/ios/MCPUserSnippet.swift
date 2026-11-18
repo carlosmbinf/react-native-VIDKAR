@@ -210,6 +210,11 @@ struct VIDKARUserProfileDetails: Decodable, Sendable {
 public struct VIDKARServiceUsageMetric: Sendable {
   let isVPN: Bool
   let usage: VIDKARUserProfileDetails.Usage?
+  public var serviceKey: String { isVPN ? "vpn" : "proxy" }
+  public var usedBytes: Double? { usage?.usedBytes }
+  public var quotaMB: Double? { limitBytes == nil ? nil : usage?.limitMB }
+  public var isUnlimited: Bool? { usage?.unlimited }
+  public var expiresAt: Date? { usage?.expirationDate }
 
   var title: String { isVPN ? "VPN" : "Proxy" }
   var icon: String { isVPN ? "shield.lefthalf.filled" : "globe" }
@@ -256,7 +261,7 @@ public struct VIDKARServiceUsageMetric: Sendable {
     usage?.expirationDate.map { "Vence el \($0.formatted(date: .abbreviated, time: .omitted))" }
   }
 
-  var summary: String {
+  public var summary: String {
     guard let used else { return "\(title): sin datos de consumo." }
     return ["\(title): \(used) usados", plan, overLimit ? "Cuota superada" : percentage, status, expiry]
       .compactMap { $0 }.joined(separator: " · ")

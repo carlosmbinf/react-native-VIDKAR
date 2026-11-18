@@ -122,6 +122,9 @@ function resolveFrontendRoute(
   const [section, value, subsection] = normalizedSegments;
   const [, rawValue, rawSubsection] = segments;
 
+  if (section === "cubacel" && rawValue && /^[0-9]{1,18}$/.test(rawValue) && segments.length === 2) {
+    return { pathname: "/(normal)/CubacelOferta", params: { providerProductId: rawValue } };
+  }
   if (section === "peliculas" && value === "reproducir" && rawSubsection && segments.length === 3) {
     return { pathname: "/(normal)/PeliculaPlayer", params: { id: rawSubsection } };
   }

@@ -143,8 +143,10 @@ test("plugin activa Siri AI en Debug y Release mediante la configuración Expo y
   assert.match(preview, /struct VIDKARSiriResult: TransientAppEntity, SnippetRepresentableEntity/);
   assert.match(preview, /CardSnippet\(supportedFamilies: \[\.compact, \.standard\]\)/);
   assert.match(preview, /ReturnsValue<\[VIDKARUserSearchAppEntity\]> \{[\s\S]*?return \.result\(value: users\)/);
-  assert.equal((preview.match(/ReturnsValue<\[VIDKARPreviewCatalogEntity\]>/g) ?? []).length, 2);
-  assert.match(preview, /VIDKARCommerceCatalog\.products\(matching: query, includeThumbnails: true\)/);
+  for (const entity of ["VIDKARPreviewCatalogEntity", "VIDKARCommerceProductAppEntity", "VIDKARMovieAppEntity", "VIDKARPreviewUsageEntity", "VIDKARPreviewPlanEntity"]) {
+    assert.ok(preview.includes(`ReturnsValue<[${entity}]>`), entity);
+  }
+  assert.match(preview, /VIDKARCommerceProductEntityQuery\(\)\.search\(matching: query\)/);
   assert.doesNotMatch(preview, /offerVIDKARInAppSearch|OpenURLIntent|requestToContinueInForeground/);
   const skillRef = project.hasFile("Vidkar/AppIntents/Skills.skillsbundle");
   assert.ok(skillRef);

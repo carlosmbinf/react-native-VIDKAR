@@ -70,7 +70,8 @@ private actor FixtureNetwork {
     if method == "initialize" { initializations += 1 }
     if method == "tools/list" { discoveries += 1 }
     let reportTools = ["get_sales", "get_user_purchase_history", "get_orders", "get_business_summary", "get_payments", "get_costs", "get_profitability"]
-    let isQuery = name == "search_entities" || name == "get_service_usage" || name == "list_commerce_products" || reportTools.contains(name ?? "")
+    let catalogTools = ["search_entities", "get_service_usage", "list_commerce_products", "list_recharge_products", "list_proxyvpn_packages"]
+    let isQuery = catalogTools.contains(name ?? "") || reportTools.contains(name ?? "")
     let isUserProfile = name == "get_user"
     if isQuery { lastArguments = params["arguments"] as? [String: Any] ?? [:] }
     if isUserProfile { lastProfileArguments = params["arguments"] as? [String: Any] ?? [:] }
@@ -94,7 +95,9 @@ private actor FixtureNetwork {
           "_meta": ["vidkar/security": ["requiresConfirmation": true]]],
         ["name": "get_service_usage", "inputSchema": ["properties": ["userId": [:], "confirmed": [:]]], "annotations": ["readOnlyHint": readOnly],
           "_meta": ["vidkar/security": ["requiresConfirmation": true]]],
-        ["name": "list_commerce_products", "inputSchema": ["properties": ["limit": [:], "query": [:]]], "annotations": ["readOnlyHint": readOnly]],
+        ["name": "list_commerce_products", "inputSchema": ["properties": ["limit": [:], "query": [:], "productId": [:]]], "annotations": ["readOnlyHint": readOnly]],
+        ["name": "list_recharge_products", "inputSchema": ["properties": ["limit": [:], "query": [:]]], "annotations": ["readOnlyHint": readOnly]],
+        ["name": "list_proxyvpn_packages", "inputSchema": ["properties": ["limit": [:], "query": [:], "type": [:]]], "annotations": ["readOnlyHint": readOnly]],
       ] + reports]
     } else if name == "get_current_user" {
       let owner = request.value(forHTTPHeaderField: "Authorization")!.contains("other-owner") ? "other-owner" : "fixture-owner"

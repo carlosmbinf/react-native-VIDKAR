@@ -39,6 +39,8 @@ const expectedIntents = [
 ];
 const siriPreviewParameters = {
   VIDKARSiriPreviewProductSearchIntent: { query: true },
+  VIDKARSiriPreviewMovieSearchIntent: { query: false },
+  VIDKARSiriPreviewPlanSearchIntent: { kind: false, query: true },
   VIDKARSiriPreviewContentSearchIntent: { kind: false, query: true },
   VIDKARSiriPreviewUserSearchIntent: { query: true },
   VIDKARSiriPreviewServiceUsageIntent: { username: true, service: true },
@@ -48,7 +50,10 @@ const siriPreviewParameters = {
   VIDKARSiriPreviewCapabilitiesIntent: {},
 };
 const siriPreviewCardLists = {
-  VIDKARSiriPreviewProductSearchIntent: "VIDKARPreviewCatalogEntity",
+  VIDKARSiriPreviewProductSearchIntent: "VIDKARCommerceProductAppEntity",
+  VIDKARSiriPreviewMovieSearchIntent: "VIDKARMovieAppEntity",
+  VIDKARSiriPreviewPlanSearchIntent: "VIDKARPreviewPlanEntity",
+  VIDKARSiriPreviewServiceUsageIntent: "VIDKARPreviewUsageEntity",
   VIDKARSiriPreviewContentSearchIntent: "VIDKARPreviewCatalogEntity",
   VIDKARSiriPreviewUserSearchIntent: "VIDKARUserSearchAppEntity",
 };

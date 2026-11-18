@@ -46,7 +46,6 @@ struct VIDKARSiriResult: TransientAppEntity, SnippetRepresentableEntity {
   fileprivate var subtitle = ""
   fileprivate var symbol = "magnifyingglass"
   fileprivate var rows: [VIDKARSiriCardRow] = []
-  fileprivate var usageMetrics: [VIDKARServiceUsageMetric] = []
   fileprivate var message = ""
 
   init() {
@@ -71,7 +70,6 @@ struct VIDKARSiriResult: TransientAppEntity, SnippetRepresentableEntity {
     let lines = report.summary.split(separator: "\n").map { VIDKARSiriCardRow(title: String($0)) }
     self.init(title: report.title, subtitle: report.subtitle, symbol: symbol,
       rows: lines, emptyMessage: "VIDKAR no devolvió datos para esta consulta.")
-    usageMetrics = report.usageMetrics
   }
 
   var displayRepresentation: DisplayRepresentation {
@@ -85,10 +83,6 @@ struct VIDKARSiriResult: TransientAppEntity, SnippetRepresentableEntity {
       image = row?.isAvatar == true ? .init(data: thumbnail, displayStyle: .circular) : .init(data: thumbnail)
     } else {
       image = .init(systemName: symbol, isTemplate: true)
-    }
-    if !usageMetrics.isEmpty {
-      let details = summary.replacingOccurrences(of: "\n", with: " · ")
-      return DisplayRepresentation(title: "\(title)", subtitle: "\(details)", image: image)
     }
     return DisplayRepresentation(title: "\(row?.title ?? title)", subtitle: "\(description)", image: image)
   }
@@ -133,13 +127,7 @@ private struct VIDKARSiriCardView: View {
         Text(verbatim: result.message).font(.subheadline).foregroundStyle(.secondary)
       }
 
-      if !result.usageMetrics.isEmpty {
-        ForEach(result.usageMetrics.indices, id: \.self) { index in
-          VIDKARServiceUsageChart(metric: result.usageMetrics[index])
-        }
-      } else {
-        rows
-      }
+      rows
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(compact ? 8 : 14)
@@ -259,7 +247,6 @@ struct VIDKARPreviewCatalogEntity: AppEntity, SnippetRepresentableEntity {
   @Property(title: "Categoría", description: "Tipo de contenido del catálogo") var category: String
   @Property(title: "Información", description: "Año, género o tienda cuando corresponda") var subtitle: String
   @Property(title: "Descripción", description: "Descripción o sinopsis disponible") var detail: String
-  @Property(title: "Precio", description: "Importe y moneda del producto, cuando existe") var price: String?
   private let thumbnail: Data?
   private let detailURL: URL?
   private let symbol: String
@@ -271,33 +258,14 @@ struct VIDKARPreviewCatalogEntity: AppEntity, SnippetRepresentableEntity {
     category = kind.presentation.title
     subtitle = item.subtitle
     detail = item.detail
-    price = nil
     thumbnail = item.imageData
     detailURL = item.detailURL
     symbol = kind.presentation.symbol
-    portrait = kind == .movie || kind == .series
-  }
-
-  init(product: VIDKARCommerceCatalog.Product) {
-    id = "commerce:\(product.id)"
-    title = product.name
-    category = "Comercio"
-    subtitle = product.storeName ?? ""
-    detail = product.description ?? ""
-    if let amount = product.price, amount.isFinite, amount >= 0,
-       let currency = product.currency, currency.range(of: "^[A-Z]{3}$", options: .regularExpression) != nil {
-      price = "\(amount.formatted(.number.precision(.fractionLength(2)))) \(currency)"
-    } else {
-      price = nil
-    }
-    thumbnail = product.thumbnailData
-    detailURL = product.detailURL
-    symbol = "shippingbox"
-    portrait = false
+    portrait = kind == .series
   }
 
   var displayRepresentation: DisplayRepresentation {
-    let context = [price ?? "", subtitle, category].filter { !$0.isEmpty }.joined(separator: " · ")
+    let context = [subtitle, category].filter { !$0.isEmpty }.joined(separator: " · ")
     let image = thumbnail.map { DisplayRepresentation.Image(data: $0) }
       ?? DisplayRepresentation.Image(systemName: symbol, isTemplate: true)
     return DisplayRepresentation(title: "\(title)", subtitle: "\(context)", image: image)
@@ -306,7 +274,7 @@ struct VIDKARPreviewCatalogEntity: AppEntity, SnippetRepresentableEntity {
   static var snippet: some EntitySnippetContent<Self> {
     CardSnippet(supportedFamilies: [.compact, .standard]) { entity, context in
       let row = VIDKARSiriCardRow(title: entity.title, subtitle: entity.subtitle, detail: entity.detail,
-        badge: entity.price ?? "", thumbnail: entity.thumbnail, detailURL: entity.detailURL, isPortrait: entity.portrait)
+        thumbnail: entity.thumbnail, detailURL: entity.detailURL, isPortrait: entity.portrait)
       let result = VIDKARSiriResult(title: row.title, symbol: entity.symbol, rows: [row], emptyMessage: "")
       VIDKARSiriCardView(result: result, compact: context.family == .compact)
     }
@@ -320,13 +288,9 @@ struct VIDKARPreviewCatalogQuery: EntityQuery {
     for identifier in identifiers.prefix(5) {
       let parts = identifier.split(separator: ":", maxSplits: 1).map(String.init)
       guard parts.count == 2 else { continue }
-      if parts[0] == "commerce" {
-        let products = try await VIDKARCommerceCatalog.products(matching: nil, includeThumbnails: true, productID: parts[1])
-        results.append(contentsOf: products.map(VIDKARPreviewCatalogEntity.init(product:)))
-      } else if let kind = VIDKARSiriContentKind(rawValue: parts[0]) {
-        let items = try await VIDKARSiriContentCatalog.search(kind.presentation.kind, matching: nil, resultID: parts[1])
-        results.append(contentsOf: items.map { VIDKARPreviewCatalogEntity(item: $0, kind: kind) })
-      }
+      guard let kind = VIDKARSiriContentKind(rawValue: parts[0]) else { continue }
+      let items = try await VIDKARSiriContentCatalog.search(kind.presentation.kind, matching: nil, resultID: parts[1])
+      results.append(contentsOf: items.map { VIDKARPreviewCatalogEntity(item: $0, kind: kind) })
     }
     return results
   }
@@ -345,26 +309,182 @@ struct VIDKARSiriPreviewProductSearchIntent: AppIntent {
   @Parameter(title: "Producto", description: "Tipo o modelo breve, como PS5 o USB-C. Omítelo para ver qué hay.")
   var query: String?
 
-  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARPreviewCatalogEntity]> {
+  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARCommerceProductAppEntity]> {
     let products = try await vidkarLookup(empty: "No encontré productos para esta consulta en VIDKAR.") {
-      try await VIDKARCommerceCatalog.products(matching: query, includeThumbnails: true)
+      try await VIDKARCommerceProductEntityQuery().search(matching: query)
     }
-    return .result(value: products.map(VIDKARPreviewCatalogEntity.init(product:)))
+    return .result(value: products)
+  }
+}
+
+@available(iOS 27.3, *)
+extension VIDKARCommerceProductAppEntity: @retroactive SnippetRepresentableEntity {
+  public static var snippet: some EntitySnippetContent<Self> {
+    CardSnippet(supportedFamilies: [.compact, .standard]) { product, context in
+      let row = VIDKARSiriCardRow(title: product.title, subtitle: product.subtitle, detail: product.summary,
+        badge: product.price ?? "", thumbnail: product.thumbnailImageData, detailURL: product.detailURL)
+      let result = VIDKARSiriResult(title: row.title, symbol: "shippingbox", rows: [row], emptyMessage: "")
+      VIDKARSiriCardView(result: result, compact: context.family == .compact)
+    }
+  }
+}
+
+@available(iOS 27.3, *)
+extension VIDKARMovieAppEntity: @retroactive SnippetRepresentableEntity {
+  public static var snippet: some EntitySnippetContent<Self> {
+    CardSnippet(supportedFamilies: [.compact, .standard]) { movie, context in
+      let row = VIDKARSiriCardRow(title: movie.title, subtitle: movie.subtitle, detail: movie.summary,
+        thumbnail: movie.thumbnailImageData, detailURL: movie.detailURL, isPortrait: true)
+      let result = VIDKARSiriResult(title: row.title, symbol: "film", rows: [row], emptyMessage: "")
+      VIDKARSiriCardView(result: result, compact: context.family == .compact)
+    }
+  }
+}
+
+@available(iOS 27.3, *)
+@AppIntent(.tool)
+struct VIDKARSiriPreviewMovieSearchIntent: AppIntent {
+  static let title: LocalizedStringResource = "Busca películas en VIDKAR"
+  static let description = IntentDescription("Busca películas por título y devuelve la ficha de cada coincidencia con su imagen y descripción disponibles.")
+  static let supportedModes: IntentModes = .background
+  static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
+
+  @Parameter(title: "Título", description: "Nombre de la película o término que indicó la persona.")
+  var query: String
+
+  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARMovieAppEntity]> {
+    let movies = try await vidkarLookup(empty: "No encontré películas que coincidan en VIDKAR.") {
+      try await VIDKARMovieEntityQuery().entities(matching: query)
+    }
+    return .result(value: movies)
+  }
+}
+
+@available(iOS 27.3, *)
+enum VIDKARPreviewPlanKind: String, AppEnum {
+  case cubacel, proxy, vpn
+  static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Catálogo de planes")
+  static let caseDisplayRepresentations: [Self: DisplayRepresentation] = [
+    .cubacel: "Recargas Cubacel", .proxy: "Paquetes Proxy", .vpn: "Paquetes VPN",
+  ]
+
+  var title: String {
+    switch self {
+    case .cubacel: return "Cubacel"
+    case .proxy: return "Proxy"
+    case .vpn: return "VPN"
+    }
+  }
+
+  var symbol: String {
+    switch self {
+    case .cubacel: return "antenna.radiowaves.left.and.right"
+    case .proxy: return "globe"
+    case .vpn: return "shield.lefthalf.filled"
+    }
+  }
+
+  var catalogKind: VIDKARPlanCatalog.Kind {
+    switch self {
+    case .cubacel: return .cubacel
+    case .proxy: return .proxy
+    case .vpn: return .vpn
+    }
+  }
+}
+
+@available(iOS 27.3, *)
+struct VIDKARPreviewPlanEntity: TransientAppEntity, SnippetRepresentableEntity {
+  static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Oferta de VIDKAR")
+  static let defaultQuery = VIDKARPreviewPlanQuery()
+  static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
+  var id = UUID().uuidString
+  @Property(title: "Servicio") var kind: VIDKARPreviewPlanKind
+  @Property(title: "Identificador de la oferta") var offerID: String
+  @Property(title: "Producto") var title: String
+  @Property(title: "Detalles de la oferta") var detail: String
+  @Property(title: "Importe") var price: Double
+  @Property(title: "Moneda") var currency: String
+
+  init() {
+    kind = .cubacel
+    offerID = ""
+    title = ""
+    detail = ""
+    price = 0
+    currency = ""
+  }
+
+  init(offer: VIDKARPlanCatalog.Offer, kind: VIDKARPreviewPlanKind) {
+    self.init()
+    self.kind = kind
+    offerID = offer.id
+    title = offer.title
+    detail = [offer.subtitle, offer.detail].filter { !$0.isEmpty && $0 != offer.title }.joined(separator: " · ")
+    price = offer.price
+    currency = offer.currency
+  }
+
+  private var priceLabel: String { "\(price.formatted(.number.precision(.fractionLength(2)))) \(currency)" }
+  private var detailURL: URL? {
+    guard kind == .cubacel, offerID.range(of: "^[0-9]{1,18}$", options: .regularExpression) != nil else { return nil }
+    return URL(string: "vidkar://cubacel/\(offerID)")
+  }
+
+  var displayRepresentation: DisplayRepresentation {
+    DisplayRepresentation(title: "\(title)", subtitle: "\(kind.title) · \(priceLabel)",
+      image: .init(systemName: kind.symbol, isTemplate: true))
+  }
+
+  static var snippet: some EntitySnippetContent<Self> {
+    CardSnippet(supportedFamilies: [.compact, .standard]) { offer, context in
+      let row = VIDKARSiriCardRow(title: offer.title, subtitle: offer.kind.title, detail: offer.detail,
+        badge: offer.priceLabel, detailURL: offer.detailURL)
+      let result = VIDKARSiriResult(title: row.title, symbol: offer.kind.symbol, rows: [row], emptyMessage: "")
+      VIDKARSiriCardView(result: result, compact: context.family == .compact)
+    }
+  }
+}
+
+@available(iOS 27.3, *)
+struct VIDKARPreviewPlanQuery: EntityQuery {
+  func entities(for identifiers: [String]) async throws -> [VIDKARPreviewPlanEntity] { [] }
+  func suggestedEntities() async throws -> [VIDKARPreviewPlanEntity] { [] }
+}
+
+@available(iOS 27.3, *)
+@AppIntent(.tool)
+struct VIDKARSiriPreviewPlanSearchIntent: AppIntent {
+  static let title: LocalizedStringResource = "Consulta ofertas Cubacel y paquetes Proxy o VPN"
+  static let description = IntentDescription("Lista recargas o promociones Cubacel y paquetes de Proxy o VPN con su precio y condiciones disponibles.")
+  static let supportedModes: IntentModes = .background
+  static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
+
+  @Parameter(title: "Servicio", description: "Elige Cubacel, Proxy o VPN según el catálogo pedido.")
+  var kind: VIDKARPreviewPlanKind
+
+  @Parameter(title: "Oferta", description: "Término concreto de la oferta. Omítelo para listar opciones.")
+  var query: String?
+
+  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARPreviewPlanEntity]> {
+    let offers = try await vidkarLookup(empty: "No encontré ofertas que coincidan en ese catálogo.") {
+      try await VIDKARPlanCatalog.list(kind.catalogKind, matching: query)
+    }
+    return .result(value: offers.map { VIDKARPreviewPlanEntity(offer: $0, kind: kind) })
   }
 }
 
 @available(iOS 27.3, *)
 enum VIDKARSiriContentKind: String, AppEnum {
-  case movie, series, episode, course, lesson, product
+  case series, episode, course, lesson, product
   static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Tipo de contenido VIDKAR")
   static let caseDisplayRepresentations: [Self: DisplayRepresentation] = [
-    .movie: "Películas", .series: "Series", .episode: "Capítulos", .course: "Cursos",
+    .series: "Series", .episode: "Capítulos", .course: "Cursos",
     .lesson: "Lecciones", .product: "Productos y recargas",
   ]
 
   var presentation: (kind: VIDKARSiriContentCatalog.Kind, title: String, symbol: String) {
     switch self {
-    case .movie: return (.movie, "Películas", "film")
     case .series: return (.series, "Series", "tv")
     case .episode: return (.episode, "Capítulos", "play.rectangle")
     case .course: return (.course, "Cursos", "graduationcap")
@@ -377,8 +497,8 @@ enum VIDKARSiriContentKind: String, AppEnum {
 @available(iOS 27.3, *)
 @AppIntent(.tool)
 struct VIDKARSiriPreviewContentSearchIntent: AppIntent {
-  static let title: LocalizedStringResource = "Busca contenido y recargas en VIDKAR"
-  static let description = IntentDescription("Consulta el catálogo autorizado de películas, series, capítulos, cursos, lecciones y recargas. Devuelve una tarjeta por coincidencia con los datos y la imagen disponibles.")
+  static let title: LocalizedStringResource = "Busca series, cursos y otros contenidos en VIDKAR"
+  static let description = IntentDescription("Consulta el catálogo autorizado de series, capítulos, cursos, lecciones y recargas. Devuelve una tarjeta por coincidencia con los datos y la imagen disponibles.")
   static let supportedModes: IntentModes = .background
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
 
@@ -419,6 +539,72 @@ struct VIDKARSiriPreviewUserSearchIntent: AppIntent {
 }
 
 @available(iOS 27.3, *)
+struct VIDKARPreviewUsageEntity: TransientAppEntity, SnippetRepresentableEntity {
+  static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Consumo de un servicio VIDKAR")
+  static let defaultQuery = VIDKARPreviewUsageQuery()
+  static let authenticationPolicy: IntentAuthenticationPolicy = .requiresLocalDeviceAuthentication
+  var id = UUID().uuidString
+  @Property(title: "Servicio") var service: VIDKARAccountService
+  @Property(title: "Cuenta") var account: String
+  @Property(title: "Bytes usados") var usedBytes: Double?
+  @Property(title: "Cuota en MB") var quotaMB: Double?
+  @Property(title: "Ilimitado") var unlimited: Bool?
+  @Property(title: "Vencimiento") var expiresAt: Date?
+  @Property(title: "Resumen de consumo") var summary: String
+  private var metric: VIDKARServiceUsageMetric?
+
+  init() {
+    service = .proxy
+    account = ""
+    usedBytes = nil
+    quotaMB = nil
+    unlimited = nil
+    expiresAt = nil
+    summary = ""
+  }
+
+  init(metric: VIDKARServiceUsageMetric, account: String) {
+    self.init()
+    self.metric = metric
+    self.account = account
+    service = metric.serviceKey == "vpn" ? .vpn : .proxy
+    usedBytes = metric.usedBytes
+    quotaMB = metric.quotaMB
+    unlimited = metric.isUnlimited
+    expiresAt = metric.expiresAt
+    summary = metric.summary
+  }
+
+  var displayRepresentation: DisplayRepresentation {
+    let title = service == .vpn ? "Consumo VPN" : "Consumo Proxy"
+    let detail = [account, summary].filter { !$0.isEmpty }.joined(separator: " · ")
+    return DisplayRepresentation(title: "\(title)", subtitle: "\(detail)",
+      image: .init(systemName: service == .vpn ? "shield.lefthalf.filled" : "globe", isTemplate: true))
+  }
+
+  static var snippet: some EntitySnippetContent<Self> {
+    CardSnippet(supportedFamilies: [.compact, .standard]) { usage, context in
+      VStack(alignment: .leading, spacing: 4) {
+        Text(verbatim: usage.account).font(.caption).foregroundStyle(.secondary)
+        if let metric = usage.metric {
+          VIDKARServiceUsageChart(metric: metric)
+        } else {
+          Text(verbatim: usage.summary)
+        }
+      }
+      .padding(context.family == .compact ? 6 : 12)
+      .privacySensitive()
+    }
+  }
+}
+
+@available(iOS 27.3, *)
+struct VIDKARPreviewUsageQuery: EntityQuery {
+  func entities(for identifiers: [String]) async throws -> [VIDKARPreviewUsageEntity] { [] }
+  func suggestedEntities() async throws -> [VIDKARPreviewUsageEntity] { [] }
+}
+
+@available(iOS 27.3, *)
 @AppIntent(.tool)
 struct VIDKARSiriPreviewServiceUsageIntent: AppIntent {
   static let title: LocalizedStringResource = "Consulta consumo de Proxy y VPN en VIDKAR"
@@ -431,13 +617,14 @@ struct VIDKARSiriPreviewServiceUsageIntent: AppIntent {
   @Parameter(title: "Servicio", description: "Proxy o VPN. Si la persona pide el consumo general, omite el servicio para ver ambos.")
   var service: VIDKARAccountService?
 
-  func perform() async throws -> some IntentResult & ReturnsValue<VIDKARSiriResult> {
-    let card = try await vidkarSiriCard {
+  func perform() async throws -> some IntentResult & ReturnsValue<[VIDKARPreviewUsageEntity]> {
+    let usages = try await vidkarLookup(empty: "No hay datos de consumo disponibles para esa cuenta.") {
       let user = try await VIDKARSiriUserDirectory.account(matching: username)
       let report = try await VIDKARGetUserServiceUsageIntent.read(user: user, service: service)
-      return VIDKARSiriResult(report: report, symbol: "gauge.with.dots.needle.33percent")
+      return report.usageMetrics.filter { $0.usedBytes != nil }
+        .map { VIDKARPreviewUsageEntity(metric: $0, account: report.subtitle) }
     }
-    return .result(value: card)
+    return .result(value: usages)
   }
 }
 

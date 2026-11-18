@@ -231,10 +231,13 @@ const CubacelOfertaScreen = () => {
   const [submitting, setSubmitting] = useState(false);
   const dataReady = useDeferredScreenData();
 
-  const productId =
+  const originalProductId =
     typeof params.productId === "string" ? params.productId : "";
+  const providerProductId = typeof params.providerProductId === "string" && /^[0-9]{1,18}$/.test(params.providerProductId)
+    ? params.providerProductId
+    : "";
   const [zoomSnapshot, setZoomSnapshot] = useState(() =>
-    zoomEnabled ? getCubacelZoomSnapshot(productId) : null,
+    zoomEnabled && originalProductId ? getCubacelZoomSnapshot(originalProductId) : null,
   );
 
   useEffect(() => {
@@ -243,15 +246,18 @@ const CubacelOfertaScreen = () => {
 
   const { product, ready, user } = Meteor.useTracker(() => {
     const handler = dataReady ? Meteor.subscribe("productosDtShop") : null;
+    const providerId = Number(providerProductId);
+    const providerIds = Number.isSafeInteger(providerId) ? [providerProductId, providerId] : [providerProductId];
+    const selector = originalProductId ? { _id: originalProductId }
+      : providerProductId ? { id: { $in: providerIds } } : null;
 
     return {
-      product: productId
-        ? DTShopProductosCollection.findOne({ _id: productId })
-        : null,
+      product: selector ? DTShopProductosCollection.findOne(selector) : null,
       user: Meteor.user(),
       ready: handler ? handler.ready() : false,
     };
-  }, [dataReady, productId]);
+  }, [dataReady, originalProductId, providerProductId]);
+  const productId = product?._id ?? originalProductId;
 
   useEffect(() => {
     if (zoomSnapshot && (product || ready || zoomSnapshot.productId !== productId)) {
@@ -399,7 +405,7 @@ const CubacelOfertaScreen = () => {
     );
   };
 
-  if (!productId) {
+  if (!originalProductId && !providerProductId) {
     return (
       <SafeAreaView style={styles.safeArea} edges={[]}>
         <Surface style={styles.screen}>

@@ -1270,8 +1270,18 @@ private func resolveVIDKARCatalog<Entity: VIDKARCatalogAppEntity>(_ type: Entity
 public struct VIDKARMovieEntityQuery: EntityStringQuery {
   public init() {}
   public typealias Entity = VIDKARMovieAppEntity
-  public func entities(matching string: String) async throws -> [Entity] { try await searchVIDKARCatalog(Entity.self, query: string) }
-  public func entities(for identifiers: [Entity.ID]) async throws -> [Entity] { try await resolveVIDKARCatalog(Entity.self, identifiers: identifiers) }
+  public func entities(matching string: String) async throws -> [Entity] {
+    try await VIDKARSiriContentCatalog.search(.movie, matching: string).map(Entity.init(item:))
+  }
+  public func entities(for identifiers: [Entity.ID]) async throws -> [Entity] {
+    var results: [Entity] = []
+    for identifier in identifiers.prefix(5) {
+      guard let id = Entity.backendID(from: identifier) else { continue }
+      let items = try await VIDKARSiriContentCatalog.search(.movie, matching: nil, resultID: id)
+      results.append(contentsOf: items.map(Entity.init(item:)))
+    }
+    return results
+  }
   public func suggestedEntities() async throws -> [Entity] { [] }
 }
 
@@ -1280,12 +1290,19 @@ public struct VIDKARMovieAppEntity: VIDKARCatalogAppEntity {
   static let symbolName = "film"
   public static var defaultQuery: VIDKARMovieEntityQuery { VIDKARMovieEntityQuery() }
   public let id: String
-  @Property(title: "Título") var title: String
-  @Property(title: "Subtítulo") var subtitle: String
-  @Property(title: "Descripción") var summary: String
+  @Property(title: "Título") public var title: String
+  @Property(title: "Subtítulo") public var subtitle: String
+  @Property(title: "Descripción") public var summary: String
   @Property(title: "Enlace VIDKAR") var deepLink: String
   let thumbnailImageURL: URL?
-  let thumbnailImageData: Data?
+  public let thumbnailImageData: Data?
+  public var detailURL: URL? {
+    Self.backendID(from: id).flatMap { vidkarSiriDetailLink(type: "movie", id: $0) }
+  }
+  init(item: VIDKARSiriContentCatalog.Item) {
+    self.init(id: "movie:\(item.id)", title: item.title, subtitle: item.subtitle, summary: item.detail,
+      deepLink: item.detailURL?.absoluteString ?? "", thumbnailData: item.imageData)
+  }
   init(id: String, title: String, subtitle: String, summary: String, deepLink: String, thumbnailURL: String? = nil, thumbnailData: Data? = nil) {
     self.thumbnailImageURL = thumbnailURL.flatMap(validatedVIDKARUserAvatarURL)
     self.thumbnailImageData = thumbnailData
@@ -1348,8 +1365,19 @@ public struct VIDKARCourseAppEntity: VIDKARCatalogAppEntity {
 public struct VIDKARCommerceProductEntityQuery: EntityStringQuery {
   public init() {}
   public typealias Entity = VIDKARCommerceProductAppEntity
-  public func entities(matching string: String) async throws -> [Entity] { try await searchVIDKARCatalog(Entity.self, query: string) }
-  public func entities(for identifiers: [Entity.ID]) async throws -> [Entity] { try await resolveVIDKARCatalog(Entity.self, identifiers: identifiers) }
+  public func entities(matching string: String) async throws -> [Entity] { try await search(matching: string) }
+  public func search(matching query: String?) async throws -> [Entity] {
+    try await VIDKARCommerceCatalog.products(matching: query, includeThumbnails: true).map(Entity.init(product:))
+  }
+  public func entities(for identifiers: [Entity.ID]) async throws -> [Entity] {
+    var results: [Entity] = []
+    for identifier in identifiers.prefix(5) {
+      guard let id = Entity.backendID(from: identifier) else { continue }
+      let products = try await VIDKARCommerceCatalog.products(matching: nil, includeThumbnails: true, productID: id)
+      results.append(contentsOf: products.map(Entity.init(product:)))
+    }
+    return results
+  }
   public func suggestedEntities() async throws -> [Entity] { [] }
 }
 
@@ -1407,6 +1435,72 @@ public enum VIDKARCommerceCatalog {
     }
     try await transport.assertQuerySession(session)
     return results
+  }
+}
+
+public enum VIDKARPlanCatalog {
+  public enum Kind: String, Sendable { case cubacel, proxy, vpn }
+
+  public struct Offer: Sendable {
+    public let id: String
+    public let title: String
+    public let subtitle: String
+    public let detail: String
+    public let price: Double
+    public let currency: String
+  }
+
+  private struct Row: Decodable {
+    let productId: String?
+    let packageId: String?
+    let name: String
+    let label: String?
+    let operatorName: String?
+    let description: String?
+    let price: Double?
+    let unitPrice: Double?
+    let currency: String
+
+    private enum CodingKeys: String, CodingKey {
+      case productId, packageId, name, label, description, price, unitPrice, currency
+      case operatorName = "operator"
+    }
+  }
+
+  private struct Response: Decodable {
+    let success: Bool?
+    let products: [Row]?
+    let packages: [Row]?
+  }
+
+  public static func list(_ kind: Kind, matching query: String?) async throws -> [Offer] {
+    let term = query?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    let isRecharge = kind == .cubacel
+    var arguments: [String: Any] = ["limit": MCPCatalogQuery.limit]
+    if !term.isEmpty { arguments["query"] = try MCPCatalogQuery.query(term) }
+    else if isRecharge { arguments["query"] = "Cubacel" }
+    if !isRecharge { arguments["type"] = kind.rawValue.uppercased() }
+    let transport = MCPTransport.shared
+    let session = try await transport.querySession()
+    let output = try await transport.execute(name: isRecharge ? "list_recharge_products" : "list_proxyvpn_packages",
+      arguments: arguments, expectedRevision: session.revision)
+    guard let response = try? JSONDecoder().decode(Response.self, from: Data(output.utf8)),
+          response.success != false,
+          let rows = isRecharge ? response.products : response.packages else { throw MCPError.invalidResponse }
+    try await transport.assertQuerySession(session)
+    var seen = Set<String>()
+    return rows.prefix(MCPCatalogQuery.limit).compactMap { row in
+      if isRecharge && ![row.operatorName ?? "", row.name].contains(where: { $0.localizedCaseInsensitiveContains("Cubacel") }) {
+        return nil
+      }
+      let title = MCPCatalogQuery.cardText(row.name, limit: 160)
+      guard let id = isRecharge ? row.productId : row.packageId, !id.isEmpty,
+            let price = isRecharge ? row.price : row.unitPrice, price.isFinite, price > 0,
+            !title.isEmpty, row.currency.range(of: "^[A-Z]{3}$", options: .regularExpression) != nil,
+            seen.insert(id).inserted else { return nil }
+      return Offer(id: id, title: title, subtitle: MCPCatalogQuery.cardText(row.operatorName ?? row.label, limit: 120),
+        detail: MCPCatalogQuery.cardText(row.description, limit: 240), price: price, currency: row.currency)
+    }
   }
 }
 
@@ -1487,16 +1581,29 @@ public struct VIDKARCommerceProductAppEntity: VIDKARCatalogAppEntity {
   static let symbolName = "shippingbox"
   public static var defaultQuery: VIDKARCommerceProductEntityQuery { VIDKARCommerceProductEntityQuery() }
   public let id: String
-  @Property(title: "Título") var title: String
-  @Property(title: "Subtítulo") var subtitle: String
-  @Property(title: "Descripción y precio") var summary: String
+  @Property(title: "Título") public var title: String
+  @Property(title: "Tienda") public var subtitle: String
+  @Property(title: "Descripción") public var summary: String
+  @Property(title: "Precio") public var price: String?
   @Property(title: "Enlace VIDKAR") var deepLink: String
   let thumbnailImageURL: URL?
-  let thumbnailImageData: Data?
+  public let thumbnailImageData: Data?
+  public var detailURL: URL? {
+    Self.backendID(from: id).flatMap { vidkarSiriDetailLink(type: "product", id: $0, source: "COMERCIO") }
+  }
+  init(product: VIDKARCommerceCatalog.Product) {
+    self.init(id: "product:COMERCIO:\(product.id)", title: product.name, subtitle: product.storeName ?? "",
+      summary: product.description ?? "", deepLink: product.detailURL?.absoluteString ?? "", thumbnailData: product.thumbnailData)
+    if let amount = product.price, amount.isFinite, amount >= 0,
+       let currency = product.currency, currency.range(of: "^[A-Z]{3}$", options: .regularExpression) != nil {
+      price = "\(amount.formatted(.number.precision(.fractionLength(2)))) \(currency)"
+    }
+  }
   init(id: String, title: String, subtitle: String, summary: String, deepLink: String, thumbnailURL: String? = nil, thumbnailData: Data? = nil) {
     self.thumbnailImageURL = thumbnailURL.flatMap(validatedVIDKARUserAvatarURL)
     self.thumbnailImageData = thumbnailData
     self.id = id; self.title = title; self.subtitle = subtitle; self.summary = summary; self.deepLink = deepLink
+    self.price = nil
   }
 }
 

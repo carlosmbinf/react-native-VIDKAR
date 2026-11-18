@@ -87,6 +87,7 @@ test("abre el elemento exacto desde una ficha de Siri", () => {
     ["series/series-1?detail=true", "/(normal)/SeriesDetail", { id: "series-1" }],
     ["product/product-1?detail=true&source=COMERCIO", "/(normal)/ProductoComercio", { productId: "product-1" }],
     ["product/product-2?detail=true&source=DT_SHOP", "/(normal)/CubacelOferta", { productId: "product-2" }],
+    ["cubacel/35718", "/(normal)/CubacelOferta", { providerProductId: "35718" }],
     ["user/user-1?detail=true", "/(normal)/User", { item: "user-1" }],
   ];
   for (const [suffix, pathname, params] of cases) {
