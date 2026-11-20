@@ -2,24 +2,25 @@ import { Platform, StyleSheet } from "react-native";
 
 export const dashboardStyles = StyleSheet.create({
   section: {
+    paddingBottom: 14,
     paddingHorizontal: 16,
-    paddingTop: 20,
-    paddingBottom: 10,
+    paddingTop: 18,
   },
   loadingContainer: {
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 260,
+    minHeight: 240,
     paddingHorizontal: 24,
     paddingVertical: 28,
   },
   loadingText: {
-    fontSize: 15,
+    fontSize: 14,
+    fontWeight: "600",
     marginTop: 14,
-    opacity: 0.72,
+    opacity: 0.76,
   },
   header: {
-    marginBottom: 18,
+    marginBottom: 16,
   },
   headerTitleRow: {
     alignItems: "center",
@@ -30,27 +31,29 @@ export const dashboardStyles = StyleSheet.create({
   },
   headerTitleBlock: {
     flex: 1,
-    gap: 6,
+    gap: 4,
   },
   headerEyebrow: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1,
-    opacity: 0.72,
+    opacity: 0.78,
     textTransform: "uppercase",
   },
   headerTitle: {
-    fontSize: 26,
-    fontWeight: "800",
+    fontSize: 24,
+    fontWeight: "900",
+    letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    opacity: 0.74,
+    fontSize: 13,
+    lineHeight: 19,
+    opacity: 0.72,
   },
   sourceCard: {
-    borderRadius: 18,
-    marginBottom: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 14,
     overflow: "hidden",
   },
   sourceCardContent: {
@@ -90,30 +93,62 @@ export const dashboardStyles = StyleSheet.create({
   segmentedContainer: {
     marginBottom: 14,
   },
+  horizonContainer: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 14,
+  },
+  horizonButton: {
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: "row",
+    gap: 6,
+    justifyContent: "center",
+    minHeight: 38,
+    paddingHorizontal: 10,
+  },
+  horizonButtonActive: {
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  horizonText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  horizonTextActive: {
+    color: "#ffffff",
+    fontWeight: "800",
+  },
 });
 
 export const kpiCardStyles = StyleSheet.create({
   card: {
-    borderRadius: 18,
+    borderRadius: 20,
+    borderWidth: 1,
     flex: 1,
-    minHeight: 148,
+    minHeight: 144,
     overflow: "hidden",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.2,
-        shadowRadius: 18,
+        shadowOpacity: 0.18,
+        shadowRadius: 16,
       },
       android: {
-        elevation: 0,
+        elevation: 2,
       },
     }),
   },
   gradient: {
     flex: 1,
     justifyContent: "space-between",
-    minHeight: 148,
+    minHeight: 144,
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
@@ -124,39 +159,42 @@ export const kpiCardStyles = StyleSheet.create({
   },
   iconContainer: {
     alignItems: "center",
-    borderRadius: 18,
-    height: 36,
+    borderRadius: 14,
+    height: 38,
     justifyContent: "center",
-    width: 36,
+    width: 38,
   },
   trendChip: {
-    backgroundColor: "rgba(255,255,255,0.18)",
-    height: 28,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    borderRadius: 10,
+    height: 26,
     justifyContent: "center",
+    paddingHorizontal: 4,
   },
   trendText: {
     color: "#ffffff",
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   title: {
-    color: "rgba(255,255,255,0.84)",
-    fontSize: 12,
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 11,
     fontWeight: "800",
-    letterSpacing: 0.7,
+    letterSpacing: 0.6,
     textTransform: "uppercase",
   },
   value: {
     color: "#ffffff",
     fontWeight: "900",
-    marginTop: 10,
+    letterSpacing: -0.5,
+    marginTop: 6,
   },
   subtitle: {
-    color: "rgba(255,255,255,0.8)",
+    color: "rgba(255,255,255,0.82)",
     fontSize: 12,
     fontWeight: "600",
     lineHeight: 16,
-    marginTop: 8,
+    marginTop: 6,
   },
 });
 
@@ -167,10 +205,17 @@ export const segmentedButtonsStyles = StyleSheet.create({
     gap: 8,
   },
   button: {
+    borderRadius: 14,
     borderWidth: 1,
-    minHeight: 40,
+    minHeight: 38,
   },
-  buttonActive: {},
+  buttonActive: {
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
   buttonText: {
     fontSize: 12,
     fontWeight: "700",
@@ -182,7 +227,8 @@ export const segmentedButtonsStyles = StyleSheet.create({
 
 export const chartStyles = StyleSheet.create({
   card: {
-    borderRadius: 20,
+    borderRadius: 22,
+    borderWidth: 1,
     marginBottom: 14,
     overflow: "hidden",
     ...Platform.select({
@@ -193,7 +239,7 @@ export const chartStyles = StyleSheet.create({
         shadowRadius: 16,
       },
       android: {
-        elevation: 3,
+        elevation: 2,
       },
     }),
   },
@@ -208,20 +254,20 @@ export const chartStyles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     gap: 12,
-    paddingRight: 12,
+    paddingRight: 10,
   },
   icon: {
     alignItems: "center",
-    borderRadius: 18,
-    height: 36,
+    borderRadius: 14,
+    height: 38,
     justifyContent: "center",
-    width: 36,
+    width: 38,
   },
   title: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
-    lineHeight: 24,
+    lineHeight: 22,
   },
   chipColumn: {
     alignItems: "flex-end",
@@ -230,19 +276,20 @@ export const chartStyles = StyleSheet.create({
   chart: {
     alignSelf: "center",
     borderRadius: 18,
-    marginVertical: 8,
+    marginVertical: 6,
   },
   insightBox: {
-    borderRadius: 16,
+    borderRadius: 18,
+    borderWidth: 1,
     gap: 10,
-    marginTop: 12,
-    paddingHorizontal: 14,
+    marginTop: 14,
+    paddingHorizontal: 16,
     paddingVertical: 14,
   },
   insightTitle: {
     fontSize: 13,
     fontWeight: "800",
-    opacity: 0.8,
+    letterSpacing: 0.3,
   },
   insightRow: {
     alignItems: "center",
@@ -251,6 +298,7 @@ export const chartStyles = StyleSheet.create({
   },
   insightLabel: {
     fontSize: 12,
+    fontWeight: "600",
     opacity: 0.72,
   },
   insightValue: {
@@ -259,12 +307,12 @@ export const chartStyles = StyleSheet.create({
   },
   chartEmpty: {
     alignItems: "center",
-    borderRadius: 16,
+    borderRadius: 18,
     borderStyle: "dashed",
     borderWidth: 1,
     gap: 8,
     justifyContent: "center",
-    minHeight: 220,
+    minHeight: 210,
     padding: 24,
   },
   chartEmptyTitle: {
@@ -288,6 +336,7 @@ export const statsStyles = StyleSheet.create({
   },
   item: {
     borderRadius: 16,
+    borderWidth: 1,
     flex: 1,
     minWidth: "46%",
     paddingHorizontal: 14,
@@ -338,40 +387,166 @@ export const dashboardScreenStyles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 28,
+    paddingBottom: 36,
   },
   heroCard: {
     borderRadius: 24,
+    borderWidth: 1,
     marginHorizontal: 16,
     marginTop: 16,
     overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 18,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   heroContent: {
     gap: 14,
     paddingHorizontal: 18,
     paddingVertical: 18,
   },
+  heroTopRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
   heroEyebrow: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1,
-    opacity: 0.68,
     textTransform: "uppercase",
   },
+  heroLiveBadge: {
+    alignItems: "center",
+    borderRadius: 12,
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  heroLiveDot: {
+    borderRadius: 4,
+    height: 7,
+    width: 7,
+  },
+  heroLiveText: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+  },
   heroTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "900",
+    letterSpacing: -0.4,
     lineHeight: 32,
   },
   heroSubtitle: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 19,
     opacity: 0.78,
   },
-  heroChips: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  domainNavWrapper: {
+    marginTop: 14,
+  },
+  domainNavScroll: {
     gap: 8,
+    paddingHorizontal: 16,
+  },
+  domainNavButton: {
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  domainNavButtonActive: {
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+  },
+  domainNavText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  domainNavTextActive: {
+    color: "#ffffff",
+    fontWeight: "800",
+  },
+  overviewSection: {
+    paddingHorizontal: 16,
+    paddingTop: 18,
+  },
+  overviewSectionHeader: {
+    gap: 4,
+    marginBottom: 14,
+  },
+  overviewSectionTitle: {
+    fontSize: 19,
+    fontWeight: "900",
+    letterSpacing: -0.3,
+  },
+  overviewSectionSubtitle: {
+    fontSize: 13,
+    opacity: 0.72,
+  },
+  overviewActionCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 14,
+    marginBottom: 10,
+    overflow: "hidden",
+    padding: 16,
+  },
+  overviewActionIcon: {
+    alignItems: "center",
+    borderRadius: 14,
+    height: 44,
+    justifyContent: "center",
+    width: 44,
+  },
+  overviewActionTextCol: {
+    flex: 1,
+    gap: 3,
+    justifyContent: "center",
+  },
+  overviewActionTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  overviewActionDesc: {
+    fontSize: 12,
+    lineHeight: 17,
+    opacity: 0.72,
+  },
+  overviewActionArrow: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  footerNotice: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    marginTop: 18,
+    paddingHorizontal: 20,
+  },
+  footerText: {
+    fontSize: 12,
+    fontWeight: "600",
+    opacity: 0.65,
+    textAlign: "center",
   },
 });
 

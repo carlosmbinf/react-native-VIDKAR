@@ -1,21 +1,29 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import MeteorBase from "@meteorrn/core";
+import * as Haptics from "expo-haptics";
 import moment from "moment";
 import "moment/locale/es";
 import React from "react";
-import { StyleSheet, View, useWindowDimensions } from "react-native";
-import { LineChart } from "react-native-chart-kit";
 import {
-    ActivityIndicator,
-    Card,
-    Chip,
-    Text,
-    useTheme,
+  Animated,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
+import {
+  ActivityIndicator,
+  Card,
+  Chip,
+  Text,
+  useTheme,
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { VentasRechargeCollection } from "../collections/collections";
 import ChartSkeleton from "./ChartSkeleton";
+import CustomSegmentedButtons from "./CustomSegmentedButtons";
+import InteractiveChart from "./InteractiveChart";
 import KPICard from "./KPICard";
 import { chartStyles, dashboardStyles } from "./styles/dashboardStyles";
 
@@ -24,6 +32,14 @@ moment.locale("es");
 /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker }} */
 const Meteor = MeteorBase;
 const AUTHORIZED_ANALYTICS_USERNAME = "carlosmbinf";
+
+const safeHaptic = () => {
+  try {
+    if (Platform.OS !== "web") {
+      Haptics.selectionAsync();
+    }
+  } catch (_) {}
+};
 
 const RECHARGE_ANALYTICS_FIELDS = {
   _id: 1,
@@ -35,13 +51,11 @@ const RECHARGE_ANALYTICS_FIELDS = {
   metodoPago: 1,
   monedaCobrado: 1,
   "producto.carritos.cantidad": 1,
-  "producto.carritos.type": 1,
   "producto.carritos.producto.prices.retail.amount": 1,
   "producto.carritos.producto.prices.wholesale.amount": 1,
   "producto.carritos.producto.promotions": 1,
+  "producto.carritos.type": 1,
 };
-
-const getChartWidth = (windowWidth) => Math.max(windowWidth - 72, 280);
 
 const isAuthorizedAnalyticsUser = (username) =>
   typeof username === "string" &&
@@ -246,8 +260,12 @@ const buildAnalytics = (ventasRecharge) => {
 
 const RechargeProfitCard = () => {
   const theme = useTheme();
-  const { width } = useWindowDimensions();
   const dataReady = useDeferredScreenData();
+  const [activeSubView, setActiveSubView] = React.useState("trend");
+  const [selectedCurrency, setSelectedCurrency] = React.useState(null);
+  const [selectedMethod, setSelectedMethod] = React.useState(null);
+  const fadeAnim = React.useRef(new Animated.Value(1)).current;
+
   const { analytics, currentUser, loading } = Meteor.useTracker(() => {
     const currentUser = Meteor.user();
     const canViewAnalytics = isAuthorizedAnalyticsUser(currentUser?.username);
@@ -261,8 +279,8 @@ const RechargeProfitCard = () => {
     }
 
     const selector = {
-      "producto.carritos.type": "RECARGA",
       isCancelada: false,
+      "producto.carritos.type": "RECARGA",
     };
 
     const ventasHandle = Meteor.subscribe("ventasRecharge", selector, {
@@ -311,11 +329,14 @@ const RechargeProfitCard = () => {
     [analytics?.monthly],
   );
 
-  const sourceCardBg = theme.dark
+  const cardBackground = theme.dark
     ? "rgba(15, 23, 42, 0.94)"
-    : "rgba(255, 255, 255, 0.94)";
+    : "rgba(255, 255, 255, 0.96)";
 
-  const chartWidth = getChartWidth(width);
+  const cardBorderColor = theme.dark
+    ? "rgba(148, 163, 184, 0.16)"
+    : "rgba(15, 23, 42, 0.08)";
+
   const monthlyLabels = monthly.map((item) =>
     moment(item.period, "YYYY-MM").format("MMM YY"),
   );
@@ -341,8 +362,8 @@ const RechargeProfitCard = () => {
     },
     propsForDots: {
       r: "4",
-      strokeWidth: "2",
       stroke: theme.colors.primary,
+      strokeWidth: "2",
     },
     style: { borderRadius: 18 },
   };
@@ -359,6 +380,16 @@ const RechargeProfitCard = () => {
     );
   }, [monthly]);
 
+  const handleSubViewChange = (newView) => {
+    fadeAnim.setValue(0.7);
+    setActiveSubView(newView);
+    Animated.timing(fadeAnim, {
+      duration: 200,
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  };
+
   if (!canView) {
     return null;
   }
@@ -369,7 +400,10 @@ const RechargeProfitCard = () => {
         <Card
           style={[
             dashboardStyles.sourceCard,
-            { backgroundColor: sourceCardBg },
+            {
+              backgroundColor: cardBackground,
+              borderColor: cardBorderColor,
+            },
           ]}
         >
           <Card.Content style={dashboardStyles.loadingContainer}>
@@ -380,7 +414,7 @@ const RechargeProfitCard = () => {
                 { color: theme.colors.onSurface },
               ]}
             >
-              Cargando analitica de recargas...
+              Calculando balance financiero y rentabilidad...
             </Text>
             <ChartSkeleton />
           </Card.Content>
@@ -388,6 +422,12 @@ const RechargeProfitCard = () => {
       </View>
     );
   }
+
+  const subViewButtons = [
+    { value: "trend", label: "Evolución", icon: "chart-line" },
+    { value: "currencies", label: "Por Divisa", icon: "cash-multiple" },
+    { value: "methods", label: "Canales de Pago", icon: "credit-card-outline" },
+  ];
 
   return (
     <View style={dashboardStyles.section}>
@@ -400,7 +440,7 @@ const RechargeProfitCard = () => {
                 { color: theme.colors.primary },
               ]}
             >
-              Analitica de recargas
+              Rendimiento Comercial
             </Text>
             <Text
               style={[
@@ -408,15 +448,15 @@ const RechargeProfitCard = () => {
                 { color: theme.colors.onBackground },
               ]}
             >
-              Cobrado real, costo real y ganancia neta de recargas.
+              Rentabilidad Neta de Recargas
             </Text>
           </View>
           <Chip
-            icon="lightning-bolt-circle"
+            icon="currency-usd"
             style={{ backgroundColor: "#16a34a" }}
             textStyle={{ color: "#ffffff", fontSize: 11, fontWeight: "800" }}
           >
-            USD real
+            Balance Real
           </Chip>
         </View>
         <Text
@@ -425,300 +465,69 @@ const RechargeProfitCard = () => {
             { color: theme.colors.onBackground },
           ]}
         >
-          Se incluyen solo ventas de `ventas_Recharge` con `isCancelada = false`
-          y `producto.carritos.type = RECARGA`. El cobro real se toma de
-          `producto.carritos[].producto.prices.retail.amount` y el costo real
-          del proveedor de
-          `producto.carritos[].producto.prices.wholesale.amount`. La ganancia
-          sale de la diferencia entre ambos, sumando todos los carritos de cada
-          venta.
+          Monitoreo de ingresos brutos, costos operativos de saldo y utilidad
+          neta consolidada por operaciones de recarga.
         </Text>
       </View>
-
-      <Card
-        style={[dashboardStyles.sourceCard, { backgroundColor: sourceCardBg }]}
-      >
-        <Card.Content style={dashboardStyles.sourceCardContent}>
-          <View style={dashboardStyles.sourceRow}>
-            <View
-              style={[
-                dashboardStyles.sourceIcon,
-                {
-                  backgroundColor: theme.dark
-                    ? "rgba(34, 197, 94, 0.16)"
-                    : "rgba(34, 197, 94, 0.12)",
-                },
-              ]}
-            >
-              <MaterialCommunityIcons
-                color="#22c55e"
-                name="cash-plus"
-                size={20}
-              />
-            </View>
-            <View style={dashboardStyles.sourceTextBlock}>
-              <Text
-                style={[
-                  dashboardStyles.sourceLabel,
-                  { color: theme.colors.onSurface },
-                ]}
-              >
-                Cobrado real en USD
-              </Text>
-              <Text
-                style={[
-                  dashboardStyles.sourceDescription,
-                  { color: theme.colors.onSurface },
-                ]}
-              >
-                Se usa `producto.carritos[].producto.prices.retail.amount`
-                multiplicado por la cantidad de cada carrito.
-              </Text>
-            </View>
-          </View>
-
-          <View style={dashboardStyles.sourceRow}>
-            <View
-              style={[
-                dashboardStyles.sourceIcon,
-                {
-                  backgroundColor: theme.dark
-                    ? "rgba(59, 130, 246, 0.16)"
-                    : "rgba(59, 130, 246, 0.12)",
-                },
-              ]}
-            >
-              <MaterialCommunityIcons
-                color="#3b82f6"
-                name="warehouse"
-                size={20}
-              />
-            </View>
-            <View style={dashboardStyles.sourceTextBlock}>
-              <Text
-                style={[
-                  dashboardStyles.sourceLabel,
-                  { color: theme.colors.onSurface },
-                ]}
-              >
-                Costo real del proveedor
-              </Text>
-              <Text
-                style={[
-                  dashboardStyles.sourceDescription,
-                  { color: theme.colors.onSurface },
-                ]}
-              >
-                Se usa `producto.carritos[].producto.prices.wholesale.amount`
-                como costo base de cada recarga para medir la ganancia neta.
-              </Text>
-            </View>
-          </View>
-        </Card.Content>
-      </Card>
 
       {summary ? (
         <>
           <View style={dashboardStyles.kpiContainer}>
             <KPICard
-              color="#0f766e"
-              icon="cellphone-arrow-down"
-              subtitle={`${summary.orderCount} ordenes analizadas`}
-              title="Recargas reales"
-              value={summary.rechargeCount}
-            />
-            <KPICard
               color="#16a34a"
               icon="cash-plus"
-              subtitle={`${formatUsd(summary.averageProfitUsd)} por recarga`}
-              title="Ganancia neta"
+              subtitle={`${summary.profitMarginPct.toFixed(1)}% margen neto`}
+              title="Ganancia Neta"
               value={formatUsd(summary.profitUsd)}
+            />
+            <KPICard
+              color="#0284c7"
+              icon="currency-usd"
+              subtitle={`Ticket prom. ${formatUsd(summary.averageTicketUsd)}`}
+              title="Total Facturado"
+              value={formatUsd(summary.chargedUsd)}
             />
           </View>
 
           <View style={dashboardStyles.kpiContainer}>
             <KPICard
-              color="#7c3aed"
-              icon="currency-usd"
-              subtitle={`${formatUsd(summary.averageTicketUsd)} ticket promedio`}
-              title="Cobrado real"
-              value={formatUsd(summary.chargedUsd)}
+              color="#f59e0b"
+              icon="warehouse"
+              subtitle="Costo adquisición saldo"
+              title="Costo Proveedores"
+              value={formatUsd(summary.costUsd)}
             />
             <KPICard
-              color="#f97316"
-              icon="warehouse"
-              subtitle={`${summary.profitMarginPct.toFixed(2)}% margen`}
-              title="Gastado real"
-              value={formatUsd(summary.costUsd)}
+              color="#7c3aed"
+              icon="cellphone-arrow-down"
+              subtitle={`${summary.orderCount} compras • ${summary.promotionCount} promos`}
+              title="Recargas Procesadas"
+              value={summary.rechargeCount}
             />
           </View>
 
-          <Card style={[chartStyles.card, { backgroundColor: sourceCardBg }]}>
-            <Card.Content>
-              <View style={chartStyles.header}>
-                <View style={chartStyles.titleRow}>
-                  <View
-                    style={[chartStyles.icon, { backgroundColor: "#2563eb" }]}
-                  >
-                    <MaterialCommunityIcons
-                      color="#ffffff"
-                      name="cash-register"
-                      size={20}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      chartStyles.title,
-                      { color: theme.colors.onSurface },
-                    ]}
-                  >
-                    Cobrado por moneda y metodo
-                  </Text>
-                </View>
-              </View>
+          <View style={dashboardStyles.segmentedContainer}>
+            <CustomSegmentedButtons
+              buttons={subViewButtons}
+              onValueChange={handleSubViewChange}
+              value={activeSubView}
+            />
+          </View>
 
-              <View style={rechargeProfitStyles.summaryGrid}>
-                {chargedByCurrency.map((item) => (
-                  <View
-                    key={item.currency}
-                    style={[
-                      rechargeProfitStyles.summaryStat,
-                      {
-                        backgroundColor: theme.dark
-                          ? "rgba(15, 23, 42, 0.82)"
-                          : "rgba(248, 250, 252, 0.92)",
-                        borderColor: theme.dark
-                          ? "rgba(148, 163, 184, 0.12)"
-                          : "rgba(15, 23, 42, 0.08)",
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        rechargeProfitStyles.summaryLabel,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      Cobrado en {item.currency}
-                    </Text>
-                    <Text
-                      style={[
-                        rechargeProfitStyles.summaryValue,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      {formatNativeCurrency(item.amount, item.currency)}
-                    </Text>
-                    <Text
-                      style={[
-                        rechargeProfitStyles.summaryHint,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      {item.orderCount} ventas
-                    </Text>
-                  </View>
-                ))}
-              </View>
-
-              <View style={rechargeProfitStyles.summaryGrid}>
-                {chargedByMethod.map((item) => (
-                  <View
-                    key={item.paymentMethod}
-                    style={[
-                      rechargeProfitStyles.summaryStat,
-                      {
-                        backgroundColor: theme.dark
-                          ? "rgba(15, 23, 42, 0.82)"
-                          : "rgba(248, 250, 252, 0.92)",
-                        borderColor: theme.dark
-                          ? "rgba(148, 163, 184, 0.12)"
-                          : "rgba(15, 23, 42, 0.08)",
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        rechargeProfitStyles.summaryLabel,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      {item.paymentMethod}
-                    </Text>
-                    <Text
-                      style={[
-                        rechargeProfitStyles.summaryValue,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      {item.orderCount}
-                    </Text>
-                    <Text
-                      style={[
-                        rechargeProfitStyles.summaryHint,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      ventas cobradas por este metodo
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </Card.Content>
-          </Card>
-
-          <Card style={[chartStyles.card, { backgroundColor: sourceCardBg }]}>
-            <Card.Content>
-              <View style={chartStyles.header}>
-                <View style={chartStyles.titleRow}>
-                  <View
-                    style={[chartStyles.icon, { backgroundColor: "#16a34a" }]}
-                  >
-                    <MaterialCommunityIcons
-                      color="#ffffff"
-                      name="chart-line-variant"
-                      size={20}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      chartStyles.title,
-                      { color: theme.colors.onSurface },
-                    ]}
-                  >
-                    Tendencia mensual de recargas
-                  </Text>
-                </View>
-                <View style={chartStyles.chipColumn}>
-                  <Chip
-                    icon="sale"
-                    style={{ backgroundColor: "rgba(124, 58, 237, 0.16)" }}
-                    textStyle={{
-                      color: "#7c3aed",
-                      fontSize: 10,
-                      fontWeight: "800",
-                    }}
-                  >
-                    {summary.promotionCount} promos
-                  </Chip>
-                  <Chip
-                    icon="percent"
-                    style={{ backgroundColor: "rgba(22, 163, 74, 0.16)" }}
-                    textStyle={{
-                      color: "#16a34a",
-                      fontSize: 10,
-                      fontWeight: "800",
-                    }}
-                  >
-                    {summary.profitMarginPct.toFixed(2)}% margen
-                  </Chip>
-                </View>
-              </View>
-
-              {monthly.length > 0 ? (
-                <>
-                  <LineChart
-                    bezier
+          <Animated.View style={{ opacity: fadeAnim }}>
+            {activeSubView === "trend" ? (
+              <Card
+                style={[
+                  chartStyles.card,
+                  {
+                    backgroundColor: cardBackground,
+                    borderColor: cardBorderColor,
+                  },
+                ]}
+              >
+                <Card.Content>
+                  <InteractiveChart
+                    badge={`${summary.profitMarginPct.toFixed(1)}% margen`}
                     chartConfig={{
                       ...chartConfig,
                       propsForDots: {
@@ -730,7 +539,7 @@ const RechargeProfitCard = () => {
                       datasets: [
                         {
                           color: (opacity = 1) =>
-                            `rgba(124, 58, 237, ${opacity})`,
+                            `rgba(2, 132, 199, ${opacity})`,
                           data: monthly.map((item) => item.chargedUsd),
                           strokeWidth: 3,
                         },
@@ -742,139 +551,329 @@ const RechargeProfitCard = () => {
                         },
                       ],
                       labels: monthlyLabels,
-                      legend: ["Cobrado USD", "Ganancia USD"],
+                      legend: ["Facturado USD", "Utilidad Neta USD"],
                     }}
-                    fromZero
-                    height={240}
-                    style={chartStyles.chart}
-                    width={chartWidth}
-                    withInnerLines
-                    withShadow
+                    emptyCopy="Aún no hay suficientes periodos mensuales registrados para trazar la curva de tendencia."
+                    emptyTitle="Histórico en consolidación"
+                    formatTooltipValue={(val) => formatUsd(val)}
+                    height={230}
+                    icon="chart-line-variant"
+                    iconBg="#16a34a"
+                    title="Tendencia Mensual de Utilidad"
                     yAxisLabel="$"
                   />
 
-                  <View
-                    style={[
-                      chartStyles.insightBox,
-                      {
-                        backgroundColor: theme.dark
-                          ? "rgba(15, 23, 42, 0.92)"
-                          : "rgba(22, 163, 74, 0.06)",
-                      },
-                    ]}
-                  >
-                    <Text
+                  {monthly.length > 0 ? (
+                    <View
                       style={[
-                        chartStyles.insightTitle,
-                        { color: theme.colors.onSurface },
+                        chartStyles.insightBox,
+                        {
+                          backgroundColor: theme.dark
+                            ? "rgba(15, 23, 42, 0.92)"
+                            : "rgba(22, 163, 74, 0.06)",
+                          borderColor: theme.dark
+                            ? "rgba(148, 163, 184, 0.16)"
+                            : "rgba(22, 163, 74, 0.18)",
+                          marginTop: 14,
+                        },
                       ]}
                     >
-                      Lectura ejecutiva
-                    </Text>
-                    <View style={chartStyles.insightRow}>
                       <Text
                         style={[
-                          chartStyles.insightLabel,
+                          chartStyles.insightTitle,
                           { color: theme.colors.onSurface },
                         ]}
                       >
-                        Mejor mes
+                        Resumen Ejecutivo de Rendimiento
                       </Text>
-                      <Text
-                        style={[chartStyles.insightValue, { color: "#16a34a" }]}
-                      >
-                        {bestMonth
-                          ? `${moment(bestMonth.period, "YYYY-MM").format("MMMM YYYY")}: ${formatUsd(bestMonth.profitUsd)}`
-                          : "Sin datos"}
-                      </Text>
+                      <View style={chartStyles.insightRow}>
+                        <Text
+                          style={[
+                            chartStyles.insightLabel,
+                            { color: theme.colors.onSurface },
+                          ]}
+                        >
+                          Mes de mayor rendimiento
+                        </Text>
+                        <Text
+                          style={[
+                            chartStyles.insightValue,
+                            { color: "#16a34a" },
+                          ]}
+                        >
+                          {bestMonth
+                            ? `${moment(bestMonth.period, "YYYY-MM").format("MMMM YYYY")}: ${formatUsd(bestMonth.profitUsd)}`
+                            : "Sin datos"}
+                        </Text>
+                      </View>
+                      <View style={chartStyles.insightRow}>
+                        <Text
+                          style={[
+                            chartStyles.insightLabel,
+                            { color: theme.colors.onSurface },
+                          ]}
+                        >
+                          Margen neto consolidado
+                        </Text>
+                        <Text
+                          style={[
+                            chartStyles.insightValue,
+                            { color: "#0284c7" },
+                          ]}
+                        >
+                          {summary.profitMarginPct.toFixed(2)}%
+                        </Text>
+                      </View>
+                      <View style={chartStyles.insightRow}>
+                        <Text
+                          style={[
+                            chartStyles.insightLabel,
+                            { color: theme.colors.onSurface },
+                          ]}
+                        >
+                          Utilidad promedio por recarga
+                        </Text>
+                        <Text
+                          style={[
+                            chartStyles.insightValue,
+                            { color: "#7c3aed" },
+                          ]}
+                        >
+                          {formatUsd(summary.averageProfitUsd)}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={chartStyles.insightRow}>
+                  ) : null}
+                </Card.Content>
+              </Card>
+            ) : null}
+
+            {activeSubView === "currencies" ? (
+              <Card
+                style={[
+                  chartStyles.card,
+                  {
+                    backgroundColor: cardBackground,
+                    borderColor: cardBorderColor,
+                  },
+                ]}
+              >
+                <Card.Content>
+                  <View style={chartStyles.header}>
+                    <View style={chartStyles.titleRow}>
+                      <View
+                        style={[
+                          chartStyles.icon,
+                          { backgroundColor: "#0284c7" },
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          color="#ffffff"
+                          name="cash-multiple"
+                          size={20}
+                        />
+                      </View>
                       <Text
                         style={[
-                          chartStyles.insightLabel,
+                          chartStyles.title,
                           { color: theme.colors.onSurface },
                         ]}
                       >
-                        Margen neto
-                      </Text>
-                      <Text
-                        style={[chartStyles.insightValue, { color: "#3b82f6" }]}
-                      >
-                        {summary.profitMarginPct.toFixed(2)}%
-                      </Text>
-                    </View>
-                    <View style={chartStyles.insightRow}>
-                      <Text
-                        style={[
-                          chartStyles.insightLabel,
-                          { color: theme.colors.onSurface },
-                        ]}
-                      >
-                        Cobrado total
-                      </Text>
-                      <Text
-                        style={[chartStyles.insightValue, { color: "#7c3aed" }]}
-                      >
-                        {formatUsd(summary.chargedUsd)}
-                      </Text>
-                    </View>
-                    <View style={chartStyles.insightRow}>
-                      <Text
-                        style={[
-                          chartStyles.insightLabel,
-                          { color: theme.colors.onSurface },
-                        ]}
-                      >
-                        Gastado total
-                      </Text>
-                      <Text
-                        style={[chartStyles.insightValue, { color: "#f97316" }]}
-                      >
-                        {formatUsd(summary.costUsd)}
+                        Volumen Cobrado por Moneda
                       </Text>
                     </View>
                   </View>
-                </>
-              ) : (
-                <View
-                  style={[
-                    chartStyles.chartEmpty,
-                    {
-                      backgroundColor: theme.dark
-                        ? "rgba(15, 23, 42, 0.82)"
-                        : "rgba(248, 250, 252, 0.9)",
-                      borderColor: theme.dark
-                        ? "rgba(148, 163, 184, 0.22)"
-                        : "rgba(15, 23, 42, 0.08)",
-                    },
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    color={theme.colors.primary}
-                    name="chart-box-outline"
-                    size={34}
-                  />
+
                   <Text
-                    style={[
-                      chartStyles.chartEmptyTitle,
-                      { color: theme.colors.onSurface },
-                    ]}
+                    style={{
+                      fontSize: 11,
+                      fontWeight: "600",
+                      marginBottom: 10,
+                      opacity: 0.6,
+                    }}
                   >
-                    Sin historico suficiente
+                    Toca una divisa para destacarla
                   </Text>
+
+                  <View style={rechargeProfitStyles.summaryGrid}>
+                    {chargedByCurrency.map((item) => {
+                      const isSelected = selectedCurrency === item.currency;
+                      return (
+                        <Pressable
+                          key={item.currency}
+                          onPress={() => {
+                            safeHaptic();
+                            setSelectedCurrency(
+                              isSelected ? null : item.currency,
+                            );
+                          }}
+                          style={[
+                            rechargeProfitStyles.summaryStat,
+                            {
+                              backgroundColor: isSelected
+                                ? theme.dark
+                                  ? "rgba(2, 132, 199, 0.2)"
+                                  : "rgba(2, 132, 199, 0.1)"
+                                : theme.dark
+                                  ? "rgba(15, 23, 42, 0.82)"
+                                  : "rgba(248, 250, 252, 0.92)",
+                              borderColor: isSelected
+                                ? "#0284c7"
+                                : theme.dark
+                                  ? "rgba(148, 163, 184, 0.16)"
+                                  : "rgba(15, 23, 42, 0.08)",
+                            },
+                          ]}
+                        >
+                          <View
+                            style={[
+                              rechargeProfitStyles.currencyBadge,
+                              isSelected && { backgroundColor: "#0284c7" },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                rechargeProfitStyles.currencyBadgeText,
+                                isSelected && { color: "#ffffff" },
+                              ]}
+                            >
+                              {item.currency}
+                            </Text>
+                          </View>
+                          <Text
+                            style={[
+                              rechargeProfitStyles.summaryValue,
+                              { color: theme.colors.onSurface },
+                            ]}
+                          >
+                            {formatNativeCurrency(item.amount, item.currency)}
+                          </Text>
+                          <Text
+                            style={[
+                              rechargeProfitStyles.summaryHint,
+                              { color: theme.colors.onSurface },
+                            ]}
+                          >
+                            {item.orderCount} operaciones registradas
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </Card.Content>
+              </Card>
+            ) : null}
+
+            {activeSubView === "methods" ? (
+              <Card
+                style={[
+                  chartStyles.card,
+                  {
+                    backgroundColor: cardBackground,
+                    borderColor: cardBorderColor,
+                  },
+                ]}
+              >
+                <Card.Content>
+                  <View style={chartStyles.header}>
+                    <View style={chartStyles.titleRow}>
+                      <View
+                        style={[
+                          chartStyles.icon,
+                          { backgroundColor: "#7c3aed" },
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          color="#ffffff"
+                          name="credit-card-outline"
+                          size={20}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          chartStyles.title,
+                          { color: theme.colors.onSurface },
+                        ]}
+                      >
+                        Distribución por Canal de Pago
+                      </Text>
+                    </View>
+                  </View>
+
                   <Text
-                    style={[
-                      chartStyles.chartEmptyText,
-                      { color: theme.colors.onSurface },
-                    ]}
+                    style={{
+                      fontSize: 11,
+                      fontWeight: "600",
+                      marginBottom: 10,
+                      opacity: 0.6,
+                    }}
                   >
-                    Aun no hay meses suficientes para graficar la utilidad de
-                    recargas.
+                    Toca un método de pago para destacarlo
                   </Text>
-                </View>
-              )}
-            </Card.Content>
-          </Card>
+
+                  <View style={rechargeProfitStyles.summaryGrid}>
+                    {chargedByMethod.map((item) => {
+                      const isSelected = selectedMethod === item.paymentMethod;
+                      return (
+                        <Pressable
+                          key={item.paymentMethod}
+                          onPress={() => {
+                            safeHaptic();
+                            setSelectedMethod(
+                              isSelected ? null : item.paymentMethod,
+                            );
+                          }}
+                          style={[
+                            rechargeProfitStyles.summaryStat,
+                            {
+                              backgroundColor: isSelected
+                                ? theme.dark
+                                  ? "rgba(124, 58, 237, 0.2)"
+                                  : "rgba(124, 58, 237, 0.1)"
+                                : theme.dark
+                                  ? "rgba(15, 23, 42, 0.82)"
+                                  : "rgba(248, 250, 252, 0.92)",
+                              borderColor: isSelected
+                                ? "#7c3aed"
+                                : theme.dark
+                                  ? "rgba(148, 163, 184, 0.16)"
+                                  : "rgba(15, 23, 42, 0.08)",
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              rechargeProfitStyles.summaryLabel,
+                              { color: theme.colors.onSurface },
+                              isSelected && { color: "#7c3aed" },
+                            ]}
+                          >
+                            {item.paymentMethod}
+                          </Text>
+                          <Text
+                            style={[
+                              rechargeProfitStyles.summaryValue,
+                              { color: theme.colors.onSurface },
+                            ]}
+                          >
+                            {item.orderCount}
+                          </Text>
+                          <Text
+                            style={[
+                              rechargeProfitStyles.summaryHint,
+                              { color: theme.colors.onSurface },
+                            ]}
+                          >
+                            transacciones procesadas
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </Card.Content>
+              </Card>
+            ) : null}
+          </Animated.View>
         </>
       ) : null}
     </View>
@@ -882,36 +881,52 @@ const RechargeProfitCard = () => {
 };
 
 const rechargeProfitStyles = StyleSheet.create({
+  currencyBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(2, 132, 199, 0.14)",
+    borderRadius: 8,
+    marginBottom: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  currencyBadgeText: {
+    color: "#0284c7",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
   summaryGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 12,
-    marginTop: 12,
+    marginTop: 8,
   },
   summaryHint: {
     fontSize: 12,
     lineHeight: 18,
-    opacity: 0.7,
+    opacity: 0.72,
   },
   summaryLabel: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "800",
+    letterSpacing: 0.4,
     lineHeight: 18,
     marginBottom: 6,
-    opacity: 0.72,
+    opacity: 0.75,
     textTransform: "uppercase",
   },
   summaryStat: {
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     flexGrow: 1,
-    minWidth: 170,
-    padding: 14,
+    minWidth: 160,
+    padding: 16,
   },
   summaryValue: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "900",
-    lineHeight: 30,
+    letterSpacing: -0.4,
+    lineHeight: 28,
     marginBottom: 4,
   },
 });

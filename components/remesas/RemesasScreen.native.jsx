@@ -1,22 +1,42 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import MeteorBase from "@meteorrn/core";
+import * as Haptics from "expo-haptics";
 import React, { useMemo, useState } from "react";
-import { ScrollView, StyleSheet } from "react-native";
 import {
-    IconButton,
-    SegmentedButtons,
-    Surface,
-    Text,
-    useTheme,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
+import {
+  IconButton,
+  Surface,
+  Text,
+  useTheme,
 } from "react-native-paper";
 
 import AppHeader, { useAppHeaderContentInset } from "../Header/AppHeader";
-import { ServiceEntrance, ServiceMotionProvider, ServiceScrollViewport } from "../motion/ServiceMotion";
+import {
+  ServiceEntrance,
+  ServiceMotionProvider,
+  ServiceScrollViewport,
+} from "../motion/ServiceMotion";
 import FormularioRemesa from "./FormularioRemesa.native";
+import TableListRemesa from "./TableListRemesa.native";
 
 const Meteor =
   /** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
     MeteorBase
   );
+
+const safeHaptic = () => {
+  try {
+    if (Platform.OS !== "web") {
+      Haptics.selectionAsync();
+    }
+  } catch (_) { }
+};
 
 const RemesasScreen = () => {
   const user = Meteor.useTracker(() => Meteor.user());
@@ -24,7 +44,7 @@ const RemesasScreen = () => {
   const theme = useTheme();
   const isDark = Boolean(theme?.dark);
 
-  const [selectedTab, setSelectedTab] = useState("all");
+  const [selectedTab, setSelectedTab] = useState("history"); // 'history' | 'send'
 
   const colors = useMemo(
     () => ({
@@ -40,84 +60,164 @@ const RemesasScreen = () => {
     [isDark],
   );
 
+  const tabs = [
+    {
+      icon: "format-list-bulleted",
+      key: "history",
+      label: "Mis Remesas",
+    },
+    {
+      icon: "send-outline",
+      key: "send",
+      label: "Enviar Remesa",
+    },
+  ];
+
   return (
     <Surface style={styles.screen}>
       <AppHeader
-        title="Remesas a Cuba"
-        subtitle="Envíos rápidos en CUP y USD con seguimiento en vivo"
         backHref="/(normal)/Main"
-        showBackButton
         overlapContent
+        showBackButton
+        subtitle="Envíos rápidos en CUP y USD con seguimiento en vivo"
+        title="Remesas a Cuba"
       />
 
       <ServiceScrollViewport>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        style={{ marginTop: headerInset + 8 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Selector de pestañas para organizar la vista en pantallas pequeñas */}
-        <ServiceEntrance style={styles.tabContainer}>
-          <SegmentedButtons
-            value={selectedTab}
-            onValueChange={setSelectedTab}
-            density="small"
-            buttons={[
-              {
-                icon: "view-dashboard-outline",
-                label: "Todo",
-                value: "all",
-              },
-              {
-                icon: "send-outline",
-                label: "Enviar",
-                value: "send",
-              },
-            ]}
-          />
-        </ServiceEntrance>
-
-        {/* Sección Enviar Remesa */}
-        <ServiceEntrance delay={60} variant="hero">
-        {selectedTab === "all" || selectedTab === "send" ? (
-          user?.permiteRemesas ? (
-            <FormularioRemesa />
-          ) : (
-            <Surface
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingTop: headerInset + 12 },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Top navigation tabs (Mis Remesas vs Enviar Remesa) */}
+          <ServiceEntrance style={styles.tabContainer}>
+            <View
               style={[
-                styles.disabledCard,
+                styles.navPillContainer,
                 {
-                  backgroundColor: colors.disabledBg,
-                  borderColor: colors.disabledBorder,
+                  backgroundColor: theme.dark
+                    ? "rgba(15, 23, 42, 0.85)"
+                    : "rgba(241, 245, 249, 0.95)",
+                  borderColor: theme.dark
+                    ? "rgba(148, 163, 184, 0.16)"
+                    : "rgba(15, 23, 42, 0.08)",
                 },
               ]}
-              elevation={0}
             >
-              <IconButton
-                icon="alert-octagon-outline"
-                size={36}
-                iconColor={colors.disabledText}
-              />
-              <Text variant="titleMedium" style={[styles.disabledTitle, { color: colors.disabledText }]}>
-                Envíos de remesas temporalmente deshabilitados
-              </Text>
-              <Text style={[styles.disabledSubtitle, { color: colors.muted }]}>
-                El servicio de cotización y despacho de remesas no está activo para tu cuenta en este momento. Por favor, contacta con soporte o administración.
-              </Text>
-            </Surface>
-          )
-        ) : null}
-        </ServiceEntrance>
+              {tabs.map((tab) => {
+                const isSelected = selectedTab === tab.key;
+                return (
+                  <Pressable
+                    key={tab.key}
+                    onPress={() => {
+                      safeHaptic();
+                      setSelectedTab(tab.key);
+                    }}
+                    style={[
+                      styles.navPillButton,
+                      isSelected && {
+                        backgroundColor: theme.colors.primary,
+                        elevation: 2,
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.15,
+                        shadowRadius: 4,
+                      },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      color={
+                        isSelected
+                          ? "#ffffff"
+                          : theme.dark
+                            ? "#94a3b8"
+                            : "#64748b"
+                      }
+                      name={tab.icon}
+                      size={18}
+                    />
+                    <Text
+                      style={[
+                        styles.navPillText,
+                        {
+                          color: isSelected
+                            ? "#ffffff"
+                            : theme.colors.onSurface,
+                          fontWeight: isSelected ? "800" : "600",
+                        },
+                      ]}
+                    >
+                      {tab.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </ServiceEntrance>
 
+          {/* Tab 1: Mis Remesas (Identical design to VentasList) */}
+          {selectedTab === "history" ? (
+            <ServiceEntrance delay={40}>
+              <TableListRemesa
+                onNewRemesaPress={() => {
+                  safeHaptic();
+                  setSelectedTab("send");
+                }}
+              />
+            </ServiceEntrance>
+          ) : null}
+
+        {/* Tab 2: Enviar Remesa (Formulario) */}
+        {selectedTab === "send" ? (
+          <ServiceEntrance delay={60} variant="hero">
+            {user?.permiteRemesas ? (
+              <FormularioRemesa />
+            ) : (
+              <Surface
+                elevation={0}
+                style={[
+                  styles.disabledCard,
+                  {
+                    backgroundColor: colors.disabledBg,
+                    borderColor: colors.disabledBorder,
+                  },
+                ]}
+              >
+                <IconButton
+                  icon="alert-octagon-outline"
+                  iconColor={colors.disabledText}
+                  size={36}
+                />
+                <Text
+                  style={[styles.disabledTitle, { color: colors.disabledText }]}
+                  variant="titleMedium"
+                >
+                  Envíos de remesas temporalmente deshabilitados
+                </Text>
+                <Text
+                  style={[styles.disabledSubtitle, { color: colors.muted }]}
+                >
+                  El servicio de cotización y despacho de remesas no está activo
+                  para tu cuenta en este momento. Por favor, contacta con
+                  soporte o administración.
+                </Text>
+              </Surface>
+            )}
+          </ServiceEntrance>
+        ) : null}
       </ScrollView>
-      </ServiceScrollViewport>
-    </Surface>
+    </ServiceScrollViewport>
+    </Surface >
   );
 };
 
 const styles = StyleSheet.create({
   content: {
+    gap: 12,
     paddingBottom: 40,
+    paddingHorizontal: 14,
   },
   disabledCard: {
     alignItems: "center",
@@ -139,12 +239,30 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: "center",
   },
+  navPillButton: {
+    alignItems: "center",
+    borderRadius: 12,
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    paddingVertical: 10,
+  },
+  navPillContainer: {
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    overflow: "hidden",
+    padding: 4,
+  },
+  navPillText: {
+    fontSize: 13,
+  },
   screen: {
     flex: 1,
   },
   tabContainer: {
-    marginBottom: 10,
-    marginHorizontal: 16,
+    marginBottom: 4,
   },
 });
 

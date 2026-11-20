@@ -1,49 +1,107 @@
-import { View } from "react-native";
-import { Chip, useTheme } from "react-native-paper";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import React from "react";
+import { Platform, Pressable, ScrollView, View } from "react-native";
+import { Text, useTheme } from "react-native-paper";
 
 import { segmentedButtonsStyles } from "./styles/dashboardStyles";
 
-const CustomSegmentedButtons = ({ value, onValueChange, buttons }) => {
+const safeHaptic = () => {
+  try {
+    if (Platform.OS !== "web") {
+      Haptics.selectionAsync();
+    }
+  } catch (_) {}
+};
+
+const CustomSegmentedButtons = ({
+  buttons,
+  onValueChange,
+  scrollable = false,
+  value,
+}) => {
   const theme = useTheme();
 
-  return (
-    <View style={segmentedButtonsStyles.container}>
-      {buttons.map((button) => {
-        const isSelected = value === button.value;
+  const handlePress = (buttonValue) => {
+    safeHaptic();
+    if (onValueChange) {
+      onValueChange(buttonValue);
+    }
+  };
 
-        return (
-          <Chip
-            icon={button.icon}
-            key={button.value}
-            mode={isSelected ? "flat" : "outlined"}
-            onPress={() => onValueChange(button.value)}
-            selected={isSelected}
+  const renderButtons = () =>
+    buttons.map((button) => {
+      const isSelected = value === button.value;
+
+      return (
+        <Pressable
+          key={button.value}
+          onPress={() => handlePress(button.value)}
+          style={[
+            segmentedButtonsStyles.button,
+            {
+              alignItems: "center",
+              backgroundColor: isSelected
+                ? theme.colors.primary
+                : theme.dark
+                  ? "rgba(30, 41, 59, 0.82)"
+                  : "rgba(248, 250, 252, 0.96)",
+              borderColor: isSelected
+                ? theme.colors.primary
+                : theme.dark
+                  ? "rgba(148, 163, 184, 0.24)"
+                  : "rgba(15, 23, 42, 0.08)",
+              flexDirection: "row",
+              gap: 6,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+            },
+            isSelected && segmentedButtonsStyles.buttonActive,
+          ]}
+        >
+          {button.icon ? (
+            <MaterialCommunityIcons
+              color={
+                isSelected
+                  ? "#ffffff"
+                  : theme.dark
+                    ? "#94a3b8"
+                    : "#64748b"
+              }
+              name={button.icon}
+              size={16}
+            />
+          ) : null}
+          <Text
             style={[
-              segmentedButtonsStyles.button,
-              {
-                backgroundColor: isSelected
-                  ? theme.colors.primary
-                  : theme.dark
-                    ? "rgba(30, 41, 59, 0.82)"
-                    : "rgba(248, 250, 252, 0.96)",
-                borderColor: isSelected
-                  ? theme.colors.primary
-                  : theme.dark
-                    ? "rgba(148, 163, 184, 0.28)"
-                    : "rgba(15, 23, 42, 0.08)",
-              },
-              isSelected && segmentedButtonsStyles.buttonActive,
-            ]}
-            textStyle={[
               segmentedButtonsStyles.buttonText,
-              { color: isSelected ? "#ffffff" : theme.colors.onSurface },
+              {
+                color: isSelected ? "#ffffff" : theme.colors.onSurface,
+              },
               isSelected && segmentedButtonsStyles.buttonTextActive,
             ]}
           >
             {button.label}
-          </Chip>
-        );
-      })}
+          </Text>
+        </Pressable>
+      );
+    });
+
+  if (scrollable) {
+    return (
+      <ScrollView
+        contentContainerStyle={[segmentedButtonsStyles.container, { flexWrap: "nowrap" }]}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+      >
+        {renderButtons()}
+      </ScrollView>
+    );
+  }
+
+  return (
+    <View style={segmentedButtonsStyles.container}>
+      {renderButtons()}
     </View>
   );
 };

@@ -1,22 +1,30 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import MeteorBase from "@meteorrn/core";
+import * as Haptics from "expo-haptics";
 import moment from "moment";
 import "moment/locale/es";
 import React from "react";
-import { View, useWindowDimensions } from "react-native";
-import { BarChart, LineChart } from "react-native-chart-kit";
 import {
-    ActivityIndicator,
-    Card,
-    Chip,
-    Text,
-    useTheme,
+  Animated,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from "react-native";
+import { BarChart } from "react-native-chart-kit";
+import {
+  ActivityIndicator,
+  Card,
+  Chip,
+  Text,
+  useTheme,
 } from "react-native-paper";
 
 import useDeferredScreenData from "../../hooks/useDeferredScreenData";
 import { VentasCollection } from "../collections/collections";
 import ChartSkeleton from "./ChartSkeleton";
 import CustomSegmentedButtons from "./CustomSegmentedButtons";
+import InteractiveChart from "./InteractiveChart";
 import KPICard from "./KPICard";
 import { chartStyles, dashboardStyles } from "./styles/dashboardStyles";
 import { detectPeriodType } from "./utils/formatUtils";
@@ -26,22 +34,31 @@ moment.locale("es");
 /** @type {typeof MeteorBase & { useTracker: typeof import("@meteorrn/core").useTracker, users: typeof Meteor.users }} */
 const Meteor = MeteorBase;
 
+const safeHaptic = (style = Haptics.ImpactFeedbackStyle.Light) => {
+  try {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(style);
+    }
+  } catch (_) {}
+};
+
 const INITIAL_PERIOD = {
-  type: "DESCONOCIDO",
-  label: "Cargando",
-  icon: "calendar-blank",
   color: "#757575",
-  description: "Cargando periodo",
+  description: "Cargando métricas",
+  icon: "calendar-blank",
+  label: "Cargando",
+  type: "DESCONOCIDO",
 };
 
 const buildSectionLabel = (type) => {
-  if (type === "HORA") return "Bloque horario";
-  if (type === "DIARIO") return "Bloque diario";
-  if (type === "MENSUAL") return "Bloque mensual";
-  return "Dashboard";
+  if (type === "HORA") return "Últimas 24 Horas";
+  if (type === "DIARIO") return "Evolución Diaria (Mes Actual)";
+  if (type === "MENSUAL") return "Histórico Mensual (Anual)";
+  return "Analítica de Tráfico";
 };
 
 const emptyVentasSummary = {
+  adminDetails: [],
   adminLabels: [],
   ganancias12Meses: [],
   totalCobradoMesActual: 0,
@@ -58,8 +75,6 @@ const emptyVentasSummary = {
 };
 
 const formatCurrency = (value) => `$${Number(value || 0).toFixed(2)}`;
-
-const getChartWidth = (windowWidth) => Math.max(windowWidth - 72, 280);
 
 const buildVentasSummary = (ventas, admins) => {
   if (!Array.isArray(ventas) || ventas.length === 0) {
@@ -94,6 +109,7 @@ const buildVentasSummary = (ventas, admins) => {
   const mesActualEnd = moment().endOf("month");
   const ventasPorAdminMesActual = [];
   const adminLabels = [];
+  const adminDetails = [];
 
   let totalCobradoMesActual = 0;
   let totalGananciasMesActual = 0;
@@ -132,13 +148,24 @@ const buildVentasSummary = (ventas, admins) => {
 
     const fullName =
       `${admin.profile?.firstName || ""} ${admin.profile?.lastName || ""}`.trim() ||
+      admin.username ||
       "Sin nombre";
-    adminLabels.push(
-      fullName.length > 15 ? `${fullName.slice(0, 15)}...` : fullName,
-    );
+
+    const shortLabel =
+      fullName.length > 14 ? `${fullName.slice(0, 14)}...` : fullName;
+
+    adminLabels.push(shortLabel);
     ventasPorAdminMesActual.push({
       deudas: deudasAdminMesActual,
       ganancias: gananciasAdminMesActual,
+      totalVendido: totalVendidoAdmin,
+    });
+    adminDetails.push({
+      adminId: admin._id,
+      deudas: deudasAdminMesActual,
+      fullName,
+      ganancias: gananciasAdminMesActual,
+      shortLabel,
       totalVendido: totalVendidoAdmin,
     });
   });
@@ -157,6 +184,7 @@ const buildVentasSummary = (ventas, admins) => {
   });
 
   return {
+    adminDetails,
     adminLabels,
     ganancias12Meses,
     totalCobradoMesActual,
@@ -179,55 +207,37 @@ const buildVentasSummary = (ventas, admins) => {
   };
 };
 
-const renderEmptyChart = (theme, title, copy) => (
-  <View
-    style={[
-      chartStyles.chartEmpty,
-      {
-        backgroundColor: theme.dark
-          ? "rgba(15, 23, 42, 0.82)"
-          : "rgba(248, 250, 252, 0.9)",
-        borderColor: theme.dark
-          ? "rgba(148, 163, 184, 0.22)"
-          : "rgba(15, 23, 42, 0.08)",
-      },
-    ]}
-  >
-    <MaterialCommunityIcons
-      color={theme.colors.primary}
-      name="chart-box-outline"
-      size={34}
-    />
-    <Text
-      style={[chartStyles.chartEmptyTitle, { color: theme.colors.onSurface }]}
-    >
-      {title}
-    </Text>
-    <Text
-      style={[chartStyles.chartEmptyText, { color: theme.colors.onSurface }]}
-    >
-      {copy}
-    </Text>
-  </View>
-);
-
-const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
+const DashBoardPrincipal = ({
+  allowPeriodSwitch = true,
+  refreshToken = 0,
+  type = "DIARIO",
+}) => {
   const theme = useTheme();
-  const { width } = useWindowDimensions();
   const dataReady = useDeferredScreenData();
 
+  const [activeType, setActiveType] = React.useState(type || "DIARIO");
   const [labels, setLabels] = React.useState([]);
   const [vpnValues, setVpnValues] = React.useState([]);
   const [proxyValues, setProxyValues] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedView, setSelectedView] = React.useState("general");
   const [periodInfo, setPeriodInfo] = React.useState(INITIAL_PERIOD);
+  const [selectedAdminId, setSelectedAdminId] = React.useState(null);
+  const [barChartWidth, setBarChartWidth] = React.useState(0);
   const [consumptionKpis, setConsumptionKpis] = React.useState({
     activeUsers: 0,
     totalConsumo: 0,
     totalUsers: 0,
     totalVentas: 0,
   });
+
+  const fadeAnim = React.useRef(new Animated.Value(1)).current;
+
+  React.useEffect(() => {
+    if (type) {
+      setActiveType(type);
+    }
+  }, [type]);
 
   const { admins, currentUser, ventas } = Meteor.useTracker(() => {
     if (!dataReady) {
@@ -284,94 +294,113 @@ const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
     [admins, ventas],
   );
 
-  const fetchData = React.useCallback(() => {
-    setLoading(true);
+  const fetchData = React.useCallback(
+    (targetType) => {
+      setLoading(true);
 
-    Meteor.call("getDatosDashboardByUser", type, null, (error, result) => {
-      if (error) {
-        console.error("Dashboard error", error);
-        setLabels([]);
-        setVpnValues([]);
-        setProxyValues([]);
-        setPeriodInfo({
-          color: theme.colors.error,
-          description: "No se pudo cargar el consumo",
-          icon: "alert-circle-outline",
-          label: "Error",
-          type: "ERROR",
-        });
+      Meteor.call("getDatosDashboardByUser", targetType, null, (error, result) => {
+        if (error) {
+          console.error("Dashboard error", error);
+          setLabels([]);
+          setVpnValues([]);
+          setProxyValues([]);
+          setPeriodInfo({
+            color: theme.colors.error,
+            description: "No se pudo actualizar el consumo",
+            icon: "alert-circle-outline",
+            label: "Error",
+            type: "ERROR",
+          });
+          setConsumptionKpis({
+            activeUsers: 0,
+            totalConsumo: 0,
+            totalUsers: 0,
+            totalVentas: 0,
+          });
+          setLoading(false);
+          return;
+        }
+
+        const safeResult = Array.isArray(result) ? result : [];
+        const vpnData = safeResult.map((item) => Number(item?.VPN || 0));
+        const proxyData = safeResult.map((item) => Number(item?.PROXY || 0));
+        const visibleLabels = safeResult
+          .filter((_, index) => index % 2 === 0)
+          .map((item) => String(item?.name || "").replace(/:00/g, ""));
+        const detectedPeriod = detectPeriodType(
+          safeResult.map((item) => item?.name),
+        );
+        const totalVPN = vpnData.reduce((sum, value) => sum + value, 0);
+        const totalProxy = proxyData.reduce((sum, value) => sum + value, 0);
+
+        setVpnValues(vpnData);
+        setProxyValues(proxyData);
+        setLabels(visibleLabels);
+        setPeriodInfo(detectedPeriod);
         setConsumptionKpis({
-          activeUsers: 0,
-          totalConsumo: 0,
-          totalUsers: 0,
-          totalVentas: 0,
+          activeUsers: safeResult.filter(
+            (item) => Number(item?.VPN || 0) > 0 || Number(item?.PROXY || 0) > 0,
+          ).length,
+          totalConsumo: Number((totalVPN + totalProxy).toFixed(2)),
+          totalUsers: safeResult.length,
+          totalVentas: safeResult.reduce(
+            (sum, item) => sum + Number(item?.ventas || 0),
+            0,
+          ),
         });
         setLoading(false);
-        return;
-      }
-
-      const safeResult = Array.isArray(result) ? result : [];
-      const vpnData = safeResult.map((item) => Number(item?.VPN || 0));
-      const proxyData = safeResult.map((item) => Number(item?.PROXY || 0));
-      const visibleLabels = safeResult
-        .filter((_, index) => index % 2 === 0)
-        .map((item) => String(item?.name || "").replace(/:00/g, ""));
-      const detectedPeriod = detectPeriodType(
-        safeResult.map((item) => item?.name),
-      );
-      const totalVPN = vpnData.reduce((sum, value) => sum + value, 0);
-      const totalProxy = proxyData.reduce((sum, value) => sum + value, 0);
-
-      setVpnValues(vpnData);
-      setProxyValues(proxyData);
-      setLabels(visibleLabels);
-      setPeriodInfo(detectedPeriod);
-      setConsumptionKpis({
-        activeUsers: safeResult.filter(
-          (item) => Number(item?.VPN || 0) > 0 || Number(item?.PROXY || 0) > 0,
-        ).length,
-        totalConsumo: Number((totalVPN + totalProxy).toFixed(2)),
-        totalUsers: safeResult.length,
-        totalVentas: safeResult.reduce(
-          (sum, item) => sum + Number(item?.ventas || 0),
-          0,
-        ),
       });
-      setLoading(false);
-    });
-  }, [theme.colors.error, type]);
+    },
+    [theme.colors.error],
+  );
 
   React.useEffect(() => {
     if (!dataReady) {
       return;
     }
 
-    fetchData();
-  }, [dataReady, fetchData, refreshToken]);
+    fetchData(activeType);
+  }, [activeType, dataReady, fetchData, refreshToken]);
 
   React.useEffect(() => {
-    if (selectedView === "ventas" && periodInfo.type === "HORA") {
+    if (selectedView === "ventas" && activeType === "HORA") {
       setSelectedView("general");
     }
-  }, [periodInfo.type, selectedView]);
+  }, [activeType, selectedView]);
 
-  const chartWidth = getChartWidth(width);
+  const handlePeriodChange = (newPeriod) => {
+    if (newPeriod !== activeType) {
+      safeHaptic();
+      setActiveType(newPeriod);
+    }
+  };
+
+  const handleViewChange = (newView) => {
+    fadeAnim.setValue(0.7);
+    setSelectedView(newView);
+    Animated.timing(fadeAnim, {
+      duration: 200,
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  };
+
   const lineLabels = labels.length > 0 ? labels : [""];
   const generalChartData = {
     datasets: [
       {
-        color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
+        color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
         data: vpnValues.length > 0 ? vpnValues : [0],
-        strokeWidth: 2,
+        strokeWidth: 3,
       },
       {
-        color: (opacity = 1) => `rgba(33, 150, 243, ${opacity})`,
+        color: (opacity = 1) => `rgba(2, 132, 199, ${opacity})`,
         data: proxyValues.length > 0 ? proxyValues : [0],
-        strokeWidth: 2,
+        strokeWidth: 3,
       },
     ],
     labels: lineLabels,
-    legend: ["VPN", "Proxy"],
+    legend: ["Red VPN", "Conexión Proxy"],
   };
 
   const chartConfig = {
@@ -395,24 +424,47 @@ const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
     },
     propsForDots: {
       r: "4",
-      strokeWidth: "2",
       stroke: theme.colors.primary,
+      strokeWidth: "2",
     },
     style: { borderRadius: 18 },
   };
 
   const visibleButtons = [
-    { value: "general", label: "General", icon: "chart-box" },
-    { value: "vpn", label: "VPN", icon: "shield-check" },
+    { value: "general", label: "Comparativo", icon: "chart-box" },
+    { value: "vpn", label: "Red VPN", icon: "shield-check" },
     { value: "proxy", label: "Proxy", icon: "wifi" },
-    ...(periodInfo.type !== "HORA" && currentUser?.username === "carlosmbinf"
-      ? [{ value: "ventas", label: "Ventas", icon: "currency-usd" }]
+    ...(activeType !== "HORA" && currentUser?.username === "carlosmbinf"
+      ? [{ value: "ventas", label: "Ventas Admins", icon: "currency-usd" }]
       : []),
   ];
 
-  const sourceCardBg = theme.dark
+  const cardBackground = theme.dark
     ? "rgba(15, 23, 42, 0.94)"
-    : "rgba(255, 255, 255, 0.94)";
+    : "rgba(255, 255, 255, 0.96)";
+
+  const cardBorderColor = theme.dark
+    ? "rgba(148, 163, 184, 0.16)"
+    : "rgba(15, 23, 42, 0.08)";
+
+  const horizonPeriods = [
+    { key: "HORA", label: "24 Horas", icon: "clock-outline" },
+    { key: "DIARIO", label: "Mes Actual", icon: "calendar-today" },
+    { key: "MENSUAL", label: "Histórico Anual", icon: "calendar-month" },
+  ];
+
+  const totalBandwidth = consumptionKpis.totalConsumo;
+  const activePercent =
+    consumptionKpis.totalUsers > 0
+      ? Math.round(
+          (consumptionKpis.activeUsers / consumptionKpis.totalUsers) * 100,
+        )
+      : 0;
+
+  const selectedAdmin =
+    ventasSummary.adminDetails.find((item) => item.adminId === selectedAdminId) ||
+    ventasSummary.adminDetails[0] ||
+    null;
 
   if (loading && vpnValues.length === 0 && proxyValues.length === 0) {
     return (
@@ -420,7 +472,10 @@ const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
         <Card
           style={[
             dashboardStyles.sourceCard,
-            { backgroundColor: sourceCardBg },
+            {
+              backgroundColor: cardBackground,
+              borderColor: cardBorderColor,
+            },
           ]}
         >
           <Card.Content style={dashboardStyles.loadingContainer}>
@@ -431,7 +486,7 @@ const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
                 { color: theme.colors.onSurface },
               ]}
             >
-              Cargando {buildSectionLabel(type).toLowerCase()}...
+              Cargando métricas de {buildSectionLabel(activeType).toLowerCase()}...
             </Text>
             <ChartSkeleton />
           </Card.Content>
@@ -451,7 +506,7 @@ const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
                 { color: theme.colors.primary },
               ]}
             >
-              {buildSectionLabel(type)}
+              {buildSectionLabel(activeType)}
             </Text>
             <Text
               style={[
@@ -459,7 +514,7 @@ const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
                 { color: theme.colors.onBackground },
               ]}
             >
-              {periodInfo.description || "Analisis de consumo"}
+              Tráfico de Red y Demanda
             </Text>
           </View>
           <Chip
@@ -476,145 +531,116 @@ const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
             { color: theme.colors.onBackground },
           ]}
         >
-          El consumo se obtiene desde `getDatosDashboardByUser` sobre
-          `RegisterDataUsersCollection`, y las ventas se calculan reactivamente
-          desde `ventas` y `Meteor.users`.
+          Monitoreo en tiempo real del tráfico consumido por usuarios y balance
+          de demanda de red.
         </Text>
       </View>
 
-      <Card
-        style={[dashboardStyles.sourceCard, { backgroundColor: sourceCardBg }]}
-      >
-        <Card.Content style={dashboardStyles.sourceCardContent}>
-          <View style={dashboardStyles.sourceRow}>
-            <View
-              style={[
-                dashboardStyles.sourceIcon,
-                {
-                  backgroundColor: theme.dark
-                    ? "rgba(59, 130, 246, 0.16)"
-                    : "rgba(59, 130, 246, 0.12)",
-                },
-              ]}
-            >
-              <MaterialCommunityIcons
-                color="#3b82f6"
-                name="database-outline"
-                size={20}
-              />
-            </View>
-            <View style={dashboardStyles.sourceTextBlock}>
-              <Text
+      {allowPeriodSwitch ? (
+        <View style={dashboardStyles.horizonContainer}>
+          {horizonPeriods.map((period) => {
+            const isSelected = activeType === period.key;
+            return (
+              <Pressable
+                key={period.key}
+                onPress={() => handlePeriodChange(period.key)}
                 style={[
-                  dashboardStyles.sourceLabel,
-                  { color: theme.colors.onSurface },
+                  dashboardStyles.horizonButton,
+                  {
+                    backgroundColor: isSelected
+                      ? theme.colors.primary
+                      : theme.dark
+                        ? "rgba(30, 41, 59, 0.82)"
+                        : "rgba(248, 250, 252, 0.96)",
+                    borderColor: isSelected
+                      ? theme.colors.primary
+                      : theme.dark
+                        ? "rgba(148, 163, 184, 0.24)"
+                        : "rgba(15, 23, 42, 0.08)",
+                  },
+                  isSelected && dashboardStyles.horizonButtonActive,
                 ]}
               >
-                Consumo VPN / Proxy
-              </Text>
-              <Text
-                style={[
-                  dashboardStyles.sourceDescription,
-                  { color: theme.colors.onSurface },
-                ]}
-              >
-                Metodo Meteor agregado por periodo y convertido a GB desde
-                registros de uso.
-              </Text>
-            </View>
-          </View>
-          <View style={dashboardStyles.sourceRow}>
-            <View
-              style={[
-                dashboardStyles.sourceIcon,
-                {
-                  backgroundColor: theme.dark
-                    ? "rgba(34, 197, 94, 0.16)"
-                    : "rgba(34, 197, 94, 0.12)",
-                },
-              ]}
-            >
-              <MaterialCommunityIcons
-                color="#22c55e"
-                name="cash-multiple"
-                size={20}
-              />
-            </View>
-            <View style={dashboardStyles.sourceTextBlock}>
-              <Text
-                style={[
-                  dashboardStyles.sourceLabel,
-                  { color: theme.colors.onSurface },
-                ]}
-              >
-                Ventas y deudas
-              </Text>
-              <Text
-                style={[
-                  dashboardStyles.sourceDescription,
-                  { color: theme.colors.onSurface },
-                ]}
-              >
-                Coleccion reactiva `ventas` + nombres de admins desde
-                `Meteor.users` para resumen mensual, anual e historico.
-              </Text>
-            </View>
-          </View>
-        </Card.Content>
-      </Card>
+                <MaterialCommunityIcons
+                  color={
+                    isSelected
+                      ? "#ffffff"
+                      : theme.dark
+                        ? "#94a3b8"
+                        : "#64748b"
+                  }
+                  name={period.icon}
+                  size={15}
+                />
+                <Text
+                  style={[
+                    dashboardStyles.horizonText,
+                    {
+                      color: isSelected ? "#ffffff" : theme.colors.onSurface,
+                    },
+                    isSelected && dashboardStyles.horizonTextActive,
+                  ]}
+                >
+                  {period.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
 
       <View style={dashboardStyles.kpiContainer}>
         {selectedView !== "ventas" ? (
           <>
             <KPICard
-              color="#4caf50"
+              color="#10b981"
               icon="chart-line"
               isLargeNumber
-              subtitle={periodInfo.description || "Total acumulado"}
-              title="Total Consumo"
+              subtitle={periodInfo.description || "Consumo total acumulado"}
+              title="Tráfico Total"
               trend={12}
-              value={consumptionKpis.totalConsumo}
+              value={totalBandwidth}
             />
             <KPICard
-              color="#2196f3"
+              color="#0284c7"
               icon="account-group"
-              subtitle={`de ${consumptionKpis.totalUsers} usuarios`}
+              subtitle={`${activePercent}% de ${consumptionKpis.totalUsers} usuarios`}
               title="Usuarios Activos"
-              trend={8}
+              trend={activePercent}
               value={consumptionKpis.activeUsers}
             />
           </>
-        ) : periodInfo.type === "DIA" ? (
+        ) : activeType === "DIARIO" ? (
           <>
             <KPICard
-              color="#4caf50"
+              color="#10b981"
               icon="cash-check"
               subtitle={moment().format("MMMM YYYY")}
-              title="Total Cobrado"
+              title="Facturado Plataforma"
               value={formatCurrency(ventasSummary.totalCobradoMesActual)}
             />
             <KPICard
-              color="#2196f3"
+              color="#0284c7"
               icon="account-cash"
               subtitle={moment().format("MMMM YYYY")}
-              title="Ganancias Admin"
+              title="Comisiones Distribuidores"
               value={formatCurrency(ventasSummary.totalGananciasMesActual)}
             />
           </>
         ) : (
           <>
             <KPICard
-              color="#ff9800"
+              color="#f59e0b"
               icon="cash-multiple"
-              subtitle="Ultimos 12 meses"
-              title="Total Ventas (12M)"
+              subtitle="Últimos 12 meses"
+              title="Facturado 12 Meses"
               value={formatCurrency(ventasSummary.totalVentas12Meses)}
             />
             <KPICard
-              color="#9c27b0"
+              color="#8b5cf6"
               icon="trending-up"
-              subtitle="Todas las ventas"
-              title="Historico Total"
+              subtitle="Total acumulado"
+              title="Histórico Global"
               value={formatCurrency(ventasSummary.totalVentasHistorico)}
             />
           </>
@@ -624,348 +650,572 @@ const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
       <View style={dashboardStyles.segmentedContainer}>
         <CustomSegmentedButtons
           buttons={visibleButtons}
-          onValueChange={setSelectedView}
+          onValueChange={handleViewChange}
           value={selectedView}
         />
       </View>
 
-      {selectedView === "general" ? (
-        <Card style={[chartStyles.card, { backgroundColor: sourceCardBg }]}>
-          <Card.Content>
-            <View style={chartStyles.header}>
-              <View style={chartStyles.titleRow}>
-                <View
-                  style={[chartStyles.icon, { backgroundColor: "#4caf50" }]}
-                >
-                  <MaterialCommunityIcons
-                    color="#ffffff"
-                    name="chart-box"
-                    size={20}
-                  />
-                </View>
-                <Text
-                  style={[chartStyles.title, { color: theme.colors.onSurface }]}
-                >
-                  Consumo comparativo
-                </Text>
-              </View>
-              <Chip
-                icon={periodInfo.icon}
-                style={{ backgroundColor: `${periodInfo.color}22` }}
-                textStyle={{
-                  color: periodInfo.color,
-                  fontSize: 10,
-                  fontWeight: "800",
-                }}
-              >
-                {periodInfo.label}
-              </Chip>
-            </View>
-            {vpnValues.length > 0 || proxyValues.length > 0 ? (
-              <LineChart
-                bezier
+      <Animated.View style={{ opacity: fadeAnim }}>
+        {selectedView === "general" ? (
+          <Card
+            style={[
+              chartStyles.card,
+              {
+                backgroundColor: cardBackground,
+                borderColor: cardBorderColor,
+              },
+            ]}
+          >
+            <Card.Content>
+              <InteractiveChart
+                badge={periodInfo.label}
                 chartConfig={chartConfig}
                 data={generalChartData}
-                fromZero
-                height={240}
-                style={chartStyles.chart}
-                width={chartWidth}
-                withHorizontalLines
-                withInnerLines
-                withOuterLines
-                withShadow
-                withVerticalLines={false}
+                emptyCopy="No se registran transferencias de datos para el bloque seleccionado."
+                emptyTitle="Sin consumo en este periodo"
+                formatTooltipValue={(val) => `${Number(val || 0).toFixed(2)} GB`}
+                height={230}
+                icon="chart-box"
+                iconBg="#10b981"
+                title="Consumo Comparativo de Red"
                 yAxisSuffix=" GB"
               />
-            ) : (
-              renderEmptyChart(
-                theme,
-                "Sin consumo agregado",
-                "No hay registros de proxy o VPN para este periodo.",
-              )
-            )}
-          </Card.Content>
-        </Card>
-      ) : null}
 
-      {selectedView === "vpn" ? (
-        <Card style={[chartStyles.card, { backgroundColor: sourceCardBg }]}>
-          <Card.Content>
-            <View style={chartStyles.header}>
-              <View style={chartStyles.titleRow}>
-                <View
-                  style={[chartStyles.icon, { backgroundColor: "#4caf50" }]}
-                >
-                  <MaterialCommunityIcons
-                    color="#ffffff"
-                    name="shield-check"
-                    size={20}
-                  />
-                </View>
+              <View
+                style={[
+                  chartStyles.insightBox,
+                  {
+                    backgroundColor: theme.dark
+                      ? "rgba(15, 23, 42, 0.92)"
+                      : "rgba(16, 185, 129, 0.06)",
+                    borderColor: theme.dark
+                      ? "rgba(148, 163, 184, 0.16)"
+                      : "rgba(16, 185, 129, 0.18)",
+                  },
+                ]}
+              >
                 <Text
-                  style={[chartStyles.title, { color: theme.colors.onSurface }]}
+                  style={[
+                    chartStyles.insightTitle,
+                    { color: theme.colors.onSurface },
+                  ]}
                 >
-                  Consumo VPN
+                  Lectura Ejecutiva de Demanda
                 </Text>
+                <View style={chartStyles.insightRow}>
+                  <Text
+                    style={[
+                      chartStyles.insightLabel,
+                      { color: theme.colors.onSurface },
+                    ]}
+                  >
+                    Tráfico Total Combinado
+                  </Text>
+                  <Text
+                    style={[chartStyles.insightValue, { color: "#10b981" }]}
+                  >
+                    {totalBandwidth} GB
+                  </Text>
+                </View>
+                <View style={chartStyles.insightRow}>
+                  <Text
+                    style={[
+                      chartStyles.insightLabel,
+                      { color: theme.colors.onSurface },
+                    ]}
+                  >
+                    Tasa de Usuarios con Actividad
+                  </Text>
+                  <Text
+                    style={[chartStyles.insightValue, { color: "#0284c7" }]}
+                  >
+                    {activePercent}% ({consumptionKpis.activeUsers} de{" "}
+                    {consumptionKpis.totalUsers})
+                  </Text>
+                </View>
               </View>
-              <View style={chartStyles.chipColumn}>
-                <Chip
-                  icon={periodInfo.icon}
-                  style={{ backgroundColor: `${periodInfo.color}22` }}
-                  textStyle={{
-                    color: periodInfo.color,
-                    fontSize: 10,
-                    fontWeight: "800",
-                  }}
-                >
-                  {periodInfo.label}
-                </Chip>
-                <Chip
-                  icon="trending-up"
-                  style={{ backgroundColor: "rgba(76, 175, 80, 0.16)" }}
-                  textStyle={{
-                    color: "#4caf50",
-                    fontSize: 10,
-                    fontWeight: "800",
-                  }}
-                >
-                  +12%
-                </Chip>
-              </View>
-            </View>
-            {vpnValues.length > 0 ? (
-              <LineChart
-                bezier
+            </Card.Content>
+          </Card>
+        ) : null}
+
+        {selectedView === "vpn" ? (
+          <Card
+            style={[
+              chartStyles.card,
+              {
+                backgroundColor: cardBackground,
+                borderColor: cardBorderColor,
+              },
+            ]}
+          >
+            <Card.Content>
+              <InteractiveChart
+                badge={periodInfo.label}
                 chartConfig={{
                   ...chartConfig,
-                  color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
+                  color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
                   propsForDots: {
                     ...chartConfig.propsForDots,
-                    stroke: "#4caf50",
+                    stroke: "#10b981",
                   },
                 }}
                 data={{
                   datasets: [{ data: vpnValues }],
                   labels: lineLabels,
                 }}
-                fromZero
-                height={240}
-                style={chartStyles.chart}
-                width={chartWidth}
-                withInnerLines
-                withShadow
+                emptyCopy="No hay registros de tráfico VPN en este intervalo."
+                emptyTitle="VPN sin transferencias"
+                formatTooltipValue={(val) => `${Number(val || 0).toFixed(2)} GB`}
+                height={230}
+                icon="shield-check"
+                iconBg="#10b981"
+                title="Tráfico por Túnel VPN"
                 yAxisSuffix=" GB"
               />
-            ) : (
-              renderEmptyChart(
-                theme,
-                "VPN sin consumo",
-                "Todavia no hay gasto agregado de VPN para este bloque.",
-              )
-            )}
-          </Card.Content>
-        </Card>
-      ) : null}
+            </Card.Content>
+          </Card>
+        ) : null}
 
-      {selectedView === "proxy" ? (
-        <Card style={[chartStyles.card, { backgroundColor: sourceCardBg }]}>
-          <Card.Content>
-            <View style={chartStyles.header}>
-              <View style={chartStyles.titleRow}>
-                <View
-                  style={[chartStyles.icon, { backgroundColor: "#2196f3" }]}
-                >
-                  <MaterialCommunityIcons
-                    color="#ffffff"
-                    name="wifi"
-                    size={20}
-                  />
-                </View>
-                <Text
-                  style={[chartStyles.title, { color: theme.colors.onSurface }]}
-                >
-                  Consumo Proxy
-                </Text>
-              </View>
-              <View style={chartStyles.chipColumn}>
-                <Chip
-                  icon={periodInfo.icon}
-                  style={{ backgroundColor: `${periodInfo.color}22` }}
-                  textStyle={{
-                    color: periodInfo.color,
-                    fontSize: 10,
-                    fontWeight: "800",
-                  }}
-                >
-                  {periodInfo.label}
-                </Chip>
-                <Chip
-                  icon="trending-up"
-                  style={{ backgroundColor: "rgba(33, 150, 243, 0.16)" }}
-                  textStyle={{
-                    color: "#2196f3",
-                    fontSize: 10,
-                    fontWeight: "800",
-                  }}
-                >
-                  +8%
-                </Chip>
-              </View>
-            </View>
-            {proxyValues.length > 0 ? (
-              <LineChart
-                bezier
+        {selectedView === "proxy" ? (
+          <Card
+            style={[
+              chartStyles.card,
+              {
+                backgroundColor: cardBackground,
+                borderColor: cardBorderColor,
+              },
+            ]}
+          >
+            <Card.Content>
+              <InteractiveChart
+                badge={periodInfo.label}
                 chartConfig={{
                   ...chartConfig,
-                  color: (opacity = 1) => `rgba(33, 150, 243, ${opacity})`,
+                  color: (opacity = 1) => `rgba(2, 132, 199, ${opacity})`,
                   propsForDots: {
                     ...chartConfig.propsForDots,
-                    stroke: "#2196f3",
+                    stroke: "#0284c7",
                   },
                 }}
                 data={{
                   datasets: [{ data: proxyValues }],
                   labels: lineLabels,
                 }}
-                fromZero
-                height={240}
-                style={chartStyles.chart}
-                width={chartWidth}
-                withInnerLines
-                withShadow
+                emptyCopy="No hay registros de tráfico Proxy en este intervalo."
+                emptyTitle="Proxy sin transferencias"
+                formatTooltipValue={(val) => `${Number(val || 0).toFixed(2)} GB`}
+                height={230}
+                icon="wifi"
+                iconBg="#0284c7"
+                title="Tráfico por Conexión Proxy"
                 yAxisSuffix=" GB"
               />
-            ) : (
-              renderEmptyChart(
-                theme,
-                "Proxy sin consumo",
-                "Todavia no hay gasto agregado de Proxy para este bloque.",
-              )
-            )}
-          </Card.Content>
-        </Card>
-      ) : null}
+            </Card.Content>
+          </Card>
+        ) : null}
 
-      {selectedView === "ventas" ? (
-        <Card style={[chartStyles.card, { backgroundColor: sourceCardBg }]}>
-          <Card.Content>
-            <View style={chartStyles.header}>
-              <View style={chartStyles.titleRow}>
+        {selectedView === "ventas" ? (
+          <Card
+            style={[
+              chartStyles.card,
+              {
+                backgroundColor: cardBackground,
+                borderColor: cardBorderColor,
+              },
+            ]}
+          >
+            <Card.Content>
+              {activeType === "DIARIO" ? (
                 <View
-                  style={[chartStyles.icon, { backgroundColor: "#ff9800" }]}
-                >
-                  <MaterialCommunityIcons
-                    color="#ffffff"
-                    name="currency-usd"
-                    size={20}
-                  />
-                </View>
-                <Text
-                  style={[chartStyles.title, { color: theme.colors.onSurface }]}
-                >
-                  {periodInfo.type === "DIA"
-                    ? "Ventas por admin (mes actual)"
-                    : "Ventas por mes (12 meses)"}
-                </Text>
-              </View>
-            </View>
-
-            <View
-              style={{
-                flexDirection: "row",
-                flexWrap: "wrap",
-                gap: 8,
-                marginBottom: 14,
-              }}
-            >
-              {periodInfo.type === "DIA" ? (
-                <>
-                  <Chip
-                    icon="calendar-check"
-                    style={{ backgroundColor: "rgba(76, 175, 80, 0.16)" }}
-                    textStyle={{
-                      color: "#4caf50",
-                      fontSize: 10,
-                      fontWeight: "800",
-                    }}
-                  >
-                    {moment().format("MMMM YYYY")}
-                  </Chip>
-                  <Chip
-                    icon="account-group"
-                    style={{ backgroundColor: "rgba(33, 150, 243, 0.16)" }}
-                    textStyle={{
-                      color: "#2196f3",
-                      fontSize: 10,
-                      fontWeight: "800",
-                    }}
-                  >
-                    {ventasSummary.adminLabels.length} admins
-                  </Chip>
-                </>
-              ) : (
-                <Chip
-                  icon="calendar-range"
-                  style={{ backgroundColor: "rgba(255, 152, 0, 0.16)" }}
-                  textStyle={{
-                    color: "#ff9800",
-                    fontSize: 10,
-                    fontWeight: "800",
+                  onLayout={(e) => {
+                    const w = e.nativeEvent.layout.width;
+                    if (w > 0) setBarChartWidth(Math.floor(w));
                   }}
                 >
-                  Ultimos 12 meses
-                </Chip>
-              )}
-            </View>
+                  <View style={chartStyles.header}>
+                    <View style={chartStyles.titleRow}>
+                      <View
+                        style={[
+                          chartStyles.icon,
+                          { backgroundColor: "#f59e0b" },
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          color="#ffffff"
+                          name="account-group"
+                          size={20}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          chartStyles.title,
+                          { color: theme.colors.onSurface },
+                        ]}
+                      >
+                        Rendimiento por Distribuidor (Mes Actual)
+                      </Text>
+                    </View>
+                  </View>
 
-            {periodInfo.type === "DIA" ? (
-              ventasSummary.adminLabels.length > 0 ? (
-                <>
-                  <BarChart
-                    chartConfig={{
-                      ...chartConfig,
-                      barPercentage: 0.7,
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: "600",
+                      marginBottom: 10,
+                      opacity: 0.6,
                     }}
+                  >
+                    Toca un distribuidor para inspeccionar comisiones y cobranza
+                  </Text>
+
+                  {ventasSummary.adminDetails.length > 0 ? (
+                    <>
+                      <ScrollView
+                        contentContainerStyle={{ gap: 8, paddingBottom: 10 }}
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                      >
+                        {ventasSummary.adminDetails.map((item) => {
+                          const isSelected =
+                            selectedAdmin &&
+                            selectedAdmin.adminId === item.adminId;
+                          return (
+                            <Pressable
+                              key={item.adminId}
+                              onPress={() => {
+                                safeHaptic();
+                                setSelectedAdminId(item.adminId);
+                              }}
+                              style={{
+                                alignItems: "center",
+                                backgroundColor: isSelected
+                                  ? theme.colors.primary
+                                  : theme.dark
+                                    ? "rgba(30, 41, 59, 0.8)"
+                                    : "rgba(241, 245, 249, 0.9)",
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: isSelected
+                                  ? theme.colors.primary
+                                  : theme.dark
+                                    ? "rgba(148, 163, 184, 0.2)"
+                                    : "rgba(15, 23, 42, 0.08)",
+                                flexDirection: "row",
+                                gap: 6,
+                                paddingHorizontal: 12,
+                                paddingVertical: 7,
+                              }}
+                            >
+                              <MaterialCommunityIcons
+                                color={
+                                  isSelected ? "#ffffff" : theme.colors.primary
+                                }
+                                name="account-circle"
+                                size={16}
+                              />
+                              <Text
+                                style={{
+                                  color: isSelected
+                                    ? "#ffffff"
+                                    : theme.colors.onSurface,
+                                  fontSize: 12,
+                                  fontWeight: isSelected ? "800" : "600",
+                                }}
+                              >
+                                {item.shortLabel}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </ScrollView>
+
+                      {selectedAdmin ? (
+                        <View
+                          style={[
+                            chartStyles.insightBox,
+                            {
+                              backgroundColor: theme.dark
+                                ? "rgba(15, 23, 42, 0.9)"
+                                : "rgba(245, 158, 11, 0.08)",
+                              borderColor: theme.dark
+                                ? "rgba(148, 163, 184, 0.2)"
+                                : "rgba(245, 158, 11, 0.2)",
+                              marginVertical: 10,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              chartStyles.insightTitle,
+                              { color: theme.colors.onSurface },
+                            ]}
+                          >
+                            Distribuidor: {selectedAdmin.fullName}
+                          </Text>
+                          <View style={chartStyles.insightRow}>
+                            <Text
+                              style={[
+                                chartStyles.insightLabel,
+                                { color: theme.colors.onSurface },
+                              ]}
+                            >
+                              Facturación Generada
+                            </Text>
+                            <Text
+                              style={[
+                                chartStyles.insightValue,
+                                { color: "#10b981" },
+                              ]}
+                            >
+                              {formatCurrency(selectedAdmin.totalVendido)}
+                            </Text>
+                          </View>
+                          <View style={chartStyles.insightRow}>
+                            <Text
+                              style={[
+                                chartStyles.insightLabel,
+                                { color: theme.colors.onSurface },
+                              ]}
+                            >
+                              Comisión Ganada
+                            </Text>
+                            <Text
+                              style={[
+                                chartStyles.insightValue,
+                                { color: "#0284c7" },
+                              ]}
+                            >
+                              {formatCurrency(selectedAdmin.ganancias)}
+                            </Text>
+                          </View>
+                          <View style={chartStyles.insightRow}>
+                            <Text
+                              style={[
+                                chartStyles.insightLabel,
+                                { color: theme.colors.onSurface },
+                              ]}
+                            >
+                              Cartera Pendiente
+                            </Text>
+                            <Text
+                              style={[
+                                chartStyles.insightValue,
+                                { color: "#ef4444" },
+                              ]}
+                            >
+                              {formatCurrency(selectedAdmin.deudas)}
+                            </Text>
+                          </View>
+                        </View>
+                      ) : null}
+
+                      {barChartWidth > 0 ? (
+                        <BarChart
+                          chartConfig={{
+                            ...chartConfig,
+                            barPercentage: 0.7,
+                          }}
+                          data={{
+                            datasets: [
+                              {
+                                color: (opacity = 1) =>
+                                  `rgba(16, 185, 129, ${opacity})`,
+                                data: ventasSummary.ventasPorAdminMesActual.map(
+                                  (item) => item.totalVendido,
+                                ),
+                              },
+                              {
+                                color: (opacity = 1) =>
+                                  `rgba(2, 132, 199, ${opacity})`,
+                                data: ventasSummary.ventasPorAdminMesActual.map(
+                                  (item) => item.ganancias,
+                                ),
+                              },
+                              {
+                                color: (opacity = 1) =>
+                                  `rgba(239, 68, 68, ${opacity})`,
+                                data: ventasSummary.ventasPorAdminMesActual.map(
+                                  (item) => item.deudas,
+                                ),
+                              },
+                            ],
+                            labels: ventasSummary.adminLabels,
+                          }}
+                          fromZero
+                          height={230}
+                          showValuesOnTopOfBars={false}
+                          style={chartStyles.chart}
+                          width={Math.max(barChartWidth, 260)}
+                          yAxisLabel="$"
+                        />
+                      ) : null}
+
+                      <View
+                        style={[
+                          chartStyles.insightBox,
+                          {
+                            backgroundColor: theme.dark
+                              ? "rgba(15, 23, 42, 0.92)"
+                              : "rgba(16, 185, 129, 0.06)",
+                            borderColor: theme.dark
+                              ? "rgba(148, 163, 184, 0.16)"
+                              : "rgba(16, 185, 129, 0.18)",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            chartStyles.insightTitle,
+                            { color: theme.colors.onSurface },
+                          ]}
+                        >
+                          Balance Total del Mes
+                        </Text>
+                        <View style={chartStyles.insightRow}>
+                          <Text
+                            style={[
+                              chartStyles.insightLabel,
+                              { color: theme.colors.onSurface },
+                            ]}
+                          >
+                            Facturación Plataforma
+                          </Text>
+                          <Text
+                            style={[
+                              chartStyles.insightValue,
+                              { color: "#10b981" },
+                            ]}
+                          >
+                            {formatCurrency(
+                              ventasSummary.totalCobradoMesActual,
+                            )}
+                          </Text>
+                        </View>
+                        <View style={chartStyles.insightRow}>
+                          <Text
+                            style={[
+                              chartStyles.insightLabel,
+                              { color: theme.colors.onSurface },
+                            ]}
+                          >
+                            Comisiones Totales
+                          </Text>
+                          <Text
+                            style={[
+                              chartStyles.insightValue,
+                              { color: "#0284c7" },
+                            ]}
+                          >
+                            {formatCurrency(
+                              ventasSummary.totalGananciasMesActual,
+                            )}
+                          </Text>
+                        </View>
+                        <View style={chartStyles.insightRow}>
+                          <Text
+                            style={[
+                              chartStyles.insightLabel,
+                              { color: theme.colors.onSurface },
+                            ]}
+                          >
+                            Cartera Pendiente
+                          </Text>
+                          <Text
+                            style={[
+                              chartStyles.insightValue,
+                              { color: "#ef4444" },
+                            ]}
+                          >
+                            {formatCurrency(
+                              ventasSummary.totalDeudasMesActual,
+                            )}
+                          </Text>
+                        </View>
+                      </View>
+                    </>
+                  ) : (
+                    <View
+                      style={[
+                        chartStyles.chartEmpty,
+                        {
+                          backgroundColor: theme.dark
+                            ? "rgba(15, 23, 42, 0.82)"
+                            : "rgba(248, 250, 252, 0.9)",
+                          borderColor: theme.dark
+                            ? "rgba(148, 163, 184, 0.22)"
+                            : "rgba(15, 23, 42, 0.08)",
+                        },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        color={theme.colors.primary}
+                        name="account-off-outline"
+                        size={32}
+                      />
+                      <Text
+                        style={[
+                          chartStyles.chartEmptyTitle,
+                          { color: theme.colors.onSurface },
+                        ]}
+                      >
+                        Sin operaciones este mes
+                      </Text>
+                      <Text
+                        style={[
+                          chartStyles.chartEmptyText,
+                          { color: theme.colors.onSurface },
+                        ]}
+                      >
+                        No hay registros de distribuidores con ventas en el mes
+                        en curso.
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View>
+                  <InteractiveChart
+                    badge="Últimos 12 Meses"
+                    chartConfig={chartConfig}
                     data={{
                       datasets: [
                         {
                           color: (opacity = 1) =>
-                            `rgba(76, 175, 80, ${opacity})`,
-                          data: ventasSummary.ventasPorAdminMesActual.map(
-                            (item) => item.totalVendido,
-                          ),
+                            `rgba(16, 185, 129, ${opacity})`,
+                          data: ventasSummary.totalVendido12Meses,
+                          strokeWidth: 3,
                         },
                         {
                           color: (opacity = 1) =>
-                            `rgba(0, 139, 159, ${opacity})`,
-                          data: ventasSummary.ventasPorAdminMesActual.map(
-                            (item) => item.ganancias,
-                          ),
-                        },
-                        {
-                          color: (opacity = 1) =>
-                            `rgba(211, 47, 47, ${opacity})`,
-                          data: ventasSummary.ventasPorAdminMesActual.map(
-                            (item) => item.deudas,
-                          ),
+                            `rgba(2, 132, 199, ${opacity})`,
+                          data: ventasSummary.ganancias12Meses,
+                          strokeWidth: 3,
                         },
                       ],
-                      labels: ventasSummary.adminLabels,
+                      labels: ventasSummary.ventasLabels,
+                      legend: ["Total Facturado", "Comisiones Distribuidores"],
                     }}
-                    fromZero
-                    height={240}
-                    showValuesOnTopOfBars={false}
-                    style={chartStyles.chart}
-                    width={chartWidth}
+                    emptyCopy="Aún no hay suficientes periodos registrados para trazar la tendencia anual."
+                    emptyTitle="Sin histórico comercial"
+                    formatTooltipValue={(val) => formatCurrency(val)}
+                    height={230}
+                    icon="currency-usd"
+                    iconBg="#f59e0b"
+                    title="Evolución Comercial (Últimos 12 Meses)"
                     yAxisLabel="$"
                   />
+
                   <View
                     style={[
                       chartStyles.insightBox,
                       {
                         backgroundColor: theme.dark
                           ? "rgba(15, 23, 42, 0.92)"
-                          : "rgba(76, 175, 80, 0.06)",
+                          : "rgba(245, 158, 11, 0.06)",
+                        borderColor: theme.dark
+                          ? "rgba(148, 163, 184, 0.16)"
+                          : "rgba(245, 158, 11, 0.18)",
+                        marginTop: 14,
                       },
                     ]}
                   >
@@ -975,7 +1225,7 @@ const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
                         { color: theme.colors.onSurface },
                       ]}
                     >
-                      Resumen del mes actual
+                      Rendimiento Consolidado (12 Meses)
                     </Text>
                     <View style={chartStyles.insightRow}>
                       <Text
@@ -984,12 +1234,12 @@ const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
                           { color: theme.colors.onSurface },
                         ]}
                       >
-                        Ganancias Vidkar
+                        Facturado 12 Meses
                       </Text>
                       <Text
-                        style={[chartStyles.insightValue, { color: "#4caf50" }]}
+                        style={[chartStyles.insightValue, { color: "#10b981" }]}
                       >
-                        {formatCurrency(ventasSummary.totalCobradoMesActual)}
+                        {formatCurrency(ventasSummary.totalVentas12Meses)}
                       </Text>
                     </View>
                     <View style={chartStyles.insightRow}>
@@ -999,12 +1249,12 @@ const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
                           { color: theme.colors.onSurface },
                         ]}
                       >
-                        Ganancias admins
+                        Comisiones Pagadas
                       </Text>
                       <Text
-                        style={[chartStyles.insightValue, { color: "#008b9f" }]}
+                        style={[chartStyles.insightValue, { color: "#0284c7" }]}
                       >
-                        {formatCurrency(ventasSummary.totalGananciasMesActual)}
+                        {formatCurrency(ventasSummary.totalGanancias12Meses)}
                       </Text>
                     </View>
                     <View style={chartStyles.insightRow}>
@@ -1014,208 +1264,79 @@ const DashBoardPrincipal = ({ refreshToken = 0, type }) => {
                           { color: theme.colors.onSurface },
                         ]}
                       >
-                        Deudas del mes
+                        Promedio Mensual
                       </Text>
                       <Text
-                        style={[chartStyles.insightValue, { color: "#d32f2f" }]}
-                      >
-                        {formatCurrency(ventasSummary.totalDeudasMesActual)}
-                      </Text>
-                    </View>
-                    <View style={chartStyles.insightRow}>
-                      <Text
-                        style={[
-                          chartStyles.insightLabel,
-                          { color: theme.colors.onSurface },
-                        ]}
-                      >
-                        Cobrado + ganancias
-                      </Text>
-                      <Text
-                        style={[chartStyles.insightValue, { color: "#ff9800" }]}
+                        style={[chartStyles.insightValue, { color: "#f59e0b" }]}
                       >
                         {formatCurrency(
-                          ventasSummary.totalCobradoMesActual +
-                            ventasSummary.totalGananciasMesActual,
+                          (ventasSummary.totalVentas12Meses +
+                            ventasSummary.totalGanancias12Meses) /
+                            12,
                         )}
                       </Text>
                     </View>
-                  </View>
-                </>
-              ) : (
-                renderEmptyChart(
-                  theme,
-                  "Sin ventas del mes",
-                  "No hay administradores con ventas registradas en el mes actual.",
-                )
-              )
-            ) : ventasSummary.ventasLabels.length > 0 ? (
-              <>
-                <LineChart
-                  bezier
-                  chartConfig={{
-                    ...chartConfig,
-                    propsForDots: {
-                      ...chartConfig.propsForDots,
-                      stroke: "#4caf50",
-                    },
-                  }}
-                  data={{
-                    datasets: [
-                      {
-                        color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
-                        data: ventasSummary.totalVendido12Meses,
-                        strokeWidth: 3,
-                      },
-                      {
-                        color: (opacity = 1) => `rgba(0, 139, 159, ${opacity})`,
-                        data: ventasSummary.ganancias12Meses,
-                        strokeWidth: 3,
-                      },
-                    ],
-                    labels: ventasSummary.ventasLabels,
-                    legend: ["Total vendido", "Ganancias admin"],
-                  }}
-                  fromZero
-                  height={240}
-                  style={chartStyles.chart}
-                  width={chartWidth}
-                  withInnerLines
-                  withShadow
-                  yAxisLabel="$"
-                />
-                <View
-                  style={[
-                    chartStyles.insightBox,
-                    {
-                      backgroundColor: theme.dark
-                        ? "rgba(15, 23, 42, 0.92)"
-                        : "rgba(255, 152, 0, 0.06)",
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      chartStyles.insightTitle,
-                      { color: theme.colors.onSurface },
-                    ]}
-                  >
-                    Estadisticas 12 meses
-                  </Text>
-                  <View style={chartStyles.insightRow}>
+
                     <Text
                       style={[
-                        chartStyles.insightLabel,
-                        { color: theme.colors.onSurface },
+                        chartStyles.insightTitle,
+                        { color: theme.colors.onSurface, marginTop: 12 },
                       ]}
                     >
-                      Ganancias Vidkar
+                      Acumulado Histórico Global
                     </Text>
-                    <Text
-                      style={[chartStyles.insightValue, { color: "#4caf50" }]}
-                    >
-                      {formatCurrency(ventasSummary.totalVentas12Meses)}
-                    </Text>
-                  </View>
-                  <View style={chartStyles.insightRow}>
-                    <Text
-                      style={[
-                        chartStyles.insightLabel,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      Ganancias admins
-                    </Text>
-                    <Text
-                      style={[chartStyles.insightValue, { color: "#008b9f" }]}
-                    >
-                      {formatCurrency(ventasSummary.totalGanancias12Meses)}
-                    </Text>
-                  </View>
-                  <View style={chartStyles.insightRow}>
-                    <Text
-                      style={[
-                        chartStyles.insightLabel,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      Promedio mensual
-                    </Text>
-                    <Text
-                      style={[chartStyles.insightValue, { color: "#ff9800" }]}
-                    >
-                      {formatCurrency(
-                        (ventasSummary.totalVentas12Meses +
-                          ventasSummary.totalGanancias12Meses) /
-                          12,
-                      )}
-                    </Text>
-                  </View>
-                  <Text
-                    style={[
-                      chartStyles.insightTitle,
-                      { color: theme.colors.onSurface, marginTop: 10 },
-                    ]}
-                  >
-                    Historico total
-                  </Text>
-                  <View style={chartStyles.insightRow}>
-                    <Text
-                      style={[
-                        chartStyles.insightLabel,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      Total historico
-                    </Text>
-                    <Text
-                      style={[chartStyles.insightValue, { color: "#4caf50" }]}
-                    >
-                      {formatCurrency(ventasSummary.totalVentasHistorico)}
-                    </Text>
-                  </View>
-                  <View style={chartStyles.insightRow}>
-                    <Text
-                      style={[
-                        chartStyles.insightLabel,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      Ganancias historicas
-                    </Text>
-                    <Text
-                      style={[chartStyles.insightValue, { color: "#008b9f" }]}
-                    >
-                      {formatCurrency(ventasSummary.totalGananciasHistorico)}
-                    </Text>
-                  </View>
-                  <View style={chartStyles.insightRow}>
-                    <Text
-                      style={[
-                        chartStyles.insightLabel,
-                        { color: theme.colors.onSurface },
-                      ]}
-                    >
-                      Deudas historicas
-                    </Text>
-                    <Text
-                      style={[chartStyles.insightValue, { color: "#d32f2f" }]}
-                    >
-                      {formatCurrency(ventasSummary.totalDeudasHistoricas)}
-                    </Text>
+                    <View style={chartStyles.insightRow}>
+                      <Text
+                        style={[
+                          chartStyles.insightLabel,
+                          { color: theme.colors.onSurface },
+                        ]}
+                      >
+                        Total Facturado Histórico
+                      </Text>
+                      <Text
+                        style={[chartStyles.insightValue, { color: "#10b981" }]}
+                      >
+                        {formatCurrency(ventasSummary.totalVentasHistorico)}
+                      </Text>
+                    </View>
+                    <View style={chartStyles.insightRow}>
+                      <Text
+                        style={[
+                          chartStyles.insightLabel,
+                          { color: theme.colors.onSurface },
+                        ]}
+                      >
+                        Comisiones Históricas
+                      </Text>
+                      <Text
+                        style={[chartStyles.insightValue, { color: "#0284c7" }]}
+                      >
+                        {formatCurrency(ventasSummary.totalGananciasHistorico)}
+                      </Text>
+                    </View>
+                    <View style={chartStyles.insightRow}>
+                      <Text
+                        style={[
+                          chartStyles.insightLabel,
+                          { color: theme.colors.onSurface },
+                        ]}
+                      >
+                        Cartera Histórica Pendiente
+                      </Text>
+                      <Text
+                        style={[chartStyles.insightValue, { color: "#ef4444" }]}
+                      >
+                        {formatCurrency(ventasSummary.totalDeudasHistoricas)}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </>
-            ) : (
-              renderEmptyChart(
-                theme,
-                "Sin historico de ventas",
-                "No hay informacion suficiente para graficar los ultimos 12 meses.",
-              )
-            )}
-          </Card.Content>
-        </Card>
-      ) : null}
+              )}
+            </Card.Content>
+          </Card>
+        ) : null}
+      </Animated.View>
     </View>
   );
 };
