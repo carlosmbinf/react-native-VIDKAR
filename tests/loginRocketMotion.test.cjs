@@ -84,3 +84,25 @@ test("la atmósfera móvil replica las capas de nubes y respeta movimiento reduc
   assert.match(atmosphere, /if \(!enabled \|\| reducedMotion\)/);
   assert.match(atmosphere, /cancelAnimation\(progress\)/);
 });
+
+test("la escena orbital es decorativa, tiene perspectiva y detiene la flotación cuando no corresponde", () => {
+  const flight = source("components/loguin/LoginRocketFlight.native.jsx");
+  assert.match(flight, /if \(!active \|\| reducedMotion \|\| isLaunching\)/);
+  assert.match(flight, /return \(\) => cancelAnimation\(hover\)/);
+  assert.match(flight, /perspective: 700/);
+  assert.match(flight, /rotateY:/);
+  assert.match(flight, /rotateX:/);
+  assert.match(flight, /pointerEvents="none" accessible=\{false\}/);
+  assert.match(flight, /importantForAccessibility="no-hide-descendants"/);
+});
+
+test("la interfaz mantiene accesible el formulario y oculta la escena con el teclado", () => {
+  const login = source("components/loguin/Loguin.native.js");
+  assert.match(login, /showRocket=\{!keyboardVisible\}/);
+  assert.match(login, /active=\{isFocused && !keyboardVisible\}/);
+  assert.match(login, /secureTextEntry=\{!passwordVisible\}/);
+  assert.match(login, /autoComplete="username"/);
+  assert.match(login, /autoComplete="current-password"/);
+  assert.match(login, /disabled=\{submitting \|\| loadingGoogle \|\| loadingApple \|\| connectingToServer \|\| Boolean\(userId\)\}/);
+  assert.doesNotMatch(login, /<BlurView/);
+});
