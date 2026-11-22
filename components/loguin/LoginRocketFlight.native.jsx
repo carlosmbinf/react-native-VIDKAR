@@ -92,7 +92,7 @@ function RocketIllustration({ isLaunching = false, reducedMotion = false, active
               <Stop offset="0.75" stopColor="#0a2453" />
               <Stop offset="1" stopColor="#071221" />
             </RadialGradient>
-            <LinearGradient id="vkTile" x1="0" y1="0" x2="1" y2="1">
+            <LinearGradient id="vkTile" x1="0%" y1="0%" x2="100%" y2="100%">
               <Stop offset="0" stopColor="#3569b7" />
               <Stop offset="1" stopColor="#10223f" />
             </LinearGradient>
@@ -124,18 +124,18 @@ function RocketIllustration({ isLaunching = false, reducedMotion = false, active
       <Animated.View style={[styles.rocketIllustration, rocketStyle]}>
         <Svg width="132" height="152" viewBox="0 0 120 140">
           <Defs>
-            <LinearGradient id="vkMetal" x1="0" y1="0" x2="1" y2="0">
+            <LinearGradient id="vkMetal" x1="0%" y1="0%" x2="100%" y2="0%">
               <Stop offset="0" stopColor="#355a9c" />
               <Stop offset="0.23" stopColor="#e9f8ff" />
               <Stop offset="0.55" stopColor="#b7d3ef" />
               <Stop offset="1" stopColor="#263d71" />
             </LinearGradient>
-            <LinearGradient id="vkBlue" x1="0" y1="0" x2="1" y2="1">
+            <LinearGradient id="vkBlue" x1="0%" y1="0%" x2="100%" y2="100%">
               <Stop offset="0" stopColor="#a8f4ff" />
               <Stop offset="0.45" stopColor="#247aff" />
               <Stop offset="1" stopColor="#11266e" />
             </LinearGradient>
-            <LinearGradient id="vkJet" x1="0" y1="0" x2="0" y2="1">
+            <LinearGradient id="vkJet" x1="0%" y1="0%" x2="0%" y2="100%">
               <Stop offset="0" stopColor="#e7ffff" />
               <Stop offset="0.35" stopColor="#46ddff" />
               <Stop offset="1" stopColor="#1669ff" stopOpacity="0" />
@@ -320,10 +320,10 @@ export default function LoginRocketFlight({
     transform: [
       { translateX: flightTranslateX.get() },
       { translateY: flightTranslateY.get() },
-      { perspective: 1000 },
-      { rotateY: `${flightRotateDeg.get() * 3}deg` },
       { rotate: `${flightRotateDeg.get()}deg` },
       { scale: flightScale.get() },
+      { perspective: 1000 },
+      { rotateY: `${flightRotateDeg.get() * 3}deg` },
     ],
   }));
 
