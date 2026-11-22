@@ -262,6 +262,8 @@ const Loguin = ({
   const [ipserver, setIpserver] = useState(() => getMeteorHost() || "");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [loginError, setLoginError] = useState("");
   const [showServerInput, setShowServerInput] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -552,6 +554,7 @@ const Loguin = ({
 
   const handleUsernameChange = (text) => {
     setUsername(text);
+    setLoginError("");
     if (text.toLowerCase() === "change server") {
       setShowServerInput(true);
     }
@@ -582,6 +585,11 @@ const Loguin = ({
     if (submitting || loadingGoogle || loadingApple || userId) {
       return;
     }
+    if (connectingToServer || !username.trim() || !password) {
+      setLoginError(connectingToServer ? "Espera a que se establezca la conexión." : "Completa tu usuario y contraseña.");
+      return;
+    }
+    setLoginError("");
     Keyboard.dismiss();
     try {
       setSubmitting(true);
@@ -603,7 +611,7 @@ const Loguin = ({
         );
       });
     } catch (_error) {
-      Alert.alert("Credenciales incorrectas");
+      setLoginError("No pudimos iniciar sesión. Revisa tus datos e inténtalo nuevamente.");
     } finally {
       setSubmitting(false);
     }
@@ -960,11 +968,12 @@ const Loguin = ({
                   <View style={styles.blurCardContent}>
                     <View style={styles.formHeader}>
                         <View style={styles.loginBrandMark}>
-                          <FontAwesome5 color={palette.brandEyebrow} name="house-user" size={22} />
+                          <FontAwesome5 color={palette.brandEyebrow} name="bolt" size={22} />
                           <Text style={[styles.loginBrandName, { color: palette.brandTitle }]}>VIDKAR</Text>
                         </View>
                       <Text style={[styles.formEyebrow, { color: palette.formEyebrow }]}>Inicio de sesión</Text>
-                      <Text style={[styles.title, { color: palette.formTitle }]}>Entra a tu cuenta</Text>
+                      <Text style={[styles.title, { color: palette.formTitle }]}>Bienvenido de nuevo</Text>
+                      <Text style={[styles.formDescription, { color: palette.formDescription }]}>Accede a tus recargas, remesas y servicios desde un solo lugar.</Text>
                     </View>
 
                   {showServerInput ? (
@@ -1039,8 +1048,10 @@ const Loguin = ({
                       onSubmitEditing={handleUsernameSubmit}
                       blurOnSubmit={false}
                       label="Usuario"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="username"
                       returnKeyType="next"
-                      dense
                       style={[
                         styles.input,
                         {
@@ -1063,7 +1074,7 @@ const Loguin = ({
                       ref={passwordInputRef}
                       mode="flat"
                       value={password}
-                      onChangeText={setPassword}
+                      onChangeText={(value) => { setPassword(value); setLoginError(""); }}
                       onFocus={() => {
                         focusedFieldRef.current = passwordFieldRef.current;
                         if (keyboardVisible) revealCredentials();
@@ -1071,8 +1082,11 @@ const Loguin = ({
                       onSubmitEditing={handlePasswordSubmit}
                       label="Contraseña"
                       returnKeyType="done"
-                      secureTextEntry
-                      dense
+                      secureTextEntry={!passwordVisible}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="current-password"
+                      right={<TextInput.Icon icon={passwordVisible ? "eye-off" : "eye"} accessibilityLabel={passwordVisible ? "Ocultar contraseña" : "Mostrar contraseña"} onPress={() => setPasswordVisible((value) => !value)} color={palette.inputLabel} />}
                       style={[
                         styles.input,
                         {
@@ -1092,16 +1106,17 @@ const Loguin = ({
                     </View>
                   </View>
 
+                    {loginError ? <Text accessibilityLiveRegion="polite" accessibilityRole="alert" style={{ color: "#fda4af", marginBottom: 12, fontSize: 14 }}>{loginError}</Text> : null}
                     <Button
                       mode="contained"
                       onPress={handleLogin}
                       loading={submitting}
-                      disabled={submitting}
+                      disabled={submitting || loadingGoogle || loadingApple || connectingToServer || Boolean(userId)}
                       style={styles.primaryButton}
                       contentStyle={styles.primaryButtonContent}
                       labelStyle={styles.primaryButtonLabel}
-                      buttonColor={theme.colors.primary}
-                      textColor={palette.inputText}
+                      buttonColor="#2563EB"
+                      textColor="#FFFFFF"
                     >
                       Iniciar sesión
                     </Button>
@@ -1130,7 +1145,7 @@ const Loguin = ({
                             mode="outlined"
                             icon="google"
                             onPress={onGoogleLogin}
-                            disabled={loadingGoogle || submitting}
+                            disabled={loadingGoogle || loadingApple || submitting || connectingToServer || Boolean(userId)}
                             loading={loadingGoogle}
                             style={[
                               styles.secondaryButton,
@@ -1150,7 +1165,7 @@ const Loguin = ({
                             mode="outlined"
                             icon="apple"
                             onPress={onAppleLogin}
-                            disabled={loadingApple || submitting}
+                            disabled={loadingApple || loadingGoogle || submitting || connectingToServer || Boolean(userId)}
                             loading={loadingApple}
                             style={[
                               styles.secondaryButton,
