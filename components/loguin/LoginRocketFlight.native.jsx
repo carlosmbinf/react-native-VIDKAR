@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { StyleSheet, useWindowDimensions, View } from "react-native";
-import Svg, { Circle, G, Path } from "react-native-svg";
+import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, RadialGradient, Rect, Stop } from "react-native-svg";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -8,6 +8,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSequence,
+  withRepeat,
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
@@ -20,8 +21,20 @@ const EASE_ANTICIPATION = Easing.out(Easing.quad);
 const EASE_BOOST = Easing.bezier(0.22, 1, 0.36, 1);
 const EASE_FLIGHT = Easing.in(Easing.quad);
 
-function RocketIllustration({ isLaunching = false, reducedMotion = false }) {
+function RocketIllustration({ isLaunching = false, reducedMotion = false, active = true }) {
   const flameBoost = useSharedValue(1);
+  const hover = useSharedValue(0);
+  useEffect(() => {
+    cancelAnimation(hover);
+    hover.set(0);
+    if (!active || reducedMotion || isLaunching) return undefined;
+    hover.set(withRepeat(withTiming(1, {
+      duration: 3200,
+      easing: Easing.inOut(Easing.sin),
+      reduceMotion: ReduceMotion.Never,
+    }), -1, true, undefined, ReduceMotion.Never));
+    return () => cancelAnimation(hover);
+  }, [active, hover, isLaunching, reducedMotion]);
 
   useEffect(() => {
     if (!isLaunching || reducedMotion) {
@@ -48,54 +61,99 @@ function RocketIllustration({ isLaunching = false, reducedMotion = false }) {
     return () => cancelAnimation(flameBoost);
   }, [flameBoost, isLaunching, reducedMotion]);
 
-  const rocketStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: flameBoost.get() }],
+  const rocketStyle = useAnimatedStyle(() => {
+    const value = hover.get();
+    return {
+      transform: [
+        { perspective: 700 },
+        { translateY: -value * 9 },
+        { rotateY: `${value * 12 - 6}deg` },
+        { rotateZ: `${value * 4 - 2}deg` },
+        { scale: flameBoost.get() },
+      ],
+    };
+  });
+  const orbitStyle = useAnimatedStyle(() => ({
+    transform: [{ perspective: 850 }, { rotateX: `${hover.get() * 9}deg` }],
   }));
 
   return (
-    <Animated.View
-      pointerEvents="none"
-      accessibilityElementsHidden
-      style={[styles.rocketIllustration, rocketStyle]}
-    >
-      <Svg width="260" height="140" viewBox="0 0 260 140">
-        <Path
-          d="M160 49C110 68 64 96 20 132M174 54c13 30 39 57 68 78"
-          fill="none"
-          stroke="#93c5fd"
-          strokeLinecap="round"
-          strokeWidth="2.5"
-        />
-        <Circle cx="20" cy="132" r="4" fill="#93c5fd" />
-        <Circle cx="242" cy="132" r="4" fill="#93c5fd" />
-        <G transform="translate(168 45) rotate(38)">
-          <Path
-            d="M-13 22-27 42-10 36M13 22l14 20 10-6-14-20"
-            fill="#6366f1"
-            stroke="#3730a3"
-            strokeLinejoin="round"
-            strokeWidth="2"
-          />
-          <Path d="M-7 32Q0 58 7 32" fill="#fb923c" />
-          <Path d="M-3 32Q0 47 3 32" fill="#fef08a" />
-          <Path
-            d="M0-38C-14-25-16 5-11 25Q0 31 11 25C16 5 14-25 0-38Z"
-            fill="#f8fafc"
-            stroke="#94a3b8"
-            strokeWidth="2"
-          />
-          <Path d="M-11 17Q0 21 11 17v7q-11 6-22 0Z" fill="#6366f1" />
-          <Circle cy="-5" r="8" fill="#0284c7" stroke="#dbeafe" strokeWidth="2" />
-          <Path
-            d="M-4-9q4-3 8 0"
-            fill="none"
-            stroke="#fff"
-            strokeLinecap="round"
-            strokeWidth="1.5"
-          />
-        </G>
-      </Svg>
-    </Animated.View>
+    <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.hero}>
+      <Animated.View style={[styles.heroPlanet, orbitStyle]}>
+        <Svg width="330" height="164" viewBox="0 0 330 164">
+          <Defs>
+            <RadialGradient id="vkGlow" cx="50%" cy="50%" rx="50%" ry="50%">
+              <Stop offset="0" stopColor="#147afc" stopOpacity="0.6" />
+              <Stop offset="1" stopColor="#147afc" stopOpacity="0" />
+            </RadialGradient>
+            <RadialGradient id="vkPlanet" cx="35%" cy="18%" rx="75%" ry="88%">
+              <Stop offset="0" stopColor="#6deaff" />
+              <Stop offset="0.3" stopColor="#1269d8" />
+              <Stop offset="0.75" stopColor="#0a2453" />
+              <Stop offset="1" stopColor="#071221" />
+            </RadialGradient>
+            <LinearGradient id="vkTile" x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor="#3569b7" />
+              <Stop offset="1" stopColor="#10223f" />
+            </LinearGradient>
+          </Defs>
+          <Ellipse cx="174" cy="93" rx="159" ry="70" fill="url(#vkGlow)" />
+          <G transform="rotate(-12 165 101)">
+            <Ellipse cx="165" cy="101" rx="156" ry="35" fill="none" stroke="#348bff" strokeOpacity="0.36" strokeWidth="7" />
+            <Ellipse cx="165" cy="101" rx="156" ry="35" fill="none" stroke="#70ddff" strokeWidth="1.8" />
+          </G>
+          <Circle cx="168" cy="139" r="63" fill="url(#vkPlanet)" stroke="#6cd9ff" strokeWidth="1.5" />
+          <G fill="none" stroke="#7ddaff" strokeOpacity="0.38">
+            <Ellipse cx="168" cy="139" rx="31" ry="63" />
+            <Ellipse cx="168" cy="139" rx="51" ry="63" />
+            <Ellipse cx="168" cy="139" rx="61" ry="21" />
+            <Path d="M112 110 Q168 136 224 110 M115 155 Q168 129 221 155" />
+          </G>
+          {[[23,29],[79,15],[123,37],[282,22],[307,85],[44,123],[267,126]].map(([x,y],i)=><Circle key={i} cx={x} cy={y} r={i%2 ? 1.5 : 2.5} fill="#b7efff" opacity={0.8} />)}
+          <G transform="translate(40 75) rotate(-10)">
+            <Rect width="47" height="48" rx="12" fill="url(#vkTile)" stroke="#73caff" />
+            <Rect x="15" y="8" width="17" height="31" rx="4" fill="none" stroke="#d8f5ff" strokeWidth="2.5" />
+            <Path d="M19 25l5-6 5 6 M24 19v13" fill="none" stroke="#6ee7ff" strokeWidth="2.5" />
+          </G>
+          <G transform="translate(247 89) rotate(12)">
+            <Rect width="47" height="48" rx="12" fill="url(#vkTile)" stroke="#73caff" />
+            <Path d="M10 20h27l-3-9H13z M13 21v17h21V21 M21 38V27h8v11" fill="none" stroke="#d8f5ff" strokeWidth="2.5" strokeLinejoin="round" />
+          </G>
+        </Svg>
+      </Animated.View>
+      <Animated.View style={[styles.rocketIllustration, rocketStyle]}>
+        <Svg width="132" height="152" viewBox="0 0 120 140">
+          <Defs>
+            <LinearGradient id="vkMetal" x1="0" y1="0" x2="1" y2="0">
+              <Stop offset="0" stopColor="#355a9c" />
+              <Stop offset="0.23" stopColor="#e9f8ff" />
+              <Stop offset="0.55" stopColor="#b7d3ef" />
+              <Stop offset="1" stopColor="#263d71" />
+            </LinearGradient>
+            <LinearGradient id="vkBlue" x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor="#a8f4ff" />
+              <Stop offset="0.45" stopColor="#247aff" />
+              <Stop offset="1" stopColor="#11266e" />
+            </LinearGradient>
+            <LinearGradient id="vkJet" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#e7ffff" />
+              <Stop offset="0.35" stopColor="#46ddff" />
+              <Stop offset="1" stopColor="#1669ff" stopOpacity="0" />
+            </LinearGradient>
+          </Defs>
+          <G transform="translate(61 54) rotate(24)">
+            <Path d="M-12 27 Q-24 62 0 83 Q24 62 12 27Z" fill="url(#vkJet)" />
+            <Path d="M-5 28 Q-9 49 0 59 Q9 49 5 28Z" fill="#e6ffff" />
+            <Path d="M-17 10Q-35 16-35 37L-12 25 M17 10Q35 16 35 37L12 25" fill="url(#vkBlue)" stroke="#72b6ff" />
+            <Path d="M0-44Q-28-18-20 17L-13 30H13L20 17Q28-18 0-44Z" fill="url(#vkMetal)" stroke="#b0d9ff" strokeWidth="1" />
+            <Path d="M0-44Q-14-32-19-19Q0-11 19-19Q14-32 0-44Z" fill="url(#vkBlue)" />
+            <Circle cy="-4" r="12" fill="#071b3e" stroke="#61caff" strokeWidth="3" />
+            <Path d="M-6 -6 L0 1 7 -8" fill="none" stroke="#93ecff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M-14 23H14L11 32H-11Z" fill="url(#vkBlue)" />
+          </G>
+        </Svg>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -105,6 +163,7 @@ export default function LoginRocketFlight({
   onLaunchComplete,
   reducedMotion = false,
   showRocket = true,
+  active = true,
 }) {
   const { height, width } = useWindowDimensions();
   const completionRef = React.useRef(onLaunchComplete);
@@ -261,6 +320,8 @@ export default function LoginRocketFlight({
     transform: [
       { translateX: flightTranslateX.get() },
       { translateY: flightTranslateY.get() },
+      { perspective: 1000 },
+      { rotateY: `${flightRotateDeg.get() * 3}deg` },
       { rotate: `${flightRotateDeg.get()}deg` },
       { scale: flightScale.get() },
     ],
@@ -276,6 +337,7 @@ export default function LoginRocketFlight({
         <RocketIllustration
           isLaunching={isLaunching}
           reducedMotion={reducedMotion}
+          active={active}
         />
       ) : null}
       <Animated.View style={[styles.card, cardAnimatedStyle]}>
@@ -297,12 +359,21 @@ const styles = StyleSheet.create({
   cardInner: {
     width: "100%",
   },
+  hero: {
+    height: 156,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    marginBottom: 8,
+  },
+  heroPlanet: { position: "absolute", bottom: 0, alignSelf: "center" },
   rocketIllustration: {
-    height: 140,
     position: "absolute",
-    right: -8,
-    top: -98,
-    width: 260,
+    top: 0,
+    alignSelf: "center",
+    width: 132,
+    height: 152,
     zIndex: 2,
   },
 });
