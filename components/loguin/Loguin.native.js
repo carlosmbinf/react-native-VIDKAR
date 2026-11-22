@@ -1,7 +1,6 @@
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import MeteorBase from "@meteorrn/core";
 import * as AppleAuthentication from "expo-apple-authentication";
-import { BlurView } from "expo-blur";
 import * as WebBrowser from "expo-web-browser";
 import { router } from "expo-router";
 import { useIsFocused } from "expo-router/react-navigation";
@@ -183,18 +182,11 @@ const LoginBlurCard = ({ active = true, children, palette, reducedMotion = false
   });
 
   return (
-    <BlurView
-      intensity={24}
-      tint="dark"
-      renderToHardwareTextureAndroid={false}
-      blurReductionFactor={2}
-      experimentalBlurMethod={
-        Platform.OS === "android" ? "dimezisBlurView" : undefined
-      }
+    <View
       style={[
         styles.blurCard,
         {
-          backgroundColor: "transparent",
+          backgroundColor: "#0B1830",
           borderColor: palette.blurCardBorder,
         },
       ]}
@@ -247,7 +239,7 @@ const LoginBlurCard = ({ active = true, children, palette, reducedMotion = false
         ]}
       />
       {children}
-    </BlurView>
+    </View>
   );
 };
 
@@ -262,6 +254,7 @@ const Loguin = ({
   const [ipserver, setIpserver] = useState(() => getMeteorHost() || "");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [showServerInput, setShowServerInput] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -579,7 +572,7 @@ const Loguin = ({
   };
 
   const handleLogin = async () => {
-    if (submitting || loadingGoogle || loadingApple || userId) {
+    if (submitting || loadingGoogle || loadingApple || connectingToServer || userId) {
       return;
     }
     Keyboard.dismiss();
@@ -619,7 +612,7 @@ const Loguin = ({
   };
 
   const onGoogleLogin = async () => {
-    if (loadingGoogle || submitting) {
+    if (loadingGoogle || loadingApple || submitting || connectingToServer || userId) {
       return;
     }
 
@@ -756,7 +749,7 @@ const Loguin = ({
   };
 
   const onAppleLogin = async () => {
-    if (loadingApple || submitting) {
+    if (loadingApple || loadingGoogle || submitting || connectingToServer || userId) {
       return;
     }
 
@@ -954,17 +947,19 @@ const Loguin = ({
                 isLaunching={effectiveIsLaunching}
                 onLaunchComplete={handleLaunchComplete}
                 reducedMotion={shouldReduceMotion}
-                showRocket
+                showRocket={!keyboardVisible}
+                active={isFocused && !keyboardVisible}
               >
                 <LoginBlurCard active={isFocused && !effectiveIsLaunching} palette={palette} reducedMotion={shouldReduceMotion}>
                   <View style={styles.blurCardContent}>
                     <View style={styles.formHeader}>
                         <View style={styles.loginBrandMark}>
-                          <FontAwesome5 color={palette.brandEyebrow} name="house-user" size={22} />
+                          <FontAwesome5 color={palette.brandEyebrow} name="bolt" size={25} />
                           <Text style={[styles.loginBrandName, { color: palette.brandTitle }]}>VIDKAR</Text>
                         </View>
                       <Text style={[styles.formEyebrow, { color: palette.formEyebrow }]}>Inicio de sesión</Text>
-                      <Text style={[styles.title, { color: palette.formTitle }]}>Entra a tu cuenta</Text>
+                      <Text style={[styles.title, { color: palette.formTitle }]}>Bienvenido de nuevo</Text>
+                      <Text style={[styles.formDescription, { color: palette.formDescription }]}>Recargas, remesas y tus servicios en un solo lugar.</Text>
                     </View>
 
                   {showServerInput ? (
@@ -1039,8 +1034,10 @@ const Loguin = ({
                       onSubmitEditing={handleUsernameSubmit}
                       blurOnSubmit={false}
                       label="Usuario"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="username"
                       returnKeyType="next"
-                      dense
                       style={[
                         styles.input,
                         {
@@ -1071,8 +1068,11 @@ const Loguin = ({
                       onSubmitEditing={handlePasswordSubmit}
                       label="Contraseña"
                       returnKeyType="done"
-                      secureTextEntry
-                      dense
+                      secureTextEntry={!passwordVisible}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="current-password"
+                      right={<TextInput.Icon icon={passwordVisible ? "eye-off" : "eye"} accessibilityLabel={passwordVisible ? "Ocultar contraseña" : "Mostrar contraseña"} onPress={() => setPasswordVisible((value) => !value)} color={palette.inputLabel} />}
                       style={[
                         styles.input,
                         {
@@ -1096,12 +1096,12 @@ const Loguin = ({
                       mode="contained"
                       onPress={handleLogin}
                       loading={submitting}
-                      disabled={submitting}
+                      disabled={submitting || loadingGoogle || loadingApple || connectingToServer || Boolean(userId)}
                       style={styles.primaryButton}
                       contentStyle={styles.primaryButtonContent}
                       labelStyle={styles.primaryButtonLabel}
-                      buttonColor={theme.colors.primary}
-                      textColor={palette.inputText}
+                      buttonColor="#2563EB"
+                      textColor="#FFFFFF"
                     >
                       Iniciar sesión
                     </Button>
@@ -1130,7 +1130,7 @@ const Loguin = ({
                             mode="outlined"
                             icon="google"
                             onPress={onGoogleLogin}
-                            disabled={loadingGoogle || submitting}
+                            disabled={loadingGoogle || loadingApple || submitting || connectingToServer || Boolean(userId)}
                             loading={loadingGoogle}
                             style={[
                               styles.secondaryButton,
@@ -1150,7 +1150,7 @@ const Loguin = ({
                             mode="outlined"
                             icon="apple"
                             onPress={onAppleLogin}
-                            disabled={loadingApple || submitting}
+                            disabled={loadingApple || loadingGoogle || submitting || connectingToServer || Boolean(userId)}
                             loading={loadingApple}
                             style={[
                               styles.secondaryButton,
