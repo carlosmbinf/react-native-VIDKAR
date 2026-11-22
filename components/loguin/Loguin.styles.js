@@ -4,9 +4,9 @@ export const getLoginPalette = (isDarkMode) =>
   isDarkMode
     ? {
         altText: "rgba(226, 232, 240, 0.82)",
-        backgroundOverlay: "rgba(4, 10, 24, 0.38)",
+        backgroundOverlay: "rgba(4, 10, 24, 0.62)",
         blurCardAccent: "rgba(96, 165, 250, 0.14)",
-        blurCardBorder: "rgba(255,255,255,0.18)",
+        blurCardBorder: "rgba(91,186,255,0.48)",
         blurCardGlow: "rgba(59, 130, 246, 0.18)",
         blurCardOverlay: "rgba(5, 10, 22, 0.76)",
         blurCardSheen: "rgba(255,255,255,0.08)",
@@ -24,8 +24,8 @@ export const getLoginPalette = (isDarkMode) =>
         formMetaSurface: "rgba(15, 23, 42, 0.46)",
         formMetaText: "#dbeafe",
         formTitle: "#ffffff",
-        inputBackground: "rgba(255,255,255,0.08)",
-        inputBorder: "rgba(191, 219, 254, 0.14)",
+        inputBackground: "#142944",
+        inputBorder: "#3B6190",
         inputLabel: "#cbd5e1",
         inputText: "#f8fafc",
         inputTint: "#93c5fd",
@@ -38,9 +38,9 @@ export const getLoginPalette = (isDarkMode) =>
       }
     : {
         altText: "rgba(226, 232, 240, 0.78)",
-        backgroundOverlay: "rgba(4, 10, 24, 0.42)",
+        backgroundOverlay: "rgba(4, 10, 24, 0.62)",
         blurCardAccent: "rgba(96, 165, 250, 0.12)",
-        blurCardBorder: "rgba(255,255,255,0.16)",
+        blurCardBorder: "rgba(91,186,255,0.48)",
         blurCardGlow: "rgba(59, 130, 246, 0.16)",
         blurCardOverlay: "rgba(5, 10, 22, 0.78)",
         blurCardSheen: "rgba(255,255,255,0.08)",
@@ -58,8 +58,8 @@ export const getLoginPalette = (isDarkMode) =>
         formMetaSurface: "rgba(15, 23, 42, 0.42)",
         formMetaText: "#dbeafe",
         formTitle: "#ffffff",
-        inputBackground: "rgba(255,255,255,0.08)",
-        inputBorder: "rgba(191, 219, 254, 0.12)",
+        inputBackground: "#142944",
+        inputBorder: "#3B6190",
         inputLabel: "#cbd5e1",
         inputText: "#f8fafc",
         inputTint: "#93c5fd",
@@ -91,7 +91,7 @@ export const loginScreenStyles = StyleSheet.create({
   },
   blurCard: {
     backgroundColor: "transparent",
-    borderRadius: 34,
+    borderRadius: 28,
     borderWidth: 1,
     overflow: "hidden",
     position: "relative",
@@ -103,8 +103,8 @@ export const loginScreenStyles = StyleSheet.create({
   },
   blurCardContent: {
     alignItems: "stretch",
-    paddingHorizontal: 28,
-    paddingVertical: 30,
+    paddingHorizontal: 22,
+    paddingVertical: 22,
   },
   blurGlowOrb: {
     borderRadius: 120,
@@ -275,6 +275,7 @@ export const loginScreenStyles = StyleSheet.create({
   },
   input: {
     width: "100%",
+    minHeight: 52,
   },
   layoutShell: {
     alignItems: "center",
@@ -311,13 +312,13 @@ export const loginScreenStyles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     gap: 10,
-    justifyContent: "center",
-    marginBottom: 14,
+    justifyContent: "flex-start",
+    marginBottom: 18,
   },
   loginBrandName: {
-    fontSize: 18,
+    fontSize: 25,
     fontWeight: "900",
-    letterSpacing: 3,
+    letterSpacing: 4,
   },
   blurCardContentCompact: {
     paddingHorizontal: 16,
@@ -418,11 +419,18 @@ export const loginScreenStyles = StyleSheet.create({
     flexDirection: "column",
   },
   primaryButton: {
-    borderRadius: 16,
+    borderRadius: 18,
     marginTop: 2,
+    borderWidth: 1,
+    borderColor: "#65C9FF",
+    shadowColor: "#2388FF",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 4,
   },
   primaryButtonContent: {
-    height: 52,
+    height: 56,
   },
   primaryButtonLabel: {
     fontSize: 15,
@@ -478,6 +486,7 @@ export const loginScreenStyles = StyleSheet.create({
   },
   secondaryButton: {
     borderRadius: 16,
+    backgroundColor: "#122844",
   },
   secondaryButtonContent: {
     height: 50,
@@ -487,9 +496,9 @@ export const loginScreenStyles = StyleSheet.create({
     textAlign: "center",
   },
   title: {
-    fontSize: 28,
-    fontWeight: "900",
-    lineHeight: 34,
+    fontSize: 30,
+    fontWeight: "800",
+    lineHeight: 36,
     marginBottom: 10,
     textAlign: "left",
   },
