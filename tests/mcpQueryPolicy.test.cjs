@@ -52,6 +52,7 @@ test("transporte Swift real rechaza rotación same-owner antes y durante ejecuci
   fs.writeFileSync(sourcePath, source + fs.readFileSync(path.join(__dirname, "MCPTransportSessionTests.swift"), "utf8"));
   const executable = path.join(directory, "transport-tests");
   const build = spawnSync("xcrun", ["swiftc", "-swift-version", "5", "-parse-as-library", "-o", executable,
+    path.join(__dirname, "../modules/vidkar-mcp/ios/IOSCourseVisibility.swift"),
     path.join(__dirname, "../modules/vidkar-mcp/ios/MCPQueryPolicy.swift"),
     path.join(__dirname, "../modules/vidkar-mcp/ios/MCPCatalogQuery.swift"), sourcePath], { encoding: "utf8" });
   assert.equal(build.status, 0, build.stderr);
@@ -84,6 +85,7 @@ test("consulta de catálogo: perform y entidades reales con I/O aislado", { skip
   fs.writeFileSync(file, source + fixtures + fs.readFileSync(path.join(__dirname, "MCPCatalogIntentTests.swift"), "utf8"));
   const executable = path.join(directory, "catalog-tests");
   const build = spawnSync("xcrun", ["swiftc", "-swift-version", "5", "-parse-as-library", "-o", executable,
+    path.join(__dirname, "../modules/vidkar-mcp/ios/IOSCourseVisibility.swift"),
     path.join(__dirname, "../modules/vidkar-mcp/ios/MCPQueryPolicy.swift"),
     path.join(__dirname, "../modules/vidkar-mcp/ios/MCPCatalogQuery.swift"),
     path.join(__dirname, "../modules/vidkar-mcp/ios/MCPInAppSearch.swift"),
@@ -99,6 +101,7 @@ test("avatar acotado y tarjeta SwiftUI renderizable sin red real", { skip: proce
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const executable = path.join(directory, "snippet-tests");
   const build = spawnSync("xcrun", ["swiftc", "-swift-version", "5", "-parse-as-library", "-o", executable,
+    path.join(__dirname, "../modules/vidkar-mcp/ios/IOSCourseVisibility.swift"),
     path.join(__dirname, "../modules/vidkar-mcp/ios/MCPUserSnippet.swift"),
     path.join(__dirname, "MCPUserSnippetTests.swift")], { encoding: "utf8" });
   assert.equal(build.status, 0, build.stderr);

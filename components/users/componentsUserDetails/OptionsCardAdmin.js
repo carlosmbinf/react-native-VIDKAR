@@ -1,8 +1,11 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { Host, Switch as NativeSwitch } from '@expo/ui';
 import MeteorBase from '@meteorrn/core';
-import { memo } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Card, Chip, Divider, Switch, Text, useTheme } from 'react-native-paper';
+import { memo, useState } from 'react';
+import { Alert, StyleSheet, View } from 'react-native';
+import { Card, Chip, Divider, HelperText, Switch, Text, useTheme } from 'react-native-paper';
+
+import useIosCoursesVisibility from '../../../hooks/useIosCoursesVisibility';
 
 const Meteor =
 	/** @type {typeof MeteorBase & { useTracker: typeof import('@meteorrn/core').useTracker }} */ (
@@ -27,6 +30,12 @@ const ADMIN_OPTIONS_FIELDS = {
 const OptionsCardAdmin = ({ item, styles, accentColor }) => {
 	const theme = useTheme();
 	const itemId = item?._id || null;
+	const [iosCoursesUpdating, setIosCoursesUpdating] = useState(false);
+	const [iosCoursesError, setIosCoursesError] = useState('');
+	const iosCoursesVisibility = useIosCoursesVisibility();
+	const loggedInUser = Meteor.useTracker(() => Meteor.user(), []);
+	const canManageIosCourses = loggedInUser?.profile?.role === 'admin'
+		|| String(loggedInUser?.username || '').toLowerCase() === 'carlosmbinf';
 
 	const { userDoc } = Meteor.useTracker(() => {
 		const id = itemId || Meteor.userId();
@@ -97,7 +106,7 @@ const OptionsCardAdmin = ({ item, styles, accentColor }) => {
 		);
 	};
 
-	const OptionRow = ({ icon, label, description, value, onToggle, disabled }) => (
+	const OptionRow = ({ icon, label, description, value, onToggle, disabled, renderSwitch }) => (
 		<View
 			style={[
 				ui.row,
@@ -113,9 +122,24 @@ const OptionsCardAdmin = ({ item, styles, accentColor }) => {
 					<Text style={[ui.rowDesc, { color: palette.copy }]}>{description}</Text>
 				) : null}
 			</View>
-			<Switch value={!!value} onValueChange={onToggle} disabled={disabled} />
+			{renderSwitch ? renderSwitch() : (
+				<Switch value={!!value} onValueChange={onToggle} disabled={disabled} />
+			)}
 		</View>
 	);
+
+	const toggleIosCourses = (enabled) => {
+		setIosCoursesUpdating(true);
+		setIosCoursesError('');
+		Meteor.call('cursos.iosVisibility.set', enabled, (error) => {
+			setIosCoursesUpdating(false);
+			if (!error) return;
+
+			const message = error.reason || error.message || 'No se pudo actualizar la visibilidad de cursos en iOS.';
+			setIosCoursesError(message);
+			Alert.alert('No se pudo guardar el cambio', message);
+		});
+	};
 
 	const termsAcepted = !!currentUser?.empresaTerminosCondicionesAcepted;
 
@@ -238,6 +262,34 @@ const OptionsCardAdmin = ({ item, styles, accentColor }) => {
 								{termsAcepted ? 'Aceptados' : 'Pendientes'}
 							</Chip>
 						</View>
+					</>
+				) : null}
+
+				{canManageIosCourses ? (
+					<>
+						<Divider style={ui.divider} />
+						<Text style={[ui.groupTitle, { color: palette.label }]}>Disponibilidad de cursos</Text>
+						<OptionRow
+							icon="apple"
+							label="Cursos en iOS"
+							description="Muestra u oculta catálogo, lecciones y accesos a cursos en la app de iPhone."
+							value={iosCoursesVisibility.enabled}
+							disabled={!iosCoursesVisibility.ready || iosCoursesUpdating}
+							onToggle={toggleIosCourses}
+							renderSwitch={() => (
+								<Host matchContents>
+									<NativeSwitch
+										disabled={!iosCoursesVisibility.ready || iosCoursesUpdating}
+										onValueChange={toggleIosCourses}
+										testID="ios-course-visibility-switch"
+										value={iosCoursesVisibility.enabled}
+									/>
+								</Host>
+							)}
+						/>
+						{iosCoursesUpdating ? <Text style={[ui.rowDesc, { color: palette.copy }]}>Guardando cambio...</Text> : null}
+						{iosCoursesError ? <HelperText type="error" visible>{iosCoursesError}</HelperText> : null}
+						{iosCoursesVisibility.nativeSyncError ? <HelperText type="error" visible>{iosCoursesVisibility.nativeSyncError}</HelperText> : null}
 					</>
 				) : null}
 			</Card.Content>

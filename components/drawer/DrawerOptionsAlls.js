@@ -23,6 +23,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import DrawerBlurShell from "./DrawerBlurShell";
 import { isMCPAdmin, isPrincipalAdmin } from "../../services/mcp/mcpAccess";
+import useIosCoursesVisibility from "../../hooks/useIosCoursesVisibility";
+import { shouldShowCoursesOnPlatform } from "../../services/courses/iosCourseVisibilityConfig";
 
 const CARD_PRESS_IN_DURATION_MS = 140;
 const CARD_PRESS_OUT_DURATION_MS = 220;
@@ -169,15 +171,18 @@ const getRoleIcon = (user) => {
   return "account-circle-outline";
 };
 
-const buildServiceItems = (user) => {
+const buildServiceItems = (user, showCourses) => {
   const items = [];
 
-  items.push(
-    {
+  if (showCourses) {
+    items.push({
       label: "Cursos",
       icon: "book-education-outline",
       href: "/(normal)/Cursos",
-    },
+    });
+  }
+
+  items.push(
     {
       label: "Productos Cubacel",
       icon: "cellphone-wireless",
@@ -229,7 +234,7 @@ const buildCinemaItems = (user) => user?.subscipcionPelis === true ? [
   },
 ] : [];
 
-const buildAdminItems = (user) => [
+const buildAdminItems = (user, showCourses) => [
     {
       label: "Saldos y pagos",
       icon: "cash-multiple",
@@ -240,21 +245,21 @@ const buildAdminItems = (user) => [
     icon: "view-dashboard-outline",
     href: "/(normal)/Dashboard",
   },
-  {
+  ...(showCourses ? [{
     label: "Gestión de cursos",
     icon: "book-cog-outline",
     href: "/(normal)/GestionCursos",
-  },
+  }] : []),
   {
     label: "Evaluaciones con IA",
     icon: "brain",
     href: "/(normal)/EvaluacionesIA",
   },
-  {
+  ...(showCourses ? [{
     label: "Ganancias de cursos",
     icon: "cash-multiple",
     href: "/(normal)/GananciasCursos",
-  },
+  }] : []),
   {
     label: "Lista de usuarios",
     icon: "account-group-outline",
@@ -300,7 +305,7 @@ const buildAdminItems = (user) => [
   },
 ];
 
-const buildProfessorItems = () => [
+const buildProfessorItems = (showCourses) => showCourses ? [
   {
     label: "Gestión de cursos",
     icon: "book-cog-outline",
@@ -311,7 +316,7 @@ const buildProfessorItems = () => [
     icon: "cash-multiple",
     href: "/(normal)/GananciasCursos",
   },
-];
+] : [];
 
 const buildPrivateItems = () => [
   {
@@ -376,6 +381,11 @@ const DrawerOptionsAlls = ({
   const canAccessMCP = isMCPAdmin(user);
   const isProfessor = user?.profile?.role === "profesor";
   const isSuperAdmin = isPrincipalAdmin(user);
+  const courseVisibility = useIosCoursesVisibility();
+  const showCourses = shouldShowCoursesOnPlatform(
+    process.env.EXPO_OS,
+    courseVisibility.ready && courseVisibility.enabled,
+  );
   const canToggleCadete = typeof onToggleModoCadete === "function";
   const canToggleEmpresa =
     typeof onToggleModoEmpresa === "function" &&
@@ -420,7 +430,7 @@ const DrawerOptionsAlls = ({
       },
       {
         title: "Servicios VidKar",
-        items: buildServiceItems(user),
+        items: buildServiceItems(user, showCourses),
       },
       {
         title: "Automatización",
@@ -437,14 +447,14 @@ const DrawerOptionsAlls = ({
     if (isAdmin) {
       result.push({
         title: "Opciones de administradores",
-        items: buildAdminItems(user),
+        items: buildAdminItems(user, showCourses),
       });
     }
 
     if (isProfessor) {
       result.push({
         title: "Panel del profesor",
-        items: buildProfessorItems(),
+        items: buildProfessorItems(showCourses),
       });
     }
 
@@ -456,7 +466,7 @@ const DrawerOptionsAlls = ({
     }
 
     return result.filter((section) => section.items.length > 0);
-  }, [canAccessMCP, isAdmin, isProfessor, isSuperAdmin, user]);
+  }, [canAccessMCP, isAdmin, isProfessor, isSuperAdmin, showCourses, user]);
 
   const headerNode = (
     <ImageBackground

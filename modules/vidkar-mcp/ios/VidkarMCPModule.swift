@@ -463,6 +463,7 @@ private actor MCPTransport {
   }
 
   func execute(name: String, arguments: [String: Any], expectedRevision: UUID? = nil) async throws -> String {
+    guard !IOSCourseVisibility.blocksTool(name: name, arguments: arguments) else { throw MCPError.toolNotAllowed }
     let revision = try expectedRevision ?? querySession().revision
     try assertQueryRevision(revision)
     var safeArguments = arguments
@@ -477,9 +478,20 @@ private actor MCPTransport {
         .joined(separator: "\n")
       throw MCPError.server(errorText?.isEmpty == false ? errorText! : "La herramienta MCP devolvió un error.")
     }
-    if let content = result["content"] as? [[String: Any]], let text = content.first(where: { $0["type"] as? String == "text" })?["text"] as? String { return text }
+    if let content = result["content"] as? [[String: Any]], let text = content.first(where: { $0["type"] as? String == "text" })?["text"] as? String {
+      if name.lowercased() == "search_entities" && !IOSCourseVisibility.isEnabled {
+        guard let filtered = IOSCourseVisibility.filterSearchOutput(text) else { throw MCPError.invalidResponse }
+        return filtered
+      }
+      return text
+    }
     let data = try JSONSerialization.data(withJSONObject: result)
-    return String(data: data, encoding: .utf8) ?? "{}"
+    let output = String(data: data, encoding: .utf8) ?? "{}"
+    if name.lowercased() == "search_entities" && !IOSCourseVisibility.isEnabled {
+      guard let filtered = IOSCourseVisibility.filterSearchOutput(output) else { throw MCPError.invalidResponse }
+      return filtered
+    }
+    return output
   }
 
   func confirmationRequired(name: String, arguments: [String: Any], forceRefresh: Bool = false) async throws -> Bool {
@@ -570,6 +582,7 @@ private actor MCPTransport {
 
   func searchCatalogEntities(entity: String, query: String = "", id: String? = nil, category: String? = nil,
     limit: Int = 20, expectedRevision: UUID? = nil) async throws -> [VIDKARCatalogEntityPayload] {
+    guard IOSCourseVisibility.allows(entityType: entity) else { return [] }
     var arguments: [String: Any] = ["entity": entity, "limit": limit, "offset": 0]
     if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { arguments["query"] = query }
     if let id, !id.isEmpty { arguments["id"] = id }
@@ -579,7 +592,7 @@ private actor MCPTransport {
           let envelope = try? JSONDecoder().decode(VIDKARCatalogEntityEnvelope.self, from: data) else { throw MCPError.invalidResponse }
     if envelope.success == false { throw MCPCatalogQuery.failure(code: envelope.error?.code) }
     guard let results = envelope.results else { throw MCPError.invalidResponse }
-    return results
+    return results.filter { IOSCourseVisibility.allows(entityType: $0.type) }
   }
 
   func queryCatalog(_ rawQuery: String, session: (revision: UUID, ownerId: String)) async throws -> [MCPCatalogQuery.Record] {
@@ -589,7 +602,7 @@ private actor MCPTransport {
       arguments: ["entity": "all", "query": query, "limit": MCPCatalogQuery.limit, "offset": 0],
       expectedRevision: session.revision)
     try assertQuerySession(session)
-    return try MCPCatalogQuery.decode(output)
+    return try MCPCatalogQuery.decode(output).filter { IOSCourseVisibility.allows(entityType: $0.type) }
   }
 
   func querySession() throws -> (revision: UUID, ownerId: String) {
@@ -644,15 +657,19 @@ private actor MCPTransport {
 
   func searchEntities(arguments: [String: Any]) async throws -> [VIDKARSearchResultEntity] {
     let output = try await execute(name: "search_entities", arguments: arguments)
-    return try decodeSearchPayloads(output).compactMap(VIDKARSearchResultEntity.init(payload:))
+    return try decodeSearchPayloads(output)
+      .filter { IOSCourseVisibility.allows(entityType: $0.type) }
+      .compactMap(VIDKARSearchResultEntity.init(payload:))
   }
 
   func searchEntityPayloads(entity: String, query: String, id: String? = nil) async throws -> [MCPSearchEntityPayload] {
+    guard IOSCourseVisibility.allows(entityType: entity) else { return [] }
     var arguments: [String: Any] = ["entity": entity, "limit": 20, "offset": 0]
     if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { arguments["query"] = query }
     if let id, !id.isEmpty { arguments["id"] = id }
     let output = try await execute(name: "search_entities", arguments: arguments)
     let payloads = try decodeSearchPayloads(output)
+      .filter { IOSCourseVisibility.allows(entityType: $0.type) }
     if #available(iOS 27.0, *) {
       await VIDKARSpotlightIndex.index(payloads)
     }
@@ -954,13 +971,15 @@ protocol VIDKARTypedEntityQuery: EntityStringQuery where Entity: VIDKARTypedAppE
 
 extension VIDKARTypedEntityQuery {
   func entities(matching string: String) async throws -> [Entity] {
-    guard Entity.isSupported, !Entity.requiresConfirmation else { return [] }
+    guard Entity.isSupported, !Entity.requiresConfirmation,
+          IOSCourseVisibility.allows(entityType: Entity.mcpType) else { return [] }
     let payloads = try await MCPTransport.shared.searchEntityPayloads(entity: Entity.mcpType, query: string)
     return payloads.compactMap(Entity.init(payload:))
   }
 
   func entities(for identifiers: [Entity.ID]) async throws -> [Entity] {
-    guard Entity.isSupported, !Entity.requiresConfirmation else { return [] }
+    guard Entity.isSupported, !Entity.requiresConfirmation,
+          IOSCourseVisibility.allows(entityType: Entity.mcpType) else { return [] }
     return identifiers.compactMap(Entity.init(persistentIdentifier:))
   }
 
@@ -1208,6 +1227,7 @@ extension VIDKARCatalogAppEntity {
 }
 
 private func searchVIDKARCatalogWithImages<Entity: VIDKARCatalogAppEntity>(_ type: Entity.Type, query: String) async throws -> ([Entity], [VIDKARSnippetItem]) {
+  guard IOSCourseVisibility.allows(entityType: Entity.mcpType) else { return ([], []) }
   let normalizedQuery = Entity.mcpType == "course" && query.isEmpty ? "" : try MCPCatalogQuery.query(query)
   let session = try await MCPTransport.shared.querySession()
   let payloads = try await MCPTransport.shared.searchCatalogEntities(
@@ -1254,6 +1274,7 @@ private func searchVIDKARCatalog<Entity: VIDKARCatalogAppEntity>(_ type: Entity.
 }
 
 private func resolveVIDKARCatalog<Entity: VIDKARCatalogAppEntity>(_ type: Entity.Type, identifiers: [String]) async throws -> [Entity] {
+  guard IOSCourseVisibility.allows(entityType: Entity.mcpType) else { return [] }
   var resolved: [Entity] = []
   for identifier in identifiers.prefix(20) {
     guard let backendID = Entity.backendID(from: identifier) else { continue }
@@ -1534,6 +1555,7 @@ public enum VIDKARSiriContentCatalog {
   }
 
   public static func search(_ kind: Kind, matching query: String?, resultID: String? = nil) async throws -> [Item] {
+    guard IOSCourseVisibility.allows(entityType: kind.rawValue) else { return [] }
     let productParts = kind == .product ? resultID?.split(separator: ":", maxSplits: 1) : nil
     let category = productParts?.count == 2 ? productParts?.first.map { String($0) } : nil
     let backendID = productParts?.count == 2 ? productParts?.last.map { String($0) } : resultID
@@ -2110,7 +2132,7 @@ public struct VIDKARUserSearchAppEntityQuery: EntityStringQuery {
 public struct VIDKARQueryCatalogIntent: AppIntent {
   public init() {}
   public static let title: LocalizedStringResource = "Consulta el catálogo"
-  public static let description = IntentDescription("Consulta información de películas, series, cursos y productos autorizados sin abrir VIDKAR ni reproducir contenido.")
+  public static let description = IntentDescription("Consulta información de los catálogos disponibles en VIDKAR sin abrir la app ni reproducir contenido.")
   public static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
   public static let openAppWhenRun = false
   @Parameter(title: "Qué quieres consultar") public var query: String
@@ -2121,7 +2143,9 @@ public struct VIDKARQueryCatalogIntent: AppIntent {
       let term = try MCPCatalogQuery.query(query)
       let session = try await MCPTransport.shared.querySession()
       let records = try await MCPTransport.shared.queryCatalog(term, session: session)
-      let entities = records.map(VIDKARCatalogResultEntity.init)
+      let entities = records
+        .filter { IOSCourseVisibility.allows(entityType: $0.type) }
+        .map(VIDKARCatalogResultEntity.init)
       let summary = MCPCatalogQuery.summary(entities.map { ($0.title, $0.subtitle, $0.description) })
       try await MCPTransport.shared.assertQuerySession(session)
       return .result(value: entities, dialog: IntentDialog(stringLiteral: summary))
@@ -3002,6 +3026,12 @@ public final class VidkarMCPModule: Module {
     AsyncFunction("configure") { (url: String, token: String, ownerId: String) async throws in
       try await MCPTransport.shared.configure(url: url, token: token, ownerId: ownerId)
     }
+    AsyncFunction("setCourseCatalogVisibility") { (enabled: Bool) throws in
+      try IOSCourseVisibility.setEnabled(enabled)
+      if #available(iOS 16.0, *) {
+        VIDKARAppShortcuts.updateAppShortcutParameters()
+      }
+    }
     AsyncFunction("clearConfiguration") { () async in await MCPTransport.shared.clearConfiguration() }
     AsyncFunction("getConfiguration") { () async -> [String: Any] in
       let configuration = await MCPTransport.shared.configuration()
@@ -3395,7 +3425,7 @@ struct VIDKARGeneralQueryIntent: AppIntent {
 public struct VIDKARSearchContentIntent: AppIntent {
   public init() {}
   public static var title: LocalizedStringResource = "Buscar en VIDKAR"
-  public static var description = IntentDescription("Busca películas, series, capítulos, cursos, productos y otros datos disponibles para tu cuenta.")
+  public static var description = IntentDescription("Busca información de los catálogos y servicios disponibles para tu cuenta en VIDKAR.")
   public static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
   @Parameter(title: "Qué quieres buscar") public var query: String
@@ -3433,7 +3463,8 @@ private extension AppIntent {
     _ = forceConfirmation
     var arguments = originalArguments
     arguments.removeValue(forKey: "confirmed")
-    return try await MCPTransport.shared.searchEntities(arguments: arguments)
+    let results = try await MCPTransport.shared.searchEntities(arguments: arguments)
+    return results.filter { IOSCourseVisibility.allows(entityType: $0.entityType.rawValue) }
   }
 
   func listPrivateVIDKARData(entity: String, query: String, period: String = "") async throws -> [VIDKARSearchResultEntity] {
@@ -3493,6 +3524,7 @@ struct VIDKARPlayContentIntent: AppIntent {
 
   func perform() async throws -> some IntentResult & ReturnsValue<String> {
     guard [.movie, .episode, .lesson].contains(entity.entityType),
+          IOSCourseVisibility.allows(entityType: entity.entityType.rawValue),
           let baseURL = URL(string: entity.deepLink), baseURL.scheme?.lowercased() == "vidkar",
           var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else { throw MCPError.toolNotAllowed }
     try await requestConfirmation()

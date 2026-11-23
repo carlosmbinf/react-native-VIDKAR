@@ -19,6 +19,18 @@ private enum FixtureUserAvatar {
 private struct MCPCatalogIntentTests {
   static func main() async throws {
     defer { transportTestDefaults.removePersistentDomain(forName: defaultsSuite) }
+    let visibilityDefaults = UserDefaults(suiteName: "group.com.vidkar")
+    let previousCourseVisibility = visibilityDefaults?.object(forKey: IOSCourseVisibility.defaultsKey)
+    defer {
+      if let previousCourseVisibility {
+        visibilityDefaults?.set(previousCourseVisibility, forKey: IOSCourseVisibility.defaultsKey)
+      } else {
+        visibilityDefaults?.removeObject(forKey: IOSCourseVisibility.defaultsKey)
+      }
+    }
+    visibilityDefaults?.removeObject(forKey: IOSCourseVisibility.defaultsKey)
+    precondition(!IOSCourseVisibility.isEnabled)
+    try IOSCourseVisibility.setEnabled(false)
     let transport = MCPTransport.shared
     let network = FixtureNetwork.shared
     func assertDialog<Result: ProvidesDialog>(_ result: Result) {
@@ -122,6 +134,11 @@ private struct MCPCatalogIntentTests {
     precondition(episodes.first?.title == "Capítulo 1" && episodes.first?.subtitle == "Serie de prueba")
     let episodeArgs = await network.lastArguments
     precondition(episodeArgs["entity"] as? String == "episode" && episodeArgs["query"] as? String == "Capítulo 1")
+    let callsBeforeHiddenCourses = await network.calls
+    let hiddenCourses = try await VIDKARSiriContentCatalog.search(.course, matching: "Tema")
+    let callsAfterHiddenCourses = await network.calls
+    precondition(hiddenCourses.isEmpty && callsAfterHiddenCourses == callsBeforeHiddenCourses)
+    try IOSCourseVisibility.setEnabled(true)
     do {
       _ = try await VIDKARSiriContentCatalog.search(.lesson, matching: "Capítulo 1")
       preconditionFailure("No aceptar resultados de un tipo distinto al pedido")

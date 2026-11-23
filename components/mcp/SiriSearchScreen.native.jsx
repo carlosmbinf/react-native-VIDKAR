@@ -13,6 +13,7 @@ import { ensureMeteorSession } from "../../services/meteor/client.native";
 import { useCurrentSession } from "../../services/meteor/session.native";
 import { isMCPAdmin } from "../../services/mcp/mcpAccess";
 import { resolveUniversalLink } from "../../services/navigation/universalLinks";
+import useIosCoursesVisibility from "../../hooks/useIosCoursesVisibility";
 import Loguin from "../loguin/Loguin.native";
 import SiriSearchResultSection from "./SiriSearchResultSection.native";
 
@@ -43,6 +44,9 @@ export default function SiriSearchScreen() {
   const { user, userId, userReady } = useCurrentSession();
   const userIsMCPAdmin = isMCPAdmin(user);
   const isFocused = useIsFocused();
+  const courseVisibility = useIosCoursesVisibility();
+  const isIos = process.env.EXPO_OS === "ios";
+  const showCourses = !isIos || (courseVisibility.ready && courseVisibility.enabled);
   const [appState, setAppState] = React.useState(AppState.currentState);
   const isSnapshot = params.resultId !== undefined;
   const resultId = asString(params.resultId);
@@ -96,6 +100,18 @@ export default function SiriSearchScreen() {
       setLoading(false);
       return;
     }
+    if (isIos && !courseVisibility.ready) {
+      setResults([]);
+      setPagination(null);
+      setLoading(false);
+      return;
+    }
+    if (isIos && !courseVisibility.enabled && entityType === "course") {
+      setResults([]);
+      setPagination(null);
+      setLoading(false);
+      return;
+    }
     try {
       await ensureMeteorSession();
       if (!mountedRef.current) return;
@@ -115,6 +131,9 @@ export default function SiriSearchScreen() {
         throw new Error(response?.error?.message || "No se pudo completar la búsqueda en VIDKAR.");
       }
       let nextResults = Array.isArray(response.results) ? response.results : [];
+      if (isIos && !courseVisibility.enabled) {
+        nextResults = nextResults.filter((item) => !["course", "lesson"].includes(String(item?.type || "").toLowerCase()));
+      }
       if (contentId) {
         nextResults = nextResults.filter((item) => (
           String(item.id) === contentId || String(item.id).endsWith(`:${contentId}`)
@@ -129,7 +148,7 @@ export default function SiriSearchScreen() {
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [appState, contentId, entityType, isFocused, isSnapshot, query, userId, userIsMCPAdmin, userReady]);
+  }, [appState, contentId, courseVisibility.enabled, courseVisibility.ready, entityType, isFocused, isIos, isSnapshot, query, userId, userIsMCPAdmin, userReady]);
 
   React.useLayoutEffect(() => { setDraftQuery(query); }, [query]);
 
@@ -150,6 +169,11 @@ export default function SiriSearchScreen() {
 
   React.useLayoutEffect(() => {
     if (!isSnapshot || !sessionReady) return;
+    if (isIos && !courseVisibility.ready) {
+      setResults([]);
+      setLoading(true);
+      return;
+    }
     if (userId && !userIsMCPAdmin) {
       requestRef.current += 1;
       snapshotReaderRef.current = null;
@@ -201,8 +225,17 @@ export default function SiriSearchScreen() {
         expiresAt = expiresAt === null ? envelope.expiresAt : Math.min(expiresAt, envelope.expiresAt);
         if (expiresAt <= Date.now()) return invalidate();
         scheduleExpiry();
-        setSnapshot(envelope);
-        setResults(Array.isArray(envelope.data?.results) ? envelope.data.results : []);
+        const snapshotResults = Array.isArray(envelope.data?.results) ? envelope.data.results : [];
+        const visibleSnapshotResults = isIos && !courseVisibility.enabled
+          ? snapshotResults.filter((item) => !["course", "lesson"].includes(String(item?.type || "").toLowerCase()))
+          : snapshotResults;
+        setSnapshot({
+          ...envelope,
+          data: Array.isArray(envelope.data?.results)
+            ? { ...envelope.data, results: visibleSnapshotResults }
+            : envelope.data,
+        });
+        setResults(visibleSnapshotResults);
         setError("");
         setLoading(false);
       } catch (snapshotError) {
@@ -227,7 +260,7 @@ export default function SiriSearchScreen() {
       clearTimeout(expiryTimer);
       clearInterval(pollTimer);
     };
-  }, [appState, isFocused, isSnapshot, resultId, sessionReady, userId, userIsMCPAdmin]);
+  }, [appState, courseVisibility.enabled, courseVisibility.ready, isIos, isFocused, isSnapshot, resultId, sessionReady, userId, userIsMCPAdmin]);
 
   const loadMore = () => {
     if (isSnapshot || loading || !pagination?.hasMore) return;
@@ -282,6 +315,7 @@ export default function SiriSearchScreen() {
   };
 
   const search = (nextEntity = entityType, nextQuery = draftQuery) => {
+    if (isIos && (!courseVisibility.ready || !courseVisibility.enabled) && nextEntity === "course") return;
     Keyboard.dismiss();
     router.setParams({ query: nextQuery, entityType: nextEntity, contentId: "", productId: "" });
     if (nextQuery === query && nextEntity === entityType && !contentId) loadResults();
@@ -342,7 +376,7 @@ export default function SiriSearchScreen() {
                 value={draftQuery} onChangeText={setDraftQuery} maxLength={120}
                 returnKeyType="search" onSubmitEditing={() => search()} />
               <View style={styles.categories}>
-                {IN_APP_SEARCH_CATEGORIES.map(({ value, label }) => (
+                {IN_APP_SEARCH_CATEGORIES.filter(({ value }) => value !== "course" || showCourses).map(({ value, label }) => (
                   <Chip key={value} selected={entityType === value} accessibilityRole="button"
                     accessibilityState={{ selected: entityType === value }} onPress={() => search(value)}>{label}</Chip>
                 ))}

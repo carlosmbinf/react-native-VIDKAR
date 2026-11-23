@@ -18,6 +18,7 @@ type NativeMCPModule = {
   addListener: (event: "onInAppSearch", listener: () => void) => { remove: () => void };
   configure: (url: string, token: string, ownerId: string) => Promise<void>;
   clearConfiguration: () => Promise<void>;
+  setCourseCatalogVisibility?: (enabled: boolean) => Promise<void>;
   getConfiguration: () => Promise<{ url: string | null; ownerId: string | null; configured: boolean; revision?: string }>;
   getNaturalLanguageResult: (resultId: string, ownerId: string) => Promise<string>;
   discoverTools: (forceRefresh?: boolean) => Promise<MCPTool[]>;

@@ -32,7 +32,7 @@ test("App Intents de producción: extracción del pod y de la app", {
   assert.ok(bridgeStart > 0 && bridgeEnd > bridgeStart);
   const modulePath = path.join(directory, "VidkarMCP.swift");
   fs.writeFileSync(modulePath, (original.slice(0, bridgeStart) + original.slice(bridgeEnd)).replace("import ExpoModulesCore\n", ""));
-  const helpers = ["MCPQueryPolicy.swift", "MCPNaturalLanguagePlanner.swift", "MCPInAppSearch.swift", "MCPCatalogQuery.swift", "MCPUserSnippet.swift"]
+  const helpers = ["IOSCourseVisibility.swift", "MCPQueryPolicy.swift", "MCPNaturalLanguagePlanner.swift", "MCPInAppSearch.swift", "MCPCatalogQuery.swift", "MCPUserSnippet.swift"]
     .map((name) => path.join(__dirname, "../modules/vidkar-mcp/ios", name));
   fs.mkdirSync(path.join(directory, "Vidkar"));
   const appPath = path.join(directory, "Vidkar/AppDelegate.swift");

@@ -40,6 +40,15 @@ private struct MCPUserSnippetTests {
 
   @MainActor
   static func main() async throws {
+    let visibilityDefaults = UserDefaults(suiteName: "group.com.vidkar")
+    let previousCourseVisibility = visibilityDefaults?.object(forKey: IOSCourseVisibility.defaultsKey)
+    defer {
+      if let previousCourseVisibility {
+        visibilityDefaults?.set(previousCourseVisibility, forKey: IOSCourseVisibility.defaultsKey)
+      } else {
+        visibilityDefaults?.removeObject(forKey: IOSCourseVisibility.defaultsKey)
+      }
+    }
     let url = URL(string: "https://vidkar.com/fixture-avatar.png")!
     for invalid in ["http://vidkar.com/a", "https://attacker.example/a", "https://vidkar.com.attacker.example/a",
       "https://name:password@vidkar.com/a", "https://vidkar.com:444/a", String(repeating: "a", count: 2049)] {
@@ -166,6 +175,23 @@ private struct MCPUserSnippetTests {
     }
     precondition(validatedVIDKAROpenLink("vidkar://user/u1") != nil)
     precondition(validatedVIDKAROpenLink("vidkar://movie/m1?q=Avatar") != nil)
+    visibilityDefaults?.removeObject(forKey: IOSCourseVisibility.defaultsKey)
+    precondition(!IOSCourseVisibility.isEnabled)
+    precondition(IOSCourseVisibility.blocksTool(name: "cursos.catalogo.obtener", arguments: [:]))
+    precondition(IOSCourseVisibility.blocksTool(name: "search_entities", arguments: ["entity": "course"]))
+    precondition(!IOSCourseVisibility.blocksTool(name: "search_entities", arguments: ["entity": "all"]))
+    let filteredCatalog = IOSCourseVisibility.filterSearchOutput("""
+      {"success":true,"results":[{"id":"c1","type":"course"},{"id":"m1","type":"movie"}]}
+      """)
+    precondition(filteredCatalog?.contains("\"course\"") == false)
+    precondition(filteredCatalog?.contains("\"movie\"") == true)
+    try IOSCourseVisibility.setEnabled(false)
+    precondition(validatedVIDKAROpenLink("vidkar://course/c1") == nil)
+    precondition(validatedVIDKAROpenLink("vidkar://lesson/l1") == nil)
+    precondition(validatedVIDKARInAppSearchLink(query: "Ciencias", entityType: "course") == nil)
+    try IOSCourseVisibility.setEnabled(true)
+    precondition(validatedVIDKAROpenLink("vidkar://course/c1") != nil)
+    try IOSCourseVisibility.setEnabled(false)
     precondition(validatedVIDKAROpenLink("https://attacker.example/user/u1") == nil)
     precondition(validatedVIDKAROpenLink("vidkar://unknown/u1") == nil)
     precondition(validatedVIDKARInAppSearchLink(query: "Carlos Medina", entityType: "user")?.absoluteString == "vidkar://search?q=Carlos%20Medina&entity=user")

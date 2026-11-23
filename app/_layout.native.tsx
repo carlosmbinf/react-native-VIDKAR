@@ -13,9 +13,11 @@ import SpotlightNavigation from "../components/spotlight/SpotlightNavigation.nat
 import SiriSearchNavigation from "../components/mcp/SiriSearchNavigation.native";
 import ProxyVpnWidgetSyncHost from "../components/widgets/ProxyVpnWidgetSyncHost";
 import { appHeaderBlurTargetRef } from "../components/Header/appHeaderBlurTarget";
+import useIosCoursesVisibility from "../hooks/useIosCoursesVisibility";
 import { useColorScheme } from "../hooks/use-color-scheme";
 
 export default function RootLayout() {
+  useIosCoursesVisibility();
   const colorScheme = useColorScheme();
   const isDarkMode = colorScheme === "dark";
   const theme = useMemo(

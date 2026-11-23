@@ -24,6 +24,7 @@ func validatedVIDKAROpenLink(_ rawValue: String?) -> URL? {
         components.port == nil, components.fragment == nil,
         let host = components.host?.lowercased(),
         ["user", "movie", "series", "episode", "course", "lesson", "product", "sale", "purchase", "order", "message", "subscription", "search"].contains(host),
+        IOSCourseVisibility.allows(entityType: host),
         let url = components.url else { return nil }
   if host != "search" && host != "message" {
     guard components.path.split(separator: "/").count == 1 else { return nil }
@@ -33,6 +34,7 @@ func validatedVIDKAROpenLink(_ rawValue: String?) -> URL? {
 
 func vidkarSiriDetailLink(type: String, id: String, originalLink: String? = nil, source: String? = nil) -> URL? {
   guard ["movie", "series", "episode", "course", "lesson", "product", "user"].contains(type),
+        IOSCourseVisibility.allows(entityType: type),
         !id.isEmpty, id.utf8.count <= 256,
         id.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil else { return nil }
 
@@ -61,7 +63,8 @@ func validatedVIDKARInAppSearchLink(query: String, entityType: String = "all") -
   let cleanQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
   guard cleanQuery.utf16.count <= 120,
         !cleanQuery.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }),
-        ["all", "user", "movie", "series", "episode", "course", "lesson", "product", "sale", "purchase", "order", "message", "subscription"].contains(entityType) else {
+        ["all", "user", "movie", "series", "episode", "course", "lesson", "product", "sale", "purchase", "order", "message", "subscription"].contains(entityType),
+        IOSCourseVisibility.allows(entityType: entityType) else {
     return nil
   }
   var components = URLComponents()

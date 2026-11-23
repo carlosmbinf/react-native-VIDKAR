@@ -227,7 +227,7 @@ test("los App Intents y el provider compilan en módulos separados", {
     .replace("import ExpoModulesCore\n", "");
   const modulePath = path.join(directory, "VidkarMCP.swift");
   fs.writeFileSync(modulePath, source);
-  const helpers = ["MCPQueryPolicy.swift", "MCPNaturalLanguagePlanner.swift", "MCPInAppSearch.swift", "MCPCatalogQuery.swift", "MCPUserSnippet.swift"]
+  const helpers = ["IOSCourseVisibility.swift", "MCPQueryPolicy.swift", "MCPNaturalLanguagePlanner.swift", "MCPInAppSearch.swift", "MCPCatalogQuery.swift", "MCPUserSnippet.swift"]
     .map((name) => path.join(__dirname, "../modules/vidkar-mcp/ios", name));
 
   const appDirectory = path.join(directory, "Vidkar");
