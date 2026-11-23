@@ -3028,9 +3028,11 @@ public final class VidkarMCPModule: Module {
     }
     AsyncFunction("setCourseCatalogVisibility") { (enabled: Bool) throws in
       try IOSCourseVisibility.setEnabled(enabled)
+      #if VIDKAR_LEGACY_INTENTS
       if #available(iOS 16.0, *) {
         VIDKARAppShortcuts.updateAppShortcutParameters()
       }
+      #endif
     }
     AsyncFunction("clearConfiguration") { () async in await MCPTransport.shared.clearConfiguration() }
     AsyncFunction("getConfiguration") { () async -> [String: Any] in

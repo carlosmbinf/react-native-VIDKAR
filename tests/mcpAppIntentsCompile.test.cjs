@@ -219,12 +219,15 @@ test("los App Intents y el provider compilan en módulos separados", {
     return result.stdout.trim();
   };
   const original = fs.readFileSync(path.join(__dirname, "../modules/vidkar-mcp/ios/VidkarMCPModule.swift"), "utf8");
-  // Aislar solo el bridge Expo: los intents, entidades y transporte se compilan sin mocks.
+  // Aislar el DSL Expo, conservando el cuerpo del setter que referencia App Intents.
   const bridgeStart = original.indexOf("public final class VidkarMCPModule: Module {");
   const bridgeEnd = original.indexOf("@available(iOS 17.0, *)\npublic struct VidkarMCPAppIntentsPackage", bridgeStart);
   assert.ok(bridgeStart > 0 && bridgeEnd > bridgeStart, "Debe localizarse el bridge Expo");
+  const visibilitySetter = /AsyncFunction\("setCourseCatalogVisibility"\) \{ \(enabled: Bool\) throws in\n([\s\S]*?)\n    \}/.exec(original.slice(bridgeStart, bridgeEnd));
+  assert.ok(visibilitySetter, "Debe compilarse el setter real de visibilidad de cursos");
   const source = (original.slice(0, bridgeStart) + original.slice(bridgeEnd))
-    .replace("import ExpoModulesCore\n", "");
+    .replace("import ExpoModulesCore\n", "")
+    + `\nprivate func validateCourseCatalogVisibility(_ enabled: Bool) throws {\n${visibilitySetter[1]}\n}\n`;
   const modulePath = path.join(directory, "VidkarMCP.swift");
   fs.writeFileSync(modulePath, source);
   const helpers = ["IOSCourseVisibility.swift", "MCPQueryPolicy.swift", "MCPNaturalLanguagePlanner.swift", "MCPInAppSearch.swift", "MCPCatalogQuery.swift", "MCPUserSnippet.swift"]
